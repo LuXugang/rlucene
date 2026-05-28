@@ -26,9 +26,9 @@ use crate::core::util::error::{
   AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CollectionTerminatedError,
   CorruptIndexError, Eof, FuzzyTermsError, IllegalArgumentError, IllegalStateError,
   IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound, LockAlreadyHeldError,
-  LockHeldByOtherError, LockObtainFailedError, MaxBytesLengthExceededError, MergeAbortedError,
-  MergeError, NeedImplementedError, NoMoreTermsError, NoSuchElementError, NotImplementedError,
-  NotSuchFileError, NumberFormatError, NumberOverflow, TimeExceededError,
+  LockHeldByOtherError, LockObtainFailedError, LockReleaseFailedError, MaxBytesLengthExceededError,
+  MergeAbortedError, MergeError, NeedImplementedError, NoMoreTermsError, NoSuchElementError,
+  NotImplementedError, NotSuchFileError, NumberFormatError, NumberOverflow, TimeExceededError,
   TooComplexToDeterminizeError, TooManyClausesError, TooManyNestedClausesError, UncheckedIOError,
   UnreachableError, UnsupportedOperationError,
 };
@@ -67,8 +67,12 @@ pub enum LuceneError {
   IndexNotFound(#[from] IndexNotFound),
   #[error("IO error: {0}")]
   Io(#[from] Error),
-  #[error("IO error on {path}: {source}")]
-  IoWithPath { source: Error, path: String },
+  #[error("IO error on {path}: {source}, {err_kind}")]
+  IoWithPath {
+    source: Error,
+    path: String,
+    err_kind: String,
+  },
   #[error("{0}")]
   LockAlreadyHeld(#[from] LockAlreadyHeldError),
   #[error("{0}")]
@@ -77,6 +81,8 @@ pub enum LuceneError {
   LockHeldByOther(#[from] LockHeldByOtherError),
   #[error("{0}")]
   LockObtainFailed(#[from] LockObtainFailedError),
+  #[error("{0}")]
+  LockReleaseFailed(#[from] LockReleaseFailedError),
   #[error("{0}")]
   MaxBytesLengthExceeded(#[from] MaxBytesLengthExceededError),
   #[error("{0}")]
@@ -156,9 +162,11 @@ macro_rules! error_ctor {
 }
 impl LuceneError {
   pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
+    let message = err.kind().to_string();
     LuceneError::IoWithPath {
       source: err,
       path: path.into(),
+      err_kind: message,
     }
   }
 
@@ -197,6 +205,11 @@ impl LuceneError {
   error_ctor!(lock_already_held, LockAlreadyHeld, LockAlreadyHeldError);
   error_ctor!(lock_held_by_other, LockHeldByOther, LockHeldByOtherError);
   error_ctor!(lock_obtain_failed, LockObtainFailed, LockObtainFailedError);
+  error_ctor!(
+    lock_release_failed,
+    LockReleaseFailed,
+    LockReleaseFailedError
+  );
   error_ctor!(
     max_bytes_length_exceeded,
     MaxBytesLengthExceeded,
@@ -248,6 +261,7 @@ impl LuceneError {
     (LockAlreadyHeld),
     (LockHeldByOther),
     (LockObtainFailed),
+    (LockReleaseFailed),
     (MaxBytesLengthExceeded),
     (Merge),
     (MergeAborted),

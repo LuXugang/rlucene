@@ -30,6 +30,7 @@ pub trait FSLockFactory: LockFactory {
   /// This method always returns
   /// [`native_fs_lock_factory`](NativeFSLockFactory).
   fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock> {
+    // TODO IMPORTANT 这里没有判断是否为FSDirectory
     self.obtain_fs_lock(directory, lock_name)
   }
 

@@ -41,7 +41,7 @@ pub trait LockFactory: Display {
   /// * `lock_name` - The name of the lock to be created.
   ///
   /// # Errors
-  /// - Returns a `LockObtainFailedException` (optional specific exception) if
+  /// - Returns a `LockObtainFailedError` (optional specific exception) if
   ///   the lock could not be obtained because it is currently held elsewhere.
   /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
   ///   the lock.

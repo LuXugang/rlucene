@@ -99,6 +99,9 @@ where
   pub fn delete_documents_with_query(&self, terms: Vec<Query>) -> Result<i64> {
     self.w.delete_documents_with_queries(terms)
   }
+  pub fn delete_all(&self) -> Result<i64> {
+    self.w.delete_all()
+  }
 
   pub fn close(&self) -> Result<()> {
     self.w.close()

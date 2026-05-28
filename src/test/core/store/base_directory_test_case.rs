@@ -145,7 +145,8 @@ pub trait BaseDirectoryTestCase {
         result,
         Err(LuceneError::IoWithPath {
             source,
-            path
+            path,
+            ..
         }) if source.kind() == ErrorKind::NotFound && path.contains(file)
     ));
     Ok(())
@@ -865,6 +866,7 @@ pub trait BaseDirectoryTestCase {
                 return Err(LuceneError::IoWithPath {
                   path: file.to_string(),
                   source: Error::other(format!("{:?}", e)),
+                  err_kind: e.to_string(),
                 });
               },
             }

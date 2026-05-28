@@ -74,7 +74,8 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::store::{DataOutput, IOContext};
+use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::{DataOutput, FSDirectory, IOContext, SimpleFSLockFactory};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -1606,7 +1607,25 @@ fn test_nrt_reader_version() -> Result<()> {
 
 #[test]
 fn test_whether_delete_all_deletes_write_lock() -> Result<()> {
-  // TODO IMPORTANT SimpleFSLockFactory未实现
+  let mut random = random();
+  // Must use SimpleFSLockFactory...
+  // NativeFSLockFactory somehow "knows" a lock is held against write.lock
+  // even if you remove that file:
+  let temp_dir = create_temp_dir()?;
+  let dir = Arc::new(FSDirectory::with_lock_factory(
+    temp_dir.keep(),
+    SimpleFSLockFactory::new(),
+    NIOFSDirectory::new(),
+  )?);
+  let w1 = RandomIndexWriter::new(&mut random, dir.clone());
+  w1.delete_all()?;
+
+  assert!(matches!(
+    IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)),
+    Err(LuceneError::LockObtainFailed(_))
+  ));
+
+  w1.close()?;
   Ok(())
 }
 

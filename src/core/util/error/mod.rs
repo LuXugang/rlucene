@@ -86,6 +86,7 @@ message_error!(IndexNotFound);
 message_error!(LockAlreadyHeldError);
 message_error!(LockHeldByOtherError);
 message_error!(LockObtainFailedError);
+message_error!(LockReleaseFailedError);
 message_error!(MaxBytesLengthExceededError);
 message_error!(MergeAbortedError);
 message_error!(MergeError);

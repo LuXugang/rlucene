@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::NativeFSLock;
-use crate::core::store::simple_fs_lock::SimpleFSLock;
+use crate::core::store::simple_fs_lock_factory::SimpleFSLock;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLock;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
