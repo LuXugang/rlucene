@@ -58,6 +58,7 @@ mod test_exceed_max_term_length;
 mod test_field_invert_state;
 mod test_filter_index_input;
 mod test_force_merge_forever;
+mod test_index_input;
 mod test_index_many_documents;
 mod test_index_sorting;
 mod test_index_too_many_docs;
