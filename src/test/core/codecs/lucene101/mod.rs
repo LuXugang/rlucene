@@ -14,4 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod test_for_delta_util;
+mod test_for_util;
 mod test_lucene101_postings_format;
+mod test_pfor_util;
+mod test_postings_util;

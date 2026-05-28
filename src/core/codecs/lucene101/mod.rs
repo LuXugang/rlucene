@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod for_delta_util;
-mod for_util;
+pub(crate) mod for_delta_util;
+pub(crate) mod for_util;
 pub mod lucene101_postings_format;
 pub mod lucene101_postings_reader;
 pub mod lucene101_postings_writer;
-mod pfor_util;
-mod postings_util;
+pub(crate) mod pfor_util;
+pub(crate) mod postings_util;
