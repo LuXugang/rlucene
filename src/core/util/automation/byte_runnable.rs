@@ -102,7 +102,7 @@ impl ByteRunnable for ByteRunnableEnum {
   fn run(&self, s: &[u8], offset: usize, length: usize) -> Result<bool> {
     match self {
       ByteRunnableEnum::Byte(bra) => bra.run(s, offset, length),
-      ByteRunnableEnum::NFA(nfa) => nfa.run(s, offset, length),
+      ByteRunnableEnum::NFA(nfa) => ByteRunnable::run(nfa.as_ref(), s, offset, length),
     }
   }
 }
