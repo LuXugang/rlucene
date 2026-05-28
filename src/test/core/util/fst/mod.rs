@@ -15,3 +15,8 @@
  * limitations under the License.
  */
 pub mod fst_tester;
+mod test_bit_table_util;
+mod test_fsts;
+mod test_growable_byte_array_data_output;
+mod test_node_hash;
+mod test_util;
