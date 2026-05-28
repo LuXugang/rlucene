@@ -285,6 +285,7 @@ pub(crate) fn get_context<LR>(leaf_reader: LR) -> Result<LeafReaderContext<LR>>
 where
   LR: LeafReader,
 {
+  leaf_reader.ensure_open()?;
   Ok(LeafReaderContext::from_top_lr(leaf_reader))
 }
 

@@ -36,6 +36,7 @@ pub fn get_context<CR>(composite_reader: CR) -> Result<CompositeReaderContext<CR
 where
   CR: CompositeReader,
 {
+  composite_reader.ensure_open()?;
   create(composite_reader)
 }
 impl<CR> CompositeReader for &CR

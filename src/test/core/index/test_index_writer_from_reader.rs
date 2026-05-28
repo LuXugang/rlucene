@@ -353,7 +353,7 @@ fn test_invalid_open_mode() -> Result<()> {
   }
   Ok(())
 }
-
+#[test]
 fn test_on_closed_reader() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
