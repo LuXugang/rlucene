@@ -16,7 +16,7 @@
  */
 use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
-use crate::core::util::close::ImmutableCloseable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::HashSet;
@@ -98,7 +98,7 @@ impl Display for SingleInstanceLock {
   }
 }
 
-impl ImmutableCloseable for SingleInstanceLock {
+impl CloseableRef for SingleInstanceLock {
   fn close(&self) -> Result<()> {
     let _guard = self.close_lock.lock();
     if self.closed.load(Ordering::Acquire) {

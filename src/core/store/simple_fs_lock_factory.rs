@@ -24,7 +24,7 @@ use std::time::SystemTime;
 use crate::core::store::fs_lock_factory::FSLockFactory;
 use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
-use crate::core::util::close::ImmutableCloseable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 
@@ -144,7 +144,7 @@ impl Display for SimpleFSLock {
   }
 }
 
-impl ImmutableCloseable for SimpleFSLock {
+impl CloseableRef for SimpleFSLock {
   fn close(&self) -> Result<()> {
     let _guard = self.close_lock.lock();
     if self.closed.load(Ordering::SeqCst) {

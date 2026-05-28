@@ -20,7 +20,7 @@ pub trait Closeable {
     Ok(())
   }
 }
-pub trait ImmutableCloseable {
+pub trait CloseableRef {
   fn close(&self) -> Result<()> {
     Ok(())
   }

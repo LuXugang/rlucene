@@ -31,7 +31,7 @@ use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::util::close::ImmutableCloseable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;

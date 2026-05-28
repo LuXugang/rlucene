@@ -20,7 +20,25 @@ use std::io;
 use std::path::PathBuf;
 
 use crate::core::store::directory::Directory;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+
+macro_rules! close_objects {
+  ($objects:expr) => {{
+    let mut error = None;
+    for object in $objects {
+      if let Err(e) = object.close() {
+        error = Some(IOUtils::use_or_suppress(error, e));
+      }
+    }
+
+    if let Some(error) = error {
+      Err(error)
+    } else {
+      Ok(())
+    }
+  }};
+}
 
 pub struct IOUtils;
 impl IOUtils {
@@ -102,6 +120,44 @@ impl IOUtils {
 
     Ok(())
   }
+  /// Closes the given object.
+  pub fn close_one<T>(object: &mut T) -> Result<()>
+  where
+    T: Closeable,
+  {
+    Self::close(std::slice::from_mut(object))
+  }
+
+  /// Closes all given objects.
+  ///
+  /// After everything is closed, the method either returns the first error it hit
+  /// while closing, or completes normally if there were no errors.
+  pub fn close<T>(objects: &mut [T]) -> Result<()>
+  where
+    T: Closeable,
+  {
+    close_objects!(objects)
+  }
+
+  /// Closes the given object by shared reference.
+  pub fn close_ref<T>(object: &T) -> Result<()>
+  where
+    T: CloseableRef,
+  {
+    Self::close_refs(std::slice::from_ref(object))
+  }
+
+  /// Closes all given objects by shared reference.
+  ///
+  /// After everything is closed, the method either returns the first error it hit
+  /// while closing, or completes normally if there were no errors.
+  pub fn close_refs<T>(objects: &[T]) -> Result<()>
+  where
+    T: CloseableRef,
+  {
+    close_objects!(objects)
+  }
+
   /// Returns the second error if the first is [`None`], otherwise adds the second
   /// as suppressed to the first and returns it.
   pub fn use_or_suppress(first: Option<LuceneError>, second: LuceneError) -> LuceneError {

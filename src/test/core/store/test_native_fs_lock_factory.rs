@@ -37,7 +37,7 @@ mod native_fs_lock_factory_tests {
   use super::TestNativeFSLockFactory;
   use crate::core::store::directory::Directory;
   use crate::core::store::lock::Lock;
-  use crate::core::util::close::{Closeable, ImmutableCloseable};
+  use crate::core::util::close::{Closeable, CloseableRef};
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::create_temp_dir;
