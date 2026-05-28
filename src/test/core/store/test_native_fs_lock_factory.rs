@@ -28,6 +28,7 @@ impl BaseLockFactoryTestCase for TestNativeFSLockFactory {
   type Directory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 
   fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
+    // TODO IMPORTANT 应该使用带参数的newFSDirectory
     FSDirectory::new(path, NIOFSDirectory::new())
   }
 }
@@ -36,7 +37,7 @@ mod native_fs_lock_factory_tests {
   use super::TestNativeFSLockFactory;
   use crate::core::store::directory::Directory;
   use crate::core::store::lock::Lock;
-  use crate::core::util::close::Closeable;
+  use crate::core::util::close::{Closeable, ImmutableCloseable};
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::create_temp_dir;
@@ -51,7 +52,7 @@ mod native_fs_lock_factory_tests {
     File::create(lock_file)?;
 
     let dir = case.get_directory(temp_dir.path().to_path_buf())?;
-    let mut l = dir.obtain_lock("test.lock")?;
+    let l = dir.obtain_lock("test.lock")?;
     l.close()?;
     Ok(())
   }
@@ -62,7 +63,7 @@ mod native_fs_lock_factory_tests {
     let case = TestNativeFSLockFactory;
     let temp_dir = create_temp_dir()?;
     let dir = case.get_directory(temp_dir.path().to_path_buf())?;
-    let mut lock = dir.obtain_lock("test.lock")?;
+    let lock = dir.obtain_lock("test.lock")?;
     lock.ensure_valid()?;
 
     lock.release_lock_for_test()?;
@@ -80,7 +81,7 @@ mod native_fs_lock_factory_tests {
     let case = TestNativeFSLockFactory;
     let temp_dir = create_temp_dir()?;
     let dir = case.get_directory(temp_dir.path().to_path_buf())?;
-    let mut lock = dir.obtain_lock("test.lock")?;
+    let lock = dir.obtain_lock("test.lock")?;
     lock.ensure_valid()?;
 
     lock.close()?;
@@ -97,7 +98,7 @@ mod native_fs_lock_factory_tests {
     let case = TestNativeFSLockFactory;
     let temp_dir = create_temp_dir()?;
     let dir = case.get_directory(temp_dir.path().to_path_buf())?;
-    let mut lock = dir.obtain_lock("test.lock")?;
+    let lock = dir.obtain_lock("test.lock")?;
     lock.ensure_valid()?;
 
     dir.delete_file("test.lock")?;

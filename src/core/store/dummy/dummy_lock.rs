@@ -17,7 +17,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::lock::Lock;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::ImmutableCloseable;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyLock;
@@ -28,8 +28,8 @@ impl Display for DummyLock {
   }
 }
 
-impl Closeable for DummyLock {
-  fn close(&mut self) -> Result<()> {
+impl ImmutableCloseable for DummyLock {
+  fn close(&self) -> Result<()> {
     dummy_unreachable!()
   }
 }

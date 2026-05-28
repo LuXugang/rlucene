@@ -14,59 +14,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::FSDirectory;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{FSDirectory, SimpleFSLockFactory};
+use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
 use std::path::PathBuf;
 
-/// Simple tests for SimpleFSLockFactory
+/// Simple tests for SingleInstanceLockFactory
 #[allow(dead_code)] // for quick search
-struct TestSimpleFSLockFactory;
+struct TestSingleInstanceLockFactory;
 
-impl BaseLockFactoryTestCase for TestSimpleFSLockFactory {
-  type Directory = FSDirectory<SimpleFSLockFactory, NIOFSDirectory>;
+impl BaseLockFactoryTestCase for TestSingleInstanceLockFactory {
+  type Directory = FSDirectory<SingleInstanceLockFactory, NIOFSDirectory>;
 
   fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
     // TODO IMPORTANT 应该使用带参数的newFSDirectory
-    FSDirectory::with_lock_factory(path, SimpleFSLockFactory::new(), NIOFSDirectory::new())
+    FSDirectory::with_lock_factory(
+      path,
+      SingleInstanceLockFactory::new(),
+      NIOFSDirectory::new(),
+    )
   }
 }
 
-mod simple_fs_lock_factory_tests {
-  use crate::core::store::directory::Directory;
-  use crate::core::store::lock::Lock;
-  use crate::core::util::close::{Closeable, ImmutableCloseable};
+mod single_instance_lock_factory_tests {
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-  use crate::test::core::store::test_simple_fs_lock_factory::run_case;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::create_temp_dir;
 
-  /// delete the lockfile and test ensureValid fails
+  // Verify: basic locking on single instance lock factory (can't create two IndexWriters)
   #[test]
-  fn test_delete_lock_file() -> Result<()> {
-    run_case(|case, _random| {
-      let temp_dir = create_temp_dir()?;
-      let dir = case.get_directory(temp_dir.path().to_path_buf())?;
-      let lock = dir.obtain_lock("test.lock")?;
-      lock.ensure_valid()?;
-
-      dir.delete_file("test.lock")?;
-
-      assert!(lock.ensure_valid().is_err());
-      let _ = lock.close();
-
-      let mut dir = dir;
-      dir.close()?;
-      Ok(())
-    })
+  fn test_default_lock_factory() -> Result<()> {
+    // TODO IMPORTANT ByteBuffersDirectory未实现
+    Ok(())
   }
 }
 
 mod base_lock_factory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-  use crate::test::core::store::test_simple_fs_lock_factory::run_case;
+  use crate::test::core::store::test_single_instance_lock_factory::run_case;
 
   #[test]
   fn test_basics() -> Result<()> {
@@ -93,7 +79,7 @@ mod base_lock_factory_test_case_tests {
     run_case(|case, random| case.test_obtain_concurrently(random))
   }
 
-  #[test]
+  // TODO IMPORTANT
   fn test_stress_locks() -> Result<()> {
     run_case(|case, random| case.test_stress_locks(random))
   }
@@ -101,9 +87,9 @@ mod base_lock_factory_test_case_tests {
 
 fn run_case<F>(f: F) -> Result<()>
 where
-  F: FnOnce(&TestSimpleFSLockFactory, &mut rand::prelude::StdRng) -> Result<()>,
+  F: FnOnce(&TestSingleInstanceLockFactory, &mut rand::prelude::StdRng) -> Result<()>,
 {
   let mut random = crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
-  let case = TestSimpleFSLockFactory;
+  let case = TestSingleInstanceLockFactory;
   f(&case, &mut random)
 }

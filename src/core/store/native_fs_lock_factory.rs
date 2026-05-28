@@ -30,7 +30,7 @@ use parking_lot::Mutex;
 use crate::core::store::fs_lock_factory::FSLockFactory;
 use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::ImmutableCloseable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Implements [`lock_factory`](crate::core::store::lock_factory) using native OS file
@@ -216,8 +216,8 @@ impl Display for NativeFSLock {
   }
 }
 
-impl Closeable for NativeFSLock {
-  fn close(&mut self) -> Result<()> {
+impl ImmutableCloseable for NativeFSLock {
+  fn close(&self) -> Result<()> {
     let _guard = self.close_lock.lock();
     if !self.closed.load(Ordering::SeqCst) {
       let _ = self.file.unlock();

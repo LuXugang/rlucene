@@ -20,3 +20,8 @@ pub trait Closeable {
     Ok(())
   }
 }
+pub trait ImmutableCloseable {
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
+}

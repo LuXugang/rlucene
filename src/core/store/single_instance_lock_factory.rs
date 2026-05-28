@@ -16,7 +16,7 @@
  */
 use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::ImmutableCloseable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::HashSet;
@@ -78,6 +78,7 @@ pub struct SingleInstanceLock {
   lock_name: String,
   closed: AtomicBool,
   inner: Arc<Mutex<Inner>>,
+  close_lock: Mutex<()>,
 }
 impl SingleInstanceLock {
   pub fn new(lock_name: &str, inner: Arc<Mutex<Inner>>) -> SingleInstanceLock {
@@ -85,6 +86,7 @@ impl SingleInstanceLock {
       lock_name: lock_name.to_string(),
       closed: AtomicBool::new(false),
       inner,
+      close_lock: Mutex::new(()),
     }
   }
 }
@@ -96,8 +98,9 @@ impl Display for SingleInstanceLock {
   }
 }
 
-impl Closeable for SingleInstanceLock {
-  fn close(&mut self) -> Result<()> {
+impl ImmutableCloseable for SingleInstanceLock {
+  fn close(&self) -> Result<()> {
+    let _guard = self.close_lock.lock();
     if self.closed.load(Ordering::Acquire) {
       return Ok(());
     }

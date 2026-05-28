@@ -28,7 +28,7 @@ where
   D: Directory,
 {
   in_: D,
-  write_lock: D::Lock,
+  pub(crate) write_lock: D::Lock,
   id: Identity,
 }
 

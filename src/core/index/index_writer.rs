@@ -31,7 +31,7 @@ use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::ImmutableCloseable;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
@@ -2199,7 +2199,6 @@ where
       // after we leave this sync block and before we enter the sync block in the finally clause
       // below that sets closed:
       self.closed.store(true, Ordering::SeqCst);
-
       Ok(())
     })();
 
@@ -2238,6 +2237,9 @@ where
     self.pausing.notify_all();
     // TODO IMPORTANT write_lock 应该 close 还是使用 None
     result
+  }
+  fn writer_lock(&self) -> &D::Lock {
+    &self.directory.write_lock
   }
   /// Delete all documents in the index.
   ///
@@ -2652,7 +2654,7 @@ where
     self.ensure_open()?;
     self.no_dup_dirs(dirs)?;
 
-    let mut locks = self.acquire_write_locks(dirs)?;
+    let locks = self.acquire_write_locks(dirs)?;
     let result: Result<i64> = (|| {
       let index_sort = self.config.get_index_sort();
 
@@ -2766,7 +2768,7 @@ where
       Ok(seq_no)
     })();
 
-    let close_result = self.close_locks(&mut locks);
+    let close_result = self.close_locks(&locks);
     match (result, close_result) {
       (Ok(seq_no), Ok(())) => {
         self.maybe_merge()?;
@@ -2778,7 +2780,7 @@ where
     }
   }
 
-  fn close_locks(&self, locks: &mut [D::Lock]) -> Result<()> {
+  fn close_locks(&self, locks: &[D::Lock]) -> Result<()> {
     let mut first_err = None;
     for lock in locks {
       if let Err(err) = lock.close()

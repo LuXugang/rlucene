@@ -23,4 +23,5 @@ mod test_index_output_alignment;
 mod test_native_fs_lock_factory;
 mod test_nio_fs_directory;
 mod test_simple_fs_lock_factory;
+mod test_single_instance_lock_factory;
 mod test_tracking_directory_wrapper;

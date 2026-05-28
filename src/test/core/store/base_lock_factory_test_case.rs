@@ -25,7 +25,7 @@ use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::store::lock::Lock;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, ImmutableCloseable};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -71,7 +71,7 @@ pub trait BaseLockFactoryTestCase {
     let temp_path = create_temp_dir()?;
     let dir = self.get_directory(temp_path.path().to_path_buf())?;
 
-    let mut l = dir.obtain_lock("commit")?;
+    let l = dir.obtain_lock("commit")?;
     l.close()?;
     l.close()?; // close again, should be no exception
 
@@ -82,7 +82,7 @@ pub trait BaseLockFactoryTestCase {
   fn test_valid_after_acquire(&self) -> Result<()> {
     let temp_path = create_temp_dir()?;
     let dir = self.get_directory(temp_path.path().to_path_buf())?;
-    let mut l = dir.obtain_lock("commit")?;
+    let l = dir.obtain_lock("commit")?;
     l.ensure_valid()?; // no exception
     l.close()?;
     Ok(())
@@ -93,7 +93,7 @@ pub trait BaseLockFactoryTestCase {
     let temp_path = create_temp_dir()?;
     let dir = self.get_directory(temp_path.path().to_path_buf())?;
 
-    let mut l = dir.obtain_lock("commit")?;
+    let l = dir.obtain_lock("commit")?;
     l.close()?;
 
     assert!(matches!(
@@ -126,7 +126,7 @@ pub trait BaseLockFactoryTestCase {
       threads.push(thread::spawn(move || -> Result<()> {
         barrier.wait();
         while running.load(Ordering::Acquire) {
-          if let Ok(mut lock) = directory.obtain_lock("foo.lock") {
+          if let Ok(lock) = directory.obtain_lock("foo.lock") {
             if let Ok(asserting_guard) = asserting_lock.try_lock() {
               drop(asserting_guard);
             } else {

@@ -17,7 +17,7 @@
 use crate::core::store::NativeFSLock;
 use crate::core::store::simple_fs_lock_factory::SimpleFSLock;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLock;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::ImmutableCloseable;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
@@ -36,7 +36,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// # Note
 /// This is an internal API.
-pub trait Lock: Display + Closeable {
+pub trait Lock: Display + ImmutableCloseable {
   /// Best effort check that this lock is still valid. Locks could become
   /// invalidated externally for a number of reasons, such as if a user
   /// deletes the lock file manually or when a network filesystem is in
@@ -75,8 +75,8 @@ impl Display for LockEnum {
   }
 }
 
-impl Closeable for LockEnum {
-  fn close(&mut self) -> Result<()> {
+impl ImmutableCloseable for LockEnum {
+  fn close(&self) -> Result<()> {
     match self {
       Self::Single(inner) => inner.close(),
       Self::Simple(inner) => inner.close(),
@@ -114,11 +114,11 @@ macro_rules! either_lock {
             }
         }
 
-        impl<$( $T ),+> Closeable for $name<$( $T ),+>
+        impl<$( $T ),+> ImmutableCloseable for $name<$( $T ),+>
         where
             $( $T: Lock ),+
         {
-            fn close(&mut self) -> Result<()> {
+            fn close(&self) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.close(), )+
                 }

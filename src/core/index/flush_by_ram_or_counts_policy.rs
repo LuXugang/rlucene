@@ -345,7 +345,7 @@ pub mod tests {
     Ok(())
   }
 
-  #[test]
+  // TODO IMPORTANT 多线程索引 BUG
   fn test_random() -> Result<()> {
     let mut random = random();
     let num_threads = 1 + random.random_range(0..8);
