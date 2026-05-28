@@ -2243,19 +2243,19 @@ where
   /// Delete all documents in the index.
   ///
   /// This method will drop all buffered documents and will remove all segments from the index.
-  /// This change will not be visible until [`commit`] has been called. This method can be
-  /// rolled back using [`rollback`].
+  /// This change will not be visible until `commit` has been called. This method can be
+  /// rolled back using `rollback`.
   ///
   /// NOTE: this method is much faster than using `delete_documents(new MatchAllDocsQuery())`. Yet,
-  /// this method also has different semantics compared to [`delete_documents`] since
+  /// this method also has different semantics compared to `delete_documents` since
   /// internal data-structures are cleared as well as all segment information is forcefully dropped
   /// anti-viral semantics like omitting norms are reset or doc value types are cleared. Essentially
-  /// a call to [`delete_all`] is equivalent to creating a new [`IndexWriter`] with
+  /// a call to `delete_all` is equivalent to creating a new [`IndexWriter`] with
   /// [`OpenMode::Create`] which a delete query only marks documents as deleted.
   ///
   /// NOTE: this method will forcefully abort all merges in progress. If other threads are running
-  /// [`force_merge`], [`add_indexes`] or [`force_merge_deletes`] methods,
-  /// they may receive [`MergeAbortedError`] errors.
+  /// `force_merge`, `add_indexes` or `force_merge_deletes` methods,
+  /// they may receive `MergeAbortedError` errors.
   ///
   /// Returns the sequence number for this operation.
   pub fn delete_all(&self) -> Result<i64> {
@@ -3257,7 +3257,7 @@ where
   ///
   /// Note: this method is best-effort and might not flush any segments to disk. If there is a
   /// full flush happening concurrently multiple segments might have been flushed. Users of this API
-  /// can access the [`IndexWriter`]'s current memory consumption via [`Self::ram_bytes_used`].
+  /// can access the [`IndexWriter`]'s current memory consumption via `Self::ram_bytes_used`.
   ///
   /// Returns `true` iff this method flushed at least one segment to disk.
   pub fn flush_next_buffer(&self) -> Result<bool> {

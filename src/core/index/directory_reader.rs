@@ -110,7 +110,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// Check whether any new changes have occurred to the index since this reader was opened.
   ///
   /// If this reader was created by calling `open`, then this method checks if any
-  /// further commits (see [`IndexWriter::commit`]) have occurred in the directory.
+  /// further commits (see `IndexWriter::commit`) have occurred in the directory.
   ///
   /// If instead this reader is a near real-time reader (ie, obtained by a call to
   /// `DirectoryReader::open` with an [`IndexWriter`], or by calling
@@ -298,7 +298,7 @@ where
   old_reader.do_open_if_changed(writer)
 }
 
-/// If the [`IndexCommit`] differs from what the provided reader is searching, open and return a new
+/// If the `IndexCommit` differs from what the provided reader is searching, open and return a new
 /// reader; otherwise, return `None`.
 ///
 /// # Errors
@@ -385,15 +385,15 @@ where
 }
 
 /// Returns all commit points that exist in the [`Directory`]. Normally, because the default is
-/// [`KeepOnlyLastCommitDeletionPolicy`], there would be only one commit point. But if you're using a
-/// custom [`IndexDeletionPolicy`] then there could be many commits. Once you have a given commit, you
-/// can open a reader on it by calling [`DirectoryReader::open`]. There must be at least one commit in
-/// the [`Directory`], else this method returns [`IndexNotFound`]. Note that if a commit is in progress
+/// `KeepOnlyLastCommitDeletionPolicy`, there would be only one commit point. But if you're using a
+/// custom `IndexDeletionPolicy` then there could be many commits. Once you have a given commit, you
+/// can open a reader on it by calling `DirectoryReader::open`. There must be at least one commit in
+/// the [`Directory`], else this method returns `IndexNotFound`. Note that if a commit is in progress
 /// while this method is running, that commit may or may not be returned.
 ///
 /// # Returns
 ///
-/// A sorted list of [`IndexCommit`]s, from oldest to latest.
+/// A sorted list of `IndexCommit`s, from oldest to latest.
 pub fn list_commits<D>(dir: Arc<D>) -> Result<Vec<ReaderCommit<D>>>
 where
   D: Directory,

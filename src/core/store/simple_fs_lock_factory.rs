@@ -28,12 +28,12 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 
-/// Implements [`LockFactory`] using [`Files::create_file`].
+/// Implements [`LockFactory`] using `Files::create_file`.
 ///
 /// The main downside with using this API for locking is that the Lucene write lock may not be
 /// released when the JVM exits abnormally.
 ///
-/// When this happens, a [`LockObtainFailedError`] is hit when trying to create a writer,
+/// When this happens, a `LockObtainFailedError` is hit when trying to create a writer,
 /// in which case you may need to explicitly clear the lock file first by manually removing the file.
 /// But, first be certain that no writer is in fact writing to the index otherwise you can easily
 /// corrupt your index.
@@ -45,10 +45,10 @@ use parking_lot::Mutex;
 /// together!
 ///
 /// If you suspect that this or any other [`LockFactory`] is not working properly in your environment,
-/// you can easily test it by using [`VerifyingLockFactory`], [`LockVerifyServer`] and
-/// [`LockStressTest`].
+/// you can easily test it by using `VerifyingLockFactory`, `LockVerifyServer` and
+/// `LockStressTest`.
 ///
-/// This is a singleton, you have to use [`INSTANCE`].
+/// This is a singleton, you have to use `INSTANCE`.
 ///
 /// See also: [`LockFactory`].
 pub struct SimpleFSLockFactory;

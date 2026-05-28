@@ -28,7 +28,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-/// A wrapping merge policy that wraps the [`OneMerge`] objects returned by the
+/// A wrapping merge policy that wraps the `OneMerge` objects returned by the
 /// wrapped merge policy.
 ///
 /// # Experimental

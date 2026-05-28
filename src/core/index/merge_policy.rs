@@ -174,7 +174,7 @@ pub trait MergePolicy: Display {
   /// `max_full_flush_merge_size` (the max segment size for full flushes).
   ///
   /// Any merges returned here will make:
-  /// - [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit),
+  /// - `IndexWriter::commit`,
   /// - `IndexWriter::prepare_commit` or
   /// - `IndexWriter::get_reader`
   ///
@@ -189,7 +189,7 @@ pub trait MergePolicy: Display {
   ///
   /// If a [`OneMerge`] in the returned [`MergeSpecification`] includes a segment
   /// that is already included in a registered merge, then
-  /// [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit) or `IndexWriter::prepare_commit` will throw an
+  /// `IndexWriter::commit` or `IndexWriter::prepare_commit` will throw an
   /// error. Use [`MergeContext::get_merging_segments`] to determine which
   /// segments are currently registered to merge.
   ///

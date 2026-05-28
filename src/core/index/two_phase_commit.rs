@@ -16,7 +16,7 @@
  */
 use crate::core::util::error::lucene_error::Result;
 /// An interface for implementations that support 2-phase commit. You can use
-/// [`TwoPhaseCommitTool`] to execute a 2-phase commit algorithm over several
+/// `TwoPhaseCommitTool` to execute a 2-phase commit algorithm over several
 /// [`TwoPhaseCommit`]s.
 pub trait TwoPhaseCommit {
   /// The first stage of a 2-phase commit. Implementations should do as much
