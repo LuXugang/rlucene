@@ -16,3 +16,4 @@
  */
 mod test_direct_monotonic;
 mod test_direct_packed;
+mod test_packed_ints;
