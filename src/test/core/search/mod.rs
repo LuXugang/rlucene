@@ -33,6 +33,7 @@ mod test_block_max_conjunction;
 pub(crate) mod test_boolean2;
 pub(crate) mod test_boolean_min_should_match;
 mod test_boolean_or;
+mod test_boolean_query;
 mod test_boolean_query_visit_sub_scorers;
 pub mod test_boolean_rewrites;
 mod test_byte_vector_similarity_query;
