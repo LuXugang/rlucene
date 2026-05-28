@@ -2199,9 +2199,11 @@ where
       // after we leave this sync block and before we enter the sync block in the finally clause
       // below that sets closed:
       self.closed.store(true, Ordering::SeqCst);
+      self.closing.store(false, Ordering::SeqCst);
+      IOUtils::close_one_ref(self.writer_lock())?;
       Ok(())
     })();
-
+    // TODO IMPORTANT 这里的错误处理不对
     if result.is_err() {
       let cleanup_result = (|| -> Result<()> {
         let mut inner = self.inner.lock();
@@ -2232,10 +2234,7 @@ where
         result = result.map_err(|err| LuceneError::illegal_state(format!("{err}, {cleanup_err}")));
       }
     }
-
-    self.closing.store(false, Ordering::SeqCst);
     self.pausing.notify_all();
-    // TODO IMPORTANT write_lock 应该 close 还是使用 None
     result
   }
   fn writer_lock(&self) -> &D::Lock {

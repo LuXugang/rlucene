@@ -140,7 +140,7 @@ impl IOUtils {
   }
 
   /// Closes the given object by shared reference.
-  pub fn close_ref<T>(object: &T) -> Result<()>
+  pub fn close_one_ref<T>(object: &T) -> Result<()>
   where
     T: CloseableRef,
   {

@@ -79,7 +79,7 @@ mod base_lock_factory_test_case_tests {
     run_case(|case, random| case.test_obtain_concurrently(random))
   }
 
-  // TODO IMPORTANT
+  #[test]
   fn test_stress_locks() -> Result<()> {
     run_case(|case, random| case.test_stress_locks(random))
   }
