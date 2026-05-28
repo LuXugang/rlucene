@@ -85,6 +85,7 @@ mod test_tim_sorter;
 pub mod test_vector_util;
 mod test_version;
 
+mod compress;
 pub mod test_util;
 pub mod throttled_index_output;
 
