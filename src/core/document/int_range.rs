@@ -294,22 +294,3 @@ impl Clone for IntRange {
     }
   }
 }
-
-#[cfg(test)]
-mod tests {
-  use crate::core::document::int_range::IntRange;
-  use crate::core::util::error::lucene_error::Result;
-
-  #[allow(dead_code)] // for quick search
-  struct TestIntRange;
-  #[test]
-  fn test_to_string_int_range() -> Result<()> {
-    let range = IntRange::new("foo", &[1, 11, 21, 31], &[2, 12, 22, 32])?;
-
-    assert_eq!(
-      "IntRange <foo: [1 : 2] [11 : 12] [21 : 22] [31 : 32]>",
-      range.to_string()
-    );
-    Ok(())
-  }
-}

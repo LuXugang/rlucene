@@ -14,19 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod base_shape_encoding_test_case;
-pub(crate) mod base_spatial_test_case;
-mod test_binary_document;
-mod test_doc_values_long_hash_set;
-mod test_document;
-mod test_field;
-mod test_field_type;
-mod test_int_range;
-mod test_keyword_field;
-mod test_lat_lon_doc_values_field;
-mod test_lat_lon_point;
-mod test_lat_lon_point_distance_feature_query;
-mod test_lat_lon_point_distance_sort;
-mod test_lat_lon_shape_encoding;
-mod test_per_field_consistency;
-mod test_xy_shape_encoding;
+
+use crate::core::document::lat_lon_point::LatLonPoint;
+use crate::core::search::query::QueryBase;
+use crate::core::util::error::lucene_error::Result;
+
+#[allow(dead_code)] // for quick search
+struct TestLatLonPoint;
+#[test]
+fn test_to_string() -> Result<()> {
+  assert_eq!(
+    "LatLonPoint <field:18.313693958334625,-65.22744401358068>",
+    LatLonPoint::new("field", 18.313694, -65.227444)?.to_string()
+  );
+
+  assert_eq!(
+    "field:[18.000000016763806 TO 18.999999999068677],[-65.9999999217689 TO -65.00000006519258]",
+    LatLonPoint::new_box_query("field", 18.0, 19.0, -66.0, -65.0)?.as_string("")?
+  );
+
+  assert_eq!(
+    "field:18.0,19.0 +/- 25.0 meters",
+    LatLonPoint::new_distance_query("field", 18.0, 19.0, 25.0)?.as_string("")?
+  );
+
+  Ok(())
+}

@@ -14,19 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod base_shape_encoding_test_case;
-pub(crate) mod base_spatial_test_case;
-mod test_binary_document;
-mod test_doc_values_long_hash_set;
-mod test_document;
-mod test_field;
-mod test_field_type;
-mod test_int_range;
-mod test_keyword_field;
-mod test_lat_lon_doc_values_field;
-mod test_lat_lon_point;
-mod test_lat_lon_point_distance_feature_query;
-mod test_lat_lon_point_distance_sort;
-mod test_lat_lon_shape_encoding;
-mod test_per_field_consistency;
-mod test_xy_shape_encoding;
+
+use crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField;
+use crate::core::util::error::lucene_error::Result;
+
+#[allow(dead_code)] // for quick search
+struct TestLatLonDocValuesField;
+#[test]
+fn test_to_string() -> Result<()> {
+  assert_eq!(
+    "LatLonDocValuesField <field:18.313693958334625,-65.22744401358068>",
+    LatLonDocValuesField::new("field", 18.313694, -65.227444)?.to_string()
+  );
+
+  assert_eq!(
+    "<distance:\"field\" latitude=18 longitude=19>",
+    LatLonDocValuesField::new_distance_sort("field", 18.0, 19.0)?.to_string()
+  );
+
+  Ok(())
+}

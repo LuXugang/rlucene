@@ -603,29 +603,3 @@ impl PointRangeBase for LatLonPointRangeQuery {
     }
   }
 }
-#[cfg(test)]
-mod tests {
-  use super::*;
-  use crate::core::search::query::QueryBase;
-  #[allow(dead_code)] // for quick search
-  struct TestLatLonPoint;
-  #[test]
-  fn test_to_string() -> Result<()> {
-    assert_eq!(
-      "LatLonPoint <field:18.313693958334625,-65.22744401358068>",
-      LatLonPoint::new("field", 18.313694, -65.227444)?.to_string()
-    );
-
-    assert_eq!(
-      "field:[18.000000016763806 TO 18.999999999068677],[-65.9999999217689 TO -65.00000006519258]",
-      LatLonPoint::new_box_query("field", 18.0, 19.0, -66.0, -65.0)?.as_string("")?
-    );
-
-    assert_eq!(
-      "field:18.0,19.0 +/- 25.0 meters",
-      LatLonPoint::new_distance_query("field", 18.0, 19.0, 25.0)?.as_string("")?
-    );
-
-    Ok(())
-  }
-}
