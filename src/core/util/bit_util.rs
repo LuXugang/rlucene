@@ -329,4 +329,10 @@ impl BitUtil {
   }
   #[cfg(not(target_endian = "little"))]
   compile_error!("This code can only be compiled on little-endian systems.");
+
+  /// Return true if, and only if, the provided integer - treated as an unsigned integer - is either
+  /// 0 or a power of two.
+  pub fn is_zero_or_power_of_two(x: i32) -> bool {
+    (x & (x - 1)) == 0
+  }
 }
