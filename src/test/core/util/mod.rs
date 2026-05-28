@@ -14,16 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::document::Document;
+use crate::core::document::field::Store;
+use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::store::directory::DirEnum;
+use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::{FSDirectory, NativeFSLockFactory};
+use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
+use tempfile::TempDir;
 
 pub(crate) mod automaton;
 pub(crate) mod base_bit_set_test_case;
@@ -58,18 +65,29 @@ pub type DefaultIndexSearchCRShared =
   DefaultIndexSearcher<CompositeReaderContext<DefaultCRReaderShared>>;
 pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
 pub type DefaultIndexSearchLR = DefaultIndexSearcher<LeafReaderContext<DefaultLRReader>>;
-pub(crate) fn dummy_index_searcher() -> crate::core::util::error::lucene_error::Result<
-  DefaultIndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
-> {
-  let dummy_lr = DummyLeafReader;
-  let cr = DummyCompositeReader::new(dummy_lr);
-  let irc = get_context(cr)?;
-  IndexSearcher::new(irc)
+pub type DummyCR = StandardDirectoryReaderType<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>;
+pub(crate) fn dummy_directory() -> Result<Arc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>> {
+  let temp_dir = TempDir::new()?;
+  Ok(Arc::new(FSDirectory::new(
+    temp_dir.keep(),
+    NIOFSDirectory::new(),
+  )?))
 }
-
-impl LeafReaderContext<DummyLeafReader> {
-  pub(crate) fn dummy_lrc() -> Self {
-    let parent = TopParentMeta::default();
-    Self::new(DummyLeafReader, 0, 0, 0, 0, parent)
-  }
+pub(crate) fn dummy_index_searcher(
+  dir: Arc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
+) -> crate::core::util::error::lucene_error::Result<
+  DefaultIndexSearcher<CompositeReaderContext<DummyCR>>,
+> {
+  let iw = IndexWriter::new(dir, IndexWriterConfig::new())?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string(
+    "id",
+    format!("doc-{}", 0),
+    Store::No,
+  )?);
+  iw.add_document(doc)?;
+  let reader = iw.get_reader(true, true)?;
+  let irc = get_context(reader)?;
+  iw.close()?;
+  IndexSearcher::new(irc)
 }

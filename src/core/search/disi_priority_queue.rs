@@ -306,10 +306,10 @@ impl DisiPriorityQueue {
 #[cfg(test)]
 pub mod tests {
   use crate::core::index::composite_reader_context::CompositeReaderContext;
-  use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
+
   use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
   use crate::core::index::index_reader_context::IRCLeafReader;
-  use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
+  use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::search::constant_score_scorer::ConstantScoreScorer;
   use crate::core::search::disi_priority_queue::DisiPriorityQueue;
   use crate::core::search::disi_wrapper::DisiWrapper;
@@ -325,8 +325,8 @@ pub mod tests {
   use crate::core::search::segment_cacheable::SegmentCacheable;
   use crate::core::search::weight::{DefaultScorerSupplier, Weight};
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::util::dummy_index_searcher;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
+  use crate::test::core::util::{DummyCR, dummy_directory, dummy_index_searcher};
   use rand::Rng;
   use rand::RngExt;
   use std::hash::Hash;
@@ -394,10 +394,10 @@ pub mod tests {
 where {
     let q = DummyQueryImpl::new(iterator);
     let weight = q.weight();
-    let reader = DummyLeafReader;
-    let lrc = LeafReaderContext::new(reader, 0, 0, 0, 0, TopParentMeta::default());
-    let dummy_s = dummy_index_searcher()?;
-    let s = weight.scorer(&lrc, &dummy_s)?.unwrap();
+    let _reader = DummyLeafReader;
+    let dummy_s = dummy_index_searcher(dummy_directory()?)?;
+    let lrc = &dummy_s.get_leaf_contexts()?[0];
+    let s = weight.scorer(lrc, &dummy_s)?.unwrap();
     DisiWrapper::new(s)
   }
   fn random_disi<R>(random: &mut R) -> DocIdSetIteratorImpl
@@ -440,42 +440,32 @@ where {
     }
   }
 
-  impl SegmentCacheable<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>
-    for DummyQueryImplWeight
-  {
+  impl SegmentCacheable<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight {
     fn is_cacheable(
       &self,
-      _ctx: &LeafReaderContext<
-        IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
-      >,
+      _ctx: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,
     ) -> Result<bool> {
       Ok(true)
     }
   }
 
-  impl Weight<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>
-    for DummyQueryImplWeight
-  {
+  impl Weight<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight {
     type Matches = MatchWithNoTerms;
 
     fn matches(
       &self,
-      context: &LeafReaderContext<
-        IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
-      >,
+      context: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,
       _doc: i32,
-      _searcher: &IndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+      _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>>,
     ) -> Result<Option<Self::Matches>> {
       self.default_matches(context, _doc, _searcher)
     }
 
     fn explain(
       &self,
-      _context: &LeafReaderContext<
-        IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
-      >,
+      _context: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,
       _doc: i32,
-      _searcher: &IndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+      _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>>,
     ) -> Result<Explanation> {
       unreachable!()
     }
@@ -489,10 +479,8 @@ where {
 
     fn scorer_supplier(
       &self,
-      _context: &LeafReaderContext<
-        IRCLeafReader<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
-      >,
-      _searcher: &IndexSearcher<CompositeReaderContext<DummyCompositeReader<DummyLeafReader>>>,
+      _context: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,
+      _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>>,
     ) -> Result<Option<Self::ScorerSupplier>> {
       let v = ConstantScoreScorer::from_disi(1.0f32, self.score_mode, self.query.disi.clone());
       Ok(Some(DefaultScorerSupplier::new(v)))

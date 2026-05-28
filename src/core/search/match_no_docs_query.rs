@@ -215,11 +215,11 @@ mod tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test::core::search::query_utils::QueryUtils;
-  use crate::test::core::util::dummy_index_searcher;
   use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
     new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
     new_searcher_with_reader, new_text_field, random,
   };
+  use crate::test::core::util::{dummy_directory, dummy_index_searcher};
   use rand::Rng;
   use std::collections::HashMap;
 
@@ -243,7 +243,7 @@ mod tests {
         query.as_string("")?,
         "MatchNoDocsQuery(\"field 'title' not found\")"
       );
-      let dummy_searcher = dummy_index_searcher()?;
+      let dummy_searcher = dummy_index_searcher(dummy_directory()?)?;
       let rewrite = query.rewrite(&dummy_searcher)?;
       assert!(matches!(rewrite, Query::MatchNoDocs(_)));
       assert_eq!(
