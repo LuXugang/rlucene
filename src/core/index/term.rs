@@ -162,22 +162,3 @@ impl Hash for Term {
     self.bytes.hash(state);
   }
 }
-
-#[cfg(test)]
-mod tests {
-  use crate::core::index::term::Term;
-
-  #[allow(dead_code)] // for quick search
-  struct TestTerm;
-  #[test]
-  fn test_equals() {
-    let base = Term::from_text("same", "same");
-    let same = Term::from_text("same", "same");
-    let different_field = Term::from_text("different", "same");
-    let different_text = Term::from_text("same", "different");
-    assert_eq!(base, base);
-    assert_eq!(base, same);
-    assert_ne!(base, different_field);
-    assert_ne!(base, different_text);
-  }
-}

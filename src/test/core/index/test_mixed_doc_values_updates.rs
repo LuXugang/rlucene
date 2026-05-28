@@ -43,6 +43,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::index::test_binary_doc_values_field_updates::{get_value, to_bytes};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
@@ -101,10 +102,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
         } else {
           doc.add(BinaryDocValuesField::new(
             format!("f{f}"),
-            crate::core::index::binary_doc_values_field_updates::tests::to_bytes(
-              &mut random,
-              field_values[f],
-            )?,
+            to_bytes(&mut random, field_values[f])?,
           ));
         }
       }
@@ -125,10 +123,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
       writer.update_binary_doc_value(
         Term::from_text("key", "all"),
         update_field,
-        crate::core::index::binary_doc_values_field_updates::tests::to_bytes(
-          &mut random,
-          field_values[field_idx],
-        )?,
+        to_bytes(&mut random, field_values[field_idx])?,
       )?;
     }
 
@@ -176,10 +171,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
             } else {
               let bdv = bdv.as_mut().unwrap();
               assert_eq!(doc, bdv.advance(doc)?);
-              assert_eq!(
-                field_values[field],
-                crate::core::index::binary_doc_values_field_updates::tests::get_value(bdv)?,
-              );
+              assert_eq!(field_values[field], get_value(bdv)?,);
             }
           }
         }
@@ -226,7 +218,7 @@ fn test_stress_multi_threading() -> Result<()> {
       let value = random.random::<i32>() as i64;
       doc.add(BinaryDocValuesField::new(
         format!("f{j}"),
-        crate::core::index::binary_doc_values_field_updates::tests::to_bytes(&mut random, value)?,
+        to_bytes(&mut random, value)?,
       ));
       doc.add(NumericDocValuesField::new(format!("cf{j}"), value * 2));
     }
@@ -266,14 +258,7 @@ fn test_stress_multi_threading() -> Result<()> {
               writer.update_doc_values(
                 t,
                 vec![
-                  BinaryDocValuesField::new(
-                    f,
-                    crate::core::index::binary_doc_values_field_updates::tests::to_bytes(
-                      &mut random,
-                      upd_value,
-                    )?,
-                  )
-                  .into(),
+                  BinaryDocValuesField::new(f, to_bytes(&mut random, upd_value)?).into(),
                   NumericDocValuesField::new(cf, upd_value * 2).into(),
                 ],
               )?;
@@ -340,8 +325,7 @@ fn test_stress_multi_threading() -> Result<()> {
           assert_eq!(j, control.advance(j)?);
           let ctrl_value = control.long_value()?;
           assert_eq!(j, bdv.advance(j)?);
-          let bdv_value =
-            crate::core::index::binary_doc_values_field_updates::tests::get_value(&mut bdv)? * 2;
+          let bdv_value = get_value(&mut bdv)? * 2;
           assert_eq!(ctrl_value, bdv_value);
         }
       }
@@ -371,7 +355,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
     let value = random.random::<i32>() as i64;
     doc.add(BinaryDocValuesField::new(
       "f",
-      crate::core::index::binary_doc_values_field_updates::tests::to_bytes(&mut random, value)?,
+      to_bytes(&mut random, value)?,
     ));
     doc.add(NumericDocValuesField::new("cf", value * 2));
     writer.add_document(doc)?;
@@ -383,11 +367,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
     let t = Term::from_text("id", format!("doc{doc}"));
     let value = random.random::<i64>();
     let updates = vec![
-      BinaryDocValuesField::new(
-        "f",
-        crate::core::index::binary_doc_values_field_updates::tests::to_bytes(&mut random, value)?,
-      )
-      .into(),
+      BinaryDocValuesField::new("f", to_bytes(&mut random, value)?).into(),
       NumericDocValuesField::new("cf", value * 2).into(),
     ];
     if random.random_bool(0.5) {
@@ -405,10 +385,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       for j in 0..r.max_doc()? {
         assert_eq!(j, cfndv.next_doc()?);
         assert_eq!(j, fbdv.next_doc()?);
-        assert_eq!(
-          cfndv.long_value()?,
-          crate::core::index::binary_doc_values_field_updates::tests::get_value(&mut fbdv)? * 2
-        );
+        assert_eq!(cfndv.long_value()?, get_value(&mut fbdv)? * 2);
       }
     }
   }
@@ -454,7 +431,7 @@ fn test_tons_of_updates() -> Result<()> {
       let val = random.random::<i32>() as i64;
       doc.add(BinaryDocValuesField::new(
         format!("f{j}"),
-        crate::core::index::binary_doc_values_field_updates::tests::to_bytes(&mut random, val)?,
+        to_bytes(&mut random, val)?,
       ));
       doc.add(NumericDocValuesField::new(format!("cf{j}"), val * 2));
     }
@@ -476,11 +453,7 @@ fn test_tons_of_updates() -> Result<()> {
     writer.update_doc_values(
       update_term,
       vec![
-        BinaryDocValuesField::new(
-          format!("f{field}"),
-          crate::core::index::binary_doc_values_field_updates::tests::to_bytes(&mut random, value)?,
-        )
-        .into(),
+        BinaryDocValuesField::new(format!("f{field}"), to_bytes(&mut random, value)?).into(),
         NumericDocValuesField::new(format!("cf{field}"), value * 2).into(),
       ],
     )?;
@@ -498,10 +471,7 @@ fn test_tons_of_updates() -> Result<()> {
       for j in 0..r.max_doc()? {
         assert_eq!(j, cf.next_doc()?);
         assert_eq!(j, f.next_doc()?);
-        assert_eq!(
-          cf.long_value()?,
-          crate::core::index::binary_doc_values_field_updates::tests::get_value(&mut f)? * 2
-        );
+        assert_eq!(cf.long_value()?, get_value(&mut f)? * 2);
       }
     }
   }

@@ -26,8 +26,6 @@ use crate::core::index::parallel_postings_array::{
 };
 use crate::core::index::term_vectors_consumer::{PerFieldMeta, TermVectorsConsumer};
 use crate::core::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
-#[cfg(test)]
-use crate::core::index::terms_hash_per_field::tests::TermsHashPerFieldMock;
 use crate::core::index::terms_hash_per_field::{
   PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
@@ -38,6 +36,8 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{ByteBlockPool, ToInt};
+#[cfg(test)]
+use crate::test::core::index::test_terms_hash_per_field::TermsHashPerFieldMock;
 use std::cmp::Ordering;
 use std::sync::Arc;
 

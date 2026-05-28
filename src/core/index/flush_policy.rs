@@ -19,13 +19,13 @@ use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushCon
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
-#[cfg(test)]
-use crate::core::index::flush_by_ram_or_counts_policy::tests::MockDefaultFlushPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::core::index::test_flush_by_ram_or_counts_policy::MockDefaultFlushPolicy;
 use parking_lot::MutexGuard;
 use std::sync::Arc;
 #[cfg(test)]
