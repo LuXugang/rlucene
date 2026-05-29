@@ -101,7 +101,6 @@ mod test_is_current;
 mod test_lockable_concurrent_approximate_priority_queue;
 mod test_log_merge_policy;
 mod test_long_postings;
-mod test_lucene90_doc_values_format;
 mod test_many_fields;
 mod test_max_position;
 mod test_max_term_frequency;

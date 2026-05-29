@@ -92,7 +92,7 @@ where
 
 mod lucene90_doc_values_format_tests {
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::index::test_lucene90_doc_values_format::{
+  use crate::test::core::codecs::lucene90::test_lucene90_doc_values_format::{
     TestLucene90DocValuesFormatTests, run_case,
   };
 
@@ -232,8 +232,8 @@ mod lucene90_doc_values_format_tests {
 
 mod base_compressing_doc_values_format_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::codecs::lucene90::test_lucene90_doc_values_format::run_case;
   use crate::test::core::index::base_compressing_doc_values_format_test_case::BaseCompressingDocValuesFormatTestCase;
-  use crate::test::core::index::test_lucene90_doc_values_format::run_case;
 
   #[test]
   fn test_unique_values_compression() -> Result<()> {
@@ -253,8 +253,8 @@ mod base_compressing_doc_values_format_test_case_tests {
 
 mod base_doc_values_format_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::codecs::lucene90::test_lucene90_doc_values_format::run_case;
   use crate::test::core::index::base_doc_values_format_test_case::BaseDocValuesFormatTestCase;
-  use crate::test::core::index::test_lucene90_doc_values_format::run_case;
 
   #[test]
   fn test_sorted_merge_away_all_values_with_skipper() -> Result<()> {
@@ -377,8 +377,8 @@ mod base_doc_values_format_test_case_tests {
 
 mod legacy_base_doc_values_format_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::codecs::lucene90::test_lucene90_doc_values_format::run_case;
   use crate::test::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCase;
-  use crate::test::core::index::test_lucene90_doc_values_format::run_case;
 
   #[test]
   fn test_one_number() -> Result<()> {

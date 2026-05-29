@@ -20,4 +20,4 @@ pub mod lucene90_compressing_stored_fields_writer;
 pub mod lucene90_compressing_term_vectors_format;
 pub mod lucene90_compressing_term_vectors_reader;
 pub mod lucene90_compressing_term_vectors_writer;
-mod stored_fields_ints;
+pub(crate) mod stored_fields_ints;

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 mod compressing;
+mod hnsw;
 mod lucene101;
 mod lucene90;
 mod lucene94;
