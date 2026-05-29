@@ -116,8 +116,6 @@ pub trait IndexReader: Display {
   ///
   /// A return value of `None` indicates that this reader is not suited for caching, which
   /// is typically the case for short-lived wrappers that alter the content of the wrapped reader.
-  ///
-  /// # lucene.experimental
   type ReaderCacheHelper: CacheHelper;
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>>;
 

@@ -44,6 +44,7 @@ use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
 use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref::IntsRef;
+use crate::core::util::fst_impl::no_outputs::NoOutputs;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
@@ -87,9 +88,27 @@ impl TestFSTs {
   {
     terms.sort();
     let random_seed = random.random();
-    // terms.sort();
-    // NoOutputs (simple FSA)
-    // TODO: NoOutputs not Implement
+    {
+      // NoOutputs (simple FSA)
+      let outputs = NoOutputs::get_singleton().clone();
+      let no_output = outputs.get_no_output();
+      let pairs = terms
+        .iter()
+        .map(|term| InputOutput {
+          input: term.clone(),
+          output: no_output.clone(),
+        })
+        .collect::<Vec<_>>();
+
+      let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+        random_from_seed(random_seed),
+        self.dir.clone(),
+        input_mode,
+        pairs,
+        outputs,
+      );
+      tester.do_test()?;
+    }
 
     // PositiveIntOutput (ord)
     {
@@ -291,8 +310,29 @@ fn test_basic_fsa() -> Result<()> {
 
     // Test pre-determined FST sizes to make sure we haven't lost minimality (at
     // least on this trivial set of terms):
+    // FSA
     {
-      // TODO: NoOutputs not Implement
+      let outputs = NoOutputs::get_singleton().clone();
+      let no_output = outputs.get_no_output();
+      let pairs = terms2
+        .iter()
+        .map(|term| InputOutput {
+          input: term.clone(),
+          output: no_output.clone(),
+        })
+        .collect::<Vec<_>>();
+
+      let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
+        random_from_seed(random_seed),
+        test_fsts.dir.clone(),
+        input_mode,
+        pairs,
+        outputs,
+      );
+
+      let _ = tester.do_test()?;
+      assert_eq!(tester.node_count, 22);
+      assert_eq!(tester.arc_count, 27);
     }
 
     // FST ord pos int
@@ -435,45 +475,44 @@ fn test_single_string() -> Result<()> {
 }
 #[test]
 fn test_duplicate_fsa_string() -> Result<()> {
-  // TODO: NO_OUTPUT not Implement
-  // let mut random = random();
-  // let outputs = NoOutput::get_singleton();
-  // let mut fst_compiler = Builder::new(InputType::Byte1,
-  // outputs.clone()).build()?;
-  //
-  // let str_key = "foobar";
-  // let mut builder = IntsRefBuilder::new();
-  // let key:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, str_key)?;
-  // for _ in 0..10 {
-  //     Util::get_ints_ref(&key, &mut builder);
-  //     fst_compiler.add(builder.get(), outputs.get_no_output())?;
-  // }
-  //
-  // let metadata = fst_compiler.compile()?.unwrap();
-  // let reader: DataOutputEnum<DummyDirectory> =
-  //     fst_compiler.get_fst_reader()?;
-  // let fst = FST::from_fst_reader(metadata, reader).unwrap();
-  //
-  //
-  //
-  // let actual = Util::get_bytes(& fst, &key)?;
-  // assert!(actual.is_some());
-  //
-  // let v:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobaz")?;
-  //
-  // let missing = Util::get_bytes(
-  //     & fst,
-  //     &v,
-  // )?;
-  // assert!(missing.is_none());
-  //
-  // // Count the input paths
-  // let mut fst_enum = BytesRefFSTEnum::new(fst)?;
-  // let mut count = 0;
-  // while let Some(_) = fst_enum.next()? {
-  //     count += 1;
-  // }
-  // assert_eq!(count, 1);
+  let mut random = random();
+  let outputs = NoOutputs::get_singleton();
+  let mut fst_compiler = Builder::new(InputType::Byte1,
+  outputs.clone()).build()?;
+
+  let str_key = "foobar";
+  let mut builder = IntsRefBuilder::new();
+  let key:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, str_key)?;
+  for _ in 0..10 {
+      Util::get_ints_ref(&key, &mut builder);
+      fst_compiler.add(builder.get(), outputs.get_no_output())?;
+  }
+
+  let metadata = fst_compiler.compile()?.unwrap();
+  let reader: DataOutputEnum<DummyDirectory> =
+      fst_compiler.get_fst_reader()?;
+  let fst = FST::from_fst_reader(metadata, reader).unwrap();
+
+
+
+  let actual = Util::get_bytes(& fst, &key)?;
+  assert!(actual.is_some());
+
+  let v:BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobaz")?;
+
+  let missing = Util::get_bytes(
+      & fst,
+      &v,
+  )?;
+  assert!(missing.is_none());
+
+  // Count the input paths
+  let mut fst_enum = BytesRefFSTEnum::new(fst)?;
+  let mut count = 0;
+  while let Some(_) = fst_enum.next_value()? {
+      count += 1;
+  }
+  assert_eq!(count, 1);
 
   Ok(())
 }
