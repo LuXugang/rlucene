@@ -110,6 +110,7 @@ mod test_sorted_numeric_sort_field;
 mod test_sorted_set_selector;
 mod test_sorted_set_sort_field;
 mod test_term_query;
+mod test_term_range_query;
 mod test_term_scorer;
 mod test_time_limiting_bulk_scorer;
 mod test_top_docs_collector;
