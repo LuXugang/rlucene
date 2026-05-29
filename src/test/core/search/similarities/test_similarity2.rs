@@ -41,6 +41,7 @@ use rand::RngExt;
 pub struct TestSimilarity2;
 
 fn set_up() -> Result<Vec<SimilarityEnum>> {
+  // TODO IMPORTANT 还有很多其他未实现的 Similarity
   Ok(vec![
     classic_similarity::new().into(),
     BM25Similarity::new()?.into(),
