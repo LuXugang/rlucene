@@ -37,7 +37,99 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::sync::Arc;
-
+/// An `IndexWriter` creates and maintains an index.
+///
+/// The [`OpenMode`] option on [`IndexWriterConfig::set_open_mode`] determines whether a new index
+/// is created, or whether an existing index is opened. Note that you can open an index with
+/// [`OpenMode::Create`] even while readers are using the index. The old readers will continue to
+/// search the "point in time" snapshot they had opened, and won't see the newly created index until
+/// they re-open. If [`OpenMode::CreateOrAppend`] is used `IndexWriter` will create a new index if
+/// there is not already an index at the provided path and otherwise open the existing index.
+///
+/// In either case, documents are added with [`Self::add_document`] and removed with
+/// [`Self::delete_documents_with_terms`] or [`Self::delete_documents_with_queries`]. A document can
+/// be updated with [`Self::update_document_with_term`] (which just deletes and then adds the entire
+/// document). When finished adding, deleting and updating documents, [`Self::close`] should be
+/// called. <a id="sequence_numbers"></a>
+///
+/// Each method that changes the index returns a `long` sequence number, which expresses the
+/// effective order in which each change was applied. [`Self::commit`] also returns a sequence
+/// number, describing which changes are in the commit point and which are not. Sequence numbers are
+/// transient (not saved into the index in any way) and only valid within a single `IndexWriter`
+/// instance. <a id="flush"></a>
+///
+/// These changes are buffered in memory and periodically flushed to the [`Directory`] (during the
+/// above method calls). A flush is triggered when there are enough added documents since the last
+/// flush. Flushing is triggered either by RAM usage of the documents (see
+/// [`IndexWriterConfig::set_ram_buffer_size_mb`]) or the number of added documents (see
+/// [`IndexWriterConfig::set_max_buffered_docs`]). The default is to flush when RAM usage hits
+/// [`IndexWriterConfig::DEFAULT_RAM_BUFFER_SIZE_MB`] MB. For best indexing speed you should flush
+/// by RAM usage with a large RAM buffer. In contrast to the other flush options
+/// [`IndexWriterConfig::set_ram_buffer_size_mb`] and
+/// [`IndexWriterConfig::set_max_buffered_docs`], deleted terms won't trigger a segment flush. Note
+/// that flushing just moves the internal buffered state in `IndexWriter` into the index, but these
+/// changes are not visible to `IndexReader` until either [`Self::commit`] or [`Self::close`] is
+/// called. A flush may also trigger one or more segment merges which by default run with a
+/// background thread so as not to block the `add_document` calls (see
+/// <a href="#mergePolicy">below</a> for changing the [`MergeScheduler`]).
+///
+/// Opening an `IndexWriter` creates a lock file for the directory in use. Trying to open another
+/// `IndexWriter` on the same directory will lead to a
+/// [`LockObtainFailedException`]. <a id="deletionPolicy"></a>
+///
+/// Expert: `IndexWriter` allows an optional [`IndexDeletionPolicy`] implementation to be specified.
+/// You can use this to control when prior commits are deleted from the index. The default policy is
+/// [`KeepOnlyLastCommitDeletionPolicy`] which removes all prior commits as soon as a new commit is
+/// done. Creating your own policy can allow you to explicitly keep previous "point in time"
+/// commits alive in the index for some time, either because this is useful for your application, or
+/// to give readers enough time to refresh to the new commit without having the old commit deleted
+/// out from under them. The latter is necessary when multiple computers take turns opening their
+/// own `IndexWriter` and `IndexReader`s against a single shared index mounted via remote
+/// filesystems like NFS which do not support "delete on last close" semantics. A single computer
+/// accessing an index via NFS is fine with the default deletion policy since NFS clients emulate
+/// "delete on last close" locally. That said, accessing an index via NFS will likely result in poor
+/// performance compared to a local IO device. <a id="mergePolicy"></a>
+///
+/// Expert: `IndexWriter` allows you to separately change the [`MergePolicy`] and the
+/// [`MergeScheduler`]. The [`MergePolicy`] is invoked whenever there are changes to the segments in
+/// the index. Its role is to select which merges to do, if any, and return a
+/// [`MergePolicy::MergeSpecification`] describing the merges. The default is
+/// [`LogByteSizeMergePolicy`]. Then, the [`MergeScheduler`] is invoked with the requested merges
+/// and it decides when and how to run the merges. The default is
+/// [`ConcurrentMergeScheduler`]. <a id="OOME"></a>
+///
+/// **NOTE**: if you hit an Error, or disaster strikes during a checkpoint then `IndexWriter`
+/// will close itself. This is a defensive measure in case any internal state (buffered documents,
+/// deletions, reference counts) were corrupted. Any subsequent calls will return an
+/// [`AlreadyClosedError`]. <a id="thread-safety"></a>
+///
+/// **NOTE**: [`IndexWriter`] instances are completely thread safe, meaning multiple threads can
+/// call any of its methods, concurrently. If your application requires external synchronization,
+/// you should **not** synchronize on the `IndexWriter` instance as this may cause deadlock; use
+/// your own (non-Lucene) objects instead.
+///
+/// **NOTE**: If you call `Thread.interrupt()` on a thread that's within `IndexWriter`,
+/// `IndexWriter` will try to catch this (eg, if it's in a `wait()` or `Thread.sleep()`), and
+/// will then throw the unchecked exception [`ThreadInterruptedException`] and **clear**
+/// the interrupt status on the thread.
+///
+/// Clarification: Check Points (and commits)
+///
+/// `IndexWriter` writes new index files to the directory without writing a new `segments_N`
+/// file which references these new files. It also means that the state of the in memory
+/// `SegmentInfos` object is different than the most recent `segments_N` file written to the
+/// directory.
+///
+/// Each time the `SegmentInfos` is changed, and matches the (possibly modified) directory files,
+/// we have a new "check point".
+/// If the modified/new `SegmentInfos` is written to disk - as a new (generation of)
+/// `segments_N` file - this check point is also an `IndexCommit`.
+///
+/// A new checkpoint always replaces the previous checkpoint and becomes the new "front" of the
+/// index. This allows the `IndexFileDeleter` to delete files that are referenced only by stale
+/// checkpoints (files that were created since the last commit, but are no longer referenced by the
+/// "front" of the index). For this, `IndexFileDeleter` keeps track of the last non commit
+/// checkpoint.
 pub struct IndexWriter<D>
 where
   D: Directory,
@@ -565,9 +657,12 @@ where
 
     Ok(map)
   }
+  /// Returns the [`IndexWriterConfig`] that was passed to [`IndexWriter::new`]. This returns
+  /// a live reference; changes to the config affect this writer instance.
   pub fn get_config(&self) -> &IndexWriterConfig {
     &self.config
   }
+  /// Mutable version of [`Self::get_config`].
   pub fn get_config_mut(&mut self) -> &mut IndexWriterConfig {
     &mut self.config
   }
@@ -673,6 +768,7 @@ where
       }
     }
   }
+  /// Returns the [`Directory`] used by this index.
   pub fn get_directory(&self) -> Arc<D> {
     self.directory_orig.clone()
   }
@@ -948,7 +1044,10 @@ where
   /// near-real-time reader (from [`DirectoryReader::open`]). If the provided reader is an NRT
   /// reader obtained from this writer, and its segment has not been merged away, then the update
   /// succeeds and this method returns a valid (> 0) sequence number; else, it returns -1 and the
-  /// caller must then either retry the update and resolve the document again.
+  /// caller must then either retry the update and resolve the document again. If a doc values
+  /// field data is `None` the existing value is removed from all documents matching the term.
+  /// This can be used to un-delete a soft-deleted document since this method will apply the
+  /// field update even if the document is marked as deleted.
   ///
   /// **NOTE**: this method can only update documents visible to the currently open NRT reader.
   /// If you need to update documents indexed after opening the NRT reader you must use
@@ -3729,6 +3828,8 @@ where
     }
     Ok(())
   }
+  /// Expert: obtains the number of deleted docs in the given segment, buffering deletes
+  /// for the segment if it hasn't been loaded yet.
   pub fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
     self.do_ensure_open(false)?;
     self.validate(info)?;
@@ -3745,7 +3846,16 @@ where
       Ok(del_count)
     }
   }
-
+  /// Used internally to return an [`AlreadyClosedError`] if this `IndexWriter` has been closed
+  /// or is in the process of closing.
+  ///
+  /// # Parameters
+  /// * `fail_if_closing` - if true, also fail when `IndexWriter` is in the process of closing
+  ///   (`closing=true`) but not yet done closing (`closed=false`).
+  ///
+  /// # Errors
+  /// Returns an [`AlreadyClosedError`] if this `IndexWriter` is closed or in the process of
+  /// closing.
   pub(crate) fn do_ensure_open(&self, fail_if_closing: bool) -> Result<()> {
     if self.closed.load(Ordering::SeqCst)
       || (fail_if_closing && self.closing.load(Ordering::SeqCst))
@@ -5131,6 +5241,8 @@ where
     Ok(())
   }
 
+  /// Returns the [`TragicException`] if a tragic (unrecoverable) error has occurred,
+  /// or `TragicException::None` otherwise.
   pub fn get_tragic_exception(&self) -> TragicException {
     self.tragedy.clone()
   }
@@ -5864,6 +5976,50 @@ where
     }
     Ok(())
   }
+  /// Expert: returns a readonly reader, covering all committed as well as un-committed changes to
+  /// the index. This provides "near real-time" searching, in that changes made during an
+  /// `IndexWriter` session can be quickly made available for searching without closing the writer nor
+  /// calling [`Self::commit`].
+  ///
+  /// Note that this is functionally equivalent to calling [`Self::flush`] and then opening a new
+  /// reader. But the turnaround time of this method should be faster since it avoids the potentially
+  /// costly [`Self::commit`].
+  ///
+  /// You must close the [`IndexReader`] returned by this method once you are done using it.
+  ///
+  /// It's *near* real-time because there is no hard guarantee on how quickly you can get a new reader
+  /// after making changes with `IndexWriter`. You'll have to experiment in your situation to determine
+  /// if it's fast enough. As this is a new and experimental feature, please report back on your
+  /// findings so we can learn, improve and iterate.
+  ///
+  /// The resulting reader supports [`DirectoryReader::open_if_changed`], but that call will simply
+  /// forward back to this method (though this may change in the future).
+  ///
+  /// The very first time this method is called, this writer instance will make every effort to pool
+  /// the readers that it opens for doing merges, applying deletes, etc. This means additional
+  /// resources (RAM, file descriptors, CPU time) will be consumed.
+  ///
+  /// For lower latency on reopening a reader, you should call
+  /// [`IndexWriterConfig::set_merged_segment_warmer`] to pre-warm a newly merged segment before it's
+  /// committed to the index. This is important for minimizing index-to-search delay after a large
+  /// merge.
+  ///
+  /// If an `add_indexes*` call is running in another thread, then this reader will only search those
+  /// segments from the foreign index that have been successfully copied over, so far.
+  ///
+  /// **NOTE**: Once the writer is closed, any outstanding readers may continue to be used. However, if
+  /// you attempt to reopen any of those readers, you'll return an [`AlreadyClosedError`].
+  ///
+  /// # Returns
+  /// `IndexReader` that covers entire index plus all changes made so far by this `IndexWriter`
+  /// instance.
+  ///
+  /// # Errors
+  /// Returns an error if there is a low-level I/O error.
+  ///
+  /// # Experimental
+  ///
+  /// This API is experimental and might change in incompatible ways in the next release.
   pub(crate) fn get_reader(
     &self,
     apply_all_deletes: bool,
