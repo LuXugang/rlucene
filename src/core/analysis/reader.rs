@@ -17,13 +17,14 @@
 #[cfg(test)]
 use crate::core::analysis::char_filter::CharFilter;
 #[cfg(test)]
-use crate::core::analysis::char_filter::tests::{CharFilter1, CharFilter2};
-#[cfg(test)]
 use crate::test::core::analysis::mock_char_filter::MockCharFilter;
 
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::tokenizer::IllegalStateReader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use crate::test::core::analysis::test_char_filter::{CharFilter1, CharFilter2};
+
 pub trait Reader {
   /// Reads a single character. Returns -1 on EOF
   fn read(&mut self) -> Result<i32> {

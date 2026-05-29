@@ -107,10 +107,3 @@ pub type IndexingTokenStream<'a> = Option<
   >,
 >;
 pub type ReusedIndexingTokenStream = TokenStreamEnum2<BinaryTokenStream, StringTokenStream>;
-
-#[cfg(test)]
-mod tests {
-  // TODO : IndexWriter not implement
-  #[allow(dead_code)] // for quick search
-  struct TestIndexableField;
-}
