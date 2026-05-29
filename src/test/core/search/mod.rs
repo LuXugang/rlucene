@@ -77,6 +77,7 @@ pub mod test_min_should_match2;
 pub mod test_multi_slice_merge;
 mod test_multi_term_constant_score;
 pub(crate) mod test_multi_term_query_rewrites;
+mod test_multi_thread_term_vectors;
 mod test_n_gram_phrase_query;
 mod test_nearest;
 pub(crate) mod test_needs_scores;
