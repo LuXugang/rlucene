@@ -18,9 +18,9 @@
 use crate::core::index::BytesRef;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::fst::{Arc, FST, InputType};
 use crate::core::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
+use crate::core::util::fst_impl::no_outputs::NoOutputs;
 use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
@@ -145,9 +145,8 @@ pub fn build_fst(
   words: &[String],
   allow_array_arcs: bool,
   allow_direct_addressing: bool,
-) -> Result<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>> {
-  // TODO: NoOutputs 未实现，先使用 ByteSequenceOutputs
-  let outputs = ByteSequenceOutputs::get_singleton();
+) -> Result<FST<NoOutputs, DataOutputEnum<DummyDirectory>>> {
+  let outputs = NoOutputs::get_singleton();
 
   let mut builder = Builder::new(InputType::Byte1, outputs.clone());
   builder.allow_fixed_length_arcs(allow_array_arcs);
