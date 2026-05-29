@@ -31,6 +31,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::Arc;
+use std::sync::LazyLock;
 
 /// A block-based terms index and dictionary that assigns terms to variable
 /// length blocks according to how they share prefixes. The terms index is a
@@ -358,9 +359,8 @@ pub(crate) const TERMS_INDEX_CODEC_NAME: &str = "BlockTreeTermsIndex";
 /// Extension of terms meta file
 pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
 pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
-thread_local! {
-    pub(crate) static NO_OUTPUT:BytesRef<Arc<Vec<u8>>> ={let v = ByteSequenceOutputs::get_singleton(); v.get_no_output()};
-}
+pub(crate) static NO_OUTPUT: LazyLock<BytesRef<Arc<Vec<u8>>>> =
+  LazyLock::new(|| ByteSequenceOutputs::get_singleton().get_no_output());
 fn read_bytes_ref<I>(input: &mut I) -> Result<BytesRef<Vec<u8>>>
 where
   I: IndexInput,

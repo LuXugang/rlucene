@@ -870,7 +870,7 @@ impl OutputAccumulator {
     }
   }
   pub(crate) fn push(&mut self, output: BytesRef<std::sync::Arc<Vec<u8>>>) {
-    if !NO_OUTPUT.with(|rc| BytesRef::equals(&output, rc)) {
+    if !BytesRef::equals(&output, &NO_OUTPUT) {
       debug_assert!(output.length > 0);
       if self.outputs.len() == self.num {
         self.outputs.resize(self.num + 1, BytesRef::new());
@@ -881,7 +881,7 @@ impl OutputAccumulator {
   }
 
   pub(crate) fn pop(&mut self, output: &BytesRef<std::sync::Arc<Vec<u8>>>) {
-    if !NO_OUTPUT.with(|rc| BytesRef::equals(output, rc)) {
+    if !BytesRef::equals(output, &NO_OUTPUT) {
       debug_assert!(self.num > 0);
       debug_assert!(&self.outputs[self.num - 1] == output);
       self.num -= 1;
