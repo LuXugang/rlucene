@@ -159,6 +159,11 @@ impl IndexWriterConfig {
     self.base.parent_field = Some(v);
     self
   }
+
+  pub fn set_reader_pooling(&mut self, reader_pooling: bool) -> &mut Self {
+    self.base.reader_pooling = reader_pooling;
+    self
+  }
 }
 
 impl Display for IndexWriterConfig {

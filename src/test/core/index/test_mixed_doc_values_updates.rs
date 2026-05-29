@@ -39,6 +39,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_docs::TopDocsLike;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -662,16 +663,16 @@ fn test_try_update_multi_threaded() -> Result<()> {
   Ok(())
 }
 
-fn do_update<D>(doc: Term, writer: &IndexWriter<D>, updates: Vec<Fields>) -> Result<()>
+fn do_update<D>(doc: Term, writer: &IndexWriter<D>, fields: Vec<Fields>) -> Result<()>
 where
   D: Directory + 'static,
 {
-  let reader = directory_reader::open_from_writer(writer)?;
-  let searcher = new_searcher_with_reader(reader)?;
+  let reader = Arc::new(directory_reader::open_from_writer(writer)?);
+  let searcher = new_searcher_with_reader(reader.clone())?;
   let top_docs = searcher.search(TermQuery::new(doc.clone()), 10)?;
   assert_eq!(1, top_docs.total_hits.value());
-  // TODO IMPORTANT tryUpdateDocValue未实现
-  writer.update_doc_values(doc, updates)?;
+  let the_doc = top_docs.score_docs()[0].doc;
+  writer.try_update_doc_value(reader.as_ref().into(), the_doc, fields)?;
   Ok(())
 }
 

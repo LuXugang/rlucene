@@ -628,25 +628,104 @@ fn test_error_in_docs_writer_add() -> Result<()> {
 
 #[test]
 fn test_delete_null_query() -> Result<()> {
-  // TODO
+  // TODO delete by query 未实现
   Ok(())
 }
 
 #[test]
 fn test_delete_all_slowly() -> Result<()> {
-  // TODO
+  use crate::core::index::index_reader::IndexReader;
+  use rand::RngExt;
+  use rand::seq::SliceRandom;
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+  let num_docs = at_least(&mut random, 1000) as usize;
+  let mut ids: Vec<i32> = (0..num_docs as i32).collect();
+  ids.shuffle(&mut random);
+  let mut field_types = HashMap::new();
+
+  for &id in &ids {
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "id",
+      id.to_string(),
+      Store::No,
+      &mut field_types,
+    )?);
+    w.add_document(doc)?;
+  }
+  ids.shuffle(&mut random);
+
+  let mut upto = 0;
+  while upto < ids.len() {
+    let left = ids.len() - upto;
+    let inc = std::cmp::min(left, random.random_range(1..21));
+    let limit = upto + inc;
+    while upto < limit {
+      w.delete_documents_with_terms(vec![Term::from_text("id", ids[upto].to_string())])?;
+      upto += 1;
+    }
+    let r = w.get_reader()?;
+    assert_eq!((num_docs - upto) as i32, r.num_docs()?);
+    r.close()?;
+  }
+
+  w.close()?;
+
   Ok(())
 }
 
 #[test]
 fn test_indexing_then_deleting() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT 分词器有 BUG
   Ok(())
 }
 
 #[test]
 fn test_flush_pushed_deletes_by_ram() -> Result<()> {
-  // TODO
+  use crate::core::index::no_merge_policy::NoMergePolicy;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::slow_file_exists;
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc
+    .set_ram_buffer_size_mb(0.5)
+    .set_max_buffered_docs(1000)
+    .set_merge_policy(NoMergePolicy::default());
+  iwc.set_reader_pooling(false);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut count = 0;
+  loop {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "id",
+      count.to_string(),
+      Store::No,
+    )?);
+    let del_term = if count == 1010 {
+      Term::from_text("id", "0")
+    } else {
+      Term::from_text("id", format!("x{}", count))
+    };
+    w.update_document_with_term(del_term, doc)?;
+    if slow_file_exists(dir.as_ref(), "_0_1.del")? || slow_file_exists(dir.as_ref(), "_0_1.liv")? {
+      break;
+    }
+    count += 1;
+    if count > 100000 {
+      unreachable!("delete's were not applied");
+    }
+  }
+  w.close()?;
+
   Ok(())
 }
 
@@ -658,19 +737,96 @@ fn test_apply_deletes_on_flush() -> Result<()> {
 
 #[test]
 fn test_deletes_check_index_output() -> Result<()> {
-  // TODO
+  // TODO IMPORTANT CheckIndex未实现
   Ok(())
 }
 
 #[test]
 fn test_try_delete_document() -> Result<()> {
-  // TODO
+  use crate::core::index::composite_reader::get_context;
+  use crate::core::index::directory_reader;
+  use crate::core::index::directory_reader::DirectoryReader;
+  use crate::core::index::index_writer::ModifyReader;
+  use crate::core::index::multi_bits;
+  use crate::core::index::no_merge_policy::NoMergePolicy;
+  use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  w.add_document(Document::new())?;
+  w.add_document(Document::new())?;
+  w.add_document(Document::new())?;
+  w.close()?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  let r = directory_reader::open_from_writer(&w)?;
+  assert_ne!(w.try_delete_document(ModifyReader::Composite(&r), 1)?, -1);
+  assert!(!r.is_current(&w)?);
+
+  let context = get_context(&r)?;
+  let leaves = context.leaves()?;
+  let leaf_reader = leaves[0].reader();
+  assert_ne!(
+    w.try_delete_document::<StandardDirectoryReaderType<_>>(ModifyReader::Leaf(&**leaf_reader), 0)?,
+    -1
+  );
+  assert!(!r.is_current(&w)?);
+  drop(r);
+  w.close()?;
+
+  let r = directory_reader::open(dir.clone())?;
+  assert_eq!(2, r.num_deleted_docs()?);
+  assert!(multi_bits::get_live_docs(&r)?.is_some());
+  drop(r);
+
   Ok(())
 }
 
 #[test]
 fn test_nrt_is_current_after_delete() -> Result<()> {
-  // TODO
+  use crate::core::index::directory_reader;
+  use crate::core::index::directory_reader::DirectoryReader;
+  use crate::core::index::term::Term;
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  w.add_document(Document::new())?;
+  w.add_document(Document::new())?;
+  w.add_document(Document::new())?;
+  w.add_document(Document::new())?;
+  w.add_document(Document::new())?;
+  let mut field_types = HashMap::new();
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  w.add_document(doc)?;
+  w.close()?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  let r = directory_reader::open_with_writer_deletes(&w, false, false)?;
+  w.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+  let r2 = directory_reader::open_with_writer_deletes(&w, true, true)?;
+  assert!(!r.is_current(&w)?);
+  assert!(r2.is_current(&w)?);
+
   Ok(())
 }
 
