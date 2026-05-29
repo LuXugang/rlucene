@@ -14,10 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod fst_tester;
-mod test_bit_table_util;
-mod test_fst_direct_addressing;
-mod test_fsts;
-mod test_growable_byte_array_data_output;
-mod test_node_hash;
-mod test_util;
+use crate::core::util::error::lucene_error::Result;
+
+#[allow(dead_code)] // for quick search
+struct TestFSTDirectAddressing;
+
+#[test]
+fn test_dense_with_gap() -> Result<()> {
+  // TODO IMPORTANT
+  Ok(())
+}
+
+#[test]
+fn test_de_dup_tails() -> Result<()> {
+  // TODO IMPORTANT
+  Ok(())
+}
+
+#[test]
+#[cfg(feature = "nightly")]
+#[ignore = "nightly"]
+fn test_worst_case_for_direct_addressing() -> Result<()> {
+  // TODO IMPORTANT
+  Ok(())
+}

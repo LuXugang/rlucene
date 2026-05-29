@@ -24,9 +24,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, TryIntoInt};
 
-thread_local! {
-    static NO_OUTPUT:BytesRef<Arc<Vec<u8>>> = BytesRef::default();
-}
+static NO_OUTPUT: LazyLock<BytesRef<Arc<Vec<u8>>>> = LazyLock::new(BytesRef::default);
+
 pub static SINGLETON: LazyLock<ByteSequenceOutputs> = LazyLock::new(|| ByteSequenceOutputs);
 /// An FST Outputs implementation where each output is a sequence of bytes.
 ///
@@ -56,7 +55,7 @@ impl Outputs for ByteSequenceOutputs {
 
     match mismatch_pos {
       -1 => output1.clone(),
-      0 => NO_OUTPUT.with(|rc| rc.clone()),
+      0 => NO_OUTPUT.clone(),
       n if n as usize == output1.length => output1.clone(),
       n if n as usize == output2.length => output2.clone(),
       n => BytesRef::from_slice(output1.bytes.clone(), output1.offset, n as usize),
@@ -64,7 +63,7 @@ impl Outputs for ByteSequenceOutputs {
   }
 
   fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
-    if NO_OUTPUT.with(|rc| BytesRef::equals(inc, rc)) {
+    if BytesRef::equals(inc, &NO_OUTPUT) {
       // no prefix removed
       return output.clone();
     }
@@ -78,7 +77,7 @@ impl Outputs for ByteSequenceOutputs {
       inc.length
     ));
     if inc.length == output.length {
-      NO_OUTPUT.with(|rc| rc.clone())
+      NO_OUTPUT.clone()
     } else {
       debug_assert!(
         inc.length < output.length,
@@ -96,7 +95,7 @@ impl Outputs for ByteSequenceOutputs {
   }
 
   fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
-    let no_output = NO_OUTPUT.with(|rc| rc.clone());
+    let no_output = NO_OUTPUT.clone();
     if BytesRef::equals(prefix, &no_output) {
       return output.clone();
     }
@@ -125,7 +124,7 @@ impl Outputs for ByteSequenceOutputs {
   fn read(&self, input: &mut impl DataInput) -> Result<Self::V> {
     let len = input.read_vint()?.try_convert()?;
     if len == 0 {
-      Ok(NO_OUTPUT.with(|rc| rc.clone()))
+      Ok(NO_OUTPUT.clone())
     } else {
       let mut output = vec![0u8; len];
       input.read_bytes(&mut output, 0, len)?;
@@ -142,7 +141,7 @@ impl Outputs for ByteSequenceOutputs {
   }
 
   fn get_no_output(&self) -> Self::V {
-    NO_OUTPUT.with(|rc| rc.clone())
+    NO_OUTPUT.clone()
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {

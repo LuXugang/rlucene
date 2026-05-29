@@ -19,60 +19,79 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use std::sync::LazyLock;
 
-#[derive(Default)]
+static NO_OUTPUT: LazyLock<Arc<i64>> = LazyLock::new(|| Arc::new(0));
+
+pub static SINGLETON: LazyLock<NoOutputs> = LazyLock::new(|| NoOutputs);
+
+/// A null FST Outputs implementation; use this if you just want to build an FSA.
+///
+/// lucene.experimental
+#[derive(Default, Clone)]
 pub struct NoOutputs;
+
 impl NoOutputs {
-  pub fn get_singleton(&self) -> Self {
-    todo!()
+  pub fn get_singleton() -> &'static NoOutputs {
+    &SINGLETON
+  }
+
+  fn valid(&self, o: &Arc<i64>) -> bool {
+    debug_assert!(Arc::ptr_eq(o, &NO_OUTPUT), "got {o}");
+    true
   }
 }
 
 impl Display for NoOutputs {
-  fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
-    todo!()
-  }
-}
-
-impl Clone for NoOutputs {
-  fn clone(&self) -> Self {
-    NoOutputs
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
 impl Outputs for NoOutputs {
-  // TODO: 未完成
   type V = Arc<i64>;
 
-  fn common(&self, _output1: &Self::V, _output2: &Self::V) -> Self::V {
-    todo!()
+  fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
+    debug_assert!(Arc::ptr_eq(output1, &NO_OUTPUT));
+    debug_assert!(Arc::ptr_eq(output2, &NO_OUTPUT));
+    NO_OUTPUT.clone()
   }
 
-  fn subtract(&self, _output: &Self::V, _inc: &Self::V) -> Self::V {
-    todo!()
+  fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
+    debug_assert!(Arc::ptr_eq(output, &NO_OUTPUT));
+    debug_assert!(Arc::ptr_eq(inc, &NO_OUTPUT));
+    NO_OUTPUT.clone()
   }
 
-  fn add(&self, _prefix: &Self::V, _output: &Self::V) -> Self::V {
-    todo!()
+  fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
+    debug_assert!(Arc::ptr_eq(prefix, &NO_OUTPUT), "got {prefix}");
+    debug_assert!(Arc::ptr_eq(output, &NO_OUTPUT));
+    NO_OUTPUT.clone()
   }
 
   fn write(&self, _output: &Self::V, _out: &mut impl DataOutput) -> Result<()> {
-    todo!()
+    Ok(())
   }
 
   fn read(&self, _input: &mut impl DataInput) -> Result<Self::V> {
-    todo!()
+    Ok(NO_OUTPUT.clone())
   }
 
   fn get_no_output(&self) -> Self::V {
-    todo!()
+    NO_OUTPUT.clone()
   }
 
   fn output_to_string(&self, _output: &Self::V) -> String {
-    todo!()
+    String::new()
+  }
+
+  fn merge(&self, first: &Self::V, second: &Self::V) -> Result<Self::V> {
+    debug_assert!(Arc::ptr_eq(first, &NO_OUTPUT));
+    debug_assert!(Arc::ptr_eq(second, &NO_OUTPUT));
+    Ok(NO_OUTPUT.clone())
   }
 
   fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
-    todo!()
+    0
   }
 }

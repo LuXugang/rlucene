@@ -25,9 +25,9 @@ use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 
-thread_local! {
-    static NO_OUTPUT: IntsRef<Arc<Vec<i32>>> = IntsRef::new();
-}
+/// Global NO_OUTPUT singleton shared by all threads, matching Java's
+/// `private static final IntsRef NO_OUTPUT = new IntsRef()` semantics.
+static NO_OUTPUT: LazyLock<IntsRef<Arc<Vec<i32>>>> = LazyLock::new(IntsRef::new);
 
 pub static SINGLETON: LazyLock<IntSequenceOutputs> = LazyLock::new(|| IntSequenceOutputs);
 
@@ -64,7 +64,7 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
-    let no_output_clone = NO_OUTPUT.with(|rc| rc.clone());
+    let no_output_clone = NO_OUTPUT.clone();
 
     if IntsRef::equals(inc, &no_output_clone) {
       return output.clone();
@@ -82,7 +82,7 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
-    let no_output = NO_OUTPUT.with(|rc| rc.clone());
+    let no_output = NO_OUTPUT.clone();
 
     if IntsRef::equals(prefix, &no_output) {
       return output.clone();
@@ -137,7 +137,7 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn get_no_output(&self) -> Self::V {
-    NO_OUTPUT.with(|rc| rc.clone())
+    NO_OUTPUT.clone()
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {

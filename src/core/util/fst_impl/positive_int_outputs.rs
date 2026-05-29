@@ -16,17 +16,13 @@
  */
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-use std::thread_local;
-
 use std::sync::LazyLock;
 
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 
-thread_local! {
-    static NO_OUTPUT: Arc<i64> = Arc::new(0);
-}
+static NO_OUTPUT: LazyLock<Arc<i64>> = LazyLock::new(|| Arc::new(0));
 
 pub static SINGLETON: LazyLock<PositiveIntOutputs> = LazyLock::new(|| PositiveIntOutputs);
 /// An FST `Outputs` implementation where each output is a non-negative long
@@ -40,7 +36,7 @@ impl PositiveIntOutputs {
   }
 
   fn valid(&self, o: &Arc<i64>) -> bool {
-    debug_assert!(NO_OUTPUT.with(|rc| Arc::ptr_eq(o, rc)) || **o > 0, "o= {o}");
+    debug_assert!(Arc::ptr_eq(o, &NO_OUTPUT) || **o > 0, "o= {o}");
     true
   }
 }
@@ -103,7 +99,7 @@ impl Outputs for PositiveIntOutputs {
   }
 
   fn get_no_output(&self) -> Self::V {
-    NO_OUTPUT.with(|rc| rc.clone())
+    NO_OUTPUT.clone()
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {
