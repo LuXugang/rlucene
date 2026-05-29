@@ -21,6 +21,7 @@ pub mod bulk_scorer_wrapper_scorer;
 pub mod check_hits;
 pub mod dummy_total_hit_count_collector;
 pub(crate) mod fixed_bit_set_collector;
+mod knn;
 pub mod query_utils;
 pub mod random_approximation_query;
 pub mod scorer_index_searcher;
