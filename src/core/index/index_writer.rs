@@ -72,6 +72,7 @@ where
   flush_deletes_count: AtomicI32,
   reader_pool: ReaderPool<D, LongSupplierImpl>,
   buffered_updates_stream: Arc<BufferedUpdatesStream>,
+  buffered_updates_stream_lock: Mutex<()>,
   merge_finished_gen: AtomicI64,
   pub(crate) config: IndexWriterConfig,
   pub(crate) pending_num_docs: Arc<AtomicI64>,
@@ -128,6 +129,7 @@ where
     // TODO IMPORTANT 其他close需要用到IndexWriter的字段都需要在这里处理
   }
 }
+
 pub type DefaultIndexWriterType<D> = IndexWriter<D>;
 impl<D> IndexWriter<D>
 where
@@ -135,6 +137,28 @@ where
 {
   pub fn new(d: Arc<D>, conf: IndexWriterConfig) -> Result<Self> {
     Self::with_hooks(d, conf, Some(EmptyIndexWriterHooks.into()))
+  }
+}
+
+/// Unified reader wrapper for try_modify_document.
+pub enum ModifyReader<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> {
+  Leaf(&'a SegmentReader<D>),
+  Composite(&'a CR),
+}
+
+impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>>
+  From<&'a SegmentReader<D>> for ModifyReader<'a, D, CR>
+{
+  fn from(r: &'a SegmentReader<D>) -> Self {
+    ModifyReader::Leaf(r)
+  }
+}
+
+impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> From<&'a CR>
+  for ModifyReader<'a, D, CR>
+{
+  fn from(r: &'a CR) -> Self {
+    ModifyReader::Composite(r)
   }
 }
 
@@ -229,7 +253,7 @@ where
         rollback_segments = segment_infos.create_backup_segment_infos()?;
 
         // Record that we have a change (zero out all segments) pending:
-        Self::changed(&mut change_count, &mut segment_infos);
+        changed(&mut change_count, &mut segment_infos);
         None
       } else if index_commit_wrapper.reader.is_some() {
         let reader = index_commit_wrapper.reader.take().unwrap();
@@ -335,7 +359,7 @@ where
           let old_infos =
             SegmentInfos::read_commit(directory_orig.clone(), commit.get_segments_file_name())?;
           segment_infos.replace(old_infos);
-          Self::changed(&mut change_count, &mut segment_infos);
+          changed(&mut change_count, &mut segment_infos);
 
           if info_stream.enabled("IW") {
             info_stream.message(
@@ -418,13 +442,13 @@ where
         // We have to mark ourselves as changed so that if we
         // are closed w/o any further changes we write a new
         // segments_N file.
-        Self::changed(&mut change_count, &mut segment_infos);
+        changed(&mut change_count, &mut segment_infos);
       }
 
       if has_reader {
         // We always assume we are carrying over incoming changes when opening from reader:
         segment_infos.changed();
-        Self::changed(&mut change_count, &mut segment_infos);
+        changed(&mut change_count, &mut segment_infos);
       }
 
       let iw = Self {
@@ -448,6 +472,7 @@ where
         flush_deletes_count: AtomicI32::new(0),
         reader_pool,
         buffered_updates_stream,
+        buffered_updates_stream_lock: Mutex::new(()),
         merge_finished_gen: AtomicI64::new(0),
         config: conf,
         pending_num_docs,
@@ -898,9 +923,89 @@ where
       ));
     }
 
-    let updates = self.build_doc_values_update(term, soft_deletes)?;
+    let updates = self.build_doc_values_update(Some(term), soft_deletes)?;
     let node = DocumentsWriterDeleteQueue::new_node_with_doc_values(updates);
     self.update_documents(Some(Arc::new(node)), docs)
+  }
+  /// Expert: attempts to delete by document ID, as long as the provided reader is a near-real-time
+  /// reader (from [`DirectoryReader::open`]). If the provided reader is an NRT reader obtained from
+  /// this writer, and its segment has not been merged away, then the delete succeeds and this method
+  /// returns a valid (> 0) sequence number; else, it returns -1 and the caller must then separately
+  /// delete by [`Term`] or [`Query`].
+  ///
+  /// **NOTE**: this method can only delete documents visible to the currently open NRT reader.
+  /// If you need to delete documents indexed after opening the NRT reader you must use
+  /// [`Self::delete_documents_with_terms`].
+  pub fn try_delete_document<CR>(&self, reader: ModifyReader<'_, D, CR>, doc_id: i32) -> Result<i64>
+  where
+    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+  {
+    let mut inner = self.inner.lock();
+    self.try_modify_document(reader, doc_id, &DocModifierImpl1, &mut inner)
+  }
+
+  /// Expert: attempts to update doc values by document ID, as long as the provided reader is a
+  /// near-real-time reader (from [`DirectoryReader::open`]). If the provided reader is an NRT
+  /// reader obtained from this writer, and its segment has not been merged away, then the update
+  /// succeeds and this method returns a valid (> 0) sequence number; else, it returns -1 and the
+  /// caller must then either retry the update and resolve the document again.
+  ///
+  /// **NOTE**: this method can only update documents visible to the currently open NRT reader.
+  /// If you need to update documents indexed after opening the NRT reader you must use
+  /// [`Self::update_doc_values`].
+  pub fn try_update_doc_value<CR>(
+    &self,
+    reader: ModifyReader<'_, D, CR>,
+    doc_id: i32,
+    fields: Vec<Fields>,
+  ) -> Result<i64>
+  where
+    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+  {
+    let mut inner = self.inner.lock();
+    let dv_updates = self.build_doc_values_update(None::<Arc<Term>>, fields)?;
+    let modifier = DocModifierImpl2 { dv_updates };
+    self.try_modify_document(reader, doc_id, &modifier, &mut inner)
+  }
+
+  fn try_modify_document<DM, CR>(
+    &self,
+    reader: ModifyReader<'_, D, CR>,
+    doc_id: i32,
+    to_apply: &DM,
+    inner: &mut Inner<D>,
+  ) -> Result<i64>
+  where
+    DM: DocModifier,
+    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+  {
+    use crate::core::index::composite_reader::get_context;
+    use crate::core::index::reader_util::ReaderUtil;
+
+    let (info_id_owned, leaf_doc_id) = match reader {
+      ModifyReader::Leaf(r) => (r.original_si_id.clone(), doc_id),
+      ModifyReader::Composite(cr) => {
+        let context = get_context(cr)?;
+        let leaves = context.leaves()?;
+        let sub_index = ReaderUtil::sub_index_with_leaves(doc_id, leaves);
+        let leaf_ctx = &leaves[sub_index];
+        let leaf_reader = leaf_ctx.reader();
+        let rebased_doc_id = doc_id - leaf_ctx.doc_base as i32;
+        debug_assert!(rebased_doc_id >= 0);
+        debug_assert!(rebased_doc_id < leaf_reader.max_doc()?);
+        (leaf_reader.original_si_id.clone(), rebased_doc_id)
+      },
+    };
+    let info_id = info_id_owned.as_str();
+    if let Some(info) = inner.segment_infos.index_of(info_id) {
+      let rld_opt = self.get_pooled_instance(SegmentCommitInfoMeta::from(info), false, None)?;
+      if let Some(rld) = rld_opt {
+        let _guard = self.buffered_updates_stream_lock.lock();
+        to_apply.run(leaf_doc_id, info_id, &rld, self, inner)?;
+        return Ok(self.doc_writer.get_next_sequence_number());
+      }
+    }
+    Ok(-1)
   }
 
   /// Drops a segment that has 100% deleted documents.
@@ -977,7 +1082,7 @@ where
       ));
     }
 
-    let updates = self.build_doc_values_update(term, soft_deletes)?;
+    let updates = self.build_doc_values_update(Some(term), soft_deletes)?;
     let node = DocumentsWriterDeleteQueue::new_node_with_doc_values(updates);
     self.update_documents(Some(Arc::new(node)), vec![docs])
   }
@@ -1128,7 +1233,7 @@ where
     T: Into<Arc<Term>>,
   {
     self.do_ensure_open(true)?;
-    let dv_updates = self.build_doc_values_update(term, updates)?;
+    let dv_updates = self.build_doc_values_update(Some(term), updates)?;
 
     let res = (|| {
       let seq = self
@@ -1145,13 +1250,16 @@ where
 
   fn build_doc_values_update<T>(
     &self,
-    term: T,
+    term: Option<T>,
     updates: Vec<Fields>,
   ) -> Result<Vec<DocValuesUpdate>>
   where
     T: Into<Arc<Term>>,
   {
-    let term = term.into();
+    let term: Arc<Term> = match term {
+      Some(t) => t.into(),
+      None => Arc::new(Term::new("", BytesRef::new())),
+    };
     let mut dv_updates = Vec::with_capacity(updates.len());
 
     for mut f in updates {
@@ -2444,7 +2552,7 @@ where
   }
 
   fn checkpoint(&self, inner: &mut Inner<D>) -> Result<()> {
-    Self::changed(&mut inner.change_count, &mut inner.segment_infos);
+    changed(&mut inner.change_count, &mut inner.segment_infos);
     let (deleter, segment_infos) = {
       let v = &mut *inner;
       (&mut v.deleter, &v.segment_infos)
@@ -2472,11 +2580,6 @@ where
     Ok(())
   }
 
-  /// Called internally if any index state has changed.
-  fn changed(change_count: &mut i64, segment_infos: &mut SegmentInfos<D>) {
-    *change_count += 1;
-    segment_infos.changed()
-  }
   fn publish_frozen_updates(
     &self,
     packet: FrozenBufferedUpdates,
@@ -5928,6 +6031,14 @@ where
     inner.segment_infos.get_version()
   }
 }
+/// Called internally if any index state has changed.
+pub(crate) fn changed<D>(change_count: &mut i64, segment_infos: &mut SegmentInfos<D>)
+where
+  D: Directory,
+{
+  *change_count += 1;
+  segment_infos.changed()
+}
 impl<D> TwoPhaseCommit for IndexWriter<D>
 where
   D: Directory,
@@ -6580,10 +6691,12 @@ use crate::core::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpd
 use crate::core::index::buffered_updates::MAX_INT;
 use crate::core::index::caching_merge_context::CachingMergeContext;
 use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
+use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_field_updates::{
   DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
+  DocValuesFieldUpdatesBaseEnum,
 };
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::doc_values_update::{
@@ -6608,7 +6721,7 @@ use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_merger::SegmentMerger;
-use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::sorting_codec_reader::wrap_with_doc_map;
@@ -7307,5 +7420,133 @@ impl MergeSource for AddIndexesMergeSource {
       .as_ref()
       .map(|info| info.info.max_doc())
       .transpose()
+  }
+}
+/// DocModifier trait — equivalent to Java's private interface `DocModifier`
+/// in `IndexWriter`.
+pub(crate) trait DocModifier {
+  fn run<D>(
+    &self,
+    doc_id: i32,
+    info_id: &str,
+    readers_and_updates: &ReadersAndUpdates<D>,
+    writer: &IndexWriter<D>,
+    inner: &mut Inner<D>,
+  ) -> Result<()>
+  where
+    D: Directory;
+}
+#[derive(Default)]
+struct DocModifierImpl1;
+impl DocModifier for DocModifierImpl1 {
+  fn run<D>(
+    &self,
+    left_doc_id: i32,
+    info_id: &str,
+    readers_and_updates: &ReadersAndUpdates<D>,
+    writer: &IndexWriter<D>,
+    inner: &mut Inner<D>,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    let info = inner
+      .segment_infos
+      .index_of(info_id)
+      .ok_or_else(|| LuceneError::illegal_argument(format!("invalid info id: {info_id}")))?;
+    if readers_and_updates.delete(left_doc_id, info, None)? {
+      if writer.is_fully_deleted(readers_and_updates, info)? {
+        writer.drop_deleted_segment(readers_and_updates.get_info_id(), inner)?;
+        writer.checkpoint(inner)?;
+      }
+      // Must bump changeCount so if no other changes
+      // happened, we still commit this change:
+      changed(&mut inner.change_count, &mut inner.segment_infos);
+    }
+
+    Ok(())
+  }
+}
+
+/// DocModifierImpl2: applies doc values updates to a document, following the Java tryUpdateDocValue lambda.
+struct DocModifierImpl2 {
+  dv_updates: Vec<DocValuesUpdate>,
+}
+
+impl DocModifier for DocModifierImpl2 {
+  fn run<D>(
+    &self,
+    leaf_doc_id: i32,
+    info_id: &str,
+    readers_and_updates: &ReadersAndUpdates<D>,
+    writer: &IndexWriter<D>,
+    inner: &mut Inner<D>,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    let next_gen = writer.buffered_updates_stream.get_next_gen();
+
+    let max_doc = {
+      let info = inner
+        .segment_infos
+        .index_of(info_id)
+        .ok_or_else(|| LuceneError::illegal_argument(format!("invalid info id: {info_id}")))?;
+      info.info.max_doc()?
+    };
+
+    let result = (|| -> Result<()> {
+      let mut field_updates_map: HashMap<
+        String,
+        DocValuesFieldUpdates<DocValuesFieldUpdatesBaseEnum>,
+      > = HashMap::new();
+
+      for update in &self.dv_updates {
+        let sub: DocValuesFieldUpdatesBaseEnum = match update.doc_values_type {
+          DocValuesType::Numeric => NumericDocValuesFieldUpdates::new()?.into(),
+          DocValuesType::Binary => BinaryDocValuesFieldUpdates::new()?.into(),
+          _ => {
+            return Err(LuceneError::unsupported_operation(format!(
+              "typ: {} is not supported",
+              update.doc_values_type
+            )));
+          },
+        };
+        let doc_values_field_updates = field_updates_map
+          .entry(update.field.clone())
+          .or_insert_with(|| {
+            DocValuesFieldUpdates::new(max_doc, next_gen, update.field.clone(), sub.sub_type(), sub)
+              .unwrap()
+          });
+
+        if update.has_value() {
+          match &update.sub_update {
+            DocValuesUpdateEnum::Numeric(n) => {
+              doc_values_field_updates.add_value(leaf_doc_id, n.get_value())?;
+            },
+            DocValuesUpdateEnum::Binary(b) => {
+              doc_values_field_updates.add_byte_ref(leaf_doc_id, b.get_value())?;
+            },
+          }
+        } else {
+          doc_values_field_updates.reset(leaf_doc_id)?;
+        }
+      }
+
+      for mut updates in field_updates_map.into_values() {
+        updates.finish()?;
+        readers_and_updates.add_dv_update(updates)?;
+      }
+      Ok(())
+    })();
+
+    writer.buffered_updates_stream.finished_segment(next_gen);
+
+    result?;
+    // Must bump changeCount so if no other changes
+    // happened, we still commit this change:
+    changed(&mut inner.change_count, &mut inner.segment_infos);
+
+    Ok(())
   }
 }
