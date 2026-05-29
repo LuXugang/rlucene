@@ -14,24 +14,24 @@ derive_getters = { path = "libs/derive_getters" }
 flate2 = { default-features = false, features = ["rust_backend"], version = "1.1.9" }
 fs2 = "0.4.3"
 linked-hash-map = "0.5.6"
-log = "0.4.29"
+log = "0.4.30"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
-os_info = "3.14.0"
+os_info = "3.15.0"
 parking_lot = "0.12.5"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 regex = { default-features = false, features = ["std", "unicode"], version = "1.12.3" }
 strum = "0.28.0"
 strum_macros = "0.28.0"
-sysinfo = "0.39.1"
+sysinfo = "0.39.3"
 thiserror = "2.0.18"
 thread_local = "1.1.9"
 
 
 [dev-dependencies]
 num-integer = "0.1.46"
-rand_xoshiro = "0.8.0"
+rand_xoshiro = "0.8.1"
 tempfile = "3.27.0"
 
 [profile.dev]
