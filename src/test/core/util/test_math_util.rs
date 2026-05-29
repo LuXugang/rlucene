@@ -141,8 +141,81 @@ fn test_gcd2() {
   assert_eq!(i64::MIN, MathUtil::gcd(i64::MIN, i64::MIN));
 }
 #[test]
-fn test_acosh_method() {}
+fn test_acosh_method() {
+  // acosh(NaN) == NaN
+  assert!(MathUtil::acosh(f64::NAN).is_nan());
+  // acosh(1) == +0
+  assert_eq!(0, MathUtil::acosh(1.0).to_bits());
+  // acosh(POSITIVE_INFINITY) == POSITIVE_INFINITY
+  assert_eq!(
+    f64::INFINITY.to_bits(),
+    MathUtil::acosh(f64::INFINITY).to_bits()
+  );
+  // acosh(x) : x < 1 == NaN
+  assert!(MathUtil::acosh(0.9).is_nan()); // x < 1
+  assert!(MathUtil::acosh(0.0).is_nan()); // x == 0
+  assert!(MathUtil::acosh(-0.0).is_nan()); // x == -0
+  assert!(MathUtil::acosh(-0.9).is_nan()); // x < 0
+  assert!(MathUtil::acosh(-1.0).is_nan()); // x == -1
+  assert!(MathUtil::acosh(-10.0).is_nan()); // x < -1
+  assert!(MathUtil::acosh(f64::NEG_INFINITY).is_nan()); // x == -Inf
+
+  let epsilon = 0.000001;
+  assert!((MathUtil::acosh(1.0) - 0.0).abs() < epsilon);
+  assert!((MathUtil::acosh(2.5) - 1.5667992369724109).abs() < epsilon);
+  assert!((MathUtil::acosh(1234567.89) - 14.719378760739708).abs() < epsilon);
+}
 #[test]
-fn test_asinh_method() {}
+fn test_asinh_method() {
+  // asinh(NaN) == NaN
+  assert!(MathUtil::asinh(f64::NAN).is_nan());
+  // asinh(+0) == +0
+  assert_eq!(0, MathUtil::asinh(0.0).to_bits());
+  // asinh(-0) == -0
+  assert_eq!((-0.0f64).to_bits(), MathUtil::asinh(-0.0).to_bits());
+  // asinh(POSITIVE_INFINITY) == POSITIVE_INFINITY
+  assert_eq!(
+    f64::INFINITY.to_bits(),
+    MathUtil::asinh(f64::INFINITY).to_bits()
+  );
+  // asinh(NEGATIVE_INFINITY) == NEGATIVE_INFINITY
+  assert_eq!(
+    f64::NEG_INFINITY.to_bits(),
+    MathUtil::asinh(f64::NEG_INFINITY).to_bits()
+  );
+
+  let epsilon = 0.000001;
+  assert!((MathUtil::asinh(-1234567.89) - (-14.719378760740035)).abs() < epsilon);
+  assert!((MathUtil::asinh(-2.5) - (-1.6472311463710958)).abs() < epsilon);
+  assert!((MathUtil::asinh(-1.0) - (-0.8813735870195429)).abs() < epsilon);
+  assert!((MathUtil::asinh(0.0) - 0.0).abs() < epsilon);
+  assert!((MathUtil::asinh(1.0) - 0.8813735870195429).abs() < epsilon);
+  assert!((MathUtil::asinh(2.5) - 1.6472311463710958).abs() < epsilon);
+  assert!((MathUtil::asinh(1234567.89) - 14.719378760740035).abs() < epsilon);
+}
+
 #[test]
-fn test_atanh_method() {}
+fn test_atanh_method() {
+  // atanh(NaN) == NaN
+  assert!(MathUtil::atanh(f64::NAN).is_nan());
+  // atanh(+0) == +0
+  assert_eq!(0, MathUtil::atanh(0.0).to_bits());
+  // atanh(-0) == -0
+  assert_eq!((-0.0f64).to_bits(), MathUtil::atanh(-0.0).to_bits());
+  // atanh(1) == POSITIVE_INFINITY
+  assert_eq!(f64::INFINITY.to_bits(), MathUtil::atanh(1.0).to_bits());
+  // atanh(-1) == NEGATIVE_INFINITY
+  assert_eq!(f64::NEG_INFINITY.to_bits(), MathUtil::atanh(-1.0).to_bits());
+  // atanh(x) : Math.abs(x) > 1 == NaN
+  assert!(MathUtil::atanh(1.1).is_nan()); // x > 1
+  assert!(MathUtil::atanh(f64::INFINITY).is_nan()); // x == Inf
+  assert!(MathUtil::atanh(-1.1).is_nan()); // x < -1
+  assert!(MathUtil::atanh(f64::NEG_INFINITY).is_nan()); // x == -Inf
+
+  let epsilon = 0.000001;
+  assert_eq!(f64::NEG_INFINITY.to_bits(), MathUtil::atanh(-1.0).to_bits());
+  assert!((MathUtil::atanh(-0.5) - (-0.5493061443340549)).abs() < epsilon);
+  assert!((MathUtil::atanh(0.0) - 0.0).abs() < epsilon);
+  assert!((MathUtil::atanh(0.5) - 0.5493061443340549).abs() < epsilon);
+  assert_eq!(f64::INFINITY.to_bits(), MathUtil::atanh(1.0).to_bits());
+}

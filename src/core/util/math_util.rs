@@ -95,21 +95,22 @@ impl MathUtil {
   }
 
   /// Calculates the inverse hyperbolic sine (`asinh`) of a `f64` value.
-  #[allow(dead_code)]
-  pub fn asinh(_a: f64) -> f64 {
-    0f64
+  pub fn asinh(a: f64) -> f64 {
+    // check the sign bit of the raw representation to handle -0
+    let sign = if (a.to_bits() as i64) < 0 { -1.0 } else { 1.0 };
+    sign * (f64::sqrt(a.abs() * a.abs() + 1.0) + a.abs()).ln()
   }
 
   /// Calculates the inverse hyperbolic cosine (`acosh`) of a `f64` value.
-  #[allow(dead_code)]
-  pub fn acosh(_a: f64) -> f64 {
-    0f64
+  pub fn acosh(a: f64) -> f64 {
+    f64::ln(f64::sqrt(a * a - 1.0) + a)
   }
 
   /// Calculates the inverse hyperbolic tangent (`atanh`) of a `f64` value.
-  #[allow(dead_code)]
-  pub fn atanh(_a: f64) -> f64 {
-    0f64
+  pub fn atanh(a: f64) -> f64 {
+    // check the sign bit of the raw representation to handle -0
+    let mult = if (a.to_bits() as i64) < 0 { -0.5 } else { 0.5 };
+    mult * ((1.0 + a.abs()) / (1.0 - a.abs())).ln()
   }
 
   /// Returns a relative error bound for the sum of `num_values` positive
