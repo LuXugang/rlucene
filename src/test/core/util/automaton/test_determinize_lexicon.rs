@@ -16,68 +16,63 @@
  */
 /// Not thorough, but tries to test determinism correctness somewhat randomly,
 /// by determinizing a huge random lexicon.
+#[cfg(test)]
+use rand::Rng;
+use rand::prelude::SliceRandom;
+
+use crate::core::util::automation::automata::Automata;
+use crate::core::util::automation::automaton::Automaton;
+use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
+use crate::core::util::automation::byte_runnable::ByteRunnable;
+use crate::core::util::automation::operations::Operations;
+use crate::core::util::error::lucene_error::Result;
+use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  at_least, is_night_mode, random,
+};
+use crate::test::core::util::test_util::TestUtil;
+
 #[allow(dead_code)] // for quick search
 struct TestDeterminizeLexicon;
-#[cfg(test)]
-mod tests {
-  use rand::Rng;
-  use rand::prelude::SliceRandom;
+#[test]
+fn test_determinize_lexicon() -> Result<()> {
+  let mut random = random();
+  let num = at_least(&mut random, 1);
 
-  use crate::core::util::automation::automata::Automata;
-  use crate::core::util::automation::automaton::Automaton;
-  use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
-  use crate::core::util::automation::byte_runnable::ByteRunnable;
-  use crate::core::util::automation::operations::Operations;
-  use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    at_least, is_night_mode, random,
-  };
-  use crate::test::core::util::test_util::TestUtil;
-  #[test]
-  fn test_determinize_lexicon() -> Result<()> {
-    let mut random = random();
-    let num = at_least(&mut random, 1);
+  for _ in 0..num {
+    let mut automata = Vec::with_capacity(5000);
+    let mut terms = Vec::with_capacity(5000);
 
-    for _ in 0..num {
-      let mut automata = Vec::with_capacity(5000);
-      let mut terms = Vec::with_capacity(5000);
-
-      for _ in 0..5000 {
-        let s = TestUtil::random_unicode_string(&mut random);
-        let a = Automata::make_string(&s)?;
-        automata.push(a);
-        terms.push(s);
-      }
-
-      assert_lexicon(&mut random, terms, automata)?;
+    for _ in 0..5000 {
+      let s = TestUtil::random_unicode_string(&mut random);
+      let a = Automata::make_string(&s)?;
+      automata.push(a);
+      terms.push(s);
     }
-    Ok(())
+
+    assert_lexicon(&mut random, terms, automata)?;
   }
+  Ok(())
+}
 
-  fn assert_lexicon<R>(
-    random: &mut R,
-    terms: Vec<String>,
-    mut automata: Vec<Automaton>,
-  ) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    automata.shuffle(random);
-    let lex = Operations::union_list(&automata.iter().collect::<Vec<_>>())?;
-    let lex = Operations::determinize(&lex, 1_000_000)?;
-    assert!(AutomatonTestUtil::is_finite(&lex)?);
+fn assert_lexicon<R>(random: &mut R, terms: Vec<String>, mut automata: Vec<Automaton>) -> Result<()>
+where
+  R: Rng + ?Sized,
+{
+  automata.shuffle(random);
+  let lex = Operations::union_list(&automata.iter().collect::<Vec<_>>())?;
+  let lex = Operations::determinize(&lex, 1_000_000)?;
+  assert!(AutomatonTestUtil::is_finite(&lex)?);
 
-    for s in terms.iter() {
-      assert!(Operations::run_str(&lex, s));
-    }
-    if is_night_mode() {
-      let lex_byte = ByteRunAutomaton::new(lex.into_owned())?;
-      for s in terms {
-        let bytes = s.as_bytes();
-        assert!(lex_byte.run(bytes, 0, bytes.len())?);
-      }
-    }
-    Ok(())
+  for s in terms.iter() {
+    assert!(Operations::run_str(&lex, s));
   }
+  if is_night_mode() {
+    let lex_byte = ByteRunAutomaton::new(lex.into_owned())?;
+    for s in terms {
+      let bytes = s.as_bytes();
+      assert!(lex_byte.run(bytes, 0, bytes.len())?);
+    }
+  }
+  Ok(())
 }

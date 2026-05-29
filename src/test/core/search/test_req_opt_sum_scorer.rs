@@ -39,7 +39,6 @@ use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::similarities_impl::similarities::tests::new_simple_similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -48,6 +47,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
+use crate::test::core::search::test_similarity::new_simple_similarity;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, random,

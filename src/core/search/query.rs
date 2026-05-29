@@ -38,8 +38,6 @@ use crate::core::document::lat_lon_point_query::LatLonPointQuery;
 use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::blended_term_query::BlendedTermQuery;
-#[cfg(test)]
-use crate::core::search::boolean_scorer::tests::CrazyMustUseBulkScorerQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::byte_vector_similarity_query::ByteVectorSimilarityQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
@@ -65,12 +63,6 @@ use crate::core::search::synonym_query::SynonymQuery;
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
-#[cfg(test)]
-use crate::core::search::usage_tracking_query_caching_policy::tests::DummyQuery1;
-#[cfg(test)]
-use crate::core::search::wand_scorer::tests::MaxScoreWrapperQuery;
-#[cfg(test)]
-use crate::core::search::wand_scorer::tests::WANDScorerQuery;
 use crate::core::search::weight::Weight;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::core_helper::HasIdentity;
@@ -85,6 +77,8 @@ use crate::test::core::search::random_approximation_query::RandomApproximationQu
 #[cfg(test)]
 use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
+use crate::test::core::search::test_boolean_scorer::CrazyMustUseBulkScorerQuery;
+#[cfg(test)]
 use crate::test::core::search::test_multi_term_query_rewrites::BoostCheckingQuery;
 #[cfg(test)]
 use crate::test::core::search::test_needs_scores::AssertNeedsScores;
@@ -96,6 +90,10 @@ use crate::test::core::search::test_regexp_random2::DumbRegexpQuery;
 use crate::test::core::search::test_scorer_perf::BitSetQuery;
 #[cfg(test)]
 use crate::test::core::search::test_sort_random::RandomQuery;
+#[cfg(test)]
+use crate::test::core::search::test_usage_tracking_filter_caching_policy::DummyQuery1;
+#[cfg(test)]
+use crate::test::core::search::test_wand_scorer::{MaxScoreWrapperQuery, WANDScorerQuery};
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

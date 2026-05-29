@@ -19,7 +19,7 @@ use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicat
 use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 #[cfg(test)]
-use crate::core::search::usage_tracking_query_caching_policy::tests::PredicateImpl;
+use crate::test::core::search::test_usage_tracking_filter_caching_policy::PredicateImpl;
 use std::sync::Arc;
 
 /// A cache for queries.

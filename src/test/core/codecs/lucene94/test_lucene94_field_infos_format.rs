@@ -42,44 +42,37 @@ where
   f(&test, &mut random)
 }
 
-#[cfg(test)]
-mod tests {
-  use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::codecs::lucene94::test_lucene94_field_infos_format::run_case;
-  use crate::test::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
+#[test]
+fn test_one_field() -> Result<()> {
+  run_case(|test, random| test.test_one_field(random))
+}
 
-  #[test]
-  fn test_one_field() -> Result<()> {
-    run_case(|test, random| test.test_one_field(random))
-  }
+#[test]
+fn test_immutable_attributes() -> Result<()> {
+  run_case(|test, random| test.test_immutable_attributes(random))
+}
 
-  #[test]
-  fn test_immutable_attributes() -> Result<()> {
-    run_case(|test, random| test.test_immutable_attributes(random))
-  }
+#[test]
+fn test_exception_on_create_output() -> Result<()> {
+  run_case(|test, random| test.test_exception_on_create_output(random))
+}
 
-  #[test]
-  fn test_exception_on_create_output() -> Result<()> {
-    run_case(|test, random| test.test_exception_on_create_output(random))
-  }
+#[test]
+fn test_exception_on_close_output() -> Result<()> {
+  run_case(|test, random| test.test_exception_on_close_output(random))
+}
 
-  #[test]
-  fn test_exception_on_close_output() -> Result<()> {
-    run_case(|test, random| test.test_exception_on_close_output(random))
-  }
+#[test]
+fn test_exception_on_open_input() -> Result<()> {
+  run_case(|test, random| test.test_exception_on_open_input(random))
+}
 
-  #[test]
-  fn test_exception_on_open_input() -> Result<()> {
-    run_case(|test, random| test.test_exception_on_open_input(random))
-  }
+#[test]
+fn test_exception_on_close_input() -> Result<()> {
+  run_case(|test, random| test.test_exception_on_close_input(random))
+}
 
-  #[test]
-  fn test_exception_on_close_input() -> Result<()> {
-    run_case(|test, random| test.test_exception_on_close_input(random))
-  }
-
-  #[test]
-  fn test_random() -> Result<()> {
-    run_case(|test, random| test.test_random(random))
-  }
+#[test]
+fn test_random() -> Result<()> {
+  run_case(|test, random| test.test_random(random))
 }

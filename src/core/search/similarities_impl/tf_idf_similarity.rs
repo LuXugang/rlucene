@@ -17,12 +17,8 @@
 #![allow(rustdoc::invalid_html_tags)]
 
 use crate::core::search::collection_statistics::CollectionStatistics;
-#[cfg(test)]
-use crate::core::search::disjunction_max_query::tests::TestSimilarity;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::similarities_impl::classic_similarity::ClassicSimilarity;
-#[cfg(test)]
-use crate::core::search::similarities_impl::similarities::tests::SimpleSimilarity;
 use crate::core::search::similarities_impl::similarities::{SimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -30,6 +26,10 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
 #[cfg(test)]
 use crate::test::core::index::test_omit_tf::SimpleSimilarity1;
+#[cfg(test)]
+use crate::test::core::search::test_disjunction_max_query::TestSimilarity;
+#[cfg(test)]
+use crate::test::core::search::test_similarity::SimpleSimilarity;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 

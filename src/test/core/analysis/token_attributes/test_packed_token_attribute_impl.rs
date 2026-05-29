@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttribute;
-use crate::core::analysis::token_attributes::char_term_attribute_impl::tests::{
-  assert_clone_is_equal, assert_copy_is_equal,
-};
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::analysis::token_attributes::test_char_term_attribute_impl::{
+  assert_clone_is_equal, assert_copy_is_equal,
+};
 
 #[allow(dead_code)] // for quick search
 struct TestPackedTokenAttributeImpl;

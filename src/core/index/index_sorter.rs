@@ -956,6 +956,3 @@ pub trait SortedDocValuesProvider {
   where
     LR: LeafReader;
 }
-
-#[cfg(test)]
-mod tests {}
