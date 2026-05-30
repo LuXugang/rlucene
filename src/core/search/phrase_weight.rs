@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::impacts_enum::ImpactsEnumEnum2;
+use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{
-  LRImpactsEnum, LRNormNumericDocValues, LRPosting, LeafReader,
-};
+use crate::core::index::leaf_reader::{LRNormNumericDocValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::phrase_matcher::{DefaultPhraseMatcherEnum, PhraseMatcher};
+use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::phrase_scorer::PhraseScorer;
 use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
 use crate::core::search::score_mode::ScoreMode;
@@ -39,6 +36,15 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 pub type SimScorerType = SimScorerEnum2<<SimilarityEnum as Similarity>::SimScorer, SimScorerImpl>;
+
+pub type PhraseWeightScorer<S, IRC> = PhraseScorer<
+  <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>,
+  <S as PhraseWeightBase>::SimScorer,
+  LRNormNumericDocValues<IRCLeafReader<IRC>>,
+>;
+
+pub type PhraseMatcherResult<IE, SS> = Result<Option<PhraseMatcherEnum<IE, SS>>>;
+
 pub struct PhraseWeight<S>
 where
   S: PhraseWeightBase,
@@ -73,6 +79,7 @@ where
   S: PhraseWeightBase,
   IRC: IndexReaderContext,
   <S as PhraseWeightBase>::SimScorer: 'static,
+  <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>: 'static,
 {
   type Matches = MatchWithNoTerms;
 
@@ -167,7 +174,7 @@ where
         } else {
           None
         };
-        let scorer: PhraseScorerType<IRC, S> = PhraseScorer::new(
+        let scorer: PhraseWeightScorer<S, IRC> = PhraseScorer::new(
           matcher,
           self.sub.base().score_mode,
           self.stats.clone(),
@@ -179,16 +186,11 @@ where
     }
   }
 }
-pub type PhraseScorerType<IRC, S> = PhraseScorer<
-  ImpactsEnumEnum2<
-    LRImpactsEnum<IRCLeafReader<IRC>>,
-    SlowImpactsEnum<LRPosting<IRCLeafReader<IRC>>>,
-  >,
-  <S as PhraseWeightBase>::SimScorer,
-  LRNormNumericDocValues<IRCLeafReader<IRC>>,
->;
+
 pub trait PhraseWeightBase {
   type SimScorer: SimScorer + Clone;
+  type IE<LR: LeafReader>: ImpactsEnum;
+
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
   where
     IRC: IndexReaderContext;
@@ -198,7 +200,7 @@ pub trait PhraseWeightBase {
     context: &LeafReaderContext<LR>,
     scorer: Self::SimScorer,
     expose_offsets: bool,
-  ) -> Result<Option<DefaultPhraseMatcherEnum<LR, Self::SimScorer>>>
+  ) -> PhraseMatcherResult<Self::IE<LR>, Self::SimScorer>
   where
     LR: LeafReader;
   fn base(&self) -> &PhraseWeightMeta;

@@ -48,6 +48,7 @@ use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::n_gram_phrase_query::NGramPhraseQuery;
@@ -151,6 +152,7 @@ macro_rules! dispatch_query {
       Query::SortedNumericDocValuesRange($inner) => $body,
       Query::SortedNumericDocValuesSet($inner) => $body,
       Query::SortedSetDocValuesRange($inner) => $body,
+      Query::MultiPhrase($inner) => $body,
       Query::Phrase($inner) => $body,
       Query::Synonym($inner) => $body,
       Query::Term($inner) => $body,
@@ -219,6 +221,7 @@ impl_from_for_enum!(
     MatchNoDocsQuery => MatchNoDocs,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
     MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
+    MultiPhraseQuery=> MultiPhrase,
     NGramPhraseQuery=> NGramPhrase,
     PointRangeQuery => PointRange,
     PrefixQuery => Prefix,
@@ -350,6 +353,7 @@ pub enum Query {
   SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
   SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
   SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
+  MultiPhrase(MultiPhraseQuery),
   Phrase(PhraseQuery),
   Prefix(PrefixQuery),
   Synonym(SynonymQuery),
@@ -441,6 +445,7 @@ impl Query {
             SortedNumericDocValuesRange,
             SortedNumericDocValuesSet,
             SortedSetDocValuesRange,
+            MultiPhrase,
             Phrase,
             Prefix,
             Synonym,

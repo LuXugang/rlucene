@@ -19,6 +19,7 @@ use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{LRImpactsEnum, LRPosting};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{OFFSETS, POSITIONS};
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
@@ -29,7 +30,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::phrase_matcher::{DefaultPhraseMatcherEnum, PhraseMatcherEnum};
+use crate::core::search::phrase_matcher::PhraseMatcherEnum;
 use crate::core::search::phrase_weight::{
   PhraseWeight, PhraseWeightBase, PhraseWeightMeta, SimScorerImpl, SimScorerType,
 };
@@ -474,6 +475,7 @@ impl PhraseQueryWeightBase {
 }
 
 impl PhraseWeightBase for PhraseQueryWeightBase {
+  type IE<LR: LeafReader> = ImpactsEnumEnum2<LRImpactsEnum<LR>, SlowImpactsEnum<LRPosting<LR>>>;
   type SimScorer = Arc<SimScorerType>;
 
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
@@ -533,7 +535,7 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
     context: &LeafReaderContext<LR>,
     scorer: Self::SimScorer,
     expose_offsets: bool,
-  ) -> Result<Option<DefaultPhraseMatcherEnum<LR, Self::SimScorer>>>
+  ) -> Result<Option<PhraseMatcherEnum<Self::IE<LR>, Self::SimScorer>>>
   where
     LR: LeafReader,
   {

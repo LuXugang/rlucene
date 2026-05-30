@@ -18,18 +18,21 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::text_field::text_field_type;
+use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::LRNormNumericDocValues;
+use crate::core::index::leaf_reader::{LRImpactsEnum, LRPosting};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::term::Term;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::phrase_matcher::PhraseMatcher;
 use crate::core::search::phrase_query;
-use crate::core::search::phrase_query::{
-  Builder as PhraseQueryBuilder, PhraseQuery, PhraseQueryWeightBase,
-};
-use crate::core::search::phrase_weight::PhraseScorerType;
+use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
+use crate::core::search::phrase_scorer::PhraseScorer;
+use crate::core::search::phrase_weight::SimScorerType;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::simple_collector::SimpleCollector;
@@ -48,6 +51,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 #[allow(dead_code)]
 pub struct TestSloppyPhraseQuery;
@@ -348,7 +352,14 @@ impl LeafCollector for MaxFreqCollector {
     self.total_hits += 1;
     let ps = scorer
       .as_any()
-      .downcast_mut::<PhraseScorerType<DefaultIRCRC, PhraseQueryWeightBase>>()
+      .downcast_mut::<PhraseScorer<
+        ImpactsEnumEnum2<
+          LRImpactsEnum<IRCLeafReader<DefaultIRCRC>>,
+          SlowImpactsEnum<LRPosting<IRCLeafReader<DefaultIRCRC>>>,
+        >,
+        Arc<SimScorerType>,
+        LRNormNumericDocValues<IRCLeafReader<DefaultIRCRC>>,
+      >>()
       .unwrap();
     let matcher = &mut ps.disi.two_phase_iterator.matcher;
     let mut freq = matcher.sloppy_weight();
