@@ -25,6 +25,7 @@ mod test_byte_buffers_data_input;
 mod test_byte_buffers_data_output;
 mod test_checksum_index_input;
 mod test_index_output_alignment;
+mod test_lock_factory;
 mod test_native_fs_lock_factory;
 mod test_nio_fs_directory;
 mod test_output_stream_index_output;

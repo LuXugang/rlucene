@@ -81,6 +81,7 @@ pub mod lucene_test_case_util {
   use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::tiered_merge_policy::TieredMergePolicy;
+  use crate::core::store::lock_factory::LockFactoryEnum;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use std::sync::Arc;
   use tempfile::TempDir;
@@ -319,6 +320,18 @@ pub mod lucene_test_case_util {
     let temp_dir = TempDir::new()?;
     let sub_directory = NIOFSDirectory::new();
     FSDirectory::new(temp_dir.keep(), sub_directory)
+  }
+  pub(crate) fn new_directory_with_lock_factory<R, T>(
+    _random: &mut R,
+    lock_factory: T,
+  ) -> Result<FSDirectory<LockFactoryEnum, NIOFSDirectory>>
+  where
+    R: Rng + ?Sized,
+    T: Into<LockFactoryEnum>,
+  {
+    let temp_dir = TempDir::new()?;
+    let sub_directory = NIOFSDirectory::new();
+    FSDirectory::with_lock_factory(temp_dir.keep(), lock_factory.into(), sub_directory)
   }
 
   pub(crate) fn new_fs_directory<R>(_random: &mut R, temp_dir: TempDir) -> Result<Arc<DirEnum>>

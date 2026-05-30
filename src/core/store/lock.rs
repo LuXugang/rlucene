@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::NativeFSLock;
+use crate::core::store::no_lock_factory::NoLock;
 use crate::core::store::simple_fs_lock_factory::SimpleFSLock;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLock;
 use crate::core::util::close::CloseableRef;
@@ -54,6 +55,7 @@ pub enum LockEnum {
   Simple(SimpleFSLock),
   Native(NativeFSLock),
   Custom(CustomLock),
+  NoLock(NoLock),
 }
 impl LockEnum {
   pub fn custom<L>(lock: L) -> Self
@@ -71,6 +73,7 @@ impl Display for LockEnum {
       Self::Simple(inner) => inner.fmt(f),
       Self::Native(inner) => inner.fmt(f),
       Self::Custom(inner) => inner.fmt(f),
+      Self::NoLock(inner) => inner.fmt(f),
     }
   }
 }
@@ -82,6 +85,7 @@ impl CloseableRef for LockEnum {
       Self::Simple(inner) => inner.close(),
       Self::Native(inner) => inner.close(),
       Self::Custom(inner) => inner.close(),
+      Self::NoLock(inner) => inner.close(),
     }
   }
 }
@@ -93,6 +97,7 @@ impl Lock for LockEnum {
       Self::Simple(inner) => inner.ensure_valid(),
       Self::Native(inner) => inner.ensure_valid(),
       Self::Custom(inner) => inner.ensure_valid(),
+      Self::NoLock(inner) => inner.ensure_valid(),
     }
   }
 }
