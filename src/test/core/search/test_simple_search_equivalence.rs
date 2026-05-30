@@ -16,7 +16,9 @@
  */
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
+use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
+use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
@@ -24,6 +26,7 @@ use crate::test::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 
 pub struct TestSimpleSearchEquivalence {
@@ -167,48 +170,171 @@ fn test_phrase_versus_sloppy_phrase_with_holes() -> Result<()> {
 }
 #[test]
 fn test_exact_phrase_versus_multi_phrase() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
-  Ok(())
+  let mut random = random();
+  let case = TestSimpleSearchEquivalence::new(&mut random);
+
+  let t1 = case.random_term(&mut random);
+  let t2 = case.random_term(&mut random);
+  let q1 = PhraseQuery::from_bytes(0, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+  let t3 = case.random_term(&mut random);
+  let mut q2b = MultiPhraseQuery::builder();
+  q2b.add_term(t1)?;
+  q2b.add_terms(&[t2, t3])?;
+
+  case.assert_subset_of(&mut random, &q1.into(), &q2b.build().into())
 }
 
 #[test]
 fn test_exact_phrase_versus_multi_phrase_with_holes() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
-  Ok(())
+  let mut random = random();
+  let case = TestSimpleSearchEquivalence::new(&mut random);
+
+  let t1 = case.random_term(&mut random);
+  let t2 = case.random_term(&mut random);
+
+  let mut builder = PhraseQueryBuilder::new();
+  builder.add(t1.clone(), 0)?;
+  builder.add(t2.clone(), 2)?;
+  let q1 = builder.build()?;
+
+  let t3 = case.random_term(&mut random);
+
+  let mut q2b = MultiPhraseQuery::builder();
+  q2b.add_term(t1)?;
+  q2b.add_terms_at(&[t2, t3], 2)?;
+
+  case.assert_subset_of(&mut random, &q1.into(), &q2b.build().into())
 }
 
 #[test]
 fn test_sloppy_phrase_versus_boolean_and() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
-  Ok(())
+  let mut random = random();
+  let case = TestSimpleSearchEquivalence::new(&mut random);
+
+  let t1 = case.random_term(&mut random);
+
+  let mut t2;
+  loop {
+    t2 = case.random_term(&mut random);
+    if t1 != t2 {
+      break;
+    }
+  }
+
+  let q1 = PhraseQuery::from_bytes(
+    i32::MAX as usize,
+    t1.field(),
+    vec![t1.bytes().clone(), t2.bytes().clone()],
+  )?;
+
+  let mut q2 = BooleanQueryBuilder::new();
+  q2.add(TermQuery::new(t1), Occur::Must)?;
+  q2.add(TermQuery::new(t2), Occur::Must)?;
+
+  case.assert_same_set(&mut random, &q1.into(), &q2.build().into())
 }
 
 #[test]
 fn test_phrase_relative_positions() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
-  Ok(())
+  let mut random = random();
+  let case = TestSimpleSearchEquivalence::new(&mut random);
+
+  let t1 = case.random_term(&mut random);
+  let t2 = case.random_term(&mut random);
+
+  let q1 = PhraseQuery::from_bytes(0, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+
+  let mut builder = PhraseQueryBuilder::new();
+  builder.add(t1, 10000)?;
+  builder.add(t2, 10001)?;
+
+  let q2 = builder.build()?;
+
+  case.assert_same_scores(&mut random, &q1.into(), &q2.into())
 }
 
 #[test]
 fn test_sloppy_phrase_relative_positions() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
-  Ok(())
+  let mut random = random();
+  let case = TestSimpleSearchEquivalence::new(&mut random);
+
+  let t1 = case.random_term(&mut random);
+  let t2 = case.random_term(&mut random);
+
+  let q1 = PhraseQuery::from_bytes(2, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+
+  let mut builder = PhraseQueryBuilder::new();
+  builder.add(t1, 10000)?;
+  builder.add(t2, 10001)?;
+  builder.set_slop(2);
+
+  let q2 = builder.build()?;
+
+  case.assert_same_scores(&mut random, &q1.into(), &q2.into())
 }
 
 #[test]
 fn test_boost_query_simplification() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
-  Ok(())
+  let mut random = random();
+  let case = TestSimpleSearchEquivalence::new(&mut random);
+
+  let b1 = random.random::<f32>() * 10.0;
+  let b2 = random.random::<f32>() * 10.0;
+  let term = case.random_term(&mut random);
+
+  let q1 = BoostQuery::new(BoostQuery::new(TermQuery::new(term.clone()), b2)?, b1)?;
+  // TODO IMPORTANT AssertingQuery未实现
+  let q2 = BoostQuery::new(BoostQuery::new(TermQuery::new(term), b2)?, b1)?;
+
+  case.assert_same_scores(&mut random, &q1.into(), &q2.into())
 }
 
 #[test]
 fn test_boolean_boost_propagation() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
-  Ok(())
+  let mut random = random();
+  let case = TestSimpleSearchEquivalence::new(&mut random);
+
+  let boost1 = random.random::<f32>();
+  let tq = BoostQuery::new(TermQuery::new(case.random_term(&mut random)), boost1)?;
+
+  let boost2 = random.random::<f32>();
+
+  let q1 = BoostQuery::new(tq.clone(), boost2)?;
+
+  let mut builder = BooleanQueryBuilder::new();
+  builder.add(tq.clone(), Occur::Must)?;
+  builder.add(tq, Occur::Filter)?;
+
+  let q2 = BoostQuery::new(builder.build(), boost2)?;
+
+  case.assert_same_scores(&mut random, &q1.into(), &q2.into())
 }
 
 #[test]
 fn test_boolean_or_vs_synonym() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery未实现
+  // TODO IMPORTANT SynonymQuery未实现
+  // let mut random = random();
+  // let case = TestSimpleSearchEquivalence::new(&mut random);
+  //
+  // let t1 = case.random_term(&mut random);
+  //
+  // let mut t2;
+  // loop {
+  //   t2 = case.random_term(&mut random);
+  //   if t1.field() == t2.field() {
+  //     break;
+  //   }
+  // }
+  //
+  // let q1 = SynonymQuery::builder(t1.field())
+  //   .add_term(t1.clone())?
+  //   .add_term(t2.clone())?
+  //   .build()?;
+  //
+  // let mut q2 = BooleanQueryBuilder::new();
+  // q2.add(TermQuery::new(t1), Occur::Should)?;
+  // q2.add(TermQuery::new(t2), Occur::Should)?;
+  //
+  // case.assert_same_set(&mut random, &q1.into(), &q2.build().into())
   Ok(())
 }

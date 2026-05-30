@@ -23,6 +23,7 @@ use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::index_searcher::{
   IndexSearcher, get_max_clause_count, set_max_clause_count,
 };
+use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -158,25 +159,23 @@ fn test_large_disjunction_max_query() -> Result<()> {
 
 #[test]
 fn test_multi_exact_with_repeats() -> Result<()> {
-  // TODO MultiPhraseQuery未实现
-  // let searcher = IndexSearcher::new(get_context(MultiReader::empty()?)?)?;
-  //
-  // let mut qb = MultiPhraseQuery::builder();
-  //
-  // for i in 0..1050 {
-  //     qb.add(
-  //         vec![
-  //             Term::from_text("foo", format!("bar-{}", i)),
-  //             Term::from_text("foo", format!("bar+{}", i)),
-  //         ],
-  //         0,
-  //     )?;
-  // }
-  //
-  // let query = qb.build();
-  //
-  // let err = searcher.rewrite(query.into());
-  // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  let searcher = IndexSearcher::new(get_context(MultiReader::empty()?)?)?;
 
+  let mut qb = MultiPhraseQuery::builder();
+
+  for i in 0..1050 {
+    qb.add_terms_at(
+      &[
+        Term::from_text("foo", format!("bar-{}", i)),
+        Term::from_text("foo", format!("bar+{}", i)),
+      ],
+      0,
+    )?;
+  }
+
+  let query = qb.build();
+
+  let err = searcher.rewrite(query);
+  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
   Ok(())
 }

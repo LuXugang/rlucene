@@ -126,6 +126,12 @@ pub struct Builder {
   slop: i32,
 }
 
+impl Default for Builder {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Builder {
   pub fn new() -> Self {
     Builder {
@@ -145,19 +151,21 @@ impl Builder {
     }
   }
 
-  pub fn set_slop(&mut self, s: i32) -> &mut Self {
+  pub fn set_slop(&mut self, s: i32) -> Result<&mut Self> {
     if s < 0 {
-      panic!("slop value cannot be negative");
+      return Err(LuceneError::illegal_argument(
+        "slop value cannot be negative",
+      ));
     }
     self.slop = s;
-    self
+    Ok(self)
   }
 
-  pub fn add_term(self, term: Term) -> Self {
+  pub fn add_term(&mut self, term: Term) -> Result<&mut Self> {
     self.add_terms(&[term])
   }
 
-  pub fn add_terms(self, terms: &[Term]) -> Self {
+  pub fn add_terms(&mut self, terms: &[Term]) -> Result<&mut Self> {
     let position = if self.positions.is_empty() {
       0
     } else {
@@ -166,23 +174,23 @@ impl Builder {
     self.add_terms_at(terms, position)
   }
 
-  pub fn add_terms_at(mut self, terms: &[Term], position: i32) -> Self {
+  pub fn add_terms_at(&mut self, terms: &[Term], position: i32) -> Result<&mut Self> {
     assert!(!terms.is_empty(), "Term array must not be null");
     if self.term_arrays.is_empty() {
       self.field = Some(terms[0].field().to_string());
     }
     for term in terms {
       if term.field() != self.field.as_ref().unwrap() {
-        panic!(
+        return Err(LuceneError::illegal_argument(format!(
           "All phrase terms must be in the same field ({}): {}",
           self.field.as_ref().unwrap(),
           term
-        );
+        )));
       }
     }
     self.term_arrays.push(terms.to_vec());
     self.positions.push(position);
-    self
+    Ok(self)
   }
 
   pub fn build(self) -> MultiPhraseQuery {

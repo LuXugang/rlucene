@@ -14,14 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::term::Term;
+use crate::core::search::multi_phrase_query;
+use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::{Builder, PhraseQuery};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
+use rand_chacha::ChaCha8Rng;
 use rand_chacha::rand_core::Rng;
+use rand_chacha::rand_core::SeedableRng;
 
 pub struct TestSloppyPhraseQuery2 {
   meta: SearchEquivalenceTestBaseMeta,
@@ -185,6 +191,45 @@ fn test_repetitive_increasing_sloppiness3() -> Result<()> {
 }
 #[test]
 fn test_random_increasing_sloppiness() -> Result<()> {
-  // TODO IMPORTANT MultiPhraseQuery 未实现
+  let mut random = random();
+  let case = TestSloppyPhraseQuery2::new(&mut random);
+  let seed = random.random::<u64>();
+  for i in 0..10 {
+    let mut q1 = random_phrase_query(seed)?;
+    let mut q2 = random_phrase_query(seed)?;
+    let mut builder1 = multi_phrase_query::Builder::from_query(&q1);
+    builder1.set_slop(i)?;
+    let mut builder2 = multi_phrase_query::Builder::from_query(&q2);
+    builder2.set_slop(i + 1)?;
+    q1 = builder1.build();
+    q2 = builder2.build();
+
+    case.assert_subset_of(&mut random, &q1.into(), &q2.into())?;
+  }
+
   Ok(())
+}
+
+fn random_phrase_query(seed: u64) -> Result<MultiPhraseQuery> {
+  let mut random = ChaCha8Rng::seed_from_u64(seed);
+
+  let length = TestUtil::next_int(&mut random, 2, 5);
+
+  let mut pqb = MultiPhraseQuery::builder();
+  let mut position = 0;
+
+  for _ in 0..length {
+    let depth = TestUtil::next_int(&mut random, 1, 3);
+
+    let mut terms = Vec::with_capacity(depth as usize);
+    for _ in 0..depth {
+      let ch = TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u8 as char;
+      terms.push(Term::from_text("field", ch.to_string()));
+    }
+
+    pqb.add_terms_at(&terms, position)?;
+    position += TestUtil::next_int(&mut random, 1, 3);
+  }
+
+  Ok(pqb.build())
 }
