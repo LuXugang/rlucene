@@ -164,7 +164,7 @@ fn test_multi_exact_with_repeats() -> Result<()> {
   let mut qb = MultiPhraseQuery::builder();
 
   for i in 0..1050 {
-    qb.add_terms_at(
+    qb.add_terms_with_position(
       &[
         Term::from_text("foo", format!("bar-{}", i)),
         Term::from_text("foo", format!("bar+{}", i)),

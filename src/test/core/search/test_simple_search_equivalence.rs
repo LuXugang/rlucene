@@ -201,7 +201,7 @@ fn test_exact_phrase_versus_multi_phrase_with_holes() -> Result<()> {
 
   let mut q2b = MultiPhraseQuery::builder();
   q2b.add_term(t1)?;
-  q2b.add_terms_at(&[t2, t3], 2)?;
+  q2b.add_terms_with_position(&[t2, t3], 2)?;
 
   case.assert_subset_of(&mut random, &q1.into(), &q2b.build().into())
 }

@@ -227,7 +227,7 @@ fn random_phrase_query(seed: u64) -> Result<MultiPhraseQuery> {
       terms.push(Term::from_text("field", ch.to_string()));
     }
 
-    pqb.add_terms_at(&terms, position)?;
+    pqb.add_terms_with_position(&terms, position)?;
     position += TestUtil::next_int(&mut random, 1, 3);
   }
 

@@ -67,7 +67,7 @@ fn test_one_document() -> Result<()> {
   let p2 = r
     .postings_with_flag(&Term::from_text("field", "bar"), POSITIONS as i32)?
     .unwrap();
-  let mut union = UnionPostingsEnum::new(vec![p1, p2]);
+  let mut union = UnionPostingsEnum::new(vec![p1, p2])?;
 
   assert_eq!(-1, union.doc_id());
 
@@ -136,7 +136,7 @@ fn test_some_documents() -> Result<()> {
   let p2 = r
     .postings_with_flag(&Term::from_text("field", "bar"), POSITIONS as i32)?
     .unwrap();
-  let mut union = UnionPostingsEnum::new(vec![p1, p2]);
+  let mut union = UnionPostingsEnum::new(vec![p1, p2])?;
 
   assert_eq!(-1, union.doc_id());
 

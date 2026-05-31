@@ -19,7 +19,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::postings_enum::PostingsEnum;
+use crate::core::index::postings_enum::{PostingsEnum, PostingsEnumEnum2};
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::{TermStates, build};
@@ -42,13 +42,14 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::HasIdentity;
+use crate::core::util::{HasIdentity, SliceCopyOps};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
 /// A generalized version of `PhraseQuery`, with the possibility of adding
 /// more than one term at the same position that are treated as a disjunction (OR).
@@ -171,10 +172,10 @@ impl Builder {
     } else {
       self.positions[self.positions.len() - 1] + 1
     };
-    self.add_terms_at(terms, position)
+    self.add_terms_with_position(terms, position)
   }
 
-  pub fn add_terms_at(&mut self, terms: &[Term], position: i32) -> Result<&mut Self> {
+  pub fn add_terms_with_position(&mut self, terms: &[Term], position: i32) -> Result<&mut Self> {
     assert!(!terms.is_empty(), "Term array must not be null");
     if self.term_arrays.is_empty() {
       self.field = Some(terms[0].field().to_string());
@@ -291,7 +292,7 @@ impl QueryBase for MultiPhraseQuery {
 
 pub struct MultiPhraseQueryWeightBase {
   query: Arc<MultiPhraseQuery>,
-  term_states: Mutex<HashMap<Term, TermStates>>,
+  term_states: HashMap<Term, TermStates>,
   boost: f32,
   base: PhraseWeightMeta,
 }
@@ -300,7 +301,7 @@ impl MultiPhraseQueryWeightBase {
   pub(crate) fn new(query: MultiPhraseQuery, boost: f32, base: PhraseWeightMeta) -> Self {
     Self {
       query: Arc::new(query),
-      term_states: Mutex::new(HashMap::new()),
+      term_states: HashMap::new(),
       boost,
       base,
     }
@@ -309,7 +310,7 @@ impl MultiPhraseQueryWeightBase {
 
 impl PhraseWeightBase for MultiPhraseQueryWeightBase {
   type SimScorer = Arc<SimScorerType>;
-  type IE<LR: LeafReader> = SlowImpactsEnum<UnionPostingsEnum<LRPosting<LR>>>;
+  type IE<LR: LeafReader> = SlowImpactsEnum<PostingsEnumEnum2<LRPosting<LR>, UnionPE<LRPosting<LR>>>>;
 
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
   where
@@ -319,17 +320,16 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
 
     for terms in &*self.query.term_arrays {
       for term in terms {
-        let mut ts_map = self.term_states.lock();
-        if !ts_map.contains_key(term) {
+        if !self.term_states.contains_key(term) {
           let ts = build(
             searcher,
             Arc::new(term.clone()),
             self.base.score_mode.needs_scores(),
           )?;
-          ts_map.insert(term.clone(), ts);
+          self.term_states.insert(term.clone(), ts);
         }
         if self.base.score_mode.needs_scores() {
-          let ts = ts_map.get(term).unwrap();
+          let ts = self.term_states.get(term).ok_or_else(|| LuceneError::illegal_state("term state should have been built"))?;
           if ts.doc_freq()? > 0 {
             let stats = searcher.term_statistics(
               Arc::new(term.clone()),
@@ -393,30 +393,28 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
       crate::core::index::postings_enum::POSITIONS as i32
     };
 
-    let ts_map = self.term_states.lock();
-
     for pos in 0..self.query.term_arrays.len() {
       let terms = &self.query.term_arrays[pos];
       let mut posting_enums: Vec<LRPosting<LR>> = Vec::new();
 
       for term in terms {
-        let mut ts = match ts_map.get(term) {
+        let mut ts = match self.term_states.get(term) {
           Some(ts) => ts.clone(),
           None => continue,
         };
 
         let mut supplier = ts.get(context)?;
-        let state = match supplier {
+        let term_state = match supplier {
           None => None,
           Some(ref mut s) => ts.resolve(s)?,
         };
 
-        let state = match state {
+        let terms_state = match term_state {
           None => continue,
           Some(s) => s,
         };
 
-        te.seek_exact_with_state(term.bytes(), state.as_ref())?;
+        te.seek_exact_with_state(term.bytes(), terms_state.as_ref())?;
 
         let pe = te.postings_with_flags(None, postings_flags)?;
         posting_enums.push(pe);
@@ -427,10 +425,19 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
         return Ok(None);
       }
 
-      let union_pe = UnionPostingsEnum::new(posting_enums);
-      let ie = SlowImpactsEnum::new(union_pe);
+      let postings_enum = if posting_enums.len() == 1 {
+        PostingsEnumEnum2::A(posting_enums.remove(0))
+      }else {
+        let union_pe = if expose_offsets {
+          PostingsEnumEnum2::A(UnionFullPostingsEnum::new(posting_enums)?)
+        }else {
+          PostingsEnumEnum2::B(UnionPostingsEnum::new(posting_enums)?)
+        };
+        PostingsEnumEnum2::B(union_pe)
+      };
 
-      postings_freqs.push(PostingsAndFreq::new(ie, pos, terms));
+
+      postings_freqs.push(PostingsAndFreq::new(SlowImpactsEnum::new(postings_enum), pos, terms));
     }
 
     let v = if self.query.slop == 0 {
@@ -465,7 +472,8 @@ pub struct UnionPostingsEnum<P>
 where
   P: PostingsEnum,
 {
-  subs: Vec<P>,
+  docs_queue: PriorityQueue<usize, DocsQueueCmp<P>>,
+  cost:i64,
   pos_queue: PositionsQueue,
   pos_queue_doc: i32,
 }
@@ -474,12 +482,27 @@ impl<P> UnionPostingsEnum<P>
 where
   P: PostingsEnum,
 {
-  pub fn new(subs: Vec<P>) -> Self {
-    UnionPostingsEnum {
-      subs,
+  pub fn new(subs: Vec<P>) -> Result<Self >{
+    // subs should never be empty
+    if subs.is_empty() {
+      return Err(LuceneError::illegal_argument("subs must not be empty"));
+    }
+    let size = subs.len();
+    let mut cost = 0;
+    let cmp = DocsQueueCmp::new(subs);
+    let mut docs_queue = PriorityQueue::new(size,cmp)?;
+    for  pe in docs_queue.compare.subs.iter() {
+      cost += pe.cost()?;
+    }
+    for i in 0..size {
+      docs_queue.add(i)?;
+    }
+    Ok(UnionPostingsEnum {
+      docs_queue,
+      cost,
       pos_queue: PositionsQueue::new(),
       pos_queue_doc: -2,
-    }
+    })
   }
 }
 
@@ -488,61 +511,37 @@ where
   P: PostingsEnum,
 {
   fn doc_id(&self) -> i32 {
-    self
-      .subs
-      .iter()
-      .map(|s| s.doc_id())
-      .min()
-      .unwrap_or(NO_MORE_DOCS)
+    // docs_queue is nerver empty or pop so it is safe to unwrap
+    let index = self.docs_queue.top().expect("docs_queue is never empty");
+    self.docs_queue.compare.subs[*index].doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    let current_doc = self
-      .subs
-      .iter()
-      .map(|s| s.doc_id())
-      .min()
-      .unwrap_or(NO_MORE_DOCS);
-    if current_doc == NO_MORE_DOCS {
-      return Ok(NO_MORE_DOCS);
-    }
-    for sub in &mut self.subs {
-      if sub.doc_id() == current_doc {
-        sub.next_doc()?;
+    let mut top = *self.docs_queue.top().ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
+    let doc = self.docs_queue.compare.subs[top].doc_id();
+    loop {
+      self.docs_queue.compare.subs[top].next_doc()?;
+      top = *self.docs_queue.update_top()?;
+      if self.docs_queue.compare.subs[top].doc_id() != doc {
+        return Ok(self.docs_queue.compare.subs[top].doc_id());
       }
     }
-    Ok(
-      self
-        .subs
-        .iter()
-        .map(|s| s.doc_id())
-        .min()
-        .unwrap_or(NO_MORE_DOCS),
-    )
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    for sub in &mut self.subs {
-      if sub.doc_id() < target {
-        sub.advance(target)?;
+    let mut top = *self.docs_queue.top().ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
+    loop {
+      self.docs_queue.compare.subs[top].advance(target)?;
+      top = *self.docs_queue.update_top()?;
+      let doc = self.docs_queue.compare.subs[top].doc_id();
+      if doc >= target {
+        return Ok(doc);
       }
     }
-    Ok(
-      self
-        .subs
-        .iter()
-        .map(|s| s.doc_id())
-        .min()
-        .unwrap_or(NO_MORE_DOCS),
-    )
   }
 
   fn cost(&self) -> Result<i64> {
-    let mut sum: i64 = 0;
-    for sub in &self.subs {
-      sum += sub.cost()?;
-    }
-    Ok(sum)
+    Ok(self.cost)
   }
 }
 
@@ -554,7 +553,7 @@ where
     let doc = self.doc_id();
     if doc != self.pos_queue_doc {
       self.pos_queue.clear();
-      for sub in &mut self.subs {
+      for sub in &mut self.docs_queue.compare.subs{
         if sub.doc_id() == doc {
           let freq = sub.freq()?;
           for _ in 0..freq {
@@ -586,23 +585,49 @@ where
   }
 }
 
+struct  DocsQueueCmp<P> where P: PostingsEnum {
+  subs: Vec<P>,
+}
+impl<P> DocsQueueCmp<P> where P: PostingsEnum {
+  pub fn new(subs: Vec<P>) -> Self {
+    Self { subs }
+  }
+}
+impl<P> Compare<usize> for DocsQueueCmp<P> where P: PostingsEnum {
+  fn less_than(&self, a: &usize, b: &usize) -> Result<bool> {
+    let a_doc = self.subs[*a].doc_id();
+    let b_doc = self.subs[*b].doc_id();
+    Ok(a_doc < b_doc)
+  }
+}
+
 /// Queue of terms for a single document.
 /// It's a sorted array of all the positions from all the postings.
 struct PositionsQueue {
-  array: Vec<i32>,
+  array_size: usize,
   index: usize,
+  size: usize,
+  array: Vec<i32>,
 }
 
 impl PositionsQueue {
   fn new() -> Self {
-    PositionsQueue {
-      array: Vec::with_capacity(16),
+    let array_size = 16;
+    Self {
+      array_size,
       index: 0,
+      size: 0,
+      array: vec![0; array_size],
     }
   }
 
   fn add(&mut self, i: i32) {
-    self.array.push(i);
+    if self.size == self.array_size {
+      self.grow_array();
+    }
+
+    self.array[self.size] = i;
+    self.size += 1;
   }
 
   fn next(&mut self) -> i32 {
@@ -612,15 +637,196 @@ impl PositionsQueue {
   }
 
   fn sort(&mut self) {
-    self.array.sort();
+    self.array[self.index..self.size].sort();
   }
 
   fn clear(&mut self) {
     self.index = 0;
-    self.array.clear();
+    self.size = 0;
   }
 
   fn size(&self) -> usize {
-    self.array.len()
+    self.size
+  }
+
+  fn grow_array(&mut self) {
+    let mut new_array = vec![0; self.array_size * 2];
+    new_array.copy_from(&self.array[..self.array_size],0);
+    self.array = new_array;
+    self.array_size *= 2;
   }
 }
+#[derive(Clone)]
+struct PostingsAndPosition {
+  pe: usize,
+  pos: i32,
+  upto: i32,
+}
+
+impl PostingsAndPosition {
+  fn new(pe: usize) -> Self {
+    Self {
+      pe,
+      pos: 0,
+      upto: 0,
+    }
+  }
+}
+
+struct PosQueueCmp;
+
+impl Compare<PostingsAndPosition> for PosQueueCmp {
+  fn less_than(
+    &self,
+    a: &PostingsAndPosition,
+    b: &PostingsAndPosition,
+  ) -> Result<bool> {
+    Ok(a.pos < b.pos)
+  }
+}
+
+/// Slower version of UnionPostingsEnum that delegates offsets and positions.
+pub struct UnionFullPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+  base: UnionPostingsEnum<P>,
+  freq: i32,
+  started: bool,
+  pos_queue: PriorityQueue<PostingsAndPosition, PosQueueCmp>,
+  subs: Vec<PostingsAndPosition>,
+}
+
+impl<P> UnionFullPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+  pub fn new(subs: Vec<P>) -> Result<Self> {
+    let size = subs.len();
+
+    let base = UnionPostingsEnum::new(subs)?;
+
+    let mut postings = Vec::with_capacity(size);
+    for i in 0..size {
+      postings.push(PostingsAndPosition::new(i));
+    }
+
+    Ok(Self {
+      base,
+      freq: -1,
+      started: false,
+      pos_queue: PriorityQueue::new(size, PosQueueCmp)?,
+      subs: postings,
+    })
+  }
+}
+
+impl<P> DocIdSetIterator for UnionFullPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+  fn doc_id(&self) -> i32 {
+    self.base.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.base.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.base.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.base.advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.base.cost()
+  }
+}
+
+impl<P> PostingsEnum for UnionFullPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+  fn freq(&mut self) -> Result<i32> {
+    let doc = self.doc_id();
+    if doc == self.base.pos_queue_doc {
+      return Ok(self.freq);
+    }
+
+    self.freq = 0;
+    self.started = false;
+    self.pos_queue.clear();
+    for pp in &mut self.subs {
+      let pe = &mut self.base.docs_queue.compare.subs[pp.pe];
+      if pe.doc_id() == doc {
+        pp.pos = pe.next_position()?;
+        pp.upto = pe.freq()?;
+        self.pos_queue.add(pp.clone())?;
+        self.freq += pp.upto;
+      }
+    }
+    Ok(self.freq)
+  }
+
+  fn next_position(&mut self) -> Result<i32> {
+    if !self.started {
+      self.started = true;
+      let top = self
+        .pos_queue
+        .top()
+        .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+      return Ok(top.pos);
+    }
+
+    let mut top = self
+      .pos_queue
+      .top_mut()
+      .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+
+    if top.upto == 1 {
+      self.pos_queue.pop()?;
+      let top = self
+        .pos_queue
+        .top()
+        .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+      return Ok(top.pos);
+    }
+
+    top.pos = self.base.docs_queue.compare.subs[top.pe].next_position()?;
+    top.upto -= 1;
+    self.pos_queue.update_top()?;
+
+    let top = self
+      .pos_queue
+      .top()
+      .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+    Ok(top.pos)
+  }
+
+  fn start_offset(&self) -> Result<i32> {
+    let top = self
+      .pos_queue
+      .top()
+      .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+    self.base.docs_queue.compare.subs[top.pe].start_offset()
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    let top = self
+      .pos_queue
+      .top()
+      .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+    self.base.docs_queue.compare.subs[top.pe].end_offset()
+  }
+  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    let top = self
+        .pos_queue
+        .top()
+        .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+    self.base.docs_queue.compare.subs[top.pe].get_payload()
+  }
+}
+pub type UnionPE<P> = PostingsEnumEnum2<UnionFullPostingsEnum<P>, UnionPostingsEnum<P>>;
