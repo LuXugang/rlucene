@@ -809,7 +809,11 @@ pub trait BaseXYPointTestCase {
       let center_x = self.next_x(random);
       let center_y = self.next_y(random);
 
-      let radius = random.random::<f32>() * f32::MAX / 2.0;
+      let mut radius = random.random::<f32>() * f32::MAX / 2.0;
+      if radius == 0.0 {
+        // no meaning value, prevents 0.0:
+        radius = 8.955_251E37_f32;
+      }
 
       let query = self.new_distance_query(FIELD_NAME, center_x, center_y, radius)?;
 
