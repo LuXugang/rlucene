@@ -1,0 +1,96 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::document::binary_range_field_range_query::BinaryRangeFieldRangeQuery;
+use crate::core::document::int_range;
+use crate::core::document::range_field_query::QueryType;
+use crate::core::util::error::lucene_error::Result;
+use std::fmt::{Display, Formatter};
+use std::hash::{Hash, Hasher};
+
+#[derive(Clone)]
+pub struct IntRangeSlowRangeQuery {
+  field: String,
+  min: Vec<i32>,
+  max: Vec<i32>,
+  query_type: QueryType,
+}
+
+impl IntRangeSlowRangeQuery {
+  #[allow(clippy::new_ret_no_self)]
+  pub(crate) fn new(
+    field: String,
+    min: Vec<i32>,
+    max: Vec<i32>,
+    query_type: QueryType,
+  ) -> Result<BinaryRangeFieldRangeQuery> {
+    let range = encode_ranges(&min, &max)?;
+    let len = min.len();
+    let sub = Self {
+      field,
+      min,
+      max,
+      query_type,
+    };
+    BinaryRangeFieldRangeQuery::new(range, int_range::BYTES, len, query_type, sub)
+  }
+
+  pub(crate) fn field(&self) -> &str {
+    &self.field
+  }
+
+  pub(crate) fn min(&self) -> &[i32] {
+    &self.min
+  }
+
+  pub(crate) fn max(&self) -> &[i32] {
+    &self.max
+  }
+
+  pub(crate) fn query_type(&self) -> QueryType {
+    self.query_type
+  }
+}
+
+impl PartialEq for IntRangeSlowRangeQuery {
+  fn eq(&self, other: &Self) -> bool {
+    self.field == other.field && self.min == other.min && self.max == other.max
+  }
+}
+
+impl Eq for IntRangeSlowRangeQuery {}
+
+impl Hash for IntRangeSlowRangeQuery {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.field.hash(state);
+    for value in &self.min {
+      value.hash(state);
+    }
+    for value in &self.max {
+      value.hash(state);
+    }
+  }
+}
+
+impl Display for IntRangeSlowRangeQuery {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}:{:?} TO {:?}", self.field, self.min, self.max)
+  }
+}
+
+fn encode_ranges(min: &[i32], max: &[i32]) -> Result<Vec<u8>> {
+  int_range::encode(min, max)
+}

@@ -33,7 +33,7 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
-
+pub const BYTES: usize = std::mem::size_of::<i32>();
 pub struct IntRange {
   parent_field: Field,
 }
@@ -68,7 +68,7 @@ impl IntRange {
   }
 
   fn set_range_values_internal(parent_field: &mut Field, min: &[i32], max: &[i32]) -> Result<()> {
-    Self::check_args(min, max)?;
+    check_args(min, max)?;
 
     let dims = parent_field.field_type().point_dimension_count();
     if min.len() * 2 != dims || max.len() * 2 != dims {
@@ -95,78 +95,7 @@ impl IntRange {
       ))?,
     };
 
-    Self::verify_and_encode(min, max, bytes)
-  }
-
-  fn check_args(min: &[i32], max: &[i32]) -> Result<()> {
-    if min.is_empty() || max.is_empty() {
-      return Err(LuceneError::illegal_argument(
-        "min/max range values cannot be null or empty".to_string(),
-      ));
-    }
-    if min.len() != max.len() {
-      return Err(LuceneError::illegal_argument(
-        "min/max ranges must agree".to_string(),
-      ));
-    }
-    if min.len() > 4 {
-      return Err(LuceneError::illegal_argument(
-        "IntRange does not support greater than 4 dimensions".to_string(),
-      ));
-    }
-    Ok(())
-  }
-
-  pub fn encode(min: &[i32], max: &[i32]) -> Result<Vec<u8>> {
-    Self::check_args(min, max)?;
-    let mut b = vec![0u8; BitUtil::INT_BYTES * 2 * min.len()];
-    Self::verify_and_encode(min, max, &mut b)?;
-    Ok(b)
-  }
-
-  fn verify_and_encode(min: &[i32], max: &[i32], bytes: &mut [u8]) -> Result<()> {
-    let n = min.len();
-    let mut i = 0;
-    let mut j = min.len() * BitUtil::INT_BYTES;
-    for d in 0..n {
-      if (min[d] as f64).is_nan() {
-        return Err(LuceneError::illegal_argument(format!(
-          "invalid min value ({}) in IntRange",
-          f64::NAN
-        )));
-      }
-      if (max[d] as f64).is_nan() {
-        return Err(LuceneError::illegal_argument(format!(
-          "invalid max value ({}) in IntRange",
-          f64::NAN
-        )));
-      }
-      if min[d] > max[d] {
-        return Err(LuceneError::illegal_argument(format!(
-          "min value ({}) is greater than max value ({})",
-          min[d], max[d]
-        )));
-      }
-      Self::encode_dimension(min[d], bytes, i);
-      Self::encode_dimension(max[d], bytes, j);
-      i += BitUtil::INT_BYTES;
-      j += BitUtil::INT_BYTES;
-    }
-    Ok(())
-  }
-
-  fn encode_dimension(value: i32, dest: &mut [u8], offset: usize) {
-    NumericUtils::int_to_sortable_bytes(value, dest, offset)
-  }
-
-  fn decode_min(bytes: &[u8], dimension: usize) -> i32 {
-    let offset = dimension * BitUtil::INT_BYTES;
-    NumericUtils::sortable_bytes_to_int(bytes, offset)
-  }
-
-  fn decode_max(bytes: &[u8], dimension: usize) -> i32 {
-    let offset = bytes.len() / 2 + dimension * BitUtil::INT_BYTES;
-    NumericUtils::sortable_bytes_to_int(bytes, offset)
+    verify_and_encode(min, max, bytes)
   }
 
   pub fn get_min(&self, dimension: usize) -> Result<i32> {
@@ -175,7 +104,7 @@ impl IntRange {
       self.parent_field.field_type().point_dimension_count() / 2,
     )?;
     match &self.parent_field.fields_data {
-      FieldDataEnum::Binary(b) => Ok(Self::decode_min(&b.bytes, dimension)),
+      FieldDataEnum::Binary(b) => Ok(decode_min(&b.bytes, dimension)),
       _ => Err(LuceneError::illegal_argument(
         "Unsupported FieldDataEnum variant",
       )),
@@ -188,7 +117,7 @@ impl IntRange {
       self.parent_field.field_type().point_dimension_count() / 2,
     )?;
     match &self.parent_field.fields_data {
-      FieldDataEnum::Binary(b) => Ok(Self::decode_max(&b.bytes, dimension)),
+      FieldDataEnum::Binary(b) => Ok(decode_max(&b.bytes, dimension)),
       _ => Err(LuceneError::illegal_argument(
         "Unsupported FieldDataEnum variant".to_string(),
       )),
@@ -272,8 +201,8 @@ impl fmt::Display for IntRange {
           if dim > 0 {
             write!(f, " ")?;
           }
-          let min = Self::decode_min(&bytes.bytes, dim);
-          let max = Self::decode_max(&bytes.bytes, dim);
+          let min = decode_min(&bytes.bytes, dim);
+          let max = decode_max(&bytes.bytes, dim);
           write!(f, "[{} : {}]", min, max)?;
         }
       },
@@ -286,6 +215,76 @@ impl fmt::Display for IntRange {
   }
 }
 
+fn check_args(min: &[i32], max: &[i32]) -> Result<()> {
+  if min.is_empty() || max.is_empty() {
+    return Err(LuceneError::illegal_argument(
+      "min/max range values cannot be null or empty".to_string(),
+    ));
+  }
+  if min.len() != max.len() {
+    return Err(LuceneError::illegal_argument(
+      "min/max ranges must agree".to_string(),
+    ));
+  }
+  if min.len() > 4 {
+    return Err(LuceneError::illegal_argument(
+      "IntRange does not support greater than 4 dimensions".to_string(),
+    ));
+  }
+  Ok(())
+}
+
+pub fn encode(min: &[i32], max: &[i32]) -> Result<Vec<u8>> {
+  check_args(min, max)?;
+  let mut b = vec![0u8; BitUtil::INT_BYTES * 2 * min.len()];
+  verify_and_encode(min, max, &mut b)?;
+  Ok(b)
+}
+
+fn verify_and_encode(min: &[i32], max: &[i32], bytes: &mut [u8]) -> Result<()> {
+  let n = min.len();
+  let mut i = 0;
+  let mut j = min.len() * BitUtil::INT_BYTES;
+  for d in 0..n {
+    if (min[d] as f64).is_nan() {
+      return Err(LuceneError::illegal_argument(format!(
+        "invalid min value ({}) in IntRange",
+        f64::NAN
+      )));
+    }
+    if (max[d] as f64).is_nan() {
+      return Err(LuceneError::illegal_argument(format!(
+        "invalid max value ({}) in IntRange",
+        f64::NAN
+      )));
+    }
+    if min[d] > max[d] {
+      return Err(LuceneError::illegal_argument(format!(
+        "min value ({}) is greater than max value ({})",
+        min[d], max[d]
+      )));
+    }
+    encode_dimension(min[d], bytes, i);
+    encode_dimension(max[d], bytes, j);
+    i += BitUtil::INT_BYTES;
+    j += BitUtil::INT_BYTES;
+  }
+  Ok(())
+}
+
+fn encode_dimension(value: i32, dest: &mut [u8], offset: usize) {
+  NumericUtils::int_to_sortable_bytes(value, dest, offset)
+}
+
+fn decode_min(bytes: &[u8], dimension: usize) -> i32 {
+  let offset = dimension * BitUtil::INT_BYTES;
+  NumericUtils::sortable_bytes_to_int(bytes, offset)
+}
+
+fn decode_max(bytes: &[u8], dimension: usize) -> i32 {
+  let offset = bytes.len() / 2 + dimension * BitUtil::INT_BYTES;
+  NumericUtils::sortable_bytes_to_int(bytes, offset)
+}
 #[cfg(test)]
 impl Clone for IntRange {
   fn clone(&self) -> Self {

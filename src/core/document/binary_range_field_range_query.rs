@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 use crate::core::document::binary_range_doc_values::BinaryRangeDocValues;
+use crate::core::document::double_range_slow_range_query::DoubleRangeSlowRangeQuery;
+use crate::core::document::float_range_slow_range_query::FloatRangeSlowRangeQuery;
+use crate::core::document::int_range_slow_range_query::IntRangeSlowRangeQuery;
+use crate::core::document::long_range_slow_range_query::LongRangeSlowRangeQuery;
 use crate::core::document::range_field_query::QueryType;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values::DocValues;
@@ -37,6 +41,7 @@ use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparatorEnum};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::impl_from_for_enum;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -44,36 +49,40 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct BinaryRangeFieldRangeQuery {
   id: Identity,
-  field: String,
   query_packed_value: Vec<u8>,
   num_dims: usize,
   num_bytes_per_dimension: usize,
   query_type: QueryType,
   comparator: ByteArrayComparatorEnum,
+  sub: BinaryRangeFieldRangeQueryEnum,
 }
 
 impl BinaryRangeFieldRangeQuery {
-  pub fn new(
-    field: String,
+  pub fn new<T>(
     query_packed_value: Vec<u8>,
     num_dims: usize,
     num_bytes_per_dimension: usize,
     query_type: QueryType,
-  ) -> Result<Self> {
+    sub: T,
+  ) -> Result<Self>
+  where
+    T: Into<BinaryRangeFieldRangeQueryEnum>,
+  {
     if query_type != QueryType::Intersects {
       return Err(LuceneError::unsupported_operation(
         "INTERSECTS is the only query type supported for this field type right now",
       ));
     }
     let comparator = ArrayUtil::get_unsigned_comparator(num_bytes_per_dimension);
+    let sub = sub.into();
     Ok(Self {
       id: Identity::new(),
-      field,
       query_packed_value,
       num_dims,
       num_bytes_per_dimension,
       query_type,
       comparator,
+      sub,
     })
   }
 }
@@ -81,14 +90,14 @@ impl BinaryRangeFieldRangeQuery {
 impl Debug for BinaryRangeFieldRangeQuery {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("BinaryRangeFieldRangeQuery")
-      .field("field", &self.field)
+      .field("field", &self.sub.field())
       .finish()
   }
 }
 
 impl PartialEq for BinaryRangeFieldRangeQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.field == other.field && self.query_packed_value == other.query_packed_value
+    self.sub == other.sub
   }
 }
 
@@ -99,8 +108,7 @@ impl Hash for BinaryRangeFieldRangeQuery {
   where
     H: Hasher,
   {
-    self.field.hash(state);
-    self.query_packed_value.hash(state);
+    self.sub.hash(state);
   }
 }
 
@@ -113,8 +121,8 @@ impl HasIdentity for BinaryRangeFieldRangeQuery {
 impl QueryBase for BinaryRangeFieldRangeQuery {
   fn as_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
-    if self.field != field {
-      sb.push_str(&self.field);
+    if self.sub.field() != field {
+      sb.push_str(self.sub.field());
       sb.push(':');
     }
     sb.push_str(&format!(
@@ -183,7 +191,7 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = vec![self.query.field.clone()];
+    let field = vec![self.query.sub.field().to_string()];
     DocValues::is_cacheable(ctx, field.as_ref())
   }
 }
@@ -229,11 +237,11 @@ where
     let field_info = context
       .reader()
       .get_field_infos()?
-      .field_info_by_name(&self.query.field);
+      .field_info_by_name(self.query.sub.field());
     if field_info.is_none() {
       return Ok(None);
     }
-    let binary_doc_values = DocValues::get_binary(context.reader(), &self.query.field)?;
+    let binary_doc_values = DocValues::get_binary(context.reader(), self.query.sub.field())?;
     let brdv = BinaryRangeDocValues::new(
       binary_doc_values,
       self.query.num_dims,
@@ -319,3 +327,57 @@ where
     self.query_packed_value.len() as f32
   }
 }
+#[derive(Clone)]
+pub enum BinaryRangeFieldRangeQueryEnum {
+  Double(DoubleRangeSlowRangeQuery),
+  Int(IntRangeSlowRangeQuery),
+  Float(FloatRangeSlowRangeQuery),
+  Long(LongRangeSlowRangeQuery),
+}
+impl BinaryRangeFieldRangeQueryEnum {
+  fn field(&self) -> &str {
+    match self {
+      BinaryRangeFieldRangeQueryEnum::Double(v) => v.field(),
+      BinaryRangeFieldRangeQueryEnum::Int(v) => v.field(),
+      BinaryRangeFieldRangeQueryEnum::Float(v) => v.field(),
+      BinaryRangeFieldRangeQueryEnum::Long(v) => v.field(),
+    }
+  }
+}
+impl Hash for BinaryRangeFieldRangeQueryEnum {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    match self {
+      BinaryRangeFieldRangeQueryEnum::Double(v) => v.hash(state),
+      BinaryRangeFieldRangeQueryEnum::Int(v) => v.hash(state),
+      BinaryRangeFieldRangeQueryEnum::Float(v) => v.hash(state),
+      BinaryRangeFieldRangeQueryEnum::Long(v) => v.hash(state),
+    }
+  }
+}
+impl PartialEq for BinaryRangeFieldRangeQueryEnum {
+  fn eq(&self, other: &Self) -> bool {
+    match (self, other) {
+      (BinaryRangeFieldRangeQueryEnum::Double(v1), BinaryRangeFieldRangeQueryEnum::Double(v2)) => {
+        v1 == v2
+      },
+      (BinaryRangeFieldRangeQueryEnum::Int(v1), BinaryRangeFieldRangeQueryEnum::Int(v2)) => {
+        v1 == v2
+      },
+      (BinaryRangeFieldRangeQueryEnum::Float(v1), BinaryRangeFieldRangeQueryEnum::Float(v2)) => {
+        v1 == v2
+      },
+      (BinaryRangeFieldRangeQueryEnum::Long(v1), BinaryRangeFieldRangeQueryEnum::Long(v2)) => {
+        v1 == v2
+      },
+      _ => false,
+    }
+  }
+}
+impl Eq for BinaryRangeFieldRangeQueryEnum {}
+impl_from_for_enum!(
+    BinaryRangeFieldRangeQueryEnum,
+    DoubleRangeSlowRangeQuery=> Double,
+    IntRangeSlowRangeQuery=> Int,
+    FloatRangeSlowRangeQuery=> Float,
+  LongRangeSlowRangeQuery => Long,
+);
