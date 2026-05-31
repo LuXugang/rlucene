@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Migrated from src/core/util/sloppy_math.rs
-
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sloppy_math::{SIN_COS_MAX_VALUE_FOR_INT_MODULO, SloppyMath, TO_METERS};
 use crate::test::core::geo::geo_test_util::GeoTestUtil;

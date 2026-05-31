@@ -50,6 +50,7 @@ pub mod long_field;
 pub mod long_point;
 mod nearest_neighbor;
 pub mod numeric_doc_values_field;
+pub mod range_field_query;
 pub mod shape_field;
 pub mod sorted_doc_values_field;
 pub mod sorted_numeric_doc_values_field;
