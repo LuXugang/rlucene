@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::binary_range_field_range_query::BinaryRangeFieldRangeQuery;
 use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
 use crate::core::document::lat_lon_doc_values_query::LatLonDocValuesQuery;
 use crate::core::document::lat_lon_point_distance_feature_query::LatLonPointDistanceFeatureQuery;
@@ -136,6 +137,7 @@ macro_rules! dispatch_query {
       Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
       Query::KnnByteVector($inner) => $body,
       Query::KnnFloatVector($inner) => $body,
+      Query::BinaryRangeFieldRange($inner) => $body,
       Query::LatLonDocValuesBox($inner) => $body,
       Query::LatLonDocValues($inner) => $body,
       Query::LatLonPointDistanceFeature($inner) => $body,
@@ -210,6 +212,7 @@ impl_from_for_enum!(
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
     KnnByteVectorQuery => KnnByteVector,
     KnnFloatVectorQuery => KnnFloatVector,
+    BinaryRangeFieldRangeQuery => BinaryRangeFieldRange,
     LatLonDocValuesBoxQuery => LatLonDocValuesBox,
     LatLonDocValuesQuery => LatLonDocValues,
     XYDocValuesPointInGeometryQuery => XYDocValuesPointInGeometry,
@@ -255,6 +258,7 @@ impl_from_for_enum!(
     WANDScorerQuery => WANDScorer
 );
 impl_into_box_query!(
+  BinaryRangeFieldRangeQuery,
   AutomatonQuery,
   BlendedTermQuery,
   BooleanQuery,
@@ -338,6 +342,7 @@ pub enum Query {
   IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
   KnnByteVector(KnnByteVectorQuery),
   KnnFloatVector(KnnFloatVectorQuery),
+  BinaryRangeFieldRange(BinaryRangeFieldRangeQuery),
   LatLonDocValuesBox(LatLonDocValuesBoxQuery),
   LatLonDocValues(LatLonDocValuesQuery),
   LatLonPointDistanceFeature(LatLonPointDistanceFeatureQuery),
@@ -416,6 +421,7 @@ impl Query {
         normal: [
             Automaton,
             BlendedTerm,
+            BinaryRangeFieldRange,
             Boolean,
             Boost,
             ByteVectorSimilarity,
