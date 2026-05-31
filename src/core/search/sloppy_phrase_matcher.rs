@@ -503,8 +503,7 @@ where
       }
     } else {
       // more involved - has multi-terms
-      let bb = self.pp_terms_bit_sets(&rpp, rpt_terms);
-      let mut bb = bb;
+      let mut bb = self.pp_terms_bit_sets(&rpp, rpt_terms);
       self.union_term_groups(&mut bb);
 
       let tg = self.term_groups(rpt_terms, bb)?;

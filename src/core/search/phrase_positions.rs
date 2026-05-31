@@ -18,7 +18,6 @@ use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::term::Term;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 
 /// Position of a term in a document that takes into account the term offset
@@ -42,10 +41,10 @@ pub struct PhrasePositions {
   pub(crate) terms: Vec<Term>,
 }
 impl PhrasePositions {
-  pub(crate) fn new(postings: usize, offset: usize, ord: usize, terms: Vec<Term>) -> Result<Self> {
+  pub(crate) fn new(postings: usize, offset: i32, ord: usize, terms: Vec<Term>) -> Result<Self> {
     Ok(Self {
       postings_idx: postings,
-      offset: offset.try_convert()?,
+      offset,
       ord,
       terms,
       position: 0,

@@ -61,7 +61,7 @@ where
     let mut postings_and_positions = Vec::with_capacity(postings_len);
     for (i, p) in postings.into_iter().enumerate() {
       impacts_enum.push(p.postings);
-      postings_and_positions.push(PostingsAndPosition::new(i, p.position))
+      postings_and_positions.push(PostingsAndPosition::new(i, p.position as usize))
     }
     let wrapped_impacts_enum = ConjunctionDISI::from_disi(impacts_enum)?;
     let impacts_source = merge_impacts(wrapped_impacts_enum)?;

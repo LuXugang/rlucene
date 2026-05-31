@@ -606,7 +606,7 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
 
       postings_freqs.push(PostingsAndFreq::new(
         impacts_enum,
-        self.query.positions[i],
+        self.query.positions[i] as i32,
         std::slice::from_ref(t),
       ));
 
@@ -644,7 +644,7 @@ where
   IE: ImpactsEnum,
 {
   pub(crate) postings: IE,
-  pub(crate) position: usize,
+  pub(crate) position: i32,
   pub(crate) terms: Option<Vec<Term>>,
   pub(crate) n_terms: usize, // for faster comparisons
 }
@@ -652,7 +652,7 @@ impl<IE> PostingsAndFreq<IE>
 where
   IE: ImpactsEnum,
 {
-  pub fn new(postings: IE, position: usize, terms: &[Term]) -> Self {
+  pub fn new(postings: IE, position: i32, terms: &[Term]) -> Self {
     let n_terms = terms.len();
 
     let terms_vec = if n_terms == 0 {

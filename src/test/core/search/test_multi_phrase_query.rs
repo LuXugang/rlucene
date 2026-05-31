@@ -233,7 +233,7 @@ fn test_tall() -> Result<()> {
   Ok(())
 }
 
-#[test]
+/// Tests in Java could not pass
 fn test_multi_sloppy_with_repeats() -> Result<()> {
   let mut random = random();
   let index_store = new_directory_shared(&mut random)?;

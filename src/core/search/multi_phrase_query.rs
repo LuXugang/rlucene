@@ -27,7 +27,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
@@ -42,14 +42,13 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::{HasIdentity, SliceCopyOps};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
+use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use crate::core::util::{HasIdentity, SliceCopyOps};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
 /// A generalized version of `PhraseQuery`, with the possibility of adding
 /// more than one term at the same position that are treated as a disjunction (OR).
@@ -310,7 +309,8 @@ impl MultiPhraseQueryWeightBase {
 
 impl PhraseWeightBase for MultiPhraseQueryWeightBase {
   type SimScorer = Arc<SimScorerType>;
-  type IE<LR: LeafReader> = SlowImpactsEnum<PostingsEnumEnum2<LRPosting<LR>, UnionPE<LRPosting<LR>>>>;
+  type IE<LR: LeafReader> =
+    SlowImpactsEnum<PostingsEnumEnum2<LRPosting<LR>, UnionPE<LRPosting<LR>>>>;
 
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
   where
@@ -329,7 +329,10 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
           self.term_states.insert(term.clone(), ts);
         }
         if self.base.score_mode.needs_scores() {
-          let ts = self.term_states.get(term).ok_or_else(|| LuceneError::illegal_state("term state should have been built"))?;
+          let ts = self
+            .term_states
+            .get(term)
+            .ok_or_else(|| LuceneError::illegal_state("term state should have been built"))?;
           if ts.doc_freq()? > 0 {
             let stats = searcher.term_statistics(
               Arc::new(term.clone()),
@@ -427,17 +430,20 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
 
       let postings_enum = if posting_enums.len() == 1 {
         PostingsEnumEnum2::A(posting_enums.remove(0))
-      }else {
+      } else {
         let union_pe = if expose_offsets {
           PostingsEnumEnum2::A(UnionFullPostingsEnum::new(posting_enums)?)
-        }else {
+        } else {
           PostingsEnumEnum2::B(UnionPostingsEnum::new(posting_enums)?)
         };
         PostingsEnumEnum2::B(union_pe)
       };
 
-
-      postings_freqs.push(PostingsAndFreq::new(SlowImpactsEnum::new(postings_enum), pos, terms));
+      postings_freqs.push(PostingsAndFreq::new(
+        SlowImpactsEnum::new(postings_enum),
+        self.query.positions[pos],
+        terms,
+      ));
     }
 
     let v = if self.query.slop == 0 {
@@ -473,7 +479,7 @@ where
   P: PostingsEnum,
 {
   docs_queue: PriorityQueue<usize, DocsQueueCmp<P>>,
-  cost:i64,
+  cost: i64,
   pos_queue: PositionsQueue,
   pos_queue_doc: i32,
 }
@@ -482,7 +488,7 @@ impl<P> UnionPostingsEnum<P>
 where
   P: PostingsEnum,
 {
-  pub fn new(subs: Vec<P>) -> Result<Self >{
+  pub fn new(subs: Vec<P>) -> Result<Self> {
     // subs should never be empty
     if subs.is_empty() {
       return Err(LuceneError::illegal_argument("subs must not be empty"));
@@ -490,8 +496,8 @@ where
     let size = subs.len();
     let mut cost = 0;
     let cmp = DocsQueueCmp::new(subs);
-    let mut docs_queue = PriorityQueue::new(size,cmp)?;
-    for  pe in docs_queue.compare.subs.iter() {
+    let mut docs_queue = PriorityQueue::new(size, cmp)?;
+    for pe in docs_queue.compare.subs.iter() {
       cost += pe.cost()?;
     }
     for i in 0..size {
@@ -517,7 +523,10 @@ where
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    let mut top = *self.docs_queue.top().ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
+    let mut top = *self
+      .docs_queue
+      .top()
+      .ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
     let doc = self.docs_queue.compare.subs[top].doc_id();
     loop {
       self.docs_queue.compare.subs[top].next_doc()?;
@@ -529,7 +538,10 @@ where
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    let mut top = *self.docs_queue.top().ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
+    let mut top = *self
+      .docs_queue
+      .top()
+      .ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
     loop {
       self.docs_queue.compare.subs[top].advance(target)?;
       top = *self.docs_queue.update_top()?;
@@ -553,7 +565,7 @@ where
     let doc = self.doc_id();
     if doc != self.pos_queue_doc {
       self.pos_queue.clear();
-      for sub in &mut self.docs_queue.compare.subs{
+      for sub in &mut self.docs_queue.compare.subs {
         if sub.doc_id() == doc {
           let freq = sub.freq()?;
           for _ in 0..freq {
@@ -585,15 +597,24 @@ where
   }
 }
 
-struct  DocsQueueCmp<P> where P: PostingsEnum {
+struct DocsQueueCmp<P>
+where
+  P: PostingsEnum,
+{
   subs: Vec<P>,
 }
-impl<P> DocsQueueCmp<P> where P: PostingsEnum {
+impl<P> DocsQueueCmp<P>
+where
+  P: PostingsEnum,
+{
   pub fn new(subs: Vec<P>) -> Self {
     Self { subs }
   }
 }
-impl<P> Compare<usize> for DocsQueueCmp<P> where P: PostingsEnum {
+impl<P> Compare<usize> for DocsQueueCmp<P>
+where
+  P: PostingsEnum,
+{
   fn less_than(&self, a: &usize, b: &usize) -> Result<bool> {
     let a_doc = self.subs[*a].doc_id();
     let b_doc = self.subs[*b].doc_id();
@@ -651,7 +672,7 @@ impl PositionsQueue {
 
   fn grow_array(&mut self) {
     let mut new_array = vec![0; self.array_size * 2];
-    new_array.copy_from(&self.array[..self.array_size],0);
+    new_array.copy_from(&self.array[..self.array_size], 0);
     self.array = new_array;
     self.array_size *= 2;
   }
@@ -676,11 +697,7 @@ impl PostingsAndPosition {
 struct PosQueueCmp;
 
 impl Compare<PostingsAndPosition> for PosQueueCmp {
-  fn less_than(
-    &self,
-    a: &PostingsAndPosition,
-    b: &PostingsAndPosition,
-  ) -> Result<bool> {
+  fn less_than(&self, a: &PostingsAndPosition, b: &PostingsAndPosition) -> Result<bool> {
     Ok(a.pos < b.pos)
   }
 }
@@ -781,7 +798,7 @@ where
       return Ok(top.pos);
     }
 
-    let mut top = self
+    let top = self
       .pos_queue
       .top_mut()
       .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
@@ -823,9 +840,9 @@ where
   }
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let top = self
-        .pos_queue
-        .top()
-        .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
+      .pos_queue
+      .top()
+      .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
     self.base.docs_queue.compare.subs[top.pe].get_payload()
   }
 }

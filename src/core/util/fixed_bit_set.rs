@@ -257,12 +257,12 @@ impl FixedBitSet {
       self.bits[i] ^= other_bits[i];
     }
   }
-
+  /// returns true if the sets have any elements in common
   pub fn intersects(&self, other: &FixedBitSet) -> bool {
     // Depends on the ghost bits being clear!
     let pos = std::cmp::min(self.num_words, other.num_words);
     for i in (0..pos).rev() {
-      if self.bits[i] != other.bits[i] {
+      if (self.bits[i] & other.bits[i]) != 0 {
         return true;
       }
     }
