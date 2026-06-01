@@ -14,12 +14,120 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::range_field_query::{QueryType, RangeFieldQuery, RangeFieldQueryBase};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
 
 pub struct DoubleRange;
 pub const BYTES: usize = std::mem::size_of::<f64>();
+
+impl DoubleRange {
+  /// Create a query for matching indexed ranges that intersect the defined range.
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `f64::NEG_INFINITY`.
+  /// - `max`: array of max values. Accepts `f64::INFINITY`.
+  ///
+  /// # Returns
+  /// Query for matching intersecting ranges (overlap, within, or contains).
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_intersects_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[f64]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Intersects)
+  }
+
+  /// Create a query for matching indexed ranges that contain the defined range.
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `f64::MIN`.
+  /// - `max`: array of max values. Accepts `f64::MAX`.
+  ///
+  /// # Returns
+  /// Query for matching ranges that contain the defined range.
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_contains_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[f64]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Contains)
+  }
+
+  /// Create a query for matching indexed ranges that are within the defined range.
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `f64::MIN`.
+  /// - `max`: array of max values. Accepts `f64::MAX`.
+  ///
+  /// # Returns
+  /// Query for matching ranges within the defined range.
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_within_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[f64]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Within)
+  }
+
+  /// Create a query for matching indexed ranges that cross the defined range. A cross relation is
+  /// any set of ranges that are not disjoint and not wholly contained by the query. Effectively,
+  /// it is the complement of union(WITHIN, DISJOINT).
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `f64::MIN`.
+  /// - `max`: array of max values. Accepts `f64::MAX`.
+  ///
+  /// # Returns
+  /// Query for matching ranges that cross the defined range.
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_crosses_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[f64]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Crosses)
+  }
+
+  /// Helper method for creating the desired relational query.
+  fn new_relation_query<T, P>(
+    field: T,
+    min: P,
+    max: P,
+    relation: QueryType,
+  ) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[f64]>,
+  {
+    let min = min.as_ref();
+    let max = max.as_ref();
+    check_args(min, max)?;
+    RangeFieldQuery::new(
+      field.into(),
+      encode_range(min, max)?,
+      min.len(),
+      relation,
+      DoubleRangeFieldQuery,
+    )
+  }
+}
 
 /// Validates the arguments.
 fn check_args(min: &[f64], max: &[f64]) -> Result<()> {
@@ -83,4 +191,31 @@ pub fn verify_and_encode(min: &[f64], max: &[f64], bytes: &mut [u8]) -> Result<(
 /// Encodes the given value into the byte array at the defined offset.
 fn encode(val: f64, bytes: &mut [u8], offset: usize) {
   NumericUtils::long_to_sortable_bytes(NumericUtils::double_to_sortable_long(val), bytes, offset);
+}
+
+fn decode_min(bytes: &[u8], dimension: usize) -> f64 {
+  let offset = dimension * BYTES;
+  NumericUtils::sortable_long_to_double(NumericUtils::sortable_bytes_to_long(bytes, offset))
+}
+
+fn decode_max(bytes: &[u8], dimension: usize) -> f64 {
+  let offset = bytes.len() / 2 + dimension * BYTES;
+  NumericUtils::sortable_long_to_double(NumericUtils::sortable_bytes_to_long(bytes, offset))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct DoubleRangeFieldQuery;
+
+impl RangeFieldQueryBase for DoubleRangeFieldQuery {
+  fn to_string(&self, value: &[u8], dimension: usize) -> Result<String> {
+    Ok(to_string(value, dimension))
+  }
+}
+
+fn to_string(ranges: &[u8], dimension: usize) -> String {
+  format!(
+    "[{} : {}]",
+    decode_min(ranges, dimension),
+    decode_max(ranges, dimension)
+  )
 }

@@ -21,6 +21,7 @@ use crate::core::document::field::FieldDataEnum::Dummy;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::range_field_query::{QueryType, RangeFieldQuery, RangeFieldQueryBase};
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
@@ -33,6 +34,7 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
+
 pub const BYTES: usize = std::mem::size_of::<i32>();
 pub struct IntRange {
   parent_field: Field,
@@ -122,6 +124,111 @@ impl IntRange {
         "Unsupported FieldDataEnum variant".to_string(),
       )),
     }
+  }
+
+  /// Create a query for matching indexed ranges that intersect the defined range.
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `i32::MIN`.
+  /// - `max`: array of max values. Accepts `i32::MAX`.
+  ///
+  /// # Returns
+  /// Query for matching intersecting ranges (overlap, within, or contains).
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_intersects_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[i32]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Intersects)
+  }
+
+  /// Create a query for matching indexed ranges that contain the defined range.
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `i32::MIN`.
+  /// - `max`: array of max values. Accepts `i32::MAX`.
+  ///
+  /// # Returns
+  /// Query for matching ranges that contain the defined range.
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_contains_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[i32]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Contains)
+  }
+
+  /// Create a query for matching indexed ranges that are within the defined range.
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `i32::MIN`.
+  /// - `max`: array of max values. Accepts `i32::MAX`.
+  ///
+  /// # Returns
+  /// Query for matching ranges within the defined range.
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_within_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[i32]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Within)
+  }
+
+  /// Create a query for matching indexed ranges that cross the defined range. A cross relation is
+  /// any set of ranges that are not disjoint and not wholly contained by the query. Effectively,
+  /// it is the complement of union(WITHIN, DISJOINT).
+  ///
+  /// # Parameters
+  /// - `field`: field name.
+  /// - `min`: array of min values. Accepts `i32::MIN`.
+  /// - `max`: array of max values. Accepts `i32::MAX`.
+  ///
+  /// # Returns
+  /// Query for matching ranges that cross the defined range.
+  ///
+  /// # Errors
+  /// Returns an error if `min` or `max` is invalid.
+  pub fn new_crosses_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[i32]>,
+  {
+    Self::new_relation_query(field, min, max, QueryType::Crosses)
+  }
+
+  /// Helper method for creating the desired relational query.
+  fn new_relation_query<T, P>(
+    field: T,
+    min: P,
+    max: P,
+    relation: QueryType,
+  ) -> Result<RangeFieldQuery>
+  where
+    T: Into<String>,
+    P: AsRef<[i32]>,
+  {
+    let min = min.as_ref();
+    let max = max.as_ref();
+    check_args(min, max)?;
+    RangeFieldQuery::new(
+      field.into(),
+      encode(min, max)?,
+      min.len(),
+      relation,
+      IntRangeFieldQuery,
+    )
   }
 }
 
@@ -284,6 +391,20 @@ fn decode_min(bytes: &[u8], dimension: usize) -> i32 {
 fn decode_max(bytes: &[u8], dimension: usize) -> i32 {
   let offset = bytes.len() / 2 + dimension * BitUtil::INT_BYTES;
   NumericUtils::sortable_bytes_to_int(bytes, offset)
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct IntRangeFieldQuery;
+impl RangeFieldQueryBase for IntRangeFieldQuery {
+  fn to_string(&self, value: &[u8], dimension: usize) -> Result<String> {
+    Ok(to_string(value, dimension))
+  }
+}
+fn to_string(ranges: &[u8], dimension: usize) -> String {
+  format!(
+    "[{} : {}]",
+    decode_min(ranges, dimension),
+    decode_max(ranges, dimension)
+  )
 }
 #[cfg(test)]
 impl Clone for IntRange {

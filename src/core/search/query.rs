@@ -19,6 +19,7 @@ use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery
 use crate::core::document::lat_lon_doc_values_query::LatLonDocValuesQuery;
 use crate::core::document::lat_lon_point_distance_feature_query::LatLonPointDistanceFeatureQuery;
 use crate::core::document::lat_lon_point_distance_query::LatLonPointDistanceQuery;
+use crate::core::document::range_field_query::RangeFieldQuery;
 use crate::core::document::sorted_numeric_doc_values_range_query::SortedNumericDocValuesRangeQuery;
 use crate::core::document::sorted_numeric_doc_values_set_query::SortedNumericDocValuesSetQuery;
 use crate::core::document::sorted_set_doc_values_range_query::SortedSetDocValuesRangeQuery;
@@ -153,6 +154,7 @@ macro_rules! dispatch_query {
       Query::PointRange($inner) => $body,
       Query::Prefix($inner) => $body,
       Query::Regexp($inner) => $body,
+      Query::RangeField($inner) => $body,
       Query::SortedNumericDocValuesRange($inner) => $body,
       Query::SortedNumericDocValuesSet($inner) => $body,
       Query::SortedSetDocValuesRange($inner) => $body,
@@ -228,6 +230,7 @@ impl_from_for_enum!(
     PointRangeQuery => PointRange,
     PrefixQuery => Prefix,
     RegexpQuery => Regexp,
+    RangeFieldQuery => RangeField,
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
@@ -289,6 +292,7 @@ impl_into_box_query!(
   PointRangeQuery,
   PrefixQuery,
   RegexpQuery,
+  RangeFieldQuery,
   SortedNumericDocValuesRangeQuery,
   SortedNumericDocValuesSetQuery,
   SortedSetDocValuesRangeQuery,
@@ -358,6 +362,7 @@ pub enum Query {
   PointRange(PointRangeQuery),
   Prefix(PrefixQuery),
   Regexp(RegexpQuery),
+  RangeField(RangeFieldQuery),
   SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
   SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
   SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
@@ -451,6 +456,7 @@ impl Query {
             PointRange,
             Prefix,
             Regexp,
+            RangeField,
             SortedNumericDocValuesRange,
             SortedNumericDocValuesSet,
             SortedSetDocValuesRange,
