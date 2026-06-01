@@ -24,14 +24,17 @@ use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
 use crate::core::document::double_field::DoubleField;
 use crate::core::document::double_point::DoublePoint;
+use crate::core::document::double_range_doc_values_field::DoubleRangeDocValuesField;
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
+use crate::core::document::float_range_doc_values_field::FloatRangeDocValuesField;
 use crate::core::document::int_field::IntField;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::int_range::IntRange;
+use crate::core::document::int_range_doc_values_field::IntRangeDocValuesField;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::keyword_field::KeywordField;
 use crate::core::document::knn_byte_vector_field::KnnByteVectorField;
@@ -40,6 +43,7 @@ use crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField;
 use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::document::long_field::LongField;
 use crate::core::document::long_point::LongPoint;
+use crate::core::document::long_range_doc_values_field::LongRangeDocValuesField;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::shape_field::Triangle;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
@@ -72,6 +76,7 @@ pub enum Fields {
   DoubleDocValues(DoubleDocValuesField),
   DoubleField(DoubleField),
   DoublePoint(DoublePoint),
+  DoubleRangeDocValues(DoubleRangeDocValuesField),
   Field(Field),
   #[cfg(test)]
   FieldImpl(FieldImpl),
@@ -80,9 +85,11 @@ pub enum Fields {
   FloatDocValues(FloatDocValuesField),
   FloatField(FloatField),
   FloatPoint(FloatPoint),
+  FloatRangeDocValues(FloatRangeDocValuesField),
   Int(IntRange),
   IntField(IntField),
   IntPoint(IntPoint),
+  IntRangeDocValues(IntRangeDocValuesField),
   Keyword(KeywordField),
   KnnByteVector(KnnByteVectorField),
   KnnFloatVector(KnnFloatVectorField),
@@ -90,6 +97,7 @@ pub enum Fields {
   LatLonPoint(LatLonPoint),
   LongField(LongField),
   LongPoint(LongPoint),
+  LongRangeDocValues(LongRangeDocValuesField),
   NumericDocValues(NumericDocValuesField),
   Reverse(ReservedField<NumericDocValuesField>),
   SortedDocValues(SortedDocValuesField),
@@ -111,6 +119,7 @@ macro_rules! dispatch_fields {
       Fields::DoubleDocValues($inner) => $body,
       Fields::DoubleField($inner) => $body,
       Fields::DoublePoint($inner) => $body,
+      Fields::DoubleRangeDocValues($inner) => $body,
       Fields::Field($inner) => $body,
       #[cfg(test)]
       Fields::FieldImpl($inner) => $body,
@@ -119,9 +128,11 @@ macro_rules! dispatch_fields {
       Fields::FloatDocValues($inner) => $body,
       Fields::FloatField($inner) => $body,
       Fields::FloatPoint($inner) => $body,
+      Fields::FloatRangeDocValues($inner) => $body,
       Fields::Int($inner) => $body,
       Fields::IntField($inner) => $body,
       Fields::IntPoint($inner) => $body,
+      Fields::IntRangeDocValues($inner) => $body,
       Fields::Keyword($inner) => $body,
       Fields::KnnByteVector($inner) => $body,
       Fields::KnnFloatVector($inner) => $body,
@@ -129,6 +140,7 @@ macro_rules! dispatch_fields {
       Fields::LatLonPoint($inner) => $body,
       Fields::LongField($inner) => $body,
       Fields::LongPoint($inner) => $body,
+      Fields::LongRangeDocValues($inner) => $body,
       Fields::NumericDocValues($inner) => $body,
       Fields::Reverse($inner) => $body,
       Fields::SortedDocValues($inner) => $body,
@@ -151,13 +163,16 @@ impl_from_for_enum!(
     DoubleDocValuesField => DoubleDocValues,
     DoubleField => DoubleField,
     DoublePoint => DoublePoint,
+    DoubleRangeDocValuesField => DoubleRangeDocValues,
     Field => Field,
     FloatDocValuesField => FloatDocValues,
     FloatField => FloatField,
     FloatPoint => FloatPoint,
+    FloatRangeDocValuesField => FloatRangeDocValues,
     IntRange => Int,
     IntField => IntField,
     IntPoint => IntPoint,
+    IntRangeDocValuesField => IntRangeDocValues,
     KeywordField => Keyword,
     KnnByteVectorField => KnnByteVector,
     KnnFloatVectorField => KnnFloatVector,
@@ -165,6 +180,7 @@ impl_from_for_enum!(
     LatLonPoint => LatLonPoint,
     LongField => LongField,
     LongPoint => LongPoint,
+    LongRangeDocValuesField => LongRangeDocValues,
     NumericDocValuesField => NumericDocValues,
     ReservedField<NumericDocValuesField> => Reverse,
     SortedDocValuesField => SortedDocValues,
