@@ -24,12 +24,14 @@ use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
 use crate::core::document::double_field::DoubleField;
 use crate::core::document::double_point::DoublePoint;
+use crate::core::document::double_range::DoubleRange;
 use crate::core::document::double_range_doc_values_field::DoubleRangeDocValuesField;
 use crate::core::document::field::{Field, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
+use crate::core::document::float_range::FloatRange;
 use crate::core::document::float_range_doc_values_field::FloatRangeDocValuesField;
 use crate::core::document::int_field::IntField;
 use crate::core::document::int_point::IntPoint;
@@ -43,6 +45,7 @@ use crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField;
 use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::document::long_field::LongField;
 use crate::core::document::long_point::LongPoint;
+use crate::core::document::long_range::LongRange;
 use crate::core::document::long_range_doc_values_field::LongRangeDocValuesField;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::shape_field::Triangle;
@@ -76,6 +79,7 @@ pub enum Fields {
   DoubleDocValues(DoubleDocValuesField),
   DoubleField(DoubleField),
   DoublePoint(DoublePoint),
+  DoubleRange(DoubleRange),
   DoubleRangeDocValues(DoubleRangeDocValuesField),
   Field(Field),
   #[cfg(test)]
@@ -85,6 +89,7 @@ pub enum Fields {
   FloatDocValues(FloatDocValuesField),
   FloatField(FloatField),
   FloatPoint(FloatPoint),
+  FloatRange(FloatRange),
   FloatRangeDocValues(FloatRangeDocValuesField),
   Int(IntRange),
   IntField(IntField),
@@ -97,6 +102,7 @@ pub enum Fields {
   LatLonPoint(LatLonPoint),
   LongField(LongField),
   LongPoint(LongPoint),
+  LongRange(LongRange),
   LongRangeDocValues(LongRangeDocValuesField),
   NumericDocValues(NumericDocValuesField),
   Reverse(ReservedField<NumericDocValuesField>),
@@ -119,6 +125,7 @@ macro_rules! dispatch_fields {
       Fields::DoubleDocValues($inner) => $body,
       Fields::DoubleField($inner) => $body,
       Fields::DoublePoint($inner) => $body,
+      Fields::DoubleRange($inner) => $body,
       Fields::DoubleRangeDocValues($inner) => $body,
       Fields::Field($inner) => $body,
       #[cfg(test)]
@@ -128,6 +135,7 @@ macro_rules! dispatch_fields {
       Fields::FloatDocValues($inner) => $body,
       Fields::FloatField($inner) => $body,
       Fields::FloatPoint($inner) => $body,
+      Fields::FloatRange($inner) => $body,
       Fields::FloatRangeDocValues($inner) => $body,
       Fields::Int($inner) => $body,
       Fields::IntField($inner) => $body,
@@ -140,6 +148,7 @@ macro_rules! dispatch_fields {
       Fields::LatLonPoint($inner) => $body,
       Fields::LongField($inner) => $body,
       Fields::LongPoint($inner) => $body,
+      Fields::LongRange($inner) => $body,
       Fields::LongRangeDocValues($inner) => $body,
       Fields::NumericDocValues($inner) => $body,
       Fields::Reverse($inner) => $body,
@@ -163,11 +172,13 @@ impl_from_for_enum!(
     DoubleDocValuesField => DoubleDocValues,
     DoubleField => DoubleField,
     DoublePoint => DoublePoint,
+    DoubleRange => DoubleRange,
     DoubleRangeDocValuesField => DoubleRangeDocValues,
     Field => Field,
     FloatDocValuesField => FloatDocValues,
     FloatField => FloatField,
     FloatPoint => FloatPoint,
+    FloatRange => FloatRange,
     FloatRangeDocValuesField => FloatRangeDocValues,
     IntRange => Int,
     IntField => IntField,
@@ -180,6 +191,7 @@ impl_from_for_enum!(
     LatLonPoint => LatLonPoint,
     LongField => LongField,
     LongPoint => LongPoint,
+    LongRange => LongRange,
     LongRangeDocValuesField => LongRangeDocValues,
     NumericDocValuesField => NumericDocValues,
     ReservedField<NumericDocValuesField> => Reverse,

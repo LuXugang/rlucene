@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::Field;
-use crate::core::document::field_type::FieldType;
-use crate::core::document::long_range::{self, LongRange};
-use crate::core::index::BytesRef;
+use crate::core::document::long_range::LongRange;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::query::Query;
@@ -73,42 +70,42 @@ impl TestLongRangeFieldQueries {
 
     // intersects (within)
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![-10, -10], vec![9, 10]))?);
+    document.add(LongRange::new(FIELD_NAME, &[-10, -10], &[9, 10])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![10, -10], vec![20, 10]))?);
+    document.add(LongRange::new(FIELD_NAME, &[10, -10], &[20, 10])?);
     writer.add_document(document)?;
 
     // intersects (contains, crosses)
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![-20, -20], vec![30, 30]))?);
+    document.add(LongRange::new(FIELD_NAME, &[-20, -20], &[30, 30])?);
     writer.add_document(document)?;
 
     // intersects (within)
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![-11, -11], vec![1, 11]))?);
+    document.add(LongRange::new(FIELD_NAME, &[-11, -11], &[1, 11])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![12, 1], vec![15, 29]))?);
+    document.add(LongRange::new(FIELD_NAME, &[12, 1], &[15, 29])?);
     writer.add_document(document)?;
 
     // disjoint
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![-122, 1], vec![-115, 29]))?);
+    document.add(LongRange::new(FIELD_NAME, &[-122, 1], &[-115, 29])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![i64::MIN, 1], vec![-11, 29]))?);
+    document.add(LongRange::new(FIELD_NAME, &[i64::MIN, 1], &[-11, 29])?);
     writer.add_document(document)?;
 
     // equal (within, contains, intersects)
     let mut document = Document::new();
-    document.add(self.new_range_field(&LongTestRange::new(vec![-11, -15], vec![15, 20]))?);
+    document.add(LongRange::new(FIELD_NAME, &[-11, -15], &[15, 20])?);
     writer.add_document(document)?;
 
     // search
@@ -155,19 +152,10 @@ impl TestLongRangeFieldQueries {
 
 impl BaseRangeFieldQueryTestCase for TestLongRangeFieldQueries {
   type Range = LongTestRange;
-  type RangeField = Field;
+  type RangeField = LongRange;
 
   fn new_range_field(&self, r: &Self::Range) -> Result<Self::RangeField> {
-    let mut field_type = FieldType::new();
-    field_type.set_dimensions(r.min.len() * 2, long_range::BYTES)?;
-    field_type.freeze();
-    let mut bytes = vec![0u8; long_range::BYTES * 2 * r.min.len()];
-    long_range::verify_and_encode(&r.min, &r.max, &mut bytes)?;
-    Ok(Field::new(
-      FIELD_NAME,
-      BytesRef::from_bytes(bytes),
-      field_type,
-    ))
+    LongRange::new(FIELD_NAME, &r.min, &r.max)
   }
 
   fn new_intersects_query(&self, r: &Self::Range) -> Result<Query> {

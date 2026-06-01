@@ -34,7 +34,22 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
-
+/// An indexed Integer Range field.
+///
+/// This field indexes dimensional ranges defined as min/max pairs. It supports up to a maximum of
+/// 4 dimensions (indexed as 8 numeric values). With 1 dimension representing a single integer range,
+/// 2 dimensions representing a bounding box, 3 dimensions a bounding cube, and 4 dimensions a
+/// tesseract.
+///
+/// Multiple values for the same field in one document is supported, and open ended ranges can be
+/// defined using `i32::MIN` and `i32::MAX`.
+///
+/// This field defines the following static factory methods for common search operations over
+/// integer ranges:
+///
+/// - [`new_intersects_query`] matches ranges that intersect the defined search range.
+/// - [`new_within_query`] matches ranges that are within the defined search range.
+/// - [`new_contains_query`] matches ranges that contain the defined search range.
 pub const BYTES: usize = std::mem::size_of::<i32>();
 pub struct IntRange {
   parent_field: Field,

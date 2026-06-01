@@ -14,22 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod base_shape_encoding_test_case;
-pub(crate) mod base_spatial_test_case;
-mod test_binary_document;
-mod test_doc_values_long_hash_set;
-mod test_document;
-mod test_double_range;
-mod test_field;
-mod test_field_type;
-mod test_float_range;
-mod test_int_range;
-mod test_keyword_field;
-mod test_lat_lon_doc_values_field;
-mod test_lat_lon_point;
-mod test_lat_lon_point_distance_feature_query;
-mod test_lat_lon_point_distance_sort;
-mod test_lat_lon_shape_encoding;
-mod test_long_range;
-mod test_per_field_consistency;
-mod test_xy_shape_encoding;
+
+use crate::core::document::float_range::FloatRange;
+use crate::core::util::error::lucene_error::Result;
+
+#[allow(dead_code)] // for quick search
+struct TestFloatRange;
+
+#[test]
+fn test_to_string_float_range() -> Result<()> {
+  let range = FloatRange::new(
+    "foo",
+    &[0.1_f32, 1.1_f32, 2.1_f32, 3.1_f32],
+    &[0.2_f32, 1.2_f32, 2.2_f32, 3.2_f32],
+  )?;
+
+  assert_eq!(
+    "FloatRange <foo: [0.1 : 0.2] [1.1 : 1.2] [2.1 : 2.2] [3.1 : 3.2]>",
+    range.to_string()
+  );
+  Ok(())
+}

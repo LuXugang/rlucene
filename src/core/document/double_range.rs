@@ -14,15 +14,133 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_stream::AnalyzerTokenStreams;
+use crate::core::document::field::FieldDataEnum::Dummy;
+use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
+use crate::core::document::field_type::FieldType;
+use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::range_field_query::{QueryType, RangeFieldQuery, RangeFieldQueryBase};
+use crate::core::index::BytesRef;
+use crate::core::index::indexable_field::{
+  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
+};
+use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
-
-pub struct DoubleRange;
+use std::borrow::Cow;
+use std::fmt;
+/// An indexed Double Range field.
+///
+/// This field indexes dimensional ranges defined as min/max pairs. It supports up to a maximum of
+/// 4 dimensions (indexed as 8 numeric values). With 1 dimension representing a single double range,
+/// 2 dimensions representing a bounding box, 3 dimensions a bounding cube, and 4 dimensions a
+/// tesseract.
+///
+/// Multiple values for the same field in one document is supported, and open ended ranges can be
+/// defined using `f64::NEG_INFINITY` and `f64::INFINITY`.
+///
+/// This field defines the following static factory methods for common search operations over
+/// double ranges:
+///
+/// - [`new_intersects_query`] matches ranges that intersect the defined search range.
+/// - [`new_within_query`] matches ranges that are within the defined search range.
+/// - [`new_contains_query`] matches ranges that contain the defined search range.
+pub struct DoubleRange {
+  parent_field: Field,
+}
 pub const BYTES: usize = std::mem::size_of::<f64>();
 
 impl DoubleRange {
+  pub fn new<T, P>(name: T, min: P, max: P) -> Result<Self>
+  where
+    T: Into<String>,
+    P: AsRef<[f64]>,
+  {
+    let min = min.as_ref();
+    let field_type = Self::get_type(min.len())?;
+    let mut parent_field = Field::new(name, Dummy(()), field_type);
+    Self::set_range_values_internal(&mut parent_field, min, max.as_ref())?;
+    Ok(DoubleRange { parent_field })
+  }
+
+  fn get_type(dimensions: usize) -> Result<FieldType> {
+    if dimensions > 4 {
+      return Err(LuceneError::illegal_argument(
+        "DoubleRange does not support greater than 4 dimensions",
+      ));
+    }
+    let mut ft = FieldType::new();
+    ft.set_dimensions(dimensions * 2, BYTES)?;
+    ft.freeze();
+    Ok(ft)
+  }
+
+  pub fn set_range_values(&mut self, min: &[f64], max: &[f64]) -> Result<()> {
+    Self::set_range_values_internal(&mut self.parent_field, min, max)
+  }
+
+  fn set_range_values_internal(parent_field: &mut Field, min: &[f64], max: &[f64]) -> Result<()> {
+    check_args(min, max)?;
+
+    let dims = parent_field.field_type().point_dimension_count();
+    if min.len() * 2 != dims || max.len() * 2 != dims {
+      return Err(LuceneError::illegal_argument(format!(
+        "field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
+        parent_field.name(),
+        dims / 2,
+        min.len()
+      )));
+    }
+
+    let bytes = match &mut parent_field.fields_data {
+      FieldDataEnum::Binary(b) => &mut b.bytes,
+      FieldDataEnum::Dummy(_) => {
+        let new_bytes = vec![0u8; BYTES * 2 * min.len()];
+        parent_field.fields_data = BytesRef::from_bytes(new_bytes).into();
+        match &mut parent_field.fields_data {
+          FieldDataEnum::Binary(b) => &mut b.bytes,
+          _ => return Err(LuceneError::illegal_state("should not be here")),
+        }
+      },
+      _ => Err(LuceneError::illegal_state(
+        "Unsupported FieldDataEnum variant",
+      ))?,
+    };
+
+    verify_and_encode(min, max, bytes)
+  }
+
+  pub fn get_min(&self, dimension: usize) -> Result<f64> {
+    CoreHelper::check_index(
+      dimension,
+      self.parent_field.field_type().point_dimension_count() / 2,
+    )?;
+    match &self.parent_field.fields_data {
+      FieldDataEnum::Binary(b) => Ok(decode_min(&b.bytes, dimension)),
+      _ => Err(LuceneError::illegal_argument(
+        "Unsupported FieldDataEnum variant",
+      )),
+    }
+  }
+
+  pub fn get_max(&self, dimension: usize) -> Result<f64> {
+    CoreHelper::check_index(
+      dimension,
+      self.parent_field.field_type().point_dimension_count() / 2,
+    )?;
+    match &self.parent_field.fields_data {
+      FieldDataEnum::Binary(b) => Ok(decode_max(&b.bytes, dimension)),
+      _ => Err(LuceneError::illegal_argument(
+        "Unsupported FieldDataEnum variant",
+      )),
+    }
+  }
+
   /// Create a query for matching indexed ranges that intersect the defined range.
   ///
   /// # Parameters
@@ -129,6 +247,97 @@ impl DoubleRange {
   }
 }
 
+impl FieldBase for DoubleRange {}
+
+impl IndexableField for DoubleRange {
+  fn name(&self) -> &str {
+    self.parent_field.name()
+  }
+
+  type FieldType = FieldType;
+
+  fn field_type(&self) -> &Self::FieldType {
+    self.parent_field.field_type()
+  }
+
+  fn token_stream<'a>(
+    &'a mut self,
+    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>> {
+    self
+      .parent_field
+      .token_stream(token_stream, reuse_token_stream)
+  }
+
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.parent_field.binary_value()
+  }
+
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    self.parent_field.take_binary_value()
+  }
+
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.parent_field.string_value()
+  }
+
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    self.parent_field.take_string_value()
+  }
+
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    todo!()
+  }
+
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    Err(LuceneError::illegal_argument(
+      "cannot convert DoubleRange to a single numeric value",
+    ))
+  }
+
+  fn stored_value(&self) -> Option<&FieldDataEnum> {
+    self.parent_field.stored_value()
+  }
+
+  fn invertable_type(&self) -> &InvertableType {
+    self.parent_field.invertable_type()
+  }
+
+  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.init_token_stream(analyzer)
+  }
+}
+
+impl fmt::Display for DoubleRange {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "DoubleRange <{}: ", self.parent_field.name())?;
+
+    let dims = self.parent_field.field_type().point_dimension_count() / 2;
+
+    match &self.parent_field.fields_data {
+      FieldDataEnum::Binary(bytes) => {
+        for dim in 0..dims {
+          if dim > 0 {
+            write!(f, " ")?;
+          }
+          let min = decode_min(&bytes.bytes, dim);
+          let max = decode_max(&bytes.bytes, dim);
+          write!(f, "[{} : {}]", min, max)?;
+        }
+      },
+      _ => {
+        write!(f, "Unsupported FieldDataEnum variant")?;
+      },
+    }
+
+    write!(f, ">")
+  }
+}
+
 /// Validates the arguments.
 fn check_args(min: &[f64], max: &[f64]) -> Result<()> {
   if min.is_empty() || max.is_empty() {
@@ -218,4 +427,13 @@ fn to_string(ranges: &[u8], dimension: usize) -> String {
     decode_min(ranges, dimension),
     decode_max(ranges, dimension)
   )
+}
+
+#[cfg(test)]
+impl Clone for DoubleRange {
+  fn clone(&self) -> Self {
+    Self {
+      parent_field: self.parent_field.clone(),
+    }
+  }
 }

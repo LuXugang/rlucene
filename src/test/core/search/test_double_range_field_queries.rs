@@ -15,10 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::double_range::{self, DoubleRange};
-use crate::core::document::field::Field;
-use crate::core::document::field_type::FieldType;
-use crate::core::index::BytesRef;
+use crate::core::document::double_range::DoubleRange;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::query::Query;
@@ -65,51 +62,62 @@ impl TestDoubleRangeFieldQueries {
 
     // intersects (within)
     let mut document = Document::new();
-    document.add(self.new_range_field(&DoubleTestRange::new(vec![-10.0, -10.0], vec![9.1, 10.1]))?);
+    document.add(DoubleRange::new(FIELD_NAME, &[-10.0, -10.0], &[9.1, 10.1])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(self.new_range_field(&DoubleTestRange::new(vec![10.0, -10.0], vec![20.0, 10.0]))?);
+    document.add(DoubleRange::new(FIELD_NAME, &[10.0, -10.0], &[20.0, 10.0])?);
     writer.add_document(document)?;
 
     // intersects (contains, crosses)
     let mut document = Document::new();
-    document
-      .add(self.new_range_field(&DoubleTestRange::new(vec![-20.0, -20.0], vec![30.0, 30.1]))?);
+    document.add(DoubleRange::new(
+      FIELD_NAME,
+      &[-20.0, -20.0],
+      &[30.0, 30.1],
+    )?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document
-      .add(self.new_range_field(&DoubleTestRange::new(vec![-11.1, -11.2], vec![1.23, 11.5]))?);
+    document.add(DoubleRange::new(
+      FIELD_NAME,
+      &[-11.1, -11.2],
+      &[1.23, 11.5],
+    )?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(self.new_range_field(&DoubleTestRange::new(vec![12.33, 1.2], vec![15.1, 29.9]))?);
+    document.add(DoubleRange::new(FIELD_NAME, &[12.33, 1.2], &[15.1, 29.9])?);
     writer.add_document(document)?;
 
     // disjoint
     let mut document = Document::new();
-    document.add(self.new_range_field(&DoubleTestRange::new(
-      vec![-122.33, 1.2],
-      vec![-115.1, 29.9],
-    ))?);
+    document.add(DoubleRange::new(
+      FIELD_NAME,
+      &[-122.33, 1.2],
+      &[-115.1, 29.9],
+    )?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(self.new_range_field(&DoubleTestRange::new(
-      vec![f64::NEG_INFINITY, 1.2],
-      vec![-11.0, 29.9],
-    ))?);
+    document.add(DoubleRange::new(
+      FIELD_NAME,
+      &[f64::NEG_INFINITY, 1.2],
+      &[-11.0, 29.9],
+    )?);
     writer.add_document(document)?;
 
     // equal (within, contains, intersects)
     let mut document = Document::new();
-    document
-      .add(self.new_range_field(&DoubleTestRange::new(vec![-11.0, -15.0], vec![15.0, 20.0]))?);
+    document.add(DoubleRange::new(
+      FIELD_NAME,
+      &[-11.0, -15.0],
+      &[15.0, 20.0],
+    )?);
     writer.add_document(document)?;
 
     // search
@@ -156,19 +164,10 @@ impl TestDoubleRangeFieldQueries {
 
 impl BaseRangeFieldQueryTestCase for TestDoubleRangeFieldQueries {
   type Range = DoubleTestRange;
-  type RangeField = Field;
+  type RangeField = DoubleRange;
 
   fn new_range_field(&self, r: &Self::Range) -> Result<Self::RangeField> {
-    let mut field_type = FieldType::new();
-    field_type.set_dimensions(r.min.len() * 2, double_range::BYTES)?;
-    field_type.freeze();
-    let mut bytes = vec![0u8; double_range::BYTES * 2 * r.min.len()];
-    double_range::verify_and_encode(&r.min, &r.max, &mut bytes)?;
-    Ok(Field::new(
-      FIELD_NAME,
-      BytesRef::from_bytes(bytes),
-      field_type,
-    ))
+    DoubleRange::new(FIELD_NAME, &r.min, &r.max)
   }
 
   fn new_intersects_query(&self, r: &Self::Range) -> Result<Query> {
