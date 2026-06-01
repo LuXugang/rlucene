@@ -92,6 +92,7 @@ mod test_positive_scores_only_collector;
 mod test_prefix_in_boolean_query;
 mod test_prefix_query;
 pub(crate) mod test_prefix_random;
+mod test_range_fields_doc_values_query;
 mod test_regexp_query;
 mod test_regexp_random;
 pub(crate) mod test_regexp_random2;

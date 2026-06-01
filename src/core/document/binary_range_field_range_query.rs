@@ -60,8 +60,8 @@ pub struct BinaryRangeFieldRangeQuery {
 impl BinaryRangeFieldRangeQuery {
   pub fn new<T>(
     query_packed_value: Vec<u8>,
-    num_dims: usize,
     num_bytes_per_dimension: usize,
+    num_dims: usize,
     query_type: QueryType,
     sub: T,
   ) -> Result<Self>
@@ -125,10 +125,7 @@ impl QueryBase for BinaryRangeFieldRangeQuery {
       sb.push_str(self.sub.field());
       sb.push(':');
     }
-    sb.push_str(&format!(
-      "BinaryRangeFieldRangeQuery(numDims={}, bytesPerDim={})",
-      self.num_dims, self.num_bytes_per_dimension
-    ));
+    sb.push_str(&self.sub.range_string());
     Ok(sb)
   }
 
@@ -341,6 +338,23 @@ impl BinaryRangeFieldRangeQueryEnum {
       BinaryRangeFieldRangeQueryEnum::Int(v) => v.field(),
       BinaryRangeFieldRangeQueryEnum::Float(v) => v.field(),
       BinaryRangeFieldRangeQueryEnum::Long(v) => v.field(),
+    }
+  }
+
+  fn range_string(&self) -> String {
+    match self {
+      BinaryRangeFieldRangeQueryEnum::Double(v) => {
+        format!("[{:?} TO {:?}]", v.min(), v.max())
+      },
+      BinaryRangeFieldRangeQueryEnum::Int(v) => {
+        format!("[{:?} TO {:?}]", v.min(), v.max())
+      },
+      BinaryRangeFieldRangeQueryEnum::Float(v) => {
+        format!("[{:?} TO {:?}]", v.min(), v.max())
+      },
+      BinaryRangeFieldRangeQueryEnum::Long(v) => {
+        format!("[{:?} TO {:?}]", v.min(), v.max())
+      },
     }
   }
 }
