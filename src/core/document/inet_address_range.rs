@@ -20,6 +20,7 @@ use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::field::FieldDataEnum::Dummy;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::inet_address_point;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::range_field_query::{QueryType, RangeFieldQuery, RangeFieldQueryBase};
 use crate::core::index::BytesRef;
@@ -30,7 +31,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt;
-use std::net::{IpAddr, Ipv6Addr};
+use std::net::IpAddr;
 
 /// An indexed InetAddress Range Field.
 ///
@@ -57,7 +58,6 @@ pub struct InetAddressRange {
 impl InetAddressRange {
   /// The number of bytes per dimension: sync with InetAddressPoint.
   pub const BYTES: usize = 16;
-  const IPV4_PREFIX: [u8; 12] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff];
 
   /// Create a new InetAddressRange from min/max value.
   ///
@@ -213,24 +213,6 @@ impl InetAddressRange {
       InetAddressRangeFieldQuery,
     )
   }
-
-  pub(crate) fn encode_address(value: IpAddr) -> [u8; Self::BYTES] {
-    match value {
-      IpAddr::V4(address) => {
-        let mut mapped = [0u8; Self::BYTES];
-        mapped[..Self::IPV4_PREFIX.len()].copy_from_slice(&Self::IPV4_PREFIX);
-        mapped[Self::IPV4_PREFIX.len()..].copy_from_slice(&address.octets());
-        mapped
-      },
-      IpAddr::V6(address) => address.octets(),
-    }
-  }
-
-  pub(crate) fn decode_address(value: &[u8]) -> IpAddr {
-    let mut bytes = [0u8; Self::BYTES];
-    bytes.copy_from_slice(&value[..Self::BYTES]);
-    IpAddr::V6(Ipv6Addr::from(bytes))
-  }
 }
 
 impl FieldBase for InetAddressRange {}
@@ -314,8 +296,8 @@ impl fmt::Display for InetAddressRange {
 }
 
 fn encode_range(min: IpAddr, max: IpAddr, bytes: &mut [u8]) -> Result<()> {
-  let min_encoded = InetAddressRange::encode_address(min);
-  let max_encoded = InetAddressRange::encode_address(max);
+  let min_encoded = inet_address_point::encode_address(min);
+  let max_encoded = inet_address_point::encode_address(max);
   if min_encoded[..] > max_encoded[..] {
     return Err(LuceneError::illegal_argument(
       "min value cannot be greater than max value for InetAddressRange field",
@@ -333,9 +315,10 @@ pub(crate) fn encode(min: IpAddr, max: IpAddr) -> Result<Vec<u8>> {
 }
 
 fn to_string(ranges: &[u8], _dimension: usize) -> String {
-  let min = InetAddressRange::decode_address(&ranges[..InetAddressRange::BYTES]);
-  let max =
-    InetAddressRange::decode_address(&ranges[InetAddressRange::BYTES..InetAddressRange::BYTES * 2]);
+  let min = inet_address_point::decode_address(&ranges[..InetAddressRange::BYTES]);
+  let max = inet_address_point::decode_address(
+    &ranges[InetAddressRange::BYTES..InetAddressRange::BYTES * 2],
+  );
   format!("[{} : {}]", min, max)
 }
 

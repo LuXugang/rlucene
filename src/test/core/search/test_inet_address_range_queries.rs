@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::inet_address_point;
 use crate::core::document::inet_address_range::InetAddressRange;
 use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
@@ -87,9 +88,9 @@ impl BaseRangeFieldQueryTestCase for TestInetAddressRangeQueries {
     R: Rng + ?Sized,
   {
     let min = self.next_inet_address(random);
-    let min_encoded = InetAddressRange::encode_address(min);
+    let min_encoded = inet_address_point::encode_address(min);
     let max = self.next_inet_address(random);
-    let max_encoded = InetAddressRange::encode_address(max);
+    let max_encoded = inet_address_point::encode_address(max);
     if min_encoded[..] > max_encoded[..] {
       Ok(IpRange::new(max, min))
     } else {
@@ -122,8 +123,8 @@ impl IpRange {
       base: RangeBase::default(),
       min_address,
       max_address,
-      min: InetAddressRange::encode_address(min_address),
-      max: InetAddressRange::encode_address(max_address),
+      min: inet_address_point::encode_address(min_address),
+      max: inet_address_point::encode_address(max_address),
     }
   }
 }
@@ -148,7 +149,7 @@ impl Range for IpRange {
   }
 
   fn set_min(&mut self, _dim: usize, val: Self::Value) {
-    let encoded = InetAddressRange::encode_address(val);
+    let encoded = inet_address_point::encode_address(val);
     if self.min[..] < encoded[..] {
       self.max = encoded;
       self.max_address = val;
@@ -163,7 +164,7 @@ impl Range for IpRange {
   }
 
   fn set_max(&mut self, _dim: usize, val: Self::Value) {
-    let encoded = InetAddressRange::encode_address(val);
+    let encoded = inet_address_point::encode_address(val);
     if self.max[..] > encoded[..] {
       self.min = encoded;
       self.min_address = val;

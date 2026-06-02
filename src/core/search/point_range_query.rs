@@ -17,6 +17,7 @@
 use crate::core::document::binary_point::BinaryPointRangeQuery;
 use crate::core::document::double_point::DoublePointRangeQuery;
 use crate::core::document::float_point::FloatPointRangeQuery;
+use crate::core::document::inet_address_point::InetAddressPointRangeQuery;
 use crate::core::document::int_point::IntPointRangeQuery;
 use crate::core::document::lat_lon_point::LatLonPointRangeQuery;
 use crate::core::document::long_point::LongPointRangeQuery;
@@ -976,6 +977,7 @@ pub enum PointRangeBaseEnum {
   Float(FloatPointRangeQuery),
   Double(DoublePointRangeQuery),
   Binary(BinaryPointRangeQuery),
+  InetAddress(InetAddressPointRangeQuery),
   LatLon(LatLonPointRangeQuery),
   #[cfg(test)]
   Test(PointRangeQueryBaseImpl),
@@ -987,6 +989,7 @@ impl_from_for_enum!(
     FloatPointRangeQuery => Float,
     DoublePointRangeQuery => Double,
     BinaryPointRangeQuery => Binary,
+    InetAddressPointRangeQuery => InetAddress,
     LatLonPointRangeQuery => LatLon,
 );
 #[cfg(test)]
@@ -999,6 +1002,7 @@ impl PointRangeBase for PointRangeBaseEnum {
       PointRangeBaseEnum::Float(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Double(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Binary(q) => q.to_string(dimension, value),
+      PointRangeBaseEnum::InetAddress(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::LatLon(q) => q.to_string(dimension, value),
       #[cfg(test)]
       PointRangeBaseEnum::Test(q) => q.to_string(dimension, value),

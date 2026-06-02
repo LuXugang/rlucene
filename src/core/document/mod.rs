@@ -38,6 +38,7 @@ pub mod float_point;
 pub mod float_range;
 pub mod float_range_doc_values_field;
 pub mod float_range_slow_range_query;
+pub mod inet_address_point;
 pub mod inet_address_range;
 pub mod int_field;
 pub mod int_point;

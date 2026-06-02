@@ -33,6 +33,7 @@ use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::float_range::FloatRange;
 use crate::core::document::float_range_doc_values_field::FloatRangeDocValuesField;
+use crate::core::document::inet_address_point::InetAddressPoint;
 use crate::core::document::inet_address_range::InetAddressRange;
 use crate::core::document::int_field::IntField;
 use crate::core::document::int_point::IntPoint;
@@ -93,6 +94,7 @@ pub enum Fields {
   FloatPoint(FloatPoint),
   FloatRange(FloatRange),
   FloatRangeDocValues(FloatRangeDocValuesField),
+  InetAddressPoint(InetAddressPoint),
   Int(IntRange),
   IntField(IntField),
   IntPoint(IntPoint),
@@ -141,6 +143,7 @@ macro_rules! dispatch_fields {
       Fields::FloatPoint($inner) => $body,
       Fields::FloatRange($inner) => $body,
       Fields::FloatRangeDocValues($inner) => $body,
+      Fields::InetAddressPoint($inner) => $body,
       Fields::Int($inner) => $body,
       Fields::IntField($inner) => $body,
       Fields::IntPoint($inner) => $body,
@@ -186,6 +189,7 @@ impl_from_for_enum!(
     FloatPoint => FloatPoint,
     FloatRange => FloatRange,
     FloatRangeDocValuesField => FloatRangeDocValues,
+    InetAddressPoint => InetAddressPoint,
     IntRange => Int,
     IntField => IntField,
     IntPoint => IntPoint,
