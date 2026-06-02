@@ -69,6 +69,7 @@ use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::impl_from_for_enum;
+use crate::sandbox::document::half_float_point::HalfFloatPoint;
 use crate::sandbox::document::lat_lon_bounding_box::LatLonBoundingBox;
 #[cfg(test)]
 use crate::test::core::index::test_doc_values_indexing::FieldImpl;
@@ -96,6 +97,7 @@ pub enum Fields {
   FloatPoint(FloatPoint),
   FloatRange(FloatRange),
   FloatRangeDocValues(FloatRangeDocValuesField),
+  HalfFloatPoint(HalfFloatPoint),
   InetAddressPoint(InetAddressPoint),
   Int(IntRange),
   IntField(IntField),
@@ -146,6 +148,7 @@ macro_rules! dispatch_fields {
       Fields::FloatPoint($inner) => $body,
       Fields::FloatRange($inner) => $body,
       Fields::FloatRangeDocValues($inner) => $body,
+      Fields::HalfFloatPoint($inner) => $body,
       Fields::InetAddressPoint($inner) => $body,
       Fields::Int($inner) => $body,
       Fields::IntField($inner) => $body,
@@ -193,6 +196,7 @@ impl_from_for_enum!(
     FloatPoint => FloatPoint,
     FloatRange => FloatRange,
     FloatRangeDocValuesField => FloatRangeDocValues,
+    HalfFloatPoint => HalfFloatPoint,
     InetAddressPoint => InetAddressPoint,
     IntRange => Int,
     IntField => IntField,

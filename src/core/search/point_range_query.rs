@@ -52,6 +52,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
 use crate::impl_from_for_enum;
+use crate::sandbox::document::half_float_point::HalfFloatPointRangeQuery;
 #[cfg(test)]
 use crate::test::core::search::test_point_queries::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
@@ -979,6 +980,7 @@ pub enum PointRangeBaseEnum {
   BigInteger(BigIntegerPointRangeQuery),
   Long(LongPointRangeQuery),
   Float(FloatPointRangeQuery),
+  HalfFloat(HalfFloatPointRangeQuery),
   Double(DoublePointRangeQuery),
   Binary(BinaryPointRangeQuery),
   InetAddress(InetAddressPointRangeQuery),
@@ -992,6 +994,7 @@ impl_from_for_enum!(
     BigIntegerPointRangeQuery => BigInteger,
     LongPointRangeQuery => Long,
     FloatPointRangeQuery => Float,
+    HalfFloatPointRangeQuery => HalfFloat,
     DoublePointRangeQuery => Double,
     BinaryPointRangeQuery => Binary,
     InetAddressPointRangeQuery => InetAddress,
@@ -1006,6 +1009,7 @@ impl PointRangeBase for PointRangeBaseEnum {
       PointRangeBaseEnum::BigInteger(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Long(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Float(q) => q.to_string(dimension, value),
+      PointRangeBaseEnum::HalfFloat(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Double(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Binary(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::InetAddress(q) => q.to_string(dimension, value),
