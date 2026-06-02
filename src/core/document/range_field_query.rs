@@ -16,6 +16,7 @@
  */
 use crate::core::document::double_range::DoubleRangeFieldQuery;
 use crate::core::document::float_range::FloatRangeFieldQuery;
+use crate::core::document::inet_address_range::InetAddressRangeFieldQuery;
 use crate::core::document::int_range::IntRangeFieldQuery;
 use crate::core::document::long_range::LongRangeFieldQuery;
 use crate::core::index::field_info::FieldInfo;
@@ -531,6 +532,7 @@ pub trait RangeFieldQueryBase {
 pub enum RangeFieldQueryBaseEnum {
   Double(DoubleRangeFieldQuery),
   Float(FloatRangeFieldQuery),
+  InetAddress(InetAddressRangeFieldQuery),
   Int(IntRangeFieldQuery),
   LatLonBoundingBox(LatLonBoundingBoxFieldQuery),
   Long(LongRangeFieldQuery),
@@ -540,6 +542,7 @@ impl_from_for_enum!(
   RangeFieldQueryBaseEnum,
   DoubleRangeFieldQuery => Double,
   FloatRangeFieldQuery => Float,
+  InetAddressRangeFieldQuery => InetAddress,
   IntRangeFieldQuery => Int,
   LatLonBoundingBoxFieldQuery => LatLonBoundingBox,
   LongRangeFieldQuery => Long,
@@ -550,6 +553,7 @@ impl RangeFieldQueryBase for RangeFieldQueryBaseEnum {
     match self {
       RangeFieldQueryBaseEnum::Double(i) => i.to_string(value, dimension),
       RangeFieldQueryBaseEnum::Float(i) => i.to_string(value, dimension),
+      RangeFieldQueryBaseEnum::InetAddress(i) => i.to_string(value, dimension),
       RangeFieldQueryBaseEnum::Int(i) => i.to_string(value, dimension),
       RangeFieldQueryBaseEnum::LatLonBoundingBox(i) => i.to_string(value, dimension),
       RangeFieldQueryBaseEnum::Long(i) => i.to_string(value, dimension),

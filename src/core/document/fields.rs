@@ -33,6 +33,7 @@ use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::float_range::FloatRange;
 use crate::core::document::float_range_doc_values_field::FloatRangeDocValuesField;
+use crate::core::document::inet_address_range::InetAddressRange;
 use crate::core::document::int_field::IntField;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::int_range::IntRange;
@@ -96,6 +97,7 @@ pub enum Fields {
   IntField(IntField),
   IntPoint(IntPoint),
   IntRangeDocValues(IntRangeDocValuesField),
+  InetAddressRange(InetAddressRange),
   Keyword(KeywordField),
   KnnByteVector(KnnByteVectorField),
   KnnFloatVector(KnnFloatVectorField),
@@ -143,6 +145,7 @@ macro_rules! dispatch_fields {
       Fields::IntField($inner) => $body,
       Fields::IntPoint($inner) => $body,
       Fields::IntRangeDocValues($inner) => $body,
+      Fields::InetAddressRange($inner) => $body,
       Fields::Keyword($inner) => $body,
       Fields::KnnByteVector($inner) => $body,
       Fields::KnnFloatVector($inner) => $body,
@@ -187,6 +190,7 @@ impl_from_for_enum!(
     IntField => IntField,
     IntPoint => IntPoint,
     IntRangeDocValuesField => IntRangeDocValues,
+    InetAddressRange => InetAddressRange,
     KeywordField => Keyword,
     KnnByteVectorField => KnnByteVector,
     KnnFloatVectorField => KnnFloatVector,

@@ -67,6 +67,7 @@ mod test_fuzzy_term_on_short_terms;
 mod test_index_or_doc_values_query;
 mod test_index_searcher;
 mod test_index_sort_sorted_numeric_doc_values_range_query;
+mod test_inet_address_range_queries;
 mod test_int_range_field_queries;
 mod test_knn_byte_vector_query;
 mod test_knn_float_vector_query;
