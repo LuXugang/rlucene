@@ -40,7 +40,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::impl_from_for_enum;
-use crate::sandbox::merge_on_flush_merge_policy::MergeOnFlushMergePolicy;
+use crate::sandbox::index::merge_on_flush_merge_policy::MergeOnFlushMergePolicy;
 #[cfg(test)]
 use crate::test::core::index::force_merge_policy::ForceMergePolicy;
 #[cfg(test)]

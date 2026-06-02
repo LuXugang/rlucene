@@ -22,7 +22,7 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::Result;
-use crate::sandbox::merge_on_flush_merge_policy::{MergeOnFlushMergePolicy, Units};
+use crate::sandbox::index::merge_on_flush_merge_policy::{MergeOnFlushMergePolicy, Units};
 use crate::test::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory, MockMergeContext, make_segment_commit_info,
 };
