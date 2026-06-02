@@ -18,9 +18,10 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 
 use crate::impl_from_for_enum;
+use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Number {
   U8(u8),
   I16(i16),
@@ -28,82 +29,90 @@ pub enum Number {
   I64(i64),
   F32(f32),
   F64(f64),
+  BigInt(BigInt),
 }
 
 impl Number {
   pub fn to_i8(&self) -> Option<u8> {
-    match *self {
-      Number::U8(n) => Some(n),
+    match self {
+      Number::U8(n) => Some(*n),
       Number::I16(n) => n.to_u8(),
       Number::I32(n) => n.to_u8(),
       Number::I64(n) => n.to_u8(),
       Number::F32(n) => n.to_u8(),
       Number::F64(n) => n.to_u8(),
+      Number::BigInt(n) => n.to_u8(),
     }
   }
 
   pub fn to_i16(&self) -> Option<i16> {
-    match *self {
+    match self {
       Number::U8(n) => n.to_i16(),
-      Number::I16(n) => Some(n),
+      Number::I16(n) => Some(*n),
       Number::I32(n) => n.to_i16(),
       Number::I64(n) => n.to_i16(),
       Number::F32(n) => n.to_i16(),
       Number::F64(n) => n.to_i16(),
+      Number::BigInt(n) => n.to_i16(),
     }
   }
 
   pub fn to_i32(&self) -> Option<i32> {
-    match *self {
+    match self {
       Number::U8(n) => n.to_i32(),
       Number::I16(n) => n.to_i32(),
-      Number::I32(n) => Some(n),
+      Number::I32(n) => Some(*n),
       Number::I64(n) => n.to_i32(),
       Number::F32(n) => n.to_i32(),
       Number::F64(n) => n.to_i32(),
+      Number::BigInt(n) => n.to_i32(),
     }
   }
 
   pub fn to_i64(&self) -> Option<i64> {
-    match *self {
+    match self {
       Number::U8(n) => n.to_i64(),
       Number::I16(n) => n.to_i64(),
       Number::I32(n) => n.to_i64(),
-      Number::I64(n) => Some(n),
+      Number::I64(n) => Some(*n),
       Number::F32(n) => n.to_i64(),
       Number::F64(n) => n.to_i64(),
+      Number::BigInt(n) => n.to_i64(),
     }
   }
 
   pub fn to_f32(&self) -> Option<f32> {
-    match *self {
+    match self {
       Number::U8(n) => n.to_f32(),
       Number::I16(n) => n.to_f32(),
       Number::I32(n) => n.to_f32(),
       Number::I64(n) => n.to_f32(),
-      Number::F32(n) => Some(n),
+      Number::F32(n) => Some(*n),
       Number::F64(n) => n.to_f32(),
+      Number::BigInt(n) => n.to_f32(),
     }
   }
 
   pub fn to_f64(&self) -> Option<f64> {
-    match *self {
+    match self {
       Number::U8(n) => n.to_f64(),
       Number::I16(n) => n.to_f64(),
       Number::I32(n) => n.to_f64(),
       Number::I64(n) => n.to_f64(),
       Number::F32(n) => n.to_f64(),
-      Number::F64(n) => Some(n),
+      Number::F64(n) => Some(*n),
+      Number::BigInt(n) => n.to_f64(),
     }
   }
   pub fn as_string(&self) -> String {
-    match *self {
+    match self {
       Number::U8(n) => n.to_string(),
       Number::I16(n) => n.to_string(),
       Number::I32(n) => n.to_string(),
       Number::I64(n) => n.to_string(),
       Number::F32(n) => n.to_string(),
       Number::F64(n) => n.to_string(),
+      Number::BigInt(n) => n.to_string(),
     }
   }
 }
@@ -117,6 +126,7 @@ impl fmt::Display for Number {
       Number::I64(v) => write!(f, "{v}"),
       Number::F32(v) => write!(f, "{v}"),
       Number::F64(v) => write!(f, "{v}"),
+      Number::BigInt(v) => write!(f, "{v}"),
     }
   }
 }
@@ -132,6 +142,7 @@ impl Hash for Number {
       Number::I64(v) => v.hash(state),
       Number::F32(v) => v.to_bits().hash(state),
       Number::F64(v) => v.to_bits().hash(state),
+      Number::BigInt(v) => v.hash(state),
     }
   }
 }
@@ -143,4 +154,5 @@ impl_from_for_enum!(
     i64 => I64,
     f32 => F32,
     f64 => F64,
+    BigInt => BigInt,
 );

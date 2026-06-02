@@ -19,6 +19,7 @@ use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::document::big_integer_point::BigIntegerPoint;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
@@ -79,6 +80,7 @@ use std::fmt::{Debug, Display, Formatter};
 pub enum Fields {
   Binary(BinaryPoint),
   BinaryDocValues(BinaryDocValuesField),
+  BigIntegerPoint(BigIntegerPoint),
   DoubleDocValues(DoubleDocValuesField),
   DoubleField(DoubleField),
   DoublePoint(DoublePoint),
@@ -128,6 +130,7 @@ macro_rules! dispatch_fields {
     match $self {
       Fields::Binary($inner) => $body,
       Fields::BinaryDocValues($inner) => $body,
+      Fields::BigIntegerPoint($inner) => $body,
       Fields::DoubleDocValues($inner) => $body,
       Fields::DoubleField($inner) => $body,
       Fields::DoublePoint($inner) => $body,
@@ -178,6 +181,7 @@ impl_from_for_enum!(
     Fields,
     BinaryPoint => Binary,
     BinaryDocValuesField => BinaryDocValues,
+    BigIntegerPoint => BigIntegerPoint,
     DoubleDocValuesField => DoubleDocValues,
     DoubleField => DoubleField,
     DoublePoint => DoublePoint,

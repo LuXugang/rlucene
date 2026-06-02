@@ -304,6 +304,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
           Number::I64(_) => "i64",
           Number::U8(_) => "u8",
           Number::I16(_) => "i16",
+          Number::BigInt(_) => "bigint",
         };
         assert_eq!(type_answers[idx], actual_type);
       }

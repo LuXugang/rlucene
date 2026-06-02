@@ -142,7 +142,7 @@ where
     let score_explanation = self.stats.explain(freq_explanation, norm)?;
 
     Ok(Explanation::match_(
-      score_explanation.value,
+      score_explanation.value.clone(),
       format!(
         "weight({} in {}) [{}], result of:",
         self.sub.base().query.as_string(&self.sub.base().field)?,

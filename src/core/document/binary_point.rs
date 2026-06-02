@@ -25,7 +25,9 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
-use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery, check_args};
+#[cfg(debug_assertions)]
+use crate::core::search::point_range_query::check_args;
+use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -161,6 +163,7 @@ impl BinaryPoint {
     T: Into<String>,
   {
     let field = field.into();
+    #[cfg(debug_assertions)]
     check_args(&field, lower.as_ref(), upper.as_ref())?;
     Self::new_range_query_multi_dim(field, &[lower], &[upper])
   }
@@ -183,6 +186,7 @@ impl BinaryPoint {
     let mut packed_lower = Self::pack(lower)?;
     let mut packed_upper = Self::pack(upper)?;
 
+    #[cfg(debug_assertions)]
     check_args(&field, &packed_lower.bytes, &packed_upper.bytes)?;
 
     PointRangeQuery::new(

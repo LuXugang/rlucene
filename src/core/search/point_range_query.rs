@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::big_integer_point::BigIntegerPointRangeQuery;
 use crate::core::document::binary_point::BinaryPointRangeQuery;
 use crate::core::document::double_point::DoublePointRangeQuery;
 use crate::core::document::float_point::FloatPointRangeQuery;
@@ -101,6 +102,7 @@ impl PointRangeQuery {
   where
     S: Into<PointRangeBaseEnum>,
   {
+    #[cfg(debug_assertions)]
     check_args(&field, lower_point.as_ref(), upper_point.as_ref())?;
     if lower_point.is_empty() {
       return Err(LuceneError::illegal_argument(
@@ -177,6 +179,7 @@ impl PointRangeQuery {
   }
 }
 
+#[cfg(debug_assertions)]
 pub fn check_args(_field: &String, _lower_point: &[u8], _upper_point: &[u8]) -> Result<()> {
   // not required in Rust Lucene, return Ok directly
   Ok(())
@@ -973,6 +976,7 @@ pub trait PointRangeBase {
 #[derive(Debug, Clone)]
 pub enum PointRangeBaseEnum {
   Int(IntPointRangeQuery),
+  BigInteger(BigIntegerPointRangeQuery),
   Long(LongPointRangeQuery),
   Float(FloatPointRangeQuery),
   Double(DoublePointRangeQuery),
@@ -985,6 +989,7 @@ pub enum PointRangeBaseEnum {
 impl_from_for_enum!(
     PointRangeBaseEnum,
     IntPointRangeQuery => Int,
+    BigIntegerPointRangeQuery => BigInteger,
     LongPointRangeQuery => Long,
     FloatPointRangeQuery => Float,
     DoublePointRangeQuery => Double,
@@ -998,6 +1003,7 @@ impl PointRangeBase for PointRangeBaseEnum {
   fn to_string(&self, dimension: usize, value: &[u8]) -> Result<String> {
     match self {
       PointRangeBaseEnum::Int(q) => q.to_string(dimension, value),
+      PointRangeBaseEnum::BigInteger(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Long(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Float(q) => q.to_string(dimension, value),
       PointRangeBaseEnum::Double(q) => q.to_string(dimension, value),

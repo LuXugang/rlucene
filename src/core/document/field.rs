@@ -644,7 +644,7 @@ impl IndexableField for Field {
 
   fn numeric_value(&self) -> Result<Option<Number>> {
     if let FieldDataEnum::Number(n) = &self.fields_data {
-      Ok(Some(*n))
+      Ok(Some(n.clone()))
     } else {
       Ok(None)
     }
@@ -781,7 +781,7 @@ pub enum FieldDataEnum {
 impl Clone for FieldDataEnum {
   fn clone(&self) -> Self {
     match self {
-      Self::Number(n) => Self::Number(*n),
+      Self::Number(n) => Self::Number(n.clone()),
       Self::Binary(b) => Self::Binary(b.clone()),
       Self::String(s) => Self::String(s.clone()),
       Self::Reader(r) => Self::Reader(r.clone()),

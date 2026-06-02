@@ -25,7 +25,9 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
-use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery, check_args};
+#[cfg(debug_assertions)]
+use crate::core::search::point_range_query::check_args;
+use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -128,6 +130,7 @@ impl IntPoint {
     let len = lower_value.as_ref().len();
     let mut lower_point = IntPoint::pack(lower_value)?;
     let mut upper_point = IntPoint::pack(upper_value)?;
+    #[cfg(debug_assertions)]
     check_args(&field, &lower_point.bytes, &upper_point.bytes)?;
     PointRangeQuery::new(
       field,

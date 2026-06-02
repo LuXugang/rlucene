@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod big_integer_point;
 pub mod binary_doc_values_field;
 pub mod binary_point;
 pub mod binary_range_doc_values;

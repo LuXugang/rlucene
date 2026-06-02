@@ -383,7 +383,7 @@ where
           .explain(freq_explanation, norm)?;
 
         return Ok(Explanation::match_(
-          score_explanation.value,
+          score_explanation.value.clone(),
           format!(
             "weight({:?} in {}) [{}], result of:",
             <Self as Weight<IRC>>::get_query(self),

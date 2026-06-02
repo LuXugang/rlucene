@@ -24,7 +24,9 @@ use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
-use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery, check_args};
+#[cfg(debug_assertions)]
+use crate::core::search::point_range_query::check_args;
+use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -275,6 +277,7 @@ impl InetAddressPoint {
     let field = field.into();
     let lower_point = encode_address(lower_value);
     let upper_point = encode_address(upper_value);
+    #[cfg(debug_assertions)]
     check_args(&field, &lower_point, &upper_point)?;
     PointRangeQuery::new(
       field,
