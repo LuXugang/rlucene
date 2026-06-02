@@ -30,7 +30,7 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
-use std::net::{IpAddr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 const IPV4_PREFIX: [u8; 12] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff];
 
@@ -75,7 +75,7 @@ impl InetAddressPoint {
     if address == Self::MAX_VALUE {
       return Err(LuceneError::number_overflow(format!(
         "Overflow: there is no greater InetAddress than {}",
-        address
+        host_address(address)
       )));
     }
     let mut delta = [0u8; Self::BYTES];
@@ -100,7 +100,7 @@ impl InetAddressPoint {
     if address == Self::MIN_VALUE {
       return Err(LuceneError::number_overflow(format!(
         "Underflow: there is no smaller InetAddress than {}",
-        address
+        host_address(address)
       )));
     }
     let mut delta = [0u8; Self::BYTES];
@@ -364,9 +364,9 @@ impl fmt::Display for InetAddressPoint {
       FieldDataEnum::Binary(bytes) => {
         let address = decode_address(&bytes.bytes[bytes.offset..bytes.offset + Self::BYTES]);
         if matches!(address, IpAddr::V6(_)) {
-          write!(f, "[{}]", address)?;
+          write!(f, "[{}]", host_address(address))?;
         } else {
-          write!(f, "{}", address)?;
+          write!(f, "{}", host_address(address))?;
         }
       },
       _ => {
@@ -394,7 +394,22 @@ pub fn encode_address(value: IpAddr) -> [u8; InetAddressPoint::BYTES] {
 pub fn decode_address(value: &[u8]) -> IpAddr {
   let mut bytes = [0u8; InetAddressPoint::BYTES];
   bytes.copy_from_slice(&value[..InetAddressPoint::BYTES]);
+  if bytes[..IPV4_PREFIX.len()] == IPV4_PREFIX {
+    return IpAddr::V4(Ipv4Addr::new(bytes[12], bytes[13], bytes[14], bytes[15]));
+  }
   IpAddr::V6(Ipv6Addr::from(bytes))
+}
+
+pub(crate) fn host_address(address: IpAddr) -> String {
+  match address {
+    IpAddr::V4(address) => address.to_string(),
+    IpAddr::V6(address) => address
+      .segments()
+      .iter()
+      .map(|segment| format!("{segment:x}"))
+      .collect::<Vec<_>>()
+      .join(":"),
+  }
 }
 
 #[derive(Debug, Clone)]
@@ -402,7 +417,7 @@ pub struct InetAddressPointRangeQuery;
 
 impl PointRangeBase for InetAddressPointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
-    Ok(decode_address(value).to_string())
+    Ok(host_address(decode_address(value)))
   }
 }
 

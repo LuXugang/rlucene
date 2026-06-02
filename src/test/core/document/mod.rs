@@ -23,6 +23,7 @@ mod test_double_range;
 mod test_field;
 mod test_field_type;
 mod test_float_range;
+mod test_inet_address_point;
 mod test_int_range;
 mod test_keyword_field;
 mod test_lat_lon_doc_values_field;
