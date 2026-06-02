@@ -66,6 +66,7 @@ use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::impl_from_for_enum;
+use crate::sandbox::document::lat_lon_bounding_box::LatLonBoundingBox;
 #[cfg(test)]
 use crate::test::core::index::test_doc_values_indexing::FieldImpl;
 #[cfg(test)]
@@ -98,6 +99,7 @@ pub enum Fields {
   Keyword(KeywordField),
   KnnByteVector(KnnByteVectorField),
   KnnFloatVector(KnnFloatVectorField),
+  LatLonBoundingBox(LatLonBoundingBox),
   LatLonDocValues(LatLonDocValuesField),
   LatLonPoint(LatLonPoint),
   LongField(LongField),
@@ -144,6 +146,7 @@ macro_rules! dispatch_fields {
       Fields::Keyword($inner) => $body,
       Fields::KnnByteVector($inner) => $body,
       Fields::KnnFloatVector($inner) => $body,
+      Fields::LatLonBoundingBox($inner) => $body,
       Fields::LatLonDocValues($inner) => $body,
       Fields::LatLonPoint($inner) => $body,
       Fields::LongField($inner) => $body,
@@ -187,6 +190,7 @@ impl_from_for_enum!(
     KeywordField => Keyword,
     KnnByteVectorField => KnnByteVector,
     KnnFloatVectorField => KnnFloatVector,
+    LatLonBoundingBox => LatLonBoundingBox,
     LatLonDocValuesField => LatLonDocValues,
     LatLonPoint => LatLonPoint,
     LongField => LongField,

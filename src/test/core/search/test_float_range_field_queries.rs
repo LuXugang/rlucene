@@ -200,6 +200,11 @@ where
   f(&case, &mut random)
 }
 
+#[test]
+fn test_basics() -> Result<()> {
+  run_case(|case, random| case.test_basics(random))
+}
+
 #[derive(Clone)]
 pub(crate) struct FloatTestRange {
   pub(crate) base: RangeBase,
@@ -311,11 +316,6 @@ mod base_range_field_query_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::search::base_range_field_query_test_case::BaseRangeFieldQueryTestCase;
   use crate::test::core::search::test_float_range_field_queries::run_case;
-
-  #[test]
-  fn test_basics() -> Result<()> {
-    run_case(|case, random| case.test_basics(random))
-  }
 
   #[test]
   fn test_random_tiny() -> Result<()> {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 pub mod base_knn_vector_query_test_case;
-mod base_range_field_query_test_case;
+pub(crate) mod base_range_field_query_test_case;
 pub mod base_vector_similarity_query_test_case;
 pub(crate) mod block_score_query_wrapper;
 pub mod bulk_scorer_wrapper_scorer;

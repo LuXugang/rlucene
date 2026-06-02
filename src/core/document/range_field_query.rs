@@ -47,6 +47,7 @@ use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
+use crate::sandbox::document::lat_lon_bounding_box::LatLonBoundingBoxFieldQuery;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -531,6 +532,7 @@ pub enum RangeFieldQueryBaseEnum {
   Double(DoubleRangeFieldQuery),
   Float(FloatRangeFieldQuery),
   Int(IntRangeFieldQuery),
+  LatLonBoundingBox(LatLonBoundingBoxFieldQuery),
   Long(LongRangeFieldQuery),
 }
 
@@ -539,6 +541,7 @@ impl_from_for_enum!(
   DoubleRangeFieldQuery => Double,
   FloatRangeFieldQuery => Float,
   IntRangeFieldQuery => Int,
+  LatLonBoundingBoxFieldQuery => LatLonBoundingBox,
   LongRangeFieldQuery => Long,
 );
 
@@ -548,6 +551,7 @@ impl RangeFieldQueryBase for RangeFieldQueryBaseEnum {
       RangeFieldQueryBaseEnum::Double(i) => i.to_string(value, dimension),
       RangeFieldQueryBaseEnum::Float(i) => i.to_string(value, dimension),
       RangeFieldQueryBaseEnum::Int(i) => i.to_string(value, dimension),
+      RangeFieldQueryBaseEnum::LatLonBoundingBox(i) => i.to_string(value, dimension),
       RangeFieldQueryBaseEnum::Long(i) => i.to_string(value, dimension),
     }
   }

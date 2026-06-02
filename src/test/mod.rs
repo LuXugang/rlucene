@@ -16,6 +16,7 @@
  */
 pub mod core;
 mod queries;
+mod sandbox;
 
 pub(crate) fn ulp_f64(x: f64) -> f64 {
   if x.is_nan() {
