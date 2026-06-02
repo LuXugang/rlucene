@@ -45,7 +45,10 @@ where
     }
   }
   /// Return a reference to the bytes of this builder.
-  pub fn bytes_ref(&mut self) -> &mut BytesRef<AV> {
+  pub fn bytes(&self) -> &BytesRef<AV> {
+    &self.bytes_ref
+  }
+  pub fn bytes_mut(&mut self) -> &mut BytesRef<AV> {
     &mut self.bytes_ref
   }
 
@@ -95,7 +98,7 @@ where
     self.grow(self.bytes_ref.length + len);
     let pos = self.bytes_ref.length;
     self
-      .bytes_ref()
+      .bytes_mut()
       .bytes
       .access_mut(|bytes| bytes.copy_from(&b[off..off + len], pos));
     self.bytes_ref.length += len;
@@ -136,7 +139,7 @@ where
     self.bytes_ref.length = len;
     self.grow_no_copy(len);
     self
-      .bytes_ref()
+      .bytes_mut()
       .bytes
       .access_mut(|bytes| bytes.copy_from(&b[off..off + len], 0))
   }

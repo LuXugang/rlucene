@@ -97,7 +97,7 @@ impl BytesRefArray {
     spare.grow_no_copy(length);
     spare.set_length(length);
 
-    spare.bytes_ref().bytes.access_mut(|bytes| {
+    spare.bytes_mut().bytes.access_mut(|bytes| {
       self
         .pool
         .read_bytes(offset as i64, bytes, 0, length.try_convert()?)?;
@@ -105,7 +105,7 @@ impl BytesRefArray {
       Ok::<(), LuceneError>(())
     })?;
 
-    Ok(std::mem::take(spare.bytes_ref()))
+    Ok(std::mem::take(spare.bytes_mut()))
   }
 
   /// Used only by the sorting function below to set a [`BytesRef`] with the

@@ -212,7 +212,7 @@ impl<'a> TermIterator<'a> {
   pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
     let len = (prefix + suffix) as usize;
     self.builder.grow(len);
-    self.builder.bytes_ref().bytes.access_mut(|bytes| {
+    self.builder.bytes_mut().bytes.access_mut(|bytes| {
       DataInput::read_bytes(&mut self.input, bytes, prefix as usize, suffix as usize)?;
       // Help the compiler infer types.
       Ok::<(), LuceneError>(())
@@ -227,7 +227,7 @@ impl BytesRefIterator for TermIterator<'_> {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let v = self.set_next()?;
     if v {
-      Ok(Some(Cow::Borrowed(self.builder.bytes_ref())))
+      Ok(Some(Cow::Borrowed(self.builder.bytes())))
     } else {
       Ok(None)
     }

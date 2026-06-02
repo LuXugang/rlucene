@@ -1263,10 +1263,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
           let len = input.read_vint()? as usize;
           builder.set_length(len);
           builder.grow(len);
-          input.read_bytes(builder.bytes_ref().bytes.as_mut(), 0, len)?;
+          input.read_bytes(builder.bytes_mut().bytes.as_mut(), 0, len)?;
           let ord = values.next_ord()?;
           assert_eq!(
-            builder.bytes_ref().clone(),
+            builder.bytes().clone(),
             values.lookup_ord(ord)?.into_owned()
           );
         }

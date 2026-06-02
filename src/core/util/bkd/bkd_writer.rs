@@ -1193,7 +1193,7 @@ where
       let (bytes_ref, candidate_offset, _candidate_length) = packed_values.get_value(i)?;
       let candidate_offset_usize = candidate_offset;
       let candidate_bytes = bytes_ref;
-      if min.bytes_ref().bytes[0..length_usize]
+      if min.bytes().bytes[0..length_usize]
         .cmp(
           &candidate_bytes[candidate_offset_usize + offset_usize
             ..candidate_offset_usize + offset_usize + length_usize],
@@ -1202,7 +1202,7 @@ where
         > 0
       {
         min.copy_bytes_from_vec(candidate_bytes, candidate_offset + offset, length);
-      } else if max.bytes_ref().bytes[0..length_usize]
+      } else if max.bytes().bytes[0..length_usize]
         .cmp(
           &candidate_bytes[candidate_offset_usize + offset_usize
             ..candidate_offset_usize + offset_usize + length_usize],

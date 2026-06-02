@@ -177,7 +177,7 @@ impl AutomatonTermsEnum {
     }
 
     self.linear_upper_bound.bytes[..position]
-      .copy_from(&self.seek_bytes_ref.bytes_ref().bytes[0..position], 0);
+      .copy_from(&self.seek_bytes_ref.bytes().bytes[0..position], 0);
     self.linear_upper_bound.bytes[position] = max_interval;
     self.linear_upper_bound.length = length;
     self.linear = true;
