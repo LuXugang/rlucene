@@ -27,15 +27,14 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
+use crate::core::search::multi_term_query::DOC_VALUES_REWRITE;
+use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
-/// Field that stores a per-document [`BytesRef`] value, indexed for sorting.
-/// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
-/// This value can be at most **32766 bytes** long.
 static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_doc_values_type(DocValuesType::Sorted)
@@ -53,11 +52,24 @@ static INDEXED_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   ft
 });
 
+/// Field that stores a per-document [`BytesRef`] value, indexed for sorting.
+///
+/// Example usage:
+///
+/// ```text
+/// document.add(SortedDocValuesField::new(name, BytesRef::from_string("hello")));
+/// ```
+///
+/// If you also need to store the value, you should add a separate
+/// [`StoredField`](crate::core::document::stored_field::StoredField) instance.
+///
+/// This value can be at most **32766 bytes** long.
 pub struct SortedDocValuesField {
   parent_field: Field,
 }
 
 impl SortedDocValuesField {
+  /// Create a new sorted DocValues field.
   pub fn new<T>(name: T, bytes: BytesRef<Vec<u8>>) -> Self
   where
     T: Into<String>,
@@ -65,6 +77,8 @@ impl SortedDocValuesField {
     Self::with_type(name, bytes, TYPE.clone())
   }
 
+  /// Creates a new [`SortedDocValuesField`] that also creates a
+  /// [`FieldType::doc_values_skip_index_type`](crate::core::document::field_type::FieldType::doc_values_skip_index_type) skip index.
   pub fn indexed_field<T>(name: T, bytes: BytesRef<Vec<u8>>) -> Self
   where
     T: Into<String>,
@@ -80,6 +94,18 @@ impl SortedDocValuesField {
     Self { parent_field }
   }
 
+  /// Create a range query that matches all documents whose value is between
+  /// `lower_value` and `upper_value` included.
+  ///
+  /// You can have half-open ranges by setting `lower_value = None` or
+  /// `upper_value = None`.
+  ///
+  /// **NOTE**: Such queries cannot efficiently advance to the next match,
+  /// which makes them slow if they are not ANDed with a selective query. As a
+  /// consequence, they are best used wrapped in an
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery),
+  /// alongside a range query that executes on points, such as
+  /// [`BinaryPoint::new_range_query`](crate::core::document::binary_point::BinaryPoint::new_range_query).
   pub fn new_slow_range_query<T>(
     field: T,
     lower_value: Option<BytesRef<Vec<u8>>>,
@@ -98,6 +124,15 @@ impl SortedDocValuesField {
       upper_inclusive,
     )
   }
+
+  /// Create a query for matching an exact [`BytesRef`] value.
+  ///
+  /// **NOTE**: Such queries cannot efficiently advance to the next match,
+  /// which makes them slow if they are not ANDed with a selective query. As a
+  /// consequence, they are best used wrapped in an
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery),
+  /// alongside a range query that executes on points, such as
+  /// [`BinaryPoint::new_exact_query`](crate::core::document::binary_point::BinaryPoint::new_exact_query).
   pub fn new_slow_exact_query<T>(
     field: T,
     value: Option<BytesRef<Vec<u8>>>,
@@ -106,6 +141,20 @@ impl SortedDocValuesField {
     T: Into<String>,
   {
     SortedSetDocValuesRangeQuery::new(field.into(), value.clone(), value, true, true)
+  }
+
+  /// Create a query matching any of the specified values.
+  ///
+  /// **NOTE**: Such queries cannot efficiently advance to the next match,
+  /// which makes them slow if they are not ANDed with a selective query. As a
+  /// consequence, they are best used wrapped in an
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery),
+  /// alongside a set query that executes on postings, such as [`TermInSetQuery`].
+  pub fn new_slow_set_query<T>(field: T, values: Vec<BytesRef<Vec<u8>>>) -> TermInSetQuery
+  where
+    T: Into<String>,
+  {
+    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values)
   }
 }
 
