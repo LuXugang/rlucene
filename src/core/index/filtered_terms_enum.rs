@@ -66,17 +66,17 @@ where
   pub(crate) fn set_initial_seek_term(&mut self, term: BytesRef<Vec<u8>>) {
     self.initial_seek_term = Some(term);
   }
-  pub fn next_seek_term(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+  pub fn next_seek_term(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self.sub.next_seek_term(Option::from(&self.actual_term)) {
       Ok(v) => Ok(v),
       Err(e) => match e {
         LuceneError::NotImplemented(_) => {
           let mut a = self.initial_seek_term.take().unwrap();
-          Ok(Some(BytesRef::from_slice(
+          Ok(Some(Cow::Owned(BytesRef::from_slice(
             std::mem::take(&mut a.bytes),
             a.offset,
             a.length,
-          )))
+          ))))
         },
         _ => Err(e),
       },
@@ -93,7 +93,7 @@ where
     loop {
       if self.do_seek {
         self.do_seek = false;
-        let t = self.next_seek_term()?;
+        let t = self.next_seek_term()?.map(Cow::into_owned);
         debug_assert!(
           self.actual_term.is_none()
             || t.is_none()
@@ -272,7 +272,7 @@ pub trait FilteredTermsEnumBase {
   fn next_seek_term(
     &mut self,
     _current: Option<&BytesRef<Vec<u8>>>,
-  ) -> Result<Option<BytesRef<Vec<u8>>>> {
+  ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     Err(LuceneError::not_implemented(""))
   }
   fn need_ord(&self) -> bool {

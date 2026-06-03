@@ -28,6 +28,7 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::HasIdentity;
@@ -140,10 +141,14 @@ impl RewriteMethod for ConstantScoreRewrite {
     Ok(MultiTermQueryConstantScoreWrapper::new(query).into())
   }
 }
+
+pub const DOC_VALUES_REWRITE: DocValuesRewriteMethod = DocValuesRewriteMethod;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum RewriteMethodEnum {
   Blended(ConstantScoreBlendedRewrite),
   ConstantScoreBoolean(ConstantScoreBooleanRewrite),
+  DocValues(DocValuesRewriteMethod),
   ScoringBoolean(ScoringBooleanRewrite),
   Standard(ConstantScoreRewrite),
   TopTermsBlendedFreqScoring(TopTermsBlendedFreqScoringRewrite),
@@ -159,6 +164,7 @@ impl RewriteMethod for RewriteMethodEnum {
     match self {
       RewriteMethodEnum::Blended(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::ConstantScoreBoolean(r) => r.rewrite(index_searcher, query),
+      RewriteMethodEnum::DocValues(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::ScoringBoolean(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::Standard(r) => r.rewrite(index_searcher, query),
       RewriteMethodEnum::TopTermsBlendedFreqScoring(r) => r.rewrite(index_searcher, query),
@@ -185,6 +191,7 @@ impl_from_for_enum!(
     RewriteMethodEnum,
     ConstantScoreBlendedRewrite => Blended,
     ConstantScoreBooleanRewrite => ConstantScoreBoolean,
+    DocValuesRewriteMethod => DocValues,
     ScoringBooleanRewrite => ScoringBoolean,
     ConstantScoreRewrite => Standard,
     TopTermsBlendedFreqScoringRewrite => TopTermsBlendedFreqScoring,
@@ -199,6 +206,7 @@ macro_rules! dispatch_multi_term_query {
       MultiTermQueryEnum::TermRange($inner) => $body,
       MultiTermQueryEnum::Automaton($inner) => $body,
       MultiTermQueryEnum::Fuzzy($inner) => $body,
+      MultiTermQueryEnum::TermInSet($inner) => $body,
       MultiTermQueryEnum::Wildcard($inner) => $body,
       MultiTermQueryEnum::Regexp($inner) => $body,
       #[cfg(test)]
@@ -414,6 +422,7 @@ use crate::core::search::blended_term_query::BooleanRewrite;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::doc_values_rewrite_method::DocValuesRewriteMethod;
 use crate::core::search::scoring_rewrite::{ConstantScoreBooleanRewrite, ScoringBooleanRewrite};
 use crate::core::search::term_collecting_rewrite::TermCollectingRewrite;
 use crate::core::search::term_query::TermQuery;
@@ -427,6 +436,7 @@ pub enum MultiTermQueryEnum {
   Fuzzy(FuzzyQuery),
   Prefix(PrefixQuery),
   Regexp(RegexpQuery),
+  TermInSet(TermInSetQuery),
   TermRange(TermRangeQuery),
   Wildcard(WildcardQuery),
 
@@ -445,6 +455,7 @@ impl From<MultiTermQueryEnum> for Query {
       MultiTermQueryEnum::Fuzzy(q) => Query::Fuzzy(q),
       MultiTermQueryEnum::Prefix(q) => Query::Prefix(q),
       MultiTermQueryEnum::Regexp(q) => Query::Regexp(q),
+      MultiTermQueryEnum::TermInSet(q) => Query::TermInSet(q),
       MultiTermQueryEnum::TermRange(q) => Query::TermRange(q),
       MultiTermQueryEnum::Wildcard(q) => Query::Wildcard(q),
 
@@ -466,6 +477,7 @@ impl MultiTermQueryEnum {
       Query::Fuzzy(q) => Some(Self::Fuzzy(q.clone())),
       Query::Prefix(q) => Some(Self::Prefix(q.clone())),
       Query::Regexp(q) => Some(Self::Regexp(q.clone())),
+      Query::TermInSet(q) => Some(Self::TermInSet(q.clone())),
       Query::TermRange(q) => Some(Self::TermRange(q.clone())),
       Query::Wildcard(q) => Some(Self::Wildcard(q.clone())),
 
@@ -533,6 +545,7 @@ impl_from_for_enum!(
     FuzzyQuery => Fuzzy,
     PrefixQuery => Prefix,
     RegexpQuery => Regexp,
+    TermInSetQuery => TermInSet,
     TermRangeQuery => TermRange,
     WildcardQuery => Wildcard,
 );

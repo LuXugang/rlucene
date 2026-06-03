@@ -894,9 +894,9 @@ impl FilteredTermsEnumBase for ValueFilteredTermsEnumBase {
   fn next_seek_term(
     &mut self,
     current_term: Option<&BytesRef<Vec<u8>>>,
-  ) -> Result<Option<BytesRef<Vec<u8>>>> {
+  ) -> Result<Option<std::borrow::Cow<'_, BytesRef<Vec<u8>>>>> {
     if current_term.is_none() || current_term.unwrap().cmp(&self.value).to_int() < 0 {
-      Ok(Some(self.value.clone()))
+      Ok(Some(std::borrow::Cow::Borrowed(&self.value)))
     } else {
       Ok(None)
     }

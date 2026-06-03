@@ -110,6 +110,7 @@ pub(crate) mod disjunction_score_block_boundary_propagator;
 pub(crate) mod disjunction_scorer;
 pub(crate) mod disjunction_sum_scorer;
 pub mod doc_values_range_iterator;
+mod doc_values_rewrite_method;
 pub(crate) mod dummy_query_caching_policy;
 pub(crate) mod exact_phrase_matcher;
 pub mod field_exists_query;

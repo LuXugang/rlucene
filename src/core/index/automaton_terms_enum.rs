@@ -29,6 +29,7 @@ use crate::core::util::automation::transition_accessor::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::{SliceCopyOps, StringHelper, ToInt};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 /// A [`FilteredTermsEnum`] that enumerates terms based on what is accepted by a
@@ -404,7 +405,7 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
   fn next_seek_term(
     &mut self,
     term: Option<&BytesRef<Vec<u8>>>,
-  ) -> Result<Option<BytesRef<Vec<u8>>>> {
+  ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if let Some(t) = term {
       self.seek_bytes_ref.copy_bytes_from_ref(t);
     } else {
@@ -414,14 +415,14 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
           debug_assert_eq!(self.seek_bytes_ref.length(), 0);
           // return the empty term, as it's valid
           if self.byte_runnable.is_accept(0)? {
-            return Ok(Some(self.seek_bytes_ref.get_bytes_owner()));
+            return Ok(Some(Cow::Borrowed(self.seek_bytes_ref.get_bytes_ref())));
           }
         },
       }
     }
 
     let v = if self.next_string()? {
-      Some(self.seek_bytes_ref.get_bytes_owner())
+      Some(Cow::Borrowed(self.seek_bytes_ref.get_bytes_ref()))
     } else {
       None
     };
