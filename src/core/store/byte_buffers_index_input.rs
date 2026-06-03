@@ -18,7 +18,9 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
-use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
+use crate::core::store::byte_buffers_data_input::{
+  ByteBuffersDataInput, ByteBuffersDataInputBlock,
+};
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::Result;
@@ -28,13 +30,13 @@ use crate::core::util::error::lucene_error::Result;
 pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<&'a [u8]>;
 pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
 
-pub struct ByteBuffersIndexInput<B: AsRef<[u8]>> {
+pub struct ByteBuffersIndexInput<B: ByteBuffersDataInputBlock> {
   data_input: ByteBuffersDataInput<B>,
   resource_description: String,
 }
 impl<B> ByteBuffersIndexInput<B>
 where
-  B: AsRef<[u8]>,
+  B: ByteBuffersDataInputBlock,
 {
   pub fn new(data_input: ByteBuffersDataInput<B>, resource_description: &str) -> Self {
     Self {
@@ -46,7 +48,7 @@ where
 
 impl<B> DataInput for ByteBuffersIndexInput<B>
 where
-  B: AsRef<[u8]> + Clone,
+  B: ByteBuffersDataInputBlock + Clone,
 {
   fn read_byte(&mut self) -> Result<u8> {
     DataInput::read_byte(&mut self.data_input)
@@ -140,7 +142,7 @@ where
 }
 impl<B> RandomAccessInput for ByteBuffersIndexInput<B>
 where
-  B: AsRef<[u8]>,
+  B: ByteBuffersDataInputBlock,
 {
   fn length(&self) -> usize {
     RandomAccessInput::length(&self.data_input)
@@ -169,7 +171,7 @@ where
 
 impl<B> Display for ByteBuffersIndexInput<B>
 where
-  B: AsRef<[u8]>,
+  B: ByteBuffersDataInputBlock,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.resource_description)
@@ -178,7 +180,7 @@ where
 
 impl<B> crate::core::util::clone::TryClone for ByteBuffersIndexInput<B>
 where
-  B: AsRef<[u8]> + Clone,
+  B: ByteBuffersDataInputBlock + Clone,
 {
   fn try_clone(&self) -> Result<Self>
   where
@@ -194,7 +196,7 @@ where
 
 impl<B> IndexInput for ByteBuffersIndexInput<B>
 where
-  B: AsRef<[u8]> + Clone,
+  B: ByteBuffersDataInputBlock + Clone,
 {
   type IndexInput = ByteBuffersIndexInput<B>;
 

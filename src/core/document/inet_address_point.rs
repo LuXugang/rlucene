@@ -24,9 +24,11 @@ use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
+use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -171,7 +173,7 @@ impl InetAddressPoint {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `value` - Exact value.
   ///
   /// # Returns
@@ -188,7 +190,7 @@ impl InetAddressPoint {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `value` - Any host address.
   /// - `prefix_length` - The network prefix length for this address. This is also known as the
   ///   subnet mask in the context of IPv4 addresses.
@@ -199,7 +201,7 @@ impl InetAddressPoint {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, or `prefix_length` is invalid.
+  /// Returns an error if `prefix_length` is invalid.
   pub fn new_prefix_query<T>(
     field: T,
     value: IpAddr,
@@ -259,9 +261,9 @@ impl InetAddressPoint {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
-  /// - `lower_value` - Lower portion of the range (inclusive). must not be null.
-  /// - `upper_value` - Upper portion of the range (inclusive). must not be null.
+  /// - `field` - Field name.
+  /// - `lower_value` - Lower portion of the range (inclusive).
+  /// - `upper_value` - Upper portion of the range (inclusive).
   ///
   /// # Returns
   ///
@@ -286,6 +288,64 @@ impl InetAddressPoint {
       1,
       InetAddressPointRangeQuery,
     )
+  }
+
+  /// Create a query matching any of the specified 1D values. This is the points equivalent of
+  /// `TermsQuery`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - All values to match.
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[IpAddr]>,
+  {
+    let mut sorted_values = Vec::with_capacity(values.as_ref().len());
+    for value in values.as_ref() {
+      sorted_values.push(Self::encode(*value));
+    }
+    sorted_values.sort();
+
+    PointInSetQuery::new(
+      field.into(),
+      1,
+      Self::BYTES,
+      InetAddressPointSetBytesRefIterator::new(sorted_values),
+      InetAddressPointInSetQuery,
+    )
+  }
+}
+
+struct InetAddressPointSetBytesRefIterator {
+  sorted_values: Vec<[u8; InetAddressPoint::BYTES]>,
+  upto: usize,
+  encoded: BytesRef<Vec<u8>>,
+}
+
+impl InetAddressPointSetBytesRefIterator {
+  fn new(sorted_values: Vec<[u8; InetAddressPoint::BYTES]>) -> Self {
+    Self {
+      sorted_values,
+      upto: 0,
+      encoded: BytesRef::from_bytes(vec![0u8; InetAddressPoint::BYTES]),
+    }
+  }
+}
+
+impl BytesRefIterator for InetAddressPointSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto == self.sorted_values.len() {
+      Ok(None)
+    } else {
+      self
+        .encoded
+        .bytes
+        .copy_from_slice(&self.sorted_values[self.upto]);
+      self.upto += 1;
+      Ok(Some(Cow::Borrowed(&self.encoded)))
+    }
   }
 }
 
@@ -421,6 +481,15 @@ pub struct InetAddressPointRangeQuery;
 impl PointRangeBase for InetAddressPointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
     Ok(host_address(decode_address(value)))
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct InetAddressPointInSetQuery;
+
+impl PointInSetBase for InetAddressPointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
+    Ok(host_address(InetAddressPoint::decode(value)))
   }
 }
 

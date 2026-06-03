@@ -25,23 +25,44 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
 
-/// A field that indexes one or more `i32` (int) point values.
+/// An indexed `i32` field for fast range filters. If you also need to store the value, you should
+/// add a separate `StoredField` instance.
+///
+/// Finding all documents within an N-dimensional shape or range at search time is efficient.
+/// Multiple values for the same field in one document is allowed.
+///
+/// This field defines static factory methods for creating common queries:
+///
+/// * [`new_exact_query`](Self::new_exact_query) for matching an exact 1D point.
+/// * [`new_set_query`](Self::new_set_query) for matching a set of 1D values.
+/// * [`new_range_query`](Self::new_range_query) for matching a 1D range.
+/// * [`new_range_query_n`](Self::new_range_query_n) for matching points/ranges in n-dimensional
+///   space.
+///
+/// See also `PointValues`.
 pub struct IntPoint {
   parent_field: Field,
 }
 
 impl IntPoint {
-  /// Create a new IntPoint with the given name and int values
+  /// Creates a new `IntPoint`, indexing the provided N-dimensional integer point.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `point` - Integer point value.
   pub fn new<T, P>(name: T, point: P) -> Result<IntPoint>
   where
     T: Into<String>,
@@ -76,7 +97,15 @@ impl IntPoint {
     Ok(())
   }
 
-  /// Pack an int array into bytes
+  /// Pack an integer point into a `BytesRef`.
+  ///
+  /// # Arguments
+  ///
+  /// * `point` - Integer point value.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the value has zero dimensions.
   pub fn pack<P>(point: P) -> Result<BytesRef<Vec<u8>>>
   where
     P: AsRef<[i32]>,
@@ -103,6 +132,16 @@ impl IntPoint {
   pub fn decode_dimension(value: &[u8], offset: usize) -> i32 {
     NumericUtils::sortable_bytes_to_int(value, offset)
   }
+
+  /// Create a query for matching an exact integer value.
+  ///
+  /// This is for simple one-dimension points. For multidimensional points, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `value` - Exact value.
   pub fn new_exact_query<T>(field: T, value: i32) -> Result<PointRangeQuery>
   where
     T: Into<String>,
@@ -110,13 +149,64 @@ impl IntPoint {
     Self::new_range_query(field, value, value)
   }
 
+  /// Create a range query for integer values.
+  ///
+  /// This is for simple one-dimension ranges. For multidimensional ranges, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value = i32::MIN` or `upper_value = i32::MAX`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass `lower_value + 1` or `upper_value - 1`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query<T>(field: T, lower_value: i32, upper_value: i32) -> Result<PointRangeQuery>
   where
     T: Into<String>,
   {
     Self::new_range_query_n(field, [lower_value], [upper_value])
   }
+  /// Create a query matching any of the specified 1D values. This is the points equivalent of
+  /// `TermsQuery`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - All values to match.
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[i32]>,
+  {
+    let mut sorted_values = values.as_ref().to_vec();
+    sorted_values.sort();
 
+    PointInSetQuery::new(
+      field.into(),
+      1,
+      BitUtil::INT_BYTES,
+      IntPointSetBytesRefIterator::new(sorted_values),
+      IntPointInSetQuery,
+    )
+  }
+
+  /// Create a range query for n-dimensional integer values.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value[i] = i32::MIN` or `upper_value[i] = i32::MAX`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass `lower_value[i] + 1` or
+  /// `upper_value[i] - 1`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query_n<T, V>(
     field: T,
     lower_value: V,
@@ -139,6 +229,34 @@ impl IntPoint {
       len,
       IntPointRangeQuery,
     )
+  }
+}
+
+struct IntPointSetBytesRefIterator {
+  sorted_values: Vec<i32>,
+  upto: usize,
+  encoded: BytesRef<Vec<u8>>,
+}
+
+impl IntPointSetBytesRefIterator {
+  fn new(sorted_values: Vec<i32>) -> Self {
+    Self {
+      sorted_values,
+      upto: 0,
+      encoded: BytesRef::from_bytes(vec![0u8; BitUtil::INT_BYTES]),
+    }
+  }
+}
+
+impl BytesRefIterator for IntPointSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto == self.sorted_values.len() {
+      Ok(None)
+    } else {
+      IntPoint::encode_dimension(self.sorted_values[self.upto], &mut self.encoded.bytes, 0);
+      self.upto += 1;
+      Ok(Some(Cow::Borrowed(&self.encoded)))
+    }
   }
 }
 
@@ -262,6 +380,16 @@ impl fmt::Display for IntPoint {
 pub struct IntPointRangeQuery;
 impl PointRangeBase for IntPointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(IntPoint::decode_dimension(value, 0).to_string())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct IntPointInSetQuery;
+
+impl PointInSetBase for IntPointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
+    debug_assert!(value.len() == BitUtil::INT_BYTES);
     Ok(IntPoint::decode_dimension(value, 0).to_string())
   }
 }

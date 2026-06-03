@@ -18,11 +18,15 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::io::Cursor;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::core::index::field_term_iterator::FieldTermIterator;
 use crate::core::index::term::Term;
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::store::byte_buffers_data_input::{ByteBuffersDataInput, ByteBuffersDataInputRef};
+use crate::core::store::byte_buffers_data_input::{
+  ByteBuffersDataInput, ByteBuffersDataInputBlock,
+};
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::StringHelper;
@@ -36,9 +40,12 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// common suffixes.
 ///
 /// # Lucene Internal
-#[derive(Debug)]
-pub struct PrefixCodedTerms {
-  content: Vec<Cursor<Vec<u8>>>,
+#[derive(Debug, Clone)]
+pub struct PrefixCodedTerms<B = Vec<u8>>
+where
+  B: ByteBuffersDataInputBlock + Clone,
+{
+  content: Vec<Cursor<B>>,
   content_len: i64,
   size: i64,
   del_gen: i64,
@@ -46,8 +53,14 @@ pub struct PrefixCodedTerms {
   lazy_hash: i32,
 }
 
-impl PrefixCodedTerms {
-  pub fn new(content: Vec<Cursor<Vec<u8>>>, content_len: i64, size: i64) -> Self {
+pub type PrefixCodedTermsRc = PrefixCodedTerms<Rc<Vec<u8>>>;
+pub type PrefixCodedTermsArc = PrefixCodedTerms<Arc<Vec<u8>>>;
+
+impl<B> PrefixCodedTerms<B>
+where
+  B: ByteBuffersDataInputBlock + Clone,
+{
+  pub fn new(content: Vec<Cursor<B>>, content_len: i64, size: i64) -> Self {
     debug_assert!(!content.is_empty());
     PrefixCodedTerms {
       content,
@@ -66,8 +79,10 @@ impl PrefixCodedTerms {
   pub fn size(&self) -> i64 {
     self.size
   }
+}
 
-  pub fn iterator(&self) -> Result<TermIterator<'_>> {
+impl PrefixCodedTerms<Vec<u8>> {
+  pub fn iterator(&self) -> Result<TermIteratorRef<'_>> {
     let content = self
       .content
       .iter()
@@ -84,19 +99,104 @@ impl PrefixCodedTerms {
     ))
   }
 }
-impl Hash for PrefixCodedTerms {
+
+impl PrefixCodedTerms<Rc<Vec<u8>>> {
+  pub fn iterator(&self) -> Result<TermIteratorRc> {
+    let content = self
+      .content
+      .iter()
+      .map(|cursor| {
+        let mut cursor = Cursor::new(cursor.get_ref().clone());
+        cursor.set_position(0);
+        cursor
+      })
+      .collect();
+    Ok(TermIterator::new(
+      self.del_gen,
+      ByteBuffersDataInput::new(content, self.content_len as usize)?,
+    ))
+  }
+}
+
+impl PrefixCodedTerms<Arc<Vec<u8>>> {
+  pub fn iterator(&self) -> Result<TermIteratorArc> {
+    let content = self
+      .content
+      .iter()
+      .map(|cursor| {
+        let mut cursor = Cursor::new(cursor.get_ref().clone());
+        cursor.set_position(0);
+        cursor
+      })
+      .collect();
+    Ok(TermIterator::new(
+      self.del_gen,
+      ByteBuffersDataInput::new(content, self.content_len as usize)?,
+    ))
+  }
+}
+
+impl From<PrefixCodedTerms<Vec<u8>>> for PrefixCodedTermsRc {
+  fn from(value: PrefixCodedTerms<Vec<u8>>) -> Self {
+    let content = value
+      .content
+      .into_iter()
+      .map(|cursor| {
+        let mut cursor = Cursor::new(Rc::new(cursor.into_inner()));
+        cursor.set_position(0);
+        cursor
+      })
+      .collect();
+    PrefixCodedTerms {
+      content,
+      content_len: value.content_len,
+      size: value.size,
+      del_gen: value.del_gen,
+      lazy_hash: value.lazy_hash,
+    }
+  }
+}
+
+impl From<PrefixCodedTerms<Vec<u8>>> for PrefixCodedTermsArc {
+  fn from(value: PrefixCodedTerms<Vec<u8>>) -> Self {
+    let content = value
+      .content
+      .into_iter()
+      .map(|cursor| {
+        let mut cursor = Cursor::new(Arc::new(cursor.into_inner()));
+        cursor.set_position(0);
+        cursor
+      })
+      .collect();
+    PrefixCodedTerms {
+      content,
+      content_len: value.content_len,
+      size: value.size,
+      del_gen: value.del_gen,
+      lazy_hash: value.lazy_hash,
+    }
+  }
+}
+
+impl<B> Hash for PrefixCodedTerms<B>
+where
+  B: ByteBuffersDataInputBlock + Clone,
+{
   fn hash<H>(&self, state: &mut H)
   where
     H: Hasher,
   {
     for cursor in &self.content {
-      cursor.get_ref().hash(state);
+      cursor.get_ref().as_slice().hash(state);
     }
     self.size.hash(state);
     self.del_gen.hash(state);
   }
 }
-impl PartialEq for PrefixCodedTerms {
+impl<B> PartialEq for PrefixCodedTerms<B>
+where
+  B: ByteBuffersDataInputBlock + Clone,
+{
   fn eq(&self, other: &Self) -> bool {
     if std::ptr::eq(self, other) {
       return true;
@@ -108,12 +208,15 @@ impl PartialEq for PrefixCodedTerms {
         .content
         .iter()
         .zip(&other.content)
-        .all(|(a, b)| a.get_ref() == b.get_ref())
+        .all(|(a, b)| a.get_ref().as_slice() == b.get_ref().as_slice())
   }
 }
 
-impl Eq for PrefixCodedTerms {}
-impl Accountable for PrefixCodedTerms {
+impl<B> Eq for PrefixCodedTerms<B> where B: ByteBuffersDataInputBlock + Clone {}
+impl<B> Accountable for PrefixCodedTerms<B>
+where
+  B: ByteBuffersDataInputBlock + Clone,
+{
   fn ram_bytes_used(&self) -> Result<i64> {
     //TODO: memory calculation not implement
     Ok(0)
@@ -188,16 +291,26 @@ impl PrefixCodedTermsBuilder {
   }
 }
 /// An iterator over the list of terms stored in a [`PrefixCodedTerms`].
-pub struct TermIterator<'a> {
-  input: ByteBuffersDataInputRef<'a>,
+pub type TermIteratorRef<'a> = TermIterator<&'a [u8]>;
+pub type TermIteratorRc = TermIterator<Rc<Vec<u8>>>;
+pub type TermIteratorArc = TermIterator<Arc<Vec<u8>>>;
+
+pub struct TermIterator<B>
+where
+  B: ByteBuffersDataInputBlock,
+{
+  input: ByteBuffersDataInput<B>,
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
   end: i64,
   del_gen: i64,
   pub(crate) field: String,
 }
 
-impl<'a> TermIterator<'a> {
-  pub fn new(del_gen: i64, input: ByteBuffersDataInputRef<'a>) -> Self {
+impl<B> TermIterator<B>
+where
+  B: ByteBuffersDataInputBlock,
+{
+  pub fn new(del_gen: i64, input: ByteBuffersDataInput<B>) -> Self {
     let builder = BytesRefBuilder::new();
     let end = input.length() as i64;
     Self {
@@ -223,7 +336,10 @@ impl<'a> TermIterator<'a> {
   }
 }
 
-impl BytesRefIterator for TermIterator<'_> {
+impl<B> BytesRefIterator for TermIterator<B>
+where
+  B: ByteBuffersDataInputBlock,
+{
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let v = self.set_next()?;
     if v {
@@ -251,7 +367,10 @@ impl BytesRefIterator for TermIterator<'_> {
   }
 }
 
-impl FieldTermIterator for TermIterator<'_> {
+impl<B> FieldTermIterator for TermIterator<B>
+where
+  B: ByteBuffersDataInputBlock,
+{
   /// Returns current field. This method should not be called after iteration
   /// is done. Note that you may use == to detect a change in field.
   fn field(&self) -> &str {

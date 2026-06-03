@@ -25,22 +25,44 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
 
+/// An indexed `f32` field for fast range filters. If you also need to store the value, you should
+/// add a separate `StoredField` instance.
+///
+/// Finding all documents within an N-dimensional shape or range at search time is efficient.
+/// Multiple values for the same field in one document is allowed.
+///
+/// This field defines static factory methods for creating common queries:
+///
+/// * [`new_exact_query`](Self::new_exact_query) for matching an exact 1D point.
+/// * [`new_set_query`](Self::new_set_query) for matching a set of 1D values.
+/// * [`new_range_query`](Self::new_range_query) for matching a 1D range.
+/// * [`new_range_query_n`](Self::new_range_query_n) for matching points/ranges in
+///   n-dimensional space.
+///
+/// See also `PointValues`.
 pub struct FloatPoint {
   parent_field: Field,
 }
 
 impl FloatPoint {
-  /// Create a new FloatPoint with the given name and float values
+  /// Creates a new `FloatPoint`, indexing the provided N-dimensional float point.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `point` - Float point value.
   pub fn new<T, P>(name: T, point: P) -> Result<FloatPoint>
   where
     T: Into<String>,
@@ -52,6 +74,10 @@ impl FloatPoint {
     let parent_field = Field::from_bytes_ref(name, value, field_type)?;
     Ok(FloatPoint { parent_field })
   }
+
+  /// Return the least float that compares greater than `f` consistently with `f32` comparison.
+  /// The only difference with [`f32::next_up`] is that this method returns `+0.0` when the argument
+  /// is `-0.0`.
   pub fn next_up(f: f32) -> f32 {
     if f.to_bits() == 0x8000_0000u32 {
       0.0
@@ -60,6 +86,9 @@ impl FloatPoint {
     }
   }
 
+  /// Return the greatest float that compares less than `f` consistently with `f32` comparison.
+  /// The only difference with [`f32::next_down`] is that this method returns `-0.0` when the
+  /// argument is `+0.0`.
   pub fn next_down(f: f32) -> f32 {
     if f.to_bits() == 0u32 {
       -0.0
@@ -90,7 +119,15 @@ impl FloatPoint {
     Ok(())
   }
 
-  /// Pack a float array into bytes
+  /// Pack a float point into a `BytesRef`.
+  ///
+  /// # Arguments
+  ///
+  /// * `point` - Float point value.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the value has zero dimensions.
   pub fn pack(point: &[f32]) -> Result<BytesRef<Vec<u8>>> {
     if point.is_empty() {
       return Err(LuceneError::illegal_argument(
@@ -115,6 +152,16 @@ impl FloatPoint {
     let int_val = NumericUtils::sortable_bytes_to_int(value, offset);
     NumericUtils::sortable_int_to_float(int_val)
   }
+
+  /// Create a query for matching an exact float value.
+  ///
+  /// This is for simple one-dimension points. For multidimensional points, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `value` - Float value.
   pub fn new_exact_query<T>(field: T, value: f32) -> Result<PointRangeQuery>
   where
     T: Into<String>,
@@ -122,6 +169,24 @@ impl FloatPoint {
     Self::new_range_query(field, value, value)
   }
 
+  /// Create a range query for float values.
+  ///
+  /// This is for simple one-dimension ranges. For multidimensional ranges, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value = f32::NEG_INFINITY` or `upper_value = f32::INFINITY`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass [`Self::next_up`] with the lower value or
+  /// [`Self::next_down`] with the upper value.
+  ///
+  /// Range comparisons are consistent with `f32` comparison.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query<T>(field: T, lower_value: f32, upper_value: f32) -> Result<PointRangeQuery>
   where
     T: Into<String>,
@@ -129,6 +194,45 @@ impl FloatPoint {
     Self::new_range_query_n(field, [lower_value], [upper_value])
   }
 
+  /// Create a query matching any of the specified 1D values. This is the points equivalent of
+  /// `TermsQuery`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - All values to match.
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[f32]>,
+  {
+    let mut sorted_values = values.as_ref().to_vec();
+    sorted_values.sort_by(|a, b| a.total_cmp(b));
+
+    PointInSetQuery::new(
+      field.into(),
+      1,
+      BitUtil::FLOAT_BYTES,
+      FloatPointSetBytesRefIterator::new(sorted_values),
+      FloatPointInSetQuery,
+    )
+  }
+
+  /// Create a range query for n-dimensional float values.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value[i] = f32::NEG_INFINITY` or `upper_value[i] = f32::INFINITY`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass `f32::next_up(lower_value[i])` or
+  /// `f32::next_down(upper_value[i])`.
+  ///
+  /// Range comparisons are consistent with `f32` comparison.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query_n<T, V>(
     field: T,
     lower_value: V,
@@ -153,6 +257,34 @@ impl FloatPoint {
       len,
       FloatPointRangeQuery,
     )
+  }
+}
+
+struct FloatPointSetBytesRefIterator {
+  sorted_values: Vec<f32>,
+  upto: usize,
+  encoded: BytesRef<Vec<u8>>,
+}
+
+impl FloatPointSetBytesRefIterator {
+  fn new(sorted_values: Vec<f32>) -> Self {
+    Self {
+      sorted_values,
+      upto: 0,
+      encoded: BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]),
+    }
+  }
+}
+
+impl BytesRefIterator for FloatPointSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto == self.sorted_values.len() {
+      Ok(None)
+    } else {
+      FloatPoint::encode_dimension(self.sorted_values[self.upto], &mut self.encoded.bytes, 0);
+      self.upto += 1;
+      Ok(Some(Cow::Borrowed(&self.encoded)))
+    }
   }
 }
 
@@ -278,6 +410,16 @@ pub struct FloatPointRangeQuery;
 
 impl PointRangeBase for FloatPointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(FloatPoint::decode_dimension(value, 0).to_string())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FloatPointInSetQuery;
+
+impl PointInSetBase for FloatPointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
+    debug_assert!(value.len() == BitUtil::FLOAT_BYTES);
     Ok(FloatPoint::decode_dimension(value, 0).to_string())
   }
 }

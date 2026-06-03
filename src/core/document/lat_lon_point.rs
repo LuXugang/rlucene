@@ -61,6 +61,9 @@ use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
+/// Type for an indexed `LatLonPoint`.
+///
+/// Each point stores two dimensions with 4 bytes per dimension.
 pub(crate) static TYPE_: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_dimensions(2, BitUtil::INT_BYTES)
@@ -104,6 +107,7 @@ impl Clone for LatLonPoint {
 }
 
 impl LatLonPoint {
+  /// `LatLonPoint` is encoded as integer values, so the number of bytes is 4.
   pub const BYTES: usize = BitUtil::INT_BYTES;
   /// Creates a new LatLonPoint with the specified latitude and longitude
   ///
@@ -215,7 +219,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `field` is null, or the box has invalid coordinates.
+  /// Returns `IllegalArgument` if the box has invalid coordinates.
   pub fn new_box_query(
     field: &str,
     min_latitude: f64,
@@ -278,8 +282,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `field` is null, location has invalid coordinates, or
-  /// radius is invalid.
+  /// Returns `IllegalArgument` if the location has invalid coordinates or radius is invalid.
   pub fn new_distance_query(
     field: &str,
     latitude: f64,
@@ -291,13 +294,13 @@ impl LatLonPoint {
   /// Create a query for matching one or more polygons.
   ///
   /// * `field` - field name.
-  /// * `polygons` - array of polygons. must not be null or empty
+  /// * `polygons` - array of polygons.
   ///
   /// Returns query matching points within this polygon.
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `field` is null, `polygons` is null or empty.
+  /// Returns `IllegalArgument` if `polygons` is empty.
   ///
   /// See also [`Polygon`].
   pub fn new_polygon_query(field: &str, polygons: Vec<Polygon>) -> Result<Query> {
@@ -310,14 +313,13 @@ impl LatLonPoint {
   /// * `field` - field name.
   /// * `query_relation` - The relation the points needs to satisfy with the provided geometries,
   ///   
-  /// * `lat_lon_geometries` - array of LatLonGeometries. must not be null or empty.
+  /// * `lat_lon_geometries` - array of LatLonGeometries.
   ///
   /// Returns query matching points within at least one geometry.
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `field` is null, `query_relation` is null,
-  /// `lat_lon_geometries` is null, empty or contain a null.
+  /// Returns `IllegalArgument` if `lat_lon_geometries` is empty.
   ///
   /// See also [`LatLonGeometry`].
   pub fn new_geometry_query<T>(
@@ -440,8 +442,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `field` or `searcher` is null, or if `latitude`,
-  /// `longitude` or `n` are out-of-bounds.
+  /// Returns `IllegalArgument` if `latitude`, `longitude` or `n` are out-of-bounds.
   ///
   /// Returns an error if an I/O error occurs while finding the points.
   pub fn nearest<IRC>(

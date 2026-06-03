@@ -25,10 +25,12 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -125,6 +127,31 @@ impl LongPoint {
   {
     Self::new_range_query_n(field, [lower_value], [upper_value])
   }
+
+  /// Create a query matching any of the specified 1D values. This is the points equivalent of
+  /// `TermsQuery`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name. must not be `null`.
+  /// * `values` - All values to match.
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[i64]>,
+  {
+    let mut sorted_values = values.as_ref().to_vec();
+    sorted_values.sort();
+
+    PointInSetQuery::new(
+      field.into(),
+      1,
+      BitUtil::LONG_BYTES,
+      LongPointSetBytesRefIterator::new(sorted_values),
+      LongPointInSetQuery,
+    )
+  }
+
   pub fn new_range_query_n<T, V>(
     field: T,
     lower_value: V,
@@ -149,6 +176,34 @@ impl LongPoint {
       len, // numDims
       LongPointRangeQuery,
     )
+  }
+}
+
+struct LongPointSetBytesRefIterator {
+  sorted_values: Vec<i64>,
+  upto: usize,
+  encoded: BytesRef<Vec<u8>>,
+}
+
+impl LongPointSetBytesRefIterator {
+  fn new(sorted_values: Vec<i64>) -> Self {
+    Self {
+      sorted_values,
+      upto: 0,
+      encoded: BytesRef::from_bytes(vec![0u8; BitUtil::LONG_BYTES]),
+    }
+  }
+}
+
+impl BytesRefIterator for LongPointSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto == self.sorted_values.len() {
+      Ok(None)
+    } else {
+      LongPoint::encode_dimension(self.sorted_values[self.upto], &mut self.encoded.bytes, 0);
+      self.upto += 1;
+      Ok(Some(Cow::Borrowed(&self.encoded)))
+    }
   }
 }
 
@@ -275,6 +330,16 @@ pub struct LongPointRangeQuery;
 
 impl PointRangeBase for LongPointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(LongPoint::decode_dimension(value, 0).to_string())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct LongPointInSetQuery;
+
+impl PointInSetBase for LongPointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
+    debug_assert!(value.len() == BitUtil::LONG_BYTES);
     Ok(LongPoint::decode_dimension(value, 0).to_string())
   }
 }

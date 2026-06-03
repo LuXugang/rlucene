@@ -25,20 +25,42 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
-
+/// An indexed `double` field for fast range filters. If you also need to store the value, you
+/// should add a separate [`StoredField`] instance.
+///
+/// Finding all documents within an N-dimensional shape or range at search time is efficient.
+/// Multiple values for the same field in one document is allowed.
+///
+/// This field defines static factory methods for creating common queries:
+///
+/// * [`new_exact_query`](Self::new_exact_query) for matching an exact 1D point.
+/// * [`new_set_query`](Self::new_set_query) for matching a set of 1D values.
+/// * [`new_range_query`](Self::new_range_query) for matching a 1D range.
+/// * [`new_range_query`](Self::new_range_query) for matching points/ranges in
+///   n-dimensional space.
+///
+/// See also [`PointValues`].
 pub struct DoublePoint {
   parent_field: Field,
 }
 impl DoublePoint {
+  /// Creates a new `DoublePoint`, indexing the provided N-dimensional double point.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `point` - Double point value.
   pub fn new<T, P>(name: T, point: P) -> Result<DoublePoint>
   where
     T: Into<String>,
@@ -50,6 +72,10 @@ impl DoublePoint {
     let parent_field = Field::from_bytes_ref(name, value, field_type)?;
     Ok(DoublePoint { parent_field })
   }
+
+  /// Return the least double that compares greater than `d` consistently with `f64` comparison.
+  /// The only difference with [`f64::next_up`] is that this method returns `+0.0` when the argument
+  /// is `-0.0`.
   pub fn next_up(d: f64) -> f64 {
     // -0.0d
     if d.to_bits() == 0x8000_0000_0000_0000u64 {
@@ -59,6 +85,9 @@ impl DoublePoint {
     }
   }
 
+  /// Return the greatest double that compares less than `d` consistently with `f64` comparison.
+  /// The only difference with [`f64::next_down`] is that this method returns `-0.0` when the
+  /// argument is `+0.0`.
   pub fn next_down(d: f64) -> f64 {
     if d.to_bits() == 0u64 {
       -0.0
@@ -87,6 +116,16 @@ impl DoublePoint {
     self.parent_field.fields_data = value.into();
     Ok(())
   }
+
+  /// Pack a double point into a `BytesRef`.
+  ///
+  /// # Arguments
+  ///
+  /// * `point` - Double point value.
+  ///
+  /// # Errors
+  ///
+  /// Returns an error if the value has zero dimensions.
   fn pack(point: &[f64]) -> Result<BytesRef<Vec<u8>>> {
     if point.is_empty() {
       return Err(LuceneError::illegal_argument(
@@ -112,6 +151,16 @@ impl DoublePoint {
   pub fn decode_dimension(value: &[u8], offset: usize) -> f64 {
     NumericUtils::sortable_long_to_double(NumericUtils::sortable_bytes_to_long(value, offset))
   }
+
+  /// Create a query for matching an exact double value.
+  ///
+  /// This is for simple one-dimension points. For multidimensional points, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `value` - Double value.
   pub fn new_exact_query<T>(field: T, value: f64) -> Result<PointRangeQuery>
   where
     T: Into<String>,
@@ -119,6 +168,24 @@ impl DoublePoint {
     Self::new_range_query(field, value, value)
   }
 
+  /// Create a range query for double values.
+  ///
+  /// This is for simple one-dimension ranges. For multidimensional ranges, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value = f64::NEG_INFINITY` or `upper_value = f64::INFINITY`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass [`Self::next_up`] with the lower value or
+  /// [`Self::next_down`] with the upper value.
+  ///
+  /// Range comparisons are consistent with `f64` comparison.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query<T>(field: T, lower_value: f64, upper_value: f64) -> Result<PointRangeQuery>
   where
     T: Into<String>,
@@ -126,6 +193,45 @@ impl DoublePoint {
     Self::new_range_query_n(field, [lower_value], [upper_value])
   }
 
+  /// Create a query matching any of the specified 1D values. This is the points equivalent of
+  /// `TermsQuery`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - All values to match.
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[f64]>,
+  {
+    let mut sorted_values = values.as_ref().to_vec();
+    sorted_values.sort_by(|a, b| a.total_cmp(b));
+
+    PointInSetQuery::new(
+      field.into(),
+      1,
+      BitUtil::DOUBLE_BYTES,
+      DoublePointSetBytesRefIterator::new(sorted_values),
+      DoublePointInSetQuery,
+    )
+  }
+
+  /// Create a range query for n-dimensional double values.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value[i] = f64::NEG_INFINITY` or `upper_value[i] = f64::INFINITY`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass `f64::next_up(lower_value[i])` or
+  /// `f64::next_down(upper_value[i])`.
+  ///
+  /// Range comparisons are consistent with `f64` comparison.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query_n<T, V>(
     field: T,
     lower_value: V,
@@ -149,6 +255,34 @@ impl DoublePoint {
       len,
       DoublePointRangeQuery,
     )
+  }
+}
+
+struct DoublePointSetBytesRefIterator {
+  sorted_values: Vec<f64>,
+  upto: usize,
+  encoded: BytesRef<Vec<u8>>,
+}
+
+impl DoublePointSetBytesRefIterator {
+  fn new(sorted_values: Vec<f64>) -> Self {
+    Self {
+      sorted_values,
+      upto: 0,
+      encoded: BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]),
+    }
+  }
+}
+
+impl BytesRefIterator for DoublePointSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto == self.sorted_values.len() {
+      Ok(None)
+    } else {
+      DoublePoint::encode_dimension(self.sorted_values[self.upto], &mut self.encoded.bytes, 0);
+      self.upto += 1;
+      Ok(Some(Cow::Borrowed(&self.encoded)))
+    }
   }
 }
 impl FieldBase for DoublePoint {
@@ -274,6 +408,16 @@ pub struct DoublePointRangeQuery;
 
 impl PointRangeBase for DoublePointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(DoublePoint::decode_dimension(value, 0).to_string())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DoublePointInSetQuery;
+
+impl PointInSetBase for DoublePointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
+    debug_assert!(value.len() == BitUtil::DOUBLE_BYTES);
     Ok(DoublePoint::decode_dimension(value, 0).to_string())
   }
 }

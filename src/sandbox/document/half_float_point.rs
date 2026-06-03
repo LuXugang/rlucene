@@ -25,9 +25,11 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
@@ -57,7 +59,9 @@ impl HalfFloatPoint {
   /// The number of bytes used to represent a half-float value.
   pub const BYTES: usize = 2;
 
-  /// Return the first half float which is immediately greater than `v`.
+  /// Return the first half float which is immediately greater than `v`. If the argument is
+  /// `f32::NAN` then the return value is `f32::NAN`. If the argument is `f32::INFINITY` then the
+  /// return value is `f32::INFINITY`.
   pub fn next_up(v: f32) -> f32 {
     if v.is_nan() || v == f32::INFINITY {
       return v;
@@ -70,7 +74,9 @@ impl HalfFloatPoint {
     r
   }
 
-  /// Return the first half float which is immediately smaller than `v`.
+  /// Return the first half float which is immediately smaller than `v`. If the argument is
+  /// `f32::NAN` then the return value is `f32::NAN`. If the argument is `f32::NEG_INFINITY` then
+  /// the return value is `f32::NEG_INFINITY`.
   pub fn next_down(v: f32) -> f32 {
     if v.is_nan() || v == f32::NEG_INFINITY {
       return v;
@@ -217,7 +223,12 @@ impl HalfFloatPoint {
     Ok(BytesRef::from_bytes(packed))
   }
 
-  /// Creates a new HalfFloatPoint, indexing the provided N-dimensional float point.
+  /// Creates a new `HalfFloatPoint`, indexing the provided N-dimensional float point.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `point` - Float point value.
   pub fn new<T, P>(name: T, point: P) -> Result<Self>
   where
     T: Into<String>,
@@ -239,7 +250,16 @@ impl HalfFloatPoint {
     Self::sortable_short_to_half_float(Self::sortable_bytes_to_short(value, offset))
   }
 
-  /// Create a query for matching an exact half-float value.
+  /// Create a query for matching an exact half-float value. It will be rounded to the closest
+  /// half-float if `value` cannot be represented accurately as a half-float.
+  ///
+  /// This is for simple one-dimension points. For multidimensional points, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `value` - Half-float value.
   pub fn new_exact_query<T>(field: T, value: f32) -> Result<PointRangeQuery>
   where
     T: Into<String>,
@@ -247,7 +267,25 @@ impl HalfFloatPoint {
     Self::new_range_query(field, value, value)
   }
 
-  /// Create a range query for half-float values.
+  /// Create a range query for half-float values. Bounds will be rounded to the closest half-float
+  /// if they cannot be represented accurately as a half-float.
+  ///
+  /// This is for simple one-dimension ranges. For multidimensional ranges, use
+  /// [`new_range_query_n`](Self::new_range_query_n) instead.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value = f32::NEG_INFINITY` or `upper_value = f32::INFINITY`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass [`Self::next_up`] with the lower value or
+  /// [`Self::next_down`] with the upper value.
+  ///
+  /// Range comparisons are consistent with `f32` comparison.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query<T>(field: T, lower_value: f32, upper_value: f32) -> Result<PointRangeQuery>
   where
     T: Into<String>,
@@ -255,7 +293,22 @@ impl HalfFloatPoint {
     Self::new_range_query_n(field, [lower_value], [upper_value])
   }
 
-  /// Create a range query for n-dimensional half-float values.
+  /// Create a range query for n-dimensional half-float values. Bounds will be rounded to the
+  /// closest half-float if they cannot be represented accurately as a half-float.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value[i] = f32::NEG_INFINITY` or `upper_value[i] = f32::INFINITY`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass [`Self::next_up`] with `lower_value[i]` or
+  /// [`Self::next_down`] with `upper_value[i]`.
+  ///
+  /// Range comparisons are consistent with `f32` comparison.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query_n<T, LV, UV>(
     field: T,
     lower_value: LV,
@@ -286,6 +339,59 @@ impl HalfFloatPoint {
       lower_value.len(),
       HalfFloatPointRangeQuery,
     )
+  }
+
+  /// Create a query matching any of the specified 1D values. This is the points equivalent of
+  /// `TermsQuery`. Values will be rounded to the closest half-float if they cannot be represented
+  /// accurately as a half-float.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - All values to match.
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[f32]>,
+  {
+    let mut sorted_values = values.as_ref().to_vec();
+    sorted_values.sort_by(|a, b| a.total_cmp(b));
+
+    PointInSetQuery::new(
+      field.into(),
+      1,
+      Self::BYTES,
+      HalfFloatPointSetBytesRefIterator::new(sorted_values),
+      HalfFloatPointInSetQuery,
+    )
+  }
+}
+
+struct HalfFloatPointSetBytesRefIterator {
+  sorted_values: Vec<f32>,
+  upto: usize,
+  encoded: BytesRef<Vec<u8>>,
+}
+
+impl HalfFloatPointSetBytesRefIterator {
+  fn new(sorted_values: Vec<f32>) -> Self {
+    Self {
+      sorted_values,
+      upto: 0,
+      encoded: BytesRef::from_bytes(vec![0u8; HalfFloatPoint::BYTES]),
+    }
+  }
+}
+
+impl BytesRefIterator for HalfFloatPointSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto == self.sorted_values.len() {
+      Ok(None)
+    } else {
+      HalfFloatPoint::encode_dimension(self.sorted_values[self.upto], &mut self.encoded.bytes, 0);
+      self.upto += 1;
+      Ok(Some(Cow::Borrowed(&self.encoded)))
+    }
   }
 }
 
@@ -406,6 +512,15 @@ pub struct HalfFloatPointRangeQuery;
 
 impl PointRangeBase for HalfFloatPointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(HalfFloatPoint::decode_dimension(value, 0).to_string())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct HalfFloatPointInSetQuery;
+
+impl PointInSetBase for HalfFloatPointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
     Ok(HalfFloatPoint::decode_dimension(value, 0).to_string())
   }
 }

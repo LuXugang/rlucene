@@ -17,6 +17,8 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
+use std::rc::Rc;
+use std::sync::Arc;
 
 use byteorder::{ByteOrder, LE};
 
@@ -26,13 +28,43 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
-use crate::core::util::{ReadableCursorExt, SliceCopyOps, TryIntoInt};
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 pub type ByteBuffersDataInputRef<'a> = ByteBuffersDataInput<&'a [u8]>;
 pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<Vec<u8>>;
+pub type ByteBuffersDataInputRc = ByteBuffersDataInput<Rc<Vec<u8>>>;
+pub type ByteBuffersDataInputArc = ByteBuffersDataInput<Arc<Vec<u8>>>;
+
+pub trait ByteBuffersDataInputBlock {
+  fn as_slice(&self) -> &[u8];
+}
+
+impl ByteBuffersDataInputBlock for Vec<u8> {
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
+}
+
+impl ByteBuffersDataInputBlock for &[u8] {
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
+}
+
+impl ByteBuffersDataInputBlock for Rc<Vec<u8>> {
+  fn as_slice(&self) -> &[u8] {
+    self.as_ref()
+  }
+}
+
+impl ByteBuffersDataInputBlock for Arc<Vec<u8>> {
+  fn as_slice(&self) -> &[u8] {
+    self.as_ref()
+  }
+}
 
 /// A [`DataInput`] implementing [`RandomAccessInput`]
 /// and reading data from a list of [`Cursor<Vec<u8>>`](Cursor).
-pub struct ByteBuffersDataInput<B: AsRef<[u8]>> {
+pub struct ByteBuffersDataInput<B: ByteBuffersDataInputBlock> {
   blocks: Vec<Cursor<B>>,
   block_mask: usize,
   block_bits: usize,
@@ -44,12 +76,12 @@ pub struct ByteBuffersDataInput<B: AsRef<[u8]>> {
 /// All data buffers except for the last one must have an identical number of
 /// remaining bytes (which must be a power of two). The last buffer can have an
 /// arbitrary remaining length.
-impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
+impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
   pub fn new(blocks: Vec<Cursor<B>>, length: usize) -> Result<Self> {
     let (block_bits, block_mask) = if blocks.len() <= 1 {
       (32, !0)
     } else {
-      let block_bytes = blocks[0].get_ref().as_ref().len();
+      let block_bytes = blocks[0].get_ref().as_slice().len();
       let block_bits = block_bytes.trailing_zeros() as usize;
       (block_bits, (1 << block_bits) - 1)
     };
@@ -99,10 +131,28 @@ impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
       }
 
       let block = self.blocks.get(block_index).unwrap();
-      let available = block.remain_between(block_offset, block.get_ref().as_ref().len());
+      let block_bytes = block.get_ref().as_slice();
+      let available = block_bytes.len().saturating_sub(block_offset);
 
       let chunk = bytes_read.min(available);
-      block.read_to_buffer(&mut bytes, bytes_offset, block_offset, chunk)?;
+      if block_offset > block_bytes.len() || block_offset + chunk > block_bytes.len() {
+        return Err(LuceneError::illegal_argument(format!(
+          "Read out of bounds: position={}, len={}, total={}",
+          block_offset,
+          chunk,
+          block_bytes.len()
+        )));
+      }
+      if bytes_offset + chunk > bytes.len() {
+        return Err(LuceneError::illegal_argument(format!(
+          "Destination buffer out of bounds: offset={}, len={}, total={}",
+          bytes_offset,
+          chunk,
+          bytes.len()
+        )));
+      }
+      bytes[bytes_offset..bytes_offset + chunk]
+        .copy_from_slice(&block_bytes[block_offset..block_offset + chunk]);
       bytes_offset += chunk;
       pos += chunk;
       bytes_read -= chunk;
@@ -158,7 +208,7 @@ impl<B: AsRef<[u8]>> ByteBuffersDataInput<B> {
 }
 impl<B> ByteBuffersDataInput<B>
 where
-  B: AsRef<[u8]> + Clone,
+  B: ByteBuffersDataInputBlock + Clone,
 {
   pub fn slice(&self, offset: usize, length: usize) -> Result<ByteBuffersDataInput<B>> {
     if offset + length > self.length {
@@ -176,7 +226,7 @@ where
     let abs_start = blocks[0].position() + offset as u64;
     let abs_end = abs_start + length as u64;
 
-    let block_bytes = blocks[0].get_ref().as_ref().len() as u64;
+    let block_bytes = blocks[0].get_ref().as_slice().len() as u64;
     debug_assert!(block_bytes.is_power_of_two());
     let block_bits = block_bytes.trailing_zeros() as u64;
     let block_mask = (1u64 << block_bits) - 1;
@@ -211,7 +261,7 @@ where
 
 impl<B> Display for ByteBuffersDataInput<B>
 where
-  B: AsRef<[u8]>,
+  B: ByteBuffersDataInputBlock,
 {
   fn fmt(&self, f: &mut Formatter) -> fmt::Result {
     let blocks_len = self.blocks.len();
@@ -238,7 +288,7 @@ where
 
 impl<B> DataInput for ByteBuffersDataInput<B>
 where
-  B: AsRef<[u8]>,
+  B: ByteBuffersDataInputBlock,
 {
   fn read_byte(&mut self) -> Result<u8> {
     let mut bytes = [0; 1];
@@ -269,8 +319,12 @@ where
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
     let block_index = self.block_index(self.pos);
     let block_offset = self.block_offset(self.pos);
-    let block = self.blocks.get_mut(block_index).unwrap();
-    let remain = block.remain_between(block_offset, block.get_ref().as_ref().len());
+    let block = self.blocks.get(block_index).unwrap();
+    let remain = block
+      .get_ref()
+      .as_slice()
+      .len()
+      .saturating_sub(block_offset);
     let len = GroupVIntUtil::read_group_vint_i32_with_reader(
       self,
       remain as u64,
@@ -316,7 +370,7 @@ where
 // value at the subsequent position. TODO: should we support this feature?
 impl<B> RandomAccessInput for ByteBuffersDataInput<B>
 where
-  B: AsRef<[u8]>,
+  B: ByteBuffersDataInputBlock,
 {
   fn length(&self) -> usize {
     self.length
@@ -357,7 +411,7 @@ where
 
 impl<B> Accountable for ByteBuffersDataInput<B>
 where
-  B: AsRef<[u8]>,
+  B: ByteBuffersDataInputBlock,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(0)

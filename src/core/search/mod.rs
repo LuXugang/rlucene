@@ -140,6 +140,7 @@ pub mod phrase_query;
 pub(crate) mod phrase_queue;
 pub(crate) mod phrase_scorer;
 pub(crate) mod phrase_weight;
+pub mod point_in_set_query;
 pub mod point_range_query;
 pub mod prefix_query;
 pub mod regexp_query;

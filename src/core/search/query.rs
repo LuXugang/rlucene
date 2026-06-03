@@ -55,6 +55,7 @@ use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiT
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::n_gram_phrase_query::NGramPhraseQuery;
 use crate::core::search::phrase_query::PhraseQuery;
+use crate::core::search::point_in_set_query::PointInSetQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
 use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query_visitor::QueryVisitor;
@@ -151,6 +152,7 @@ macro_rules! dispatch_query {
       Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
       Query::NGramPhrase($inner) => $body,
       Query::Phrase($inner) => $body,
+      Query::PointInSet($inner) => $body,
       Query::PointRange($inner) => $body,
       Query::Prefix($inner) => $body,
       Query::Regexp($inner) => $body,
@@ -227,6 +229,7 @@ impl_from_for_enum!(
     MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
     NGramPhraseQuery=> NGramPhrase,
     PhraseQuery=> Phrase,
+    PointInSetQuery => PointInSet,
     PointRangeQuery => PointRange,
     PrefixQuery => Prefix,
     RegexpQuery => Regexp,
@@ -289,6 +292,7 @@ impl_into_box_query!(
   MultiTermQueryConstantScoreWrapper,
   NGramPhraseQuery,
   PhraseQuery,
+  PointInSetQuery,
   PointRangeQuery,
   PrefixQuery,
   RegexpQuery,
@@ -359,6 +363,7 @@ pub enum Query {
   MultiTermQueryConstantScoreWrapper(MultiTermQueryConstantScoreWrapper),
   NGramPhrase(NGramPhraseQuery),
   Phrase(PhraseQuery),
+  PointInSet(PointInSetQuery),
   PointRange(PointRangeQuery),
   Prefix(PrefixQuery),
   Regexp(RegexpQuery),
@@ -453,6 +458,7 @@ impl Query {
             MultiTermQueryConstantScoreWrapper,
             NGramPhrase,
             Phrase,
+            PointInSet,
             PointRange,
             Prefix,
             Regexp,

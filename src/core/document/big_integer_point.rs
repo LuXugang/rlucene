@@ -25,9 +25,11 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -208,6 +210,62 @@ impl BigIntegerPoint {
       BigIntegerPointRangeQuery,
     )
   }
+
+  /// Create a query matching any of the specified 1D values. This is the points equivalent of
+  /// `TermsQuery`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name. must not be `null`.
+  /// * `values` - All values to match.
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
+  where
+    T: Into<String>,
+    V: AsRef<[BigInt]>,
+  {
+    let mut sorted_values = values.as_ref().to_vec();
+    sorted_values.sort();
+
+    PointInSetQuery::new(
+      field.into(),
+      1,
+      Self::BYTES,
+      BigIntegerPointSetBytesRefIterator::new(sorted_values),
+      BigIntegerPointInSetQuery,
+    )
+  }
+}
+
+struct BigIntegerPointSetBytesRefIterator {
+  sorted_values: Vec<BigInt>,
+  upto: usize,
+  encoded: BytesRef<Vec<u8>>,
+}
+
+impl BigIntegerPointSetBytesRefIterator {
+  fn new(sorted_values: Vec<BigInt>) -> Self {
+    Self {
+      sorted_values,
+      upto: 0,
+      encoded: BytesRef::from_bytes(vec![0u8; BigIntegerPoint::BYTES]),
+    }
+  }
+}
+
+impl BytesRefIterator for BigIntegerPointSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto == self.sorted_values.len() {
+      Ok(None)
+    } else {
+      BigIntegerPoint::encode_dimension(
+        &self.sorted_values[self.upto],
+        &mut self.encoded.bytes,
+        0,
+      )?;
+      self.upto += 1;
+      Ok(Some(Cow::Borrowed(&self.encoded)))
+    }
+  }
 }
 
 impl FieldBase for BigIntegerPoint {
@@ -327,6 +385,15 @@ pub struct BigIntegerPointRangeQuery;
 
 impl PointRangeBase for BigIntegerPointRangeQuery {
   fn to_string(&self, _dimension: usize, value: &[u8]) -> Result<String> {
+    Ok(BigIntegerPoint::decode_dimension(value, 0)?.to_string())
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BigIntegerPointInSetQuery;
+
+impl PointInSetBase for BigIntegerPointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
     Ok(BigIntegerPoint::decode_dimension(value, 0)?.to_string())
   }
 }
