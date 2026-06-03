@@ -20,7 +20,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_sorter::IndexSorter;
-use crate::core::index::segment_info::{SegmentInfo, seg_info};
+use crate::core::index::segment_info::{NO, SegmentInfo, YES};
 use crate::core::index::sort_field_provider::{SortFieldProvider, for_name, write};
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
@@ -129,8 +129,8 @@ impl Lucene99SegmentInfoFormat {
         "Invalid docCount: {doc_count} (resource={input})"
       )));
     }
-    let is_compound_file = input.read_byte()? == seg_info::YES as u8;
-    let has_blocks = input.read_byte()? == seg_info::YES as u8;
+    let is_compound_file = input.read_byte()? == YES as u8;
+    let has_blocks = input.read_byte()? == YES as u8;
     let diagnostics = input.read_map_of_strings()?;
     let files = input.read_set_of_strings()?;
     let attributes = input.read_map_of_strings()?;
@@ -201,14 +201,14 @@ impl Lucene99SegmentInfoFormat {
     output.write_int(si.max_doc()?)?;
 
     output.write_byte(if si.get_use_compound_file() {
-      seg_info::YES as u8
+      YES as u8
     } else {
-      seg_info::NO as u8
+      NO as u8
     })?;
     output.write_byte(if si.get_has_blocks() {
-      seg_info::YES as u8
+      YES as u8
     } else {
-      seg_info::NO as u8
+      NO as u8
     })?;
     output.write_map_of_strings(si.get_diagnostics())?;
 

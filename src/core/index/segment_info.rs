@@ -94,12 +94,10 @@ impl Default for SegmentInfo<DummyDirectory> {
   }
 }
 
-pub mod seg_info {
-  /// Used by some member fields to mean not present (e.g., norms, deletions).
-  pub const NO: i32 = -1; // e.g. no norms; no deletes;
-  /// Used by some member fields to mean present (e.g., norms, deletions).
-  pub const YES: i32 = 1; // e.g. have norms; have deletes;
-}
+/// Used by some member fields to mean not present (e.g., norms, deletions).
+pub const NO: i32 = -1; // e.g. no norms; no deletes;
+/// Used by some member fields to mean present (e.g., norms, deletions).
+pub const YES: i32 = 1; // e.g. have norms; have deletes;
 impl<D> SegmentInfo<D>
 where
   D: Directory,
