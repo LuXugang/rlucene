@@ -539,6 +539,48 @@ impl TestUtil {
     b.length = length;
     b
   }
+
+  pub fn random_analysis_string<R>(random: &mut R, max_length: usize, simple: bool) -> String
+  where
+    R: Rng + ?Sized,
+  {
+    if max_length == 0 {
+      return String::new();
+    }
+
+    // sometimes just a purely random string
+    if random.random_range(0..31) == 0 {
+      let word_len = random.random_range(0..max_length);
+      return Self::random_substring(random, word_len, simple);
+    }
+
+    // otherwise, try to make it more realistic with 'words' since most tests use MockTokenizer
+    // first decide how big the string will really be: 0..n
+    let max_length = random.random_range(0..max_length);
+    let avg_word_length = TestUtil::next_int(random, 3, 8);
+    let mut sb = String::new();
+    while sb.len() < max_length {
+      if !sb.is_empty() {
+        sb.push(' ');
+      }
+      let mut word_length = -1;
+      while word_length < 0 {
+        let u1 = loop {
+          let v = random.random::<f64>();
+          if v > 0.0 {
+            break v;
+          }
+        };
+        let u2 = random.random::<f64>();
+        let gaussian = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+        word_length = (gaussian * 3.0 + avg_word_length as f64) as i32;
+      }
+      let word_length = std::cmp::min(word_length as usize, max_length - sb.len());
+      sb.push_str(&Self::random_substring(random, word_length, simple));
+    }
+    sb
+  }
+
   pub fn random_substring<R>(random: &mut R, word_len: usize, simple: bool) -> String
   where
     R: Rng + ?Sized,
