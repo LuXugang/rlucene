@@ -28,11 +28,25 @@ use crate::core::index::indexable_field::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
+
+/// Syntactic sugar for encoding floats as NumericDocValues via `f32::to_bits`.
+///
+/// Per-document floating point values can be retrieved via
+/// `LeafReader::get_numeric_doc_values`.
+///
+/// Note: in most all cases this will be rather inefficient, requiring four bytes per document.
+/// Consider encoding floating point values yourself with only as much precision as you require.
 pub struct FloatDocValuesField {
   parent_field: NumericDocValuesField,
 }
 
 impl FloatDocValuesField {
+  /// Creates a new DocValues field with the specified 32-bit float value.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `value` - 32-bit float value.
   pub fn new<T>(name: T, value: f32) -> Self
   where
     T: Into<String>,

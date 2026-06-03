@@ -34,6 +34,7 @@ use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
+/// Type for numeric DocValues.
 static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_doc_values_type(DocValuesType::Numeric)
@@ -49,6 +50,11 @@ static INDEXED_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   ft.freeze();
   ft
 });
+
+/// Field that stores a per-document `i64` value for scoring, sorting or value retrieval.
+///
+/// If you also need to store the value, you should add a separate
+/// [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 pub struct NumericDocValuesField {
   pub(crate) parent_field: Field,
 }
@@ -62,6 +68,13 @@ impl Clone for NumericDocValuesField {
 }
 
 impl NumericDocValuesField {
+  /// Creates a new [`NumericDocValuesField`] with the specified 64-bit long value that also
+  /// creates a skip index.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `value` - 64-bit long value.
   pub fn indexed_field<T>(name: T, value: i64) -> Self
   where
     T: Into<String>,
@@ -69,6 +82,12 @@ impl NumericDocValuesField {
     Self::with_type(name, value, INDEXED_TYPE.clone())
   }
 
+  /// Creates a new DocValues field with the specified 64-bit long value.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `value` - 64-bit long value.
   pub fn new<T>(name: T, value: i64) -> Self
   where
     T: Into<String>,
@@ -83,6 +102,18 @@ impl NumericDocValuesField {
     let parent_field = Field::new(name, value, file_type);
     Self { parent_field }
   }
+  /// Create a range query that matches all documents whose value is between `lower_value` and
+  /// `upper_value` included.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value = i64::MIN` or `upper_value = i64::MAX`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass `lower_value + 1` or `upper_value - 1`.
+  ///
+  /// Note: such queries cannot efficiently advance to the next match, which makes them slow if
+  /// they are not ANDed with a selective query. As a consequence, they are best used wrapped in an
+  /// `IndexOrDocValuesQuery`, alongside a range query that executes on points, such as
+  /// [`LongPoint::new_range_query`](crate::core::document::long_point::LongPoint::new_range_query).
   pub fn new_slow_range_query<T>(
     field: T,
     lower_value: i64,
@@ -95,6 +126,12 @@ impl NumericDocValuesField {
     SortedNumericDocValuesRangeQuery::new(field, lower_value, upper_value)
   }
 
+  /// Create a query matching any of the specified values.
+  ///
+  /// Note: such queries cannot efficiently advance to the next match, which makes them slow if
+  /// they are not ANDed with a selective query. As a consequence, they are best used wrapped in an
+  /// `IndexOrDocValuesQuery`, alongside a set query that executes on points, such as
+  /// [`LongPoint::new_set_query`](crate::core::document::long_point::LongPoint::new_set_query).
   pub fn new_slow_set_query<T>(field: T, values: Vec<i64>) -> Result<SortedNumericDocValuesSetQuery>
   where
     T: Into<String>,

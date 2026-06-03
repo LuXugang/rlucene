@@ -30,14 +30,8 @@ use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
-/// Field that stores a per-document [`BytesRef`] value.
-///
-/// The values are stored directly with no sharing, which is a good fit when the fields don't
-/// share (many) values, such as a title field. If values may be shared and sorted it's better to use
-/// [`SortedDocValuesField`](crate::core::document::sorted_doc_values_field::SortedDocValuesField). Here's an example usage:
-/// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
-///
-/// See also [`BinaryDocValues`](crate::core::index::binary_doc_values::BinaryDocValues).
+
+/// Type for straight bytes DocValues.
 static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_doc_values_type(DocValuesType::Binary)
@@ -45,10 +39,27 @@ static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   ft.freeze();
   ft
 });
+
+/// Field that stores a per-document [`BytesRef`] value.
+///
+/// The values are stored directly with no sharing, which is a good fit when the fields don't
+/// share many values, such as a title field. If values may be shared and sorted it's better to use
+/// [`SortedDocValuesField`](crate::core::document::sorted_doc_values_field::SortedDocValuesField).
+///
+/// If you also need to store the value, you should add a separate
+/// [`StoredField`](crate::core::document::stored_field::StoredField) instance.
+///
+/// See also [`BinaryDocValues`](crate::core::index::binary_doc_values::BinaryDocValues).
 pub struct BinaryDocValuesField {
   parent_field: Field,
 }
 impl BinaryDocValuesField {
+  /// Create a new binary DocValues field.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `value` - Binary content.
   pub fn new<T>(name: T, value: BytesRef<Vec<u8>>) -> Self
   where
     T: Into<String>,
