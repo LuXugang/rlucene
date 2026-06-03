@@ -30,6 +30,7 @@ use crate::core::index::indexable_field::{
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_set_selector::SortedSetSelectorType;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
+use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 pub mod keyword {
@@ -112,12 +113,29 @@ impl KeywordField {
   /// * `field` - field name. must not be `null`.
   /// * `reverse` - true if natural order should be reversed.
   /// * `selector` - custom selector type for choosing the sort value from the set.
-  pub fn new_sort_field(
-    field: &str,
+  pub fn new_sort_field<T>(
+    field: T,
     reverse: bool,
     selector: SortedSetSelectorType,
-  ) -> Result<SortFieldEnum> {
+  ) -> Result<SortFieldEnum>
+  where
+    T: Into<String>,
+  {
     Ok(SortedSetSortField::with_selector(field, reverse, selector)?.into())
+  }
+
+  /// Create a query that matches any of the specified values. This is the keyword equivalent of
+  /// `PointInSetQuery` for point fields.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - Values to match.
+  pub fn new_set_query<T>(_field: T, _values: Vec<BytesRef<Vec<u8>>>) -> TermInSetQuery
+  where
+    T: Into<String>,
+  {
+    todo!()
   }
 }
 

@@ -28,6 +28,7 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
+use crate::core::search::point_range_query::check_args;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -103,25 +104,54 @@ impl DoubleField {
       },
     }
   }
-  pub fn new_exact_query(field: &str, value: f64) -> Result<IndexOrDocValuesQuery> {
+  pub fn new_exact_query<T>(field: T, value: f64) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
     Self::new_range_query(field, value, value)
   }
-  pub fn new_range_query(
-    field: &str,
+  pub fn new_range_query<T>(
+    field: T,
     lower_value: f64,
     upper_value: f64,
-  ) -> Result<IndexOrDocValuesQuery> {
-    // not required in Rust Lucene
-    // check_args(field, lower_value, upper_value)?;
+  ) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
+    #[cfg(debug_assertions)]
+    check_args(&field, &[lower_value as u8], &[upper_value as u8])?;
 
     Ok(IndexOrDocValuesQuery::new(
-      DoublePoint::new_range_query(field, lower_value, upper_value)?,
+      DoublePoint::new_range_query(field.clone(), lower_value, upper_value)?,
       SortedNumericDocValuesField::new_slow_range_query(
         field,
         NumericUtils::double_to_sortable_long(lower_value),
         NumericUtils::double_to_sortable_long(upper_value),
       ),
     ))
+  }
+
+  /// Create a query that matches any of the specified values.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - Values to match.
+  pub fn new_set_query<T>(field: T, values: Vec<f64>) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
+    let point_query = DoublePoint::new_set_query(field.clone(), values.clone())?;
+    let dv_query = SortedNumericDocValuesField::new_slow_set_query(
+      field,
+      values
+        .into_iter()
+        .map(NumericUtils::double_to_sortable_long)
+        .collect(),
+    )?;
+    Ok(IndexOrDocValuesQuery::new(point_query, dv_query))
   }
 }
 

@@ -55,6 +55,8 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::sandbox::document::half_float_point::HalfFloatPointInSetQuery;
+#[cfg(test)]
+use crate::test::core::search::test_point_queries::MultiDimIntPointInSetQuery;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -153,6 +155,7 @@ impl PointInSetQuery {
     })
   }
 
+  #[cfg(test)]
   pub fn get_packed_points(&self) -> Result<Vec<Vec<u8>>> {
     packed_points_as_vec(&self.sorted_packed_points)
   }
@@ -808,6 +811,7 @@ impl IntersectVisitor for SinglePointVisitor {
   }
 }
 
+#[cfg(test)]
 fn packed_points_as_vec(sorted_packed_points: &PrefixCodedTermsArc) -> Result<Vec<Vec<u8>>> {
   let mut iterator = sorted_packed_points.iterator()?;
   let mut points = Vec::with_capacity(sorted_packed_points.size().try_convert()?);
@@ -844,6 +848,8 @@ pub enum PointInSetBaseEnum {
   InetAddress(InetAddressPointInSetQuery),
   Int(IntPointInSetQuery),
   Long(LongPointInSetQuery),
+  #[cfg(test)]
+  MultiDimInt(MultiDimIntPointInSetQuery),
 }
 
 impl From<DefaultPointInSetQuery> for PointInSetBaseEnum {
@@ -912,6 +918,8 @@ impl PointInSetBase for PointInSetBaseEnum {
       PointInSetBaseEnum::InetAddress(q) => q.to_string(value),
       PointInSetBaseEnum::Int(q) => q.to_string(value),
       PointInSetBaseEnum::Long(q) => q.to_string(value),
+      #[cfg(test)]
+      PointInSetBaseEnum::MultiDimInt(q) => q.to_string(value),
     }
   }
 }

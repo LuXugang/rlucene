@@ -88,22 +88,29 @@ impl IntField {
       stored_value,
     })
   }
-  pub fn new_exact_query(
-    field: &str,
+  pub fn new_exact_query<T>(
+    field: T,
     value: i32,
-  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery>
+  where
+    T: Into<String>,
+  {
     Self::new_range_query(field, value, value)
   }
 
-  pub fn new_range_query(
-    field: &str,
+  pub fn new_range_query<T>(
+    field: T,
     lower_value: i32,
     upper_value: i32,
-  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
     let fallback_query = IndexOrDocValuesQuery::new(
-      IntPoint::new_range_query(field, lower_value, upper_value)?,
+      IntPoint::new_range_query(field.clone(), lower_value, upper_value)?,
       SortedNumericDocValuesField::new_slow_range_query(
-        field,
+        field.clone(),
         lower_value as i64,
         upper_value as i64,
       ),
@@ -115,6 +122,19 @@ impl IntField {
       upper_value as i64,
       fallback_query,
     ))
+  }
+
+  pub fn new_set_query<T>(field: T, values: Vec<i32>) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
+    let point_query = IntPoint::new_set_query(field.clone(), values.clone())?;
+    let dv_query = SortedNumericDocValuesField::new_slow_set_query(
+      field,
+      values.into_iter().map(|v| v as i64).collect(),
+    )?;
+    Ok(IndexOrDocValuesQuery::new(point_query, dv_query))
   }
 }
 

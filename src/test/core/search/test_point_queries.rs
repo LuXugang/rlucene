@@ -25,6 +25,7 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::string_field::StringField;
+use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -37,12 +38,16 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::point_in_set_query::{
+  DefaultPointInSetQuery, PointInSetBase, PointInSetBaseEnum, PointInSetQuery,
+};
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::util::bits::Bits;
 #[cfg(feature = "nightly")]
 use crate::core::util::bkd::bkd_config::BKDConfig;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps};
@@ -57,9 +62,10 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Barrier};
 use std::thread;
 use std::vec;
 
@@ -351,7 +357,7 @@ fn test_crazy_doubles() -> Result<()> {
   );
 
   // set query
-  let _set = [
+  let set = [
     f64::MAX,
     f64::NAN,
     0.0f64,
@@ -360,11 +366,10 @@ fn test_crazy_doubles() -> Result<()> {
     -0.0f64,
     f64::INFINITY,
   ];
-  // TODO IMPORTANT new_set_query未实现
-  // assert_eq!(
-  //     7,
-  //     searcher.count(DoublePoint::new_set_query("point", &set)?)?
-  // );
+  assert_eq!(
+    7,
+    searcher.count(DoublePoint::new_set_query("point", set)?)?
+  );
 
   // ranges
   assert_eq!(
@@ -504,7 +509,7 @@ fn test_crazy_floats() -> Result<()> {
   );
 
   // set query
-  let _set = [
+  let set = [
     f32::MAX,
     f32::NAN,
     0.0f32,
@@ -513,11 +518,7 @@ fn test_crazy_floats() -> Result<()> {
     -0.0f32,
     f32::INFINITY,
   ];
-  // TODO IMPORTANT new_set_query 未实现
-  // assert_eq!(
-  //     7,
-  //     searcher.count(FloatPoint::new_set_query("point", &set)?)?
-  // );
+  assert_eq!(7, searcher.count(FloatPoint::new_set_query("point", set)?)?);
 
   // ranges
   assert_eq!(
@@ -575,8 +576,11 @@ fn test_crazy_floats() -> Result<()> {
 }
 #[test]
 fn test_all_equal() -> Result<()> {
-  // TODO
-  Ok(())
+  let mut random = random();
+  let num_values = at_least(&mut random, 1000);
+  let value = random_value(&mut random);
+  let values = vec![value; num_values as usize];
+  verify_longs(&mut random, &values, None)
 }
 #[test]
 fn test_random_longs_tiny() -> Result<()> {
@@ -619,7 +623,7 @@ where
     }
   }
 
-  verify_longs(random, &values, &ids)
+  verify_longs(random, &values, Some(&ids))
 }
 #[test]
 fn test_long_encode() -> Result<()> {
@@ -637,7 +641,7 @@ fn test_long_encode() -> Result<()> {
 
   Ok(())
 }
-fn verify_longs<R>(random: &mut R, values: &[i64], ids: &[i32]) -> Result<()>
+fn verify_longs<R>(random: &mut R, values: &[i64], ids: Option<&[i32]>) -> Result<()>
 where
   R: Rng + ?Sized,
 {
@@ -648,6 +652,7 @@ where
     iwc.set_max_buffered_docs((values.len() / 100) as i32);
   }
 
+  // TODO IMPORTANT newMaybeVirusCheckingFSDirectory未实现
   let dir = if values.len() > 100000 {
     new_fs_directory(
       random,
@@ -672,7 +677,10 @@ where
   let w = IndexWriter::new(dir.clone(), iwc)?;
   #[allow(clippy::needless_range_loop)]
   for ord in 0..values.len() {
-    let id = ids[ord];
+    let id = match ids {
+      Some(v) => v[ord],
+      None => ord as i32,
+    };
     let id_index = id as usize;
 
     if id != last_id {
@@ -1062,13 +1070,26 @@ fn random_value<R>(random: &mut R) -> i64
 where
   R: Rng + ?Sized,
 {
-  match random.random_range(0..10) {
-    0 => i64::MIN,
-    1 => i64::MAX,
-    2 => 0,
-    3 => -1,
-    4 => 1,
-    _ => random.random(),
+  let mut value_mid = 0;
+  let value_range;
+
+  if random.random_bool(0.5) {
+    value_mid = random.random();
+    value_range = if random.random_bool(0.5) {
+      // Wide range
+      random.random_range(1..i32::MAX as i64)
+    } else {
+      // Narrow range
+      random.random_range(1..100_000)
+    };
+  } else {
+    // All longs
+    value_range = 0;
+  }
+  if value_range == 0 {
+    random.random()
+  } else {
+    value_mid + random.random_range(-value_range..=value_range)
   }
 }
 #[test]
@@ -1630,83 +1651,826 @@ fn test_to_string() -> Result<()> {
 
   Ok(())
 }
-fn to_array(_values_set: &std::collections::HashSet<i32>) -> Vec<i32> {
-  // TODO
-  Vec::new()
+fn to_array(values_set: &std::collections::HashSet<i32>) -> Vec<i32> {
+  values_set.iter().copied().collect()
 }
 
-fn random_int_value(_min: Option<i32>, _max: Option<i32>) -> i32 {
-  // TODO
-  0
+fn random_int_value<R>(random: &mut R, min: Option<i32>, max: Option<i32>) -> i32
+where
+  R: Rng + ?Sized,
+{
+  if let (Some(min), Some(max)) = (min, max) {
+    TestUtil::next_int(random, min, max)
+  } else {
+    random.random()
+  }
 }
 
-#[test]
+// TODO IMPORTANT 多线程查询 BUg
 fn test_random_point_in_set_query() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let use_narrow_range = random.random_bool(0.5);
+  let (value_min, value_max, num_values) = if use_narrow_range {
+    let gap = random.random_range(0..100);
+    let value_min = random.random_range(0..i32::MAX - gap);
+    let value_max = value_min + gap;
+    let num_values = TestUtil::next_int(&mut random, 1, gap + 1) as usize;
+    (Some(value_min), Some(value_max), num_values)
+  } else {
+    (None, None, TestUtil::next_int(&mut random, 1, 100) as usize)
+  };
+
+  let mut values_set = std::collections::HashSet::new();
+  while values_set.len() < num_values {
+    values_set.insert(random_int_value(&mut random, value_min, value_max));
+  }
+  let values = to_array(&values_set);
+  let num_docs = TestUtil::next_int(&mut random, 1, 10000) as usize;
+
+  let dir = if num_docs > 100000 {
+    new_fs_directory(
+      &mut random,
+      create_temp_dir_with_prefix("TestPointQueries")?,
+    )?
+  } else {
+    new_directory_shared(&mut random)?
+  };
+
+  let iwc = new_index_writer_config(&mut random);
+  let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+  let mut doc_values = vec![0i32; num_docs];
+  for doc_value in doc_values.iter_mut() {
+    let x = values[random.random_range(0..values.len())];
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int", [x])?);
+    *doc_value = x;
+    w.add_document(doc)?;
+  }
+
+  if random.random_bool(0.5) {
+    w.force_merge(1)?;
+  }
+  let r = Arc::new(w.get_reader()?);
+  w.close()?;
+  let searcher = new_searcher_with_wrap(&mut random, r.clone(), false)?;
+
+  let num_threads = TestUtil::next_int(&mut random, 2, 5);
+  let iters = at_least(&mut random, 100);
+  let failed = AtomicBool::new(false);
+  let starting_gun = Arc::new(Barrier::new(num_threads as usize + 1));
+
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+
+    for _ in 0..num_threads {
+      let failed = &failed;
+      let values = &values;
+      let doc_values = &doc_values;
+      let searcher = &searcher;
+      let starting_gun = starting_gun.clone();
+      let seed = random.next_u64();
+
+      handles.push(scope.spawn(move || -> Result<()> {
+        let mut random = random_from_seed(seed);
+        starting_gun.wait();
+
+        for _ in 0..iters {
+          if failed.load(Ordering::Relaxed) {
+            break;
+          }
+
+          let num_valid_values_to_query = random.random_range(0..values.len());
+
+          let mut values_to_query = std::collections::HashSet::new();
+          while values_to_query.len() < num_valid_values_to_query {
+            values_to_query.insert(values[random.random_range(0..values.len())]);
+          }
+
+          let num_extra_values_to_query = random.random_range(0..20);
+          while values_to_query.len() < num_valid_values_to_query + num_extra_values_to_query {
+            values_to_query.insert(random.random());
+          }
+
+          let expected_count = doc_values
+            .iter()
+            .filter(|value| values_to_query.contains(value))
+            .count() as i32;
+
+          assert_eq!(
+            expected_count,
+            searcher.count(IntPoint::new_set_query("int", to_array(&values_to_query))?)?
+          );
+        }
+
+        Ok(())
+      }));
+    }
+
+    starting_gun.wait();
+
+    for handle in handles {
+      handle.join().map_err(|_| {
+        LuceneError::illegal_state("test_random_point_in_set_query query thread panicked")
+      })??;
+    }
+
+    Ok(())
+  })?;
+
   Ok(())
 }
-fn new_multi_dim_int_set_query(
-  _field: &str,
-  _num_dims: usize,
-  _values_in: &[i32],
-) -> Result<Query> {
-  // TODO
-  Err(LuceneError::unsupported_operation(
-    "new_multi_dim_int_set_query not implement",
-  ))
+fn new_multi_dim_int_set_query(field: &str, num_dims: usize, values_in: &[i32]) -> Result<Query> {
+  if !values_in.len().is_multiple_of(num_dims) {
+    return Err(LuceneError::illegal_argument(format!(
+      "incongruent number of values: valuesIn.length={} but numDims={}",
+      values_in.len(),
+      num_dims
+    )));
+  }
+
+  let mut packed_values = Vec::with_capacity(values_in.len() / num_dims);
+  for i in 0..values_in.len() / num_dims {
+    let mut packed_value = vec![0u8; num_dims * std::mem::size_of::<i32>()];
+    for dim in 0..num_dims {
+      IntPoint::encode_dimension(
+        values_in[i * num_dims + dim],
+        &mut packed_value,
+        dim * std::mem::size_of::<i32>(),
+      );
+    }
+    packed_values.push(packed_value);
+  }
+
+  packed_values.sort();
+
+  Ok(
+    PointInSetQuery::new(
+      field.to_string(),
+      num_dims,
+      std::mem::size_of::<i32>(),
+      MultiDimIntSetBytesRefIterator::new(packed_values),
+      MultiDimIntPointInSetQuery::new(num_dims),
+    )?
+    .into(),
+  )
 }
 
 #[test]
 fn test_basic_multi_dim_point_in_set_query() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int", [17, 42])?);
+  w.add_document(doc)?;
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+
+  assert_eq!(
+    0,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[17, 41])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[17, 42])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[-7, -7, 17, 42])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[17, 42, -14, -14])?)?
+  );
+
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_basic_multi_value_multi_dim_point_in_set_query() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int", [17, 42])?);
+  doc.add(IntPoint::new("int", [34, 79])?);
+  w.add_document(doc)?;
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+
+  assert_eq!(
+    0,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[17, 41])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[17, 42])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[17, 42, 34, 79])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[-7, -7, 17, 42])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[-7, -7, 34, 79])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[17, 42, -14, -14])?)?
+  );
+
+  assert_eq!(
+    "int:{-14,-14 17,42}",
+    new_multi_dim_int_set_query("int", 2, &[17, 42, -14, -14])?.as_string("")?
+  );
+
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_many_equal_values_multi_dim_point_in_set_query() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut zero_count = 0;
+  for _ in 0..10_000 {
+    let x = random.random_range(0..2);
+    if x == 0 {
+      zero_count += 1;
+    }
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int", [x, x])?);
+    w.add_document(doc)?;
+  }
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+
+  assert_eq!(
+    zero_count,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[0, 0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[1, 1])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(new_multi_dim_int_set_query("int", 2, &[2, 2])?)?
+  );
+
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_invalid_multi_dim_point_in_set_query() -> Result<()> {
-  // TODO
+  let expected = new_multi_dim_int_set_query("int", 2, &[3, 4, 5]).unwrap_err();
+  assert_eq!(
+    "incongruent number of values: valuesIn.length=3 but numDims=2",
+    expected.to_string()
+  );
   Ok(())
 }
 
 #[test]
 fn test_basic_point_in_set_query() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int", [17])?);
+  doc.add(LongPoint::new("long", [17i64])?);
+  doc.add(FloatPoint::new("float", [17.0f32])?);
+  doc.add(DoublePoint::new("double", [17.0f64])?);
+  doc.add(BinaryPoint::new("bytes", [vec![0, 17]])?);
+  w.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int", [42])?);
+  doc.add(LongPoint::new("long", [42i64])?);
+  doc.add(FloatPoint::new("float", [42.0f32])?);
+  doc.add(DoublePoint::new("double", [42.0f64])?);
+  doc.add(BinaryPoint::new("bytes", [vec![0, 42]])?);
+  w.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int", [97])?);
+  doc.add(LongPoint::new("long", [97i64])?);
+  doc.add(FloatPoint::new("float", [97.0f32])?);
+  doc.add(DoublePoint::new("double", [97.0f64])?);
+  doc.add(BinaryPoint::new("bytes", [vec![0, 97]])?);
+  w.add_document(doc)?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+
+  assert_eq!(0, searcher.count(IntPoint::new_set_query("int", [16])?)?);
+  assert_eq!(1, searcher.count(IntPoint::new_set_query("int", [17])?)?);
+  assert_eq!(
+    3,
+    searcher.count(IntPoint::new_set_query("int", [17, 97, 42])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(IntPoint::new_set_query("int", [-7, 17, 42, 97])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(IntPoint::new_set_query("int", [17, 20, 42, 97])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(IntPoint::new_set_query("int", [17, 105, 42, 97])?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(LongPoint::new_set_query("long", [16i64])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(LongPoint::new_set_query("long", [17i64])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(LongPoint::new_set_query("long", [17i64, 97, 42])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(LongPoint::new_set_query("long", [-7i64, 17, 42, 97])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(LongPoint::new_set_query("long", [17i64, 20, 42, 97])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(LongPoint::new_set_query("long", [17i64, 105, 42, 97])?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(FloatPoint::new_set_query("float", [16.0f32])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(FloatPoint::new_set_query("float", [17.0f32])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(FloatPoint::new_set_query("float", [17.0f32, 97.0, 42.0])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(FloatPoint::new_set_query(
+      "float",
+      [-7.0f32, 17.0, 42.0, 97.0]
+    )?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(FloatPoint::new_set_query(
+      "float",
+      [17.0f32, 20.0, 42.0, 97.0]
+    )?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(FloatPoint::new_set_query(
+      "float",
+      [17.0f32, 105.0, 42.0, 97.0]
+    )?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(DoublePoint::new_set_query("double", [16.0f64])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(DoublePoint::new_set_query("double", [17.0f64])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(DoublePoint::new_set_query("double", [17.0f64, 97.0, 42.0])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(DoublePoint::new_set_query(
+      "double",
+      [-7.0f64, 17.0, 42.0, 97.0]
+    )?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(DoublePoint::new_set_query(
+      "double",
+      [17.0f64, 20.0, 42.0, 97.0]
+    )?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(DoublePoint::new_set_query(
+      "double",
+      [17.0f64, 105.0, 42.0, 97.0]
+    )?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 16]])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 17]])?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0, 17], vec![0, 97], vec![0, 42]]
+    )?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0, (-7i8) as u8], vec![0, 17], vec![0, 42], vec![0, 97]]
+    )?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0, 17], vec![0, 20], vec![0, 42], vec![0, 97]]
+    )?)?
+  );
+  assert_eq!(
+    3,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0, 17], vec![0, 105], vec![0, 42], vec![0, 97]]
+    )?)?
+  );
+
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_point_int_set_boxed() -> Result<()> {
-  // TODO
+  assert_eq!(
+    IntPoint::new_set_query("foo", [1, 2, 3])?,
+    IntPoint::new_set_query("foo", vec![1, 2, 3])?
+  );
+  assert_eq!(
+    FloatPoint::new_set_query("foo", [1.0f32, 2.0, 3.0])?,
+    FloatPoint::new_set_query("foo", vec![1.0f32, 2.0, 3.0])?
+  );
+  assert_eq!(
+    LongPoint::new_set_query("foo", [1i64, 2, 3])?,
+    LongPoint::new_set_query("foo", vec![1i64, 2, 3])?
+  );
+  assert_eq!(
+    DoublePoint::new_set_query("foo", [1.0f64, 2.0, 3.0])?,
+    DoublePoint::new_set_query("foo", vec![1.0f64, 2.0, 3.0])?
+  );
   Ok(())
 }
 
 #[test]
 fn test_basic_multi_valued_point_in_set_query() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int", [17])?);
+  doc.add(IntPoint::new("int", [42])?);
+  doc.add(LongPoint::new("long", [17i64])?);
+  doc.add(LongPoint::new("long", [42i64])?);
+  doc.add(FloatPoint::new("float", [17.0f32])?);
+  doc.add(FloatPoint::new("float", [42.0f32])?);
+  doc.add(DoublePoint::new("double", [17.0f64])?);
+  doc.add(DoublePoint::new("double", [42.0f64])?);
+  doc.add(BinaryPoint::new("bytes", [vec![0, 17]])?);
+  doc.add(BinaryPoint::new("bytes", [vec![0, 42]])?);
+  w.add_document(doc)?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+  assert_eq!(0, searcher.count(IntPoint::new_set_query("int", [16])?)?);
+  assert_eq!(1, searcher.count(IntPoint::new_set_query("int", [17])?)?);
+  assert_eq!(
+    1,
+    searcher.count(IntPoint::new_set_query("int", [17, 97, 42])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(IntPoint::new_set_query("int", [-7, 17, 42, 97])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(IntPoint::new_set_query("int", [16, 20, 41, 97])?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(LongPoint::new_set_query("long", [16i64])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(LongPoint::new_set_query("long", [17i64])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(LongPoint::new_set_query("long", [17i64, 97, 42])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(LongPoint::new_set_query("long", [-7i64, 17, 42, 97])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(LongPoint::new_set_query("long", [16i64, 20, 41, 97])?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(FloatPoint::new_set_query("float", [16.0f32])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(FloatPoint::new_set_query("float", [17.0f32])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(FloatPoint::new_set_query("float", [17.0f32, 97.0, 42.0])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(FloatPoint::new_set_query(
+      "float",
+      [-7.0f32, 17.0, 42.0, 97.0]
+    )?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(FloatPoint::new_set_query(
+      "float",
+      [16.0f32, 20.0, 41.0, 97.0]
+    )?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(DoublePoint::new_set_query("double", [16.0f64])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(DoublePoint::new_set_query("double", [17.0f64])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(DoublePoint::new_set_query("double", [17.0f64, 97.0, 42.0])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(DoublePoint::new_set_query(
+      "double",
+      [-7.0f64, 17.0, 42.0, 97.0]
+    )?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(DoublePoint::new_set_query(
+      "double",
+      [16.0f64, 20.0, 41.0, 97.0]
+    )?)?
+  );
+
+  assert_eq!(
+    0,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 16]])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 17]])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0, 17], vec![0, 97], vec![0, 42]]
+    )?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0, (-7i8) as u8], vec![0, 17], vec![0, 42], vec![0, 97]]
+    )?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0, 16], vec![0, 20], vec![0, 41], vec![0, 97]]
+    )?)?
+  );
+
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_empty_point_in_set_query() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int", [17])?);
+  doc.add(LongPoint::new("long", [17i64])?);
+  doc.add(FloatPoint::new("float", [17.0f32])?);
+  doc.add(DoublePoint::new("double", [17.0f64])?);
+  doc.add(BinaryPoint::new("bytes", [vec![0, 17]])?);
+  w.add_document(doc)?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+  assert_eq!(
+    0,
+    searcher.count(IntPoint::new_set_query("int", Vec::<i32>::new())?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(LongPoint::new_set_query("long", Vec::<i64>::new())?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(FloatPoint::new_set_query("float", Vec::<f32>::new())?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(DoublePoint::new_set_query("double", Vec::<f64>::new())?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(BinaryPoint::new_set_query("bytes", Vec::<Vec<u8>>::new())?)?
+  );
+
+  w.close()?;
   Ok(())
 }
 
 #[test]
 fn test_point_in_set_query_many_equal_values() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = new_index_writer_config(&mut random);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut zero_count = 0;
+  for _ in 0..10_000 {
+    let x: i32 = random.random_range(0..2);
+    if x == 0 {
+      zero_count += 1;
+    }
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int", [x])?);
+    doc.add(LongPoint::new("long", [x as i64])?);
+    doc.add(FloatPoint::new("float", [x as f32])?);
+    doc.add(DoublePoint::new("double", [x as f64])?);
+    doc.add(BinaryPoint::new("bytes", [vec![x as u8]])?);
+    w.add_document(doc)?;
+  }
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+  assert_eq!(
+    zero_count,
+    searcher.count(IntPoint::new_set_query("int", [0])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(IntPoint::new_set_query("int", [0, -7])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(IntPoint::new_set_query("int", [7, 0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(IntPoint::new_set_query("int", [1])?)?
+  );
+  assert_eq!(0, searcher.count(IntPoint::new_set_query("int", [2])?)?);
+
+  assert_eq!(
+    zero_count,
+    searcher.count(LongPoint::new_set_query("long", [0i64])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(LongPoint::new_set_query("long", [0i64, -7])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(LongPoint::new_set_query("long", [7i64, 0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(LongPoint::new_set_query("long", [1i64])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(LongPoint::new_set_query("long", [2i64])?)?
+  );
+
+  assert_eq!(
+    zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [0.0f32])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [0.0f32, -7.0])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [7.0f32, 0.0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [1.0f32])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(FloatPoint::new_set_query("float", [2.0f32])?)?
+  );
+
+  assert_eq!(
+    zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [0.0f64])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [0.0f64, -7.0])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [7.0f64, 0.0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [1.0f64])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(DoublePoint::new_set_query("double", [2.0f64])?)?
+  );
+
+  assert_eq!(
+    zero_count,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0]])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0], vec![(-7i8) as u8]]
+    )?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![7], vec![0]])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![1]])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![2]])?)?
+  );
+
+  w.close()?;
   Ok(())
 }
 #[test]
@@ -1848,25 +2612,88 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
 }
 #[test]
 fn test_invalid_point_in_set_query() -> Result<()> {
-  // TODO
+  let err = PointInSetQuery::new(
+    "foo".to_string(),
+    3,
+    4,
+    WrongLengthIter::default(),
+    DefaultPointInSetQuery,
+  )
+  .unwrap_err();
+  assert!(matches!(err, LuceneError::IllegalArgument(_)));
+  if let LuceneError::IllegalArgument(msg) = err {
+    assert_eq!(
+      "packed point length should be 12 but got 3; field=\"foo\" numDims=3 bytesPerDim=4",
+      msg.to_string()
+    );
+  }
   Ok(())
 }
 
 #[test]
 fn test_invalid_point_in_set_binary_query() -> Result<()> {
-  // TODO
+  // different-length byte arrays: len 1 and len 0
+  let err = BinaryPoint::new_set_query("bytes", [vec![2u8], vec![]]).unwrap_err();
+  assert!(matches!(err, LuceneError::IllegalArgument(_)));
+  if let LuceneError::IllegalArgument(msg) = err {
+    assert_eq!(
+      "all byte[] must be the same length, but saw 1 and 0",
+      msg.to_string()
+    );
+  }
   Ok(())
 }
 
 #[test]
 fn test_point_in_set_query_to_string() -> Result<()> {
-  // TODO
+  // int
+  assert_eq!(
+    "int:{-42 18}",
+    IntPoint::new_set_query("int", [-42, 18])?.to_string("")?
+  );
+  // long
+  assert_eq!(
+    "long:{-42 18}",
+    LongPoint::new_set_query("long", [-42i64, 18i64])?.to_string("")?
+  );
+  // float
+  assert_eq!(
+    "float:{-42 18}",
+    FloatPoint::new_set_query("float", [-42.0f32, 18.0f32])?.to_string("")?
+  );
+  // double
+  assert_eq!(
+    "double:{-42 18}",
+    DoublePoint::new_set_query("double", [-42.0f64, 18.0f64])?.to_string("")?
+  );
+  // binary
+  assert_eq!(
+    "bytes:{[12] [2a]}",
+    BinaryPoint::new_set_query("bytes", [vec![42u8], vec![18u8]])?.as_string("")?
+  );
   Ok(())
 }
 
 #[test]
 fn test_point_in_set_query_get_packed_points() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let num_values: usize = TestUtil::next_usize(&mut random, 1, 32);
+  let mut values = Vec::with_capacity(num_values);
+  for i in 0..num_values {
+    values.push(vec![i as u8]);
+  }
+
+  let query = match BinaryPoint::new_set_query("field", values.clone())? {
+    Query::PointInSet(q) => q,
+    _ => panic!("expected PointInSetQuery"),
+  };
+  let packed_points = query.get_packed_points()?;
+  assert_eq!(num_values, packed_points.len());
+
+  values.sort();
+  for (expected, actual) in values.iter().zip(packed_points.iter()) {
+    assert_eq!(*expected, *actual);
+  }
   Ok(())
 }
 #[test]
@@ -2118,7 +2945,61 @@ fn test_point_exact_equals() -> Result<()> {
 }
 #[test]
 fn test_point_in_set_equals() -> Result<()> {
-  // TODO
+  // int
+  let q1 = IntPoint::new_set_query("a", [0, 1000, 17])?;
+  let q2 = IntPoint::new_set_query("a", [17, 0, 1000])?;
+  assert_eq!(q1, q2);
+  assert_eq!(
+    CoreHelper::calculate_hash(&q1),
+    CoreHelper::calculate_hash(&q2)
+  );
+  assert_ne!(q1, IntPoint::new_set_query("a", [1, 17, 1000])?);
+  assert_ne!(q1, IntPoint::new_set_query("b", [0, 1000, 17])?);
+
+  // long
+  let q1 = LongPoint::new_set_query("a", [0i64, 1000, 17])?;
+  let q2 = LongPoint::new_set_query("a", [17i64, 0, 1000])?;
+  assert_eq!(q1, q2);
+  assert_eq!(
+    CoreHelper::calculate_hash(&q1),
+    CoreHelper::calculate_hash(&q2)
+  );
+  assert_ne!(q1, LongPoint::new_set_query("a", [1i64, 17, 1000])?);
+
+  // float
+  let q1 = FloatPoint::new_set_query("a", [0.0f32, 1000.0, 17.0])?;
+  let q2 = FloatPoint::new_set_query("a", [17.0f32, 0.0, 1000.0])?;
+  assert_eq!(q1, q2);
+  assert_eq!(
+    CoreHelper::calculate_hash(&q1),
+    CoreHelper::calculate_hash(&q2)
+  );
+  assert_ne!(q1, FloatPoint::new_set_query("a", [1.0f32, 17.0, 1000.0])?);
+
+  // double
+  let q1 = DoublePoint::new_set_query("a", [0.0f64, 1000.0, 17.0])?;
+  let q2 = DoublePoint::new_set_query("a", [17.0f64, 0.0, 1000.0])?;
+  assert_eq!(q1, q2);
+  assert_eq!(
+    CoreHelper::calculate_hash(&q1),
+    CoreHelper::calculate_hash(&q2)
+  );
+  assert_ne!(q1, DoublePoint::new_set_query("a", [1.0f64, 17.0, 1000.0])?);
+
+  // binary
+  let zeros = vec![0u8; 5];
+  let ones = vec![0xffu8; 5];
+  let q1 = BinaryPoint::new_set_query("a", [zeros.clone(), ones.clone()])?;
+  let q2 = BinaryPoint::new_set_query("a", [zeros.clone(), ones.clone()])?;
+  assert_eq!(q1, q2);
+  assert_eq!(
+    CoreHelper::calculate_hash(&q1),
+    CoreHelper::calculate_hash(&q2)
+  );
+  let mut other = ones.clone();
+  other[2] = 5;
+  assert_ne!(q1, BinaryPoint::new_set_query("a", [zeros.clone(), other])?);
+
   Ok(())
 }
 #[derive(Debug, Clone)]
@@ -2362,4 +3243,83 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
 
   w.close()?;
   Ok(())
+}
+/// Stream that yields byte arrays of length 3, used to test
+/// validation of packed-point length in PointInSetQuery (numDims=3, bytesPerDim=4 → expected 12).
+#[derive(Default)]
+struct WrongLengthIter {
+  value: BytesRef<Vec<u8>>,
+}
+
+impl BytesRefIterator for WrongLengthIter {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    self.value.bytes = vec![0u8; 3];
+    self.value.offset = 0;
+    self.value.length = 3;
+    Ok(Some(Cow::Borrowed(&self.value)))
+  }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MultiDimIntPointInSetQuery {
+  num_dims: usize,
+}
+
+impl MultiDimIntPointInSetQuery {
+  pub fn new(num_dims: usize) -> Self {
+    Self { num_dims }
+  }
+}
+
+impl From<MultiDimIntPointInSetQuery> for PointInSetBaseEnum {
+  fn from(value: MultiDimIntPointInSetQuery) -> Self {
+    Self::MultiDimInt(value)
+  }
+}
+
+impl PointInSetBase for MultiDimIntPointInSetQuery {
+  fn to_string(&self, value: &[u8]) -> Result<String> {
+    let mut sb = String::new();
+    for dim in 0..self.num_dims {
+      if dim > 0 {
+        sb.push(',');
+      }
+      sb.push_str(
+        &crate::core::util::numeric_utils::NumericUtils::sortable_bytes_to_int(
+          value,
+          dim * std::mem::size_of::<i32>(),
+        )
+        .to_string(),
+      );
+    }
+    Ok(sb)
+  }
+}
+struct MultiDimIntSetBytesRefIterator {
+  packed_values: Vec<Vec<u8>>,
+  upto: usize,
+  value: BytesRef<Vec<u8>>,
+}
+
+impl MultiDimIntSetBytesRefIterator {
+  fn new(packed_values: Vec<Vec<u8>>) -> Self {
+    Self {
+      packed_values,
+      upto: 0,
+      value: BytesRef::default(),
+    }
+  }
+}
+
+impl BytesRefIterator for MultiDimIntSetBytesRefIterator {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if self.upto >= self.packed_values.len() {
+      return Ok(None);
+    }
+    self.value.bytes = self.packed_values[self.upto].clone();
+    self.value.offset = 0;
+    self.value.length = self.value.bytes.len();
+    self.upto += 1;
+    Ok(Some(Cow::Borrowed(&self.value)))
+  }
 }

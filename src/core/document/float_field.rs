@@ -89,17 +89,24 @@ impl FloatField {
       stored_value,
     })
   }
-  pub fn new_exact_query(field: &str, value: f32) -> Result<IndexOrDocValuesQuery> {
+  pub fn new_exact_query<T>(field: T, value: f32) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
     Self::new_range_query(field, value, value)
   }
 
-  pub fn new_range_query(
-    field: &str,
+  pub fn new_range_query<T>(
+    field: T,
     lower_value: f32,
     upper_value: f32,
-  ) -> Result<IndexOrDocValuesQuery> {
+  ) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
     Ok(IndexOrDocValuesQuery::new(
-      FloatPoint::new_range_query(field, lower_value, upper_value)?,
+      FloatPoint::new_range_query(field.clone(), lower_value, upper_value)?,
       SortedNumericDocValuesField::new_slow_range_query(
         field,
         NumericUtils::float_to_sortable_int(lower_value) as i64,
@@ -107,6 +114,29 @@ impl FloatField {
       ),
     ))
   }
+
+  /// Create a query that matches any of the specified values.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - Values to match.
+  pub fn new_set_query<T>(field: T, values: Vec<f32>) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
+    let point_query = FloatPoint::new_set_query(field.clone(), values.clone())?;
+    let dv_query = SortedNumericDocValuesField::new_slow_set_query(
+      field,
+      values
+        .into_iter()
+        .map(|v| NumericUtils::float_to_sortable_int(v) as i64)
+        .collect(),
+    )?;
+    Ok(IndexOrDocValuesQuery::new(point_query, dv_query))
+  }
+
   /// Convert the stored sortable int back into a float.
   fn get_value_as_float(&self) -> Result<f32> {
     match self.numeric_value()? {

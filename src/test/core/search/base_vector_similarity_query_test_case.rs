@@ -45,12 +45,14 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::HasIdentity;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_searcher_with_reader;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least_usize, new_directory_shared,
+};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  new_index_writer_config, new_searcher_with_reader,
 };
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
@@ -566,19 +568,74 @@ pub trait BaseVectorSimilarityQueryTestCase {
     Ok(())
   }
 
-  fn test_fallback_to_exact<R>(&self, _random: &mut R) -> Result<()>
+  fn test_fallback_to_exact<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT  new_set_query 未实现
+    let base = self.get_base();
+    let num_docs = base.num_docs;
+    let dim = base.dim;
+    let vector_field = &base.vector_field;
+    let id_field = &base.id_field;
+    let num_filtered = random.random_range((num_docs / 10)..num_docs / 5);
+
+    let vectors = self.get_random_vectors(random, num_docs, dim);
+    let query_vector = self.get_random_vector(random, dim);
+    let result_similarity = self.get_similarity(&vectors, &query_vector, num_docs)?;
+    let filter: Query =
+      IntField::new_set_query(id_field, self.get_filtered(random, num_filtered))?.into();
+
+    let index_store = self.get_index_store(random, vectors)?;
+    let reader = directory_reader::open(index_store.into())?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let query = self.get_throwing_vector_query(
+      vector_field,
+      query_vector.clone(),
+      result_similarity,
+      result_similarity,
+      Some(filter),
+    )?;
+
+    let result = searcher.search(query, num_docs);
+    assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
+
     Ok(())
   }
 
-  fn test_approximate<R>(&self, _random: &mut R) -> Result<()>
+  fn test_approximate<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT  new_set_query 未实现
+    let base = self.get_base();
+    let dim = base.dim;
+    let vector_field = &base.vector_field;
+    let id_field = &base.id_field;
+    let num_filtered = base.num_docs - 1;
+    let target_visited = random.random_range(1..(num_filtered / 10));
+
+    let vectors = self.get_random_vectors(random, base.num_docs, dim);
+    let query_vector = self.get_random_vector(random, dim);
+    let result_similarity = self.get_similarity(&vectors, &query_vector, target_visited)?;
+    let filter: Query =
+      IntField::new_set_query(id_field, self.get_filtered(random, num_filtered))?.into();
+
+    let index_store = self.get_index_store(random, vectors)?;
+    let w = IndexWriter::new(index_store.into(), new_index_writer_config(random))?;
+    let reader = directory_reader::open_from_writer(&w)?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let query = self.get_throwing_vector_query(
+      vector_field,
+      query_vector,
+      result_similarity,
+      result_similarity,
+      Some(filter),
+    )?;
+
+    // The filter restricts results
+    assert!(searcher.count(query)? <= num_filtered as i32);
+
     Ok(())
   }
 
@@ -623,8 +680,8 @@ pub trait BaseVectorSimilarityQueryTestCase {
     );
 
     let num_filtered = random.random_range((num_docs / 2)..num_docs);
-    // TODO IMPORTANT  new_set_query 未实现
-    let filter: Query = IntField::new_range_query(id_field, 0, num_filtered as i32 - 1)?.into();
+    let filter: Query =
+      IntField::new_set_query(id_field, self.get_filtered(random, num_filtered))?.into();
     let filtered_query: Query = CountingQuery::new(self.get_vector_query(
       vector_field,
       query_vector,
@@ -672,9 +729,14 @@ pub trait BaseVectorSimilarityQueryTestCase {
   fn get_filtered<R: Rng + ?Sized>(&self, random: &mut R, num_filtered: usize) -> Vec<i32> {
     let num_docs = self.get_base().num_docs;
     let mut accepted = HashSet::new();
-    while accepted.len() < num_filtered {
+
+    let mut i = 0;
+    while i < num_filtered {
       let index = random.random_range(0..num_docs);
-      accepted.insert(index as i32);
+      if !accepted.contains(&(index as i32)) {
+        accepted.insert(index as i32);
+        i += 1;
+      }
     }
 
     accepted.into_iter().collect()

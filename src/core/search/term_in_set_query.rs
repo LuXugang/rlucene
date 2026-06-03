@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRef;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -26,6 +27,14 @@ use crate::core::util::error::lucene_error::Result;
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct TermInSetQuery {
   field: String,
+  terms: Vec<BytesRef<Vec<u8>>>,
+}
+
+impl TermInSetQuery {
+  /// Create a new TermInSetQuery that matches documents containing any of the specified terms.
+  pub fn new(field: String, terms: Vec<BytesRef<Vec<u8>>>) -> Self {
+    Self { field, terms }
+  }
 }
 
 impl HasIdentity for TermInSetQuery {

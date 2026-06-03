@@ -102,21 +102,28 @@ impl LongField {
       stored_value,
     })
   }
-  pub fn new_exact_query(
-    field: &str,
+  pub fn new_exact_query<T>(
+    field: T,
     value: i64,
-  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery>
+  where
+    T: Into<String>,
+  {
     Self::new_range_query(field, value, value)
   }
 
-  pub fn new_range_query(
-    field: &str,
+  pub fn new_range_query<T>(
+    field: T,
     lower_value: i64,
     upper_value: i64,
-  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery> {
+  ) -> Result<IndexSortSortedNumericDocValuesRangeQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
     let fallback_query = IndexOrDocValuesQuery::new(
-      LongPoint::new_range_query(field, lower_value, upper_value)?,
-      SortedNumericDocValuesField::new_slow_range_query(field, lower_value, upper_value),
+      LongPoint::new_range_query(field.clone(), lower_value, upper_value)?,
+      SortedNumericDocValuesField::new_slow_range_query(field.clone(), lower_value, upper_value),
     );
 
     Ok(IndexSortSortedNumericDocValuesRangeQuery::new(
@@ -125,6 +132,22 @@ impl LongField {
       upper_value,
       fallback_query,
     ))
+  }
+
+  /// Create a query that matches any of the specified values.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `values` - Values to match.
+  pub fn new_set_query<T>(field: T, values: Vec<i64>) -> Result<IndexOrDocValuesQuery>
+  where
+    T: Into<String>,
+  {
+    let field = field.into();
+    let point_query = LongPoint::new_set_query(field.clone(), values.clone())?;
+    let dv_query = SortedNumericDocValuesField::new_slow_set_query(field, values)?;
+    Ok(IndexOrDocValuesQuery::new(point_query, dv_query))
   }
 }
 
