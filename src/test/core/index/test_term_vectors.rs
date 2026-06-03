@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
@@ -61,7 +60,7 @@ where
 fn create_doc() -> Result<Document> {
   let mut doc = Document::new();
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft.set_store_term_vectors(true)?;
   ft.set_store_term_vector_positions(true)?;
   ft.set_store_term_vector_offsets(true)?;

@@ -26,7 +26,7 @@ use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
-use crate::core::document::string_field::{StringField, string_field_type};
+use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
@@ -1085,7 +1085,7 @@ fn test_exc_indexing_doc_before_doc_values() -> Result<()> {
   let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut ft = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
   ft.set_doc_values_type(DocValuesType::Sorted)?;
   ft.freeze();
 

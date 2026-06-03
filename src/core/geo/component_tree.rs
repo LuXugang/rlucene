@@ -17,6 +17,7 @@
 use crate::core::geo::component2d::{Component2D, WithinRelation};
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::cmp::Ordering;
 
 #[derive(Default)]
 pub struct ComponentTree<T>
@@ -333,115 +334,108 @@ where
     )
   }
 }
-pub mod component_tree_util {
-  use crate::core::geo::component_tree::ComponentTree;
-  use crate::core::geo::component2d::Component2D;
-  use crate::core::util::error::lucene_error::{LuceneError, Result};
-  use std::cmp::Ordering;
-
-  pub(crate) fn create<T>(components: Vec<T>) -> Result<ComponentTree<T>>
-  where
-    T: Component2D,
-  {
-    if components.is_empty() {
-      return Err(LuceneError::illegal_argument(
-        "components must not be empty",
-      ));
-    }
-
-    if components.len() == 1 {
-      return Ok(ComponentTree::new(
-        components.into_iter().next().unwrap(),
-        false,
-      ));
-    }
-
-    let mut min_y = f64::INFINITY;
-    let mut min_x = f64::INFINITY;
-    let mut component_slots: Vec<Option<T>> = components
-      .into_iter()
-      .map(|component| {
-        min_y = min_y.min(component.get_min_y());
-        min_x = min_x.min(component.get_min_x());
-        Some(component)
-      })
-      .collect();
-
-    let high = component_slots.len() - 1;
-    let mut root = create_tree(&mut component_slots, 0, high, false)?
-      .ok_or_else(|| LuceneError::illegal_argument("failed to build component tree"))?;
-    root.min_y = min_y;
-    root.min_x = min_x;
-    Ok(root)
+pub(crate) fn create<T>(components: Vec<T>) -> Result<ComponentTree<T>>
+where
+  T: Component2D,
+{
+  if components.is_empty() {
+    return Err(LuceneError::illegal_argument(
+      "components must not be empty",
+    ));
   }
 
-  fn create_tree<T>(
-    components: &mut [Option<T>],
-    low: usize,
-    high: usize,
-    split_x: bool,
-  ) -> Result<Option<ComponentTree<T>>>
-  where
-    T: Component2D,
-  {
-    if low > high {
-      return Ok(None);
-    }
-
-    let mid = (low + high) >> 1;
-    if low < high {
-      let relative_mid = mid - low;
-      components[low..=high].select_nth_unstable_by(relative_mid, |left, right| {
-        compare_components(
-          left
-            .as_ref()
-            .expect("component missing during tree construction"),
-          right
-            .as_ref()
-            .expect("component missing during tree construction"),
-          split_x,
-        )
-      });
-    }
-
-    let component = components[mid]
-      .take()
-      .ok_or_else(|| LuceneError::illegal_argument("component missing during tree construction"))?;
-    let mut new_node = ComponentTree::new(component, split_x);
-
-    new_node.left = if mid == 0 {
-      None
-    } else {
-      create_tree(components, low, mid - 1, !split_x)?.map(Box::new)
-    };
-    new_node.right = create_tree(components, mid + 1, high, !split_x)?.map(Box::new);
-
-    if let Some(left) = &new_node.left {
-      new_node.max_x = new_node.max_x.max(left.get_max_x());
-      new_node.max_y = new_node.max_y.max(left.get_max_y());
-    }
-    if let Some(right) = &new_node.right {
-      new_node.max_x = new_node.max_x.max(right.get_max_x());
-      new_node.max_y = new_node.max_y.max(right.get_max_y());
-    }
-
-    Ok(Some(new_node))
+  if components.len() == 1 {
+    return Ok(ComponentTree::new(
+      components.into_iter().next().unwrap(),
+      false,
+    ));
   }
 
-  fn compare_components<T>(left: &T, right: &T, split_x: bool) -> Ordering
-  where
-    T: Component2D,
-  {
-    if split_x {
-      left
-        .get_min_x()
-        .total_cmp(&right.get_min_x())
-        .then_with(|| left.get_max_x().total_cmp(&right.get_max_x()))
-    } else {
-      left
-        .get_min_y()
-        .total_cmp(&right.get_min_y())
-        .then_with(|| left.get_max_y().total_cmp(&right.get_max_y()))
-    }
+  let mut min_y = f64::INFINITY;
+  let mut min_x = f64::INFINITY;
+  let mut component_slots: Vec<Option<T>> = components
+    .into_iter()
+    .map(|component| {
+      min_y = min_y.min(component.get_min_y());
+      min_x = min_x.min(component.get_min_x());
+      Some(component)
+    })
+    .collect();
+
+  let high = component_slots.len() - 1;
+  let mut root = create_tree(&mut component_slots, 0, high, false)?
+    .ok_or_else(|| LuceneError::illegal_argument("failed to build component tree"))?;
+  root.min_y = min_y;
+  root.min_x = min_x;
+  Ok(root)
+}
+
+fn create_tree<T>(
+  components: &mut [Option<T>],
+  low: usize,
+  high: usize,
+  split_x: bool,
+) -> Result<Option<ComponentTree<T>>>
+where
+  T: Component2D,
+{
+  if low > high {
+    return Ok(None);
+  }
+
+  let mid = (low + high) >> 1;
+  if low < high {
+    let relative_mid = mid - low;
+    components[low..=high].select_nth_unstable_by(relative_mid, |left, right| {
+      compare_components(
+        left
+          .as_ref()
+          .expect("component missing during tree construction"),
+        right
+          .as_ref()
+          .expect("component missing during tree construction"),
+        split_x,
+      )
+    });
+  }
+
+  let component = components[mid]
+    .take()
+    .ok_or_else(|| LuceneError::illegal_argument("component missing during tree construction"))?;
+  let mut new_node = ComponentTree::new(component, split_x);
+
+  new_node.left = if mid == 0 {
+    None
+  } else {
+    create_tree(components, low, mid - 1, !split_x)?.map(Box::new)
+  };
+  new_node.right = create_tree(components, mid + 1, high, !split_x)?.map(Box::new);
+
+  if let Some(left) = &new_node.left {
+    new_node.max_x = new_node.max_x.max(left.get_max_x());
+    new_node.max_y = new_node.max_y.max(left.get_max_y());
+  }
+  if let Some(right) = &new_node.right {
+    new_node.max_x = new_node.max_x.max(right.get_max_x());
+    new_node.max_y = new_node.max_y.max(right.get_max_y());
+  }
+
+  Ok(Some(new_node))
+}
+
+fn compare_components<T>(left: &T, right: &T, split_x: bool) -> Ordering
+where
+  T: Component2D,
+{
+  if split_x {
+    left
+      .get_min_x()
+      .total_cmp(&right.get_min_x())
+      .then_with(|| left.get_max_x().total_cmp(&right.get_max_x()))
+  } else {
+    left
+      .get_min_y()
+      .total_cmp(&right.get_min_y())
+      .then_with(|| left.get_max_y().total_cmp(&right.get_max_y()))
   }
 }

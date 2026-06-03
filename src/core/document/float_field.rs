@@ -24,6 +24,7 @@ use crate::core::document::invertable_field::InvertableType;
 
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
@@ -35,32 +36,37 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
+use std::sync::LazyLock;
 
-pub mod float_field_type {
-  use crate::core::document::field_type::FieldType;
-  use crate::core::index::doc_values_type::DocValuesType;
-  use crate::core::util::bit_util::BitUtil;
-  use std::sync::LazyLock;
+pub static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
+  let mut ft = FieldType::new();
+  ft.set_dimensions(1, BitUtil::FLOAT_BYTES)
+    .expect("set_dimensions should not fail");
+  ft.set_doc_values_type(DocValuesType::SortedNumeric)
+    .expect("set_doc_values_type should not fail");
+  ft.freeze();
+  ft
+});
 
-  pub static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_dimensions(1, BitUtil::FLOAT_BYTES)
-      .expect("set_dimensions should not fail");
-    ft.set_doc_values_type(DocValuesType::SortedNumeric)
-      .expect("set_doc_values_type should not fail");
-    ft.freeze();
-    ft
-  });
-
-  /// Indexed as SortedNumeric DocValue, and stored.
-  pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
-    let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
-    ft.set_stored(true)
-      .expect("set_stored(true) should not fail");
-    ft.freeze();
-    ft
-  });
-}
+/// Indexed as SortedNumeric DocValue, and stored.
+pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
+  let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
+  ft.set_stored(true)
+    .expect("set_stored(true) should not fail");
+  ft.freeze();
+  ft
+});
+/// Field that stores a per-document `f32` value for scoring, sorting or value retrieval and
+/// indexes the field for fast range filters. If you need more fine-grained control, use
+/// [`FloatPoint`], `FloatDocValuesField` and `StoredField`.
+///
+/// This field defines static factory methods for creating common queries:
+///
+/// * [`new_exact_query`](Self::new_exact_query) for matching an exact 1D point.
+/// * [`new_range_query`](Self::new_range_query) for matching a 1D range.
+/// * [`new_set_query`](Self::new_set_query) for matching a 1D set.
+///
+/// See also `PointValues`.
 pub struct FloatField {
   parent_field: Field,
   stored_value: Option<FieldDataEnum>,
@@ -69,18 +75,21 @@ pub struct FloatField {
 impl FloatField {
   /// Creates a new `FloatField`, indexing the provided value,
   /// storing it as a DocValue, and optionally as a stored field.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `value` - The float value.
+  /// * `stored` - Whether to store the field.
   pub fn new<T>(name: T, value: f32, stored: Store) -> Result<FloatField>
   where
     T: Into<String>,
   {
     let stored = stored.into();
     let (field_type, stored_value) = if stored {
-      (
-        float_field_type::FIELD_TYPE_STORED.clone(),
-        Some(value.into()),
-      )
+      (FIELD_TYPE_STORED.clone(), Some(value.into()))
     } else {
-      (float_field_type::FIELD_TYPE.clone(), None)
+      (FIELD_TYPE.clone(), None)
     };
     let sortable_long = NumericUtils::float_to_sortable_int(value) as i64;
     let parent_field = Field::new(name, sortable_long, field_type);
@@ -89,6 +98,13 @@ impl FloatField {
       stored_value,
     })
   }
+
+  /// Create a query for matching an exact float value.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `value` - Exact value.
   pub fn new_exact_query<T>(field: T, value: f32) -> Result<IndexOrDocValuesQuery>
   where
     T: Into<String>,
@@ -96,6 +112,18 @@ impl FloatField {
     Self::new_range_query(field, value, value)
   }
 
+  /// Create a range query for float values.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value = f32::NEG_INFINITY` or `upper_value = f32::INFINITY`.
+  ///
+  /// Range comparisons are consistent with `f32` comparison.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query<T>(
     field: T,
     lower_value: f32,
@@ -115,12 +143,12 @@ impl FloatField {
     ))
   }
 
-  /// Create a query that matches any of the specified values.
+  /// Create a query matching values in a supplied set.
   ///
   /// # Arguments
   ///
   /// * `field` - Field name.
-  /// * `values` - Values to match.
+  /// * `values` - Float values.
   pub fn new_set_query<T>(field: T, values: Vec<f32>) -> Result<IndexOrDocValuesQuery>
   where
     T: Into<String>,

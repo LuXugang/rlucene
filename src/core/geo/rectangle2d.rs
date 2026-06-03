@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::geo::component_tree::{ComponentTree, component_tree_util};
+use crate::core::geo::component_tree::{ComponentTree, create};
 use crate::core::geo::component2d::{
   Component2D, Component2DEnum2, WithinRelation, contains_point, disjoint, point_in_triangle,
   within,
@@ -355,7 +355,7 @@ pub(crate) fn create_from_rectangle(rectangle: &Rectangle) -> Result<Rectangle2D
       Rectangle2D::new(*MIN_LON_INCL_QUANTIZE, q_max_lon, q_min_lat, q_max_lat),
       Rectangle2D::new(q_min_lon, *MAX_LON_INCL_QUANTIZE, q_min_lat, q_max_lat),
     ];
-    Ok(Rectangle2DType::A(component_tree_util::create(components)?))
+    Ok(Rectangle2DType::A(create(components)?))
   } else {
     Ok(Rectangle2DType::B(Rectangle2D::new(
       q_min_lon, q_max_lon, q_min_lat, q_max_lat,

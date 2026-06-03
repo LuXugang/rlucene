@@ -19,7 +19,7 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
@@ -108,9 +108,9 @@ where
   let mut reader = directory_reader::open(dir.clone())?;
 
   let m = 3;
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_tokenized(false)?;
-  let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type2.set_tokenized(false)?;
   custom_type2.set_omit_norms(true)?;
   let mut custom_type3 = FieldType::new();
@@ -555,7 +555,7 @@ where
 fn create_document(n: i32, num_fields: i32) -> Result<Document> {
   let mut value = format!("a{n}");
   let mut doc = Document::new();
-  let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type2.set_tokenized(false)?;
   custom_type2.set_omit_norms(true)?;
   let mut custom_type3 = FieldType::new();

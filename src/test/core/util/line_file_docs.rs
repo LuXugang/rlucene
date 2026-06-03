@@ -31,7 +31,6 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::keyword_field::KeywordField;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::DEFAULT_LINE_DOCS_FILE;
@@ -295,7 +294,7 @@ impl DocState {
   fn new() -> Result<Self> {
     let title = KeywordField::from_string("title", "", Store::No)?;
 
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
     ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
     ft.set_store_term_vectors(true)?;
     ft.set_store_term_vector_offsets(true)?;

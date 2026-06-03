@@ -18,7 +18,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -66,7 +65,7 @@ fn test() -> Result<()> {
   let iw = Arc::new(RandomIndexWriter::with_config(&mut random, dir, iwc));
 
   let thread_count = TestUtil::next_int(&mut random, 1, 5);
-  let field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   let barrier = Arc::new(Barrier::new(thread_count as usize + 1));
   let mut handles = Vec::new();
 

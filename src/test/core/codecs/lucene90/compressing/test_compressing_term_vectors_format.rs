@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::term_vectors::TermVectors;
@@ -141,7 +140,7 @@ fn test_no_ords() -> Result<()> {
   let iw = RandomIndexWriter::new(&mut random, dir);
 
   let mut doc = Document::new();
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(true)?;
   doc.add(new_field(
     &mut random,

@@ -18,7 +18,6 @@ use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
@@ -31,6 +30,8 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::LazyLock;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::SeqCst;
 
 /// Collection of FieldInfos (accessible by number or by name).
 ///
@@ -810,112 +811,100 @@ impl FieldNumbers {
     self.lowest_unassigned_field_number = -1;
   }
 }
-pub mod build {
-  use crate::core::index::field_info::FieldInfo;
-  use crate::core::index::field_infos::{FieldInfos, FieldNumbersLock};
-  use crate::core::util::error::lucene_error::{LuceneError, Result};
-
-  use std::collections::HashMap;
-
-  use std::sync::Arc;
-  use std::sync::atomic::AtomicBool;
-  use std::sync::atomic::Ordering::SeqCst;
-
-  pub struct Builder {
-    by_name: HashMap<String, Arc<FieldInfo>>,
-    global_field_numbers: FieldNumbersLock,
-    finished: AtomicBool,
+pub struct Builder {
+  by_name: HashMap<String, Arc<FieldInfo>>,
+  global_field_numbers: FieldNumbersLock,
+  finished: AtomicBool,
+}
+impl Builder {
+  pub(crate) fn new(global_field_numbers: FieldNumbersLock) -> Self {
+    Self {
+      by_name: HashMap::new(),
+      global_field_numbers,
+      finished: AtomicBool::new(false),
+    }
   }
-  impl Builder {
-    pub(crate) fn new(global_field_numbers: FieldNumbersLock) -> Self {
-      Self {
-        by_name: HashMap::new(),
-        global_field_numbers,
-        finished: AtomicBool::new(false),
-      }
-    }
 
-    pub fn is_soft_deletes_field_name(&self, field_name: &str) -> bool {
-      match self
-        .global_field_numbers
-        .lock()
-        .soft_deletes_field_name
-        .as_ref()
+  pub fn is_soft_deletes_field_name(&self, field_name: &str) -> bool {
+    match self
+      .global_field_numbers
+      .lock()
+      .soft_deletes_field_name
+      .as_ref()
+    {
+      Some(name) => *field_name == *name,
+      None => false,
+    }
+  }
+
+  pub fn is_parent_field_name(&self, field_name: &str) -> bool {
+    match self.global_field_numbers.lock().parent_field_name {
+      Some(ref name) => *field_name == *name,
+      _ => false,
+    }
+  }
+
+  pub fn add(&mut self, fi: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
+    self.add_with_dv_gen(fi, -1)
+  }
+
+  pub fn add_with_dv_gen(&mut self, fi: Arc<FieldInfo>, dv_gen: i64) -> Result<Arc<FieldInfo>> {
+    if let Some(cur_fi) = self.field_info(&fi.name) {
+      cur_fi.verify_same_schema(&fi)?;
+
       {
-        Some(name) => *field_name == *name,
-        None => false,
-      }
-    }
-
-    pub fn is_parent_field_name(&self, field_name: &str) -> bool {
-      match self.global_field_numbers.lock().parent_field_name {
-        Some(ref name) => *field_name == *name,
-        _ => false,
-      }
-    }
-
-    pub fn add(&mut self, fi: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
-      self.add_with_dv_gen(fi, -1)
-    }
-
-    pub fn add_with_dv_gen(&mut self, fi: Arc<FieldInfo>, dv_gen: i64) -> Result<Arc<FieldInfo>> {
-      if let Some(cur_fi) = self.field_info(&fi.name) {
-        cur_fi.verify_same_schema(&fi)?;
-
-        {
-          let inner = fi.inner.lock();
-          for (k, v) in inner.attributes.iter() {
-            cur_fi.put_attribute(k.clone(), v.clone());
-          }
+        let inner = fi.inner.lock();
+        for (k, v) in inner.attributes.iter() {
+          cur_fi.put_attribute(k.clone(), v.clone());
         }
-        if fi.has_payloads() {
-          cur_fi.set_store_payloads()?;
-        }
-        return Ok(cur_fi.clone());
       }
-
-      self.assert_not_finished()?;
-
-      let field_number = self.global_field_numbers.lock().add_or_get(&fi)?;
-      let attributes = fi.inner.lock().attributes.clone();
-      let fi_new = Arc::new(FieldInfo::new(
-        fi.name.clone(),
-        field_number,
-        fi.has_term_vectors(),
-        fi.omits_norms(),
-        fi.has_payloads(),
-        // copy
-        *fi.get_index_options(),
-        *fi.get_doc_values_type(),
-        *fi.doc_values_skip_index_type(),
-        dv_gen,
-        attributes,
-        fi.get_point_dimension_count(),
-        fi.get_point_index_dimension_count(),
-        fi.get_point_num_bytes(),
-        fi.get_vector_dimension(),
-        *fi.get_vector_encoding(),
-        *fi.get_vector_similarity_function(),
-        fi.is_soft_deletes_field(),
-        fi.is_parent_field(),
-      )?);
-      self.by_name.insert(fi_new.name.clone(), fi_new.clone());
-      Ok(fi_new)
-    }
-    pub fn field_info(&self, field_name: &str) -> Option<Arc<FieldInfo>> {
-      self.by_name.get(field_name).cloned()
-    }
-    fn assert_not_finished(&self) -> Result<()> {
-      if self.finished.load(SeqCst) {
-        return Err(LuceneError::illegal_state(
-          "FieldInfos.Builder was already finished; cannot add new fields",
-        ));
+      if fi.has_payloads() {
+        cur_fi.set_store_payloads()?;
       }
-      Ok(())
+      return Ok(cur_fi.clone());
     }
-    pub fn finish(&self) -> Result<FieldInfos> {
-      self.finished.store(true, SeqCst);
-      FieldInfos::new(self.by_name.values().cloned().collect())
+
+    self.assert_not_finished()?;
+
+    let field_number = self.global_field_numbers.lock().add_or_get(&fi)?;
+    let attributes = fi.inner.lock().attributes.clone();
+    let fi_new = Arc::new(FieldInfo::new(
+      fi.name.clone(),
+      field_number,
+      fi.has_term_vectors(),
+      fi.omits_norms(),
+      fi.has_payloads(),
+      // copy
+      *fi.get_index_options(),
+      *fi.get_doc_values_type(),
+      *fi.doc_values_skip_index_type(),
+      dv_gen,
+      attributes,
+      fi.get_point_dimension_count(),
+      fi.get_point_index_dimension_count(),
+      fi.get_point_num_bytes(),
+      fi.get_vector_dimension(),
+      *fi.get_vector_encoding(),
+      *fi.get_vector_similarity_function(),
+      fi.is_soft_deletes_field(),
+      fi.is_parent_field(),
+    )?);
+    self.by_name.insert(fi_new.name.clone(), fi_new.clone());
+    Ok(fi_new)
+  }
+  pub fn field_info(&self, field_name: &str) -> Option<Arc<FieldInfo>> {
+    self.by_name.get(field_name).cloned()
+  }
+  fn assert_not_finished(&self) -> Result<()> {
+    if self.finished.load(SeqCst) {
+      return Err(LuceneError::illegal_state(
+        "FieldInfos.Builder was already finished; cannot add new fields",
+      ));
     }
+    Ok(())
+  }
+  pub fn finish(&self) -> Result<FieldInfos> {
+    self.finished.store(true, SeqCst);
+    FieldInfos::new(self.by_name.values().cloned().collect())
   }
 }

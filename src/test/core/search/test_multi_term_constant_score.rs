@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::Yes;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
@@ -81,7 +80,7 @@ fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReaderType<DirEnum>)> {
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = RandomIndexWriter::with_config(&mut random, small.clone(), config);
   let mut field_types = HashMap::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_tokenized(false)?;
 
   for (i, value) in data.iter().enumerate() {

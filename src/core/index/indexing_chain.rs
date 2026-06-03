@@ -41,8 +41,8 @@ use crate::core::index::doc_values_writer::{
 };
 use crate::core::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::Builder;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::field_infos::build::Builder;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;

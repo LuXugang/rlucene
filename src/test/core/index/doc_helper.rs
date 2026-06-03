@@ -21,8 +21,8 @@ use crate::core::document::field::Store::{No, Yes};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::Fields;
 use crate::core::document::stored_field::StoredField;
-use crate::core::document::string_field::{StringField, string_field_type};
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::string_field::StringField;
+use crate::core::document::text_field::TextField;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -49,7 +49,8 @@ pub static FIELD_2_FREQS: [i32; 3] = [3, 1, 1];
 pub static TEXT_FIELD_2_KEY: &str = "textField2";
 
 pub static CUSTOM_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
+  let mut ft =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED).expect("should not fail");
   ft.freeze();
   ft
 });
@@ -58,7 +59,8 @@ pub static TEXT_FIELD_1: LazyLock<Field> =
   LazyLock::new(|| Field::new(TEXT_FIELD_1_KEY, FIELD_1_TEXT, CUSTOM_TYPE.clone()));
 
 pub static TEXT_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
+  let mut ft =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED).expect("should not fail");
   ft.set_store_term_vectors(true).expect("should not fail");
   ft.set_store_term_vector_positions(true)
     .expect("should not fail");
@@ -80,7 +82,8 @@ pub static FIELD_3_TEXT: &str = "aaaNoNorms aaaNoNorms bbbNoNorms";
 pub static TEXT_FIELD_3_KEY: &str = "textField3";
 
 pub static CUSTOM_TYPE3: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
+  let mut ft =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED).expect("should not fail");
   ft.set_omit_norms(true).expect("should not fail");
   ft.freeze();
   ft
@@ -100,7 +103,8 @@ pub static NO_NORMS_TEXT: &str = "omitNormsText";
 pub static NO_NORMS_KEY: &str = "omitNorms";
 
 pub static CUSTOM_TYPE5: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
+  let mut ft =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED).expect("should not fail");
   ft.set_omit_norms(true).expect("should not fail");
   ft.set_tokenized(false).expect("should not fail");
   ft.freeze();
@@ -114,7 +118,8 @@ pub static NO_TF_TEXT: &str = "analyzed with no tf and positions";
 pub static NO_TF_KEY: &str = "omitTermFreqAndPositions";
 
 pub static CUSTOM_TYPE6: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED).expect("should not fail");
+  let mut ft =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED).expect("should not fail");
   ft.set_index_options(IndexOptions::Docs)
     .expect("should not fail");
   ft.freeze();
@@ -143,7 +148,8 @@ pub static UNINDEXED_FIELD: LazyLock<Field> = LazyLock::new(|| {
 });
 
 pub static STRING_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*string_field_type::TYPE_STORED).expect("should not fail");
+  let mut ft = FieldType::from_ref(&*crate::core::document::string_field::TYPE_STORED)
+    .expect("should not fail");
   ft.set_store_term_vectors(true).expect("should not fail");
   ft.set_store_term_vector_positions(true)
     .expect("should not fail");
@@ -164,7 +170,8 @@ pub static UNSTORED_2_FIELD_TEXT: &str = "unstored field text";
 pub static UNSTORED_FIELD_2_KEY: &str = "unStoredField2";
 
 pub static CUSTOM_TYPE8: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("should not fail");
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)
+    .expect("should not fail");
   ft.set_store_term_vectors(true).expect("should not fail");
   ft.freeze();
   ft

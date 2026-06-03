@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -105,7 +104,7 @@ where
   let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
   iwc.set_merge_policy(new_log_merge_policy(random)?);
   let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_omit_norms(true)?;
 
   let mut doc = Document::new();

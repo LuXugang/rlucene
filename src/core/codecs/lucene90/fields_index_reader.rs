@@ -22,7 +22,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, ReadAdvice};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
-use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
+use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::{StringHelper, TryIntoInt};
 

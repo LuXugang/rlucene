@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
@@ -51,13 +50,13 @@ fn do_test_change_index_options_via_add_document(
   let iwc = new_index_writer_config(&mut random);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut ft1 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut ft1 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft1.set_index_options(from)?;
   let mut doc1 = Document::new();
   doc1.add(Field::new("foo", "bar", ft1));
   w.add_document(doc1)?;
 
-  let mut ft2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut ft2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft2.set_index_options(to)?;
   let mut doc2 = Document::new();
   doc2.add(Field::new("foo", "bar", ft2));
@@ -122,7 +121,7 @@ where
   let dir1 = new_directory_shared(random)?;
   let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random))?;
 
-  let mut ft1 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut ft1 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft1.set_index_options(from)?;
   let mut doc1 = Document::new();
   doc1.add(Field::new("foo", "bar", ft1));
@@ -131,7 +130,7 @@ where
   let dir2 = new_directory_shared(random)?;
   let w2 = IndexWriter::new(dir2.clone(), new_index_writer_config(random))?;
 
-  let mut ft2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut ft2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft2.set_index_options(to)?;
   let mut doc2 = Document::new();
   doc2.add(Field::new("foo", "bar", ft2));

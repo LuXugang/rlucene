@@ -21,7 +21,7 @@ use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::int_range::IntRange;
 use crate::core::document::keyword_field::KeywordField;
-use crate::core::document::long_field::{LongField, long_field_type};
+use crate::core::document::long_field::{LongField, new_sort_field};
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
@@ -1315,11 +1315,11 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
   };
   let reverse = random.random_bool(0.5);
 
-  let mut sort_field = long_field_type::new_sort_field("my_field", reverse, selector_type)?;
+  let mut sort_field = new_sort_field("my_field", reverse, selector_type)?;
   sort_field.base.set_optimize_sort_with_indexed_data(false);
   let sort = Arc::new(Sort::with_fields(vec![sort_field])?);
 
-  let sort_field2 = long_field_type::new_sort_field("my_field", reverse, selector_type)?;
+  let sort_field2 = new_sort_field("my_field", reverse, selector_type)?;
   let sort2 = Arc::new(Sort::with_fields(vec![sort_field2])?);
 
   let total_hits_threshold = 3;

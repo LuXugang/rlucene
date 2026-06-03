@@ -18,8 +18,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::stored_field_type;
-use crate::core::document::string_field::string_field_type;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
@@ -64,7 +62,8 @@ fn test_double_offset_counting() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type =
+    FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -143,7 +142,7 @@ fn test_double_offset_counting2() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -198,7 +197,7 @@ fn test_end_offset_position_char_analyzer() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -262,7 +261,7 @@ fn test_end_offset_position_stop_filter() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -321,7 +320,7 @@ fn test_end_offset_position_standard() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -392,7 +391,7 @@ fn test_end_offset_position_standard_empty_field() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -454,7 +453,7 @@ fn test_end_offset_position_standard_empty_field2() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -546,7 +545,8 @@ fn test_term_vector_corruption() -> Result<()> {
 
     let mut document = Document::new();
     document.add(stored_field);
-    let mut custom_type2 = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
+    let mut custom_type2 =
+      FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
     custom_type2.set_store_term_vectors(true)?;
     custom_type2.set_store_term_vector_positions(true)?;
     custom_type2.set_store_term_vector_offsets(true)?;
@@ -625,7 +625,8 @@ fn test_term_vector_corruption2() -> Result<()> {
     let mut document = Document::new();
     document.add(stored_field);
 
-    let mut custom_type2 = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
+    let mut custom_type2 =
+      FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
     custom_type2.set_store_term_vectors(true)?;
     custom_type2.set_store_term_vector_positions(true)?;
     custom_type2.set_store_term_vector_offsets(true)?;
@@ -680,7 +681,8 @@ fn test_term_vector_corruption3() -> Result<()> {
     )?;
     document.add(stored_field.clone());
 
-    let mut custom_type2 = FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?;
+    let mut custom_type2 =
+      FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
     custom_type2.set_store_term_vectors(true)?;
     custom_type2.set_store_term_vector_positions(true)?;
     custom_type2.set_store_term_vector_offsets(true)?;
@@ -736,7 +738,7 @@ fn test_no_term_vector_after_term_vector() -> Result<()> {
   let iw = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_types = HashMap::new();
-  let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type2.set_store_term_vectors(true)?;
   custom_type2.set_store_term_vector_positions(true)?;
   custom_type2.set_store_term_vector_offsets(true)?;
@@ -763,7 +765,7 @@ fn test_no_term_vector_after_term_vector() -> Result<()> {
 
   iw.commit()?;
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
 
   let mut document = Document::new();
@@ -792,7 +794,7 @@ fn test_no_term_vector_after_term_vector_merge() -> Result<()> {
   let iw = IndexWriter::new(dir.clone(), iwc)?;
   let mut field_types = HashMap::new();
   let mut document = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   document.add(new_field(
     &mut random,
@@ -818,7 +820,7 @@ fn test_no_term_vector_after_term_vector_merge() -> Result<()> {
 
   iw.force_merge(1)?;
 
-  let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type2.set_store_term_vectors(true)?;
 
   let mut document = Document::new();
@@ -843,42 +845,42 @@ fn test_inconsistent_term_vector_options() -> Result<()> {
   let mut b;
 
   // no vectors + vectors
-  a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
-  b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  a = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+  b = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   b.set_store_term_vectors(true)?;
   do_test_mixup(&mut random, a, b)?;
 
   // vectors + vectors with pos
-  a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  a = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   a.set_store_term_vectors(true)?;
-  b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  b = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   b.set_store_term_vectors(true)?;
   b.set_store_term_vector_positions(true)?;
   do_test_mixup(&mut random, a, b)?;
 
   // vectors + vectors with off
-  a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  a = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   a.set_store_term_vectors(true)?;
-  b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  b = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   b.set_store_term_vectors(true)?;
   b.set_store_term_vector_offsets(true)?;
   do_test_mixup(&mut random, a, b)?;
 
   // vectors with pos + vectors with pos + off
-  a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  a = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   a.set_store_term_vectors(true)?;
   a.set_store_term_vector_positions(true)?;
-  b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  b = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   b.set_store_term_vectors(true)?;
   b.set_store_term_vector_positions(true)?;
   b.set_store_term_vector_offsets(true)?;
   do_test_mixup(&mut random, a, b)?;
 
   // vectors with pos + vectors with pos + pay
-  a = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  a = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   a.set_store_term_vectors(true)?;
   a.set_store_term_vector_positions(true)?;
-  b = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  b = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   b.set_store_term_vectors(true)?;
   b.set_store_term_vector_positions(true)?;
   b.set_store_term_vector_payloads(true)?;

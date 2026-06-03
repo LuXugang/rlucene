@@ -19,7 +19,6 @@ use crate::core::document::field::Store::No;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader::IndexReader;
@@ -70,7 +69,8 @@ fn test_positions_simple() -> Result<()> {
 
   for _ in 0..39 {
     let mut doc = Document::new();
-    let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut custom_type =
+      FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     custom_type.set_omit_norms(true)?;
 
     let text = concat!(
@@ -183,7 +183,7 @@ fn test_random_positions() -> Result<()> {
 
   let mut positions_in_doc: Vec<Vec<i32>> = vec![Vec::new(); num_docs as usize];
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
 
   for i in 0..num_docs {
@@ -305,7 +305,7 @@ fn test_random_docs() -> Result<()> {
   let term = random.random_range(0..max);
   let mut freq_in_doc = vec![0i32; num_docs];
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
 
   let field_name = field_name(&mut random);
@@ -416,7 +416,7 @@ fn test_large_number_of_positions() -> Result<()> {
 
   let how_many = 1000;
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
 
   for _i in 0..39 {

@@ -20,7 +20,7 @@ use crate::core::document::field::Store::No;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
@@ -656,7 +656,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let iwc = new_index_writer_config_with_analyzer(random, analyzer);
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_index_options(IndexOptions::DocsAndFreqs)?;
     let mut doc = Document::new();
     doc.add(Field::from_string("foo", "bar bar", ft)?);
@@ -889,7 +889,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let iwc = new_index_writer_config_with_analyzer(random, analyzer);
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
     let mut doc = Document::new();
     doc.add(Field::from_string("foo", "bar bar", ft)?);
@@ -1363,7 +1363,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       .token
       .set_payload(Some(BytesRef::from_string("pay2")));
 
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
 
     let mut doc = Document::new();

@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -50,7 +49,7 @@ where
 
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_omit_norms(true)?;
 
   for i in 0..1000 {

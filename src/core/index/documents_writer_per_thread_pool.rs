@@ -17,7 +17,7 @@
 use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 use crate::core::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
-use crate::core::index::field_infos::build::Builder;
+use crate::core::index::field_infos::Builder;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::{
   Lock, LockableConcurrentApproximatePriorityQueue,

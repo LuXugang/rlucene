@@ -25,7 +25,7 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::fields::FieldTokenStreamEnum;
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
@@ -846,7 +846,7 @@ fn test_mixup_docs() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(ts),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field);
   writer.add_document(doc)?;
@@ -864,7 +864,7 @@ fn test_mixup_docs() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![with_payload])),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   let mut doc = Document::new();
   doc.add(field);
@@ -877,7 +877,7 @@ fn test_mixup_docs() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(ts),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   let mut doc = Document::new();
   doc.add(field);
@@ -914,7 +914,7 @@ fn test_mixup_multi_valued() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(ts),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field);
 
@@ -924,7 +924,7 @@ fn test_mixup_multi_valued() -> Result<()> {
   let fields2 = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![t])),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(fields2);
 
@@ -935,7 +935,7 @@ fn test_mixup_multi_valued() -> Result<()> {
   let field3 = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(ts),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field3);
   writer.add_document(doc)?;

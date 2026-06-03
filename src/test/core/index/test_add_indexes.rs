@@ -20,7 +20,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -647,7 +646,7 @@ fn test_hang_on_close() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   let mut field_types = HashMap::new();
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;

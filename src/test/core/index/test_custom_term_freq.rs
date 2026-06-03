@@ -19,7 +19,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
@@ -111,7 +110,7 @@ fn test_singleton_terms_one_doc() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let field = Field::from_token_stream(
@@ -166,7 +165,7 @@ fn test_singleton_terms_two_docs() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let field = Field::from_token_stream(
@@ -236,7 +235,7 @@ fn test_repeat_terms_one_doc() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let field = Field::from_token_stream(
@@ -295,7 +294,7 @@ fn test_repeat_terms_two_docs() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let field = Field::from_token_stream(
@@ -376,7 +375,7 @@ fn test_total_term_freq() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let field = Field::from_token_stream(
@@ -437,7 +436,7 @@ fn test_invalid_prox() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
@@ -476,7 +475,7 @@ fn test_invalid_docs_only() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::Docs)?;
   let field = Field::from_token_stream(
     "field",
@@ -513,7 +512,7 @@ fn test_overflow_int() -> Result<()> {
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::Docs)?;
 
   let mut doc = Document::new();
@@ -556,7 +555,7 @@ fn test_invalid_term_vector_positions() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
   field_type.set_store_term_vectors(true)?;
   field_type.set_store_term_vector_positions(true)?;
@@ -598,7 +597,7 @@ fn test_invalid_term_vector_offsets() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
   field_type.set_store_term_vectors(true)?;
   field_type.set_store_term_vector_offsets(true)?;
@@ -641,7 +640,7 @@ fn test_term_vectors() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
   field_type.set_store_term_vectors(true)?;
 
@@ -767,7 +766,7 @@ fn test_field_invert_state() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let field = Field::from_token_stream(

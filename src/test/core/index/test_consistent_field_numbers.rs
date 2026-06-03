@@ -19,7 +19,7 @@ use crate::core::document::field::Store::No;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::index_writer::{IndexWriter, read_field_infos};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
@@ -356,69 +356,72 @@ fn get_field(number: i32) -> Result<Field> {
   let field_name = number.to_string();
   let text = "some text".to_string();
 
-  let custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
 
-  let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type2.set_tokenized(false)?;
 
-  let mut custom_type3 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type3 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type3.set_tokenized(false)?;
 
-  let mut custom_type4 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type4 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type4.set_tokenized(false)?;
   custom_type4.set_store_term_vectors(true)?;
   custom_type4.set_store_term_vector_offsets(true)?;
 
-  let mut custom_type5 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type5 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type5.set_store_term_vectors(true)?;
   custom_type5.set_store_term_vector_offsets(true)?;
 
-  let mut custom_type6 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type6 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type6.set_tokenized(false)?;
   custom_type6.set_store_term_vectors(true)?;
   custom_type6.set_store_term_vector_offsets(true)?;
 
-  let mut custom_type7 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type7 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type7.set_tokenized(false)?;
   custom_type7.set_store_term_vectors(true)?;
   custom_type7.set_store_term_vector_offsets(true)?;
 
-  let mut custom_type8 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type8 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type8.set_tokenized(false)?;
   custom_type8.set_store_term_vectors(true)?;
   custom_type8.set_store_term_vector_positions(true)?;
 
-  let mut custom_type9 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type9 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type9.set_store_term_vectors(true)?;
   custom_type9.set_store_term_vector_positions(true)?;
 
-  let mut custom_type10 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type10 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type10.set_tokenized(false)?;
   custom_type10.set_store_term_vectors(true)?;
   custom_type10.set_store_term_vector_positions(true)?;
 
-  let mut custom_type11 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type11 =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type11.set_tokenized(false)?;
   custom_type11.set_store_term_vectors(true)?;
   custom_type11.set_store_term_vector_positions(true)?;
 
-  let mut custom_type12 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type12 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type12.set_store_term_vectors(true)?;
   custom_type12.set_store_term_vector_offsets(true)?;
   custom_type12.set_store_term_vector_positions(true)?;
 
-  let mut custom_type13 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type13 =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type13.set_store_term_vectors(true)?;
   custom_type13.set_store_term_vector_offsets(true)?;
   custom_type13.set_store_term_vector_positions(true)?;
 
-  let mut custom_type14 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type14 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type14.set_tokenized(false)?;
   custom_type14.set_store_term_vectors(true)?;
   custom_type14.set_store_term_vector_offsets(true)?;
   custom_type14.set_store_term_vector_positions(true)?;
 
-  let mut custom_type15 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type15 =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type15.set_tokenized(false)?;
   custom_type15.set_store_term_vectors(true)?;
   custom_type15.set_store_term_vector_offsets(true)?;

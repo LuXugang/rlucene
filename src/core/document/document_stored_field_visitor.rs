@@ -18,7 +18,6 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::util::error::lucene_error::Result;
@@ -97,7 +96,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
   where
     S: StoredFieldsWriter,
   {
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
     ft.set_store_term_vectors(field_info.has_term_vectors())?;
     ft.set_omit_norms(field_info.omits_norms())?;
     ft.set_index_options(*field_info.get_index_options())?;

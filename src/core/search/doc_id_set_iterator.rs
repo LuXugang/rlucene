@@ -356,4 +356,3 @@ either_docidsetiterator_named!(pub DocIdSetIteratorEnum2 { A: A, B: B});
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum3 { A: A, B: B,C:C});
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum4 { A: A, B: B,C:C,D:D});
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum5 { A: A, B: B, C: C, D: D, E: E });
-pub type EmptyEnum<DISI> = DocIdSetIteratorEnum2<DISI, EmptyDISI>;

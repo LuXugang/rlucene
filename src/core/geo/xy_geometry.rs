@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::geo::component_tree::{ComponentTree, component_tree_util};
+use crate::core::geo::component_tree::{ComponentTree, create as create_component_tree};
 use crate::core::geo::component2d::{Component2D, Component2DEnum2, WithinRelation};
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::xy_circle::XYCircle;
@@ -48,7 +48,7 @@ where
   for geometry in xy_geometries {
     components.push(geometry.to_component2d()?);
   }
-  Ok(XYGeometryType::B(component_tree_util::create(components)?))
+  Ok(XYGeometryType::B(create_component_tree(components)?))
 }
 
 #[macro_export]

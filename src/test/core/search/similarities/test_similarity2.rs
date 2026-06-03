@@ -20,7 +20,7 @@ use std::sync::Arc;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type::TYPE_NOT_STORED;
+use crate::core::document::text_field::TYPE_NOT_STORED;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -37,6 +37,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_searcher_with_reader, new_text_field, random,
 };
 use rand::RngExt;
+
 #[allow(dead_code)] // for quick search
 pub struct TestSimilarity2;
 

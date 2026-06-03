@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
@@ -48,13 +47,13 @@ fn test_mixed_merge_throws_error() -> Result<()> {
 
   let mut d = Document::new();
 
-  let mut field_type1 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type1 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type1.set_omit_norms(false)?;
   field_type1.set_store_term_vectors(false)?;
   let f1 = Field::new("f1", "This field has norms", field_type1.clone());
   d.add(f1);
 
-  let mut field_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   field_type2.set_omit_norms(true)?;
   field_type2.set_store_term_vectors(false)?;
   let f2 = Field::new(
@@ -127,11 +126,11 @@ fn test_mixed_ram() -> Result<()> {
   let f1 = Field::new(
     "f1",
     "This field has norms",
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   );
   d.add(f1);
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
   let f2 = Field::new("f2", "This field has NO norms in all docs", custom_type);
   d.add(f2);
@@ -190,7 +189,7 @@ fn test_no_nrm_file() -> Result<()> {
 
   let mut d = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
   let f1 = Field::new("f1", "This field has no norms", custom_type);
   d.add(f1);

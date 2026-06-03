@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
@@ -91,8 +90,8 @@ impl TFIDFSimilarityBase for SimpleSimilarity1 {
   }
 }
 static OMIT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut field_type =
-    FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("failed to create OMIT_TYPE");
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)
+    .expect("failed to create OMIT_TYPE");
   field_type
     .set_index_options(IndexOptions::Docs)
     .expect("failed to set index options for OMIT_TYPE");
@@ -100,7 +99,8 @@ static OMIT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 });
 
 static NORMAL_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-  FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("failed to create NORMAL_TYPE")
+  FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)
+    .expect("failed to create NORMAL_TYPE")
 });
 // Make sure first adding docs that do not omitTermFreqAndPositions for
 // field X, then adding docs that do omitTermFreqAndPositions for that same
@@ -319,7 +319,7 @@ fn test_stats() -> Result<()> {
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc = Document::new();
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::Docs)?;
   ft.freeze();
 

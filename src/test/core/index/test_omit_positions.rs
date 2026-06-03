@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
@@ -53,7 +52,7 @@ fn test_basic() -> Result<()> {
 
   let mut doc = Document::new();
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let f = new_field(
@@ -102,7 +101,7 @@ fn test_positions() -> Result<()> {
 
   let mut d = Document::new();
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::Docs)?;
   let f1 = new_field(
     &mut random,
@@ -113,7 +112,7 @@ fn test_positions() -> Result<()> {
   )?;
   d.add(f1);
 
-  let mut ft2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft2.set_index_options(IndexOptions::DocsAndFreqs)?;
   let f2 = new_field(
     &mut random,
@@ -124,7 +123,7 @@ fn test_positions() -> Result<()> {
   )?;
   d.add(f2);
 
-  let mut ft3 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft3 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft3.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
   let f3 = new_field(
     &mut random,
@@ -185,7 +184,7 @@ fn test_no_prx_file() -> Result<()> {
 
   let mut d = Document::new();
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::DocsAndFreqs)?;
 
   let f1 = new_field(

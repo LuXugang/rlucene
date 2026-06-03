@@ -18,7 +18,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
-use crate::core::document::string_field::string_field_type;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
@@ -434,7 +433,7 @@ fn test_force_merge_deletes_max_seg_size() -> Result<()> {
       &mut random,
       "id",
       i.to_string(),
-      &FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?,
+      &FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?,
       &mut field_to_type,
     )?);
     doc.add(new_text_field(
@@ -503,7 +502,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
       &mut random,
       "id",
       i.to_string(),
-      &FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?,
+      &FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?,
       &mut field_to_type,
     )?);
     doc.add(new_text_field(
@@ -578,7 +577,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
       &mut random,
       "id",
       (i + num_docs).to_string(),
-      &FieldType::from_ref(&*string_field_type::TYPE_NOT_STORED)?,
+      &FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?,
       &mut field_to_type,
     )?);
     doc.add(new_text_field(

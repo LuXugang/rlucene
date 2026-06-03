@@ -29,7 +29,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
@@ -442,7 +441,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
     doc.add(Field::new("foo", "bar bar", ft));
     iw.add_document(doc)?;
@@ -516,7 +515,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
     ft.set_store_term_vector_positions(true)?;
     doc.add(Field::new("foo", "bar bar", ft));
@@ -688,7 +687,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
     ft.set_store_term_vector_positions(true)?;
     ft.set_store_term_vector_offsets(true)?;
@@ -898,7 +897,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
     ft.set_store_term_vector_offsets(true)?;
     doc.add(Field::new("foo", "bar bar", ft));
@@ -1115,7 +1114,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       .token
       .set_payload(Some(BytesRef::from_string("pay2")));
 
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
     ft.set_store_term_vector_positions(true)?;
     ft.set_store_term_vector_payloads(true)?;
@@ -1358,7 +1357,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       .token
       .set_payload(Some(BytesRef::from_string("pay2")));
 
-    let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
     ft.set_store_term_vector_positions(true)?;
     ft.set_store_term_vector_payloads(true)?;
@@ -2042,7 +2041,7 @@ impl Options {
 }
 
 fn field_type(options: Options) -> Result<FieldType> {
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(true)?;
   if options.positions() {
     ft.set_store_term_vector_positions(true)?;

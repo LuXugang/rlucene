@@ -18,7 +18,6 @@ use crate::core::analysis::token_attributes::position_increment_attribute::Posit
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::fields::FieldTokenStreamEnum;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -98,7 +97,7 @@ fn test_basic() -> Result<()> {
       token::with_range(Some("b"), 2, 3)?,
       token::with_range(Some("c"), 4, 5)?,
     ])),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field);
 
@@ -160,7 +159,7 @@ fn test_random() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(tokens)),
-    text_field_type::TYPE_NOT_STORED.clone(),
+    crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field);
 

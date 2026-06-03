@@ -26,7 +26,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::stored_field_type;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos::FieldInfos;
@@ -109,7 +108,8 @@ impl TestTermVectorsReader {
 
     let mut doc = Document::new();
     for i in 0..test_fields.len() {
-      let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+      let mut custom_type =
+        FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
       custom_type.set_store_term_vectors(true)?;
       if test_fields_store_pos[i] {
         custom_type.set_store_term_vector_positions(true)?;
@@ -332,7 +332,7 @@ fn test_illegal_payloads_without_positions() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(true)?;
   ft.set_store_term_vector_payloads(true)?;
 
@@ -363,7 +363,7 @@ fn test_illegal_offsets_without_vectors() -> Result<()> {
   a.set_enable_checks(false);
   let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(false)?;
   ft.set_store_term_vector_offsets(true)?;
 
@@ -393,7 +393,7 @@ fn test_illegal_positions_without_vectors() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(false)?;
   ft.set_store_term_vector_positions(true)?;
 
@@ -422,7 +422,7 @@ fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
   a.set_enable_checks(false);
   let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(false)?;
   ft.set_store_term_vector_payloads(true)?;
 

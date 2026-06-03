@@ -24,8 +24,8 @@ use crate::core::index::documents_writer::FlushNotifications;
 use crate::core::index::documents_writer_delete_queue::{
   DeleteSlice, DocumentsWriterDeleteQueue, Node,
 };
+use crate::core::index::field_infos::Builder;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::field_infos::build::Builder;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 
 use crate::core::index::index_writer::{

@@ -18,7 +18,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -151,7 +150,7 @@ fn test_force_merge_deletes() -> Result<()> {
   let mut stored_type = FieldType::new();
   stored_type.set_stored(true)?;
 
-  let mut term_vector_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut term_vector_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   term_vector_type.set_tokenized(false)?;
   term_vector_type.set_store_term_vectors(true)?;
   term_vector_type.set_store_term_vector_positions(true)?;
@@ -221,7 +220,8 @@ fn test_force_merge_deletes2() -> Result<()> {
   let mut stored_type = FieldType::new();
   stored_type.set_stored(true)?;
 
-  let mut term_vector_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut term_vector_type =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   term_vector_type.set_tokenized(false)?;
   term_vector_type.set_store_term_vectors(true)?;
   term_vector_type.set_store_term_vector_positions(true)?;
@@ -290,7 +290,8 @@ fn test_force_merge_deletes3() -> Result<()> {
   let mut stored_type = FieldType::new();
   stored_type.set_stored(true)?;
 
-  let mut term_vector_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut term_vector_type =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   term_vector_type.set_tokenized(false)?;
   term_vector_type.set_store_term_vectors(true)?;
   term_vector_type.set_store_term_vector_positions(true)?;
@@ -357,7 +358,7 @@ fn test_set_max_merge_docs() -> Result<()> {
   conf.set_merge_policy(lmp);
 
   let writer = IndexWriter::new(dir, conf)?;
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_tokenized(false)?;
   custom_type.set_store_term_vectors(true)?;
 
@@ -435,7 +436,7 @@ fn test_no_wait_close() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_tokenized(false)?;
 
   for pass in 0..2 {

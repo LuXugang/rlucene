@@ -21,8 +21,8 @@ use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushCont
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
+use crate::core::index::field_infos::Builder;
 use crate::core::index::field_infos::FieldNumbersLock;
-use crate::core::index::field_infos::build::Builder;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterDir};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;

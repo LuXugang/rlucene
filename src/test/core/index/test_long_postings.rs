@@ -19,7 +19,6 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
@@ -269,7 +268,7 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
   iwc.set_max_buffered_docs(-1);
   let riw = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(options)?;
   let mut field_types = HashMap::new();
   for idx in 0..num_docs {

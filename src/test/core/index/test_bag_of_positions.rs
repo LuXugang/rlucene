@@ -18,7 +18,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_options::IndexOptions;
@@ -77,7 +76,7 @@ fn test() -> Result<()> {
   let thread_count = TestUtil::next_int(&mut random, 1, 5);
 
   // Build field type
-  let mut field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   if random.random_bool(0.5) {
     field_type.set_omit_norms(true)?;
   }

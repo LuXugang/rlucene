@@ -20,64 +20,75 @@ use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
-use crate::core::document::long_field::long_field_type::{FIELD_TYPE, FIELD_TYPE_STORED};
 use crate::core::document::long_point::LongPoint;
 
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
+use crate::core::search::sort_field::SortFieldType;
+use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
+use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
+use std::sync::LazyLock;
 
 /// Indexed as SortedNumeric DocValue, not stored.
-pub mod long_field_type {
-  use crate::core::document::field_type::FieldType;
-  use crate::core::index::doc_values_type::DocValuesType;
-  use crate::core::search::sort_field::SortFieldType;
-  use crate::core::search::sorted_numeric_selector::SortedNumericSelectorType;
-  use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
-  use crate::core::util::bit_util::BitUtil;
-  use crate::core::util::error::lucene_error::Result;
-  use std::sync::LazyLock;
+pub static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
+  let mut ft = FieldType::new();
+  ft.set_dimensions(1, BitUtil::LONG_BYTES)
+    .expect("set_dimensions should not fail");
+  ft.set_doc_values_type(DocValuesType::SortedNumeric)
+    .expect("set_doc_values_type should not fail");
+  ft.freeze();
+  ft
+});
+/// Indexed as SortedNumeric DocValue, and stored.
+pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
+  let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
+  ft.set_stored(true)
+    .expect("set_stored(true) should not fail");
+  ft.freeze();
+  ft
+});
 
-  pub static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_dimensions(1, BitUtil::LONG_BYTES)
-      .expect("set_dimensions should not fail");
-    ft.set_doc_values_type(DocValuesType::SortedNumeric)
-      .expect("set_doc_values_type should not fail");
-    ft.freeze();
-    ft
-  });
-  /// Indexed as SortedNumeric DocValue, and stored.
-  pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
-    let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
-    ft.set_stored(true)
-      .expect("set_stored(true) should not fail");
-    ft.freeze();
-    ft
-  });
-
-  pub fn new_sort_field<S>(
-    field: S,
-    reverse: bool,
-    selector: SortedNumericSelectorType,
-  ) -> Result<SortedNumericSortField>
-  where
-    S: Into<String>,
-  {
-    SortedNumericSortField::with_selector(field, SortFieldType::Long, reverse, selector)
-  }
+/// Create a new sort field for long values.
+///
+/// # Arguments
+///
+/// * `field` - Field name.
+/// * `reverse` - `true` if natural order should be reversed.
+/// * `selector` - Custom selector type for choosing the sort value from the set.
+pub fn new_sort_field<S>(
+  field: S,
+  reverse: bool,
+  selector: SortedNumericSelectorType,
+) -> Result<SortedNumericSortField>
+where
+  S: Into<String>,
+{
+  SortedNumericSortField::with_selector(field, SortFieldType::Long, reverse, selector)
 }
 
+/// Field that stores a per-document `i64` value for scoring, sorting or value retrieval and
+/// indexes the field for fast range filters. If you need more fine-grained control, use
+/// [`LongPoint`], `NumericDocValuesField` or [`SortedNumericDocValuesField`], and `StoredField`.
+///
+/// This field defines static factory methods for creating common queries:
+///
+/// * [`new_exact_query`](Self::new_exact_query) for matching an exact 1D point.
+/// * [`new_range_query`](Self::new_range_query) for matching a 1D range.
+/// * [`new_set_query`](Self::new_set_query) for matching a 1D set.
+///
+/// See also `PointValues`.
 pub struct LongField {
   parent_field: Field,
   stored_value: Option<FieldDataEnum>,
@@ -86,6 +97,12 @@ pub struct LongField {
 impl LongField {
   /// Creates a new `LongField`, indexing the provided value,
   /// storing it as a DocValue, and optionally as a stored field.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - Field name.
+  /// * `value` - The long value.
+  /// * `stored` - Whether to store the field.
   pub fn new<T>(name: T, value: i64, stored: Store) -> Result<LongField>
   where
     T: Into<String>,
@@ -102,6 +119,13 @@ impl LongField {
       stored_value,
     })
   }
+
+  /// Create a query for matching an exact long value.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `value` - Exact value.
   pub fn new_exact_query<T>(
     field: T,
     value: i64,
@@ -112,6 +136,18 @@ impl LongField {
     Self::new_range_query(field, value, value)
   }
 
+  /// Create a range query for long values.
+  ///
+  /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
+  /// `lower_value = i64::MIN` or `upper_value = i64::MAX`.
+  ///
+  /// Ranges are inclusive. For exclusive ranges, pass `lower_value + 1` or `upper_value - 1`.
+  ///
+  /// # Arguments
+  ///
+  /// * `field` - Field name.
+  /// * `lower_value` - Lower portion of the range (inclusive).
+  /// * `upper_value` - Upper portion of the range (inclusive).
   pub fn new_range_query<T>(
     field: T,
     lower_value: i64,
@@ -134,12 +170,12 @@ impl LongField {
     ))
   }
 
-  /// Create a query that matches any of the specified values.
+  /// Create a query matching values in a supplied set.
   ///
   /// # Arguments
   ///
   /// * `field` - Field name.
-  /// * `values` - Values to match.
+  /// * `values` - Long values.
   pub fn new_set_query<T>(field: T, values: Vec<i64>) -> Result<IndexOrDocValuesQuery>
   where
     T: Into<String>,

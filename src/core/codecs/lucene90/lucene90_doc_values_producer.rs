@@ -64,7 +64,7 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::{LongValues, Zeroes};
-use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
+use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader, FromSlice};
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};

@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LRNormNumericDocValues;
@@ -278,7 +277,7 @@ where
 
 fn make_document(doc_text: &str) -> Result<Document> {
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
   let f = Field::new("f", doc_text, custom_type);
   doc.add(f);
@@ -443,7 +442,7 @@ fn test_slop_with_holes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
   let mut f = Field::new("lyrics", "", custom_type);
   let mut doc = Document::new();
@@ -497,7 +496,7 @@ fn test_infinite_freq1() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
   let mut doc = Document::new();
-  let field_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   let mut field_to_type = HashMap::new();
   doc.add(new_field(
     &mut random,
@@ -563,7 +562,7 @@ fn test_infinite_freq2() -> Result<()> {
     &mut random,
     "lyrics",
     document,
-    &FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?,
+    &FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?,
     &mut field_to_type,
   )?);
   iw.add_document(doc)?;

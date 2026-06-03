@@ -46,7 +46,7 @@ use crate::core::util::hnsw::hnsw_graph_searcher::search;
 use crate::core::util::hnsw::ordinal_translated_knn_collector::OrdinalTranslatedKnnCollector;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
-use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
+use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;

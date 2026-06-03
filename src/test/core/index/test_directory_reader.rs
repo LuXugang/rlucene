@@ -19,7 +19,7 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
 use crate::core::index::composite_reader::get_context;
@@ -324,18 +324,18 @@ fn test_get_field_names() -> Result<()> {
   }
 
   // new termvector fields
-  let mut custom_type5 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type5 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type5.set_store_term_vectors(true)?;
 
-  let mut custom_type6 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type6 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type6.set_store_term_vectors(true)?;
   custom_type6.set_store_term_vector_offsets(true)?;
 
-  let mut custom_type7 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type7 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type7.set_store_term_vectors(true)?;
   custom_type7.set_store_term_vector_positions(true)?;
 
-  let mut custom_type8 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type8 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type8.set_store_term_vectors(true)?;
   custom_type8.set_store_term_vector_offsets(true)?;
   custom_type8.set_store_term_vector_positions(true)?;
@@ -455,18 +455,18 @@ fn test_term_vectors() -> Result<()> {
 
   // want to get some more segments here
   // new termvector fields
-  let mut custom_type5 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type5 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type5.set_store_term_vectors(true)?;
 
-  let mut custom_type6 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type6 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type6.set_store_term_vectors(true)?;
   custom_type6.set_store_term_vector_offsets(true)?;
 
-  let mut custom_type7 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type7 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type7.set_store_term_vectors(true)?;
   custom_type7.set_store_term_vector_positions(true)?;
 
-  let mut custom_type8 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type8 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type8.set_store_term_vectors(true)?;
   custom_type8.set_store_term_vector_offsets(true)?;
   custom_type8.set_store_term_vector_positions(true)?;
@@ -699,18 +699,18 @@ where
 {
   let mut doc = Document::new();
 
-  let mut custom_type5 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type5 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type5.set_store_term_vectors(true)?;
 
-  let mut custom_type6 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type6 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type6.set_store_term_vectors(true)?;
   custom_type6.set_store_term_vector_offsets(true)?;
 
-  let mut custom_type7 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type7 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type7.set_store_term_vectors(true)?;
   custom_type7.set_store_term_vector_positions(true)?;
 
-  let mut custom_type8 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type8 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type8.set_store_term_vectors(true)?;
   custom_type8.set_store_term_vector_offsets(true)?;
   custom_type8.set_store_term_vector_positions(true)?;
@@ -852,7 +852,7 @@ where
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_tokenized(false)?;
   custom_type.set_omit_norms(true)?;
 

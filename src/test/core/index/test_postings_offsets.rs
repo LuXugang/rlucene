@@ -27,7 +27,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
@@ -74,7 +73,7 @@ fn test_basic() -> Result<()> {
   let w = RandomIndexWriter::with_config(&mut random, dir, iwc);
   let mut doc = Document::new();
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
   if random.random_bool(0.5) {
     ft.set_store_term_vectors(true)?;
@@ -151,7 +150,7 @@ fn do_test_numbers(with_payloads: bool) -> Result<()> {
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
   if random.random_bool(0.5) {
     ft.set_store_term_vectors(true)?;
@@ -261,7 +260,7 @@ fn test_random() -> Result<()> {
 
   let num_docs = at_least(&mut random, 20);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
   if random.random_bool(0.5) {
     ft.set_store_term_vectors(true)?;
@@ -418,7 +417,7 @@ fn test_add_field_twice() -> Result<()> {
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let iw = RandomIndexWriter::with_config(&mut random, dir, iwc);
   let mut doc = Document::new();
-  let mut custom_type3 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type3 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type3.set_store_term_vectors(true)?;
   custom_type3.set_store_term_vector_positions(true)?;
   custom_type3.set_store_term_vector_offsets(true)?;
@@ -500,7 +499,7 @@ fn test_crazy_offset_gap() -> Result<()> {
 
   assert!(
     (|| -> Result<()> {
-      let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+      let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
       ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
 
       let mut doc = Document::new();
@@ -535,7 +534,7 @@ fn test_legal_but_very_large_offsets() -> Result<()> {
   }
   let t2 = token::with_range(Some("foo"), i32::MAX - 500, i32::MAX)?;
   let token_stream = CannedTokenStream::new(vec![t1, t2]);
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
   ft.set_store_term_vectors(true)?;
   ft.set_store_term_vector_positions(true)?;
@@ -557,7 +556,7 @@ fn check_tokens(field1: Vec<token::Token>, field2: Option<Vec<token::Token>>) ->
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let riw = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
   ft.set_store_term_vectors(true)?;
   ft.set_store_term_vector_positions(true)?;

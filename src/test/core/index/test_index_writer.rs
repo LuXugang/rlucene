@@ -27,7 +27,7 @@ use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValu
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
@@ -107,7 +107,8 @@ use std::thread;
 use std::vec;
 
 static STORED_TEXT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-  FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED).expect("should not fail")
+  FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)
+    .expect("should not fail")
 });
 #[allow(dead_code)]
 pub(crate) struct TestIndexWriter;
@@ -484,7 +485,7 @@ fn test_enabling_norms() -> Result<()> {
   config.set_max_buffered_docs(10);
   let writer = IndexWriter::new(dir.clone(), config)?;
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_omit_norms(true)?;
   let mut field_types = HashMap::new();
   for j in 0..10 {
@@ -566,7 +567,7 @@ fn test_high_freq_term() -> Result<()> {
     b.push_str(" a a a a a a a a");
   }
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -607,7 +608,7 @@ fn test_flush_with_no_merging() -> Result<()> {
   let writer = IndexWriter::new(dir, config)?;
 
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -633,7 +634,7 @@ fn test_empty_doc_after_flushing_real_doc() -> Result<()> {
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -669,7 +670,7 @@ fn test_bad_segment() -> Result<()> {
 
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   doc.add(new_field(
     &mut random,
@@ -707,7 +708,7 @@ fn test_variable_schema() -> Result<()> {
     let mut doc = Document::new();
     let contents = "aa bb cc dd ee ff gg hh ii jj kk";
 
-    let custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+    let custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
 
     if i == 7 {
       doc.add(new_text_field(
@@ -728,7 +729,7 @@ fn test_variable_schema() -> Result<()> {
         )?);
         custom_type.clone()
       } else {
-        FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?
+        FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?
       };
 
       doc.add(new_text_field(
@@ -935,7 +936,7 @@ fn test_do_before_after_flush() -> Result<()> {
 
   let mut field_types = HashMap::new();
   let mut doc = Document::new();
-  let custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   doc.add(new_field(
     &mut random,
     "field",
@@ -1000,7 +1001,7 @@ fn test_position_increment_gap_empty_field() -> Result<()> {
 
   let mut field_types = HashMap::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
 
@@ -1061,7 +1062,7 @@ fn test_deadlock() -> Result<()> {
 
   let mut field_types = HashMap::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -1118,7 +1119,7 @@ fn test_index_store_combos() -> Result<()> {
   custom_type.set_tokenized(true)?;
   custom_type.set_index_options(IndexOptions::Docs)?;
 
-  let custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let custom_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
 
   let r = random_from_seed(rng.random());
   let mut field1 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
@@ -1141,7 +1142,7 @@ fn test_index_store_combos() -> Result<()> {
   doc.add(Field::from_string(
     "string",
     "value",
-    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?,
   )?);
   doc.add(Field::from_token_stream(
     "string",
@@ -1171,7 +1172,7 @@ fn test_index_store_combos() -> Result<()> {
   doc.add(Field::from_string(
     "string",
     "value",
-    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?,
   )?);
   doc.add(Field::from_token_stream(
     "string",
@@ -1202,7 +1203,7 @@ fn test_index_store_combos() -> Result<()> {
   doc.add(Field::from_string(
     "string",
     "value",
-    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?,
   )?);
   doc.add(Field::from_token_stream(
     "string",
@@ -1384,7 +1385,7 @@ fn test_empty_dir_rollback() -> Result<()> {
     assert_eq!(sorted_orig_files, files);
   }
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_offsets(true)?;
@@ -1471,11 +1472,11 @@ fn test_no_unwanted_tv_files() -> Result<()> {
       .to_string();
   big = big.repeat(4);
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_omit_norms(true)?;
-  let mut custom_type2 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type2.set_tokenized(false)?;
-  let mut custom_type3 = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type3 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type3.set_tokenized(false)?;
   custom_type3.set_omit_norms(true)?;
 
@@ -4294,7 +4295,7 @@ where
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
-  let stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let stored_text_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   doc.add(new_field(
     random,
     field,

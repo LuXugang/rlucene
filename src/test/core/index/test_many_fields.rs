@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -46,7 +45,8 @@ fn test_many_fields() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut field_types = HashMap::new();
 
-  let mut stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut stored_text_type =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   stored_text_type.freeze();
   for j in 0..100 {
     let mut doc = Document::new();
@@ -142,7 +142,8 @@ fn test_diverse_docs() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_types = HashMap::new();
-  let mut stored_text_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut stored_text_type =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   stored_text_type.freeze();
 
   let n = at_least(&mut random, 1);
@@ -218,7 +219,7 @@ fn test_rotating_field_names() -> Result<()> {
 
   let mut upto: i32 = 0;
 
-  let mut ft = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_omit_norms(true)?;
 
   let mut first_doc_count: i32 = -1;

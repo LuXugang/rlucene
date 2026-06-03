@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
@@ -179,12 +178,12 @@ where
   d.add(Field::new(
     FIELD_T,
     "Optimize not deleting all files",
-    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?,
   ));
   d.add(Field::new(
     FIELD_C,
     "Deleted When I run an optimize in our production environment.",
-    FieldType::from_ref(&*text_field_type::TYPE_STORED)?,
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?,
   ));
 
   writer.add_document(d)?;
@@ -209,7 +208,7 @@ fn test_boolean_scorer_max() -> Result<()> {
     doc.add(Field::new(
       "field",
       "a",
-      FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?,
+      FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?,
     ));
     riw.add_document(doc)?;
   }

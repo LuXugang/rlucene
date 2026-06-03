@@ -22,7 +22,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::BytesRef;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
@@ -59,7 +58,7 @@ fn test_mixup_docs() -> Result<()> {
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_payloads(true)?;
@@ -140,7 +139,7 @@ fn test_mixup_multi_valued() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir);
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(true)?;
   custom_type.set_store_term_vector_payloads(true)?;
@@ -217,7 +216,7 @@ fn test_payloads_without_positions() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir);
   let mut doc = Document::new();
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_store_term_vectors(true)?;
   custom_type.set_store_term_vector_positions(false)?;
   custom_type.set_store_term_vector_payloads(true)?;

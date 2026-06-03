@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::text_field_type;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
@@ -72,7 +71,7 @@ fn test() -> Result<()> {
 
   let writer = IndexWriter::new(directory.clone(), iwc)?;
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_tokenized(false)?;
   custom_type.set_store_term_vectors(true)?;
 

@@ -22,6 +22,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
+use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
@@ -30,37 +31,30 @@ use crate::core::util::number::Number;
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Formatter;
+use std::sync::LazyLock;
 
-pub mod text_field_type {
-
-  use std::sync::LazyLock;
-
-  use crate::core::document::field_type::FieldType;
-  use crate::core::index::index_options::IndexOptions;
-
-  /// Indexed, tokenized, not stored.
-  pub(crate) static TYPE_NOT_STORED: LazyLock<FieldType> = LazyLock::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
-      .expect("set_index_options should never fail in this context");
-    ft.set_tokenized(true)
-      .expect("set_tokenized(true) should never fail in this context");
-    ft.freeze();
-    ft
-  });
-  /// Indexed, tokenized, stored.
-  pub(crate) static TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
-    let mut ft = FieldType::new();
-    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
-      .expect("set_index_options should never fail in this context");
-    ft.set_tokenized(true)
-      .expect("set_tokenized(true) should never fail in this context");
-    ft.set_stored(true)
-      .expect("set_stored(true) should never fail in this context");
-    ft.freeze();
-    ft
-  });
-}
+/// Indexed, tokenized, not stored.
+pub(crate) static TYPE_NOT_STORED: LazyLock<FieldType> = LazyLock::new(|| {
+  let mut ft = FieldType::new();
+  ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
+    .expect("set_index_options should never fail in this context");
+  ft.set_tokenized(true)
+    .expect("set_tokenized(true) should never fail in this context");
+  ft.freeze();
+  ft
+});
+/// Indexed, tokenized, stored.
+pub(crate) static TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
+  let mut ft = FieldType::new();
+  ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
+    .expect("set_index_options should never fail in this context");
+  ft.set_tokenized(true)
+    .expect("set_tokenized(true) should never fail in this context");
+  ft.set_stored(true)
+    .expect("set_stored(true) should never fail in this context");
+  ft.freeze();
+  ft
+});
 
 /// A field that is indexed and tokenized, without term vectors.
 /// For example, this would be used on a `body` field that contains the bulk of
@@ -89,7 +83,7 @@ impl TextField {
     T: Into<String>,
     R: Into<ReaderEnum>,
   {
-    let parent_field = Field::from_reader(name, reader, text_field_type::TYPE_NOT_STORED.clone())?;
+    let parent_field = Field::from_reader(name, reader, TYPE_NOT_STORED.clone())?;
     Ok(Self {
       parent_field,
       has_stored_value: false,
@@ -108,9 +102,9 @@ impl TextField {
   {
     let store = store.into();
     let (field_type, has_stored_value) = if store {
-      (text_field_type::TYPE_STORED.clone(), true)
+      (TYPE_STORED.clone(), true)
     } else {
-      (text_field_type::TYPE_NOT_STORED.clone(), false)
+      (TYPE_NOT_STORED.clone(), false)
     };
     let parent_field = Field::from_string(name, value, field_type.clone())?;
     Ok(Self {
@@ -128,8 +122,7 @@ impl TextField {
     T: Into<String>,
     V: Into<FieldTokenStreamEnum>,
   {
-    let parent_field =
-      Field::from_token_stream(name, stream, text_field_type::TYPE_NOT_STORED.clone())?;
+    let parent_field = Field::from_token_stream(name, stream, TYPE_NOT_STORED.clone())?;
     Ok(Self {
       parent_field,
       has_stored_value: false,

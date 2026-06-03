@@ -24,7 +24,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::packed::direct_monotonic_reader::direct_monotonic::Meta;
+use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 /// Configuration for [`DirectMonotonicReader`] and [`IndexedDISI`] for reading sparse

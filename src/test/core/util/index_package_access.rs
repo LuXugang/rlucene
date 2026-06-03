@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::field_infos::build::Builder;
+use crate::core::index::field_infos::Builder;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::lock_api::Mutex;

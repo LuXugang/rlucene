@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::circle::Circle;
-use crate::core::geo::component_tree::{ComponentTree, component_tree_util};
+use crate::core::geo::component_tree::{ComponentTree, create as create_component_tree};
 use crate::core::geo::component2d::Component2DEnum2;
 use crate::core::geo::component2d::{Component2D, WithinRelation};
 use crate::core::geo::geometry::Geometry;
@@ -47,9 +47,7 @@ where
   for geometry in xy_geometries {
     components.push(geometry.to_component2d()?);
   }
-  Ok(LatLonGeometryType::B(component_tree_util::create(
-    components,
-  )?))
+  Ok(LatLonGeometryType::B(create_component_tree(components)?))
 }
 pub type LatLonGeometryType<T> = Component2DEnum2<T, ComponentTree<T>>;
 #[macro_export]

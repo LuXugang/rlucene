@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::text_field::TextField;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -78,7 +78,8 @@ where
 
   let writer = RandomIndexWriter::with_config(random, index, iwc);
   let mut field_to_type = HashMap::new();
-  let mut non_analyzed_type = FieldType::from_ref(&*text_field_type::TYPE_STORED)?;
+  let mut non_analyzed_type =
+    FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   non_analyzed_type.set_tokenized(false)?;
 
   {

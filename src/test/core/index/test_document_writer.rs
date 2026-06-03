@@ -30,8 +30,8 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
-use crate::core::document::string_field::{StringField, string_field_type};
-use crate::core::document::text_field::{TextField, text_field_type};
+use crate::core::document::string_field::StringField;
+use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields as IndexFields;
@@ -186,14 +186,14 @@ fn test_lucene_1590() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut doc = Document::new();
 
-  let mut custom_type = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
   let mut custom_type2 = FieldType::new();
   custom_type2.set_stored(true)?;
   doc.add(Field::new("f1", "v1", custom_type));
   doc.add(Field::new("f1", "v2", custom_type2.clone()));
 
-  let mut custom_type3 = FieldType::from_ref(&*text_field_type::TYPE_NOT_STORED)?;
+  let mut custom_type3 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type3.set_index_options(IndexOptions::Docs)?;
   let f = Field::new("f2", "v1", custom_type3);
   doc.add(f);
@@ -382,7 +382,11 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
     let mut iwc = new_index_writer_config(&mut random);
     iwc.set_open_mode(OpenMode::Create);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
-    let field = MockIndexableField::new("field", None, string_field_type::TYPE_NOT_STORED.clone());
+    let field = MockIndexableField::new(
+      "field",
+      None,
+      crate::core::document::string_field::TYPE_NOT_STORED.clone(),
+    );
     let mut doc = Document::new();
     doc.add(field);
     let res = writer.add_document(doc);
