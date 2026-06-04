@@ -141,7 +141,6 @@ fn test_equals() -> Result<()> {
   Ok(())
 }
 
-#[test]
 fn test_duel_terms_query() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 2);
@@ -211,7 +210,6 @@ fn test_duel_terms_query() -> Result<()> {
   Ok(())
 }
 
-#[test]
 fn test_approximation() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 2);

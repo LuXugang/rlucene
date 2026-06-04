@@ -30,6 +30,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::doc_values_rewrite_method::MultiTermQueryDocValuesWrapper;
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::float_vector_similarity_query::FloatVectorSimilarityQuery;
@@ -148,6 +149,7 @@ macro_rules! dispatch_query {
       Query::MatchAllDocs($inner) => $body,
       Query::MatchNoDocs($inner) => $body,
       Query::MultiPhrase($inner) => $body,
+      Query::MultiTermQueryDocValuesWrapper($inner) => $body,
       Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
       Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
       Query::NGramPhrase($inner) => $body,
@@ -225,6 +227,7 @@ impl_from_for_enum!(
     MatchAllDocsQuery => MatchAllDocs,
     MatchNoDocsQuery => MatchNoDocs,
     MultiPhraseQuery=> MultiPhrase,
+    MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
     MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
     NGramPhraseQuery=> NGramPhrase,
@@ -288,6 +291,7 @@ impl_into_box_query!(
   LatLonPointQuery,
   MatchAllDocsQuery,
   MatchNoDocsQuery,
+  MultiTermQueryDocValuesWrapper,
   MultiTermQueryConstantScoreBlendedWrapper,
   MultiTermQueryConstantScoreWrapper,
   NGramPhraseQuery,
@@ -359,6 +363,7 @@ pub enum Query {
   MatchAllDocs(MatchAllDocsQuery),
   MatchNoDocs(MatchNoDocsQuery),
   MultiPhrase(MultiPhraseQuery),
+  MultiTermQueryDocValuesWrapper(MultiTermQueryDocValuesWrapper),
   MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
   MultiTermQueryConstantScoreWrapper(MultiTermQueryConstantScoreWrapper),
   NGramPhrase(NGramPhraseQuery),
@@ -454,6 +459,7 @@ impl Query {
             MatchAllDocs,
             MatchNoDocs,
             MultiPhrase,
+            MultiTermQueryDocValuesWrapper,
             MultiTermQueryConstantScoreBlendedWrapper,
             MultiTermQueryConstantScoreWrapper,
             NGramPhrase,

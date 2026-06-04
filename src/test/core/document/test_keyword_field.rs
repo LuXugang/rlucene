@@ -17,7 +17,6 @@
 
 use crate::core::document::field::{FieldBase, FieldDataEnum, Store};
 use crate::core::document::keyword_field::KeywordField;
-use crate::core::index::directory_reader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -27,12 +26,14 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::terms::Terms;
+use crate::core::index::{BytesRef, directory_reader};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared, new_index_writer_config,
   random,
 };
+use crate::test::core::util::test_util::TestUtil;
 use std::borrow::Cow;
 
 #[allow(dead_code)] // for quick search
@@ -231,6 +232,18 @@ fn test_index_string_value() -> Result<()> {
 
 #[test]
 fn test_value_clone() -> Result<()> {
-  // TODO KeywordField.newSetQuery未实现
+  let mut random = random();
+
+  let values: Vec<BytesRef<Vec<u8>>> = (0..100)
+    .map(|_| {
+      let s = TestUtil::random_simple_string_range(&mut random, 10, 20);
+      BytesRef::from_string(&s)
+    })
+    .collect();
+
+  let expected = values.clone();
+  KeywordField::new_set_query("f", values.clone());
+  assert_eq!(expected, values);
+
   Ok(())
 }

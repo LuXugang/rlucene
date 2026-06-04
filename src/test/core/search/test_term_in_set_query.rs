@@ -103,7 +103,7 @@ fn test_all_docs_in_field_term() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT DocValuesRewriteMethod未实现
+#[test]
 fn test_duel() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 2);
@@ -250,7 +250,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT DocValuesRewriteMethod未实现
+#[test]
 fn test_skipper_optimization_gap_assumption() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
