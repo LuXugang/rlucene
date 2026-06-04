@@ -858,7 +858,7 @@ fn assert_matches(a: &Automaton, strings: &[&str]) -> Result<()> {
   let mut scratch = IntsRefBuilder::new();
 
   for s in strings {
-    Util::get_utf32(s, &mut scratch);
+    Util::to_utf32(s, &mut scratch);
     let v = scratch.get_owner();
     expected.insert(v);
   }
@@ -1434,7 +1434,7 @@ where
   // Make sure all terms are accepted:
   let mut scratch: IntsRefBuilder<Vec<i32>> = IntsRefBuilder::new();
   for term in terms {
-    Util::get_ints_ref(term, &mut scratch);
+    Util::to_ints_ref(term, &mut scratch);
     let s = term.utf8_to_string()?;
     assert!(
       Operations::run_str(&det_a, &s),
@@ -1448,7 +1448,7 @@ where
   for term in terms {
     let mut ints_ref = IntsRefBuilder::new();
     let s = term.utf8_to_string()?;
-    Util::get_utf32(&s, &mut ints_ref);
+    Util::to_utf32(&s, &mut ints_ref);
     expected.insert(ints_ref.to_ints_ref());
   }
   let actual = TestOperations::get_finite_strings(a)?;
@@ -1482,7 +1482,7 @@ where
   let mut expected2 = HashSet::new();
   for term in terms {
     let mut ints_ref = IntsRefBuilder::new();
-    Util::get_ints_ref(term, &mut ints_ref);
+    Util::to_ints_ref(term, &mut ints_ref);
     expected2.insert(ints_ref.to_ints_ref());
   }
 
@@ -1492,7 +1492,7 @@ where
 }
 fn accepts(a: &Automaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
   let mut builder = IntsRefBuilder::new();
-  Util::get_ints_ref(b, &mut builder);
+  Util::to_ints_ref(b, &mut builder);
   Ok(Operations::run_ints_ref(a, builder.get()))
 }
 fn make_binary_interval(
@@ -1746,7 +1746,7 @@ fn test_make_binary_interval_random() -> Result<()> {
       };
 
       let mut ints_builder = IntsRefBuilder::new();
-      Util::get_ints_ref(&term, &mut ints_builder);
+      Util::to_ints_ref(&term, &mut ints_builder);
       let actual = Operations::run_ints_ref(&a, &ints_builder.to_ints_ref());
       assert_eq!(expected, actual,);
     }
@@ -1760,7 +1760,7 @@ where
 {
   let mut builder = IntsRefBuilder::new();
   let b: BytesRef<Vec<u8>> = new_bytes_ref_from_string(random, s)?;
-  Util::get_ints_ref(&b, &mut builder);
+  Util::to_ints_ref(&b, &mut builder);
   Ok(builder.get().clone())
 }
 

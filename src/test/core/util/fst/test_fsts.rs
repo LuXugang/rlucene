@@ -17,9 +17,11 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
-use crate::core::index::BytesRef;
+use crate::core::index::{BytesRef, directory_reader};
 
+use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_terms;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
@@ -31,6 +33,10 @@ use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteArrayDataInput, FSDirectory, IOContext, NativeFSLockFactory};
+use crate::core::util::Comparator;
+use crate::core::util::automation::automata::Automata;
+use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
@@ -44,7 +50,7 @@ use crate::core::util::fst_impl::int_sequence_outputs::IntSequenceOutputs;
 use crate::core::util::fst_impl::no_outputs::NoOutputs;
 use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::fst_impl::positive_int_outputs::PositiveIntOutputs;
-use crate::core::util::fst_impl::util::Util;
+use crate::core::util::fst_impl::util::{TopNSearcher, TopNSearcherBase, TopResult, Util};
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -53,16 +59,19 @@ use crate::test::core::util::fst::fst_tester::{
   DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, simple_random_string,
   to_ints_ref_from_string,
 };
+use crate::test::core::util::line_file_docs::LineFileDocs;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, is_night_mode, new_bytes_ref_from_string, new_directory, new_directory_shared,
-  new_index_writer_config_with_analyzer, new_searcher_with_reader, random, random_from_seed,
-  random_multiplier,
+  at_least, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string, new_directory,
+  new_directory_shared, new_fs_directory, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, random, random_from_seed, random_multiplier,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use rand::seq::SliceRandom;
-use std::collections::HashSet;
+use std::cell::Cell;
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -179,7 +188,7 @@ impl TestFSTs {
       tester.do_test()?;
     }
     // Pair<ord, (random monotonically increasing positive number>
-    // TODO: PairOutputs not Implement
+    // TODO: PairOutputs 未实现
 
     // Sequence-of-bytes
     {
@@ -368,7 +377,7 @@ fn test_basic_fsa() -> Result<()> {
         .iter()
         .enumerate()
         .map(|(idx, term)| {
-          let output = BytesRef::from_string(&idx.to_string());
+          let output = new_bytes_ref_from_string(&mut random, &idx.to_string()).expect("");
           InputOutput {
             input: term.clone(),
             output,
@@ -442,22 +451,151 @@ fn test_big_set() -> Result<()> {
   test_random_words_limit(&mut random, max_num_words, 1)
 }
 
+fn assert_same<TE, O, F>(
+  terms_enum: &mut TE,
+  fst_enum: &BytesRefFSTEnum<O, F>,
+  store_ord: bool,
+) -> Result<()>
+where
+  TE: TermsEnum,
+  O: Outputs<V = Arc<i64>>,
+  F: FstReader,
+{
+  let term = terms_enum.term()?;
+  let current = fst_enum.current();
+  assert_eq!(
+    term.as_ref(),
+    &current.input,
+    "{} != {}",
+    term.utf8_to_string()?,
+    current.input.utf8_to_string()?
+  );
+  if store_ord {
+    assert_eq!(terms_enum.ord()?, *current.output);
+  } else {
+    assert_eq!(terms_enum.doc_freq()? as i64, *current.output);
+  }
+  Ok(())
+}
+
 #[test]
 fn test_real_terms() -> Result<()> {
-  // TODO: IndexWriter not implement
+  let mut random = random();
+  let mut docs = LineFileDocs::new(&mut random)?;
+  let num_docs = at_least(&mut random, 50);
+  let mut analyzer = MockAnalyzer::new(&mut random);
+  analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
+
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  conf.set_max_buffered_docs(-1).set_ram_buffer_size_mb(64.0);
+  let temp_dir = create_temp_dir_with_prefix("fstlines")?;
+  let dir = new_fs_directory(&mut random, temp_dir)?;
+  let writer = IndexWriter::new(dir, conf)?;
+  let mut doc_count = 0;
+  while doc_count < num_docs {
+    writer.add_document(docs.next_doc()?)?;
+    doc_count += 1;
+  }
+  let reader = directory_reader::open_from_writer(&writer)?;
+  writer.close()?;
+
+  let outputs = PositiveIntOutputs::get_singleton().clone();
+
+  let mut builder = Builder::new(InputType::Byte1, outputs.clone());
+
+  let suffix_ram_limit_mb = if random.random_range(0..10) == 4 {
+    // no suffix sharing
+    0.0
+  } else if random.random_range(0..10) == 7 {
+    // share all suffixes (minimal FST)
+    f64::INFINITY
+  } else {
+    (random.random::<f64>() + 0.01) * 10.0
+  };
+  builder.suffix_ram_limit_mb(suffix_ram_limit_mb)?;
+
+  let mut fst_compiler = builder.build()?;
+
+  let mut store_ord = random.random_bool(0.5);
+  let terms = multi_terms::get_terms(&reader, "body")?;
+  if let Some(terms) = terms {
+    let mut scratch_ints_ref = IntsRefBuilder::new();
+    let mut terms_enum = terms.iterator()?;
+    let automaton = Automata::make_any_string()?;
+    let compiled = CompiledAutomaton::new(automaton, false, false)?;
+    let mut terms_enum2 = terms.intersect(&compiled, None)?;
+    let mut ord = 0;
+
+    while let Some(term) = terms_enum.next()? {
+      let term = BytesRef::deep_copy_of(term.as_ref());
+      let term2 = terms_enum2
+        .next()?
+        .expect("intersect enum must return term");
+      assert_eq!(&term, term2.as_ref());
+      assert_eq!(terms_enum.doc_freq()?, terms_enum2.doc_freq()?);
+      assert_eq!(
+        terms_enum.total_term_freq()?,
+        terms_enum2.total_term_freq()?
+      );
+
+      if ord == 0 && terms_enum.ord().is_err() {
+        store_ord = false;
+      }
+      let output = if store_ord {
+        ord
+      } else {
+        terms_enum.doc_freq()? as i64
+      };
+      Util::to_ints_ref(&term, &mut scratch_ints_ref);
+      fst_compiler.add(scratch_ints_ref.get(), Arc::new(output))?;
+      ord += 1;
+    }
+
+    let metadata = fst_compiler.compile()?.unwrap();
+    let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+    let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
+
+    if ord > 0 {
+      let mut random = random_from_seed(random.random());
+      let mut fst_enum = BytesRefFSTEnum::new(fst)?;
+      let num = at_least(&mut random, 1000);
+      for _ in 0..num {
+        let v = get_random_string(&mut random);
+        let random_term = new_bytes_ref_from_string(&mut random, &v)?;
+
+        let seek_result = terms_enum.seek_ceil(&random_term)?;
+        let fst_seek_result = fst_enum.seek_ceil(&random_term)?;
+
+        if seek_result == SeekStatus::End {
+          assert!(fst_seek_result.is_none());
+        } else {
+          assert_same(&mut terms_enum, &fst_enum, store_ord)?;
+          for _ in 0..10 {
+            if terms_enum.next()?.is_some() {
+              assert!(fst_enum.next_value()?.is_some());
+              assert_same(&mut terms_enum, &fst_enum, store_ord)?;
+            } else {
+              assert!(fst_enum.next_value()?.is_none());
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
   Ok(())
 }
 
 #[test]
 fn test_single_string() -> Result<()> {
-  // TODO: NO_OUTPUTS not implement
   let mut random = random();
-  let outputs = PositiveIntOutputs::get_singleton();
+  let outputs = NoOutputs::get_singleton();
   let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
 
   let mut builder = IntsRefBuilder::new();
   let key: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
-  Util::get_ints_ref(&key, &mut builder);
+  Util::to_ints_ref(&key, &mut builder);
   fst_compiler.add(builder.get(), outputs.get_no_output())?;
 
   let metadata = fst_compiler.compile()?.unwrap();
@@ -484,7 +622,7 @@ fn test_duplicate_fsa_string() -> Result<()> {
   let mut builder = IntsRefBuilder::new();
   let key: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, str_key)?;
   for _ in 0..10 {
-    Util::get_ints_ref(&key, &mut builder);
+    Util::to_ints_ref(&key, &mut builder);
     fst_compiler.add(builder.get(), outputs.get_no_output())?;
   }
 
@@ -492,12 +630,12 @@ fn test_duplicate_fsa_string() -> Result<()> {
   let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
-  let actual = Util::get_bytes(&fst, &key)?;
+  let actual = Util::get_from_bytes(&fst, &key)?;
   assert!(actual.is_some());
 
   let v: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobaz")?;
 
-  let missing = Util::get_bytes(&fst, &v)?;
+  let missing = Util::get_from_bytes(&fst, &v)?;
   assert!(missing.is_none());
 
   // Count the input paths
@@ -530,22 +668,22 @@ fn test_simple() -> Result<()> {
   let c: BytesRef<Rc<Vec<u8>>> = new_bytes_ref_from_string(&mut random, "c")?;
 
   let mut v = IntsRefBuilder::new();
-  Util::get_ints_ref(&a, &mut v);
+  Util::to_ints_ref(&a, &mut v);
   fst_compiler.add(v.get(), Arc::new(17))?;
   let mut v = IntsRefBuilder::new();
-  Util::get_ints_ref(&b, &mut v);
+  Util::to_ints_ref(&b, &mut v);
   fst_compiler.add(v.get(), Arc::new(42))?;
   let mut v = IntsRefBuilder::new();
-  Util::get_ints_ref(&c, &mut v);
+  Util::to_ints_ref(&c, &mut v);
   fst_compiler.add(v.get(), Arc::new(13824324872317238))?;
 
   let fst_metadata = fst_compiler.compile()?.unwrap();
   let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(fst_metadata, fst_reader).unwrap();
 
-  assert_eq!(*Util::get_bytes(&fst, &c)?.unwrap(), 13824324872317238);
-  assert_eq!(*Util::get_bytes(&fst, &b)?.unwrap(), 42);
-  assert_eq!(*Util::get_bytes(&fst, &a)?.unwrap(), 17);
+  assert_eq!(*Util::get_from_bytes(&fst, &c)?.unwrap(), 13824324872317238);
+  assert_eq!(*Util::get_from_bytes(&fst, &b)?.unwrap(), 42);
+  assert_eq!(*Util::get_from_bytes(&fst, &a)?.unwrap(), 17);
 
   let mut fst_enum = BytesRefFSTEnum::new(fst)?;
   let mut seek_result = fst_enum.seek_floor(&a)?;
@@ -689,18 +827,18 @@ fn test_primary_keys() -> Result<()> {
       };
 
       let status = if next_id.is_none() {
-        if terms_enum.seek_exact(&BytesRef::from_string(&id))? {
+        if terms_enum.seek_exact(&new_bytes_ref_from_string(&mut random, &id)?)? {
           SeekStatus::Found
         } else {
           SeekStatus::NotFound
         }
       } else {
-        terms_enum.seek_ceil(&BytesRef::from_string(&id))?
+        terms_enum.seek_ceil(&new_bytes_ref_from_string(&mut random, &id)?)?
       };
 
       if let Some(next_id) = next_id {
         assert_eq!(SeekStatus::NotFound, status);
-        let expected = BytesRef::from_string(&next_id);
+        let expected = new_bytes_ref_from_string(&mut random, &next_id)?;
         let actual = terms_enum.term()?;
         assert_eq!(
           expected,
@@ -793,7 +931,7 @@ fn test_expanded_close_to_root() -> Result<()> {
     for w in lines.iter() {
       let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(w);
       let mut scratch = IntsRefBuilder::new();
-      Util::get_ints_ref(&bytes, &mut scratch);
+      Util::to_ints_ref(&bytes, &mut scratch);
       fst_compiler.add(scratch.get(), nothing.clone())?;
     }
 
@@ -859,43 +997,57 @@ fn test_expanded_close_to_root() -> Result<()> {
   Ok(())
 }
 #[test]
-fn test_final_output_on_end_state() -> Result<()> {
+#[should_panic]
+fn test_final_output_on_end_state() {
   let outputs = PositiveIntOutputs::get_singleton();
-  let mut fst_compiler = Builder::new(InputType::Byte4, outputs.clone()).build()?;
+  let mut fst_compiler = Builder::new(InputType::Byte4, outputs.clone())
+    .build()
+    .expect("");
 
   let mut scratch = IntsRefBuilder::new();
-  Util::get_utf32("slat", &mut scratch);
-  fst_compiler.add(scratch.get(), Arc::new(10))?;
-  Util::get_utf32("st", &mut scratch);
-  fst_compiler.add(scratch.get(), Arc::new(17))?;
+  Util::to_utf32("slat", &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(10)).expect("");
+  Util::to_utf32("st", &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(17)).expect("");
 
-  let metadata = fst_compiler.compile()?.unwrap();
-  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-  let _fst = FST::from_fst_reader(metadata, reader).unwrap();
-  // TODO IMPORTANT Util.to_doc未实现
-
-  Ok(())
+  let metadata = fst_compiler.compile().expect("").unwrap();
+  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader().expect("");
+  let fst = FST::from_fst_reader(metadata, reader).unwrap();
+  let mut w = Vec::new();
+  Util::to_dot(&fst, &mut w, false, false).expect("");
+  let dot = String::from_utf8(w).expect("");
+  println!("{dot}");
+  assert!(dot.contains("label=\"t/[7]\""));
 }
 
 #[test]
 fn test_internal_final_state() -> Result<()> {
+  let mut random = random();
   let outputs = PositiveIntOutputs::get_singleton();
   let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
   let nothing = outputs.get_no_output();
 
-  let stat: BytesRef<Vec<u8>> = BytesRef::from_string("stat");
-  let station: BytesRef<Vec<u8>> = BytesRef::from_string("station");
+  let stat: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "stat")?;
+  let station: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "station")?;
 
   let mut scratch = IntsRefBuilder::new();
-  Util::get_ints_ref(&stat, &mut scratch);
+  Util::to_ints_ref(&stat, &mut scratch);
   fst_compiler.add(scratch.get(), nothing.clone())?;
-  Util::get_ints_ref(&station, &mut scratch);
+  Util::to_ints_ref(&station, &mut scratch);
   fst_compiler.add(scratch.get(), nothing.clone())?;
 
   let metadata = fst_compiler.compile()?.unwrap();
   let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
-  let _fst = FST::from_fst_reader(metadata, reader).unwrap();
-  // TODO IMPORTANT Util.to_doc未实现
+  let fst = FST::from_fst_reader(metadata, reader).unwrap();
+  let mut w = Vec::new();
+  Util::to_dot(&fst, &mut w, false, false)?;
+  let dot = String::from_utf8(w)?;
+
+  // check for accept state at label t
+  assert!(dot.contains("[label=\"t\" style=\"bold\""));
+  // check for accept state at label n
+  assert!(dot.contains("[label=\"n\" style=\"bold\""));
+
   Ok(())
 }
 
@@ -914,11 +1066,11 @@ fn test_save_different_meta_out() -> Result<()> {
   let key2: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aac")?;
   let key3: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ax")?;
 
-  Util::get_ints_ref(&key1, &mut scratch);
+  Util::to_ints_ref(&key1, &mut scratch);
   fst_compiler.add(scratch.get(), Arc::new(22))?;
-  Util::get_ints_ref(&key2, &mut scratch);
+  Util::to_ints_ref(&key2, &mut scratch);
   fst_compiler.add(scratch.get(), Arc::new(7))?;
-  Util::get_ints_ref(&key3, &mut scratch);
+  Util::to_ints_ref(&key3, &mut scratch);
   fst_compiler.add(scratch.get(), Arc::new(17))?;
 
   // Compile and load once
@@ -952,14 +1104,14 @@ fn test_save_different_meta_out() -> Result<()> {
   let metadata = read_metadata(&mut meta_in, outputs.clone())?;
   let loaded_fst = FST::from_on_heap_store(metadata, &mut data_in)?;
 
-  Util::get_ints_ref(&key1, &mut scratch);
-  assert_eq!(*Util::get_bytes(&loaded_fst, &key1)?.unwrap(), 22);
+  Util::to_ints_ref(&key1, &mut scratch);
+  assert_eq!(*Util::get_from_bytes(&loaded_fst, &key1)?.unwrap(), 22);
 
-  Util::get_ints_ref(&key2, &mut scratch);
-  assert_eq!(*Util::get_bytes(&loaded_fst, &key2)?.unwrap(), 7);
+  Util::to_ints_ref(&key2, &mut scratch);
+  assert_eq!(*Util::get_from_bytes(&loaded_fst, &key2)?.unwrap(), 7);
 
-  Util::get_ints_ref(&key3, &mut scratch);
-  assert_eq!(*Util::get_bytes(&loaded_fst, &key3)?.unwrap(), 17);
+  Util::to_ints_ref(&key3, &mut scratch);
+  assert_eq!(*Util::get_from_bytes(&loaded_fst, &key3)?.unwrap(), 17);
 
   Ok(())
 }
@@ -1062,25 +1214,244 @@ where
   Ok(())
 }
 
+#[derive(Clone)]
+struct MinLongComparator;
+
+impl Comparator<Arc<i64>> for MinLongComparator {
+  const TYPE: &'static str = "MinLongComparator";
+
+  fn compare(&self, a: &Arc<i64>, b: &Arc<i64>) -> Result<i32> {
+    Ok(match (**a).cmp(&**b) {
+      Ordering::Less => -1,
+      Ordering::Equal => 0,
+      Ordering::Greater => 1,
+    })
+  }
+}
+
+struct RejectNoLimitsBase {
+  reject_count: Rc<Cell<i32>>,
+}
+
+impl TopNSearcherBase<Arc<i64>> for RejectNoLimitsBase {
+  fn accept_result(&mut self, _input: &IntsRef<Vec<i32>>, output: &Arc<i64>) -> bool {
+    let accept = **output == 7;
+    if !accept {
+      self.reject_count.set(self.reject_count.get() + 1);
+    }
+    accept
+  }
+}
+
 #[test]
-fn test_shortest_paths() {
-  // TODO
+fn test_shortest_paths() -> Result<()> {
+  let outputs = PositiveIntOutputs::get_singleton().clone();
+  let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+
+  let mut scratch = IntsRefBuilder::new();
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(22))?;
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(7))?;
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(17))?;
+
+  let metadata = fst_compiler.compile()?.unwrap();
+  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
+
+  let mut first_arc = crate::core::util::fst_impl::fst::Arc::default();
+  fst.get_first_arc(&mut first_arc);
+  let res = Util::shortest_paths(
+    &fst,
+    &first_arc,
+    outputs.get_no_output(),
+    MinLongComparator,
+    3,
+    true,
+  )?;
+  assert!(res.is_complete);
+  assert_eq!(3, res.top_n.len());
+
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  assert_eq!(scratch.get(), &res.top_n[0].input);
+  assert_eq!(7, *res.top_n[0].output);
+
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch);
+  assert_eq!(scratch.get(), &res.top_n[1].input);
+  assert_eq!(17, *res.top_n[1].output);
+
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch);
+  assert_eq!(scratch.get(), &res.top_n[2].input);
+  assert_eq!(22, *res.top_n[2].output);
+
+  Ok(())
 }
 #[test]
-fn test_reject_no_limits() {
-  // TODO
+fn test_reject_no_limits() -> Result<()> {
+  let outputs = PositiveIntOutputs::get_singleton().clone();
+  let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+
+  let mut scratch = IntsRefBuilder::new();
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(22))?;
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(7))?;
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("adcd"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(17))?;
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("adcde"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(17))?;
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch);
+  fst_compiler.add(scratch.get(), Arc::new(17))?;
+
+  let metadata = fst_compiler.compile()?.unwrap();
+  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
+
+  let reject_count = Rc::new(Cell::new(0));
+  let mut searcher = TopNSearcher::new(&fst, 2, 6, MinLongComparator)?;
+  searcher.set_base(RejectNoLimitsBase {
+    reject_count: reject_count.clone(),
+  });
+  let mut first_arc = crate::core::util::fst_impl::fst::Arc::default();
+  fst.get_first_arc(&mut first_arc);
+  searcher.add_start_paths(
+    &first_arc,
+    outputs.get_no_output(),
+    true,
+    IntsRefBuilder::new(),
+  )?;
+  let res = searcher.search()?;
+  assert_eq!(reject_count.get(), 4);
+  assert!(res.is_complete);
+
+  assert_eq!(1, res.top_n.len());
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  assert_eq!(scratch.get(), &res.top_n[0].input);
+  assert_eq!(7, *res.top_n[0].output);
+
+  reject_count.set(0);
+  let mut searcher = TopNSearcher::new(&fst, 2, 5, MinLongComparator)?;
+  searcher.set_base(RejectNoLimitsBase {
+    reject_count: reject_count.clone(),
+  });
+  searcher.add_start_paths(
+    &first_arc,
+    outputs.get_no_output(),
+    true,
+    IntsRefBuilder::new(),
+  )?;
+  let res = searcher.search()?;
+  assert_eq!(reject_count.get(), 4);
+  assert!(!res.is_complete);
+
+  Ok(())
 }
 #[test]
 fn test_shortest_paths_wfst() {
-  // TODO
+  // TODO: PairOutputs 未实现
 }
 #[test]
-fn test_shortest_paths_random() {
-  // TODO
+fn test_shortest_paths_random() -> Result<()> {
+  let mut random = random();
+  let num_words = at_least(&mut random, 1000) as usize;
+
+  let mut slow_completor = BTreeMap::new();
+  let mut all_prefixes = BTreeSet::new();
+
+  let outputs = PositiveIntOutputs::get_singleton().clone();
+  let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
+  let mut scratch = IntsRefBuilder::new();
+
+  for _ in 0..num_words {
+    let mut s;
+    loop {
+      s = TestUtil::random_simple_string(&mut random);
+      if !slow_completor.contains_key(&s) {
+        break;
+      }
+    }
+
+    for j in 1..s.len() {
+      all_prefixes.insert(s[..j].to_string());
+    }
+    let weight = TestUtil::next_int(&mut random, 1, 100) as i64;
+    slow_completor.insert(s, weight);
+  }
+
+  for (key, value) in &slow_completor {
+    Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string(key), &mut scratch);
+    fst_compiler.add(scratch.get(), Arc::new(*value))?;
+  }
+
+  let metadata = fst_compiler.compile()?.unwrap();
+  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
+  let mut reader = fst.get_bytes_reader()?;
+
+  for prefix in all_prefixes {
+    let mut prefix_output = 0;
+    let mut arc = crate::core::util::fst_impl::fst::Arc::default();
+    fst.get_first_arc(&mut arc);
+    for label in prefix.bytes() {
+      let follow = arc.clone();
+      let found = fst.find_target_arc(label as i32, &follow, &mut arc, &mut reader)?;
+      assert!(found.is_some());
+      prefix_output += *arc.output();
+    }
+
+    let top_n = TestUtil::next_int(&mut random, 1, 10) as usize;
+
+    let r = Util::shortest_paths(
+      &fst,
+      &arc,
+      fst.outputs.get_no_output(),
+      MinLongComparator,
+      top_n,
+      true,
+    )?;
+    assert!(r.is_complete);
+
+    let mut matches = Vec::new();
+
+    for (key, value) in &slow_completor {
+      if key.starts_with(&prefix) {
+        let suffix = &key[prefix.len()..];
+        let mut input = IntsRefBuilder::new();
+        Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string(suffix), &mut input);
+        matches.push(TopResult::new(
+          input.to_ints_ref(),
+          Arc::new(value - prefix_output),
+        ));
+      }
+    }
+
+    assert!(!matches.is_empty());
+    matches.sort_by(|a, b| {
+      let cmp = (*a.output).cmp(&*b.output);
+      if cmp == Ordering::Equal {
+        a.input.cmp(&b.input)
+      } else {
+        cmp
+      }
+    });
+    if matches.len() > top_n {
+      matches.truncate(top_n);
+    }
+
+    assert_eq!(matches.len(), r.top_n.len());
+
+    for (expected, actual) in matches.iter().zip(r.top_n.iter()) {
+      assert_eq!(expected.input, actual.input);
+      assert_eq!(expected.output, actual.output);
+    }
+  }
+
+  Ok(())
 }
 #[test]
 fn test_shortest_paths_wfst_random() {
-  // TODO
+  // TODO: PairOutputs 未实现
 }
 #[test]
 fn test_large_outputs_on_array_arcs() -> Result<()> {
@@ -1105,7 +1476,7 @@ fn test_large_outputs_on_array_arcs() -> Result<()> {
 
   for arc in 0..6 {
     input.set_int_at(0, arc);
-    let result = Util::get_ints(&fst, input.get())?;
+    let result = Util::get_from_ints(&fst, input.get())?;
     assert!(result.is_some());
     let result = result.unwrap();
     assert_eq!(result.length, 300);
@@ -1145,7 +1516,7 @@ fn test_illegally_modify_root_arc() -> Result<()> {
 
   let mut input = IntsRefBuilder::new();
   for term in &terms_list {
-    Util::get_ints_ref(term, &mut input);
+    Util::to_ints_ref(term, &mut input);
     fst_compiler.add(input.get(), term.clone())?;
   }
 
@@ -1174,22 +1545,22 @@ fn test_simple_depth() -> Result<()> {
   let bd: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "bd")?;
 
   let mut builder = IntsRefBuilder::new();
-  Util::get_ints_ref(&ab, &mut builder);
+  Util::to_ints_ref(&ab, &mut builder);
   fst_compiler.add(builder.get(), Arc::new(3))?;
 
-  Util::get_ints_ref(&ac, &mut builder);
+  Util::to_ints_ref(&ac, &mut builder);
   fst_compiler.add(builder.get(), Arc::new(5))?;
 
-  Util::get_ints_ref(&bd, &mut builder);
+  Util::to_ints_ref(&bd, &mut builder);
   fst_compiler.add(builder.get(), Arc::new(7))?;
 
   let metadata = fst_compiler.compile()?.unwrap();
   let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
-  assert_eq!(*Util::get_bytes(&fst, &ab)?.unwrap(), 3);
-  assert_eq!(*Util::get_bytes(&fst, &ac)?.unwrap(), 5);
-  assert_eq!(*Util::get_bytes(&fst, &bd)?.unwrap(), 7);
+  assert_eq!(*Util::get_from_bytes(&fst, &ab)?.unwrap(), 3);
+  assert_eq!(*Util::get_from_bytes(&fst, &ac)?.unwrap(), 5);
+  assert_eq!(*Util::get_from_bytes(&fst, &bd)?.unwrap(), 7);
 
   Ok(())
 }

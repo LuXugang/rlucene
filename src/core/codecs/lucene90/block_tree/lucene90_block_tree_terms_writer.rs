@@ -584,7 +584,7 @@ impl PendingBlock {
     let len = bytes.len();
     debug_assert!(!bytes.is_empty());
 
-    Util::get_ints_ref(&blocks[0].prefix, scratch_ints_ref);
+    Util::to_ints_ref(&blocks[0].prefix, scratch_ints_ref);
     fst_compiler.add(
       scratch_ints_ref.get(),
       BytesRef::from_slice(Arc::from(bytes), 0, len),
@@ -614,7 +614,7 @@ impl PendingBlock {
     let mut sub_index_enum = BytesRefFSTEnum::new(sub_index)?;
 
     while let Some(index_ent) = sub_index_enum.next_value()? {
-      Util::get_ints_ref(&index_ent.input, scratch_ints_ref);
+      Util::to_ints_ref(&index_ent.input, scratch_ints_ref);
       fst_compiler.add(scratch_ints_ref.get(), index_ent.output.clone())?;
     }
 

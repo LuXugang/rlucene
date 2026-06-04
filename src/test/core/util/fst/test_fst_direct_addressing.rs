@@ -136,7 +136,7 @@ fn build_fst_with_compiler(
   let nothing = fst_compiler.fst.outputs.get_no_output();
   let mut scratch = IntsRefBuilder::new();
   for entry in entries {
-    Util::get_ints_ref(entry, &mut scratch);
+    Util::to_ints_ref(entry, &mut scratch);
     fst_compiler.add(scratch.get(), nothing.clone())?;
   }
   let metadata = fst_compiler.compile()?.unwrap();

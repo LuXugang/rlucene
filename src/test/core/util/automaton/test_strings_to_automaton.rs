@@ -193,7 +193,7 @@ fn check_automaton(expected: &[BytesRef<Vec<u8>>], a: Automaton, is_binary: bool
   let mut scratch = BytesRefBuilder::new();
   let mut it = FiniteStringsIterator::new(&c.run_automaton.as_ref().unwrap().base.automaton);
   while let Some(r) = it.next()? {
-    let t = Util::get_bytes_ref(&r, &mut scratch)?;
+    let t = Util::to_bytes_ref(&r, &mut scratch)?;
     assert!(
       expected.iter().any(|x| x == &t),
       "Unexpected term found: {:?}",

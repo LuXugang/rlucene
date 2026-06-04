@@ -273,7 +273,7 @@ fn test_singleton() -> Result<()> {
     let utf8 = UTF32ToUTF8::new().convert(&a)?.into_owned();
 
     let mut ints = IntsRefBuilder::new();
-    Util::get_ints_ref(
+    Util::to_ints_ref(
       &new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, &s)?,
       &mut ints,
     );

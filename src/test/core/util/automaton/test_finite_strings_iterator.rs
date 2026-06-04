@@ -54,7 +54,7 @@ fn test_random_finite_strings1() -> Result<()> {
 
   for _ in 0..num_strings {
     let s = TestUtil::random_simple_string_range(&mut random, 1, 200);
-    Util::get_utf32_with_slice(&s, 0, s.len(), &mut scratch);
+    Util::to_utf32_with_slice(&s, 0, s.len(), &mut scratch);
     if strings.insert(scratch.to_ints_ref()) {
       string_list.push(Automata::make_string(&s)?);
       if cfg!(feature = "test_log_verbose") {
@@ -137,11 +137,11 @@ fn test_finite_strings_basic() -> Result<()> {
   assert_eq!(actual.len(), 2);
 
   let mut dog = IntsRefBuilder::new();
-  Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string("dog"), &mut dog);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("dog"), &mut dog);
   assert!(actual.contains(dog.get()));
 
   let mut duck = IntsRefBuilder::new();
-  Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string("duck"), &mut duck);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("duck"), &mut duck);
   assert!(actual.contains(duck.get()));
 
   Ok(())
@@ -167,10 +167,10 @@ fn test_finite_strings_eats_stack() -> Result<()> {
   assert_eq!(actual.len(), 2);
 
   let mut scratch = IntsRefBuilder::new();
-  Util::get_utf32_with_slice(&big_string1, 0, big_string1.len(), &mut scratch);
+  Util::to_utf32_with_slice(&big_string1, 0, big_string1.len(), &mut scratch);
   assert!(actual.contains(scratch.get()));
 
-  Util::get_utf32_with_slice(&big_string2, 0, big_string2.len(), &mut scratch);
+  Util::to_utf32_with_slice(&big_string2, 0, big_string2.len(), &mut scratch);
   assert!(actual.contains(scratch.get()));
 
   Ok(())
@@ -195,7 +195,7 @@ fn test_singleton_no_limit() -> Result<()> {
   assert_eq!(actual.len(), 1);
 
   let mut scratch = IntsRefBuilder::new();
-  Util::get_utf32_with_slice("foobar", 0, 6, &mut scratch);
+  Util::to_utf32_with_slice("foobar", 0, 6, &mut scratch);
   assert!(actual.contains(scratch.get()));
 
   Ok(())
@@ -211,11 +211,11 @@ fn test_short_accept() -> Result<()> {
   assert_eq!(actual.len(), 2);
 
   let mut x = IntsRefBuilder::new();
-  Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string("x"), &mut x);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("x"), &mut x);
   assert!(actual.contains(x.get()));
 
   let mut xy = IntsRefBuilder::new();
-  Util::get_ints_ref(&BytesRef::<Vec<u8>>::from_string("xy"), &mut xy);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("xy"), &mut xy);
   assert!(actual.contains(xy.get()));
   Ok(())
 }
