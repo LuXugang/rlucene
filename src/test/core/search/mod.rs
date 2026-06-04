@@ -59,6 +59,7 @@ mod test_doc_values_range_iterator;
 pub mod test_doc_values_rewrite_method;
 mod test_double_range_field_queries;
 mod test_early_termination;
+mod test_field_cache_rewrite_method;
 mod test_field_exists_query;
 mod test_float_range_field_queries;
 mod test_float_vector_similarity_query;

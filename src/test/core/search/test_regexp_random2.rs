@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
@@ -42,26 +43,93 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::mock_tokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
-use crate::test::core::util::DefaultIndexSearchCR;
+use crate::test::core::util::DefaultIndexSearchCRShared;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_string_field, random,
+  at_least, new_bytes_ref_from_string, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_string_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
+use rand::prelude::StdRng;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 /// Create an index with random unicode terms Generates random regexps, and validates against a
 /// simple impl.
 #[allow(dead_code)] // for quick search
-pub struct TestRegexpRandom2;
+pub(crate) trait TestRegexpRandom2 {
+  /// Check that the hits are the same as from a very simple RegexpQuery implementation.
+  fn assert_same<IRC>(
+    &self,
+    searcher1: &IndexSearcher<IRC>,
+    searcher2: &IndexSearcher<IRC>,
+    searcher3: &IndexSearcher<IRC>,
+    field_name: &str,
+    regexp: String,
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+  {
+    let smart = RegexpQuery::with_flags(Term::from_text(field_name, regexp.clone()), RegExp::NONE)?;
+    let nfa_query = RegexpQuery::with_all_and_determinization(
+      Term::from_text(field_name, regexp.clone()),
+      RegExp::NONE,
+      0,
+      &DefaultProvider,
+      0,
+      CONSTANT_SCORE_BOOLEAN_REWRITE,
+      false,
+    )?;
+    let dumb = DumbRegexpQuery::new(Term::from_text(field_name, regexp), RegExp::NONE)?;
 
-fn set_up<R>(random: &mut R) -> Result<(DefaultIndexSearchCR, String)>
+    let smart_docs = searcher1.search(smart.clone(), 25)?;
+    let dumb_docs = searcher2.search(dumb.clone(), 25)?;
+    let nfa_docs = searcher3.search(nfa_query.clone(), 25)?;
+
+    CheckHits::check_equal(&smart.into(), &smart_docs.score_docs, &dumb_docs.score_docs)?;
+    CheckHits::check_equal(
+      &nfa_query.into(),
+      &nfa_docs.score_docs,
+      &dumb_docs.score_docs,
+    )
+  }
+
+  /// Test a bunch of random regular expressions.
+  fn test_regexps<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let (searcher1, searcher2, searcher3, field_name) = set_up(random)?;
+
+    let num = at_least(random, 200);
+    for _ in 0..num {
+      let regexp = AutomatonTestUtil::random_regexp(random)?;
+      self.assert_same(
+        &searcher1,
+        &searcher2,
+        &searcher3,
+        field_name.as_str(),
+        regexp,
+      )?;
+    }
+
+    Ok(())
+  }
+}
+
+fn set_up<R>(
+  random: &mut R,
+) -> Result<(
+  DefaultIndexSearchCRShared,
+  DefaultIndexSearchCRShared,
+  DefaultIndexSearchCRShared,
+  String,
+)>
 where
   R: Rng + ?Sized,
 {
@@ -89,56 +157,21 @@ where
       crate::core::document::field::Store::No,
       &mut field_to_type,
     )?);
+    doc.add(SortedDocValuesField::new(
+      field_name.as_str(),
+      new_bytes_ref_from_string(random, &value)?,
+    ));
     writer.add_document(doc)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = Arc::new(writer.get_reader()?);
   writer.close()?;
-  Ok((new_searcher_with_reader(reader)?, field_name))
-}
-
-/// Check that the hits are the same as from a very simple RegexpQuery implementation.
-fn assert_same<IRC>(searcher: &IndexSearcher<IRC>, field_name: &str, regexp: String) -> Result<()>
-where
-  IRC: IndexReaderContext,
-{
-  let smart = RegexpQuery::with_flags(Term::from_text(field_name, regexp.clone()), RegExp::NONE)?;
-  let nfa_query = RegexpQuery::with_all_and_determinization(
-    Term::from_text(field_name, regexp.clone()),
-    RegExp::NONE,
-    0,
-    &DefaultProvider,
-    0,
-    CONSTANT_SCORE_BOOLEAN_REWRITE,
-    false,
-  )?;
-  let dumb = DumbRegexpQuery::new(Term::from_text(field_name, regexp), RegExp::NONE)?;
-
-  let smart_docs = searcher.search(smart.clone(), 25)?;
-  let dumb_docs = searcher.search(dumb.clone(), 25)?;
-  let nfa_docs = searcher.search(nfa_query.clone(), 25)?;
-
-  CheckHits::check_equal(&smart.into(), &smart_docs.score_docs, &dumb_docs.score_docs)?;
-  CheckHits::check_equal(
-    &nfa_query.into(),
-    &nfa_docs.score_docs,
-    &dumb_docs.score_docs,
-  )
-}
-
-/// Test a bunch of random regular expressions.
-#[test]
-fn test_regexps() -> Result<()> {
-  let mut random = random();
-  let (searcher, field_name) = set_up(&mut random)?;
-
-  let num = at_least(&mut random, 200);
-  for _ in 0..num {
-    let regexp = AutomatonTestUtil::random_regexp(&mut random)?;
-    assert_same(&searcher, field_name.as_str(), regexp)?;
-  }
-
-  Ok(())
+  Ok((
+    new_searcher_with_reader(reader.clone())?,
+    new_searcher_with_reader(reader.clone())?,
+    new_searcher_with_reader(reader)?,
+    field_name,
+  ))
 }
 
 /// A simple regexp query that scans through all terms.
@@ -282,4 +315,20 @@ impl FilteredTermsEnumBase for SimpleAutomatonTermsEnum {
       Ok(AcceptStatus::No)
     }
   }
+}
+
+struct TestRegexpRandom2Impl;
+fn run_case<F>(f: F) -> Result<()>
+where
+  F: FnOnce(&TestRegexpRandom2Impl, &mut StdRng) -> Result<()>,
+{
+  let mut random = random();
+  let case = TestRegexpRandom2Impl;
+  f(&case, &mut random)
+}
+impl TestRegexpRandom2 for TestRegexpRandom2Impl {}
+
+#[test]
+fn test_regexps() -> Result<()> {
+  run_case(|case, random| case.test_regexps(random))
 }
