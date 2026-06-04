@@ -45,7 +45,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 #[allow(dead_code)] // for quick search
-pub struct TestMultiCollector;
+struct TestMultiCollector;
 
 struct TerminateAfterCollector<C> {
   in_: C,

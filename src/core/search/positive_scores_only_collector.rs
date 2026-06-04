@@ -19,7 +19,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
-use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingScorer;
+use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
@@ -45,7 +45,7 @@ where
   C: Collector,
 {
   type LeafCollector<'a, IRC>
-    = PositiveScoresOnlyLeafCollector<C::LeafCollector<'a, IRC>>
+    = ScoreCachingWrappingLeafCollector<PositiveScoresOnlyLeafCollector<C::LeafCollector<'a, IRC>>>
   where
     Self: 'a,
     IRC: IndexReaderContext;
@@ -59,9 +59,8 @@ where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
   {
-    Ok(PositiveScoresOnlyLeafCollector::new(
-      self.inner.get_leaf_collector(context, weight)?,
-    ))
+    let v = PositiveScoresOnlyLeafCollector::new(self.inner.get_leaf_collector(context, weight)?);
+    Ok(ScoreCachingWrappingLeafCollector::new(v))
   }
 
   fn score_mode(&self) -> ScoreMode {
@@ -106,9 +105,8 @@ where
   }
 
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-    let mut scorer = ScoreCachingWrappingScorer::new(scorer);
     if scorer.score()? > 0.0 {
-      self.inner.collect(doc, &mut scorer)?;
+      self.inner.collect(doc, scorer)?;
     }
     Ok(())
   }

@@ -18,7 +18,9 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::cell::Cell;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
 /// A `Scorer`(crate::core::search::scorer::Scorer) that wraps another scorer and caches the score of the current document.
 ///
@@ -35,21 +37,36 @@ pub struct ScoreCachingWrappingScorer<S>
 where
   S: Scorable,
 {
-  score_is_cached: bool,
-  cur_score: f32,
+  cache: ScoreCachingWrappingScorerCache,
   in_: S,
 }
+
+#[derive(Clone)]
+struct ScoreCachingWrappingScorerCache {
+  score_is_cached: Rc<Cell<bool>>,
+  cur_score: Rc<Cell<f32>>,
+}
+
+impl ScoreCachingWrappingScorerCache {
+  fn new() -> Self {
+    Self {
+      score_is_cached: Rc::new(Cell::new(false)),
+      cur_score: Rc::new(Cell::new(0.0)),
+    }
+  }
+
+  fn init(&self) {
+    self.score_is_cached.set(false);
+  }
+}
+
 /// Creates a new instance by wrapping the given scorer.
 impl<S> ScoreCachingWrappingScorer<S>
 where
   S: Scorable,
 {
-  pub fn new(in_: S) -> Self {
-    Self {
-      score_is_cached: false,
-      cur_score: 0.0,
-      in_,
-    }
+  fn new_with_cache(in_: S, cache: ScoreCachingWrappingScorerCache) -> Self {
+    Self { cache, in_ }
   }
 }
 
@@ -58,11 +75,11 @@ where
   S: Scorable,
 {
   fn score(&mut self) -> Result<f32> {
-    if !self.score_is_cached {
-      self.cur_score = self.in_.score()?;
-      self.score_is_cached = true;
+    if !self.cache.score_is_cached.get() {
+      self.cache.cur_score.set(self.in_.score()?);
+      self.cache.score_is_cached.set(true);
     }
-    Ok(self.cur_score)
+    Ok(self.cache.cur_score.get())
   }
 
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
@@ -90,13 +107,17 @@ where
   LC: LeafCollector,
 {
   inner: LC,
+  cache: ScoreCachingWrappingScorerCache,
 }
 impl<LC> ScoreCachingWrappingLeafCollector<LC>
 where
   LC: LeafCollector,
 {
   pub(crate) fn new(base: LC) -> Self {
-    Self { inner: base }
+    Self {
+      inner: base,
+      cache: ScoreCachingWrappingScorerCache::new(),
+    }
   }
 }
 
@@ -114,12 +135,14 @@ where
   LC: LeafCollector,
 {
   fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-    let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
+    self.cache.init();
+    let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, self.cache.clone());
     self.inner.set_scorer(&mut wrapper)
   }
 
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-    let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
+    let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, self.cache.clone());
+    self.cache.init();
     self.inner.collect(doc, &mut wrapper)
   }
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
