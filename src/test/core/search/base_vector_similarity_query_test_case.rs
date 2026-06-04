@@ -875,10 +875,10 @@ impl HasIdentity for CountingQuery {
 }
 
 impl QueryBase for CountingQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!(
       "CountingQuery[{}]",
-      self.delegate.as_string(field)?
+      self.delegate.to_string(field)?
     ))
   }
 

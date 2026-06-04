@@ -668,7 +668,7 @@ impl NodeBase for QueryNode {
 }
 impl Display for QueryNode {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.item.as_string("") {
+    match self.item.to_string("") {
       Ok(s) => write!(f, "del={}", s),
       Err(_) => Err(std::fmt::Error),
     }

@@ -284,7 +284,7 @@ impl HasIdentity for BooleanQuery {
   }
 }
 impl QueryBase for BooleanQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut buffer = String::new();
     let need_parens = self.minimum_number_should_match > 0;
 
@@ -297,10 +297,10 @@ impl QueryBase for BooleanQuery {
       let is_boolean = matches!(&clause.query, Query::Boolean(_));
       if is_boolean {
         buffer.push('(');
-        buffer.push_str(&clause.query.as_string(field)?);
+        buffer.push_str(&clause.query.to_string(field)?);
         buffer.push(')');
       } else {
-        buffer.push_str(&clause.query.as_string(field)?);
+        buffer.push_str(&clause.query.to_string(field)?);
       }
 
       if i != self.clauses.len() - 1 {

@@ -1708,7 +1708,7 @@ fn test_to_string() -> Result<()> {
   bq.add(TermQuery::new(Term::from_text("field", "d")), Occur::Filter)?;
 
   let q = bq.build();
-  assert_eq!("a +b -c #d", q.as_string("field")?);
+  assert_eq!("a +b -c #d", q.to_string("field")?);
   Ok(())
 }
 #[test]

@@ -213,7 +213,7 @@ impl HasIdentity for PointRangeQuery {
   }
 }
 impl QueryBase for PointRangeQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     self.to_string(field)
   }
 
@@ -410,7 +410,7 @@ where
     let scorer = self.scorer(context, searcher)?;
     self
       .base
-      .explain(scorer, doc, self.parent_query.as_string("")?)
+      .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

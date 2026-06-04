@@ -274,7 +274,7 @@ impl_into_box_query!(
 );
 
 pub trait QueryBase: Debug + HasIdentity {
-  fn as_string(&self, field: &str) -> Result<String>;
+  fn to_string(&self, field: &str) -> Result<String>;
 
   fn create_weight<IRC>(
     self,
@@ -451,8 +451,8 @@ impl HasIdentity for Query {
   }
 }
 impl QueryBase for Query {
-  fn as_string(&self, field: &str) -> Result<String> {
-    dispatch_query!(self, |q| q.as_string(field))
+  fn to_string(&self, field: &str) -> Result<String> {
+    dispatch_query!(self, |q| q.to_string(field))
   }
   fn create_weight<IRC>(
     self,
@@ -511,8 +511,8 @@ impl<Q> QueryBase for Arc<Q>
 where
   Q: QueryBase,
 {
-  fn as_string(&self, field: &str) -> Result<String> {
-    (**self).as_string(field)
+  fn to_string(&self, field: &str) -> Result<String> {
+    (**self).to_string(field)
   }
 
   fn create_weight<IRC>(

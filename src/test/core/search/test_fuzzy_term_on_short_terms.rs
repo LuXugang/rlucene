@@ -149,7 +149,7 @@ where
   let r = directory_reader::open(d.clone())?;
   let s = new_searcher_with_reader(r)?;
   let total_hits = s.count(q.clone())?;
-  assert_eq!(expected, total_hits, "{}", q.as_string("")?);
+  assert_eq!(expected, total_hits, "{}", q.to_string("")?);
   Ok(())
 }
 fn get_directory<R, A>(random: &mut R, analyzer: A, vals: &str) -> Result<Arc<DirEnum>>

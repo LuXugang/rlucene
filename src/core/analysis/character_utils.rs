@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+
 use crate::core::analysis::reader::Reader;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -164,9 +166,13 @@ impl CharacterBuffer {
     self.offset = 0;
     self.length = 0;
   }
-  pub fn as_string(&self) -> String {
-    self.buffer[self.offset..self.offset + self.length]
-      .iter()
-      .collect()
+}
+
+impl fmt::Display for CharacterBuffer {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    for ch in &self.buffer[self.offset..self.offset + self.length] {
+      write!(f, "{ch}")?;
+    }
+    Ok(())
   }
 }

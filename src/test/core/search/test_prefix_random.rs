@@ -143,7 +143,7 @@ impl DumbPrefixQuery {
 }
 
 impl QueryBase for DumbPrefixQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     if self.field == field {
       Ok(format!("{}", self.prefix))
     } else {
@@ -181,7 +181,7 @@ impl QueryBase for DumbPrefixQuery {
 
 impl Debug for DumbPrefixQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.as_string("") {
+    match self.to_string("") {
       Ok(s) => write!(f, "{}", s),
       Err(_) => Err(std::fmt::Error),
     }
@@ -218,7 +218,7 @@ impl MultiTermQuery for DumbPrefixQuery {
     Ok(terms_enum)
   }
 
-  fn as_query(&self) -> Query {
+  fn to_query(&self) -> Query {
     MultiTermQuerySet::from(self.clone()).into()
   }
 }

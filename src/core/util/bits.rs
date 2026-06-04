@@ -51,7 +51,7 @@ pub trait Bits: HasIdentity {
     }
     Ok(bit_set)
   }
-  fn as_string(&self) -> String {
+  fn to_string(&self) -> String {
     std::any::type_name::<Self>().to_string()
   }
 }
@@ -161,10 +161,10 @@ where
     }
   }
 
-  fn as_string(&self) -> String {
+  fn to_string(&self) -> String {
     match self {
-      BitsEnum2::A(t) => t.as_string(),
-      BitsEnum2::B(s) => s.as_string(),
+      BitsEnum2::A(t) => t.to_string(),
+      BitsEnum2::B(s) => s.to_string(),
     }
   }
 }
@@ -184,8 +184,8 @@ where
   fn copy_of(&self) -> Result<FixedBitSet> {
     (**self).copy_of()
   }
-  fn as_string(&self) -> String {
-    (**self).as_string()
+  fn to_string(&self) -> String {
+    (**self).to_string()
   }
 }
 
@@ -205,7 +205,7 @@ where
     <T as Bits>::copy_of(*self)
   }
 
-  fn as_string(&self) -> String {
-    <T as Bits>::as_string(*self)
+  fn to_string(&self) -> String {
+    <T as Bits>::to_string(*self)
   }
 }

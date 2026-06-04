@@ -230,8 +230,8 @@ impl Hash for AssertNeedsScores {
 }
 
 impl QueryBase for AssertNeedsScores {
-  fn as_string(&self, field: &str) -> Result<String> {
-    Ok(format!("asserting({})", self.query.as_string(field)?))
+  fn to_string(&self, field: &str) -> Result<String> {
+    Ok(format!("asserting({})", self.query.to_string(field)?))
   }
 
   fn create_weight<IRC>(
@@ -248,7 +248,7 @@ impl QueryBase for AssertNeedsScores {
       self.value,
       *score_mode,
       "query={}",
-      self.query.as_string("")?
+      self.query.to_string("")?
     );
     let inner_weight = (*self.query)
       .clone()

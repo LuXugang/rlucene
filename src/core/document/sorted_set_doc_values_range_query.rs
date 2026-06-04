@@ -107,7 +107,7 @@ impl HasIdentity for SortedSetDocValuesRangeQuery {
   }
 }
 impl QueryBase for SortedSetDocValuesRangeQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut b = String::new();
     if self.field.as_str() != field {
       b.push_str(self.field.as_str());
@@ -220,7 +220,7 @@ where
     let scorer = self.scorer(context, searcher)?;
     self
       .base
-      .explain(scorer, doc, self.parent_query.as_string("")?)
+      .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

@@ -1260,7 +1260,7 @@ impl PartialEq for MaxScoreWrapperQuery {
 }
 
 impl QueryBase for MaxScoreWrapperQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok("MaxScoreWrapperQuery".to_string())
   }
 
@@ -1456,7 +1456,7 @@ impl HasIdentity for WANDScorerQuery {
 }
 
 impl QueryBase for WANDScorerQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok("WANDScorerQuery".to_string())
   }
 

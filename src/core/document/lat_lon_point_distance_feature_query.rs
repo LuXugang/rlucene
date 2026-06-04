@@ -117,7 +117,7 @@ impl HasIdentity for LatLonPointDistanceFeatureQuery {
 }
 
 impl QueryBase for LatLonPointDistanceFeatureQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!(
       "LatLonPointDistanceFeatureQuery(field={field},originLat={},originLon={},pivotDistance={})",
       self.origin_lat, self.origin_lon, self.pivot_distance

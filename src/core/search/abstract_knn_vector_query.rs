@@ -589,7 +589,7 @@ impl HasIdentity for DocAndScoreQuery {
 }
 
 impl QueryBase for DocAndScoreQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!(
       "DocAndScoreQuery[{},...][{},...],{}",
       self.docs[0], self.scores[0], self.max_score

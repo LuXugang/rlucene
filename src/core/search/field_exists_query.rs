@@ -121,7 +121,7 @@ impl HasIdentity for FieldExistsQuery {
 }
 
 impl QueryBase for FieldExistsQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("FieldExistsQuery [field={}]", self.field))
   }
 
@@ -291,7 +291,7 @@ where
     let scorer = self.scorer(context, searcher)?;
     self
       .base
-      .explain(scorer, doc, self.parent_query.as_string("")?)
+      .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

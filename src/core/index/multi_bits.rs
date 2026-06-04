@@ -120,7 +120,7 @@ where
             "s={} l={} b={}",
             self.starts[i],
             bits.length(),
-            bits.as_string()
+            bits.to_string()
           )?;
         },
       }

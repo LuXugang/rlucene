@@ -951,10 +951,10 @@ where
     }
   }
 
-  fn as_string(&self) -> String {
+  fn to_string(&self) -> String {
     match self {
-      OffHeapFloatVectorValueBitsEnum::Dense(e) => e.as_string(),
-      OffHeapFloatVectorValueBitsEnum::Sparse(e) => e.as_string(),
+      OffHeapFloatVectorValueBitsEnum::Dense(e) => e.to_string(),
+      OffHeapFloatVectorValueBitsEnum::Sparse(e) => e.to_string(),
     }
   }
 }

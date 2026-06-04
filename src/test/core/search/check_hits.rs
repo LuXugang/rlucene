@@ -69,7 +69,7 @@ impl CheckHits {
   where
     IRC: IndexReaderContext,
   {
-    let d = q.as_string(default_field_name)?;
+    let d = q.to_string(default_field_name)?;
     let ignore: BTreeSet<i32> = results.iter().copied().collect();
 
     let max_doc = searcher.get_index_reader().max_doc()?;

@@ -1541,7 +1541,7 @@ impl HasIdentity for TestRewriteQuery {
 }
 
 impl QueryBase for TestRewriteQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("TestRewriteQuery({:?})", self.num_rewrites))
   }
 

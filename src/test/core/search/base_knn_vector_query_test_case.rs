@@ -1084,7 +1084,7 @@ pub trait BaseKnnVectorQueryTestCase {
   }
 
   fn assert_doc_score_query_to_string(&self, query: &Query) -> Result<()> {
-    let query_string = query.as_string("ignored")?;
+    let query_string = query.to_string("ignored")?;
     assert!(query_string.starts_with("DocAndScoreQuery["));
     assert!(query_string.contains(",...]["));
     assert!(query_string.contains(",...],"));

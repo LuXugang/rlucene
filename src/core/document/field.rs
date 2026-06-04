@@ -598,7 +598,7 @@ impl IndexableField for Field {
   fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
     match &self.fields_data {
       FieldDataEnum::String(s) => Ok(Some(Cow::Borrowed(s))),
-      FieldDataEnum::Number(n) => Ok(Some(Cow::Owned(n.as_string()))),
+      FieldDataEnum::Number(n) => Ok(Some(Cow::Owned(n.to_string()))),
       _ => Ok(None),
     }
   }
@@ -611,7 +611,7 @@ impl IndexableField for Field {
     }
     match std::mem::replace(&mut self.fields_data, FieldDataEnum::Dummy(())) {
       FieldDataEnum::String(s) => Ok(Some(s)),
-      FieldDataEnum::Number(n) => Ok(Some(n.as_string())),
+      FieldDataEnum::Number(n) => Ok(Some(n.to_string())),
       _ => Ok(None),
     }
   }

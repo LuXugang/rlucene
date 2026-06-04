@@ -480,7 +480,7 @@ where
     self.base_composite_reader_base.get_sequential_sub_readers()
   }
 
-  fn as_string(&self) -> String {
+  fn to_string(&self) -> String {
     let mut buffer = String::new();
     buffer.push_str("StandardDirectoryReader");
     buffer.push('(');
@@ -574,7 +574,7 @@ where
   D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.as_string())
+    write!(f, "{}", CompositeReader::to_string(&self))
   }
 }
 

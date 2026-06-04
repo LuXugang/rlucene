@@ -75,8 +75,8 @@ impl PartialEq for BoostQuery {
 }
 impl Eq for BoostQuery {}
 impl QueryBase for BoostQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
-    let inner = self.query.as_string(field)?;
+  fn to_string(&self, field: &str) -> Result<String> {
+    let inner = self.query.to_string(field)?;
     let mut s = String::new();
     s.push('(');
     s.push_str(&inner);

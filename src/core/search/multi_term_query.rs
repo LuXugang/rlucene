@@ -82,7 +82,7 @@ pub trait MultiTermQuery: QueryBase + Clone {
     -1
   }
 
-  fn as_query(&self) -> Query;
+  fn to_query(&self) -> Query;
 }
 /// Abstract class that defines how the query is rewritten.
 pub trait RewriteMethod {
@@ -449,8 +449,8 @@ pub enum MultiTermQuerySet {
 }
 
 impl QueryBase for MultiTermQuerySet {
-  fn as_string(&self, field: &str) -> Result<String> {
-    dispatch_multi_term_query!(self, |q| q.as_string(field))
+  fn to_string(&self, field: &str) -> Result<String> {
+    dispatch_multi_term_query!(self, |q| q.to_string(field))
   }
 
   fn create_weight<IRC>(

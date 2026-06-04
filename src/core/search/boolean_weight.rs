@@ -202,7 +202,7 @@ where
           subs.push(Explanation::no_match(
             format!(
               "match on prohibited clause ({})",
-              clause.query.as_string("")?
+              clause.query.to_string("")?
             ),
             vec![e],
           ));
@@ -220,7 +220,7 @@ where
         subs.push(Explanation::no_match(
           format!(
             "no match on required clause ({})",
-            clause.query.as_string("")?
+            clause.query.to_string("")?
           ),
           vec![e],
         ));

@@ -625,9 +625,9 @@ fn test_to_string() -> Result<()> {
   let mut random = random();
   let q1 = SortedNumericDocValuesField::new_slow_range_query("foo", 3, 5);
 
-  assert_eq!("foo:[3 TO 5]", q1.as_string("")?);
-  assert_eq!("[3 TO 5]", q1.as_string("foo")?);
-  assert_eq!("foo:[3 TO 5]", q1.as_string("bar")?);
+  assert_eq!("foo:[3 TO 5]", q1.to_string("")?);
+  assert_eq!("[3 TO 5]", q1.to_string("foo")?);
+  assert_eq!("foo:[3 TO 5]", q1.to_string("bar")?);
 
   let q2 = SortedSetDocValuesField::new_slow_range_query(
     "foo",
@@ -636,7 +636,7 @@ fn test_to_string() -> Result<()> {
     true,
     true,
   );
-  assert_eq!("foo:[[62 61 72] TO [62 61 7a]]", q2.as_string("")?);
+  assert_eq!("foo:[[62 61 72] TO [62 61 7a]]", q2.to_string("")?);
 
   let q2 = SortedSetDocValuesField::new_slow_range_query(
     "foo",
@@ -645,7 +645,7 @@ fn test_to_string() -> Result<()> {
     false,
     true,
   );
-  assert_eq!("foo:{[62 61 72] TO [62 61 7a]]", q2.as_string("")?);
+  assert_eq!("foo:{[62 61 72] TO [62 61 7a]]", q2.to_string("")?);
 
   let q2 = SortedSetDocValuesField::new_slow_range_query(
     "foo",
@@ -654,7 +654,7 @@ fn test_to_string() -> Result<()> {
     false,
     false,
   );
-  assert_eq!("foo:{[62 61 72] TO [62 61 7a]}", q2.as_string("")?);
+  assert_eq!("foo:{[62 61 72] TO [62 61 7a]}", q2.to_string("")?);
 
   let q2 = SortedSetDocValuesField::new_slow_range_query(
     "foo",
@@ -663,7 +663,7 @@ fn test_to_string() -> Result<()> {
     true,
     true,
   );
-  assert_eq!("foo:[[62 61 72] TO *}", q2.as_string("")?);
+  assert_eq!("foo:[[62 61 72] TO *}", q2.to_string("")?);
 
   let q2 = SortedSetDocValuesField::new_slow_range_query(
     "foo",
@@ -672,9 +672,9 @@ fn test_to_string() -> Result<()> {
     true,
     true,
   );
-  assert_eq!("foo:{* TO [62 61 7a]]", q2.as_string("")?);
-  assert_eq!("{* TO [62 61 7a]]", q2.as_string("foo")?);
-  assert_eq!("foo:{* TO [62 61 7a]]", q2.as_string("bar")?);
+  assert_eq!("foo:{* TO [62 61 7a]]", q2.to_string("")?);
+  assert_eq!("{* TO [62 61 7a]]", q2.to_string("foo")?);
+  assert_eq!("foo:{* TO [62 61 7a]]", q2.to_string("bar")?);
 
   Ok(())
 }

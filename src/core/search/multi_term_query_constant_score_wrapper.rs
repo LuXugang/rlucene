@@ -65,7 +65,7 @@ impl MultiTermQueryConstantScoreWrapper {
 
 impl Debug for MultiTermQueryConstantScoreWrapper {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.as_string("") {
+    match self.to_string("") {
       Ok(s) => write!(f, "{}", s),
       Err(_) => Err(std::fmt::Error),
     }
@@ -79,8 +79,8 @@ impl HasIdentity for MultiTermQueryConstantScoreWrapper {
 }
 
 impl QueryBase for MultiTermQueryConstantScoreWrapper {
-  fn as_string(&self, field: &str) -> Result<String> {
-    self.q.as_string(field)
+  fn to_string(&self, field: &str) -> Result<String> {
+    self.q.to_string(field)
   }
 
   fn create_weight<IRC>(

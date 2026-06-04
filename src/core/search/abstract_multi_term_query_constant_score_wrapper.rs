@@ -76,7 +76,7 @@ where
   Q: MultiTermQuery,
 {
   pub(crate) fn new(score: f32, score_mode: ScoreMode, q: Q, sub: RewritingWeightBaseEnum) -> Self {
-    let query = Arc::new(q.as_query());
+    let query = Arc::new(q.to_query());
     let base = ConstantScoreWeight::new(score);
     Self {
       score_mode,
@@ -161,7 +161,7 @@ where
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Explanation> {
     let scorer = self.scorer(context, searcher)?;
-    self.base.explain(scorer, doc, self.query.as_string("")?)
+    self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

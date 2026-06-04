@@ -184,8 +184,8 @@ fn test_delete_left_over_files() -> Result<()> {
       "IndexFileDeleter failed to delete unreferenced extra files: should have deleted {} files but only deleted {}; expected files:\n    {}\n  actual files:\n    {}\ndiff: {:?}",
       files_pre.len() - files.len(),
       files_pre.len() - files2.len(),
-      as_string(&files),
-      as_string(&files2),
+      to_string(&files),
+      to_string(&files2),
       dif
     );
   }
@@ -212,7 +212,7 @@ fn diff_files(files1: &[String], files2: &[String]) -> HashSet<String> {
   extra
 }
 
-fn as_string(list: &[String]) -> String {
+fn to_string(list: &[String]) -> String {
   let mut s = String::new();
   for (i, item) in list.iter().enumerate() {
     if i > 0 {

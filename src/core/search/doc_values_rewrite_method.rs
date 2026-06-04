@@ -108,7 +108,7 @@ impl MultiTermQueryDocValuesWrapper {
 
 impl Debug for MultiTermQueryDocValuesWrapper {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.as_string("") {
+    match self.to_string("") {
       Ok(s) => write!(f, "{}", s),
       Err(_) => Err(std::fmt::Error),
     }
@@ -122,8 +122,8 @@ impl HasIdentity for MultiTermQueryDocValuesWrapper {
 }
 
 impl QueryBase for MultiTermQueryDocValuesWrapper {
-  fn as_string(&self, field: &str) -> Result<String> {
-    self.query.as_string(field)
+  fn to_string(&self, field: &str) -> Result<String> {
+    self.query.to_string(field)
   }
 
   fn create_weight<IRC>(
@@ -230,7 +230,7 @@ where
     let scorer = self.scorer(context, searcher)?;
     self
       .base
-      .explain(scorer, doc, self.parent_query.as_string("")?)
+      .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

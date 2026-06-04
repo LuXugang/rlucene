@@ -212,7 +212,7 @@ impl HasIdentity for PhraseQuery {
 }
 
 impl QueryBase for PhraseQuery {
-  fn as_string(&self, f: &str) -> Result<String> {
+  fn to_string(&self, f: &str) -> Result<String> {
     let mut buffer = String::new();
 
     if let Some(field) = &self.field
@@ -551,7 +551,7 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
       return Err(LuceneError::illegal_state(format!(
         "field \"{}\" was indexed without position data; cannot run PhraseQuery (phrase={})",
         self.base.field,
-        self.query.as_string(&self.base.field)?
+        self.query.to_string(&self.base.field)?
       )));
     }
 

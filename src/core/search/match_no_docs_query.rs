@@ -88,7 +88,7 @@ impl HasIdentity for MatchNoDocsQuery {
 }
 
 impl QueryBase for MatchNoDocsQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("MatchNoDocsQuery(\"{}\")", self.reason))
   }
 

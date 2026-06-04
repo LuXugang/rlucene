@@ -293,7 +293,7 @@ fn test_to_string() -> Result<()> {
     let query = case.get_knn_vector_query_no_filter("field", vec![0.0, 1.0], 10)?;
     assert_eq!(
       "KnnFloatVectorQuery:field[0,...][10]",
-      query.as_string("ignored")?
+      query.to_string("ignored")?
     );
 
     let rewritten = searcher.rewrite(query.clone())?;
@@ -303,7 +303,7 @@ fn test_to_string() -> Result<()> {
     let query = case.get_knn_vector_query("field", vec![0.0, 1.0], 10, Some(filter))?;
     assert_eq!(
       "KnnFloatVectorQuery:field[0,...][10][id:text]",
-      query.as_string("ignored")?
+      query.to_string("ignored")?
     );
     Ok(())
   })

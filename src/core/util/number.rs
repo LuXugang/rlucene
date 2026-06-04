@@ -104,17 +104,6 @@ impl Number {
       Number::BigInt(n) => n.to_f64(),
     }
   }
-  pub fn as_string(&self) -> String {
-    match self {
-      Number::U8(n) => n.to_string(),
-      Number::I16(n) => n.to_string(),
-      Number::I32(n) => n.to_string(),
-      Number::I64(n) => n.to_string(),
-      Number::F32(n) => n.to_string(),
-      Number::F64(n) => n.to_string(),
-      Number::BigInt(n) => n.to_string(),
-    }
-  }
 }
 
 impl fmt::Display for Number {

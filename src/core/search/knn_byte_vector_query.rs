@@ -125,7 +125,7 @@ impl HasIdentity for KnnByteVectorQuery {
 }
 
 impl QueryBase for KnnByteVectorQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     let mut buffer = String::new();
     buffer.push_str(std::any::type_name::<Self>().rsplit("::").next().unwrap());
     buffer.push(':');
@@ -138,7 +138,7 @@ impl QueryBase for KnnByteVectorQuery {
     buffer.push(']');
     if let Some(filter) = &self.base.filter {
       buffer.push('[');
-      buffer.push_str(&filter.as_string("")?);
+      buffer.push_str(&filter.to_string("")?);
       buffer.push(']');
     }
     Ok(buffer)

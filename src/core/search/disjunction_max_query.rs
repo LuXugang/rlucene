@@ -109,14 +109,14 @@ impl HasIdentity for DisjunctionMaxQuery {
 }
 
 impl QueryBase for DisjunctionMaxQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut parts = Vec::with_capacity(self.ordered_queries.len());
 
     for subquery in &self.ordered_queries {
       let s = if matches!(subquery, Query::Boolean(_)) {
-        format!("({})", subquery.as_string(field)?)
+        format!("({})", subquery.to_string(field)?)
       } else {
-        subquery.as_string(field)?
+        subquery.to_string(field)?
       };
       parts.push(s);
     }

@@ -333,7 +333,7 @@ impl HasIdentity for BitSetQuery {
 }
 
 impl QueryBase for BitSetQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok("randomBitSetFilter".to_string())
   }
 
@@ -428,7 +428,7 @@ where
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Explanation> {
     let scorer = self.scorer(context, searcher)?;
-    self.base.explain(scorer, doc, self.query.as_string("")?)
+    self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

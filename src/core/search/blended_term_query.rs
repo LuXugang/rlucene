@@ -118,7 +118,7 @@ impl HasIdentity for BlendedTermQuery {
 }
 
 impl QueryBase for BlendedTermQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut builder = String::from("Blended(");
 
     for (i, term) in self.terms.iter().enumerate() {
@@ -131,7 +131,7 @@ impl QueryBase for BlendedTermQuery {
         term_query = BoostQuery::new(term_query, self.boosts[i])?.into();
       }
 
-      builder.push_str(&term_query.as_string(field)?);
+      builder.push_str(&term_query.to_string(field)?);
     }
 
     builder.push(')');

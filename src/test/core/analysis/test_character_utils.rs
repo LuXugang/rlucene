@@ -102,15 +102,15 @@ fn test_fill() -> Result<()> {
 
   assert!(CharacterUtils::fill(&mut buffer, &mut reader)?);
   assert_eq!(buffer.length, 5);
-  assert_eq!(buffer.as_string(), "1234𐐜");
+  assert_eq!(buffer.to_string(), "1234𐐜");
 
   assert!(CharacterUtils::fill(&mut buffer, &mut reader)?);
   assert_eq!(buffer.length, 5);
-  assert_eq!(buffer.as_string(), "78912");
+  assert_eq!(buffer.to_string(), "78912");
 
   assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
   assert_eq!(buffer.length, 4);
-  assert_eq!(buffer.as_string(), "3?𐐜?");
+  assert_eq!(buffer.to_string(), "3?𐐜?");
 
   assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
   assert_eq!(buffer.length, 0);

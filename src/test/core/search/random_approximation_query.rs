@@ -86,8 +86,8 @@ impl HasIdentity for RandomApproximationQuery {
 }
 
 impl QueryBase for RandomApproximationQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
-    self.query.as_string(field)
+  fn to_string(&self, field: &str) -> Result<String> {
+    self.query.to_string(field)
   }
 
   fn create_weight<IRC>(

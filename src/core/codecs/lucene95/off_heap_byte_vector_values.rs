@@ -949,10 +949,10 @@ where
     }
   }
 
-  fn as_string(&self) -> String {
+  fn to_string(&self) -> String {
     match self {
-      Self::Dense(e) => e.as_string(),
-      Self::Sparse(e) => e.as_string(),
+      Self::Dense(e) => e.to_string(),
+      Self::Sparse(e) => e.to_string(),
     }
   }
 }

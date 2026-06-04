@@ -137,7 +137,7 @@ impl HasIdentity for TermInSetQuery {
 }
 
 impl QueryBase for TermInSetQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     let mut builder = String::new();
     builder.push_str(&self.field);
     builder.push_str(":(");
@@ -187,7 +187,7 @@ impl QueryBase for TermInSetQuery {
 
 impl Debug for TermInSetQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.as_string("") {
+    match self.to_string("") {
       Ok(s) => write!(f, "{}", s),
       Err(_) => Err(std::fmt::Error),
     }
@@ -238,7 +238,7 @@ impl MultiTermQuery for TermInSetQuery {
     self.get_terms_count()
   }
 
-  fn as_query(&self) -> Query {
+  fn to_query(&self) -> Query {
     MultiTermQuerySet::from(self.clone()).into()
   }
 }

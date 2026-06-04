@@ -145,7 +145,7 @@ where
       score_explanation.value.clone(),
       format!(
         "weight({} in {}) [{}], result of:",
-        self.sub.base().query.as_string(&self.sub.base().field)?,
+        self.sub.base().query.to_string(&self.sub.base().field)?,
         doc,
         self.sub.base().similarity
       ),

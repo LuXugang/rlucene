@@ -280,7 +280,7 @@ impl ByteBuffersDataOutput {
   /// Moves the blocks out of the current object, transferring ownership.
   /// # Parameters
   /// - `init_blocks`: If init_blocks is true, then after taking ownership of blocks, we pre-allocate the space so it can be reused.
-  pub fn get_buffer_list_owner(&mut self, init_blocks: bool) -> (usize, Vec<Cursor<Vec<u8>>>) {
+  pub fn to_buffer_list_owner(&mut self, init_blocks: bool) -> (usize, Vec<Cursor<Vec<u8>>>) {
     let size = self.size();
 
     let old_blocks = {
@@ -374,7 +374,7 @@ impl ByteBuffersDataOutput {
   /// # Parameters
   /// - `init_blocks`: If init_blocks is true, then after taking ownership of blocks, we pre-allocate the space so it can be reused.
   pub fn get_data_input_owner(&mut self, init_blocks: bool) -> Result<ByteBuffersDataInputOwned> {
-    let (length, data) = self.get_buffer_list_owner(init_blocks);
+    let (length, data) = self.to_buffer_list_owner(init_blocks);
     ByteBuffersDataInput::new(data, length)
   }
 

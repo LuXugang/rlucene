@@ -124,7 +124,7 @@ impl FstReader for ReadWriteDataOutput {
   fn init_reader(&mut self) {
     self.finish = true;
     if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
-      let (_, byte_buffers_raw) = self.data_output.get_buffer_list_owner(false);
+      let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner(false);
       let mut data: Vec<Vec<u8>> = byte_buffers_raw
         .into_iter()
         .map(|b| b.into_inner())

@@ -183,9 +183,9 @@ fn test_equals() -> Result<()> {
 fn test_to_string() -> Result<()> {
   let q1 = create_query("foo", 3, 5);
 
-  assert_eq!("foo:[3 TO 5]", q1.as_string("")?);
-  assert_eq!("[3 TO 5]", q1.as_string("foo")?);
-  assert_eq!("foo:[3 TO 5]", q1.as_string("bar")?);
+  assert_eq!("foo:[3 TO 5]", q1.to_string("")?);
+  assert_eq!("[3 TO 5]", q1.to_string("foo")?);
+  assert_eq!("foo:[3 TO 5]", q1.to_string("bar")?);
 
   Ok(())
 }

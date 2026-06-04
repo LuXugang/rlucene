@@ -107,7 +107,7 @@ impl Eq for TermQuery {}
 
 impl Debug for TermQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.as_string("") {
+    match self.to_string("") {
       Ok(s) => write!(f, "{}", s),
       Err(_) => Err(std::fmt::Error),
     }
@@ -121,7 +121,7 @@ impl HasIdentity for TermQuery {
 }
 
 impl QueryBase for TermQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut buffer = String::new();
     if self.term.field != field {
       buffer.push_str(&self.term.field);

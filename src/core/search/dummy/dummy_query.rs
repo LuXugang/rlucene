@@ -63,7 +63,7 @@ impl HasIdentity for DummyQuery {
   }
 }
 impl QueryBase for DummyQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     dummy_unreachable!()
   }
 

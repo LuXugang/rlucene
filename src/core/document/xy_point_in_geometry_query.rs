@@ -127,7 +127,7 @@ impl HasIdentity for XYPointInGeometryQuery {
 }
 
 impl QueryBase for XYPointInGeometryQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::from("XYPointInGeometryQuery:");
     if self.field != field {
       sb.push_str(" field=");
@@ -235,7 +235,7 @@ where
     let scorer = self.scorer(context, searcher)?;
     self
       .base
-      .explain(scorer, doc, self.parent_query.as_string("")?)
+      .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

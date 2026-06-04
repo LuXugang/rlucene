@@ -96,7 +96,7 @@ where
 
   let mut output = String::new();
   let query = TermQuery::new(Term::from_text(PRIORITY_FIELD, HIGH_PRIORITY));
-  output.push_str(&format!("Query: {}\n", query.as_string(PRIORITY_FIELD)?));
+  output.push_str(&format!("Query: {}\n", query.to_string(PRIORITY_FIELD)?));
 
   let hits = searcher.search_with_sort_score(query, max_docs, sort.clone(), true)?;
   output.push_str(&format!("{} total results\n\n", hits.score_docs().len()));
@@ -124,7 +124,7 @@ where
   let boolean_query = boolean_query.build();
   output.push_str(&format!(
     "Query: {}\n",
-    boolean_query.as_string(PRIORITY_FIELD)?
+    boolean_query.to_string(PRIORITY_FIELD)?
   ));
 
   let hits = searcher.search_with_sort_score(boolean_query, max_docs, sort, true)?;

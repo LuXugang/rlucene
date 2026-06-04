@@ -472,20 +472,20 @@ fn test_slop_scoring() -> Result<()> {
 #[test]
 fn test_to_string() -> Result<()> {
   let q = PhraseQuery::from_terms(0, "field", &[])?;
-  assert_eq!("\"\"", q.as_string("")?);
+  assert_eq!("\"\"", q.to_string("")?);
 
   // single term at position 1
   let mut builder = crate::core::search::phrase_query::Builder::new();
   builder.add(Term::from_text("field", "hi"), 1)?;
   let q = builder.build()?;
-  assert_eq!("field:\"? hi\"", q.as_string("")?);
+  assert_eq!("field:\"? hi\"", q.to_string("")?);
 
   // two terms with gap
   let mut builder = crate::core::search::phrase_query::Builder::new();
   builder.add(Term::from_text("field", "hi"), 1)?;
   builder.add(Term::from_text("field", "test"), 5)?;
   let q = builder.build()?;
-  assert_eq!("field:\"? hi ? ? ? test\"", q.as_string("")?);
+  assert_eq!("field:\"? hi ? ? ? test\"", q.to_string("")?);
 
   // multi-term at same position
   let mut builder = crate::core::search::phrase_query::Builder::new();
@@ -493,7 +493,7 @@ fn test_to_string() -> Result<()> {
   builder.add(Term::from_text("field", "hello"), 1)?;
   builder.add(Term::from_text("field", "test"), 5)?;
   let q = builder.build()?;
-  assert_eq!("field:\"? hi|hello ? ? ? test\"", q.as_string("")?);
+  assert_eq!("field:\"? hi|hello ? ? ? test\"", q.to_string("")?);
 
   // with slop
   let mut builder = crate::core::search::phrase_query::Builder::new();
@@ -502,7 +502,7 @@ fn test_to_string() -> Result<()> {
   builder.add(Term::from_text("field", "test"), 5)?;
   builder.set_slop(5);
   let q = builder.build()?;
-  assert_eq!("field:\"? hi|hello ? ? ? test\"~5", q.as_string("")?);
+  assert_eq!("field:\"? hi|hello ? ? ? test\"~5", q.to_string("")?);
 
   Ok(())
 }
@@ -675,7 +675,7 @@ fn test_empty_phrase_query() -> Result<()> {
   let mut b = Builder::new();
   b.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Must)?;
   let q: Query = b.build().into();
-  let _ = q.as_string("");
+  let _ = q.to_string("");
   Ok(())
 }
 
@@ -811,7 +811,7 @@ fn test_top_phrases() -> Result<()> {
       let top_docs2 = searcher.search_with_collector_manager(query.clone(), &collector_manager)?;
       let hits2 = top_docs2.score_docs();
 
-      assert!(!hits1.is_empty(), "{}", query.as_string("")?);
+      assert!(!hits1.is_empty(), "{}", query.to_string("")?);
       CheckHits::check_equal(&query, hits1, hits2)?;
     }
   }

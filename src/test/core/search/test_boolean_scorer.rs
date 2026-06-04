@@ -497,7 +497,7 @@ impl HasIdentity for CrazyMustUseBulkScorerQuery {
 }
 
 impl QueryBase for CrazyMustUseBulkScorerQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok("MustUseBulkScorerQuery".to_string())
   }
 

@@ -748,7 +748,7 @@ where
     let scorer = self.scorer(context, searcher)?;
     self
       .base
-      .explain(scorer, doc, self.get_query().as_string("")?)
+      .explain(scorer, doc, self.get_query().to_string("")?)
   }
   fn get_query(&self) -> Arc<Query> {
     self.in_.get_query()

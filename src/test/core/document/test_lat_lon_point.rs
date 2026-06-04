@@ -30,12 +30,12 @@ fn test_to_string() -> Result<()> {
 
   assert_eq!(
     "field:[18.000000016763806 TO 18.999999999068677],[-65.9999999217689 TO -65.00000006519258]",
-    LatLonPoint::new_box_query("field", 18.0, 19.0, -66.0, -65.0)?.as_string("")?
+    LatLonPoint::new_box_query("field", 18.0, 19.0, -66.0, -65.0)?.to_string("")?
   );
 
   assert_eq!(
     "field:18.0,19.0 +/- 25.0 meters",
-    LatLonPoint::new_distance_query("field", 18.0, 19.0, 25.0)?.as_string("")?
+    LatLonPoint::new_distance_query("field", 18.0, 19.0, 25.0)?.to_string("")?
   );
 
   Ok(())

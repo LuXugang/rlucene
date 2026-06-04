@@ -297,7 +297,7 @@ fn test_simple_equal_scores1() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(4, h.len(), "all docs should match {}", q.as_string("")?);
+  assert_eq!(4, h.len(), "all docs should match {}", q.to_string("")?);
   let score = h[0].score;
   for (i, item) in h.iter().enumerate().skip(1) {
     assert!(
@@ -322,7 +322,7 @@ fn test_simple_equal_scores2() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(3, h.len(), "3 docs should match {}", q.as_string("")?);
+  assert_eq!(3, h.len(), "3 docs should match {}", q.to_string("")?);
   let score = h[0].score;
   for (i, item) in h.iter().enumerate().skip(1) {
     assert!(
@@ -354,7 +354,7 @@ fn test_simple_equal_scores3() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(4, h.len(), "all docs should match {}", q.as_string("")?);
+  assert_eq!(4, h.len(), "all docs should match {}", q.to_string("")?);
   let score = h[0].score;
   for (i, sd) in h.iter().enumerate().skip(1) {
     assert!(
@@ -381,7 +381,7 @@ fn test_simple_tiebreaker() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(3, h.len(), "3 docs should match {}", q.as_string("")?);
+  assert_eq!(3, h.len(), "3 docs should match {}", q.to_string("")?);
 
   let mut stored_fields = s.stored_fields()?;
   let first_doc = stored_fields.document(h[0].doc)?;
@@ -436,7 +436,7 @@ fn test_boolean_required_equal_scores() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(3, h.len(), "3 docs should match {}", q.as_string("")?);
+  assert_eq!(3, h.len(), "3 docs should match {}", q.to_string("")?);
 
   let score = h[0].score;
   for (i, sd) in h.iter().enumerate().skip(1) {
@@ -478,7 +478,7 @@ fn test_boolean_optional_no_tiebreaker() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(4, h.len(), "4 docs should match {}", q.as_string("")?);
+  assert_eq!(4, h.len(), "4 docs should match {}", q.to_string("")?);
 
   let score = h[0].score;
   for (i, sd) in h.iter().enumerate().skip(1).take(h.len().saturating_sub(2)) {
@@ -532,7 +532,7 @@ fn test_boolean_optional_with_tiebreaker() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(4, h.len(), "4 docs should match {}", q.as_string("")?);
+  assert_eq!(4, h.len(), "4 docs should match {}", q.to_string("")?);
 
   let score0 = h[0].score;
   let score1 = h[1].score;
@@ -634,7 +634,7 @@ fn test_boolean_optional_with_tiebreaker_and_boost() -> Result<()> {
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
-  assert_eq!(4, h.len(), "4 docs should match {}", q.as_string("")?);
+  assert_eq!(4, h.len(), "4 docs should match {}", q.to_string("")?);
 
   let score0 = h[0].score;
   let score1 = h[1].score;
@@ -766,7 +766,7 @@ fn test_to_string_order_matters() -> Result<()> {
 
   let source = DisjunctionMaxQuery::new(disjuncts, 1.0)?;
 
-  assert_eq!(expected, source.as_string("")?);
+  assert_eq!(expected, source.to_string("")?);
 
   Ok(())
 }

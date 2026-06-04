@@ -121,7 +121,7 @@ where
     self.lr.as_slice()
   }
 
-  fn as_string(&self) -> String {
+  fn to_string(&self) -> String {
     dummy_unreachable!()
   }
 }

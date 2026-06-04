@@ -99,7 +99,7 @@ impl Hash for SynonymQuery {
 
 impl Debug for SynonymQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.as_string("") {
+    match self.to_string("") {
       Ok(s) => write!(f, "{}", s),
       Err(_) => Err(std::fmt::Error),
     }
@@ -113,7 +113,7 @@ impl HasIdentity for SynonymQuery {
 }
 
 impl QueryBase for SynonymQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut builder = String::from("Synonym(");
     for (i, term_and_boost) in self.terms.iter().enumerate() {
       if i != 0 {
@@ -121,7 +121,7 @@ impl QueryBase for SynonymQuery {
       }
       let term_query: Query =
         TermQuery::new(Term::new(self.field.clone(), term_and_boost.term.clone())).into();
-      builder.push_str(&term_query.as_string(field)?);
+      builder.push_str(&term_query.to_string(field)?);
       if term_and_boost.boost != 1.0 {
         builder.push('^');
         builder.push_str(&format!("{:.1}", term_and_boost.boost));

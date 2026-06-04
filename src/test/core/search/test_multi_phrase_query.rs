@@ -130,13 +130,13 @@ fn test_phrase_prefix() -> Result<()> {
   let query1 = query1builder.build();
   assert_eq!(
     "body:\"blueberry (piccadilly pie pizza)\"",
-    query1.as_string("")?
+    query1.to_string("")?
   );
   query2builder.add_terms(&terms_with_prefix)?;
   let query2 = query2builder.build();
   assert_eq!(
     "body:\"strawberry (piccadilly pie pizza)\"",
-    query2.as_string("")?
+    query2.to_string("")?
   );
 
   let result = searcher.search(query1, 1000)?;
@@ -172,7 +172,7 @@ fn test_phrase_prefix() -> Result<()> {
     .add_terms(&terms_with_prefix)?
     .add_term(Term::from_text("body", "pizza"))?;
   let query3 = query3builder.build();
-  assert_eq!("body:\"(blueberry bluebird) pizza\"", query3.as_string("")?);
+  assert_eq!("body:\"(blueberry bluebird) pizza\"", query3.to_string("")?);
 
   let result = searcher.search(query3, 1000)?;
   assert_eq!(2, result.total_hits.value()); // blueberry pizza, bluebird pizza
@@ -531,7 +531,7 @@ where
 fn test_empty_to_string() -> Result<()> {
   let query1builder = MultiPhraseQuery::builder();
   let query1 = query1builder.build();
-  let _ = query1.as_string("")?;
+  let _ = query1.to_string("")?;
   Ok(())
 }
 

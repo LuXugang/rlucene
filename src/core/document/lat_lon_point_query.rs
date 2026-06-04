@@ -54,8 +54,8 @@ pub(crate) fn lat_lon_point_query(
 }
 
 impl QueryBase for LatLonPointQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
-    self.as_string(field)
+  fn to_string(&self, field: &str) -> Result<String> {
+    self.to_string(field)
   }
 
   fn create_weight<IRC>(

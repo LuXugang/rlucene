@@ -93,14 +93,14 @@ fn test_equals() -> Result<()> {
 fn test_to_string() -> Result<()> {
   let builder = blended_term_query::Builder::new();
   let query = builder.build()?;
-  assert_eq!("Blended()", query.as_string("")?);
+  assert_eq!("Blended()", query.to_string("")?);
 
   let t1 = Term::from_text("foo", "bar");
 
   let mut builder = blended_term_query::Builder::new();
   builder.add(t1.clone())?;
   let query = builder.build()?;
-  assert_eq!("Blended(foo:bar)", query.as_string("")?);
+  assert_eq!("Blended(foo:bar)", query.to_string("")?);
 
   let t2 = Term::from_text("foo", "baz");
 
@@ -108,13 +108,13 @@ fn test_to_string() -> Result<()> {
   builder.add(t1.clone())?;
   builder.add(t2.clone())?;
   let query = builder.build()?;
-  assert_eq!("Blended(foo:bar foo:baz)", query.as_string("")?);
+  assert_eq!("Blended(foo:bar foo:baz)", query.to_string("")?);
 
   let mut builder = blended_term_query::Builder::new();
   builder.add_with_boost(t1, 4.0)?;
   builder.add_with_boost(t2, 3.0)?;
   let query = builder.build()?;
-  assert_eq!("Blended((foo:bar)^4.0 (foo:baz)^3.0)", query.as_string("")?);
+  assert_eq!("Blended((foo:bar)^4.0 (foo:baz)^3.0)", query.to_string("")?);
 
   Ok(())
 }

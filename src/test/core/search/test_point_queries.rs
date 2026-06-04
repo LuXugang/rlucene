@@ -1891,7 +1891,7 @@ fn test_basic_multi_value_multi_dim_point_in_set_query() -> Result<()> {
 
   assert_eq!(
     "int:{-14,-14 17,42}",
-    new_multi_dim_int_set_query("int", 2, &[17, 42, -14, -14])?.as_string("")?
+    new_multi_dim_int_set_query("int", 2, &[17, 42, -14, -14])?.to_string("")?
   );
 
   w.close()?;
@@ -2669,7 +2669,7 @@ fn test_point_in_set_query_to_string() -> Result<()> {
   // binary
   assert_eq!(
     "bytes:{[12] [2a]}",
-    BinaryPoint::new_set_query("bytes", [vec![42u8], vec![18u8]])?.as_string("")?
+    BinaryPoint::new_set_query("bytes", [vec![42u8], vec![18u8]])?.to_string("")?
   );
   Ok(())
 }

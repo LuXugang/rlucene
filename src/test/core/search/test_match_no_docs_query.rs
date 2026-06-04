@@ -51,18 +51,18 @@ where
 fn test_simple() -> Result<()> {
   {
     let mut query = MatchNoDocsQuery::new();
-    assert_eq!(query.as_string("")?, "MatchNoDocsQuery(\"\")");
+    assert_eq!(query.to_string("")?, "MatchNoDocsQuery(\"\")");
 
     query = MatchNoDocsQuery::with_reason("field 'title' not found");
     assert_eq!(
-      query.as_string("")?,
+      query.to_string("")?,
       "MatchNoDocsQuery(\"field 'title' not found\")"
     );
     let dummy_searcher = dummy_index_searcher(dummy_directory()?)?;
     let rewrite = query.rewrite(&dummy_searcher)?;
     assert!(matches!(rewrite, Query::MatchNoDocs(_)));
     assert_eq!(
-      rewrite.as_string("")?,
+      rewrite.to_string("")?,
       "MatchNoDocsQuery(\"field 'title' not found\")"
     );
   }
@@ -96,7 +96,7 @@ fn test_query() -> Result<()> {
   let hits = searcher.search(MatchNoDocsQuery::new(), 1000)?.score_docs;
   assert_eq!(hits.len(), 0);
   assert_eq!(
-    query.as_string("")?,
+    query.to_string("")?,
     "MatchNoDocsQuery(\"field not found\")"
   );
 
@@ -116,7 +116,7 @@ fn test_query() -> Result<()> {
   let hits = searcher.search(MatchNoDocsQuery::new(), 1000)?.score_docs;
   assert_eq!(hits.len(), 0);
   assert_eq!(
-    query.as_string("")?,
+    query.to_string("")?,
     "key:five +MatchNoDocsQuery(\"field not found\")"
   );
 
@@ -129,7 +129,7 @@ fn test_query() -> Result<()> {
   query = bq.build().into();
 
   assert_eq!(
-    query.as_string("")?,
+    query.to_string("")?,
     "key:one MatchNoDocsQuery(\"field not found\")"
   );
   assert_eq!(searcher.count(query.clone())?, 1);
@@ -138,7 +138,7 @@ fn test_query() -> Result<()> {
   let rewrite = searcher.rewrite(query.clone())?;
 
   assert_eq!(hits.len(), 1);
-  assert_eq!(rewrite.as_string("")?, "key:one");
+  assert_eq!(rewrite.to_string("")?, "key:one");
 
   iw.close()?;
 

@@ -91,7 +91,7 @@ fn do_test_search(use_compound_file: bool) -> Result<String> {
 
   let mut output = String::new();
   for query in build_queries()? {
-    output.push_str(&format!("Query: {}\n", query.as_string("contents")?));
+    output.push_str(&format!("Query: {}\n", query.to_string("contents")?));
 
     let hits = searcher.search_with_sort_score(query, 1000, sort.clone(), true)?;
     output.push_str(&format!("{} total results\n", hits.total_hits().value()));

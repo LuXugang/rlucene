@@ -224,20 +224,20 @@ fn test_to_string() -> Result<()> {
   let q1 = DoubleRangeDocValuesField::new_slow_intersects_query("foo", double_min, double_max)?;
   assert_eq!(
     "foo:[[112.7, 296.0, 512.4000244140625] TO [119.3, 314.8, 524.2999877929688]]",
-    q1.as_string("")?
+    q1.to_string("")?
   );
 
   let int_min = [3, 11, 17];
   let int_max = [27, 35, 49];
   let q2 = IntRangeDocValuesField::new_slow_intersects_query("foo", int_min, int_max)?;
-  assert_eq!("foo:[[3, 11, 17] TO [27, 35, 49]]", q2.as_string("")?);
+  assert_eq!("foo:[[3, 11, 17] TO [27, 35, 49]]", q2.to_string("")?);
 
   let float_min = [3.7f32, 11.0, 33.4];
   let float_max = [8.3f32, 21.6, 59.8];
   let q3 = FloatRangeDocValuesField::new_slow_intersects_query("foo", float_min, float_max)?;
   assert_eq!(
     "foo:[[3.7, 11.0, 33.4] TO [8.3, 21.6, 59.8]]",
-    q3.as_string("")?
+    q3.to_string("")?
   );
 
   let long_min = [101i64, 124, 137];
@@ -245,7 +245,7 @@ fn test_to_string() -> Result<()> {
   let q4 = LongRangeDocValuesField::new_slow_intersects_query("foo", long_min, long_max)?;
   assert_eq!(
     "foo:[[101, 124, 137] TO [138, 145, 156]]",
-    q4.as_string("")?
+    q4.to_string("")?
   );
 
   Ok(())

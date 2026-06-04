@@ -104,11 +104,11 @@ impl HasIdentity for IndexOrDocValuesQuery {
 }
 
 impl QueryBase for IndexOrDocValuesQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!(
       "IndexOrDocValuesQuery(indexQuery={:?}, dvQuery={:?})",
-      self.index_query.as_string(field),
-      self.dv_query.as_string(field)
+      self.index_query.to_string(field),
+      self.dv_query.to_string(field)
     ))
   }
 

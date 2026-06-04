@@ -115,7 +115,7 @@ impl AutomatonQuery {
 }
 
 impl QueryBase for AutomatonQuery {
-  fn as_string(&self, field: &str) -> Result<String> {
+  fn to_string(&self, field: &str) -> Result<String> {
     let mut buffer = String::new();
 
     if self.term.field() != field {
@@ -163,7 +163,7 @@ impl QueryBase for AutomatonQuery {
 
 impl Debug for AutomatonQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self.as_string("") {
+    match self.to_string("") {
       Ok(s) => write!(f, "{}", s),
       Err(_) => Err(std::fmt::Error),
     }
@@ -210,7 +210,7 @@ impl MultiTermQuery for AutomatonQuery {
     self.compiled.get_terms_enum(terms)
   }
 
-  fn as_query(&self) -> Query {
+  fn to_query(&self) -> Query {
     MultiTermQuerySet::from(self.clone()).into()
   }
 }

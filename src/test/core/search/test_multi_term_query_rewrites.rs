@@ -297,7 +297,7 @@ impl BoostCheckingQuery {
 }
 
 impl QueryBase for BoostCheckingQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok("dummy".to_string())
   }
 
@@ -360,7 +360,7 @@ impl MultiTermQuery for BoostCheckingQuery {
     Ok(terms_enum)
   }
 
-  fn as_query(&self) -> Query {
+  fn to_query(&self) -> Query {
     MultiTermQuerySet::from(self.clone()).into()
   }
 }

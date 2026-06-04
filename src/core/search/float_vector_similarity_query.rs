@@ -202,7 +202,7 @@ impl HasIdentity for FloatVectorSimilarityQuery {
 }
 
 impl QueryBase for FloatVectorSimilarityQuery {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     let target = self
       .target
       .first()
@@ -216,7 +216,7 @@ impl QueryBase for FloatVectorSimilarityQuery {
       self.base.traversal_similarity,
       self.base.result_similarity,
       match &self.base.filter {
-        Some(filter) => filter.as_string("")?,
+        Some(filter) => filter.to_string("")?,
         None => "None".to_string(),
       }
     ))

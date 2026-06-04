@@ -408,7 +408,7 @@ fn test_to_string() -> Result<()> {
       new_bytes_ref_from_string(&mut random, "c")?,
     ],
   );
-  assert_eq!("field1:(a b c)", terms_query.as_string("")?);
+  assert_eq!("field1:(a b c)", terms_query.to_string("")?);
   Ok(())
 }
 
@@ -467,7 +467,7 @@ fn test_binary_to_string() -> Result<()> {
     "field",
     vec![new_bytes_ref_from_bytes(&mut random, &[0xff, 0xfe])?],
   );
-  assert_eq!("field:([ff fe])", query.as_string("")?);
+  assert_eq!("field:([ff fe])", query.to_string("")?);
   Ok(())
 }
 

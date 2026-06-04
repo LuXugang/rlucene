@@ -202,7 +202,7 @@ impl HasIdentity for DummyQuery1 {
 }
 
 impl QueryBase for DummyQuery1 {
-  fn as_string(&self, _field: &str) -> Result<String> {
+  fn to_string(&self, _field: &str) -> Result<String> {
     Ok("dummy".to_string())
   }
 
@@ -283,7 +283,7 @@ where
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Explanation> {
     let scorer = self.scorer(context, searcher)?;
-    self.base.explain(scorer, doc, self.query.as_string("")?)
+    self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
   fn get_query(&self) -> Arc<Query> {

@@ -99,7 +99,7 @@ fn test_equals() -> Result<()> {
 fn test_to_string() -> Result<()> {
   assert_eq!(
     "(foo:bar)^2.0",
-    BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?.as_string("")?
+    BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?.to_string("")?
   );
 
   let mut builder = Builder::new();
@@ -109,7 +109,7 @@ fn test_to_string() -> Result<()> {
 
   assert_eq!(
     "(foo:bar foo:baz)^2.0",
-    BoostQuery::new(bq, 2.0)?.as_string("")?
+    BoostQuery::new(bq, 2.0)?.to_string("")?
   );
 
   Ok(())
