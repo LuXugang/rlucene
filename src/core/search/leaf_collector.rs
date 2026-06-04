@@ -202,6 +202,11 @@ either_leaf_collector!(
     { A: A, B: B }
 );
 
+either_leaf_collector!(
+    pub LeafCollectorEnum3
+    { A: A, B: B, C: C }
+);
+
 struct CollectorConsumer<'a, LC, S>
 where
   LC: LeafCollector + ?Sized,

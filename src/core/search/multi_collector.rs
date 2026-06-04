@@ -1,0 +1,434 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::collector::Collector;
+use crate::core::search::filter_scorable::FilterScorable;
+use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2, LeafCollectorEnum3};
+use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
+use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
+use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::weight::Weight;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::fmt::{Display, Formatter};
+
+/// A [`Collector`] which allows running a search with several [`Collector`]s.
+///
+/// This module offers a [`wrap`] function which accepts a list of collectors and wraps them with
+/// [`MultiCollector`], while filtering out the `None` ones.
+///
+/// **Note:** When mixing collectors that want to skip low-scoring hits
+/// ([`ScoreMode::TopScores`]) with ones that require seeing all hits, such as mixing a
+/// `TopScoreDocCollector` and a `TotalHitCountCollector`, it should be faster to run the query
+/// twice, once for each collector, rather than using this wrapper on a single search.
+pub struct MultiCollector<C> {
+  cache_scores: bool,
+  collectors: Vec<C>,
+}
+
+impl<C> MultiCollector<C>
+where
+  C: Collector,
+{
+  pub fn new(collectors: Vec<C>) -> Result<Self> {
+    if collectors.is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "At least 1 collector must not be None",
+      ));
+    }
+    let num_needs_scores = collectors
+      .iter()
+      .filter(|collector| collector.score_mode().needs_scores())
+      .count();
+    Ok(Self {
+      cache_scores: num_needs_scores >= 2,
+      collectors,
+    })
+  }
+
+  /// Provides access to the wrapped [`Collector`]s for advanced use-cases.
+  pub fn get_collectors(&self) -> &[C] {
+    &self.collectors
+  }
+
+  pub fn get_collectors_mut(&mut self) -> &mut [C] {
+    &mut self.collectors
+  }
+}
+
+/// Wraps a list of [`Collector`]s with a [`MultiCollector`].
+///
+/// This method works as follows:
+///
+/// - Filters out the `None` collectors, so they are not used during search time.
+/// - If the input contains 1 real collector, it is returned as [`OneOrMultiCollector::One`].
+/// - Otherwise the method returns a [`OneOrMultiCollector::Multi`] which wraps the non-`None` ones.
+///
+/// # Errors
+///
+/// Returns an error if either 0 collectors were input, or all collectors are `None`.
+pub fn wrap<C>(collectors: impl IntoIterator<Item = Option<C>>) -> Result<OneOrMultiCollector<C>>
+where
+  C: Collector,
+{
+  // For the user's convenience, we allow None collectors to be passed.
+  // However, to improve performance, these None collectors are found
+  // and dropped from the array we save for actual collection time.
+  let collectors: Vec<C> = collectors.into_iter().flatten().collect();
+  match collectors.len() {
+    0 => Err(LuceneError::illegal_argument(
+      "At least 1 collector must not be None",
+    )),
+    1 => Ok(OneOrMultiCollector::One(
+      collectors.into_iter().next().unwrap(),
+    )),
+    _ => Ok(OneOrMultiCollector::Multi(MultiCollector::new(collectors)?)),
+  }
+}
+
+impl<C> Collector for MultiCollector<C>
+where
+  C: Collector,
+{
+  type LeafCollector<'a, IRC>
+    = LeafCollectorEnum3<
+    C::LeafCollector<'a, IRC>,
+    MultiLeafCollector<C::LeafCollector<'a, IRC>>,
+    ScoreCachingWrappingLeafCollector<MultiLeafCollector<C::LeafCollector<'a, IRC>>>,
+  >
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
+
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    let global_score_mode = self.score_mode();
+    let mut leaf_collectors = Vec::with_capacity(self.collectors.len());
+    let mut leaf_score_mode = None;
+    for collector in self.collectors.iter_mut() {
+      let collector_score_mode = collector.score_mode();
+
+      match collector.get_leaf_collector(context, weight) {
+        Ok(leaf_collector) => {
+          match leaf_score_mode {
+            None => leaf_score_mode = Some(collector_score_mode),
+            Some(score_mode) if score_mode == collector_score_mode => {},
+            Some(_) => leaf_score_mode = Some(ScoreMode::Complete),
+          }
+          leaf_collectors.push(leaf_collector);
+        },
+        Err(LuceneError::CollectionTerminated(_)) => continue,
+        Err(e) => return Err(e),
+      }
+    }
+    if leaf_collectors.is_empty() {
+      Err(LuceneError::collection_terminated(""))
+    } else if leaf_collectors.len() == 1
+      && (global_score_mode == ScoreMode::TopScores
+        || leaf_score_mode != Some(ScoreMode::TopScores))
+    {
+      Ok(LeafCollectorEnum3::A(
+        leaf_collectors.into_iter().next().unwrap(),
+      ))
+    } else {
+      let leaf_collector =
+        MultiLeafCollector::new(leaf_collectors, global_score_mode == ScoreMode::TopScores);
+      if self.cache_scores {
+        Ok(LeafCollectorEnum3::C(
+          ScoreCachingWrappingLeafCollector::new(leaf_collector),
+        ))
+      } else {
+        Ok(LeafCollectorEnum3::B(leaf_collector))
+      }
+    }
+  }
+
+  fn score_mode(&self) -> ScoreMode {
+    let mut score_mode = None;
+    for collector in &self.collectors {
+      let collector_score_mode = collector.score_mode();
+      match score_mode {
+        None => score_mode = Some(collector_score_mode),
+        Some(current) if current == collector_score_mode => {},
+        Some(current) => {
+          score_mode = Some(
+            if current.needs_scores() || collector_score_mode.needs_scores() {
+              ScoreMode::Complete
+            } else {
+              ScoreMode::CompleteNoScores
+            },
+          );
+        },
+      }
+    }
+    score_mode.expect("MultiCollector requires at least one collector")
+  }
+
+  fn set_weight<W, IRC>(&self, weight: Option<&W>) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    for collector in self.collectors.iter() {
+      collector.set_weight(weight)?;
+    }
+    Ok(())
+  }
+}
+
+/// Result of [`wrap`].
+pub enum OneOrMultiCollector<C> {
+  One(C),
+  Multi(MultiCollector<C>),
+}
+
+impl<C> Collector for OneOrMultiCollector<C>
+where
+  C: Collector,
+{
+  type LeafCollector<'a, IRC>
+    = LeafCollectorEnum2<
+    C::LeafCollector<'a, IRC>,
+    <MultiCollector<C> as Collector>::LeafCollector<'a, IRC>,
+  >
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
+
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    match self {
+      Self::One(collector) => collector
+        .get_leaf_collector(context, weight)
+        .map(LeafCollectorEnum2::A),
+      Self::Multi(collector) => collector
+        .get_leaf_collector(context, weight)
+        .map(LeafCollectorEnum2::B),
+    }
+  }
+
+  fn score_mode(&self) -> ScoreMode {
+    match self {
+      Self::One(collector) => collector.score_mode(),
+      Self::Multi(collector) => collector.score_mode(),
+    }
+  }
+
+  fn set_weight<W, IRC>(&self, weight: Option<&W>) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    match self {
+      Self::One(collector) => collector.set_weight(weight),
+      Self::Multi(collector) => collector.set_weight(weight),
+    }
+  }
+}
+
+pub struct MultiLeafCollector<LC> {
+  collectors: Vec<Option<LC>>,
+  min_scores: Option<Vec<f32>>,
+  skip_non_competitive_scores: bool,
+}
+
+impl<LC> MultiLeafCollector<LC> {
+  fn new(collectors: Vec<LC>, skip_non_competitive_scores: bool) -> Self {
+    let min_scores = if skip_non_competitive_scores {
+      Some(vec![0.0; collectors.len()])
+    } else {
+      None
+    };
+    Self {
+      collectors: collectors.into_iter().map(Some).collect(),
+      min_scores,
+      skip_non_competitive_scores,
+    }
+  }
+
+  fn all_collectors_terminated(&self) -> bool {
+    self.collectors.iter().all(Option::is_none)
+  }
+}
+
+impl<LC> Display for MultiLeafCollector<LC> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl<LC> LeafCollector for MultiLeafCollector<LC>
+where
+  LC: LeafCollector,
+{
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    if self.skip_non_competitive_scores {
+      let min_scores = self.min_scores.as_mut().ok_or_else(|| {
+        LuceneError::illegal_state("min scores exist when non-competitive scores are skipped")
+      })?;
+      for (idx, collector) in self.collectors.iter_mut().enumerate() {
+        if let Some(c) = collector {
+          let mut scorer = MinCompetitiveScoreAwareScorable::new(scorer, idx, min_scores);
+          c.set_scorer(&mut scorer)?;
+        }
+      }
+    } else {
+      let mut scorer = FilterScorable::new(scorer);
+      for collector in self.collectors.iter_mut().flatten() {
+        collector.set_scorer(&mut scorer)?;
+      }
+    }
+    Ok(())
+  }
+
+  // NOTE: not propagating collect(DocIdStream) since DocIdStreams may only be consumed once.
+  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    self.collect_with_scorer(doc, scorer)
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    for collector in self.collectors.iter_mut().flatten() {
+      collector.finish()?;
+    }
+    Ok(())
+  }
+}
+
+impl<LC> MultiLeafCollector<LC>
+where
+  LC: LeafCollector,
+{
+  fn collect_with_scorer(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    if self.skip_non_competitive_scores {
+      let collectors = &mut self.collectors;
+      let min_scores = self
+        .min_scores
+        .as_mut()
+        .expect("min scores exist when non-competitive scores are skipped");
+      for idx in 0..collectors.len() {
+        if let Some(collector) = collectors[idx].as_mut() {
+          let mut scorer = MinCompetitiveScoreAwareScorable::new(scorer, idx, min_scores);
+          match collector.collect(doc, &mut scorer) {
+            Ok(()) => {},
+            Err(LuceneError::CollectionTerminated(_)) => {
+              collector.finish()?;
+              collectors[idx] = None;
+              if collectors.iter().all(Option::is_none) {
+                return Err(LuceneError::collection_terminated(""));
+              }
+            },
+            Err(e) => return Err(e),
+          }
+        }
+      }
+      return Ok(());
+    }
+
+    let mut scorer = FilterScorable::new(scorer);
+    for idx in 0..self.collectors.len() {
+      if let Some(collector) = self.collectors[idx].as_mut() {
+        match collector.collect(doc, &mut scorer) {
+          Ok(()) => {},
+          Err(LuceneError::CollectionTerminated(_)) => {
+            collector.finish()?;
+            self.collectors[idx] = None;
+            if self.all_collectors_terminated() {
+              return Err(LuceneError::collection_terminated(""));
+            }
+          },
+          Err(e) => return Err(e),
+        }
+      }
+    }
+    Ok(())
+  }
+}
+
+pub struct MinCompetitiveScoreAwareScorable<'a, S>
+where
+  S: Scorable + ?Sized,
+{
+  in_: &'a mut S,
+  idx: usize,
+  min_scores: &'a mut [f32],
+}
+
+impl<'a, S> MinCompetitiveScoreAwareScorable<'a, S>
+where
+  S: Scorable + ?Sized,
+{
+  pub fn new(in_: &'a mut S, idx: usize, min_scores: &'a mut [f32]) -> Self {
+    Self {
+      in_,
+      idx,
+      min_scores,
+    }
+  }
+
+  fn min_score(&self) -> f32 {
+    self
+      .min_scores
+      .iter()
+      .copied()
+      .fold(f32::MAX, |min, score| min.min(score))
+  }
+}
+
+impl<S> Scorable for MinCompetitiveScoreAwareScorable<'_, S>
+where
+  S: Scorable + ?Sized,
+{
+  fn score(&mut self) -> Result<f32> {
+    self.in_.score()
+  }
+
+  fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
+    self.in_.smoothing_score(doc_id)
+  }
+
+  fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
+    if min_score > self.min_scores[self.idx] {
+      self.min_scores[self.idx] = min_score;
+      self.in_.set_min_competitive_score(self.min_score())?;
+    }
+    Ok(())
+  }
+
+  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+    self.in_.get_children()
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.in_.cost()
+  }
+}
+
+impl<S> FixedScore for MinCompetitiveScoreAwareScorable<'_, S> where S: Scorable + ?Sized {}
