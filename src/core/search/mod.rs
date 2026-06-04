@@ -133,6 +133,7 @@ pub mod max_non_competitive_boost_attribute;
 pub mod max_non_competitive_boost_attribute_impl;
 pub(crate) mod max_score_bulk_scorer;
 pub mod multi_collector;
+pub mod multi_collector_manager;
 pub mod multi_phrase_query;
 pub mod multi_term_query;
 pub(crate) mod multi_term_query_constant_score_blended_wrapper;

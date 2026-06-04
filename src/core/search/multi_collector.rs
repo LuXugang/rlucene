@@ -68,6 +68,10 @@ where
   pub fn get_collectors_mut(&mut self) -> &mut [C] {
     &mut self.collectors
   }
+
+  pub fn into_collectors(self) -> Vec<C> {
+    self.collectors
+  }
 }
 
 /// Wraps a list of [`Collector`]s with a [`MultiCollector`].

@@ -32,6 +32,22 @@ use crate::core::search::collector::Collector;
 ///
 /// See also: `IndexSearcher::search(query, manager)`
 use crate::core::util::error::lucene_error::Result;
+/// A manager of collectors. This class is useful to parallelize execution of search requests and has
+/// two main methods:
+///
+/// - [`CollectorManager::new_collector`], which must return a NEW collector which will be used to
+///   collect a certain set of leaves.
+/// - [`CollectorManager::reduce`], which will be used to reduce the results of individual
+///   collections into a meaningful result. This method is only called after all leaves have been
+///   fully collected.
+///
+/// **Note:** Multiple [`LeafCollector`]s may be requested for the same [`LeafReaderContext`] via
+/// [`Collector::get_leaf_collector`] across the different [`Collector`]s returned by
+/// [`CollectorManager::new_collector`]. Any computation or logic that needs to happen once per
+/// segment requires specific handling in the collector manager implementation, because the
+/// collection of an entire segment may be split across threads.
+///
+/// See also [`IndexSearcher::search`].
 pub trait CollectorManager {
   /// The per-shard/per-task collector type to create.
   type C: Collector;
@@ -48,4 +64,20 @@ pub trait CollectorManager {
   /// and then merge them, similar to `TopDocs::merge(...)`. This **must be called after**
   /// collection is finished on all provided collectors.
   fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T>;
+}
+
+impl<M> CollectorManager for &M
+where
+  M: CollectorManager + ?Sized,
+{
+  type C = M::C;
+  type T = M::T;
+
+  fn new_collector(&self) -> Result<Self::C> {
+    (**self).new_collector()
+  }
+
+  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+    (**self).reduce(collectors)
+  }
 }
