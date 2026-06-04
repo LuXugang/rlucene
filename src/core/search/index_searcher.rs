@@ -35,7 +35,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_cache::QueryCacheEnum;
 use crate::core::search::query_caching_policy::{QueryCachingPolicyArc, QueryCachingPolicyEnum};
 use crate::core::search::score_doc::ScoreDoc;
@@ -247,7 +247,7 @@ where
   pub fn search_after_score(
     &self,
     after: Option<ScoreDoc>,
-    query: impl Into<Query>,
+    query: impl IntoQuery,
     num_hits: usize,
   ) -> Result<TopDocs<ScoreDoc>> {
     let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
@@ -279,7 +279,7 @@ where
   {
     self.query_timeout = Some(Arc::new(query_timeout.into()))
   }
-  pub fn search(&self, query: impl Into<Query>, n: usize) -> Result<TopDocs<ScoreDoc>> {
+  pub fn search(&self, query: impl IntoQuery, n: usize) -> Result<TopDocs<ScoreDoc>> {
     self.search_after_score(None, query, n)
   }
   /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
@@ -293,7 +293,7 @@ where
   /// [`get_max_clause_count()`] clauses.
   pub fn search_with_sort_score<T>(
     &self,
-    query: impl Into<Query>,
+    query: impl IntoQuery,
     n: usize,
     sort: T,
     do_doc_scores: bool,
@@ -316,7 +316,7 @@ where
   /// Returns an error if a low-level I/O error occurs.
   pub fn search_with_sort<T>(
     &self,
-    query: impl Into<Query>,
+    query: impl IntoQuery,
     n: usize,
     sort: T,
   ) -> Result<TopFieldDocs>
@@ -336,11 +336,11 @@ where
   /// Count how many documents match the given query.
   /// May be faster than counting number of hits by collecting all matches,
   /// as the number of hits is retrieved from the index statistics when possible.
-  pub fn count(&self, query: impl Into<Query>) -> Result<i32> {
+  pub fn count(&self, query: impl IntoQuery) -> Result<i32> {
     #[cfg(test)]
     self.count_invocations.fetch_add(1, Ordering::Relaxed);
 
-    let query = query.into();
+    let query = query.into_query();
     let mut query = self.rewrite(ConstantScoreQuery::new(query))?;
     if let Query::ConstantScore(csq) = query {
       query = csq.into_inner()
@@ -376,7 +376,7 @@ where
     do_doc_scores: bool,
   ) -> Result<TopFieldDocs>
   where
-    Q: Into<Query>,
+    Q: IntoQuery,
     T: Into<Arc<Sort>>,
   {
     self.do_search_after_field(after, query, num_hits, sort, do_doc_scores)
@@ -389,7 +389,7 @@ where
     sort: T,
   ) -> Result<TopFieldDocs>
   where
-    Q: Into<Query>,
+    Q: IntoQuery,
     T: Into<Arc<Sort>>,
   {
     self.do_search_after_field(after, query, num_hits, sort, false)
@@ -404,7 +404,7 @@ where
     do_doc_scores: bool,
   ) -> Result<TopFieldDocs>
   where
-    Q: Into<Query>,
+    Q: IntoQuery,
     T: Into<Arc<Sort>>,
   {
     let limit: usize = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
@@ -423,7 +423,7 @@ where
     // let rewritten_sort = sort.rewrite(self)?;
     let manager =
       TopFieldCollectorManager::with_after(sort, capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
-    let query = query.into();
+    let query = query.into_query();
     let mut top_field_docs = self.search_with_collector_manager(query.clone(), &manager)?;
 
     if do_doc_scores {
@@ -435,13 +435,13 @@ where
 
   pub fn search_with_collector_manager<CM>(
     &self,
-    query: impl Into<Query>,
+    query: impl IntoQuery,
     collector_manager: &CM,
   ) -> Result<CM::T>
   where
     CM: CollectorManager,
   {
-    let mut query = query.into();
+    let mut query = query.into_query();
     let first_collector = collector_manager.new_collector()?;
     let needs_scores = first_collector.score_mode().needs_scores();
     query = self.rewrite_with_needs_scores(query, needs_scores)?;
@@ -449,11 +449,11 @@ where
     let weight = self.create_weight(query, score_mode, 1.0)?;
     self.search_with_first_collector(weight.as_ref(), collector_manager, first_collector)
   }
-  pub fn search_with_collector<C>(&self, query: impl Into<Query>, collector: &mut C) -> Result<()>
+  pub fn search_with_collector<C>(&self, query: impl IntoQuery, collector: &mut C) -> Result<()>
   where
     C: Collector,
   {
-    let query = query.into();
+    let query = query.into_query();
     let needs_scores = collector.score_mode().needs_scores();
     let query = self.rewrite_with_needs_scores(query, needs_scores)?;
     let weight = self.create_weight(query, collector.score_mode(), 1.0)?;
@@ -599,9 +599,9 @@ where
   }
   pub fn rewrite<Q>(&self, query: Q) -> Result<Query>
   where
-    Q: Into<Query>,
+    Q: IntoQuery,
   {
-    let mut query = query.into();
+    let mut query = query.into_query();
     #[cfg(test)]
     if self.disable_rewrite {
       return Ok(query);
@@ -638,9 +638,9 @@ where
   /// as executing the query over the entire index.
   pub fn explain<T>(&self, query: T, doc: i32) -> Result<Explanation>
   where
-    T: Into<Query>,
+    T: IntoQuery,
   {
-    let query = self.rewrite(query.into())?;
+    let query = self.rewrite(query.into_query())?;
     let weight = self.create_weight(query, ScoreMode::Complete, 1.0)?;
     self.explain_from_weight(&weight, doc)
   }

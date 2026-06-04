@@ -22,7 +22,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::fuzzy_query::FuzzyQuery;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{IntoQuery, QueryBase};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
@@ -48,7 +48,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "abc",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "ab"), 1)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "ab"), 1)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -56,7 +56,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "ab",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abc"), 1)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abc"), 1)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -64,7 +64,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "abcde",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abc"), 2)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abc"), 2)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -72,7 +72,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "abc",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abcde"), 2)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abcde"), 2)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -80,7 +80,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "ab",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "a"), 1)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "a"), 1)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -88,7 +88,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "a",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "ab"), 1)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "ab"), 1)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -96,7 +96,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "abc",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "a"), 2)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "a"), 2)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -104,7 +104,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "a",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abc"), 2)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abc"), 2)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -112,7 +112,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "abcd",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "ab"), 2)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "ab"), 2)?,
     1,
   )?;
   let a = get_analyzer(&mut random);
@@ -120,7 +120,7 @@ fn test() -> Result<()> {
     &mut random,
     a,
     "ab",
-    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abcd"), 2)?.into(),
+    FuzzyQuery::with_max_edits(Term::from_text(FIELD, "abcd"), 2)?,
     1,
   )?;
 
@@ -138,12 +138,13 @@ fn count_hits<A>(
   random: &mut impl Rng,
   analyzer: A,
   docs: &str,
-  q: Query,
+  q: impl IntoQuery,
   expected: i32,
 ) -> Result<()>
 where
   A: Into<AnalyzerEnum>,
 {
+  let q = q.into_query();
   let d = get_directory(random, analyzer, docs)?;
   let r = directory_reader::open(d.clone())?;
   let s = new_searcher_with_reader(r)?;

@@ -41,7 +41,7 @@ use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::multi_term_query::{
-  MultiTermQuery, MultiTermQueryEnum, RewriteMethod, dispatch_multi_term_query,
+  MultiTermQuery, MultiTermQuerySet, RewriteMethod, dispatch_multi_term_query,
 };
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
@@ -77,7 +77,7 @@ pub struct DocValuesRewriteMethod;
 impl RewriteMethod for DocValuesRewriteMethod {
   fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
-    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
+    Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
   {
     Ok(ConstantScoreQuery::new(MultiTermQueryDocValuesWrapper::new(query)).into())
@@ -86,14 +86,14 @@ impl RewriteMethod for DocValuesRewriteMethod {
 
 #[derive(Clone)]
 pub struct MultiTermQueryDocValuesWrapper {
-  query: MultiTermQueryEnum,
+  query: MultiTermQuerySet,
   id: Identity,
 }
 
 impl MultiTermQueryDocValuesWrapper {
   pub fn new<T>(query: T) -> Self
   where
-    T: Into<MultiTermQueryEnum>,
+    T: Into<MultiTermQuerySet>,
   {
     Self {
       query: query.into(),
@@ -179,7 +179,7 @@ impl Eq for MultiTermQueryDocValuesWrapper {}
 
 pub struct MultiTermQueryDocValuesWeight {
   parent_query: Arc<Query>,
-  query: MultiTermQueryEnum,
+  query: MultiTermQuerySet,
   base: ConstantScoreWeight,
   score_mode: ScoreMode,
 }
@@ -259,14 +259,14 @@ where
 }
 
 pub struct DocValuesScorerSupplier {
-  query: MultiTermQueryEnum,
+  query: MultiTermQuerySet,
   cost: i64,
   score: f32,
   score_mode: ScoreMode,
 }
 
 impl DocValuesScorerSupplier {
-  fn new(query: MultiTermQueryEnum, cost: i64, score: f32, score_mode: ScoreMode) -> Self {
+  fn new(query: MultiTermQuerySet, cost: i64, score: f32, score_mode: ScoreMode) -> Self {
     Self {
       query,
       cost,
@@ -370,7 +370,7 @@ where
 /// Create a [`TermsEnum`] that provides the intersection of the query terms with the terms
 /// present in the doc values.
 fn get_terms_enum<S>(
-  query: &MultiTermQueryEnum,
+  query: &MultiTermQuerySet,
   values: S,
 ) -> Result<MultiTermQueryDocValuesTermsEnum<S>>
 where
@@ -378,37 +378,37 @@ where
 {
   let terms = DocValuesTerms::new(values);
   match query {
-    MultiTermQueryEnum::Automaton(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
+    MultiTermQuerySet::Automaton(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQueryEnum::Fuzzy(q) => Ok(MultiTermQueryDocValuesTermsEnum::Fuzzy(Box::new(
+    MultiTermQuerySet::Fuzzy(q) => Ok(MultiTermQueryDocValuesTermsEnum::Fuzzy(Box::new(
       q.get_terms_enum(terms)?,
     ))),
-    MultiTermQueryEnum::Prefix(q) => Ok(MultiTermQueryDocValuesTermsEnum::Prefix(
+    MultiTermQuerySet::Prefix(q) => Ok(MultiTermQueryDocValuesTermsEnum::Prefix(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQueryEnum::Regexp(q) => Ok(MultiTermQueryDocValuesTermsEnum::Regexp(
+    MultiTermQuerySet::Regexp(q) => Ok(MultiTermQueryDocValuesTermsEnum::Regexp(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQueryEnum::TermInSet(q) => Ok(MultiTermQueryDocValuesTermsEnum::TermInSet(
+    MultiTermQuerySet::TermInSet(q) => Ok(MultiTermQueryDocValuesTermsEnum::TermInSet(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQueryEnum::TermRange(q) => Ok(MultiTermQueryDocValuesTermsEnum::TermRange(
+    MultiTermQuerySet::TermRange(q) => Ok(MultiTermQueryDocValuesTermsEnum::TermRange(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQueryEnum::Wildcard(q) => Ok(MultiTermQueryDocValuesTermsEnum::Wildcard(
-      q.get_terms_enum(terms)?,
-    )),
-    #[cfg(test)]
-    MultiTermQueryEnum::BoostChecking(q) => Ok(MultiTermQueryDocValuesTermsEnum::BoostChecking(
+    MultiTermQuerySet::Wildcard(q) => Ok(MultiTermQueryDocValuesTermsEnum::Wildcard(
       q.get_terms_enum(terms)?,
     )),
     #[cfg(test)]
-    MultiTermQueryEnum::DumbPrefix(q) => Ok(MultiTermQueryDocValuesTermsEnum::DumbPrefix(
+    MultiTermQuerySet::BoostChecking(q) => Ok(MultiTermQueryDocValuesTermsEnum::BoostChecking(
       q.get_terms_enum(terms)?,
     )),
     #[cfg(test)]
-    MultiTermQueryEnum::DumbRegexp(q) => Ok(MultiTermQueryDocValuesTermsEnum::DumbRegexp(
+    MultiTermQuerySet::DumbPrefix(q) => Ok(MultiTermQueryDocValuesTermsEnum::DumbPrefix(
+      q.get_terms_enum(terms)?,
+    )),
+    #[cfg(test)]
+    MultiTermQuerySet::DumbRegexp(q) => Ok(MultiTermQueryDocValuesTermsEnum::DumbRegexp(
       q.get_terms_enum(terms)?,
     )),
   }

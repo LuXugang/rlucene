@@ -30,7 +30,7 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::multi_term_query::{MultiTermQueryEnum, dispatch_multi_term_query};
+use crate::core::search::multi_term_query::{MultiTermQuerySet, dispatch_multi_term_query};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -48,13 +48,13 @@ use std::hash::Hash;
 /// matches into a bit set and building a `Scorer` on top of that bit set.
 #[derive(Clone)]
 pub struct MultiTermQueryConstantScoreWrapper {
-  q: MultiTermQueryEnum,
+  q: MultiTermQuerySet,
   id: Identity,
 }
 impl MultiTermQueryConstantScoreWrapper {
   pub fn new<T>(q: T) -> Self
   where
-    T: Into<MultiTermQueryEnum>,
+    T: Into<MultiTermQuerySet>,
   {
     Self {
       q: q.into(),

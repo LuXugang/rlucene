@@ -28,7 +28,7 @@ use crate::core::search::multi_term_query::{
   RewriteMethodEnum,
 };
 use crate::core::search::prefix_query::PrefixQuery;
-use crate::core::search::query::Query;
+use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::wildcard_query::WildcardQuery;
@@ -123,11 +123,11 @@ fn csrq(
   ih: bool,
   method: impl Into<RewriteMethodEnum>,
 ) -> Result<Query> {
-  Ok(TermRangeQuery::new_string_range_with_rewrite(f, l, h, il, ih, method)?.into())
+  Ok(TermRangeQuery::new_string_range_with_rewrite(f, l, h, il, ih, method)?.into_query())
 }
 
 fn cspq(prefix: Term, method: impl Into<RewriteMethodEnum>) -> Result<Query> {
-  Ok(PrefixQuery::with_rewrite(prefix, method)?.into())
+  Ok(PrefixQuery::with_rewrite(prefix, method)?.into_query())
 }
 
 fn cswcq(wild: Term, method: impl Into<RewriteMethodEnum>) -> Result<Query> {
@@ -137,7 +137,7 @@ fn cswcq(wild: Term, method: impl Into<RewriteMethodEnum>) -> Result<Query> {
       Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
       method,
     )?
-    .into(),
+    .into_query(),
   )
 }
 

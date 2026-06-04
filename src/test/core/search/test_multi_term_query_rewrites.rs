@@ -35,7 +35,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, set_max_clause_count};
 use crate::core::search::multi_term_query::{
   CONSTANT_SCORE_BOOLEAN_REWRITE, ConstantScoreBlendedRewrite, ConstantScoreRewrite,
-  MultiTermQuery, RewriteMethod, RewriteMethodEnum, SCORING_BOOLEAN_REWRITE,
+  MultiTermQuery, MultiTermQuerySet, RewriteMethod, RewriteMethodEnum, SCORING_BOOLEAN_REWRITE,
   TopTermsBoostOnlyBooleanQueryRewrite, TopTermsScoringBooleanQueryRewrite,
 };
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
@@ -361,7 +361,7 @@ impl MultiTermQuery for BoostCheckingQuery {
   }
 
   fn as_query(&self) -> Query {
-    self.clone().into()
+    MultiTermQuerySet::from(self.clone()).into()
   }
 }
 

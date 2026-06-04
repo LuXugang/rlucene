@@ -27,7 +27,7 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
-use crate::core::search::multi_term_query::DOC_VALUES_REWRITE;
+use crate::core::search::multi_term_query::{DOC_VALUES_REWRITE, MultiTermQuerySet};
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
@@ -150,11 +150,11 @@ impl SortedDocValuesField {
   /// consequence, they are best used wrapped in an
   /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery),
   /// alongside a set query that executes on postings, such as [`TermInSetQuery`].
-  pub fn new_slow_set_query<T>(field: T, values: Vec<BytesRef<Vec<u8>>>) -> TermInSetQuery
+  pub fn new_slow_set_query<T>(field: T, values: Vec<BytesRef<Vec<u8>>>) -> MultiTermQuerySet
   where
     T: Into<String>,
   {
-    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values)
+    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values).into()
   }
 }
 

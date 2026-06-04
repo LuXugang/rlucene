@@ -29,7 +29,7 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::DOC_VALUES_REWRITE;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{IntoQuery, Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_in_set_query::TermInSetQuery;
@@ -154,9 +154,10 @@ fn test_duel() -> Result<()> {
         )?;
       }
       let q1: Query = ConstantScoreQuery::new(bq.build()).into();
-      let q2: Query = TermInSetQuery::new(field, query_terms.clone()).into();
+      let q2: Query = TermInSetQuery::new(field, query_terms.clone()).into_query();
       let q3: Query =
-        TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, query_terms).into();
+        TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, query_terms)
+          .into_query();
       assert_same_matches(
         &searcher,
         BoostQuery::new(q1.clone(), boost)?.into(),
@@ -194,7 +195,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
   for ch in 'a'..='z' {
     terms.push(new_bytes_ref_from_string(&mut random, &ch.to_string())?);
   }
-  let query2: Query = TermInSetQuery::new("content", terms).into();
+  let query2: Query = TermInSetQuery::new("content", terms).into_query();
 
   {
     let query1: Query = TermInSetQuery::new(
@@ -204,7 +205,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
         new_bytes_ref_from_string(&mut random, "bbb")?,
       ],
     )
-    .into();
+    .into_query();
     let mut query_builder = BooleanQueryBuilder::new();
     query_builder.add(query1.clone(), Occur::Filter)?;
     query_builder.add(query2.clone(), Occur::Filter)?;
@@ -230,7 +231,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
         new_bytes_ref_from_string(&mut random, "b")?,
       ],
     )
-    .into();
+    .into_query();
     let mut query_builder = BooleanQueryBuilder::new();
     query_builder.add(query1.clone(), Occur::Filter)?;
     query_builder.add(query2, Occur::Filter)?;
@@ -286,9 +287,10 @@ fn test_skipper_optimization_gap_assumption() -> Result<()> {
   ];
   let q1: Query =
     TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, "field", query_terms.clone())
-      .into();
+      .into_query();
   let q2: Query =
-    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, "idx_field", query_terms).into();
+    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, "idx_field", query_terms)
+      .into_query();
   assert_same_matches(&searcher, q1, q2, false)?;
 
   Ok(())
@@ -479,7 +481,7 @@ fn test_is_considered_costly_by_query_cache() -> Result<()> {
       new_bytes_ref_from_string(&mut random, "baz")?,
     ],
   )
-  .into();
+  .into_query();
   let policy = UsageTrackingQueryCachingPolicy::new()?;
   assert!(!policy.should_cache(&query)?);
   policy.on_use(&query);

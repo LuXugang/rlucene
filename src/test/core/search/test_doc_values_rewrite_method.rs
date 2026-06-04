@@ -23,7 +23,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::doc_values_rewrite_method::DocValuesRewriteMethod;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::Query;
+use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::util::automation::automaton_provider::DefaultProvider;
 use crate::core::util::automation::operations::Operations;
@@ -137,7 +137,7 @@ where
   let inverted_docs = searcher.search(inverted.clone(), 25)?;
   let doc_values_docs = searcher.search(doc_values, 25)?;
   let doc_values_with_skip_docs = searcher.search(doc_values_with_skip, 25)?;
-  let inverted_query: Query = inverted.into();
+  let inverted_query: Query = inverted.into_query();
 
   CheckHits::check_equal(
     &inverted_query,
@@ -204,7 +204,7 @@ fn test_equals() -> Result<()> {
     )?;
     assert_eq!(a1, a2);
     assert_ne!(a1, b);
-    QueryUtils::check_from_query(&a1.into());
+    QueryUtils::check_from_query(&a1.into_query());
   }
   Ok(())
 }

@@ -25,7 +25,7 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::boolean_scorer::SIZE;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::prefix_query::PrefixQuery;
-use crate::core::search::query::Query;
+use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::term_query::TermQuery;
@@ -548,7 +548,7 @@ where
       let t2 = &vals[rnd.random_range(0..vals.len())];
       PhraseQuery::from_terms(10, field, &[t1.as_str(), t2.as_str()])?.into()
     } else if q_type < 7 {
-      WildcardQuery::new(Term::from_text(field, "w*"))?.into()
+      WildcardQuery::new(Term::from_text(field, "w*"))?.into_query()
     } else {
       rand_bool_query(rnd, allow_must, level - 1, field, vals, cb)?
         .build()

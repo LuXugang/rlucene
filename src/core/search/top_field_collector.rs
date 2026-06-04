@@ -37,7 +37,7 @@ use crate::core::search::leaf_field_comparator::{
 };
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
-use crate::core::search::query::Query;
+use crate::core::search::query::IntoQuery;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
@@ -234,7 +234,7 @@ pub fn populate_scores<IRC, T, S>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext,
-  T: Into<Query>,
+  T: IntoQuery,
   S: ScoreDocLike,
 {
   let mut top_docs_idxs: Vec<usize> = (0..top_docs.len()).collect();

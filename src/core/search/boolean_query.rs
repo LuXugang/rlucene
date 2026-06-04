@@ -23,7 +23,7 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
@@ -1003,9 +1003,9 @@ impl Builder {
   /// the maximum clause count.
   pub fn add<Q>(&mut self, query: Q, occur: Occur) -> Result<&mut Self>
   where
-    Q: Into<Query>,
+    Q: IntoQuery,
   {
-    self.add_clause(BooleanClause::new(query.into(), occur))
+    self.add_clause(BooleanClause::new(query.into_query(), occur))
   }
 
   /// Create a new [`BooleanQuery`] based on the parameters that have been set on this builder.

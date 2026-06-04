@@ -26,10 +26,10 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  ConstantScoreBlendedRewrite, ConstantScoreRewrite, MultiTermQuery,
+  ConstantScoreBlendedRewrite, ConstantScoreRewrite, MultiTermQuery, MultiTermQuerySet,
 };
 use crate::core::search::prefix_query::PrefixQuery;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{IntoQuery, Query, QueryBase};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scoring_rewrite::{ConstantScoreBooleanRewrite, ScoringBooleanRewrite};
 use crate::core::search::term_query::TermQuery;
@@ -66,8 +66,8 @@ fn test_equals() -> Result<()> {
   assert_eq!(wq2, wq3);
   assert_eq!(wq1, wq3);
 
-  let fq: Query = FuzzyQuery::new(Term::from_text("field", "b*a"))?.into();
-  let wq1: Query = wq1.into();
+  let fq: Query = FuzzyQuery::new(Term::from_text("field", "b*a"))?.into_query();
+  let wq1: Query = wq1.into_query();
   assert_ne!(wq1.clone(), fq.clone());
   assert_ne!(fq, wq1);
 
@@ -130,7 +130,7 @@ fn test_empty_term() -> Result<()> {
     Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
     ScoringBooleanRewrite,
   )?
-  .into();
+  .into_query();
   assert_matches(&searcher, wq.clone(), 0)?;
 
   let q = searcher.rewrite(wq)?;
@@ -146,15 +146,15 @@ fn test_prefix_term() -> Result<()> {
   let reader = directory_reader::open(index_store.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let mut wq: Query = WildcardQuery::new(Term::from_text("field", "prefix*"))?.into();
+  let mut wq: Query = WildcardQuery::new(Term::from_text("field", "prefix*"))?.into_query();
   assert_matches(&searcher, wq.clone(), 2)?;
 
-  wq = WildcardQuery::new(Term::from_text("field", "*"))?.into();
+  wq = WildcardQuery::new(Term::from_text("field", "*"))?.into_query();
   assert_matches(&searcher, wq.clone(), 2)?;
 
   let terms = get_terms(searcher.get_index_reader(), "field")?.unwrap();
   let te = match wq {
-    Query::Wildcard(q) => q.get_terms_enum(Rc::new(terms))?,
+    Query::MultiTermQuery(MultiTermQuerySet::Wildcard(q)) => q.get_terms_enum(Rc::new(terms))?,
     _ => return Err(LuceneError::illegal_state("expected WildcardQuery")),
   };
   assert!(matches!(te, CompiledAutomatonTE::TE(_)));
@@ -184,7 +184,7 @@ fn test_asterisk() -> Result<()> {
   builder7.add(query5.clone(), Occur::Should)?;
   let query7: Query = builder7.build().into();
 
-  let query8: Query = WildcardQuery::new(Term::from_text("body", "M*tal*"))?.into();
+  let query8: Query = WildcardQuery::new(Term::from_text("body", "M*tal*"))?.into_query();
 
   assert_matches(&searcher, query1, 1)?;
   assert_matches(&searcher, query2, 2)?;
@@ -310,7 +310,7 @@ fn assert_matches<IRC, Q>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext,
-  Q: Into<Query>,
+  Q: IntoQuery,
 {
   let result = searcher.search(q, 1000)?.score_docs;
   assert_eq!(expected_matches, result.len());
@@ -473,7 +473,7 @@ fn test_large() -> Result<()> {
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let query: Query = WildcardQuery::new(Term::from_text("body", format!("{}*", big)))?.into();
+  let query: Query = WildcardQuery::new(Term::from_text("body", format!("{}*", big)))?.into_query();
   assert_matches(&searcher, query, 1)?;
 
   Ok(())
@@ -526,13 +526,13 @@ fn test_cost_estimate() -> Result<()> {
   assert_eq!(searcher.get_leaf_contexts()?.len(), 1);
   let lrc = &searcher.get_leaf_contexts()?[0];
 
-  let query: Query = WildcardQuery::new(Term::from_text("body", "foo*"))?.into();
+  let query: Query = WildcardQuery::new(Term::from_text("body", "foo*"))?.into_query();
   let rewritten = searcher.rewrite(query)?;
   let weight = rewritten.create_weight(&searcher, &ScoreMode::CompleteNoScores, 1.0)?;
   let mut supplier = weight.scorer_supplier(lrc, &searcher)?.unwrap();
   assert_eq!(2000, supplier.cost(lrc, &searcher)? as i64);
 
-  let query: Query = WildcardQuery::new(Term::from_text("body", "bar*"))?.into();
+  let query: Query = WildcardQuery::new(Term::from_text("body", "bar*"))?.into_query();
   let rewritten = searcher.rewrite(query)?;
   let weight = rewritten.create_weight(&searcher, &ScoreMode::CompleteNoScores, 1.0)?;
   let mut supplier = weight.scorer_supplier(lrc, &searcher)?.unwrap();

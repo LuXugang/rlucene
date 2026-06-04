@@ -43,7 +43,7 @@ use rand::RngExt;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::core::search::query::Query;
+use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::scoring_rewrite::ScoringBooleanRewrite;
 use crate::core::search::wildcard_query::WildcardQuery;
@@ -253,11 +253,11 @@ fn test_equals() -> Result<()> {
   let a4 = AutomatonQuery::from_automaton(new_term("foobar"), Automata::make_string("different")?)?;
   let a5 = AutomatonQuery::from_automaton(new_term("blah"), Automata::make_string("foobar")?)?;
 
-  let a1: Query = a1.into();
-  let a2: Query = a2.into();
-  let a3: Query = a3.into();
-  let a4: Query = a4.into();
-  let a5: Query = a5.into();
+  let a1: Query = a1.into_query();
+  let a2: Query = a2.into_query();
+  let a3: Query = a3.into_query();
+  let a4: Query = a4.into_query();
+  let a5: Query = a5.into_query();
 
   assert_eq!(
     CoreHelper::calculate_hash(&a1),
@@ -270,8 +270,8 @@ fn test_equals() -> Result<()> {
   );
   assert_eq!(a1, a3);
 
-  let w1: Query = WildcardQuery::new(new_term("foobar"))?.into();
-  let w2: Query = RegexpQuery::new(new_term("foobar"))?.into();
+  let w1: Query = WildcardQuery::new(new_term("foobar"))?.into_query();
+  let w2: Query = RegexpQuery::new(new_term("foobar"))?.into_query();
 
   assert_ne!(a1, w1);
   assert_ne!(a1, w2);

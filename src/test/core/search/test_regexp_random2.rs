@@ -27,9 +27,10 @@ use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  CONSTANT_SCORE_BOOLEAN_REWRITE, ConstantScoreBlendedRewrite, MultiTermQuery, RewriteMethod,
+  CONSTANT_SCORE_BOOLEAN_REWRITE, ConstantScoreBlendedRewrite, MultiTermQuery, MultiTermQuerySet,
+  RewriteMethod,
 };
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
@@ -91,9 +92,13 @@ pub(crate) trait TestRegexpRandom2 {
     let dumb_docs = searcher2.search(dumb.clone(), 25)?;
     let nfa_docs = searcher3.search(nfa_query.clone(), 25)?;
 
-    CheckHits::check_equal(&smart.into(), &smart_docs.score_docs, &dumb_docs.score_docs)?;
     CheckHits::check_equal(
-      &nfa_query.into(),
+      &smart.into_query(),
+      &smart_docs.score_docs,
+      &dumb_docs.score_docs,
+    )?;
+    CheckHits::check_equal(
+      &nfa_query.into_query(),
       &nfa_docs.score_docs,
       &dumb_docs.score_docs,
     )
@@ -281,7 +286,7 @@ impl MultiTermQuery for DumbRegexpQuery {
   }
 
   fn as_query(&self) -> Query {
-    self.clone().into()
+    MultiTermQuerySet::from(self.clone()).into()
   }
 }
 

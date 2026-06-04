@@ -34,12 +34,10 @@ use crate::core::search::doc_values_rewrite_method::MultiTermQueryDocValuesWrapp
 use crate::core::search::dummy::dummy_query::DummyQuery;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::float_vector_similarity_query::FloatVectorSimilarityQuery;
-use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::document::lat_lon_point_query::LatLonPointQuery;
 use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
-use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::blended_term_query::BlendedTermQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::byte_vector_similarity_query::ByteVectorSimilarityQuery;
@@ -52,24 +50,20 @@ use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
+use crate::core::search::multi_term_query::MultiTermQuerySet;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::n_gram_phrase_query::NGramPhraseQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_in_set_query::PointInSetQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
-use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query_visitor::QueryVisitor;
-use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::synonym_query::SynonymQuery;
-use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
-use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::weight::Weight;
-use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
@@ -84,13 +78,7 @@ use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
 use crate::test::core::search::test_boolean_scorer::CrazyMustUseBulkScorerQuery;
 #[cfg(test)]
-use crate::test::core::search::test_multi_term_query_rewrites::BoostCheckingQuery;
-#[cfg(test)]
 use crate::test::core::search::test_needs_scores::AssertNeedsScores;
-#[cfg(test)]
-use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
-#[cfg(test)]
-use crate::test::core::search::test_regexp_random2::DumbRegexpQuery;
 #[cfg(test)]
 use crate::test::core::search::test_scorer_perf::BitSetQuery;
 #[cfg(test)]
@@ -124,7 +112,6 @@ macro_rules! impl_into_box_query {
 macro_rules! dispatch_query {
   ($self:expr, |$inner:ident| $body:expr) => {{
     match $self {
-      Query::Automaton($inner) => $body,
       Query::BinaryRangeFieldRange($inner) => $body,
       Query::BlendedTerm($inner) => $body,
       Query::Boolean($inner) => $body,
@@ -136,7 +123,6 @@ macro_rules! dispatch_query {
       Query::Dummy($inner) => $body,
       Query::FieldExists($inner) => $body,
       Query::FloatVectorSimilarity($inner) => $body,
-      Query::Fuzzy($inner) => $body,
       Query::IndexOrDocValues($inner) => $body,
       Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
       Query::KnnByteVector($inner) => $body,
@@ -149,6 +135,7 @@ macro_rules! dispatch_query {
       Query::MatchAllDocs($inner) => $body,
       Query::MatchNoDocs($inner) => $body,
       Query::MultiPhrase($inner) => $body,
+      Query::MultiTermQuery($inner) => $body,
       Query::MultiTermQueryDocValuesWrapper($inner) => $body,
       Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
       Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
@@ -156,17 +143,12 @@ macro_rules! dispatch_query {
       Query::Phrase($inner) => $body,
       Query::PointInSet($inner) => $body,
       Query::PointRange($inner) => $body,
-      Query::Prefix($inner) => $body,
-      Query::Regexp($inner) => $body,
       Query::RangeField($inner) => $body,
       Query::SortedNumericDocValuesRange($inner) => $body,
       Query::SortedNumericDocValuesSet($inner) => $body,
       Query::SortedSetDocValuesRange($inner) => $body,
       Query::Synonym($inner) => $body,
       Query::Term($inner) => $body,
-      Query::TermInSet($inner) => $body,
-      Query::TermRange($inner) => $body,
-      Query::Wildcard($inner) => $body,
       Query::XYDocValuesPointInGeometry($inner) => $body,
       Query::XYPointInGeometry($inner) => $body,
       #[cfg(test)]
@@ -176,15 +158,9 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::BlockScoreQueryWrapper($inner) => $body,
       #[cfg(test)]
-      Query::BoostChecking($inner) => $body,
-      #[cfg(test)]
       Query::Counting($inner) => $body,
       #[cfg(test)]
       Query::CrazyMustUseBulkScorer($inner) => $body,
-      #[cfg(test)]
-      Query::DumbPrefix($inner) => $body,
-      #[cfg(test)]
-      Query::DumbRegexp($inner) => $body,
       #[cfg(test)]
       Query::Dummy1($inner) => $body,
       #[cfg(test)]
@@ -202,7 +178,6 @@ macro_rules! dispatch_query {
 }
 impl_from_for_enum!(
     Query,
-    AutomatonQuery=> Automaton,
     BinaryRangeFieldRangeQuery => BinaryRangeFieldRange,
     BlendedTermQuery=> BlendedTerm,
     BooleanQuery => Boolean,
@@ -214,7 +189,6 @@ impl_from_for_enum!(
     DummyQuery => Dummy,
     FieldExistsQuery => FieldExists,
     FloatVectorSimilarityQuery => FloatVectorSimilarity,
-    FuzzyQuery => Fuzzy,
     IndexOrDocValuesQuery => IndexOrDocValues,
     IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
     KnnByteVectorQuery => KnnByteVector,
@@ -226,6 +200,7 @@ impl_from_for_enum!(
     LatLonPointQuery=> LatLonPoint,
     MatchAllDocsQuery => MatchAllDocs,
     MatchNoDocsQuery => MatchNoDocs,
+    MultiTermQuerySet => MultiTermQuery,
     MultiPhraseQuery=> MultiPhrase,
     MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
     MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
@@ -234,17 +209,12 @@ impl_from_for_enum!(
     PhraseQuery=> Phrase,
     PointInSetQuery => PointInSet,
     PointRangeQuery => PointRange,
-    PrefixQuery => Prefix,
-    RegexpQuery => Regexp,
     RangeFieldQuery => RangeField,
     SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
     SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
     SynonymQuery => Synonym,
-    TermInSetQuery => TermInSet,
     TermQuery => Term,
-    TermRangeQuery => TermRange,
-    WildcardQuery => Wildcard,
     XYDocValuesPointInGeometryQuery => XYDocValuesPointInGeometry,
     XYPointInGeometryQuery => XYPointInGeometry,
 );
@@ -254,11 +224,8 @@ impl_from_for_enum!(
     AssertNeedsScores => AssertNeedsScores,
     BitSetQuery => BitSet,
     BlockScoreQueryWrapper => BlockScoreQueryWrapper,
-    BoostCheckingQuery => BoostChecking,
     CountingQuery => Counting,
     CrazyMustUseBulkScorerQuery => CrazyMustUseBulkScorer,
-    DumbPrefixQuery => DumbPrefix,
-    DumbRegexpQuery => DumbRegexp,
     DummyQuery1=> Dummy1,
     MaxScoreWrapperQuery => MaxScoreWrapper,
     RandomApproximationQuery => RandomApproximation,
@@ -267,7 +234,6 @@ impl_from_for_enum!(
     WANDScorerQuery => WANDScorer
 );
 impl_into_box_query!(
-  AutomatonQuery,
   BinaryRangeFieldRangeQuery,
   BlendedTermQuery,
   BooleanQuery,
@@ -279,7 +245,6 @@ impl_into_box_query!(
   DummyQuery,
   FieldExistsQuery,
   FloatVectorSimilarityQuery,
-  FuzzyQuery,
   IndexOrDocValuesQuery,
   IndexSortSortedNumericDocValuesRangeQuery,
   KnnByteVectorQuery,
@@ -298,17 +263,12 @@ impl_into_box_query!(
   PhraseQuery,
   PointInSetQuery,
   PointRangeQuery,
-  PrefixQuery,
-  RegexpQuery,
   RangeFieldQuery,
   SortedNumericDocValuesRangeQuery,
   SortedNumericDocValuesSetQuery,
   SortedSetDocValuesRangeQuery,
   SynonymQuery,
-  TermInSetQuery,
   TermQuery,
-  TermRangeQuery,
-  WildcardQuery,
   XYDocValuesPointInGeometryQuery,
   XYPointInGeometryQuery,
 );
@@ -338,7 +298,6 @@ pub trait QueryBase: Debug + HasIdentity {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Query {
-  Automaton(AutomatonQuery),
   BinaryRangeFieldRange(BinaryRangeFieldRangeQuery),
   BlendedTerm(BlendedTermQuery),
   Boolean(BooleanQuery),
@@ -350,7 +309,6 @@ pub enum Query {
   Dummy(DummyQuery),
   FieldExists(FieldExistsQuery),
   FloatVectorSimilarity(FloatVectorSimilarityQuery),
-  Fuzzy(FuzzyQuery),
   IndexOrDocValues(IndexOrDocValuesQuery),
   IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
   KnnByteVector(KnnByteVectorQuery),
@@ -363,6 +321,7 @@ pub enum Query {
   MatchAllDocs(MatchAllDocsQuery),
   MatchNoDocs(MatchNoDocsQuery),
   MultiPhrase(MultiPhraseQuery),
+  MultiTermQuery(MultiTermQuerySet),
   MultiTermQueryDocValuesWrapper(MultiTermQueryDocValuesWrapper),
   MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
   MultiTermQueryConstantScoreWrapper(MultiTermQueryConstantScoreWrapper),
@@ -370,17 +329,12 @@ pub enum Query {
   Phrase(PhraseQuery),
   PointInSet(PointInSetQuery),
   PointRange(PointRangeQuery),
-  Prefix(PrefixQuery),
-  Regexp(RegexpQuery),
   RangeField(RangeFieldQuery),
   SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
   SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
   SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
   Synonym(SynonymQuery),
   Term(TermQuery),
-  TermInSet(TermInSetQuery),
-  TermRange(TermRangeQuery),
-  Wildcard(WildcardQuery),
   XYDocValuesPointInGeometry(XYDocValuesPointInGeometryQuery),
   XYPointInGeometry(XYPointInGeometryQuery),
   #[cfg(test)]
@@ -390,15 +344,9 @@ pub enum Query {
   #[cfg(test)]
   BlockScoreQueryWrapper(BlockScoreQueryWrapper),
   #[cfg(test)]
-  BoostChecking(BoostCheckingQuery),
-  #[cfg(test)]
   Counting(CountingQuery),
   #[cfg(test)]
   CrazyMustUseBulkScorer(CrazyMustUseBulkScorerQuery),
-  #[cfg(test)]
-  DumbPrefix(DumbPrefixQuery),
-  #[cfg(test)]
-  DumbRegexp(DumbRegexpQuery),
   #[cfg(test)]
   Dummy1(DummyQuery1),
   #[cfg(test)]
@@ -434,7 +382,6 @@ impl Query {
     query_variant_name!(
         self;
         normal: [
-            Automaton,
             BinaryRangeFieldRange,
             BlendedTerm,
             Boolean,
@@ -446,7 +393,6 @@ impl Query {
             Dummy,
             FieldExists,
             FloatVectorSimilarity,
-            Fuzzy,
             IndexOrDocValues,
             IndexSortSortedNumericDocValuesRange,
             KnnByteVector,
@@ -459,6 +405,7 @@ impl Query {
             MatchAllDocs,
             MatchNoDocs,
             MultiPhrase,
+            MultiTermQuery,
             MultiTermQueryDocValuesWrapper,
             MultiTermQueryConstantScoreBlendedWrapper,
             MultiTermQueryConstantScoreWrapper,
@@ -466,17 +413,12 @@ impl Query {
             Phrase,
             PointInSet,
             PointRange,
-            Prefix,
-            Regexp,
             RangeField,
             SortedNumericDocValuesRange,
             SortedNumericDocValuesSet,
             SortedSetDocValuesRange,
             Synonym,
             Term,
-            TermInSet,
-            TermRange,
-            Wildcard,
             XYDocValuesPointInGeometry,
             XYPointInGeometry,
         ];
@@ -484,11 +426,8 @@ impl Query {
             AssertNeedsScores,
             BitSet,
             BlockScoreQueryWrapper,
-            BoostChecking,
             Counting,
             CrazyMustUseBulkScorer,
-            DumbPrefix,
-            DumbRegexp,
             Dummy1,
             MaxScoreWrapper,
             Random,
@@ -612,9 +551,28 @@ where
 pub trait IntoBoxQuery {
   fn into_box_query(self) -> Box<Query>;
 }
+pub trait IntoQuery {
+  fn into_query(self) -> Query;
+}
+impl<T> IntoQuery for T
+where
+  T: Into<Query>,
+{
+  fn into_query(self) -> Query {
+    self.into()
+  }
+}
 impl IntoBoxQuery for Query {
   fn into_box_query(self) -> Box<Query> {
     Box::new(self)
+  }
+}
+impl<T> IntoBoxQuery for T
+where
+  T: Into<MultiTermQuerySet>,
+{
+  fn into_box_query(self) -> Box<Query> {
+    Box::new(self.into().into())
   }
 }
 

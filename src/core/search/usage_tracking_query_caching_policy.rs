@@ -124,35 +124,11 @@ impl QueryCachingPolicy for UsageTrackingQueryCachingPolicy {
   }
 }
 pub(crate) fn is_costly(query: &Query) -> bool {
-  pub trait QueryCost {
-    fn is_costly(&self) -> bool;
-  }
-  impl QueryCost for Query {
-    fn is_costly(&self) -> bool {
-      match self {
-        // MultiTermQuery
-        Query::Prefix(_) => true,
-        Query::TermRange(_) => true,
-        Query::Automaton(_) => true,
-        Query::Wildcard(_) => true,
-        Query::Regexp(_) => true,
-
-        Query::MultiTermQueryConstantScoreBlendedWrapper(_) => true,
-        Query::MultiTermQueryConstantScoreWrapper(_) => true,
-        Query::TermInSet(_) => true,
-
-        Query::PointRange(_) => true,
-
-        _ => {
-          #[cfg(debug_assertions)]
-          {
-            debug_assert!(!self.is_multi_term_query());
-          }
-          false
-        },
-      }
-    }
-  }
-
-  query.is_costly()
+  matches!(
+    query,
+    Query::MultiTermQuery(_)
+      | Query::MultiTermQueryConstantScoreBlendedWrapper(_)
+      | Query::MultiTermQueryConstantScoreWrapper(_)
+      | Query::PointRange(_)
+  )
 }

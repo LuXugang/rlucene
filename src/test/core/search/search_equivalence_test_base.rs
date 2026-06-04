@@ -24,7 +24,7 @@ use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::phrase_query::PhraseQuery;
-use crate::core::search::query::Query;
+use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
 use crate::core::search::term_range_query::TermRangeQuery;
@@ -314,7 +314,7 @@ where
       true,
       true,
     )?
-    .into()
+    .into_query()
   } else {
     PhraseQuery::from_bytes(
       100,

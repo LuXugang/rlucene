@@ -27,10 +27,10 @@ use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  ConstantScoreBlendedRewrite, MultiTermQuery, RewriteMethod,
+  ConstantScoreBlendedRewrite, MultiTermQuery, MultiTermQuerySet, RewriteMethod,
 };
 use crate::core::search::prefix_query::PrefixQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -101,7 +101,11 @@ where
 
   let smart_docs = searcher.search(smart.clone(), 25)?;
   let dumb_docs = searcher.search(dumb, 25)?;
-  CheckHits::check_equal(&smart.into(), &smart_docs.score_docs, &dumb_docs.score_docs)
+  CheckHits::check_equal(
+    &smart.into_query(),
+    &smart_docs.score_docs,
+    &dumb_docs.score_docs,
+  )
 }
 
 #[test]
@@ -215,7 +219,7 @@ impl MultiTermQuery for DumbPrefixQuery {
   }
 
   fn as_query(&self) -> Query {
-    self.clone().into()
+    MultiTermQuerySet::from(self.clone()).into()
   }
 }
 

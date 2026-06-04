@@ -26,7 +26,7 @@ use crate::core::search::boost_attribute::DEFAULT_BOOST;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::multi_term_query::{MultiTermQuery, MultiTermQueryEnum, RewriteMethod};
+use crate::core::search::multi_term_query::{MultiTermQuery, MultiTermQuerySet, RewriteMethod};
 use crate::core::search::query::Query;
 use crate::core::search::term_collecting_rewrite::{TermCollectingRewrite, TermCollector};
 use crate::core::search::term_query::TermQuery;
@@ -42,7 +42,7 @@ use crate::core::util::{ByteBlockPool, SharedCounter};
 pub trait ScoringRewrite: TermCollectingRewrite {
   fn default_rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
-    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
+    Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
     Self: Sized,
   {
@@ -121,7 +121,7 @@ impl TermCollectingRewrite for ScoringBooleanRewrite {
 impl RewriteMethod for ScoringBooleanRewrite {
   fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
-    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
+    Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
   {
     self.default_rewrite(index_searcher, query)
@@ -146,7 +146,7 @@ pub struct ConstantScoreBooleanRewrite;
 impl RewriteMethod for ConstantScoreBooleanRewrite {
   fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
-    Q: MultiTermQuery + Into<MultiTermQueryEnum>,
+    Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
   {
     let bq = ScoringBooleanRewrite.rewrite(index_searcher, query)?;

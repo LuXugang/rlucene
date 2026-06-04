@@ -35,7 +35,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::multi_term_query::{MultiTermQueryEnum, dispatch_multi_term_query};
+use crate::core::search::multi_term_query::{MultiTermQuerySet, dispatch_multi_term_query};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -54,13 +54,13 @@ use std::hash::Hash;
 /// highest-cost terms, while rewriting the remaining lower-cost terms into a filter bitset.
 #[derive(Clone)]
 pub struct MultiTermQueryConstantScoreBlendedWrapper {
-  q: MultiTermQueryEnum,
+  q: MultiTermQuerySet,
   id: Identity,
 }
 impl MultiTermQueryConstantScoreBlendedWrapper {
   pub fn new<T>(q: T) -> Self
   where
-    T: Into<MultiTermQueryEnum>,
+    T: Into<MultiTermQuerySet>,
   {
     Self {
       q: q.into(),

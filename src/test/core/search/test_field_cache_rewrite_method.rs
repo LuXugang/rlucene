@@ -19,6 +19,7 @@ use crate::core::index::term::Term;
 use crate::core::search::doc_values_rewrite_method::DocValuesRewriteMethod;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{ConstantScoreBlendedRewrite, ConstantScoreRewrite};
+use crate::core::search::query::IntoQuery;
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::util::automation::automaton_provider::DefaultProvider;
 use crate::core::util::automation::operations::Operations;
@@ -88,12 +89,12 @@ impl TestRegexpRandom2 for TestFieldCacheRewriteMethod {
     let filter2_docs = searcher2.search(filter2, 25)?;
 
     CheckHits::check_equal(
-      &field_cache.clone().into(),
+      &field_cache.clone().into_query(),
       &field_cache_docs.score_docs,
       &filter_docs.score_docs,
     )?;
     CheckHits::check_equal(
-      &field_cache.into(),
+      &field_cache.into_query(),
       &field_cache_docs.score_docs,
       &filter2_docs.score_docs,
     )
@@ -115,7 +116,7 @@ fn test_equals() -> Result<()> {
     let b = RegexpQuery::with_flags(Term::from_text(field_name, "[bB]"), RegExp::NONE)?;
     QueryUtils::check_equal(&a1, &a2);
     QueryUtils::check_unequal(&a1, &b);
-    QueryUtils::check_from_query(&a1.into());
+    QueryUtils::check_from_query(&a1.into_query());
   }
 
   {
@@ -145,7 +146,7 @@ fn test_equals() -> Result<()> {
     )?;
     QueryUtils::check_equal(&a1, &a2);
     QueryUtils::check_unequal(&a1, &b);
-    QueryUtils::check_from_query(&a1.into());
+    QueryUtils::check_from_query(&a1.into_query());
   }
 
   Ok(())

@@ -32,7 +32,7 @@ use crate::core::search::lru_query_cache::LRUQueryCache;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::prefix_query::PrefixQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_cache::QueryCacheEnum;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::query_visitor::QueryVisitor;
@@ -58,7 +58,7 @@ use std::sync::Arc;
 struct TestUsageTrackingFilterCachingPolicy;
 #[test]
 fn test_costly_filter() -> Result<()> {
-  let prefix: Query = PrefixQuery::new(Term::from_text("field", "prefix"))?.into();
+  let prefix: Query = PrefixQuery::new(Term::from_text("field", "prefix"))?.into_query();
   assert!(is_costly(&prefix));
 
   let point: Query = IntPoint::new_range_query("intField", 1, 1000)?.into();

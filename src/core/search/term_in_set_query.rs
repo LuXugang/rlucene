@@ -28,7 +28,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  ConstantScoreBlendedRewrite, MultiTermQuery, RewriteMethod, RewriteMethodEnum,
+  ConstantScoreBlendedRewrite, MultiTermQuery, MultiTermQuerySet, RewriteMethod, RewriteMethodEnum,
 };
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -239,7 +239,7 @@ impl MultiTermQuery for TermInSetQuery {
   }
 
   fn as_query(&self) -> Query {
-    self.clone().into()
+    MultiTermQuerySet::from(self.clone()).into()
   }
 }
 

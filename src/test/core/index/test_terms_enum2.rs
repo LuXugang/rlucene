@@ -27,6 +27,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::index_searcher::DefaultIndexSearcher;
+use crate::core::search::query::IntoQuery;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
@@ -136,7 +137,7 @@ fn test_finite_versus_infinite() -> Result<()> {
 
     let orig_hits = searcher.search(a1.clone(), 25)?.score_docs;
     let new_hits = searcher.search(a2.clone(), 25)?.score_docs;
-    CheckHits::check_equal(&a1.into(), &orig_hits, &new_hits)?;
+    CheckHits::check_equal(&a1.into_query(), &orig_hits, &new_hits)?;
   }
 
   Ok(())

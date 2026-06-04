@@ -22,7 +22,7 @@ use crate::core::index::terms::Terms;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  ConstantScoreBlendedRewrite, MultiTermQuery, RewriteMethod, RewriteMethodEnum,
+  ConstantScoreBlendedRewrite, MultiTermQuery, MultiTermQuerySet, RewriteMethod, RewriteMethodEnum,
 };
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
@@ -139,7 +139,7 @@ impl MultiTermQuery for PrefixQuery {
   }
 
   fn as_query(&self) -> Query {
-    self.clone().into()
+    MultiTermQuerySet::from(self.clone()).into()
   }
 }
 impl Eq for PrefixQuery {}

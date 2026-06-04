@@ -28,7 +28,7 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
-use crate::core::search::multi_term_query::DOC_VALUES_REWRITE;
+use crate::core::search::multi_term_query::{DOC_VALUES_REWRITE, MultiTermQuerySet};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_set_selector::SortedSetSelectorType;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
@@ -140,7 +140,10 @@ impl KeywordField {
     let field = field.into();
     let index_query = TermInSetQuery::new(field.clone(), values.clone());
     let dv_query = TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values);
-    IndexOrDocValuesQuery::new(index_query, dv_query)
+    IndexOrDocValuesQuery::new(
+      MultiTermQuerySet::from(index_query),
+      MultiTermQuerySet::from(dv_query),
+    )
   }
 }
 
