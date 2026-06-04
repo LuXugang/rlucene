@@ -62,7 +62,37 @@ fn test_basics() -> Result<()> {
       "1.2.3.5".parse::<IpAddr>().expect("valid IP literal")
     )?)?
   );
-  // TODO IMPORTANT newSetQuery未实现
+  assert_eq!(
+    1,
+    searcher.count(InetAddressPoint::new_set_query(
+      "field",
+      ["1.2.3.4".parse::<IpAddr>().expect("valid IP literal")]
+    )?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(InetAddressPoint::new_set_query(
+      "field",
+      [
+        "1.2.3.4".parse::<IpAddr>().expect("valid IP literal"),
+        "1.2.3.5".parse::<IpAddr>().expect("valid IP literal")
+      ]
+    )?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(InetAddressPoint::new_set_query(
+      "field",
+      ["1.2.3.3".parse::<IpAddr>().expect("valid IP literal")]
+    )?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(InetAddressPoint::new_set_query(
+      "field",
+      Vec::<IpAddr>::new()
+    )?)?
+  );
 
   searcher.get_index_reader().close()?;
   writer.close()?;
@@ -174,6 +204,16 @@ fn test_to_string() -> Result<()> {
     )?
     .to_string("")?
   );
+  assert_eq!(
+    "field:{fdc8:57ed:f042:ad1:f66d:4ff:fe90:ce0c}",
+    InetAddressPoint::new_set_query(
+      "field",
+      ["fdc8:57ed:f042:0ad1:f66d:4ff:fe90:ce0c"
+        .parse::<IpAddr>()
+        .expect("valid IP literal")]
+    )?
+    .to_string("")?
+  );
   Ok(())
 }
 
@@ -259,7 +299,36 @@ fn test_query_equals() -> Result<()> {
     q1,
     InetAddressPoint::new_exact_query("a", "1.2.3.5".parse::<IpAddr>().expect("valid IP literal"))?
   );
-  // TODO IMPORTANT newSetQuery未实现
+  let q1 = InetAddressPoint::new_set_query(
+    "a",
+    [
+      "1.2.3.3".parse::<IpAddr>().expect("valid IP literal"),
+      "1.2.3.5".parse::<IpAddr>().expect("valid IP literal"),
+    ],
+  )?;
+  let q2 = InetAddressPoint::new_set_query(
+    "a",
+    [
+      "1.2.3.3".parse::<IpAddr>().expect("valid IP literal"),
+      "1.2.3.5".parse::<IpAddr>().expect("valid IP literal"),
+    ],
+  )?;
+  assert_eq!(q1, q2);
+  let mut h1 = DefaultHasher::new();
+  q1.hash(&mut h1);
+  let mut h2 = DefaultHasher::new();
+  q2.hash(&mut h2);
+  assert_eq!(h1.finish(), h2.finish());
+  assert_ne!(
+    q1,
+    InetAddressPoint::new_set_query(
+      "a",
+      [
+        "1.2.3.3".parse::<IpAddr>().expect("valid IP literal"),
+        "1.2.3.7".parse::<IpAddr>().expect("valid IP literal")
+      ]
+    )?
+  );
   Ok(())
 }
 

@@ -232,7 +232,22 @@ fn test_basics() -> Result<()> {
     0,
     searcher.count(HalfFloatPoint::new_range_query("field", 1.5f32, 2f32)?)?
   );
-  // TODO IMPORTANT newSetQuery 未实现
+  assert_eq!(
+    1,
+    searcher.count(HalfFloatPoint::new_set_query("field", [1.25f32])?)?
+  );
+  assert_eq!(
+    1,
+    searcher.count(HalfFloatPoint::new_set_query("field", [1f32, 1.25f32])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(HalfFloatPoint::new_set_query("field", [1f32])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(HalfFloatPoint::new_set_query("field", Vec::<f32>::new())?)?
+  );
 
   searcher.get_index_reader().close()?;
   writer.close()?;

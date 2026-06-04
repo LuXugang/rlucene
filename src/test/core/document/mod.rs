@@ -16,7 +16,6 @@
  */
 mod base_shape_encoding_test_case;
 pub(crate) mod base_spatial_test_case;
-mod test_big_integer_point;
 mod test_binary_document;
 mod test_doc_values_long_hash_set;
 mod test_document;

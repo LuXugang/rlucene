@@ -203,7 +203,7 @@ fn test_equals() -> Result<()> {
       DocValuesRewriteMethod,
     )?;
     assert_eq!(a1, a2);
-    assert_eq!(a1, b);
+    assert_ne!(a1, b);
     QueryUtils::check_from_query(&a1.into());
   }
   Ok(())

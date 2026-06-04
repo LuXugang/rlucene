@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::document::big_integer_point::BigIntegerPointInSetQuery;
 use crate::core::document::binary_point::BinaryPointInSetQuery;
 use crate::core::document::double_point::DoublePointInSetQuery;
 use crate::core::document::float_point::FloatPointInSetQuery;
@@ -54,6 +53,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::sandbox::document::big_integer_point::BigIntegerPointInSetQuery;
 use crate::sandbox::document::half_float_point::HalfFloatPointInSetQuery;
 #[cfg(test)]
 use crate::test::core::search::test_point_queries::MultiDimIntPointInSetQuery;

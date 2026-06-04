@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::document::big_integer_point::BigIntegerPointRangeQuery;
 use crate::core::document::binary_point::BinaryPointRangeQuery;
 use crate::core::document::double_point::DoublePointRangeQuery;
 use crate::core::document::float_point::FloatPointRangeQuery;
@@ -52,6 +51,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
 use crate::impl_from_for_enum;
+use crate::sandbox::document::big_integer_point::BigIntegerPointRangeQuery;
 use crate::sandbox::document::half_float_point::HalfFloatPointRangeQuery;
 #[cfg(test)]
 use crate::test::core::search::test_point_queries::PointRangeQueryBaseImpl;

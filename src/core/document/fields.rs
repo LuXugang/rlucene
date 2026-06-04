@@ -19,7 +19,6 @@ use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::document::big_integer_point::BigIntegerPoint;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
@@ -69,6 +68,7 @@ use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::impl_from_for_enum;
+use crate::sandbox::document::big_integer_point::BigIntegerPoint;
 use crate::sandbox::document::half_float_point::HalfFloatPoint;
 use crate::sandbox::document::lat_lon_bounding_box::LatLonBoundingBox;
 #[cfg(test)]

@@ -14,5 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod big_integer_point;
 pub mod half_float_point;
 pub mod lat_lon_bounding_box;

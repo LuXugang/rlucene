@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::document::big_integer_point::BigIntegerPoint;
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
+use crate::sandbox::document::big_integer_point::BigIntegerPoint;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_searcher_with_reader, random,
@@ -58,7 +58,24 @@ fn test_basics() -> Result<()> {
       &large + BigInt::from(1),
     )?)?
   );
-  // TODO IMPORTANT newSetQuery 未实现
+  assert_eq!(
+    1,
+    searcher.count(BigIntegerPoint::new_set_query("field", [large.clone()])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(BigIntegerPoint::new_set_query(
+      "field",
+      [&large - BigInt::from(1)]
+    )?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(BigIntegerPoint::new_set_query(
+      "field",
+      Vec::<BigInt>::new()
+    )?)?
+  );
 
   searcher.get_index_reader().close()?;
   writer.close()?;
@@ -140,7 +157,10 @@ fn test_to_string() -> Result<()> {
     )?
     .to_string("")?
   );
-  // TODO IMPORTANT newSetQuery 未实现
+  assert_eq!(
+    "field:{1}",
+    BigIntegerPoint::new_set_query("field", [BigInt::from(1)])?.to_string("")?
+  );
   Ok(())
 }
 
@@ -173,6 +193,19 @@ fn test_query_equals() -> Result<()> {
   assert_eq!(h1.finish(), h2.finish());
   assert_ne!(q1, BigIntegerPoint::new_exact_query("a", BigInt::from(1))?);
 
-  // TODO IMPORTANT newSetQuery 未实现
+  let q1 =
+    BigIntegerPoint::new_set_query("a", [BigInt::from(0), BigInt::from(1000), BigInt::from(17)])?;
+  let q2 =
+    BigIntegerPoint::new_set_query("a", [BigInt::from(17), BigInt::from(0), BigInt::from(1000)])?;
+  assert_eq!(q1, q2);
+  let mut h1 = DefaultHasher::new();
+  q1.hash(&mut h1);
+  let mut h2 = DefaultHasher::new();
+  q2.hash(&mut h2);
+  assert_eq!(h1.finish(), h2.finish());
+  assert_ne!(
+    q1,
+    BigIntegerPoint::new_set_query("a", [BigInt::from(1), BigInt::from(17), BigInt::from(1000)])?
+  );
   Ok(())
 }
