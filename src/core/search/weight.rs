@@ -57,7 +57,10 @@ use std::sync::Arc;
 /// 1. A `Weight` is constructed by a top-level query, given an `IndexSearcher`
 ///    (see `Query::create_weight`).
 /// 2. A `Scorer` is constructed by [`Weight::scorer`].
-pub trait Weight<IRC: IndexReaderContext>: SegmentCacheable<IRC> {
+pub trait Weight<IRC>: SegmentCacheable<IRC>
+where
+  IRC: IndexReaderContext,
+{
   type Matches: Matches;
   /// Returns [`Matches`] for a specific document, or `None` if the document
   /// does not match the parent query.

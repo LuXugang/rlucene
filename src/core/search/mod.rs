@@ -112,6 +112,7 @@ pub(crate) mod disjunction_sum_scorer;
 pub mod doc_values_range_iterator;
 pub mod doc_values_rewrite_method;
 pub mod double_values;
+pub mod double_values_source;
 pub(crate) mod dummy_query_caching_policy;
 pub(crate) mod exact_phrase_matcher;
 pub mod field_exists_query;

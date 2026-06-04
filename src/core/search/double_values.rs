@@ -29,6 +29,47 @@ pub trait DoubleValues {
   fn advance_exact(&mut self, doc: i32) -> Result<bool>;
 }
 
+impl<T> DoubleValues for Box<T>
+where
+  T: DoubleValues + ?Sized,
+{
+  fn double_value(&mut self) -> Result<f64> {
+    self.as_mut().double_value()
+  }
+
+  fn advance_exact(&mut self, doc: i32) -> Result<bool> {
+    self.as_mut().advance_exact(doc)
+  }
+}
+
+macro_rules! either_double_values {
+    ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+        $vis enum $name<$( $T ),+> {
+            $( $Variant($T), )+
+        }
+
+        impl<$( $T ),+> DoubleValues for $name<$( $T ),+>
+        where
+            $( $T: DoubleValues ),+
+        {
+            fn double_value(&mut self) -> Result<f64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.double_value(), )+
+                }
+            }
+
+            fn advance_exact(&mut self, doc: i32) -> Result<bool> {
+                match self {
+                    $( Self::$Variant(inner) => inner.advance_exact(doc), )+
+                }
+            }
+        }
+    };
+}
+
+either_double_values!(pub DoubleValuesEnum2 { A: A, B: B });
+either_double_values!(pub DoubleValuesEnum3 { A: A, B: B, C: C });
+
 /// Wraps a [`DoubleValues`] instance, returning a default if the wrapped
 /// instance has no value.
 pub fn with_default<T>(in_: T, missing_value: f64) -> WithDefaultDoubleValues<T>
