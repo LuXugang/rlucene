@@ -72,6 +72,11 @@ pub trait Scorable: FixedScore {
   fn as_any(&mut self) -> &mut dyn std::any::Any {
     unreachable!("")
   }
+
+  #[cfg(test)]
+  fn scorable_test_type_name(&self) -> &'static str {
+    std::any::type_name::<Self>()
+  }
 }
 
 pub trait FixedScore {
@@ -144,6 +149,11 @@ where
   #[cfg(test)]
   fn as_any(&mut self) -> &mut dyn std::any::Any {
     (**self).as_any()
+  }
+
+  #[cfg(test)]
+  fn scorable_test_type_name(&self) -> &'static str {
+    (**self).scorable_test_type_name()
   }
 }
 macro_rules! either_scorable {

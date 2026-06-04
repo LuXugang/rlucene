@@ -429,6 +429,11 @@ where
   fn cost(&self) -> Result<i64> {
     self.in_.cost()
   }
+
+  #[cfg(test)]
+  fn scorable_test_type_name(&self) -> &'static str {
+    std::any::type_name::<Self>()
+  }
 }
 
 impl<S> FixedScore for MinCompetitiveScoreAwareScorable<'_, S> where S: Scorable + ?Sized {}

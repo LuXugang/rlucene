@@ -76,6 +76,11 @@ where
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::unsupported_operation(""))
   }
+
+  #[cfg(test)]
+  fn scorable_test_type_name(&self) -> &'static str {
+    std::any::type_name::<Self>()
+  }
 }
 
 impl<S> crate::core::search::scorable::FixedScore for ScoreCachingWrappingScorer<S> where S: Scorable
@@ -109,7 +114,8 @@ where
   LC: LeafCollector,
 {
   fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-    self.inner.set_scorer(scorer)
+    let mut wrapper = ScoreCachingWrappingScorer::new(scorer);
+    self.inner.set_scorer(&mut wrapper)
   }
 
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {

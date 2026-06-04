@@ -81,6 +81,7 @@ pub mod test_max_clause_limit;
 mod test_max_score_accumulator;
 mod test_max_score_bulk_scorer;
 pub mod test_min_should_match2;
+pub mod test_multi_collector;
 mod test_multi_phrase_enum;
 mod test_multi_phrase_query;
 pub mod test_multi_slice_merge;

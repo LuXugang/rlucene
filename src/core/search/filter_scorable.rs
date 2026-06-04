@@ -50,6 +50,11 @@ where
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::unsupported_operation(""))
   }
+
+  #[cfg(test)]
+  fn scorable_test_type_name(&self) -> &'static str {
+    self.in_.scorable_test_type_name()
+  }
 }
 
 impl<S> crate::core::search::scorable::FixedScore for FilterScorable<'_, S> where
