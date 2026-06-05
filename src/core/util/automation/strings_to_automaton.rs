@@ -14,12 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
-use std::rc::Rc;
 
-use crate::core::index::index_reader::Identity;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automata::Automata;
@@ -41,11 +37,13 @@ use crate::core::util::unicode_util::{UTF8CodePoint, UnicodeUtil};
 /// - [`Automata::make_string_union_iter`](Automaton::make_string_union_iter)
 /// - [`Automata::make_binary_string_union_iter`](Automaton::make_binary_string_union_iter)
 pub(crate) struct StringsToAutomaton {
-  // TODO IMPORTANT 这里没必要用RcRefCell包装吧
   /// A "registry" for state interning.
-  pub(crate) state_registry: HashMap<StateKey, Rc<RefCell<State>>>,
+  pub(crate) state_registry: HashMap<StateKey, usize>,
+  /// All automaton states. State references are stored as indexes into this
+  /// vector.
+  pub(crate) all_states: Vec<State>,
   /// Root automaton state.
-  pub(crate) root: Rc<RefCell<State>>,
+  pub(crate) root: usize,
   /// Used for input order checking (only through assertions right now)
   pub(crate) previous: Option<BytesRefBuilder<Vec<u8>>>,
 }
@@ -54,7 +52,8 @@ impl StringsToAutomaton {
   pub(crate) fn new() -> Self {
     StringsToAutomaton {
       state_registry: HashMap::new(),
-      root: Rc::new(RefCell::new(State::new())),
+      all_states: vec![State::new()],
+      root: 0,
       previous: None,
     }
   }
@@ -71,29 +70,29 @@ impl StringsToAutomaton {
       },
     }
   }
+  fn create_state(&mut self) -> usize {
+    self.all_states.push(State::new());
+    self.all_states.len() - 1
+  }
   /// Internal recursive traversal for conversion.
   fn convert(
     a: &mut Builder,
-    s: &Rc<RefCell<State>>,
-    visited: &mut HashMap<Identity, i32>,
+    state: usize,
+    all_states: &[State],
+    visited: &mut HashMap<usize, i32>,
   ) -> Result<i32> {
-    let key = s.borrow().identity.clone();
-
-    if let Some(&converted) = visited.get(&key) {
+    if let Some(&converted) = visited.get(&state) {
       return Ok(converted);
     }
 
     let converted = a.create_state();
-    {
-      let s = s.borrow();
-      a.set_accept(converted, s.is_final);
-    }
+    let s = &all_states[state];
+    a.set_accept(converted, s.is_final);
 
-    visited.insert(key, converted);
-    let s = s.borrow();
+    visited.insert(state, converted);
 
-    for (i, target) in s.states.iter().enumerate() {
-      let v = Self::convert(a, target, visited)?;
+    for (i, &target) in s.states.iter().enumerate() {
+      let v = Self::convert(a, target, all_states, visited)?;
       a.add_transition_label(converted, v, s.labels[i]);
     }
 
@@ -102,16 +101,14 @@ impl StringsToAutomaton {
   /// Called after adding all terms. Performs final minimization and converts
   /// to a standard [`Automaton`] instance.
   fn complete_and_convert(&mut self) -> Result<Automaton> {
-    {
-      if self.root.borrow().has_children() {
-        self.replace_or_register(self.root.clone())?;
-      }
+    if self.all_states[self.root].has_children() {
+      self.replace_or_register(self.root)?;
     }
 
     self.state_registry.clear();
 
     let mut a = Builder::new();
-    Self::convert(&mut a, &self.root, &mut HashMap::new())?;
+    Self::convert(&mut a, self.root, &self.all_states, &mut HashMap::new())?;
     a.finish()
   }
   /// Builds a minimal, deterministic automaton from a sorted list of
@@ -170,13 +167,13 @@ impl StringsToAutomaton {
     let bytes = &current.bytes;
     let mut pos = current.offset;
     let max = current.offset + current.length;
-    let mut state = Rc::clone(&self.root);
+    let mut state = self.root;
     let mut next;
 
     if as_binary {
       while pos < max {
         let b = bytes[pos] as i32;
-        next = state.borrow().last_child_with_label(b);
+        next = self.all_states[state].last_child_with_label(b);
         if let Some(child) = next {
           state = child;
           pos += 1;
@@ -187,7 +184,7 @@ impl StringsToAutomaton {
     } else {
       while pos < max {
         code_point = *UnicodeUtil::code_point_at(bytes, pos, &mut code_point)?;
-        next = state.borrow().last_child_with_label(code_point.code_point);
+        next = self.all_states[state].last_child_with_label(code_point.code_point);
         if let Some(child) = next {
           state = child;
           pos += code_point.num_bytes;
@@ -197,50 +194,47 @@ impl StringsToAutomaton {
       }
     }
 
-    if state.borrow().has_children() {
-      self.replace_or_register(Rc::clone(&state))?;
+    if self.all_states[state].has_children() {
+      self.replace_or_register(state)?;
     }
 
     if as_binary {
       while pos < max {
         let b = bytes[pos] as i32;
-        let new_state = state.borrow_mut().new_state(b)?;
+        let new_state = self.new_state(state, b)?;
         state = new_state;
         pos += 1;
       }
     } else {
       while pos < max {
         code_point = *UnicodeUtil::code_point_at(bytes, pos, &mut code_point)?;
-        let new_state = state.borrow_mut().new_state(code_point.code_point)?;
+        let new_state = self.new_state(state, code_point.code_point)?;
         state = new_state;
         pos += code_point.num_bytes;
       }
     }
 
-    state.borrow_mut().is_final = true;
+    self.all_states[state].is_final = true;
 
     Ok(())
   }
+  fn new_state(&mut self, state: usize, label: i32) -> Result<usize> {
+    let new_state = self.create_state();
+    self.all_states[state].new_state(label, new_state)
+  }
   /// Replaces the last child of `state` with an already registered state or
   /// registers the last child state into the state registry.
-  fn replace_or_register(&mut self, state: Rc<RefCell<State>>) -> Result<()> {
-    let child = state.borrow().last_child();
+  fn replace_or_register(&mut self, state: usize) -> Result<()> {
+    let child = self.all_states[state].last_child();
 
-    if child.borrow().has_children() {
-      self.replace_or_register(child.clone())?;
+    if self.all_states[child].has_children() {
+      self.replace_or_register(child)?;
     }
-    let state_key = StateKey {
-      state: Rc::clone(&child),
-    };
-    if let Some(registered) = self.state_registry.get(&state_key) {
-      state.borrow_mut().replace_last_child(Rc::clone(registered));
+    let state_key = StateKey::from(&self.all_states[child]);
+    if let Some(&registered) = self.state_registry.get(&state_key) {
+      self.all_states[state].replace_last_child(registered);
     } else {
-      self.state_registry.insert(
-        StateKey {
-          state: Rc::clone(&child),
-        },
-        Rc::clone(&child),
-      );
+      self.state_registry.insert(state_key, child);
     }
     Ok(())
   }
@@ -253,11 +247,10 @@ pub(crate) struct State {
   pub labels: Vec<i32>,
   /// States reachable from outgoing transitions. Indexed identically to
   /// [`labels`].
-  pub states: Vec<Rc<RefCell<State>>>,
+  pub states: Vec<usize>,
   /// `true` if this state corresponds to the end of at least one input
   /// sequence.
   pub is_final: bool,
-  pub identity: Identity,
 }
 // for padding
 
@@ -267,14 +260,13 @@ impl State {
       labels: Vec::new(),
       states: Vec::new(),
       is_final: false,
-      identity: Identity::new(),
     }
   }
   /// Returns the target state of a transition leaving this state and labeled
   /// with `label`. If no such transition exists, returns `None`.
-  pub(crate) fn get_state(&self, label: i32) -> Option<&Rc<RefCell<State>>> {
+  pub(crate) fn get_state(&self, label: i32) -> Option<usize> {
     match self.labels.binary_search(&label) {
-      Ok(index) => self.states.get(index),
+      Ok(index) => self.states.get(index).copied(),
       Err(_) => None,
     }
   }
@@ -284,7 +276,7 @@ impl State {
   }
   /// Creates a new outgoing transition labeled `label` and returns the newly
   /// created target state for this transition.
-  pub(crate) fn new_state(&mut self, label: i32) -> Result<Rc<RefCell<State>>> {
+  pub(crate) fn new_state(&mut self, label: i32, new_state: usize) -> Result<usize> {
     debug_assert!(
       self.labels.binary_search(&label).is_err(),
       "State already has transition labeled: {label}"
@@ -296,77 +288,48 @@ impl State {
     labels_len = self.labels.len();
     states_len = self.states.len();
     self.labels[labels_len - 1] = label;
-    let new_state = Rc::new(RefCell::new(State::new()));
-    self.states[states_len - 1] = new_state.clone();
+    self.states[states_len - 1] = new_state;
     Ok(new_state)
   }
   /// Returns the most recent transition's target state.
-  pub(crate) fn last_child(&self) -> Rc<RefCell<State>> {
+  pub(crate) fn last_child(&self) -> usize {
     debug_assert!(self.has_children(), "No outgoing transitions.");
-    Rc::clone(self.states.last().unwrap())
+    *self.states.last().unwrap()
   }
   /// Returns the associated state if the most recent transition is labeled
   /// with `label`.
-  pub(crate) fn last_child_with_label(&self, label: i32) -> Option<Rc<RefCell<State>>> {
-    let index = self.labels.len() as i32 - 1;
-    if index >= 0 && self.labels[index as usize] == label {
-      Some(Rc::clone(self.states.last().unwrap()))
+  pub(crate) fn last_child_with_label(&self, label: i32) -> Option<usize> {
+    let index = self.labels.len();
+    let state = if index > 0 && self.labels[index - 1] == label {
+      Some(self.states[index - 1])
     } else {
       None
-    }
+    };
+    debug_assert_eq!(state, self.get_state(label));
+    state
   }
-  /// Compares two lists of objects for reference equality.
-  pub(crate) fn replace_last_child(&mut self, state: Rc<RefCell<State>>) {
+  /// Replace the last added outgoing transition's target state with the given
+  /// state.
+  pub(crate) fn replace_last_child(&mut self, state: usize) {
     debug_assert!(self.has_children(), "No outgoing transitions.");
     let len = self.states.len();
     self.states[len - 1] = state;
   }
-  /// Compares two lists of objects for reference equality.
-  fn reference_equals<T>(a1: &[Rc<T>], a2: &[Rc<T>]) -> bool {
-    if a1.len() != a2.len() {
-      return false;
-    }
-    a1.iter().zip(a2.iter()).all(|(a, b)| Rc::ptr_eq(a, b))
-  }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub(crate) struct StateKey {
-  state: Rc<RefCell<State>>,
-}
-impl PartialEq for StateKey {
-  /// Two states are equal if:
-  ///
-  /// - They have an identical number of outgoing transitions, labeled with
-  ///   the same labels
-  /// - Corresponding outgoing transitions lead to the same states (to states
-  ///   with an identical right-language)
-  fn eq(&self, other: &Self) -> bool {
-    let state = self.state.borrow();
-    let other = other.state.borrow();
-    state.is_final == other.is_final
-      && state.labels == other.labels
-      && state.states.len() == other.states.len()
-      && State::reference_equals(&state.states, &other.states)
-  }
+  is_final: bool,
+  labels: Vec<i32>,
+  states: Vec<usize>,
 }
 
-impl Eq for StateKey {}
-
-impl Hash for StateKey {
-  fn hash<H>(&self, hasher: &mut H)
-  where
-    H: Hasher,
-  {
-    let sb = self.state.borrow();
-    let mut h: usize = if sb.is_final { 1 } else { 0 };
-    h ^= h.wrapping_mul(31).wrapping_add(sb.labels.len());
-    for &c in &sb.labels {
-      h ^= h.wrapping_mul(31).wrapping_add(c as usize);
+impl From<&State> for StateKey {
+  fn from(state: &State) -> Self {
+    StateKey {
+      is_final: state.is_final,
+      labels: state.labels.clone(),
+      states: state.states.clone(),
     }
-    for rc in &sb.states {
-      h ^= Rc::as_ptr(rc) as usize;
-    }
-    h.hash(hasher);
   }
 }
