@@ -184,13 +184,13 @@ where
   terms.clear();
   Ok(())
 }
-fn accepts(c: &CompiledAutomaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
+fn accepts(c: &mut CompiledAutomaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
   let mut state: i32 = 0;
 
   for idx in 0..b.length {
     debug_assert!(state != -1);
     let byte = b.bytes[b.offset + idx];
-    state = c.run_automaton.as_ref().unwrap().step(state, byte as i32);
+    state = c.run_automaton.as_mut().unwrap().step(state, byte as i32);
   }
 
   c.run_automaton.as_ref().unwrap().is_accept(state)
@@ -281,14 +281,14 @@ fn test_intersect_random() -> Result<()> {
       Automata::make_string_union(v.as_ref())?
     };
 
-    let c = CompiledAutomaton::with_binary(automaton, true, false, false)?;
+    let mut c = CompiledAutomaton::with_binary(automaton, true, false, false)?;
 
     let mut accept_terms_array: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(accept_terms.len());
     let mut accept_terms_set: HashSet<BytesRef<Vec<u8>>> = HashSet::new();
 
     for s in &accept_terms {
       let b = new_bytes_ref_from_string(&mut random, s)?;
-      assert!(accepts(&c, &b)?);
+      assert!(accepts(&mut c, &b)?);
       accept_terms_array.push(b.clone());
       accept_terms_set.insert(b);
     }
@@ -306,7 +306,7 @@ fn test_intersect_random() -> Result<()> {
 
         for idx in 0..start_term.length {
           let label = start_term.bytes[start_term.offset + idx] as i32 & 0xff;
-          state = c.run_automaton.as_ref().unwrap().step(state, label);
+          state = c.run_automaton.as_mut().unwrap().step(state, label);
           assert_ne!(state, -1);
         }
       }

@@ -25,13 +25,11 @@ use crate::core::util::StringHelper;
 use crate::core::util::attribute_source::AttributeSourceEnum4;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
-use crate::core::util::automation::byte_runnable::{ByteRunnable, ByteRunnableEnum};
+use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::transition::Transition;
-use crate::core::util::automation::transition_accessor::{
-  TransitionAccessor, TransitionAccessorEnum,
-};
+use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -53,7 +51,7 @@ pub struct CompiledAutomaton {
 
   /// Matcher for quickly determining if a byte[] is accepted. Only valid for
   /// [`AutomatonType::Normal`].
-  pub run_automaton: Option<Arc<ByteRunAutomaton>>,
+  pub run_automaton: Option<ByteRunAutomaton>,
 
   /// Matcher directly run on a NFA, it will determinize the state on need and
   /// caches it, note that this field and
@@ -61,7 +59,7 @@ pub struct CompiledAutomaton {
   /// time.
   ///
   /// TODO: merge this with run_automaton
-  pub(crate) nfa_run_automaton: Option<Arc<NFARunAutomaton>>,
+  pub(crate) nfa_run_automaton: Option<NFARunAutomaton>,
 
   /// Shared common suffix accepted by the automaton. Only valid for
   /// [`AutomatonType::Normal`], and only when the automaton accepts an
@@ -227,7 +225,7 @@ impl CompiledAutomaton {
         term,
         run_automaton: None,
 
-        nfa_run_automaton: Some(Arc::new(NFARunAutomaton::with_alphabet_size(binary, 0xff))),
+        nfa_run_automaton: Some(NFARunAutomaton::with_alphabet_size(binary, 0xff)),
         common_suffix_ref,
         finite,
         sink_state: -1,
@@ -246,7 +244,7 @@ impl CompiledAutomaton {
       Ok(Self {
         type_: automaton_type,
         term,
-        run_automaton: Some(Arc::new(run_automaton)),
+        run_automaton: Some(run_automaton),
         nfa_run_automaton: None,
         common_suffix_ref,
         finite,
@@ -337,8 +335,8 @@ impl CompiledAutomaton {
     input: &BytesRef<Vec<u8>>,
     output: &mut BytesRefBuilder<Vec<u8>>,
   ) -> Result<Option<BytesRef<Vec<u8>>>> {
-    let run_automaton = self.run_automaton.as_ref().unwrap();
-    let automaton = &run_automaton.base.automaton;
+    let run_automaton = self.run_automaton.as_mut().unwrap();
+    let automaton = run_automaton.base.automaton.clone();
     let mut state = 0;
 
     // Special case: empty string
@@ -409,28 +407,24 @@ impl CompiledAutomaton {
   /// Returns a [`ByteRunnable`] instance, which differs depending on whether
   /// an NFA or DFA is passed in. This method does not guarantee returning
   /// a non-null object.
-  pub fn get_byte_runnable(&self) -> Result<ByteRunnableEnum> {
-    match (self.run_automaton.as_ref(), self.nfa_run_automaton.as_ref()) {
-      (Some(_), Some(_)) => Err(LuceneError::illegal_state(
-        "Both run_automaton and nfa_run_automaton are non-null",
-      )),
-      (Some(run), None) => Ok(ByteRunnableEnum::Byte(run.clone())),
-      (None, Some(nfa)) => Ok(ByteRunnableEnum::NFA(nfa.clone())),
-      (None, None) => Err(LuceneError::illegal_state(
-        "Both run_automaton and nfa_run_automaton are None, should not be called",
-      )),
-    }
+  #[allow(dead_code)]
+  pub fn get_byte_runnable(&self) {
+    // use get_automaton instead of this
   }
   /// Returns a [`TransitionAccessor`] instance, which varies depending on
   /// whether an NFA or DFA is passed in. This method does not guarantee
   /// returning a non-null object.
-  pub fn get_transition_accessor(&self) -> Result<TransitionAccessorEnum> {
+  #[allow(dead_code)]
+  pub fn get_transition_accessor(&self) {
+    // use get_automaton instead of this
+  }
+  pub fn get_automaton(&self) -> Result<AutomatonEnum> {
     match (self.run_automaton.as_ref(), self.nfa_run_automaton.as_ref()) {
       (Some(_), Some(_)) => Err(LuceneError::illegal_state(
         "Both run_automaton and nfa_run_automaton are non-null",
       )),
-      (Some(run), None) => Ok(TransitionAccessorEnum::Byte(run.clone())),
-      (None, Some(nfa)) => Ok(TransitionAccessorEnum::Nfa(nfa.clone())),
+      (Some(run), None) => Ok(AutomatonEnum::Byte(run.clone())),
+      (None, Some(nfa)) => Ok(AutomatonEnum::NFA(Box::new(nfa.clone()))),
       (None, None) => Err(LuceneError::illegal_state(
         "Both run_automaton and nfa_run_automaton are None,, should not be called",
       )),
@@ -449,20 +443,20 @@ impl Hash for CompiledAutomaton {
       },
       AutomatonType::Normal => {
         self.run_automaton.hash(state);
-        hash_opt_rc_identity(&self.nfa_run_automaton, state);
+        hash_opt_ref_identity(&self.nfa_run_automaton, state);
       },
       AutomatonType::All | AutomatonType::None => {},
     }
   }
 }
-fn hash_opt_rc_identity<T, H>(v: &Option<Arc<T>>, state: &mut H)
+fn hash_opt_ref_identity<T, H>(v: &Option<T>, state: &mut H)
 where
   H: Hasher,
 {
   match v.as_ref() {
     None => 0usize.hash(state),
-    Some(rc) => {
-      (Arc::as_ptr(rc) as usize).hash(state);
+    Some(value) => {
+      (value as *const T as usize).hash(state);
     },
   }
 }
@@ -481,7 +475,7 @@ impl PartialEq for CompiledAutomaton {
             other.nfa_run_automaton.as_ref(),
           ) {
             (None, None) => true,
-            (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+            (Some(a), Some(b)) => std::ptr::eq(a, b),
             _ => false,
           }
       },
@@ -503,6 +497,79 @@ pub enum AutomatonType {
   Single,
   /// Catch-all for any other automata.
   Normal,
+}
+
+pub enum AutomatonEnum {
+  Byte(ByteRunAutomaton),
+  NFA(Box<NFARunAutomaton>),
+}
+impl AutomatonEnum {
+  // -----Implement ByteRunnable----
+  pub fn step(&mut self, state: i32, c: i32) -> Result<i32> {
+    match self {
+      AutomatonEnum::Byte(bra) => Ok(bra.step(state, c)),
+      AutomatonEnum::NFA(nfa) => Ok(nfa.step(state, c)),
+    }
+  }
+
+  pub fn is_accept(&self, state: i32) -> Result<bool> {
+    match self {
+      AutomatonEnum::Byte(bra) => bra.is_accept(state),
+      AutomatonEnum::NFA(nfa) => nfa.is_accept(state),
+    }
+  }
+
+  pub fn get_size(&self) -> Result<i32> {
+    match self {
+      AutomatonEnum::Byte(bra) => Ok(bra.get_size()),
+      AutomatonEnum::NFA(nfa) => Ok(nfa.get_size()),
+    }
+  }
+
+  pub fn run(&mut self, s: &[u8], offset: usize, length: usize) -> Result<bool> {
+    match self {
+      AutomatonEnum::Byte(bra) => bra.run(s, offset, length),
+      AutomatonEnum::NFA(nfa) => ByteRunnable::run(nfa.as_mut(), s, offset, length),
+    }
+  }
+  // -----Implement TransitionAccessor----
+
+  pub fn init_transition(&mut self, state: i32, t: &mut Transition) -> Result<i32> {
+    match self {
+      AutomatonEnum::Byte(byte) => Ok(byte.base.automaton.init_transition(state, t)),
+      AutomatonEnum::NFA(nfa) => nfa.init_transition(state, t),
+    }
+  }
+
+  pub fn get_next_transition(&mut self, t: &mut Transition) -> Result<()> {
+    match self {
+      AutomatonEnum::Byte(byte) => {
+        byte.base.automaton.get_next_transition(t);
+        Ok(())
+      },
+      AutomatonEnum::NFA(nfa) => {
+        nfa.get_next_transition(t);
+        Ok(())
+      },
+    }
+  }
+
+  pub fn get_num_transitions_with_state(&mut self, state: i32) -> Result<i32> {
+    match self {
+      AutomatonEnum::Byte(byte) => Ok(byte.base.automaton.get_num_transitions_with_state(state)),
+      AutomatonEnum::NFA(nfa) => nfa.get_num_transitions_with_state(state),
+    }
+  }
+
+  pub fn get_transition(&mut self, state: i32, index: i32, t: &mut Transition) -> Result<()> {
+    match self {
+      AutomatonEnum::Byte(byte) => {
+        byte.base.automaton.get_transition(state, index, t);
+        Ok(())
+      },
+      AutomatonEnum::NFA(nfa) => nfa.get_transition(state, index, t),
+    }
+  }
 }
 
 pub enum CompiledAutomatonTE<T>

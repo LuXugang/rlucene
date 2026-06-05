@@ -23,6 +23,7 @@ use std::sync::Arc;
 
 /// A thin wrapper mapping states to reference counts.
 /// When a state's count drops to zero, it is removed.
+#[derive(Clone)]
 pub(crate) struct StateSet {
   inner: HashMap<i32, i32>,
   hash_code: i64,

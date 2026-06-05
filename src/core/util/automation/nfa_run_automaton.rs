@@ -24,10 +24,10 @@ use crate::core::util::automation::state_set::StateSet;
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+
 /// A [`RunAutomaton`](crate::core::util::automation::run_automaton::RunAutomaton)
 /// that does not require a precomputed DFA. It will lazily determinize
 /// on-demand, memorizing the DFA states that have been explored.
@@ -35,18 +35,17 @@ use std::sync::Arc;
 /// **Note:** The current implementation is **not thread-safe**.
 ///
 /// Implemented based on: <https://swtch.com/~rsc/regexp/regexp1.html>
+#[derive(Clone)]
 pub struct NFARunAutomaton {
-  pub(crate) automaton: Automaton,
-  points: Vec<i32>,
+  pub(crate) automaton: Arc<Automaton>,
+  points: Arc<Vec<i32>>,
   alphabet_size: i32,
-  classmap: Vec<usize>, // map from char number to class
-  // TODO IMPORTANT 这里需要使用内部可变吗
-  // Due to trait `TransitionAccessor`'s method is not mutable,so the methods of NFARunAutomaton
-  // needs not mutable too, so using RefCell to make the necessary fields internally mutable.
-  dstates: Mutex<Vec<DState>>,
-  state: Mutex<State>,
-  states_set: Mutex<StateSet>, // reusable
+  classmap: Arc<Vec<usize>>, // map from char number to class
+  dstates: Vec<DState>,
+  state: State,
+  states_set: StateSet,
 }
+#[derive(Clone)]
 struct State {
   dstate_to_ord: HashMap<DStateKey, i32>,
   transition_set: PointTransitionSet, // reusable
@@ -74,22 +73,18 @@ impl NFARunAutomaton {
       transition_set: PointTransitionSet::new(),
     };
 
-    let automaton_instance = NFARunAutomaton {
-      automaton,
-      points,
+    let mut automaton_instance = NFARunAutomaton {
+      automaton: Arc::new(automaton),
+      points: Arc::new(points),
       alphabet_size,
-      classmap,
-      dstates: Mutex::new(Vec::with_capacity(10)),
-      state: Mutex::new(state),
-      states_set: Mutex::new(StateSet::new(5)),
+      classmap: Arc::new(classmap),
+      dstates: Vec::with_capacity(10),
+      state,
+      states_set: StateSet::new(5),
     };
 
     let initial_state = DState::new(Arc::new(vec![0]), &automaton_instance);
-    {
-      let mut dstate = automaton_instance.dstates.lock();
-      let mut state = automaton_instance.state.lock();
-      automaton_instance.find_dstate(Some(initial_state), &mut dstate, &mut state);
-    }
+    automaton_instance.find_dstate(Some(initial_state));
 
     automaton_instance
   }
@@ -101,7 +96,7 @@ impl NFARunAutomaton {
   ///
   /// Returns:
   /// - `true` if the input is accepted; `false` otherwise.
-  pub(crate) fn run(&self, input: &[i32]) -> bool {
+  pub(crate) fn run(&mut self, input: &[i32]) -> bool {
     let mut p = 0;
     for &c in input {
       p = self.step(p, c);
@@ -110,7 +105,7 @@ impl NFARunAutomaton {
       }
     }
 
-    self.dstates.lock()[p as usize].is_accept
+    self.dstates[p as usize].is_accept
   }
   /// From an existing DFA state, steps to the next DFA state given character
   /// `c`.
@@ -118,36 +113,31 @@ impl NFARunAutomaton {
   /// If the transition was previously computed, this operation will use the
   /// cached result; otherwise, it will call [`Self::step_with_index`] to
   /// compute the next state and then cache it.
-  fn step_with_dstate_index(&self, dstate_index: usize, c: i32) -> i32 {
+  fn step_with_dstate_index(&mut self, dstate_index: usize, c: i32) -> i32 {
     let char_class = self.get_char_class(c);
     self.next_state(char_class, dstate_index)
   }
   /// return the ordinal of given DFA state, generate a new ordinal if the
   /// given DFA state is a new one
-  fn find_dstate(
-    &self,
-    dstate: Option<DState>,
-    dstates: &mut Vec<DState>,
-    state: &mut State,
-  ) -> i32 {
+  fn find_dstate(&mut self, dstate: Option<DState>) -> i32 {
     match dstate {
       Some(dstate) => {
         let dstate_key = DStateKey {
           nfa_states: dstate.nfa_states.clone(),
           hash_code: dstate.hash_code as i32,
         };
-        if let Some(&ord) = state.dstate_to_ord.get(&dstate_key) {
+        if let Some(&ord) = self.state.dstate_to_ord.get(&dstate_key) {
           return ord;
         }
-        debug_assert!(state.dstate_to_ord.len() <= i32::MAX as usize);
-        let ord = state.dstate_to_ord.len();
-        state.dstate_to_ord.insert(dstate_key, ord as i32);
+        debug_assert!(self.state.dstate_to_ord.len() <= i32::MAX as usize);
+        let ord = self.state.dstate_to_ord.len();
+        self.state.dstate_to_ord.insert(dstate_key, ord as i32);
 
-        if ord >= dstates.len() {
-          ArrayUtil::grow_with_len(dstates, ord + 1);
+        if ord >= self.dstates.len() {
+          ArrayUtil::grow_with_len(&mut self.dstates, ord + 1);
         }
 
-        dstates[ord] = dstate;
+        self.dstates[ord] = dstate;
 
         ord as i32
       },
@@ -180,7 +170,7 @@ impl NFARunAutomaton {
   }
   fn set_transition_accordingly(&self, t: &mut Transition) {
     let transition_upto = t.transition_upto as usize;
-    let state = &self.dstates.lock()[t.source as usize];
+    let state = &self.dstates[t.source as usize];
     t.dest = state.transitions[transition_upto];
     t.min = self.points[transition_upto];
 
@@ -190,18 +180,18 @@ impl NFARunAutomaton {
       t.max = self.points[transition_upto + 1] - 1;
     }
   }
-  fn next_state(&self, char_class: usize, index: usize) -> i32 {
+  fn next_state(&mut self, char_class: usize, index: usize) -> i32 {
     let v = {
-      let mut dstates = self.dstates.lock();
-      let dstate = &mut dstates[index];
+      let len = self.points.len();
+      let dstate = &mut self.dstates[index];
+      dstate.init_transitions(len);
       debug_assert!(char_class < dstate.transitions.len());
       dstate.transitions[char_class]
     };
     if v == NFARunAutomaton::NOT_COMPUTED {
       let next_dstate = self.step_with_index(self.points[char_class], index);
-      let mut dstates = self.dstates.lock();
-      let ord = self.find_dstate(next_dstate, &mut dstates, &mut self.state.lock());
-      let dstate = &mut dstates[index];
+      let ord = self.find_dstate(next_dstate);
+      let dstate = &mut self.dstates[index];
       dstate.assign_transition(char_class, ord);
       // we could potentially update more than one char classes
       if let Some(minimal_transition) = dstate.minimal_transition.take() {
@@ -228,27 +218,26 @@ impl NFARunAutomaton {
         }
       }
     }
-    self.dstates.lock()[index].transitions[char_class]
+    self.dstates[index].transitions[char_class]
   }
   ///  given a list of NFA states and a character c, compute the output list
   /// of NFA state which is wrapped as a DFA state
-  fn step_with_index(&self, c: i32, index: usize) -> Option<DState> {
-    let mut states_set = self.states_set.lock();
-    states_set.reset();
+  fn step_with_index(&mut self, c: i32, index: usize) -> Option<DState> {
+    self.states_set.reset();
 
-    let dstate = &mut self.dstates.lock()[index];
+    let nfa_states = self.dstates[index].nfa_states.clone();
     let mut left = -1;
     let mut right = self.alphabet_size;
-    let step_transition = &mut dstate.step_transition;
+    let step_transition = &mut self.dstates[index].step_transition;
 
-    for &nfa_state in dstate.nfa_states.iter() {
+    for &nfa_state in nfa_states.iter() {
       let num_transitions = self.automaton.init_transition(nfa_state, step_transition);
 
       for _ in 0..num_transitions {
         self.automaton.get_next_transition(step_transition);
 
         if (step_transition.min..=step_transition.max).contains(&c) {
-          states_set.incr(step_transition.dest);
+          self.states_set.incr(step_transition.dest);
           left = left.max(step_transition.min);
           right = right.min(step_transition.max);
         }
@@ -263,67 +252,63 @@ impl NFARunAutomaton {
         }
       }
     }
+    let next_states = if self.states_set.size() == 0 {
+      None
+    } else {
+      self.dstates[index].minimal_transition = Some(Transition {
+        min: left,
+        max: right,
+        ..Default::default()
+      });
+      Some(self.states_set.get_array().clone())
+    };
 
-    if states_set.size() == 0 {
-      return None;
-    }
-
-    dstate.minimal_transition = Some(Transition {
-      min: left,
-      max: right,
-      ..Default::default()
-    });
-
-    Some(DState::new(states_set.get_array().clone(), self))
+    next_states.map(|states| DState::new(states, self))
   }
-  fn determinize(&self, index: usize) {
-    {
-      let mut state = self.state.lock();
-      let mut dstates = self.dstates.lock();
-      let dstate = &mut dstates[index];
-      if dstate.computed_transitions == dstate.transitions.len() as i32 {
-        return;
-      }
-      state.transition_set.reset();
-
-      for &nfa_state in dstate.nfa_states.iter() {
-        let num_transitions = self
-          .automaton
-          .init_transition(nfa_state, &mut dstate.step_transition);
-        for _ in 0..num_transitions {
-          self
-            .automaton
-            .get_next_transition(&mut dstate.step_transition);
-          state.transition_set.add(&dstate.step_transition);
-        }
-      }
-
-      {
-        if state.transition_set.count == 0 {
-          dstate.transitions.fill(NFARunAutomaton::MISSING);
-          dstate.computed_transitions = dstate.transitions.len() as i32;
-          return;
-        }
-      }
-      state.transition_set.sort().expect("should not fail");
+  fn determinize(&mut self, index: usize) -> Result<()> {
+    let len = self.points.len();
+    let dstate = &mut self.dstates[index];
+    if dstate.computed_transitions == dstate.transitions.len() as i32 {
+      return Ok(());
     }
-    let mut states_set = self.states_set.lock();
-    states_set.reset();
+    dstate.init_transitions(len);
+    self.state.transition_set.reset();
+
+    for &nfa_state in dstate.nfa_states.iter() {
+      let num_transitions = self
+        .automaton
+        .init_transition(nfa_state, &mut dstate.step_transition);
+      for _ in 0..num_transitions {
+        self
+          .automaton
+          .get_next_transition(&mut dstate.step_transition);
+        self.state.transition_set.add(&dstate.step_transition);
+      }
+    }
+
+    {
+      if self.state.transition_set.count == 0 {
+        dstate.transitions.fill(NFARunAutomaton::MISSING);
+        dstate.computed_transitions = dstate.transitions.len() as i32;
+        return Ok(());
+      }
+    }
+    self.state.transition_set.sort()?;
+    self.states_set.reset();
     let mut last_point = -1;
     let mut char_class = 0;
 
-    let count = self.state.lock().transition_set.count;
+    let count = self.state.transition_set.count;
     for i in 0..count {
-      let point = self.state.lock().transition_set.points[i].point;
+      let point = self.state.transition_set.points[i].point;
 
-      if states_set.size() > 0 {
+      if self.states_set.size() > 0 {
         debug_assert_ne!(last_point, -1);
 
-        let v = states_set.get_array().clone();
+        let v = self.states_set.get_array().clone();
         let new_dstate = DState::new(v, self);
-        let mut dstates = self.dstates.lock();
-        let ord = self.find_dstate(Some(new_dstate), &mut dstates, &mut self.state.lock());
-        let dstate = &mut dstates[index];
+        let ord = self.find_dstate(Some(new_dstate));
+        let dstate = &mut self.dstates[index];
 
         while self.points[char_class] < last_point {
           dstate.assign_transition(char_class, Self::MISSING);
@@ -349,30 +334,28 @@ impl NFARunAutomaton {
 
       // process transitions that end on this point
       // (closes an overlapping interval)
-      let mut state = self.state.lock();
-      let ends = &mut state.transition_set.points[i].ends;
+      let ends = &mut self.state.transition_set.points[i].ends;
       let limit = ends.next;
       for j in (0..limit).step_by(3) {
         let dest = ends.transitions[j];
-        states_set.decr(dest);
+        self.states_set.decr(dest);
       }
       ends.next = 0;
 
       // process transitions that start on this point
       // (opens a new interval)
-      let starts = &mut state.transition_set.points[i].starts;
+      let starts = &mut self.state.transition_set.points[i].starts;
       let limit = starts.next;
       for j in (0..limit).step_by(3) {
         let dest = starts.transitions[j];
-        states_set.incr(dest);
+        self.states_set.incr(dest);
       }
 
       last_point = point;
       starts.next = 0;
     }
-    let mut dstates = self.dstates.lock();
-    let dstate = &mut dstates[index];
-    debug_assert_eq!(states_set.size(), 0);
+    let dstate = &mut self.dstates[index];
+    debug_assert_eq!(self.states_set.size(), 0);
     debug_assert!(dstate.computed_transitions >= char_class as i32);
     // it's also possible that some transitions after the charClass has already
     // been explored
@@ -388,45 +371,19 @@ impl NFARunAutomaton {
     dstate.transitions[char_class..len].fill(NFARunAutomaton::NOT_COMPUTED);
 
     dstate.computed_transitions = dstate.transitions.len() as i32;
-  }
-}
-impl ByteRunnable for NFARunAutomaton {
-  /// For a given state and an incoming character (codepoint), returns the
-  /// next state.
-  ///
-  /// Parameters:
-  /// - `state`: The incoming state. It should either be `0` or a state
-  ///   previously returned by this function.
-  /// - `c`: The Unicode codepoint to transition on
-  ///
-  /// Returns:
-  /// - The next state, or `Self::MISSING` if the transition doesn't exist.
-  fn step(&self, state: i32, c: i32) -> i32 {
-    debug_assert!(self.dstates.lock().get(state as usize).is_some());
-    self.step_with_dstate_index(state as usize, c)
+    Ok(())
   }
 
-  fn is_accept(&self, state: i32) -> Result<bool> {
-    debug_assert!(self.dstates.lock().get(state as usize).is_some());
-    Ok(self.dstates.lock()[state as usize].is_accept)
-  }
-
-  fn get_size(&self) -> i32 {
-    debug_assert!(self.dstates.lock().len() <= i32::MAX as usize);
-    self.dstates.lock().len() as i32
-  }
-}
-impl TransitionAccessor for NFARunAutomaton {
-  fn init_transition(&self, state: i32, t: &mut Transition) -> i32 {
+  pub fn init_transition(&mut self, state: i32, t: &mut Transition) -> Result<i32> {
     t.source = state;
     t.transition_upto = -1;
     self.get_num_transitions_with_state(state)
   }
 
-  fn get_next_transition(&self, t: &mut Transition) {
+  pub fn get_next_transition(&self, t: &mut Transition) {
     debug_assert!(t.transition_upto >= -1 && t.transition_upto < self.points.len() as i32 - 1);
     {
-      let transitions = &self.dstates.lock()[t.source as usize].transitions;
+      let transitions = &self.dstates[t.source as usize].transitions;
       loop {
         // this shouldn't throw AIOOBE as long as this function is only called
         // numTransitions times
@@ -442,15 +399,15 @@ impl TransitionAccessor for NFARunAutomaton {
     self.set_transition_accordingly(t);
   }
 
-  fn get_num_transitions_with_state(&self, state: i32) -> i32 {
-    self.determinize(state as usize);
-    self.dstates.lock()[state as usize].outgoing_transitions
+  pub fn get_num_transitions_with_state(&mut self, state: i32) -> Result<i32> {
+    self.determinize(state as usize)?;
+    Ok(self.dstates[state as usize].outgoing_transitions)
   }
 
-  fn get_transition(&self, state: i32, index: i32, t: &mut Transition) {
-    self.determinize(state as usize);
+  pub fn get_transition(&mut self, state: i32, index: i32, t: &mut Transition) -> Result<()> {
+    self.determinize(state as usize)?;
     {
-      let transitions = &self.dstates.lock()[state as usize].transitions;
+      let transitions = &self.dstates[state as usize].transitions;
 
       let mut outgoing_transitions = -1;
       t.transition_upto = -1;
@@ -467,9 +424,36 @@ impl TransitionAccessor for NFARunAutomaton {
       debug_assert_eq!(outgoing_transitions, index);
     }
     self.set_transition_accordingly(t);
+    Ok(())
   }
 }
+impl ByteRunnable for NFARunAutomaton {
+  /// For a given state and an incoming character (codepoint), returns the
+  /// next state.
+  ///
+  /// Parameters:
+  /// - `state`: The incoming state. It should either be `0` or a state
+  ///   previously returned by this function.
+  /// - `c`: The Unicode codepoint to transition on
+  ///
+  /// Returns:
+  /// - The next state, or `Self::MISSING` if the transition doesn't exist.
+  fn step(&mut self, state: i32, c: i32) -> i32 {
+    debug_assert!(self.dstates.get(state as usize).is_some());
+    self.step_with_dstate_index(state as usize, c)
+  }
 
+  fn is_accept(&self, state: i32) -> Result<bool> {
+    debug_assert!(self.dstates.get(state as usize).is_some());
+    Ok(self.dstates[state as usize].is_accept)
+  }
+
+  fn get_size(&self) -> i32 {
+    debug_assert!(self.dstates.len() <= i32::MAX as usize);
+    self.dstates.len() as i32
+  }
+}
+#[derive(Clone)]
 struct DState {
   nfa_states: Arc<Vec<i32>>,
   transitions: Vec<i32>,
@@ -533,11 +517,15 @@ impl DState {
     }
   }
 
-  #[allow(dead_code)]
-  fn init_transitions() {
-    // no need lazily init'd transitions in Rust Lucene
+  fn init_transitions(&mut self, points_len: usize) {
+    if self.transitions.len() < points_len {
+      self
+        .transitions
+        .resize(points_len, NFARunAutomaton::NOT_COMPUTED);
+    }
   }
 }
+#[derive(Clone)]
 struct DStateKey {
   nfa_states: Arc<Vec<i32>>,
   hash_code: i32,

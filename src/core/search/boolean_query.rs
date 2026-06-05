@@ -168,7 +168,7 @@ impl BooleanQuery {
 
     Ok(new_query.build().into())
   }
-  #[allow(clippy::mutable_key_type)]
+  #[cfg_attr(test, allow(clippy::mutable_key_type))]
   fn as_counts_map(&self) -> HashMap<(Occur, &Query), usize> {
     let mut m = HashMap::new();
     for (&occur, indices) in &self.clause_sets {
@@ -333,7 +333,6 @@ impl QueryBase for BooleanQuery {
     let weight = self.raw_weight(searcher, score_mode, boost)?;
     Ok(Box::new(weight))
   }
-  #[allow(clippy::mutable_key_type)]
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
@@ -596,6 +595,7 @@ impl QueryBase for BooleanQuery {
       .unwrap_or(&[]);
 
     if !should_indices.is_empty() && self.minimum_number_should_match <= 1 {
+      #[cfg_attr(test, allow(clippy::mutable_key_type))]
       let mut should_clauses = HashMap::new();
 
       for &idx in should_indices {
@@ -641,6 +641,7 @@ impl QueryBase for BooleanQuery {
       .unwrap_or(&[]);
 
     if !must_indices.is_empty() {
+      #[cfg_attr(test, allow(clippy::mutable_key_type))]
       let mut must_clauses = HashMap::new();
 
       for &idx in must_indices {

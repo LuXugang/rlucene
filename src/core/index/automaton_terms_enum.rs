@@ -20,12 +20,10 @@ use crate::core::index::filtered_terms_enum::{
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::automation::byte_runnable::{ByteRunnable, ByteRunnableEnum};
-use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
-use crate::core::util::automation::transition::Transition;
-use crate::core::util::automation::transition_accessor::{
-  TransitionAccessor, TransitionAccessorEnum,
+use crate::core::util::automation::compiled_automaton::{
+  AutomatonEnum, AutomatonType, CompiledAutomaton,
 };
+use crate::core::util::automation::transition::Transition;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::{SliceCopyOps, StringHelper, ToInt};
@@ -47,13 +45,13 @@ use std::sync::Arc;
 ///   DFA is infinite (e.g., due to `*` operator).
 pub struct AutomatonTermsEnum {
   /// A tableized array-based form of the DFA.
-  byte_runnable: ByteRunnableEnum,
+  /// array of sorted transitions for each state, indexed by state number
+  /// use AutomatonEnum instead of ByteRunnable/TransitionAccessor in Java Lucene
+  automaton: AutomatonEnum,
   /// Common suffix of the automaton.
   common_suffix_ref: Option<Arc<BytesRef<Vec<u8>>>>,
   // true if the automaton accepts a finite language
   finite: bool,
-  // array of sorted transitions for each state, indexed by state number
-  transition_accessor: TransitionAccessorEnum,
   // Used for visited state tracking: each short records gen when we last
   // visited the state; we use gens to avoid having to clear
   visited: Vec<u16>,
@@ -91,16 +89,15 @@ impl AutomatonTermsEnum {
       ));
     }
 
-    let byte_runnable = compiled.get_byte_runnable()?;
+    let byte_runnable = compiled.get_automaton()?;
     let visited = if compiled.finite {
       Vec::new()
     } else {
-      vec![0u16; byte_runnable.get_size() as usize]
+      vec![0u16; byte_runnable.get_size()? as usize]
     };
     let sub = Self {
       // FilteredTermsEnum parent initialization — you'd handle this separately
-      byte_runnable,
-      transition_accessor: compiled.get_transition_accessor()?,
+      automaton: byte_runnable,
       common_suffix_ref: compiled.common_suffix_ref.clone(),
       finite: compiled.finite,
       visited,
@@ -138,7 +135,7 @@ impl AutomatonTermsEnum {
   ///
   /// This sets an upper bound and behaves like a `TermRangeQuery` for this
   /// portion of the term space.
-  fn set_linear(&mut self, position: usize) {
+  fn set_linear(&mut self, position: usize) -> Result<()> {
     debug_assert!(!self.linear);
 
     let mut state = 0;
@@ -146,21 +143,17 @@ impl AutomatonTermsEnum {
 
     for i in 0..position {
       let byte = self.seek_bytes_ref.byte_at(i);
-      state = self.byte_runnable.step(state, byte as i32);
+      state = self.automaton.step(state, byte as i32)?;
       debug_assert!(state >= 0, "state = {state}");
     }
 
-    let num_transitions = self
-      .transition_accessor
-      .get_num_transitions_with_state(state);
+    let num_transitions = self.automaton.get_num_transitions_with_state(state)?;
     self
-      .transition_accessor
-      .init_transition(state, &mut self.transition);
+      .automaton
+      .init_transition(state, &mut self.transition)?;
 
     for _ in 0..num_transitions {
-      self
-        .transition_accessor
-        .get_next_transition(&mut self.transition);
+      self.automaton.get_next_transition(&mut self.transition)?;
       let ch = self.seek_bytes_ref.byte_at(position) as i32;
       if self.transition.min <= ch && ch <= self.transition.max {
         max_interval = self.transition.max as u8;
@@ -182,6 +175,7 @@ impl AutomatonTermsEnum {
     self.linear_upper_bound.bytes[position] = max_interval;
     self.linear_upper_bound.length = length;
     self.linear = true;
+    Ok(())
   }
   /// Increments the byte buffer to the next string in binary order after `s`
   /// that will not put the machine into a reject state. If no such string
@@ -220,13 +214,13 @@ impl AutomatonTermsEnum {
       while pos < self.seek_bytes_ref.length() {
         self.set_visited(state);
         let byte = self.seek_bytes_ref.byte_at(pos) as i32;
-        let next_state = self.byte_runnable.step(state, byte);
+        let next_state = self.automaton.step(state, byte)?;
         if next_state == -1 {
           break;
         }
         self.saved_states.set_int_at(pos + 1, next_state);
         if !self.linear && self.is_visited(next_state) {
-          self.set_linear(pos);
+          self.set_linear(pos)?;
         }
         state = next_state;
         pos += 1;
@@ -247,9 +241,9 @@ impl AutomatonTermsEnum {
 
         let prev_state = self.saved_states.int_at(pos);
         let byte = self.seek_bytes_ref.byte_at(pos) as i32;
-        let new_state = self.byte_runnable.step(prev_state, byte);
+        let new_state = self.automaton.step(prev_state, byte)?;
 
-        if new_state >= 0 && self.byte_runnable.is_accept(new_state)? {
+        if new_state >= 0 && self.automaton.is_accept(new_state)? {
           /* String is good to go as-is  */
           return Ok(true);
         }
@@ -299,19 +293,15 @@ impl AutomatonTermsEnum {
     self.seek_bytes_ref.set_length(position);
     self.set_visited(state);
 
-    let num_transitions = self
-      .transition_accessor
-      .get_num_transitions_with_state(state);
+    let num_transitions = self.automaton.get_num_transitions_with_state(state)?;
     self
-      .transition_accessor
-      .init_transition(state, &mut self.transition);
+      .automaton
+      .init_transition(state, &mut self.transition)?;
 
     // find the minimal path (lexicographic order) that is >= c
     let c = c as i32;
     for _ in 0..num_transitions {
-      self
-        .transition_accessor
-        .get_next_transition(&mut self.transition);
+      self.automaton.get_next_transition(&mut self.transition)?;
       if self.transition.max >= c {
         let next_char = self.transition.min.max(c);
         // append either the next sequential char, or the minimum transition
@@ -320,23 +310,21 @@ impl AutomatonTermsEnum {
         // as long as is possible, continue down the minimal path in
         // lexicographic order. if a loop or accept state is encountered, stop.
         // descend minimal lex path until loop or accept state
-        while !self.is_visited(state) && !self.byte_runnable.is_accept(state)? {
+        while !self.is_visited(state) && !self.automaton.is_accept(state)? {
           self.set_visited(state);
           // Note: we work with a DFA with no transitions to dead states.
           // so the below is ok, if it is not an accept state,
           // then there MUST be at least one transition.
           self
-            .transition_accessor
-            .init_transition(state, &mut self.transition);
-          self
-            .transition_accessor
-            .get_next_transition(&mut self.transition);
+            .automaton
+            .init_transition(state, &mut self.transition)?;
+          self.automaton.get_next_transition(&mut self.transition)?;
           state = self.transition.dest;
           // append the minimum transition
           self.seek_bytes_ref.append_byte(self.transition.min as u8);
           // we found a loop, record it for faster enumeration
           if !self.linear && self.is_visited(state) {
-            self.set_linear(self.seek_bytes_ref.length() - 1);
+            self.set_linear(self.seek_bytes_ref.length() - 1)?;
           }
         }
         return Ok(true);
@@ -380,10 +368,7 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
     };
 
     let v = if suffix_ok {
-      if self
-        .byte_runnable
-        .run(&term.bytes, term.offset, term.length)?
-      {
+      if self.automaton.run(&term.bytes, term.offset, term.length)? {
         if self.linear {
           AcceptStatus::Yes
         } else {
@@ -414,7 +399,7 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
         None => {
           debug_assert_eq!(self.seek_bytes_ref.length(), 0);
           // return the empty term, as it's valid
-          if self.byte_runnable.is_accept(0)? {
+          if self.automaton.is_accept(0)? {
             return Ok(Some(Cow::Borrowed(self.seek_bytes_ref.get_bytes_ref())));
           }
         },

@@ -1265,7 +1265,7 @@ impl Operations {
     Ok(upto)
   }
 }
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct TransitionList {
   // dest, min, max
   pub(crate) transitions: Vec<i32>,
@@ -1292,7 +1292,7 @@ impl TransitionList {
   }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub(crate) struct PointTransitions {
   pub(crate) point: i32,
   pub(crate) ends: TransitionList,
@@ -1344,6 +1344,7 @@ impl std::hash::Hash for PointTransitions {
 }
 
 const HASHMAP_CUTOVER: usize = 30;
+#[derive(Clone)]
 pub(crate) struct PointTransitionSet {
   pub(crate) count: usize,
   pub(crate) points: Vec<PointTransitions>,

@@ -14,10 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
-use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 
 /// A runnable automaton accepting byte array as input
 pub trait ByteRunnable {
@@ -32,7 +29,7 @@ pub trait ByteRunnable {
   ///
   /// # Returns
   /// The next state, or -1 if no such transition.
-  fn step(&self, state: i32, c: i32) -> i32;
+  fn step(&mut self, state: i32, c: i32) -> i32;
 
   /// Returns acceptance status for given state.
   ///
@@ -60,7 +57,7 @@ pub trait ByteRunnable {
   ///
   /// # Returns
   /// Whether the automaton accepts the input.
-  fn run(&self, s: &[u8], offset: usize, length: usize) -> Result<bool> {
+  fn run(&mut self, s: &[u8], offset: usize, length: usize) -> Result<bool> {
     let mut p = 0;
     let end = offset + length;
     for &b in &s[offset..end] {
@@ -70,39 +67,5 @@ pub trait ByteRunnable {
       }
     }
     self.is_accept(p)
-  }
-}
-
-pub enum ByteRunnableEnum {
-  Byte(Arc<ByteRunAutomaton>),
-  NFA(Arc<NFARunAutomaton>),
-}
-impl ByteRunnable for ByteRunnableEnum {
-  fn step(&self, state: i32, c: i32) -> i32 {
-    match self {
-      ByteRunnableEnum::Byte(bra) => bra.step(state, c),
-      ByteRunnableEnum::NFA(nfa) => nfa.step(state, c),
-    }
-  }
-
-  fn is_accept(&self, state: i32) -> Result<bool> {
-    match self {
-      ByteRunnableEnum::Byte(bra) => bra.is_accept(state),
-      ByteRunnableEnum::NFA(nfa) => nfa.is_accept(state),
-    }
-  }
-
-  fn get_size(&self) -> i32 {
-    match self {
-      ByteRunnableEnum::Byte(bra) => bra.get_size(),
-      ByteRunnableEnum::NFA(nfa) => nfa.get_size(),
-    }
-  }
-
-  fn run(&self, s: &[u8], offset: usize, length: usize) -> Result<bool> {
-    match self {
-      ByteRunnableEnum::Byte(bra) => bra.run(s, offset, length),
-      ByteRunnableEnum::NFA(nfa) => ByteRunnable::run(nfa.as_ref(), s, offset, length),
-    }
   }
 }

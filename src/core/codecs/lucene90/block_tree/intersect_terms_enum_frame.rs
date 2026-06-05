@@ -26,11 +26,8 @@ use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::automation::byte_runnable::ByteRunnable;
+use crate::core::util::automation::compiled_automaton::AutomatonEnum;
 use crate::core::util::automation::transition::Transition;
-use crate::core::util::automation::transition_accessor::{
-  TransitionAccessor, TransitionAccessorEnum,
-};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
@@ -172,16 +169,16 @@ impl IntersectTermsEnumFrame {
     Self::load(ite, frame_idx, None)
   }
   pub(crate) fn set_state(
-    automaton: &TransitionAccessorEnum,
+    automaton: &mut AutomatonEnum,
     frame: &mut IntersectTermsEnumFrame,
     state: i32,
   ) -> Result<()> {
     frame.state = state;
     frame.transition_index = 0;
-    frame.transition_count = automaton.get_num_transitions_with_state(state);
+    frame.transition_count = automaton.get_num_transitions_with_state(state)?;
     if frame.transition_count != 0 {
-      automaton.init_transition(state, &mut frame.transition);
-      automaton.get_next_transition(&mut frame.transition);
+      automaton.init_transition(state, &mut frame.transition)?;
+      automaton.get_next_transition(&mut frame.transition)?;
     } else {
       // Must set min to -1 so the "label < min" check never falsely triggers:
       frame.transition.min = -1;
@@ -247,7 +244,7 @@ impl IntersectTermsEnumFrame {
 
         // If current state is not accept and has transitions,
         // process first block in case it has empty suffix
-        if !ite.run_automation.is_accept(frame.state)? && frame.transition_count != 0 {
+        if !ite.automaton.is_accept(frame.state)? && frame.transition_count != 0 {
           // Maybe skip floor blocks:
           debug_assert!(
             frame.transition_index == 0,

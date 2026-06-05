@@ -43,7 +43,7 @@ use crate::test::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestUTF32ToUTF8;
 const MAX_UNICODE: i32 = 0x10FFFF;
-fn matches(a: &ByteRunAutomaton, code: i32) -> Result<bool> {
+fn matches(a: &mut ByteRunAutomaton, code: i32) -> Result<bool> {
   let ch = std::char::from_u32(code as u32)
     .ok_or_else(|| LuceneError::illegal_argument("Invalid Unicode code point"))?;
   let len = UnicodeUtil::max_utf8_length(code)?;
@@ -53,7 +53,7 @@ fn matches(a: &ByteRunAutomaton, code: i32) -> Result<bool> {
 }
 fn test_one<R>(
   random: &mut R,
-  a: &ByteRunAutomaton,
+  a: &mut ByteRunAutomaton,
   start_code: i32,
   end_code: i32,
   iters: usize,
@@ -165,8 +165,8 @@ fn test_random_ranges() -> Result<()> {
     }
 
     let a = Automata::make_char_range(start_code, end_code)?;
-    let dfa = ByteRunAutomaton::new(a)?;
-    test_one(&mut random, &dfa, start_code, end_code, iters_per_dfa)?;
+    let mut dfa = ByteRunAutomaton::new(a)?;
+    test_one(&mut random, &mut dfa, start_code, end_code, iters_per_dfa)?;
   }
 
   Ok(())
@@ -177,7 +177,7 @@ fn test_special_case() -> Result<()> {
   let automaton = re.to_automaton()?;
 
   let cra = CharacterRunAutomaton::new(automaton.clone())?;
-  let bra = ByteRunAutomaton::new(automaton)?;
+  let mut bra = ByteRunAutomaton::new(automaton)?;
 
   // make sure character dfa accepts empty string
   assert!(cra.base.is_accept(0)?);
@@ -206,7 +206,7 @@ fn test_special_case2() -> Result<()> {
     Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
 
   let cra = CharacterRunAutomaton::new(automaton.clone())?;
-  let bra = ByteRunAutomaton::new(automaton)?;
+  let mut bra = ByteRunAutomaton::new(automaton)?;
 
   assert!(cra.run_str(&input)?);
 
@@ -236,7 +236,7 @@ fn test_special_case3() -> Result<()> {
     Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
 
   let cra = CharacterRunAutomaton::new(automaton.clone())?;
-  let bra = ByteRunAutomaton::new(automaton)?;
+  let mut bra = ByteRunAutomaton::new(automaton)?;
 
   assert!(cra.run_str(&input)?);
 
@@ -292,7 +292,7 @@ where
   R: Rng + ?Sized,
 {
   let cra = CharacterRunAutomaton::new(a.clone())?;
-  let bra = ByteRunAutomaton::new(a.clone())?;
+  let mut bra = ByteRunAutomaton::new(a.clone())?;
   let ras = RandomAcceptedStrings::new(a)?;
 
   let num = at_least(random, 1000);

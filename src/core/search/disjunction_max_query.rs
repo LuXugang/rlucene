@@ -62,8 +62,6 @@ pub struct DisjunctionMaxQuery {
   ordered_queries: Vec<Query>,
   id: Identity,
 }
-// TODO IMPORTANT fix this warning
-#[allow(clippy::mutable_key_type)]
 impl DisjunctionMaxQuery {
   /// Creates a new DisjunctionMaxQuery
   ///
@@ -75,6 +73,7 @@ impl DisjunctionMaxQuery {
   ///   the order of 0.1, which says that 10 occurrences of word in a lower-scored field that is
   ///   also in a higher scored field is just as good as a unique word in the lower scored field
   ///   (i.e., one that is not in any higher scored field.
+  #[cfg_attr(test, allow(clippy::mutable_key_type))]
   pub fn new(disjuncts: Vec<Query>, tie_breaker_multiplier: f32) -> Result<Self> {
     if !(0.0..=1.0).contains(&tie_breaker_multiplier) {
       return Err(LuceneError::illegal_argument(
@@ -94,6 +93,7 @@ impl DisjunctionMaxQuery {
       id: Identity::new(),
     })
   }
+  #[cfg_attr(test, allow(clippy::mutable_key_type))]
   pub fn get_disjuncts(&self) -> &HashMap<Query, usize> {
     &self.disjuncts
   }

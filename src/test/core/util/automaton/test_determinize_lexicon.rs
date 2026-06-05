@@ -68,7 +68,7 @@ where
     assert!(Operations::run_str(&lex, s));
   }
   if is_night_mode() {
-    let lex_byte = ByteRunAutomaton::new(lex.into_owned())?;
+    let mut lex_byte = ByteRunAutomaton::new(lex.into_owned())?;
     for s in terms {
       let bytes = s.as_bytes();
       assert!(lex_byte.run(bytes, 0, bytes.len())?);

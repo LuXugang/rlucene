@@ -210,13 +210,13 @@ where
   }
 
   /// returns true if term is within k edits of the query term
-  fn matches(&self, term_in: &BytesRef<Vec<u8>>, k: i32) -> Result<bool> {
+  fn matches(&mut self, term_in: &BytesRef<Vec<u8>>, k: i32) -> Result<bool> {
     if k == 0 {
       return Ok(term_in.bytes_equals(self.term.bytes()));
     }
 
-    let automata = self.attrs.get_automata();
-    let runnable = automata[k as usize].run_automaton.as_ref().ok_or_else(|| {
+    let automata = self.attrs.get_automata_mut();
+    let runnable = automata[k as usize].run_automaton.as_mut().ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "FuzzyTermsEnum automaton for edit distance {} is not initialized",
         k

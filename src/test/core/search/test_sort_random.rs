@@ -51,12 +51,13 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_searcher_with_wrap, random,
 };
 use crate::test::core::util::test_util::TestUtil;
+use parking_lot::Mutex;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 pub struct TestSortRandom;
@@ -137,7 +138,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
     let filter = RandomQuery::new(seed, density, doc_values.clone());
     let hits = searcher.search_with_sort_score(filter.clone(), hit_count, sort, false)?;
 
-    let mut expected = filter.match_values.lock().unwrap().clone();
+    let mut expected = filter.match_values.lock().clone();
     expected.sort_by(|a, b| compare_optional_bytes_ref(a.as_ref(), b.as_ref(), sort_missing_last));
     if reverse {
       expected.reverse();
@@ -229,7 +230,7 @@ impl RandomQuery {
     LR: LeafReader,
   {
     let key = context.base().id().clone();
-    if let Some(bits) = self.bitsets.lock().unwrap().get(&key).cloned() {
+    if let Some(bits) = self.bitsets.lock().get(&key).cloned() {
       return Ok(bits);
     }
 
@@ -253,13 +254,12 @@ impl RandomQuery {
         self
           .match_values
           .lock()
-          .unwrap()
           .push(value.as_ref().map(BytesRef::deep_copy_of));
       }
     }
 
     let bitset = Arc::new(bitset);
-    self.bitsets.lock().unwrap().insert(key, bitset.clone());
+    self.bitsets.lock().insert(key, bitset.clone());
     Ok(bitset)
   }
 }

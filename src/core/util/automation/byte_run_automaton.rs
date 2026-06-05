@@ -23,6 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 
+#[derive(Clone)]
 pub struct ByteRunAutomaton {
   pub base: RunAutomaton,
 }
@@ -70,7 +71,7 @@ impl ByteRunAutomaton {
   }
 }
 impl ByteRunnable for ByteRunAutomaton {
-  fn step(&self, state: i32, c: i32) -> i32 {
+  fn step(&mut self, state: i32, c: i32) -> i32 {
     self.base.step(state, c)
   }
 

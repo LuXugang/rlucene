@@ -171,8 +171,8 @@ where
 }
 
 fn check_automaton(expected: &[BytesRef<Vec<u8>>], a: Automaton, is_binary: bool) -> Result<()> {
-  let c = CompiledAutomaton::with_binary(a, true, false, is_binary)?;
-  let run_automaton = c.run_automaton.as_ref().unwrap();
+  let mut c = CompiledAutomaton::with_binary(a, true, false, is_binary)?;
+  let run_automaton = c.run_automaton.as_mut().unwrap();
 
   // Make sure every expected term is accepted
   for t in expected {

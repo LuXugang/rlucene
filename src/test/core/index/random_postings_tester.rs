@@ -1838,7 +1838,7 @@ impl RandomPostingsTester {
           Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
         )?;
         let automaton = automaton.into_owned();
-        let ca = CompiledAutomaton::new(automaton.clone(), false, true)?;
+        let mut ca = CompiledAutomaton::new(automaton.clone(), false, true)?;
         if ca.type_ != AutomatonType::Normal {
           continue;
         }
@@ -1885,7 +1885,7 @@ impl RandomPostingsTester {
           )?;
         }
 
-        if let Some(run_automaton) = ca.run_automaton.as_ref() {
+        if let Some(run_automaton) = ca.run_automaton.as_mut() {
           let field_terms = self
             .fields
             .get(field)

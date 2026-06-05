@@ -27,28 +27,15 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 /// Finite-state automaton with fast run operation. The initial state is always
 /// 0.
+#[derive(Clone)]
 pub struct RunAutomaton {
-  pub(crate) automaton: Automaton,
+  pub(crate) automaton: Arc<Automaton>,
   alphabet_size: usize,
   size: i32,
-  accept: FixedBitSet,
-  transitions: Vec<i32>, // transitions[state * points.len() + get_char_class(c)]
-  points: Vec<i32>,
-  classmap: Vec<usize>,
-}
-#[cfg(test)]
-impl Clone for RunAutomaton {
-  fn clone(&self) -> Self {
-    Self {
-      automaton: self.automaton.clone(),
-      alphabet_size: self.alphabet_size,
-      size: self.size,
-      accept: self.accept.clone(),
-      transitions: self.transitions.clone(),
-      points: self.points.clone(),
-      classmap: self.classmap.clone(),
-    }
-  }
+  accept: Arc<FixedBitSet>,
+  transitions: Arc<Vec<i32>>, // transitions[state * points.len() + get_char_class(c)]
+  points: Arc<Vec<i32>>,
+  classmap: Arc<Vec<usize>>,
 }
 
 impl RunAutomaton {
@@ -96,13 +83,13 @@ impl RunAutomaton {
     }
 
     Ok(Self {
-      automaton,
+      automaton: Arc::new(automaton),
       alphabet_size,
       size,
-      accept,
-      transitions,
-      points,
-      classmap,
+      accept: Arc::new(accept),
+      transitions: Arc::new(transitions),
+      points: Arc::new(points),
+      classmap: Arc::new(classmap),
     })
   }
   /// Returns number of states in automaton.
@@ -210,6 +197,7 @@ impl Hash for RunAutomaton {
   }
 }
 use std::cmp::PartialEq;
+use std::sync::Arc;
 
 impl PartialEq for RunAutomaton {
   fn eq(&self, other: &Self) -> bool {

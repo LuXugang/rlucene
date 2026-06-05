@@ -14,10 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
-use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
 use crate::core::util::automation::transition::Transition;
-use std::sync::Arc;
 
 /// Interface accessing the transitions of an automaton.
 pub trait TransitionAccessor {
@@ -35,39 +32,4 @@ pub trait TransitionAccessor {
   /// Fill the provided `Transition` with the index‑th transition leaving the
   /// specified state.
   fn get_transition(&self, state: i32, index: i32, t: &mut Transition);
-}
-pub enum TransitionAccessorEnum {
-  Byte(Arc<ByteRunAutomaton>),
-  Nfa(Arc<NFARunAutomaton>),
-}
-impl TransitionAccessor for TransitionAccessorEnum {
-  fn init_transition(&self, state: i32, t: &mut Transition) -> i32 {
-    match self {
-      TransitionAccessorEnum::Byte(byte) => byte.base.automaton.init_transition(state, t),
-      TransitionAccessorEnum::Nfa(nfa) => nfa.init_transition(state, t),
-    }
-  }
-
-  fn get_next_transition(&self, t: &mut Transition) {
-    match self {
-      TransitionAccessorEnum::Byte(byte) => byte.base.automaton.get_next_transition(t),
-      TransitionAccessorEnum::Nfa(nfa) => nfa.get_next_transition(t),
-    }
-  }
-
-  fn get_num_transitions_with_state(&self, state: i32) -> i32 {
-    match self {
-      TransitionAccessorEnum::Byte(byte) => {
-        byte.base.automaton.get_num_transitions_with_state(state)
-      },
-      TransitionAccessorEnum::Nfa(nfa) => nfa.get_num_transitions_with_state(state),
-    }
-  }
-
-  fn get_transition(&self, state: i32, index: i32, t: &mut Transition) {
-    match self {
-      TransitionAccessorEnum::Byte(byte) => byte.base.automaton.get_transition(state, index, t),
-      TransitionAccessorEnum::Nfa(nfa) => nfa.get_transition(state, index, t),
-    }
-  }
 }

@@ -23,10 +23,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::store::IndexInput;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::automation::byte_runnable::{ByteRunnable, ByteRunnableEnum};
-use crate::core::util::automation::transition_accessor::{
-  TransitionAccessor, TransitionAccessorEnum,
-};
+use crate::core::util::automation::compiled_automaton::AutomatonEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -34,6 +31,7 @@ use crate::core::util::fst_impl::fst::Arc;
 use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use crate::core::util::{StringHelper, ToInt, TryIntoInt};
 use std::borrow::Cow;
+
 /// Used to implement efficient [`Terms::intersect`] for the block-tree.
 ///
 /// Note that this enum cannot seek, except for the initial term during
@@ -52,8 +50,8 @@ where
   pub(crate) input: Option<I>,
   pub(crate) stack: Vec<IntersectTermsEnumFrame>,
   arcs: Vec<Arc<BytesRef<std::sync::Arc<Vec<u8>>>>>,
-  pub(crate) run_automation: ByteRunnableEnum,
-  pub(crate) automaton: TransitionAccessorEnum,
+  /// use AutomatonEnum instead of ByteRunnable/TransitionAccessor in Java Lucene
+  pub(crate) automaton: AutomatonEnum,
   common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
   current_frame: usize,
   current_transition: usize,
@@ -70,8 +68,7 @@ where
 {
   pub(crate) fn new(
     fr: FieldReader<I, PR>,
-    automaton: TransitionAccessorEnum,
-    run_automation: ByteRunnableEnum,
+    mut automaton: AutomatonEnum,
     common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
     start_term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Self> {
@@ -102,7 +99,7 @@ where
       f.fp = fr.root_block_fp;
       f.fp_orig = fr.root_block_fp;
       f.prefix = 0;
-      IntersectTermsEnumFrame::set_state(&automaton, f, 0)?;
+      IntersectTermsEnumFrame::set_state(&mut automaton, f, 0)?;
       f.arc = first_arc_idx;
     }
 
@@ -110,7 +107,6 @@ where
       input,
       stack,
       arcs,
-      run_automation,
       automaton,
       common_suffix,
       current_frame: 0,
@@ -189,7 +185,7 @@ where
       f.fp = last_sub_fp;
       f.fp_orig = last_sub_fp;
       f.prefix = prefix + suffix;
-      IntersectTermsEnumFrame::set_state(&self.automaton, f, state)?;
+      IntersectTermsEnumFrame::set_state(&mut self.automaton, f, state)?;
       f.prefix
     };
     // Walk the arc through the index -- we only
@@ -242,16 +238,16 @@ where
       .pop(&self.arcs[frame.arc].next_final_output());
     Ok(new_ord)
   }
-  fn get_state(&self) -> i32 {
+  fn get_state(&mut self) -> Result<i32> {
     let frame = &self.stack[self.current_frame];
     let mut state = frame.state;
 
     for idx in 0..frame.suffix {
       let b = frame.suffixes_reader.bytes[frame.start_byte_pos + idx] as i32;
-      state = self.run_automation.step(state, b);
+      state = self.automaton.step(state, b)?;
       debug_assert!(state != -1);
     }
-    state
+    Ok(state)
   }
   // NOTE: specialized to only doing the first-time
   // seek, but we could generalize it to allow
@@ -312,7 +308,7 @@ where
 
         if is_sub_block && StringHelper::starts_with_byte_ref(target, &self.term) {
           // Recurse
-          let state = self.get_state();
+          let state = self.get_state()?;
           self.current_frame = self.push_frame(state)?;
           break;
         } else {
@@ -463,7 +459,7 @@ where
           frame.transition_index += 1;
           self
             .automaton
-            .get_next_transition(&mut self.stack[self.current_transition].transition);
+            .get_next_transition(&mut self.stack[self.current_transition].transition)?;
 
           if label < self.stack[self.current_transition].transition.min {
             let current_frame = &self.stack[self.current_frame];
@@ -538,10 +534,10 @@ where
         let mut idx = frame.start_byte_pos + 1;
         while idx < end {
           last_state = state;
-          state = self.run_automation.step(
+          state = self.automaton.step(
             state,
             self.stack[self.current_frame].suffixes_reader.bytes[idx] as i32,
-          );
+          )?;
           if state == -1 {
             is_sub_block = self.pop_push_next()?;
             continue 'next_term;
@@ -560,7 +556,7 @@ where
         self.current_frame = new_ord;
         self.current_transition = self.current_frame;
         self.stack[new_ord].last_state = last_state;
-      } else if self.run_automation.is_accept(state)? {
+      } else if self.automaton.is_accept(state)? {
         self.copy_term();
         debug_assert!(
           self
