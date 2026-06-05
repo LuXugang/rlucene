@@ -140,7 +140,7 @@ fn test_equals() -> Result<()> {
 
   Ok(())
 }
-
+#[test]
 fn test_duel_terms_query() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 2);
@@ -210,6 +210,7 @@ fn test_duel_terms_query() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_approximation() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 2);
@@ -310,9 +311,11 @@ where
   for i in 0..td1.score_docs().len() {
     assert_eq!(td1.score_docs()[i].doc(), td2.score_docs()[i].doc());
     if scores {
+      let score1 = td1.score_docs()[i].score();
+      let score2 = td2.score_docs()[i].score();
       assert!(
-        (td1.score_docs()[i].score() - td2.score_docs()[i].score()).abs() <= 10e-7,
-        "score for {i} was not the same"
+        (score1.is_nan() && score2.is_nan()) || (score1 - score2).abs() <= 10e-7,
+        "score for {i} was not the same: {score1} != {score2}"
       );
     }
   }
