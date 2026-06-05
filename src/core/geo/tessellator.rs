@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
+use crate::core::geo::point::Point;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
+use crate::core::index::index_reader::Identity;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt;
 use std::sync::Arc;
 
@@ -29,9 +31,156 @@ enum State {
   Cure,
   Split,
 }
+
+impl State {
+  fn as_str(&self) -> &'static str {
+    match self {
+      State::Init => "INIT",
+      State::Cure => "CURE",
+      State::Split => "SPLIT",
+    }
+  }
+}
+
+pub const MONITOR_FAILED: &str = "FAILED";
+pub const MONITOR_COMPLETED: &str = "COMPLETED";
+
+/// Determines if two point vertices are equal.
+fn is_vertex_equals(a: &Node, b: &Node) -> bool {
+  is_vertex_equals_xy(a, b.get_x(), b.get_y())
+}
+
+/// Determines if two point vertices are equal.
+fn is_vertex_equals_xy(a: &Node, x: f64, y: f64) -> bool {
+  a.get_x() == x && a.get_y() == y
+}
+
+/// Compute signed area of triangle, negative means convex angle and positive
+/// reflex angle.
+fn area(a_x: f64, a_y: f64, b_x: f64, b_y: f64, c_x: f64, c_y: f64) -> f64 {
+  (b_y - a_y) * (c_x - b_x) - (b_x - a_x) * (c_y - b_y)
+}
+
+/// Compute whether point is in a candidate ear.
+#[allow(clippy::too_many_arguments)]
+fn point_in_ear(x: f64, y: f64, ax: f64, ay: f64, bx: f64, by: f64, cx: f64, cy: f64) -> bool {
+  (cx - x) * (ay - y) - (ax - x) * (cy - y) >= 0.0
+    && (ax - x) * (by - y) - (bx - x) * (ay - y) >= 0.0
+    && (bx - x) * (cy - y) - (cx - x) * (by - y) >= 0.0
+}
+
+/// Implementations of this trait will receive calls with internal data at each
+/// step of the triangulation algorithm.
+///
+/// This is useful for debugging complex cases, as well as gaining insight into
+/// the way the algorithm works. Data provided includes a status string
+/// containing the current mode, list of points representing the current
+/// linked-list of internal nodes used for triangulation, and a list of triangles
+/// so far created by the algorithm.
+pub trait Monitor {
+  /// Each loop of the main earclip algorithm will call this with the current state.
+  fn current_state(&mut self, status: &str, points: Option<&[Point]>, tessellation: &[Triangle]);
+
+  /// When a new polygon split is entered for mode=SPLIT, this is called.
+  fn start_split(&mut self, status: &str, left_polygon: &[Point], right_polygon: &[Point]);
+
+  /// When a polygon split is completed, this is called.
+  fn end_split(&mut self, status: &str);
+}
+
+fn get_points(start: &Node) -> Result<Vec<Point>> {
+  let mut node = start;
+  let mut points = Vec::new();
+
+  loop {
+    points.push(Point::new(node.get_y(), node.get_x())?);
+
+    node = node
+      .next
+      .as_deref()
+      .ok_or_else(|| LuceneError::illegal_state("Invalid polygon node list"))?;
+    if node.id == start.id {
+      return Ok(points);
+    }
+  }
+}
+
+fn notify_monitor_split<T>(
+  depth: i32,
+  monitor: Option<&mut T>,
+  search_node: Option<&Node>,
+  diagonal_node: Option<&Node>,
+) -> Result<()>
+where
+  T: Monitor,
+{
+  if let Some(monitor) = monitor {
+    let search_node =
+      search_node.ok_or_else(|| LuceneError::illegal_state("Invalid split provided to monitor"))?;
+    let diagonal_node = diagonal_node
+      .ok_or_else(|| LuceneError::illegal_state("Invalid split provided to monitor"))?;
+    monitor.start_split(
+      &format!("SPLIT[{depth}]"),
+      &get_points(search_node)?,
+      &get_points(diagonal_node)?,
+    );
+  }
+  Ok(())
+}
+
+fn notify_monitor_split_end<T>(depth: i32, monitor: Option<&mut T>)
+where
+  T: Monitor,
+{
+  if let Some(monitor) = monitor {
+    monitor.end_split(&format!("SPLIT[{depth}]"));
+  }
+}
+
+fn notify_monitor<T>(
+  state: State,
+  depth: i32,
+  monitor: Option<&mut T>,
+  start: Option<&Node>,
+  tessellation: &[Triangle],
+) -> Result<()>
+where
+  T: Monitor,
+{
+  if monitor.is_some() {
+    let status = if depth == 0 {
+      state.as_str().to_string()
+    } else {
+      format!("{}[{depth}]", state.as_str())
+    };
+    notify_monitor_status(&status, monitor, start, tessellation)?;
+  }
+  Ok(())
+}
+
+fn notify_monitor_status<T>(
+  status: &str,
+  monitor: Option<&mut T>,
+  start: Option<&Node>,
+  tessellation: &[Triangle],
+) -> Result<()>
+where
+  T: Monitor,
+{
+  if let Some(monitor) = monitor {
+    if let Some(start) = start {
+      monitor.current_state(status, Some(&get_points(start)?), tessellation);
+    } else {
+      monitor.current_state(status, None, tessellation);
+    }
+  }
+  Ok(())
+}
+
 /// Circular Doubly-linked list used for polygon coordinates
 #[derive(Clone)]
 pub(crate) struct Node {
+  pub(crate) id: Identity,
   // node index in the linked list
   pub(crate) idx: i32,
   // vertex index in the polygon
@@ -84,6 +233,7 @@ impl Node {
     );
 
     Ok(Self {
+      id: Identity::new(),
       idx: index,
       vrtx_idx: vertex_index,
       poly_x: x,
@@ -102,6 +252,7 @@ impl Node {
   /// simple deep copy constructor
   pub(crate) fn copy_from(other: &Node) -> Self {
     Self {
+      id: Identity::new(),
       idx: other.idx,
       vrtx_idx: other.vrtx_idx,
       poly_x: other.poly_x.clone(),
