@@ -119,8 +119,8 @@ pub trait IndexInput: DataInput + TryClone {
   /// and length.
   ///
   /// # Note
-  /// The default implementation calls [`slice`](IndexInput::slice), and it
-  /// doesn't support random access. It implements absolute reads as
+  /// The default implementation calls [`slice`](IndexInput::slice), and if it
+  /// doesn't support random access. Wrap with [`RandomAccessInputWrapper`](crate::core::store::random_access_input::RandomAccessInputWrapper) It implements absolute reads as
   /// seek+read.
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice>;
 

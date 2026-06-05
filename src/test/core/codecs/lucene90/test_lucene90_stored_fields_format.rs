@@ -23,7 +23,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::store::directory::Directory;
-use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
+use crate::core::store::random_access_input::RandomAccessInputWrapper;
 use crate::core::store::{DataInput, IOContext, IndexInput};
 use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
@@ -394,10 +394,14 @@ where
     Ok(CountingPrefetchIndexInput::new(self.count.clone(), slice))
   }
 
-  type RandomAccessSlice = DummyRandomAccessInput;
+  type RandomAccessSlice = RandomAccessInputWrapper<CountingPrefetchIndexInput<I>>;
 
-  fn random_access_slice(&self, _offset: usize, _length: usize) -> Result<Self::RandomAccessSlice> {
-    Ok(DummyRandomAccessInput)
+  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    Ok(RandomAccessInputWrapper::new(self.slice(
+      "randomaccess",
+      offset,
+      length,
+    )?))
   }
 
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {

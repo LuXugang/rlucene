@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Display;
 
 /// Random Access Index API. Unlike [`IndexInput`](crate::core::store::IndexInput),
 /// this has no concept of file position; all reads are absolute. However, like
@@ -41,6 +43,69 @@ pub trait RandomAccessInput {
   ///  Prefetch data in the background.
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()>;
 }
+
+pub struct RandomAccessInputWrapper<I>
+where
+  I: IndexInput,
+{
+  slice: I,
+}
+
+impl<I> RandomAccessInputWrapper<I>
+where
+  I: IndexInput,
+{
+  pub fn new(inner: I) -> Self {
+    Self { slice: inner }
+  }
+}
+
+impl<I> RandomAccessInput for RandomAccessInputWrapper<I>
+where
+  I: IndexInput,
+{
+  fn length(&self) -> usize {
+    self.slice.length()
+  }
+
+  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+    self.slice.seek(pos)?;
+    self.slice.read_byte()
+  }
+
+  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.slice.seek(pos)?;
+    self.slice.read_bytes(buf, offset, len)
+  }
+
+  fn read_short(&mut self, pos: usize) -> Result<i16> {
+    self.slice.seek(pos)?;
+    self.slice.read_short()
+  }
+
+  fn read_int(&mut self, pos: usize) -> Result<i32> {
+    self.slice.seek(pos)?;
+    self.slice.read_int()
+  }
+
+  fn read_long(&mut self, pos: usize) -> Result<i64> {
+    self.slice.seek(pos)?;
+    self.slice.read_long()
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    self.slice.prefetch(pos, len)
+  }
+}
+impl<I> Display for RandomAccessInputWrapper<I>
+where
+  I: IndexInput,
+{
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "RandomAccessInput({})", self.slice)
+  }
+}
+
 pub type DynRandomAccessInput = dyn RandomAccessInput + Send + Sync;
 pub type BoxRandomAccessInput = Box<DynRandomAccessInput>;
 
