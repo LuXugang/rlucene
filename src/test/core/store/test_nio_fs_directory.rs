@@ -200,7 +200,7 @@ mod base_directory_test_case_tests {
   fn test_copy_bytes() -> Result<()> {
     run_case(|case, random| case.test_copy_bytes(random))
   }
-  // TODO IMPORTANT 测试未通过
+  #[test]
   fn test_copy_bytes_with_threads() -> Result<()> {
     run_case(|case, random| case.test_copy_bytes_with_threads(random))
   }
