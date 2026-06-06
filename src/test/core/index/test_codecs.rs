@@ -76,8 +76,7 @@ struct TestCodecs;
 
 static SEGMENT: &str = "0";
 static FIELD_NAMES: [&str; 4] = ["one", "two", "three", "four"];
-// TODO IMPORTANT 多线程查询 BUG
-const NUM_TEST_THREADS: usize = 2;
+const NUM_TEST_THREADS: usize = 3;
 const NUM_FIELDS: usize = 4;
 const NUM_TERMS_RAND: i32 = 50; // must be > 16 to test skipping
 const DOC_FREQ_RAND: i32 = 500; // must be > 16 to test skipping

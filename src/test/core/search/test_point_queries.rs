@@ -1666,7 +1666,7 @@ where
   }
 }
 
-// TODO IMPORTANT 多线程查询 BUg
+#[test]
 fn test_random_point_in_set_query() -> Result<()> {
   let mut random = random();
   let use_narrow_range = random.random_bool(0.5);

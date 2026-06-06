@@ -70,7 +70,7 @@ use crate::test::core::util::test_util::TestUtil;
 use rand::prelude::{IndexedRandom, SliceRandom};
 use rand::{Rng, RngExt};
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, Barrier};
 use std::thread;
 
 pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
@@ -3949,14 +3949,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let reader =
       Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
-    // TODO IMPORTANT 多线程BUG
-    let num_threads = 1;
+    let num_threads = random.random_range(2..7);
+    let starting_gun = Arc::new(Barrier::new(num_threads + 1));
 
     thread::scope(|scope| -> Result<()> {
       let mut handles = Vec::new();
       for _ in 0..num_threads {
         let reader = reader.clone();
+        let starting_gun = starting_gun.clone();
         handles.push(scope.spawn(move || -> Result<()> {
+          starting_gun.wait();
           let context = get_context(reader.clone())?;
           for leaf in context.leaves()? {
             let leaf_reader = leaf.reader();
@@ -3991,6 +3993,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         }));
       }
 
+      starting_gun.wait();
       for handle in handles {
         handle.join().map_err(|_| {
           crate::core::util::error::lucene_error::LuceneError::illegal_state(
@@ -4081,13 +4084,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let reader =
       Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
-    let num_threads = 1; // TODO IMPORTANT 多线程查询 BUG
+    let num_threads = random.random_range(2..7);
+    let starting_gun = Arc::new(Barrier::new(num_threads + 1));
 
     thread::scope(|scope| -> Result<()> {
       let mut handles = Vec::new();
       for _ in 0..num_threads {
         let reader = reader.clone();
+        let starting_gun = starting_gun.clone();
         handles.push(scope.spawn(move || -> Result<()> {
+          starting_gun.wait();
           let context = get_context(reader.clone())?;
           for leaf in context.leaves()? {
             let leaf_reader = leaf.reader();
@@ -4152,6 +4158,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         }));
       }
 
+      starting_gun.wait();
       for handle in handles {
         handle.join().map_err(|_| {
           crate::core::util::error::lucene_error::LuceneError::illegal_state(
@@ -4217,13 +4224,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     for _ in 0..10 {
       let reader =
         Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
-      let num_threads = 1; // TODO IMPORTANT 多线程查询未实现
+      let num_threads = random.random_range(4..10);
+      let starting_gun = Arc::new(Barrier::new(num_threads + 1));
 
       thread::scope(|scope| -> Result<()> {
         let mut handles = Vec::new();
         for _ in 0..num_threads {
           let reader = reader.clone();
+          let starting_gun = starting_gun.clone();
           handles.push(scope.spawn(move || -> Result<()> {
+            starting_gun.wait();
             let context = get_context(reader.clone())?;
             for _leaf in context.leaves()? {
               // TODO IMPORTANT CheckIndex未实现
@@ -4232,6 +4242,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
           }));
         }
 
+        starting_gun.wait();
         for handle in handles {
           handle.join().map_err(|_| {
             crate::core::util::error::lucene_error::LuceneError::illegal_state(

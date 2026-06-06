@@ -27,6 +27,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_doc_values::MultiDocValues;
+use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::term::Term;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -52,6 +53,7 @@ use rand::{Rng, RngExt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
+use std::thread;
 
 pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
   fn codec_supports_sparsity(&self) -> bool {
@@ -597,11 +599,91 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close()?;
     Ok(())
   }
-  // TODO 多线程查询 未实现
-  fn test_threads<R>(&self, _random: &mut R) -> Result<()>
+  fn test_threads<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
+    Self: Sync,
   {
+    let density = if !self.codec_supports_sparsity() || random.random::<bool>() {
+      1.0
+    } else {
+      random.random::<f64>()
+    };
+    let num_docs = at_least(random, 500);
+    let mut docs_with_field = FixedBitSet::new(num_docs as usize);
+    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as i32);
+    if num_docs_with_field == num_docs {
+      docs_with_field.set_with_range(0, num_docs as usize);
+    } else {
+      let mut count = 0;
+      while count < num_docs_with_field {
+        let doc = random.random_range(0..num_docs as usize);
+        if !docs_with_field.get(doc)? {
+          docs_with_field.set(doc);
+          count += 1;
+        }
+      }
+    }
+
+    let mut norms = Vec::with_capacity(num_docs_with_field as usize);
+    for _ in 0..num_docs_with_field {
+      norms.push(random.random::<i64>());
+    }
+
+    let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
+    let analyzer = MockAnalyzer::new(random);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    conf.set_merge_policy(NoMergePolicy::default());
+    conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
+      norms.clone(),
+    )));
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
+
+    let mut norm_ord = 0usize;
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+      if docs_with_field.get(i as usize)? {
+        let value = norms[norm_ord];
+        norm_ord += 1;
+        doc.add(TextField::from_string(
+          "indexed",
+          if value == 0 { "" } else { "a" },
+          Store::No,
+        )?);
+        doc.add(NumericDocValuesField::indexed_field("dv", value));
+      }
+      writer.add_document(doc)?;
+
+      if random.random_range(0..31) == 0 {
+        writer.commit()?;
+      }
+    }
+
+    let reader = Arc::new(self.maybe_wrap_with_merging_reader(writer.get_reader()?)?);
+    writer.close()?;
+
+    let num_threads = TestUtil::next_int(random, 3, 30);
+    thread::scope(|scope| -> Result<()> {
+      let mut handles = Vec::new();
+      for _ in 0..num_threads {
+        let reader = reader.clone();
+        handles.push(scope.spawn(move || -> Result<()> {
+          self.check_norms_vs_doc_values(&reader)?;
+          TestUtil::check_reader(&reader)?;
+          Ok(())
+        }));
+      }
+
+      for handle in handles {
+        handle
+          .join()
+          .map_err(|_| LuceneError::illegal_state("norms thread panicked".to_string()))??;
+      }
+      Ok(())
+    })?;
+
+    reader.close()?;
     Ok(())
   }
 
