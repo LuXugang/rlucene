@@ -94,7 +94,7 @@ where
 /// check that the # of hits is the same as from a very simple prefixquery implementation.
 fn assert_same<IRC>(searcher: &IndexSearcher<IRC>, prefix: String) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let smart = PrefixQuery::new(Term::from_text("field", prefix.clone()))?;
   let dumb = DumbPrefixQuery::new(Term::from_text("field", prefix));

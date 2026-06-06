@@ -92,7 +92,7 @@ fn automaton_query_nr_hits<IRC>(
   query: AutomatonQuery,
 ) -> Result<usize>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   Ok(searcher.search(query, 5)?.total_hits().value())
 }
@@ -103,7 +103,7 @@ fn assert_automaton_hits<IRC>(
   searcher: &IndexSearcher<IRC>,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   assert_eq!(
     expected,

@@ -309,7 +309,7 @@ fn assert_matches<IRC, Q>(
   expected_matches: usize,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
   Q: IntoQuery,
 {
   let result = searcher.search(q, 1000)?.score_docs;

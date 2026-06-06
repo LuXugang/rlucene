@@ -303,7 +303,7 @@ fn assert_same_matches<IRC>(
   scores: bool,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   let td1 = searcher.search(q1, max_doc)?;

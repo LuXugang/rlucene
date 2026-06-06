@@ -67,7 +67,7 @@ impl CheckHits {
     results: &[i32],
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync,
   {
     let d = q.to_string(default_field_name)?;
     let ignore: BTreeSet<i32> = results.iter().copied().collect();
@@ -151,7 +151,7 @@ impl CheckHits {
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync,
   {
     // TODO IMPORTANT
     Ok(())
@@ -289,7 +289,7 @@ impl CheckHits {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync,
     R: Rng + ?Sized,
   {
     // Check it computed the top hits correctly
@@ -308,7 +308,7 @@ impl CheckHits {
     num_hits: usize,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync,
   {
     let complete = TopScoreDocCollectorManager::with_after(num_hits, None, i32::MAX as usize)?;
     let top_scores = TopScoreDocCollectorManager::with_after(num_hits, None, 1)?;

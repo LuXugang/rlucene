@@ -23,6 +23,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::lock::Lock;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -39,8 +40,13 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
+
 /// Base class for per-LockFactory tests
-pub trait BaseLockFactoryTestCase {
+pub trait BaseLockFactoryTestCase
+where
+  <<Self::Directory as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+  <<Self::Directory as Directory>::IndexInput as IndexInput>::IndexInput: Send + Sync,
+{
   type Directory: Directory + Send + Sync + 'static;
 
   /// Subclass returns the Directory to be tested; if it's an FS-based directory it should point to
@@ -307,7 +313,9 @@ where
 
 struct SearcherThread<D>
 where
-  D: Directory + Send + Sync + 'static,
+  D: Directory + 'static + std::marker::Send + Sync,
+  <<D as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+  <D as Directory>::IndexInput: Send + Sync,
 {
   num_iteration: i32,
   dir: Arc<D>,
@@ -315,7 +323,9 @@ where
 
 impl<D> SearcherThread<D>
 where
-  D: Directory + Send + Sync + 'static,
+  D: Directory + 'static + std::marker::Send + Sync,
+  <<D as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+  <D as Directory>::IndexInput: Send + Sync,
 {
   fn new(num_iteration: i32, dir: Arc<D>) -> Self {
     Self { num_iteration, dir }

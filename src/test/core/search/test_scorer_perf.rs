@@ -116,7 +116,7 @@ fn do_conjunctions<R, IRC>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   for _ in 0..iter {
     let n_clauses = random.random_range(2..=max_clauses);
@@ -146,7 +146,7 @@ fn do_nested_conjunctions<R, IRC>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let mut n_matches = 0i64;
 

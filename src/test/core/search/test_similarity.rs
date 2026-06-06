@@ -140,7 +140,7 @@ fn test_similarity() -> Result<()> {
 }
 fn assert_score<IRC>(searcher: &IndexSearcher<IRC>, query: Query, score: f32) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let manager = CollectorManagerImpl2::new(score);
   searcher.search_with_collector_manager(query, &manager)?;

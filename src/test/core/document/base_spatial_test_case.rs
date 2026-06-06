@@ -35,7 +35,7 @@ pub trait BaseSpatialTestCase {
     max_doc: i32,
   ) -> Result<FixedBitSet>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + std::marker::Sync,
   {
     s.search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))
   }

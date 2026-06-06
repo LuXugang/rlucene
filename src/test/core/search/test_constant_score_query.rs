@@ -80,7 +80,7 @@ fn test_csq() -> Result<()> {
 }
 fn check_hits<IRC>(searcher: &IndexSearcher<IRC>, q: Query, expected_score: f32) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let count = Arc::new(AtomicI32::new(0));
   let manager = CollectorManagerImpl::new(expected_score, count.clone());

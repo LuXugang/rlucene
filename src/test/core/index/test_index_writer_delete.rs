@@ -33,6 +33,7 @@ use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -595,7 +596,9 @@ where
 
 fn get_hit_count<D>(dir: Arc<D>, term: Term) -> Result<i64>
 where
-  D: Directory + 'static,
+  D: Directory + 'static + std::marker::Send + Sync,
+  <<D as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+  <D as Directory>::IndexInput: Send + Sync,
 {
   let reader = directory_reader::open(dir)?;
   let searcher = new_searcher_with_reader(reader)?;

@@ -786,7 +786,7 @@ fn assert_norms_count_without_shortcut<IRC>(
   expected_count: i32,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let q = FieldExistsQuery::new(field);
   let weight = searcher.create_weight(q.clone(), ScoreMode::Complete, 1.0)?;
@@ -804,7 +804,7 @@ fn assert_norms_count_with_shortcut<IRC>(
   num_matching_docs: i32,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let q = FieldExistsQuery::new(field);
 
@@ -1126,7 +1126,7 @@ fn assert_same_matches<IRC, T1, T2>(
   scores: bool,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
 {
@@ -1163,7 +1163,7 @@ fn assert_same_count<IRC>(
   num_matching_docs: i32,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let test_query: Query = FieldExistsQuery::new(field).into();
   assert_eq!(searcher.count(test_query.clone())?, num_matching_docs);

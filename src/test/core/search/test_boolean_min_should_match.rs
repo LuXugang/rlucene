@@ -101,7 +101,7 @@ fn verify_nr_hits<IRC, R, T>(
   expected: usize,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
   R: Rng + ?Sized,
   T: Into<Query>,
   <IRC as IndexReaderContext>::LeafReader: Clone,

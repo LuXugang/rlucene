@@ -100,6 +100,7 @@ where
   query_timeout: Option<Arc<QueryTimeoutEnum>>,
   query_caching_policy: Arc<QueryCachingPolicyEnum>,
   query_cache: Option<QueryCacheEnum<IRC>>,
+  search_threads: usize,
   // partialResult may be set on one of the threads of the executor. It may be correct to not make
   // this variable volatile since joining these threads should ensure a happens-before relationship
   // that guarantees that writes become visible on the main thread, but making the variable volatile
@@ -121,7 +122,6 @@ impl<IRC> DefaultIndexSearcher<IRC>
 where
   IRC: IndexReaderContext,
 {
-  // TODO IMPORTANT 这里没有加入Executor的rust版本 所以暂时不添加这个参数
   pub fn new(context: IRC) -> Result<Self> {
     debug_assert!(
       context.base().is_top_level,
@@ -129,23 +129,7 @@ where
       context.reader()
     );
 
-    let reader = context.reader();
-    let leaf_contexts = context.leaves()?;
-
-    let leaf_slices = if leaf_contexts.is_empty() {
-      Some(Arc::new(Vec::new()))
-    } else {
-      let partitions = leaf_contexts
-        .iter()
-        .map(LeafReaderContextPartition::create_for_entire_segment)
-        .collect::<Result<Vec<_>>>()?;
-
-      let slice = LeafSlice {
-        partitions,
-        max_docs: reader.max_doc()?,
-      };
-      Some(Arc::new(vec![slice]))
-    };
+    let leaf_slices = Some(single_threaded_slices(&context)?);
     let leaves_to_cache = MinSegmentSizePredicate::new(10000);
     let lru_query_cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
       MAX_CACHED_QUERIES,
@@ -161,6 +145,7 @@ where
       query_timeout: None,
       query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
       query_cache: Some(lru_query_cache.into()),
+      search_threads: 1,
       partial_result: AtomicBool::new(false),
       #[cfg(test)]
       disable_rewrite: false,
@@ -169,6 +154,12 @@ where
       #[cfg(test)]
       use_scorer_search: false,
     })
+  }
+
+  pub fn with_threads(context: IRC, search_threads: usize) -> Result<Self> {
+    let mut searcher = Self::new(context)?;
+    searcher.set_threads(search_threads)?;
+    Ok(searcher)
   }
 }
 impl<LR> DefaultIndexSearcher<LeafReaderContext<LR>>
@@ -214,6 +205,32 @@ where
     self.similarity = similarity.into_similarity_arc();
   }
 
+  /// Configure how many worker threads the explicit parallel search methods may use.
+  ///
+  /// `1` keeps the searcher in its single-slice, single-threaded mode. Values greater than `1`
+  /// make [`Self::get_slices`] compute Java-style leaf slices that can be searched concurrently by
+  /// [`Self::search_with_collector_manager`].
+  pub fn set_threads(&mut self, search_threads: usize) -> Result<()> {
+    if search_threads == 0 {
+      return Err(LuceneError::illegal_argument(
+        "search_threads must be at least 1",
+      ));
+    }
+
+    self.search_threads = search_threads;
+    let mut inner = self.inner.lock();
+    if search_threads == 1 {
+      inner.leaf_slices = Some(single_threaded_slices(&self.reader_context)?);
+    } else {
+      inner.leaf_slices = None;
+    }
+    Ok(())
+  }
+
+  pub fn search_threads(&self) -> usize {
+    self.search_threads
+  }
+
   pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
     let mut inner = self.inner.lock();
     if inner.leaf_slices.is_none() {
@@ -249,7 +266,10 @@ where
     after: Option<ScoreDoc>,
     query: impl IntoQuery,
     num_hits: usize,
-  ) -> Result<TopDocs<ScoreDoc>> {
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    Self: Sync,
+  {
     let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
 
     if let Some(ref a) = after
@@ -279,7 +299,10 @@ where
   {
     self.query_timeout = Some(Arc::new(query_timeout.into()))
   }
-  pub fn search(&self, query: impl IntoQuery, n: usize) -> Result<TopDocs<ScoreDoc>> {
+  pub fn search(&self, query: impl IntoQuery, n: usize) -> Result<TopDocs<ScoreDoc>>
+  where
+    Self: Sync,
+  {
     self.search_after_score(None, query, n)
   }
   /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
@@ -300,6 +323,7 @@ where
   ) -> Result<TopFieldDocs>
   where
     T: Into<Arc<Sort>>,
+    Self: Sync,
   {
     self.search_after_field_with_score(None, query, n, sort, do_doc_scores)
   }
@@ -322,6 +346,7 @@ where
   ) -> Result<TopFieldDocs>
   where
     T: Into<Arc<Sort>>,
+    Self: Sync,
   {
     self.search_after_field_with_score(None, query, n, sort, false)
   }
@@ -336,7 +361,10 @@ where
   /// Count how many documents match the given query.
   /// May be faster than counting number of hits by collecting all matches,
   /// as the number of hits is retrieved from the index statistics when possible.
-  pub fn count(&self, query: impl IntoQuery) -> Result<i32> {
+  pub fn count(&self, query: impl IntoQuery) -> Result<i32>
+  where
+    Self: Sync,
+  {
     #[cfg(test)]
     self.count_invocations.fetch_add(1, Ordering::Relaxed);
 
@@ -378,6 +406,7 @@ where
   where
     Q: IntoQuery,
     T: Into<Arc<Sort>>,
+    Self: Sync,
   {
     self.do_search_after_field(after, query, num_hits, sort, do_doc_scores)
   }
@@ -391,6 +420,7 @@ where
   where
     Q: IntoQuery,
     T: Into<Arc<Sort>>,
+    Self: Sync,
   {
     self.do_search_after_field(after, query, num_hits, sort, false)
   }
@@ -406,6 +436,7 @@ where
   where
     Q: IntoQuery,
     T: Into<Arc<Sort>>,
+    Self: Sync,
   {
     let limit: usize = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
 
@@ -439,15 +470,17 @@ where
     collector_manager: &CM,
   ) -> Result<CM::T>
   where
+    Self: Sync,
     CM: CollectorManager,
+    CM::C: Send,
   {
     let mut query = query.into_query();
     let first_collector = collector_manager.new_collector()?;
     let needs_scores = first_collector.score_mode().needs_scores();
     query = self.rewrite_with_needs_scores(query, needs_scores)?;
     let score_mode = first_collector.score_mode();
-    let weight = self.create_weight(query, score_mode, 1.0)?;
-    self.search_with_first_collector(weight.as_ref(), collector_manager, first_collector)
+
+    self.search_with_first_collector(query, score_mode, collector_manager, first_collector)
   }
   pub fn search_with_collector<C>(&self, query: impl IntoQuery, collector: &mut C) -> Result<()>
   where
@@ -468,43 +501,116 @@ where
   pub fn timeout(&self) -> bool {
     self.partial_result.load(Ordering::Relaxed)
   }
-  fn search_with_first_collector<W, CM>(
+  fn search_with_first_collector<CM>(
     &self,
-    weight: &W,
+    query: Query,
+    score_mode: ScoreMode,
     collector_manager: &CM,
     first_collector: CM::C,
   ) -> Result<CM::T>
   where
+    Self: Sync,
     CM: CollectorManager,
-    W: Weight<IRC> + ?Sized,
+    CM::C: Send,
   {
     let leaf_slices = self.get_slices()?;
     if leaf_slices.is_empty() {
       debug_assert!(self.reader_context.leaves()?.is_empty());
-      collector_manager.reduce(vec![first_collector])
-    } else {
-      let mut collectors = Vec::with_capacity(leaf_slices.len());
-      let score_mode = first_collector.score_mode();
-      collectors.push(Some(first_collector));
-      for _ in 1..leaf_slices.len() {
-        let collector = collector_manager.new_collector()?;
-        if score_mode != collector.score_mode() {
-          return Err(LuceneError::illegal_state(
-            "CollectorManager does not always produce collectors with the same score mode",
-          ));
-        }
-        collectors.push(Some(collector));
+      return collector_manager.reduce(vec![first_collector]);
+    }
+
+    let mut collectors = Vec::with_capacity(leaf_slices.len());
+    collectors.push(Some(first_collector));
+    for _ in 1..leaf_slices.len() {
+      let collector = collector_manager.new_collector()?;
+      if score_mode != collector.score_mode() {
+        return Err(LuceneError::illegal_state(
+          "CollectorManager does not always produce collectors with the same score mode",
+        ));
       }
+      collectors.push(Some(collector));
+    }
+
+    if self.search_threads <= 1 || leaf_slices.len() <= 1 {
       let mut list_tasks = Vec::with_capacity(leaf_slices.len());
-      // TODO IMPORTANT： 多线程查询 不支持
+      let weight = self.create_weight(query, score_mode, 1.0)?;
       for i in 0..leaf_slices.len() {
         let leaves = leaf_slices[i].partitions.as_slice();
         let mut collector = collectors[i].take().unwrap();
-        self.search_partitions(leaves, weight, &mut collector)?;
+        self.search_partitions(leaves, &weight, &mut collector)?;
         list_tasks.push(collector)
       }
-      collector_manager.reduce(list_tasks)
+      return collector_manager.reduce(list_tasks);
     }
+    // concurrent search
+    let worker_count = self.search_threads.min(leaf_slices.len());
+    let mut groups = (0..worker_count).map(|_| Vec::new()).collect::<Vec<_>>();
+    for (i, collector) in collectors.into_iter().enumerate() {
+      groups[i % worker_count].push((i, &leaf_slices[i], collector.unwrap()));
+    }
+
+    let mut ordered_collectors = std::iter::repeat_with(|| None)
+      .take(leaf_slices.len())
+      .collect::<Vec<Option<CM::C>>>();
+    let mut first_error = None;
+
+    std::thread::scope(|scope| {
+      let mut handles = Vec::with_capacity(worker_count);
+      for group in groups {
+        if group.is_empty() {
+          continue;
+        }
+
+        let query = query.clone();
+        handles.push(scope.spawn(move || -> Result<Vec<(usize, CM::C)>> {
+          // TODO IMPORTANT 不应该重复创建 但是要求 Weight : Sync + Send 改动比较大
+          let weight = self.create_weight(query, score_mode, 1.0)?;
+          let mut results = Vec::with_capacity(group.len());
+          for (i, leaf_slice, mut collector) in group {
+            self.search_partitions(
+              leaf_slice.partitions.as_slice(),
+              weight.as_ref(),
+              &mut collector,
+            )?;
+            results.push((i, collector));
+          }
+          Ok(results)
+        }));
+      }
+
+      for handle in handles {
+        match handle.join() {
+          Ok(Ok(results)) => {
+            for (i, collector) in results {
+              ordered_collectors[i] = Some(collector);
+            }
+          },
+          Ok(Err(e)) => {
+            if first_error.is_none() {
+              first_error = Some(e);
+            }
+          },
+          Err(_) => {
+            if first_error.is_none() {
+              first_error = Some(LuceneError::illegal_state("search thread panicked"));
+            }
+          },
+        }
+      }
+    });
+
+    if let Some(e) = first_error {
+      return Err(e);
+    }
+
+    collector_manager.reduce(
+      ordered_collectors
+        .into_iter()
+        .map(|collector| {
+          collector.ok_or_else(|| LuceneError::illegal_state("parallel search lost a collector"))
+        })
+        .collect::<Result<Vec<_>>>()?,
+    )
   }
 
   pub(crate) fn search_partitions<W, C>(
@@ -809,6 +915,29 @@ pub fn set_max_clause_count(value: usize) -> Result<()> {
     MAX_CLAUSE_COUNT.store(value, Ordering::Relaxed);
   }
   Ok(())
+}
+
+fn single_threaded_slices<IRC>(context: &IRC) -> Result<Arc<Vec<LeafSlice>>>
+where
+  IRC: IndexReaderContext,
+{
+  let reader = context.reader();
+  let leaf_contexts = context.leaves()?;
+
+  if leaf_contexts.is_empty() {
+    Ok(Arc::new(Vec::new()))
+  } else {
+    let partitions = leaf_contexts
+      .iter()
+      .map(LeafReaderContextPartition::create_for_entire_segment)
+      .collect::<Result<Vec<_>>>()?;
+
+    let slice = LeafSlice {
+      partitions,
+      max_docs: reader.max_doc()?,
+    };
+    Ok(Arc::new(vec![slice]))
+  }
 }
 
 pub fn do_slices<LR>(

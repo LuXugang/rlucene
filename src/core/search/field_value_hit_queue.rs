@@ -30,7 +30,7 @@ use crate::core::util::priority_queue::{Compare, CompareEnum2, PriorityQueue};
 use crate::impl_from_for_enum;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A hit queue for sorting by hits by terms in more than one field
 pub struct FieldValueHitQueue;
@@ -59,7 +59,7 @@ pub fn new(
     let comparator = field.get_comparator(size, pruning)?;
     comparators.push(comparator);
   }
-  let reverse_mul = Rc::new(reverse_mul);
+  let reverse_mul = Arc::new(reverse_mul);
   let comparator = if num_comparators == 1 {
     CompareEnum2::A(OneComparatorComparator::new(comparators, reverse_mul))
   } else {
@@ -131,10 +131,10 @@ impl fmt::Display for Entry {
 /// An implementation of FieldValueHitQueue which is optimized in case there is just one comparator.
 pub struct OneComparatorComparator {
   one_comparator: Vec<FieldComparatorEnum>,
-  one_reverse_mul: Rc<Vec<i32>>,
+  one_reverse_mul: Arc<Vec<i32>>,
 }
 impl OneComparatorComparator {
-  pub fn new(one_comparator: Vec<FieldComparatorEnum>, one_reverse_mul: Rc<Vec<i32>>) -> Self {
+  pub fn new(one_comparator: Vec<FieldComparatorEnum>, one_reverse_mul: Arc<Vec<i32>>) -> Self {
     debug_assert_eq!(one_comparator.len(), one_reverse_mul.len());
     debug_assert!(one_comparator.len() == 1);
     Self {
@@ -161,11 +161,11 @@ impl Compare<TopFieldScoreDoc> for OneComparatorComparator {
 /// An implementation of FieldValueHitQueue which is optimized in case there is more than one comparator.
 pub struct MultiComparatorsComparator {
   comparators: Vec<FieldComparatorEnum>,
-  reverse_mul: Rc<Vec<i32>>,
+  reverse_mul: Arc<Vec<i32>>,
 }
 
 impl MultiComparatorsComparator {
-  pub fn new(comparators: Vec<FieldComparatorEnum>, reverse_mul: Rc<Vec<i32>>) -> Self {
+  pub fn new(comparators: Vec<FieldComparatorEnum>, reverse_mul: Arc<Vec<i32>>) -> Self {
     debug_assert_eq!(
       comparators.len(),
       reverse_mul.len(),
@@ -232,7 +232,7 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
       CompareEnum2::B(multi_comp) => multi_comp.reverse_mul.as_slice(),
     }
   }
-  pub fn get_reverse_mul_shared(&self) -> Rc<Vec<i32>> {
+  pub fn get_reverse_mul_shared(&self) -> Arc<Vec<i32>> {
     match &self.compare {
       CompareEnum2::A(one_comp) => one_comp.one_reverse_mul.clone(),
       CompareEnum2::B(multi_comp) => multi_comp.reverse_mul.clone(),

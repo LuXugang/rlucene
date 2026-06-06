@@ -55,7 +55,7 @@ impl TestRegexpRandom2 for TestFieldCacheRewriteMethod {
     regexp: String,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync,
   {
     let field_cache = RegexpQuery::with_all(
       Term::from_text(field_name, regexp.clone()),

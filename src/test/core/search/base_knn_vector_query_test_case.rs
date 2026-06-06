@@ -1058,7 +1058,7 @@ pub trait BaseKnnVectorQueryTestCase {
     expected_matches: usize,
   ) -> Result<()>
   where
-    IRC: crate::core::index::index_reader_context::IndexReaderContext,
+    IRC: crate::core::index::index_reader_context::IndexReaderContext + Sync,
   {
     let result = searcher.search(q, 1000)?.score_docs;
     assert_eq!(expected_matches, result.len());

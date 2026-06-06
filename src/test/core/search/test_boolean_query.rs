@@ -554,7 +554,7 @@ fn test_min_should_match_leniency() -> Result<()> {
 }
 fn get_matches<IRC, T>(searcher: &IndexSearcher<IRC>, query: T) -> Result<FixedBitSet>
 where
-  IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + Sync + 'static,
   T: Into<Query>,
 {
   let max_doc = searcher.get_index_reader().max_doc()?;
@@ -627,7 +627,7 @@ fn assert_same_scores_without_filters<IRC>(
   bq: BooleanQuery,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + Sync + 'static,
 {
   let mut bq2_builder = Builder::new();
   let min_should_match = bq.get_minimum_number_should_match();
@@ -1244,14 +1244,14 @@ fn test_disjunction_matches_count() -> Result<()> {
 }
 struct CountingIndexSearcher<IRC>
 where
-  IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + Sync + 'static,
 {
   in_: IndexSearcher<IRC>,
   count_invocations: usize,
 }
 impl<IRC> CountingIndexSearcher<IRC>
 where
-  IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + Sync + 'static,
 {
   pub fn new(in_: IndexSearcher<IRC>) -> Self {
     Self {

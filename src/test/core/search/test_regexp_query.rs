@@ -70,7 +70,7 @@ fn new_term(value: &str) -> Term {
 
 fn regex_query_nr_hits<IRC>(searcher: &IndexSearcher<IRC>, regex: &str) -> Result<i64>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let query = RegexpQuery::new(new_term(regex))?;
   Ok(searcher.count(query)? as i64)
@@ -82,7 +82,7 @@ fn case_insensitive_regex_query_nr_hits<IRC, R>(
 ) -> Result<i64>
 where
   R: Rng + ?Sized,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let query = RegexpQuery::with_all_and_determinization(
     new_term(regex),

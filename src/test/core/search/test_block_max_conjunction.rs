@@ -84,10 +84,13 @@ fn test_random() -> Result<()> {
   let reader = directory_reader::open_from_writer(&w)?;
   w.close()?;
 
+  let may_be_wrap = random.random_bool(0.5);
+  let wrap_with_assertions = random.random_bool(0.5);
   let searcher = new_searcher_with_threads(
+    &mut random,
     reader,
-    random.random_bool(0.5),
-    random.random_bool(0.5),
+    may_be_wrap,
+    wrap_with_assertions,
     false,
   )?;
 

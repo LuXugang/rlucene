@@ -248,7 +248,7 @@ fn assert_query<IRC>(
   is_relevance: bool,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   let page_size = TestUtil::next_usize(random, 1, max_doc * 2);

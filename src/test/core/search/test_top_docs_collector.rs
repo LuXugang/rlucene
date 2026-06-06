@@ -240,31 +240,37 @@ where
   let cm = MyTopDocsCollectorMananger::new(num_results);
   searcher.search_with_collector_manager(query, &cm)
 }
-fn do_search_with_threshold<CR>(
+fn do_search_with_threshold<R, CR>(
+  random: &mut R,
   num_results: usize,
   threshold: usize,
   query: Query,
   index_reader: CR,
 ) -> Result<TopDocs<ScoreDoc>>
 where
-  CR: CompositeReader + 'static,
+  CR: CompositeReader + 'static + std::marker::Sync,
   <CR as CompositeReader>::LeafReader: 'static,
+  R: Rng + ?Sized,
+  <CR as CompositeReader>::LeafReader: std::marker::Sync,
 {
-  let searcher = new_searcher_with_threads(index_reader, true, true, false)?;
+  let searcher = new_searcher_with_threads(random, index_reader, true, true, false)?;
   let collector_manager = TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
   searcher.search_with_collector_manager(query, &collector_manager)
 }
-fn do_concurrent_search_with_threshold<CR>(
+fn do_concurrent_search_with_threshold<R, CR>(
+  random: &mut R,
   num_results: usize,
   threshold: usize,
   query: Query,
   index_reader: CR,
 ) -> Result<TopDocs<ScoreDoc>>
 where
-  CR: CompositeReader + 'static,
+  CR: CompositeReader + 'static + std::marker::Sync,
   <CR as CompositeReader>::LeafReader: 'static,
+  R: Rng + ?Sized,
+  <CR as CompositeReader>::LeafReader: std::marker::Sync,
 {
-  let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
+  let searcher = new_searcher_with_threads(random, index_reader, true, true, true)?;
   let collector_manager = TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
   searcher.search_with_collector_manager(query, &collector_manager)
 }
@@ -525,9 +531,9 @@ fn test_shared_count_collector_manager() -> Result<()> {
   writer.close()?;
 
   let query = MatchAllDocsQuery::new();
-  let tdc = do_concurrent_search_with_threshold(5, 10, query.into(), reader)?;
+  let tdc = do_concurrent_search_with_threshold(&mut random, 5, 10, query.into(), reader)?;
   let query = MatchAllDocsQuery::new();
-  let tdc2 = do_search_with_threshold(5, 10, query.into(), reader2)?;
+  let tdc2 = do_search_with_threshold(&mut random, 5, 10, query.into(), reader2)?;
 
   let query = MatchAllDocsQuery::new();
   CheckHits::check_equal(&query.into(), &tdc.score_docs, &tdc2.score_docs)?;
@@ -820,8 +826,9 @@ fn test_random_min_competitive_score() -> Result<()> {
   ];
 
   for query in queries {
-    let tdc = do_concurrent_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
-    let tdc2 = do_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
+    let tdc =
+      do_concurrent_search_with_threshold(&mut random, 5, 0, query.clone(), index_reader.clone())?;
+    let tdc2 = do_search_with_threshold(&mut random, 5, 0, query.clone(), index_reader.clone())?;
 
     assert!(tdc.total_hits.value() > 0);
     assert!(tdc2.total_hits.value() > 0);
@@ -866,8 +873,14 @@ fn test_realistic_concurrent_minimum_score() -> Result<()> {
       let term_bytes = BytesRef::deep_copy_of(&*term);
       let query: Query = TermQuery::new(Term::new("body", term_bytes)).into();
 
-      let tdc = do_concurrent_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
-      let tdc2 = do_search_with_threshold(5, 0, query.clone(), index_reader.clone())?;
+      let tdc = do_concurrent_search_with_threshold(
+        &mut random,
+        5,
+        0,
+        query.clone(),
+        index_reader.clone(),
+      )?;
+      let tdc2 = do_search_with_threshold(&mut random, 5, 0, query.clone(), index_reader.clone())?;
 
       CheckHits::check_equal(&query, &tdc.score_docs, &tdc2.score_docs)?;
     }

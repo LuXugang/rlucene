@@ -54,7 +54,7 @@ fn assert_pattern_hits<IRC>(
   num_hits: usize,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let wq = WildcardQuery::new(Term::from_text("field", fill_pattern(pattern, random)))?;
   let docs = searcher.search(wq, 25)?;

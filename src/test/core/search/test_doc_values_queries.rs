@@ -502,7 +502,7 @@ fn assert_same_matches<IRC, T1, T2>(
   scores: bool,
 ) -> Result<()>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
 {

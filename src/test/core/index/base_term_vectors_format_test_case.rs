@@ -2364,7 +2364,8 @@ pub fn add_id(mut doc: Document, id: &str) -> Result<Document> {
 
 pub fn doc_id<CR>(reader: CR, id: &str) -> Result<i32>
 where
-  CR: CompositeReader + 'static,
+  CR: CompositeReader + 'static + std::marker::Sync,
+  <CR as CompositeReader>::LeafReader: std::marker::Sync + Send,
 {
   let searcher = IndexSearcher::from_cr(reader)?;
   let top_docs = searcher.search(TermQuery::new(Term::from_text("id", id)), 1)?;

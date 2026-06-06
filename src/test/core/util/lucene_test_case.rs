@@ -664,25 +664,33 @@ pub mod lucene_test_case_util {
     CR: CompositeReader,
     R: Rng + ?Sized,
   {
+    let threads = random.random_bool(0.5);
     new_searcher_with_threads(
+      random,
       composite_reader,
       may_be_wrap,
       wrap_with_assertions,
-      random.random_bool(0.5),
+      threads,
     )
   }
-  pub fn new_searcher_with_threads<CR>(
+  pub fn new_searcher_with_threads<R, CR>(
+    random: &mut R,
     composite_reader: CR,
     _may_be_wrap: bool,
     _wrap_with_assertions: bool,
-    _use_threads: bool,
+    use_threads: bool,
   ) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
   where
     CR: CompositeReader,
+    R: Rng + ?Sized,
   {
-    // TODO 多线程未实现
     let irc = get_context(composite_reader)?;
-    IndexSearcher::new(irc)
+    if use_threads {
+      let threads = random.random_range(2..=3);
+      IndexSearcher::with_threads(irc, threads)
+    } else {
+      IndexSearcher::new(irc)
+    }
   }
 
   pub fn new_searcher_with_leaf_reader<LR>(

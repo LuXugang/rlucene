@@ -40,6 +40,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
+use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -665,7 +666,9 @@ fn test_try_update_multi_threaded() -> Result<()> {
 
 fn do_update<D>(doc: Term, writer: &IndexWriter<D>, fields: Vec<Fields>) -> Result<()>
 where
-  D: Directory + 'static,
+  D: Directory + 'static + std::marker::Send + Sync,
+  <<D as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+  <D as Directory>::IndexInput: Send + Sync,
 {
   let reader = Arc::new(directory_reader::open_from_writer(writer)?);
   let searcher = new_searcher_with_reader(reader.clone())?;

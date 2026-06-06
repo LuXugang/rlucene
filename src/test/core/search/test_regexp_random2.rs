@@ -74,7 +74,7 @@ pub(crate) trait TestRegexpRandom2 {
     regexp: String,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync,
   {
     let smart = RegexpQuery::with_flags(Term::from_text(field_name, regexp.clone()), RegExp::NONE)?;
     let nfa_query = RegexpQuery::with_all_and_determinization(

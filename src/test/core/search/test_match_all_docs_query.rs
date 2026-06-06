@@ -160,7 +160,8 @@ fn test_early_termination() -> Result<()> {
   let ir = directory_reader::open_from_writer(&iw)?;
   let ir_arc = Arc::new(ir);
 
-  let single_threaded_searcher = new_searcher_with_threads(ir_arc.clone(), true, true, false)?;
+  let single_threaded_searcher =
+    new_searcher_with_threads(&mut random, ir_arc.clone(), true, true, false)?;
 
   let total_hits_threshold = 200;
   let collector_mgr = TopScoreDocCollectorManager::new(10, total_hits_threshold)?;

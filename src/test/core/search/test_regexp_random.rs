@@ -94,7 +94,7 @@ fn assert_pattern_hits<IRC, R>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + Sync,
 {
   let wq = RegexpQuery::new(Term::from_text("field", fill_pattern(random, pattern)))?;
   let docs = searcher.search(wq, 25)?;

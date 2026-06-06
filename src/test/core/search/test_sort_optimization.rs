@@ -110,7 +110,7 @@ fn test_long_sort_optimization() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-  let searcher = new_searcher_with_threads(reader, true, true, false)?;
+  let searcher = new_searcher_with_threads(&mut random, reader, true, true, false)?;
   let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
   let sort = Arc::new(Sort::with_fields(vec![sort_field])?);
   let num_hits = 3;
@@ -236,8 +236,9 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
   writer.close()?;
 
   // single-threaded so totalHits is deterministic
+  let maybe_wrap = random.random_bool(0.5);
   let searcher =
-    new_searcher_with_threads(reader, random.random_bool(0.5), random_bool(0.5), false)?;
+    new_searcher_with_threads(&mut random, reader, maybe_wrap, random_bool(0.5), false)?;
   let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
   let sort = Sort::with_fields(vec![sort_field])?;
   let num_hits = 3;
@@ -287,7 +288,13 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-  let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+  let searcher = new_searcher_with_threads(
+    &mut random,
+    reader,
+    random_bool(0.5),
+    random_bool(0.5),
+    false,
+  )?;
   let num_hits = 3;
   let total_hits_threshold = 3;
 
@@ -417,7 +424,13 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-  let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+  let searcher = new_searcher_with_threads(
+    &mut random,
+    reader,
+    random_bool(0.5),
+    random_bool(0.5),
+    false,
+  )?;
   let num_hits = 3;
   let total_hits_threshold = 3;
 
@@ -505,7 +518,13 @@ fn test_sort_optimization_equal_values() -> Result<()> {
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
-  let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+  let searcher = new_searcher_with_threads(
+    &mut random,
+    reader,
+    random_bool(0.5),
+    random_bool(0.5),
+    false,
+  )?;
   let num_hits = 3;
   let total_hits_threshold = 3;
 
@@ -594,7 +613,13 @@ fn test_float_sort_optimization() -> Result<()> {
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
-  let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+  let searcher = new_searcher_with_threads(
+    &mut random,
+    reader,
+    random_bool(0.5),
+    random_bool(0.5),
+    false,
+  )?;
   let sort_field = SortField::new(Some("my_field"), SortFieldType::Float)?;
   let sort = Sort::with_fields(vec![sort_field])?;
   let num_hits = 3;
@@ -668,7 +693,13 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
     #[allow(clippy::needless_range_loop)]
     for i in 0..num_indices {
       let reader = directory_reader::open(dirs[i].clone())?;
-      let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+      let searcher = new_searcher_with_threads(
+        &mut random,
+        reader,
+        random_bool(0.5),
+        random_bool(0.5),
+        false,
+      )?;
       let collector_manager = TopFieldCollectorManager::with_after(
         sort.clone(),
         size,
@@ -725,7 +756,13 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-  let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+  let searcher = new_searcher_with_threads(
+    &mut random,
+    reader,
+    random_bool(0.5),
+    random_bool(0.5),
+    false,
+  )?;
   let num_hits = 10;
   let total_hits_threshold = 10;
   let search_afters = [3, 10, num_docs as i32 - 10];
@@ -905,7 +942,13 @@ fn test_doc_sort_optimization() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-  let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+  let searcher = new_searcher_with_threads(
+    &mut random,
+    reader,
+    random_bool(0.5),
+    random_bool(0.5),
+    false,
+  )?;
 
   let num_hits = 3;
   let total_hits_threshold = 3;
@@ -997,10 +1040,13 @@ fn test_doc_sort() -> Result<()> {
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
 
+  let may_be_wrap = random.random_bool(0.5);
+  let wrap_with_assertions = random.random_bool(0.5);
   let mut searcher = new_searcher_with_threads(
+    &mut random,
     reader,
-    random.random_bool(0.5),
-    random.random_bool(0.5),
+    may_be_wrap,
+    wrap_with_assertions,
     false,
   )?;
   searcher.set_query_cache(None);
@@ -1138,7 +1184,13 @@ fn test_max_doc_visited() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-  let searcher = new_searcher_with_threads(reader, random_bool(0.5), random_bool(0.5), false)?;
+  let searcher = new_searcher_with_threads(
+    &mut random,
+    reader,
+    random_bool(0.5),
+    random_bool(0.5),
+    false,
+  )?;
 
   let sort_field = SortField::new(Some("my_field"), SortFieldType::Long)?;
   let sort = Sort::with_fields(vec![sort_field])?;
@@ -1220,11 +1272,13 @@ fn test_random_long() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-
+  let may_be_wrap = random.random_bool(0.5);
+  let wrap_with_assertions = random.random_bool(0.5);
   let searcher = new_searcher_with_threads(
+    &mut random,
     reader,
-    random.random_bool(0.5),
-    random.random_bool(0.5),
+    may_be_wrap,
+    wrap_with_assertions,
     false,
   )?;
 
@@ -1306,7 +1360,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
-  let searcher = new_searcher_with_threads(reader, true, true, false)?;
+  let searcher = new_searcher_with_threads(&mut random, reader, true, true, false)?;
 
   let selector_type = if random.random_bool(0.5) {
     SortedNumericSelectorType::Min
@@ -1454,8 +1508,9 @@ fn test_string_sort_optimization_with_missing_values() -> Result<()> {
 }
 fn do_test_string_sort_optimization<DR, R>(random: &mut R, reader: DR) -> Result<()>
 where
-  DR: DirectoryReader + Clone + 'static,
+  DR: DirectoryReader + Clone + 'static + Sync,
   R: Rng + ?Sized,
+  <DR as CompositeReader>::LeafReader: Send + Sync,
 {
   let num_docs = reader.num_docs()?;
   let num_hits = 5;
@@ -1465,7 +1520,7 @@ where
       KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
     sort_field.set_missing_value(StringLast)?;
     let sort = Sort::with_fields(vec![sort_field])?;
-    let top_docs = assert_sort(reader.clone(), sort, num_hits, None)?;
+    let top_docs = assert_sort(random, reader.clone(), sort, num_hits, None)?;
     assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
   }
 
@@ -1474,7 +1529,7 @@ where
       KeywordField::new_sort_field("my_field", true, SortedSetSelectorType::Min)?;
     sort_field.set_missing_value(StringFirst)?;
     let sort = Sort::with_fields(vec![sort_field])?;
-    let top_docs = assert_sort(reader.clone(), sort, num_hits, None)?;
+    let top_docs = assert_sort(random, reader.clone(), sort, num_hits, None)?;
     assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
   }
 
@@ -1483,7 +1538,7 @@ where
       KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
     sort_field.set_missing_value(StringFirst)?;
     let sort = Sort::with_fields(vec![sort_field])?;
-    assert_sort(reader.clone(), sort, num_hits, None)?;
+    assert_sort(random, reader.clone(), sort, num_hits, None)?;
   }
 
   {
@@ -1491,7 +1546,7 @@ where
       KeywordField::new_sort_field("my_field", true, SortedSetSelectorType::Min)?;
     sort_field.set_missing_value(StringLast)?;
     let sort = Sort::with_fields(vec![sort_field])?;
-    assert_sort(reader.clone(), sort, num_hits, None)?;
+    assert_sort(random, reader.clone(), sort, num_hits, None)?;
   }
 
   {
@@ -1505,7 +1560,7 @@ where
       "230000000"
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
-    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
     assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
   }
 
@@ -1520,7 +1575,7 @@ where
       "170000000"
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
-    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
     assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
   }
 
@@ -1535,7 +1590,7 @@ where
       "230000000"
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
-    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
     assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
   }
 
@@ -1550,7 +1605,7 @@ where
       "170000000"
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
-    let top_docs = assert_sort(reader.clone(), sort, num_hits, Some(after))?;
+    let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
     assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
   }
 
@@ -1559,7 +1614,7 @@ where
       KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
     sort_field.set_missing_value(StringLast)?;
     let sort = Sort::with_fields(vec![sort_field, SortField::get_field_score()?.into()])?;
-    let top_docs = assert_sort(reader.clone(), sort, num_hits, None)?;
+    let top_docs = assert_sort(random, reader.clone(), sort, num_hits, None)?;
     assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
   }
 
@@ -1568,7 +1623,7 @@ where
       KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
     sort_field.set_missing_value(StringLast)?;
     let sort = Sort::with_fields(vec![SortField::get_field_score()?.into(), sort_field])?;
-    let top_docs = assert_sort(reader, sort, num_hits, None)?;
+    let top_docs = assert_sort(random, reader, sort, num_hits, None)?;
     assert_eq!(top_docs.total_hits().value() as i64, num_docs as i64);
   }
 
@@ -1576,7 +1631,8 @@ where
 }
 fn do_test_string_sort_optimization_disabled<DR>(reader: DR) -> Result<()>
 where
-  DR: DirectoryReader + Clone + 'static,
+  DR: DirectoryReader + Clone + 'static + std::marker::Sync,
+  <DR as CompositeReader>::LeafReader: std::marker::Sync,
 {
   let mut sort_field = KeywordField::new_sort_field("my_field", false, SortedSetSelectorType::Min)?;
   sort_field.set_missing_value(StringLast)?;
@@ -1594,16 +1650,19 @@ where
   assert_eq!(num_docs as usize, top_docs.total_hits().value());
   Ok(())
 }
-fn assert_sort<DR>(
+fn assert_sort<R, DR>(
+  random: &mut R,
   reader: DR,
   sort: Sort,
   n: usize,
   after: Option<FieldDoc>,
 ) -> Result<TopFieldDocs>
 where
-  DR: DirectoryReader + Clone + 'static,
+  DR: DirectoryReader + Clone + 'static + Sync,
+  R: Rng + ?Sized,
+  <DR as CompositeReader>::LeafReader: Send + Sync,
 {
-  let top_docs = assert_search_hits(reader.clone(), sort.clone(), n, after.clone())?;
+  let top_docs = assert_search_hits(random, reader.clone(), sort.clone(), n, after.clone())?;
   let mut sort_fields = sort.get_sort().to_vec();
   // A secondary sort on reverse doc ID is the best way to catch bugs if the comparator filters
   // too aggressively
@@ -1622,18 +1681,21 @@ where
     None => None,
   };
 
-  assert_search_hits(reader, Sort::with_fields(sort_fields)?, n, after2)?;
+  assert_search_hits(random, reader, Sort::with_fields(sort_fields)?, n, after2)?;
   Ok(top_docs)
 }
 
-fn assert_search_hits<DR>(
+fn assert_search_hits<R, DR>(
+  random: &mut R,
   reader: DR,
   sort: Sort,
   n: usize,
   after: Option<FieldDoc>,
 ) -> Result<TopFieldDocs>
 where
-  DR: DirectoryReader + Clone + 'static,
+  DR: DirectoryReader + Clone + 'static + std::marker::Sync,
+  R: Rng + ?Sized,
+  <DR as CompositeReader>::LeafReader: Send + Sync,
 {
   let searcher = new_searcher_with_reader(reader.clone())?;
   let query = MatchAllDocsQuery::new();
@@ -1641,7 +1703,8 @@ where
   let top_docs = searcher.search_with_collector_manager(query.clone(), &manager)?;
 
   let unoptimized_reader = NoIndexDirectoryReader::new(reader)?;
-  let unoptimized_searcher = new_searcher_with_threads(unoptimized_reader, true, true, false)?;
+  let unoptimized_searcher =
+    new_searcher_with_threads(random, unoptimized_reader, true, true, false)?;
   let unoptimized_top_docs =
     unoptimized_searcher.search_with_collector_manager(query.clone(), &manager)?;
 

@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
@@ -76,6 +75,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
+use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -92,7 +92,7 @@ fn setup() -> Result<DefaultIndexSearchCR> {
   }
   let ir = iw.get_reader()?;
   iw.close()?;
-  let is = new_searcher_with_threads(ir, true, true, false)?;
+  let is = new_searcher_with_threads(&mut random, ir, true, true, false)?;
   Ok(is)
 }
 fn do_search_with_threshold<CR>(
@@ -103,7 +103,8 @@ fn do_search_with_threshold<CR>(
   index_reader: CR,
 ) -> Result<TopFieldDocs>
 where
-  CR: CompositeReader + 'static,
+  CR: CompositeReader + 'static + std::marker::Sync,
+  <CR as CompositeReader>::LeafReader: std::marker::Sync + Send,
 {
   let searcher = new_searcher_with_reader(index_reader)?;
 
@@ -111,7 +112,8 @@ where
 
   searcher.search_with_collector_manager(q, &manager)
 }
-fn do_concurrent_search_with_threshold<CR>(
+fn do_concurrent_search_with_threshold<R, CR>(
+  random: &mut R,
   num_results: usize,
   threshold: usize,
   q: Query,
@@ -119,9 +121,11 @@ fn do_concurrent_search_with_threshold<CR>(
   index_reader: CR,
 ) -> Result<TopFieldDocs>
 where
-  CR: CompositeReader + 'static,
+  CR: CompositeReader + 'static + std::marker::Sync,
+  R: Rng + ?Sized,
+  <CR as CompositeReader>::LeafReader: std::marker::Sync + Send,
 {
-  let searcher = new_searcher_with_threads(index_reader, true, true, true)?;
+  let searcher = new_searcher_with_threads(random, index_reader, true, true, true)?;
 
   let collector_manager = TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
 
@@ -187,11 +191,12 @@ fn test_shared_hitcount_collector() -> Result<()> {
     let doc = Document::new();
     iw.add_document(doc)?;
   }
-  let ir = Rc::new(iw.get_reader()?);
+  let ir = Arc::new(iw.get_reader()?);
   iw.close()?;
 
-  let concurrent_searcher = new_searcher_with_threads(ir.clone(), true, true, true)?;
-  let single_threaded_searcher = new_searcher_with_threads(ir.clone(), true, true, false)?;
+  let concurrent_searcher = new_searcher_with_threads(&mut random, ir.clone(), true, true, true)?;
+  let single_threaded_searcher =
+    new_searcher_with_threads(&mut random, ir.clone(), true, true, false)?;
 
   // Two Sort criteria to instantiate the multi/single comparators.
   let sorts = [
@@ -831,8 +836,14 @@ fn test_random_min_competitive_score() -> Result<()> {
   ])?;
 
   for query in queries {
-    let tdc =
-      do_concurrent_search_with_threshold(5, 0, query.clone(), sort.clone(), index_reader.clone())?;
+    let tdc = do_concurrent_search_with_threshold(
+      &mut random,
+      5,
+      0,
+      query.clone(),
+      sort.clone(),
+      index_reader.clone(),
+    )?;
     let tdc2 = do_search_with_threshold(5, 0, query.clone(), sort.clone(), index_reader.clone())?;
 
     assert!(tdc.total_hits().value() > 0);

@@ -145,7 +145,8 @@ where
 
 pub struct CustomSearcher<CR>
 where
-  CR: CompositeReader + 'static,
+  CR: CompositeReader + Sync + 'static,
+  <CR as CompositeReader>::LeafReader: Sync,
 {
   searcher: IndexSearcher<CompositeReaderContext<CR>>,
   switcher: i32,
@@ -153,7 +154,8 @@ where
 
 impl<CR> CustomSearcher<CR>
 where
-  CR: CompositeReader + 'static,
+  CR: CompositeReader + Sync + 'static,
+  <CR as CompositeReader>::LeafReader: Sync,
 {
   pub fn new(cr: CR, switcher: i32) -> Self {
     let s = IndexSearcher::from_cr(cr).unwrap();
