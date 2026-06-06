@@ -16,7 +16,7 @@
  */
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::io::{Cursor, Read, Seek, SeekFrom};
+use std::io::Cursor;
 
 use crate::core::store::index_input::get_full_slice_description;
 use crate::core::store::{BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase};
@@ -24,6 +24,19 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ReadableCursorExt, TryIntoInt};
 
 const CHUNK_SIZE: usize = 16384;
+
+#[cfg(unix)]
+fn read_at(file: &File, buf: &mut [u8], pos: u64) -> std::io::Result<usize> {
+  use std::os::unix::fs::FileExt;
+  file.read_at(buf, pos)
+}
+
+#[cfg(windows)]
+fn read_at(file: &File, buf: &mut [u8], pos: u64) -> std::io::Result<usize> {
+  use std::os::windows::fs::FileExt;
+  file.seek_read(buf, pos)
+}
+
 pub struct NIOFSIndexInput {
   /// the file we will read from
   file: File,
@@ -133,9 +146,8 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
   /// 3. The read length is fully consumed or an appropriate error is
   ///    returned.
   ///
-  /// The file pointer (`pos`) is adjusted dynamically during the read
-  /// process, and the method uses `seek` to position the file pointer
-  /// correctly for each chunk.
+  /// Each chunk is read with positional I/O so cloned inputs do not share a
+  /// mutable OS file cursor.
   fn read_internal(
     &mut self,
     buffer: &mut Cursor<Vec<u8>>,
@@ -158,18 +170,12 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
       // Determine the size of the current chunk to read
       let to_read = CHUNK_SIZE.min(read_length);
 
-      // Seek to the correct position in the file
-      self
-        .file
-        .seek(SeekFrom::Start(pos as u64))
-        .map_err(LuceneError::io)?;
-
       // Prepare the buffer slice for writing
       let buffer_start = buffer.position() as usize;
       let buffer_end = buffer_start + to_read;
       let buffer_slice = &mut buffer.get_mut()[buffer_start..buffer_end];
 
-      let bytes_read = self.file.read(buffer_slice).map_err(LuceneError::io)?;
+      let bytes_read = read_at(&self.file, buffer_slice, pos as u64).map_err(LuceneError::io)?;
 
       if bytes_read == 0 {
         return Err(LuceneError::eof(format!(
