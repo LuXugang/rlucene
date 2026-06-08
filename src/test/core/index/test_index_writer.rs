@@ -36,6 +36,7 @@ use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::fields::Fields;
 use crate::core::index::flush_policy::ApplyDeletesFlushPolicy;
+use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -2352,31 +2353,165 @@ fn test_many_separate_threads() -> Result<()> {
 
 #[test]
 fn test_nrt_segments_file() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  // creates segments_1
+  w.commit()?;
+
+  // newly opened NRT reader should see gen=1 segments file
+  let r = directory_reader::open_from_writer(&w)?;
+  let commit = r.get_index_commit()?;
+  assert_eq!(1, commit.get_generation());
+  assert_eq!("segments_1", commit.get_segments_file_name());
+
+  // newly opened non-NRT reader should see gen=1 segments file
+  let r2 = directory_reader::open(dir.clone())?;
+  let commit2 = r2.get_index_commit()?;
+  assert_eq!(1, commit2.get_generation());
+  assert_eq!("segments_1", commit2.get_segments_file_name());
+  r2.close()?;
+
+  // make a change and another commit
+  let doc = Document::new();
+  w.add_document(doc)?;
+  w.commit()?;
+  let r3 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+  r.close()?;
+
+  // reopened NRT reader should see gen=2 segments file
+  let commit3 = r3.get_index_commit()?;
+  assert_eq!(2, commit3.get_generation());
+  assert_eq!("segments_2", commit3.get_segments_file_name());
+  r3.close()?;
+
+  // newly opened non-NRT reader should see gen=2 segments file
+  let r4 = directory_reader::open(dir.clone())?;
+  let commit4 = r4.get_index_commit()?;
+  assert_eq!(2, commit4.get_generation());
+  assert_eq!("segments_2", commit4.get_segments_file_name());
+  r4.close()?;
+
+  w.close()?;
+  drop(dir);
+
   Ok(())
 }
 
 #[test]
 fn test_nrt_after_commit() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  w.commit()?;
+
+  let doc = Document::new();
+  w.add_document(doc)?;
+  let r = directory_reader::open_from_writer(&w)?;
+  w.commit()?;
+
+  // commit even with no other changes counts as a "change" that NRT reader reopen will see:
+  let r2 = directory_reader::open(dir.clone())?;
+  let commit2 = r2.get_index_commit()?;
+  assert_eq!(2, commit2.get_generation());
+  assert_eq!("segments_2", commit2.get_segments_file_name());
+
+  r2.close()?;
+  r.close()?;
+  w.close()?;
+  drop(dir);
+
   Ok(())
 }
 
 #[test]
 fn test_nrt_after_set_user_data_without_commit() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  w.commit()?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let mut m = HashMap::new();
+  m.insert("foo".to_string(), "bar".to_string());
+  w.set_live_commit_data(m);
+
+  // setLiveCommitData with no other changes should count as an NRT change:
+  let r2 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+
+  r2.close()?;
+  r.close()?;
+  w.close()?;
+  drop(dir);
+
   Ok(())
 }
 
 #[test]
 fn test_nrt_after_set_user_data_with_commit() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  w.commit()?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let mut m = HashMap::new();
+  m.insert("foo".to_string(), "bar".to_string());
+  w.set_live_commit_data(m);
+  w.commit()?;
+  // setLiveCommitData and also commit, with no other changes, should count as an NRT change:
+  let r2 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+
+  r.close()?;
+  r2.close()?;
+  w.close()?;
+  drop(dir);
+
   Ok(())
 }
 
 #[test]
 fn test_commit_immediately_after_nrt_reopen() -> Result<()> {
-  // TODO
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  w.commit()?;
+
+  let doc = Document::new();
+  w.add_document(doc)?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  w.commit()?;
+
+  assert!(!r.is_current(&w)?);
+
+  let r2 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+  // segments_N should have changed:
+  assert_ne!(
+    r2.get_index_commit()?.get_segments_file_name(),
+    r.get_index_commit()?.get_segments_file_name()
+  );
+
+  r.close()?;
+  r2.close()?;
+  w.close()?;
+  drop(dir);
+
   Ok(())
 }
 
