@@ -1908,60 +1908,59 @@ fn test_stopwords_pos_inc_hole2() -> Result<()> {
 
 #[test]
 fn test_commit_with_user_data_only() -> Result<()> {
-  // TODO IMPORTANT get_index_commit未实现
-  // let mut random = random();
-  //
-  // let dir = new_directory_shared(&mut random)?;
-  //
-  // let iwc = new_index_writer_config(None);
-  // let mut writer = IndexWriter::new(dir.clone(), iwc)?;
-  //
-  // writer.commit()?; // first commit to complete IW create transaction.
-  //
-  // // This should store the commit data, even though no other changes were made.
-  // let mut data = HashMap::new();
-  // data.insert("key".to_string(), "value".to_string());
-  // writer.set_live_commit_data(data);
-  // writer.commit()?;
-  //
-  // let r = directory_reader::open(dir.clone())?;
-  // assert_eq!(
-  //   Some(&"value".to_string()),
-  //   r.get_index_commit()?.get_user_data().get("key")
-  // );
-  //
-  // // Now check setCommitData and prepareCommit/commit sequence.
-  // let mut data = HashMap::new();
-  // data.insert("key".to_string(), "value1".to_string());
-  // writer.set_live_commit_data(data);
-  //
-  // writer.prepare_commit()?;
-  //
-  // let mut data = HashMap::new();
-  // data.insert("key".to_string(), "value2".to_string());
-  // writer.set_live_commit_data(data);
-  //
-  // // Should commit the first commitData only, per protocol.
-  // writer.commit()?;
-  //
-  // let r = directory_reader::open(dir.clone())?;
-  // assert_eq!(
-  //   Some(&"value1".to_string()),
-  //   r.get_index_commit()?.get_user_data().get("key")
-  // );
-  //
-  // // Now should commit the second commitData - there was a bug where
-  // // IndexWriter.finishCommit overrode the second commitData.
-  // writer.commit()?;
-  //
-  // let r = directory_reader::open(dir.clone())?;
-  // assert_eq!(
-  //   Some(&"value2".to_string()),
-  //   r.get_index_commit()?.get_user_data().get("key"),
-  //   "IndexWriter.finishCommit may have overridden the second commitData"
-  // );
-  //
-  // writer.close()?;
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let iwc = new_index_writer_config(&mut random);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  writer.commit()?; // first commit to complete IW create transaction.
+
+  // This should store the commit data, even though no other changes were made.
+  let mut data = HashMap::new();
+  data.insert("key".to_string(), "value".to_string());
+  writer.set_live_commit_data(data);
+  writer.commit()?;
+
+  let r = directory_reader::open(dir.clone())?;
+  assert_eq!(
+    Some(&"value".to_string()),
+    r.get_index_commit()?.get_user_data().get("key")
+  );
+
+  // Now check setCommitData and prepareCommit/commit sequence.
+  let mut data = HashMap::new();
+  data.insert("key".to_string(), "value1".to_string());
+  writer.set_live_commit_data(data);
+
+  writer.prepare_commit()?;
+
+  let mut data = HashMap::new();
+  data.insert("key".to_string(), "value2".to_string());
+  writer.set_live_commit_data(data);
+
+  // Should commit the first commitData only, per protocol.
+  writer.commit()?;
+
+  let r = directory_reader::open(dir.clone())?;
+  assert_eq!(
+    Some(&"value1".to_string()),
+    r.get_index_commit()?.get_user_data().get("key")
+  );
+
+  // Now should commit the second commitData - there was a bug where
+  // IndexWriter.finishCommit overrode the second commitData.
+  writer.commit()?;
+
+  let r = directory_reader::open(dir.clone())?;
+  assert_eq!(
+    Some(&"value2".to_string()),
+    r.get_index_commit()?.get_user_data().get("key"),
+    "IndexWriter.finishCommit may have overridden the second commitData"
+  );
+
+  writer.close()?;
 
   Ok(())
 }
@@ -3137,7 +3136,118 @@ where
 
 #[test]
 fn test_soft_update_documents() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random);
+  config
+    .set_merge_policy(NoMergePolicy::default())
+    .set_soft_deletes_field("soft_delete");
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  let err = writer.soft_update_document(
+    Term::from_text("id", "1"),
+    Document::new(),
+    Vec::<crate::core::document::fields::Fields>::new(),
+  );
+  match err {
+    Ok(_) => panic!("expected IllegalArgument error"),
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert_eq!("at least one soft delete must be present", err.to_string());
+    },
+  }
+
+  let err = writer.soft_update_documents(
+    Term::from_text("id", "1"),
+    vec![vec![
+      StringField::from_string("id", "1", Store::Yes)?.into(),
+    ]],
+    Vec::<crate::core::document::fields::Fields>::new(),
+  );
+  match err {
+    Ok(_) => panic!("expected IllegalArgument error"),
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert_eq!("at least one soft delete must be present", err.to_string());
+    },
+  }
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "2", Store::Yes)?);
+  writer.soft_update_document(
+    Term::from_text("id", "1"),
+    doc,
+    vec![NumericDocValuesField::new("soft_delete", 1).into()],
+  )?;
+
+  let mut reader = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(2, reader.doc_freq(&Term::from_text("id", "1"))?);
+  let searcher = new_searcher_with_reader(directory_reader::open_from_writer(&writer)?)?;
+  let top_docs = searcher.search(TermQuery::new(Term::from_text("id", "1")), 10)?;
+  assert_eq!(1, top_docs.score_docs.len());
+  let mut stored_fields = searcher.stored_fields()?;
+  let document = stored_fields.document(top_docs.score_docs[0].doc)?;
+  let version = document
+    .get_field("version")
+    .expect("version field should exist")
+    .string_value()?
+    .expect("version should have a string value");
+  assert_eq!("2", version.as_ref());
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "3", Store::Yes)?);
+  writer.soft_update_document(
+    Term::from_text("id", "1"),
+    doc,
+    vec![NumericDocValuesField::new("soft_delete", 1).into()],
+  )?;
+
+  let old_reader = reader;
+  reader = directory_reader::open_if_changed(&old_reader, &writer)?.expect("reader should change");
+  old_reader.close()?;
+  let searcher = new_searcher_with_reader(directory_reader::open_from_writer(&writer)?)?;
+  let top_docs = searcher.search(TermQuery::new(Term::from_text("id", "1")), 10)?;
+  assert_eq!(1, top_docs.score_docs.len());
+  let mut stored_fields = searcher.stored_fields()?;
+  let document = stored_fields.document(top_docs.score_docs[0].doc)?;
+  let version = document
+    .get_field("version")
+    .expect("version field should exist")
+    .string_value()?
+    .expect("version should have a string value");
+  assert_eq!("3", version.as_ref());
+
+  writer.update_doc_values(
+    Term::from_text("id", "1"),
+    vec![NumericDocValuesField::new("soft_delete", 1).into()],
+  )?;
+
+  let old_reader = reader;
+  reader = directory_reader::open_if_changed(&old_reader, &writer)?.expect("reader should change");
+  old_reader.close()?;
+  let searcher = new_searcher_with_reader(directory_reader::open_from_writer(&writer)?)?;
+  let top_docs = searcher.search(TermQuery::new(Term::from_text("id", "1")), 10)?;
+  assert_eq!(0, top_docs.total_hits.value());
+
+  let mut num_soft_deleted = 0;
+  for info in writer.clone_segment_infos()?.iter() {
+    num_soft_deleted += info.get_soft_del_count();
+  }
+  let doc_stats = writer.get_doc_stats()?;
+  assert_eq!(doc_stats.max_doc - doc_stats.num_docs, num_soft_deleted);
+
+  for leaf in get_context(reader)?.leaves()? {
+    assert!(leaf.reader().get_hard_live_docs()?.is_none());
+  }
+
+  writer.close()?;
   Ok(())
 }
 
@@ -3260,7 +3370,7 @@ fn test_prevent_changing_soft_deletes_field() -> Result<()> {
   // TODO IMPORTANT SoftDeletesRetentionMergePolicy未实现
   Ok(())
 }
-
+#[test]
 fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()> {
   let mut random = random();
 
@@ -3410,6 +3520,7 @@ fn test_broken_payload() -> Result<()> {
   assert!(result.is_err());
   Ok(())
 }
+#[test]
 fn test_soft_and_hard_live_docs() -> Result<()> {
   let mut random = random();
 
