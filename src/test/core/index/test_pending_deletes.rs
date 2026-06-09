@@ -266,13 +266,18 @@ pub(crate) trait TestPendingDeletesBase {
     let mut deletes = self.new_pending_deletes(&meta)?;
     let lock = dir.obtain_lock("write_lock")?;
     let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
-    let (dv_gen, field) = match deletes {
-      PendingDeletesEnum::Soft(ref v) => (v.dv_generation, v.field.to_string()),
-      // not -2
-      PendingDeletesEnum::PD(_) => (-1, "".to_string()),
-    };
 
     for i in 0..3 {
+      assert!(deletes.delete(i, &commit_info)?);
+      if random.random_bool(0.5) {
+        assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
+      }
+
+      let (dv_gen, field) = match deletes {
+        PendingDeletesEnum::Soft(ref v) => (v.dv_generation, v.field.to_string()),
+        // not -2
+        PendingDeletesEnum::PD(_) => (-1, "".to_string()),
+      };
       let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
         let field_infos = pending_soft_deletes::read_field_infos(&commit_info)?;
         let field_info = field_infos.field_info_by_name(field.as_ref());
@@ -281,12 +286,6 @@ pub(crate) trait TestPendingDeletesBase {
       } else {
         (None, None, false)
       };
-
-      assert!(deletes.delete(i, &commit_info)?);
-      if random.random_bool(0.5) {
-        assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
-      }
-
       assert_eq!(
         i == 2,
         deletes.is_fully_deleted(&commit_info, reader, field_infos, on_new_reader)?

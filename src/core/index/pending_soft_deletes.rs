@@ -79,7 +79,7 @@ impl PendingSoftDeletes {
   {
     let sum = self.base.pending_delete_count + info.get_soft_del_count();
     debug_assert!(sum >= 0, "illegal pending delete count: {sum}");
-    debug_assert!(info.info.max_doc()? >= self.base.get_del_count(info));
+    debug_assert!(info.info.max_doc()? >= self.get_del_count(info));
     Ok(true)
   }
 
@@ -213,9 +213,9 @@ impl PendingDeletesBase for PendingSoftDeletes {
       self.dv_generation = info.get_doc_values_gen();
     }
     debug_assert!(
-      self.base.get_del_count(info) <= info.info.max_doc()?,
+      self.get_del_count(info) <= info.info.max_doc()?,
       "{} > {}",
-      self.base.get_del_count(info),
+      self.get_del_count(info),
       info.info.max_doc()?
     );
     Ok(())
@@ -252,7 +252,8 @@ impl PendingDeletesBase for PendingSoftDeletes {
   {
     // initialize to ensure we have accurate counts - only needed in the soft-delete case
     self.ensure_initialized(info, reader, field_infos, on_new_reader)?;
-    self.base.is_fully_deleted(info, None, None, false)
+    debug_assert!(info.info.max_doc()? == self.base.max_doc);
+    Ok(self.get_del_count(info) == info.info.max_doc()?)
   }
 
   fn num_deletes_to_merge<D>(
@@ -268,6 +269,12 @@ impl PendingDeletesBase for PendingSoftDeletes {
     self.ensure_initialized(info, reader, field_infos, on_new_reader)
   }
 
+  fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
+  where
+    D: Directory,
+  {
+    info.get_del_count() + info.get_soft_del_count() + self.num_pending_deletes()
+  }
   fn max_doc(&self) -> i32 {
     self.base.max_doc()
   }

@@ -45,7 +45,7 @@ pub(crate) struct PendingDeletes {
   writeable_live_docs: bool,
   pub(crate) pending_delete_count: i32,
   pub(crate) live_docs_initialized: bool,
-  max_doc: i32,
+  pub(crate) max_doc: i32,
 }
 impl PendingDeletes {
   pub(crate) fn from_reader<D>(
