@@ -25,7 +25,6 @@ use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNume
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};
-use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_field_updates::merged_iterator;
 use crate::core::index::doc_values_field_updates::{
@@ -46,6 +45,7 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMapImpl;
+use crate::core::index::{BytesRef, pending_soft_deletes};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -76,7 +76,7 @@ where
   // Tracks how many consumers are using this instance:
   ref_count: AtomicI32, // starts at 1
   // the major version this index was created with
-  index_created_version_major: i32,
+  pub(crate) index_created_version_major: i32,
   // Only set if there are doc values updates against this segment, and the index is sorted:
   pub(crate) sort_map: Option<Arc<DocMapImpl>>,
   pub(crate) ram_bytes_used: AtomicI64,
@@ -92,7 +92,7 @@ where
   pub(crate) reader: Option<DefaultLeafReader<D>>,
   // How many further deletions we've done against
   // liveDocs vs when we loaded it or last wrote it:
-  pending_deletes: PendingDeletesEnum,
+  pub(crate) pending_deletes: PendingDeletesEnum,
   // Indicates whether this segment is currently being merged. While a segment
   // is merging, all field updates are also registered in the
   // mergingDVUpdates map. Also, calls to writeFieldUpdates merge the
@@ -229,25 +229,7 @@ where
       .map(|v| v.len() as i64)
       .sum()
   }
-  pub fn get_reader(
-    &self,
-    context: &IOContext,
-    info: &SegmentCommitInfo<D>,
-    inner: Option<&mut Inner<D>>,
-  ) -> Result<()> {
-    let inner = match inner {
-      Some(inner) => inner,
-      None => &mut *self.inner.lock(),
-    };
-    if inner.reader.is_none() {
-      let reader = SegmentReader::new(info, self.index_created_version_major, context)?;
-      inner.pending_deletes.on_new_reader(&reader, info)?;
-      inner.reader = Some(Arc::new(reader));
-    }
-    // Ref for caller
-    inner.reader.as_ref().unwrap().inc_ref()?;
-    Ok(())
-  }
+
   pub fn release(&self, sr: &SegmentReader<D>, inner: Option<&Inner<D>>) -> Result<()> {
     let _inner = match inner {
       Some(inner) => inner,
@@ -269,7 +251,12 @@ where
       None => &mut *self.inner.lock(),
     };
     if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
-      self.get_reader(&IOContext::default_io_context()?, info, Some(inner))?; // pass a reader to initialize the pending deletes
+      get_reader(
+        &IOContext::default_io_context()?,
+        info,
+        inner,
+        self.index_created_version_major,
+      )?; // pass a reader to initialize the pending deletes
     }
 
     inner.pending_deletes.delete(doc_id, info)
@@ -292,7 +279,7 @@ where
   ) -> Result<Option<DefaultLeafReader<D>>> {
     let mut inner = self.inner.lock();
     if inner.reader.is_none() {
-      self.get_reader(context, info, Some(&mut inner))?;
+      get_reader(context, info, &mut inner, self.index_created_version_major)?;
       debug_assert!(inner.reader.is_some());
       inner.reader.as_ref().unwrap().dec_ref()?;
     }
@@ -327,46 +314,42 @@ where
   where
     P: MergePolicy,
   {
-    let inner = self.inner.lock();
-    inner
-      .pending_deletes
-      .num_deletes_to_merge(policy, info, || {
-        self.is_fully_deleted(info)?;
-        let v = self.inner.lock().reader.clone();
-        debug_assert!(v.is_some());
-        Ok(v.unwrap())
-      })
-  }
-
-  fn get_latest_read(
-    &self,
-    info: &SegmentCommitInfo<D>,
-    inner: Option<&mut Inner<D>>,
-  ) -> Result<()> {
-    let mut inner = match inner {
-      Some(inner) => inner,
-      None => &mut *self.inner.lock(),
+    let del_count = {
+      let mut inner = self.inner.lock();
+      let is_soft = matches!(inner.pending_deletes, PendingDeletesEnum::Soft(_));
+      if is_soft {
+        let dv_gen = inner.pending_deletes.dv_gen()?;
+        let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
+          let field_infos = pending_soft_deletes::read_field_infos(info)?;
+          let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?);
+          let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
+          let reader = if on_new_reader {
+            Some(self.get_latest_read(info, &mut inner, self.index_created_version_major)?)
+          } else {
+            None
+          };
+          (reader, Some(field_infos), on_new_reader)
+        } else {
+          (None, None, false)
+        };
+        inner.pending_deletes.num_deletes_to_merge(
+          info,
+          reader.as_ref(),
+          field_infos,
+          on_new_reader,
+        )?;
+      } else {
+        inner
+          .pending_deletes
+          .num_deletes_to_merge(info, None, None, false)?;
+      };
+      inner.pending_deletes.get_del_count(info)
     };
-    if inner.reader.is_none() {
-      // get a reader and dec the ref right away we just make sure we have a reader
-      self.get_reader(&IOContext::default_io_context()?, info, Some(&mut inner))?;
-      inner.reader.as_ref().unwrap().dec_ref()?;
-    }
-    // we should take the reader out of the struct temporarily, cause borrow check
-    // it is safe take reader under lock because we put it back right away
-    let reader = inner.reader.take();
-    if inner
-      .pending_deletes
-      .needs_refresh(reader.as_ref().unwrap(), info)?
-    {
-      // we have a reader but its live-docs are out of sync. let's create a temporary one that we
-      // never share
-      self.swap_new_reader_with_latest_live_docs(inner, info)?;
-    }
-    // put reader back
-    inner.reader = reader;
-    debug_assert!(inner.reader.is_some());
-    Ok(())
+
+    policy.num_deletes_to_merge(info, del_count, || {
+      let mut inner = self.inner.lock();
+      self.get_latest_read(info, &mut inner, self.index_created_version_major)
+    })
   }
 
   /// Returns a snapshot of the live docs.
@@ -485,9 +468,11 @@ where
 
         let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
 
-        inner
-          .pending_deletes
-          .on_doc_values_update(&field_info, update_supplier.apply(&field_info)?);
+        inner.pending_deletes.on_doc_values_update(
+          &field_info,
+          update_supplier.apply(&field_info)?,
+          info,
+        )?;
         if ty == DocValuesType::Binary {
           let v = DocValuesProducerBinary::new(
             update_supplier,
@@ -715,7 +700,7 @@ where
     info.set_doc_values_updates_files(new_dv_files.clone());
     // if there is a reader open, reopen it to reflect the updates
     if !is_reader_none {
-      self.swap_new_reader_with_latest_live_docs(&mut inner, info)?;
+      swap_new_reader_with_latest_live_docs(&mut inner, info)?;
     }
 
     if info_stream.enabled("BD") {
@@ -731,49 +716,7 @@ where
     }
     Ok(true)
   }
-  pub(crate) fn create_new_reader_with_latest_live_docs<'a>(
-    &self,
-    inner: &'a mut Inner<D>, // Same to Java's Thread.holdsLock(this)
-    reader: Option<&'a SegmentReader<D>>,
-    info: &SegmentCommitInfo<D>,
-  ) -> Result<SegmentReader<D>> {
-    let reader = match reader {
-      Some(r) => r,
-      None => inner.reader.as_ref().unwrap().as_ref(),
-    };
 
-    let new_reader = SegmentReader::new_from_reader(
-      info,
-      reader,
-      inner.pending_deletes.get_live_docs(),
-      inner.pending_deletes.get_hard_live_docs(),
-      inner.pending_deletes.num_docs(info)?,
-      true,
-    )?;
-
-    let res: Result<()> = (|| {
-      inner.pending_deletes.on_new_reader(&new_reader, info)?;
-      reader.dec_ref()?;
-      Ok(())
-    })();
-
-    if res.is_err() {
-      let _ = new_reader.dec_ref();
-    }
-    res?;
-    Ok(new_reader)
-  }
-
-  fn swap_new_reader_with_latest_live_docs(
-    &self,
-    inner: &mut Inner<D>,
-    info: &SegmentCommitInfo<D>,
-  ) -> Result<()> {
-    inner.reader = Some(Arc::new(
-      self.create_new_reader_with_latest_live_docs(inner, None, info)?,
-    ));
-    Ok(())
-  }
   pub(crate) fn set_is_merging(&self) {
     let mut inner = self.inner.lock();
     if !inner.is_merging {
@@ -810,7 +753,7 @@ where
       entry.extend(updates.iter().cloned());
     }
 
-    self.get_reader(context, info, Some(&mut inner))?;
+    get_reader(context, info, &mut inner, self.index_created_version_major)?;
     let mut reader_arc = inner.reader.as_ref().unwrap().clone();
 
     let mut need_refresh = inner
@@ -827,11 +770,8 @@ where
 
     if need_refresh {
       debug_assert!(inner.pending_deletes.get_live_docs().is_some());
-      let new_reader = self.create_new_reader_with_latest_live_docs(
-        &mut inner,
-        Some(reader_arc.as_ref()),
-        info,
-      )?;
+      let new_reader =
+        create_new_reader_with_latest_live_docs(&mut inner, Some(reader_arc.as_ref()), info)?;
       reader_arc = Arc::new(new_reader);
     }
 
@@ -866,10 +806,31 @@ where
     inner.merging_dv_updates.clone()
   }
   pub fn is_fully_deleted(&self, info: &SegmentCommitInfo<D>) -> Result<bool> {
-    let inner = self.inner.lock();
-    inner
-      .pending_deletes
-      .is_fully_deleted(&IOSupplierImpl::new(self, info))
+    let mut inner = self.inner.lock();
+    let is_soft = matches!(inner.pending_deletes, PendingDeletesEnum::Soft(_));
+    if is_soft {
+      let dv_gen = inner.pending_deletes.dv_gen()?;
+      let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
+        let field_infos = pending_soft_deletes::read_field_infos(info)?;
+        let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?);
+        let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
+        let reader = if on_new_reader {
+          Some(self.get_latest_read(info, &mut inner, self.index_created_version_major)?)
+        } else {
+          None
+        };
+        (reader, Some(field_infos), on_new_reader)
+      } else {
+        (None, None, false)
+      };
+      inner
+        .pending_deletes
+        .is_fully_deleted(info, reader.as_ref(), field_infos, on_new_reader)
+    } else {
+      inner
+        .pending_deletes
+        .is_fully_deleted(info, None, None, false)
+    }
   }
   pub(crate) fn keep_fully_deleted_segment(
     &self,
@@ -877,16 +838,48 @@ where
     info: &SegmentCommitInfo<D>,
   ) -> Result<bool> {
     merge_policy.keep_fully_deleted_segment(|| {
-      self.is_fully_deleted(info)?;
-      let v = self.inner.lock().reader.clone();
-      debug_assert!(v.is_some());
-      Ok(v.unwrap())
+      let mut inner = self.inner.lock();
+      self.get_latest_read(info, &mut inner, self.index_created_version_major)
     })
   }
   pub(crate) fn get_info_id(&self) -> &str {
     &self.info_id
   }
+  pub(crate) fn get_latest_read(
+    &self,
+    info: &SegmentCommitInfo<D>,
+    inner: &mut Inner<D>,
+    index_created_version_major: i32,
+  ) -> Result<DefaultLeafReader<D>>
+  where
+    D: Directory,
+  {
+    if inner.reader.is_none() {
+      // get a reader and dec the ref right away we just make sure we have a reader
+      get_reader(
+        &IOContext::default_io_context()?,
+        info,
+        inner,
+        index_created_version_major,
+      )?;
+      inner.reader.as_ref().unwrap().dec_ref()?;
+    }
+    // we should take the reader out of the struct temporarily, cause borrow check
+    // it is safe take reader under lock because we put it back right away
+    if inner
+      .pending_deletes
+      .needs_refresh(inner.reader.as_ref().unwrap(), info)?
+    {
+      // we have a reader but its live-docs are out of sync. let's create a temporary one that we
+      // never share
+      swap_new_reader_with_latest_live_docs(inner, info)?;
+    }
+    // put reader back and return a clone
+    debug_assert!(inner.reader.is_some());
+    Ok(Arc::clone(inner.reader.as_ref().unwrap()))
+  }
 }
+
 impl<D> Display for ReadersAndUpdates<D>
 where
   D: Directory,
@@ -899,6 +892,70 @@ where
       self.info_id, inner.pending_deletes
     )
   }
+}
+pub(crate) fn create_new_reader_with_latest_live_docs<'a, D>(
+  inner: &'a mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+  reader: Option<&'a SegmentReader<D>>,
+  info: &SegmentCommitInfo<D>,
+) -> Result<SegmentReader<D>>
+where
+  D: Directory,
+{
+  let reader = match reader {
+    Some(r) => r,
+    None => inner.reader.as_ref().unwrap().as_ref(),
+  };
+
+  let new_reader = SegmentReader::new_from_reader(
+    info,
+    reader,
+    inner.pending_deletes.get_live_docs(),
+    inner.pending_deletes.get_hard_live_docs(),
+    inner.pending_deletes.num_docs(info)?,
+    true,
+  )?;
+
+  let res: Result<()> = (|| {
+    inner.pending_deletes.on_new_reader(&new_reader, info)?;
+    reader.dec_ref()?;
+    Ok(())
+  })();
+
+  if res.is_err() {
+    let _ = new_reader.dec_ref();
+  }
+  res?;
+  Ok(new_reader)
+}
+fn swap_new_reader_with_latest_live_docs<D>(
+  inner: &mut Inner<D>,
+  info: &SegmentCommitInfo<D>,
+) -> Result<()>
+where
+  D: Directory,
+{
+  inner.reader = Some(Arc::new(create_new_reader_with_latest_live_docs(
+    inner, None, info,
+  )?));
+  Ok(())
+}
+pub(crate) fn get_reader<D>(
+  context: &IOContext,
+  info: &SegmentCommitInfo<D>,
+  inner: &mut Inner<D>,
+  index_created_version_major: i32,
+) -> Result<()>
+where
+  D: Directory,
+{
+  if inner.reader.is_none() {
+    let reader = SegmentReader::new(info, index_created_version_major, context)?;
+    inner.pending_deletes.on_new_reader(&reader, info)?;
+    inner.reader = Some(Arc::new(reader));
+  }
+  // Ref for caller
+  inner.reader.as_ref().unwrap().inc_ref()?;
+  Ok(())
 }
 
 enum CurrentSource {
@@ -1328,23 +1385,4 @@ fn clone_field_info(fi: &FieldInfo, field_number: i32) -> Result<FieldInfo> {
     fi.is_soft_deletes_field(),
     fi.is_parent_field(),
   )
-}
-
-pub(crate) struct IOSupplierImpl<'a, D>
-where
-  D: Directory,
-{
-  pub(crate) rdl: &'a ReadersAndUpdates<D>,
-  pub(crate) info: &'a SegmentCommitInfo<D>,
-}
-impl<'a, D> IOSupplierImpl<'a, D>
-where
-  D: Directory,
-{
-  pub(crate) fn new(rdl: &'a ReadersAndUpdates<D>, info: &'a SegmentCommitInfo<D>) -> Self {
-    Self { rdl, info }
-  }
-  fn set(&mut self, inner: Option<&mut Inner<D>>) -> Result<()> {
-    self.rdl.get_latest_read(self.info, inner)
-  }
 }

@@ -32,6 +32,7 @@ use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_f
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::close::CloseableRef;
+use crate::core::util::counter::{Counter, new_counter};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
@@ -1512,10 +1513,7 @@ where
   fn merge_middle(&self, merge: &mut OneMergeSR<D>, merge_policy: &MergePolicyEnum) -> Result<i32> {
     let mut max_doc = -1;
     self.test_point("mergeMiddleStart");
-    {
-      let inner = self.inner.lock();
-      merge.check_aborted(&inner.segment_infos)?;
-    }
+    merge.check_aborted()?;
 
     let merge_directory = self
       .config
@@ -1560,7 +1558,7 @@ where
       })?;
       // Let the merge wrap readers
       let mut merge_readers = Vec::new();
-      let _soft_delete_count = SerialCounter::new();
+      let soft_delete_count = new_counter(false);
       let merge_reader = merge
         .get_merge_reader()
         .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
@@ -1568,13 +1566,58 @@ where
         let reader = &merge_reader.reader;
         let wrapped_reader = merge.wrap_for_merge(reader.clone())?;
         self.validate_merge_reader(&wrapped_reader)?;
+        let mut live_docs_wrapped_reader = None;
         if self.soft_deletes_enabled {
-          // TODO IMPORTANT softDeletesEnabled不支持
-          return Err(LuceneError::unsupported_operation(
-            "softDeletesEnabled is not supported yet",
-          ));
+          // If we don't have a wrapped reader we won't preserve any soft-deletes.
+          if !Arc::ptr_eq(reader, &wrapped_reader) {
+            let hard_live_docs = merge_reader.hard_live_docs.as_ref();
+            // We only need to do this accounting if we have mixed deletes.
+            if let Some(hard_live_docs) = hard_live_docs {
+              let wrapped_live_docs = wrapped_reader.get_live_docs()?;
+              let hard_delete_counter = new_counter(false);
+              self.count_soft_deletes(
+                &wrapped_reader,
+                wrapped_live_docs.as_ref(),
+                Some(hard_live_docs),
+                &soft_delete_count,
+                &hard_delete_counter,
+              )?;
+              let hard_delete_count: i32 = hard_delete_counter.get().try_convert()?;
+              // Wrap the wrapped reader again if we have excluded some hard-deleted docs.
+              if hard_delete_count > 0 {
+                let live_docs = match wrapped_live_docs {
+                  Some(wrapped_live_docs) => BitsEnum2::B(BitsImpl {
+                    hard_live_docs: hard_live_docs.clone(),
+                    wrapped_live_docs,
+                    id: Identity::new(),
+                  }),
+                  None => BitsEnum2::A(hard_live_docs.clone()),
+                };
+                let num_docs = wrapped_reader.num_docs()? - hard_delete_count;
+                live_docs_wrapped_reader = Some((live_docs, num_docs));
+              }
+            } else {
+              let carry_over_soft_deletes = reader.get_segment_info().get_soft_del_count()
+                - wrapped_reader.num_deleted_docs()?;
+              debug_assert!(
+                carry_over_soft_deletes >= 0,
+                "carry-over soft-deletes must be positive"
+              );
+              debug_assert!(
+                self.assert_soft_deletes_count(&wrapped_reader, carry_over_soft_deletes)?
+              );
+              soft_delete_count.add_and_get(i64::from(carry_over_soft_deletes));
+            }
+          }
         }
-        merge_readers.push(wrapped_reader);
+        match live_docs_wrapped_reader {
+          Some((live_docs, num_docs)) => merge_readers.push(CodecReaderEnum2::B(wrap_live_docs(
+            wrapped_reader,
+            Some(live_docs),
+            num_docs,
+          ))),
+          None => merge_readers.push(CodecReaderEnum2::A(wrapped_reader)),
+        }
       }
 
       // let mut reorder_doc_maps = None;
@@ -1643,12 +1686,13 @@ where
         }
         new_merge_readers = v;
       }
-      {
-        let inner = self.inner.lock();
-        merge.check_aborted(&inner.segment_infos)?;
-      }
+
       let doc_maps = {
+        merge.check_aborted()?;
         let sci = merge.info.as_mut().unwrap();
+        let soft_delete_count = soft_delete_count.get().try_convert()?;
+        sci.set_soft_del_count_without_check(soft_delete_count);
+        let del_count = sci.get_del_count();
         let segment_info = Arc::get_mut(&mut sci.info)
           .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
         let mut merger = SegmentMerger::new(
@@ -1659,8 +1703,11 @@ where
           self.global_field_number_map.clone(),
           &context,
         )?;
-        // TODO merge释放后才能设置
-        // sci.set_soft_del_count(soft_delete_count.get() as i32)?;
+        validate_soft_del_count(
+          del_count,
+          merger.merge_state.segment_info.max_doc()?,
+          soft_delete_count,
+        )?;
 
         let doc_maps = if reorder_doc_maps.is_empty() {
           let mut v = Vec::with_capacity(merger.merge_state.doc_maps.len());
@@ -1699,6 +1746,7 @@ where
         }
         doc_maps
       };
+
       debug_assert!(merge.info.is_some());
       let sci = merge.info.as_mut().unwrap();
       max_doc = sci.info.max_doc()?;
@@ -3192,10 +3240,7 @@ where
   /// Returns an error if there is a low-level IO error.
   fn add_indexes_reader_merge(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
     merge.merge_init();
-    {
-      let inner = self.inner.lock();
-      merge.check_aborted(&inner.segment_infos)?;
-    }
+    merge.check_aborted()?;
 
     let mut num_docs = 0_i64;
     if self.info_stream.enabled("IW") {
@@ -3320,10 +3365,7 @@ where
     if !merger.should_merge()? {
       return Ok(());
     }
-    {
-      let inner = self.inner.lock();
-      merge.check_aborted(&inner.segment_infos)?;
-    }
+    merge.check_aborted()?;
     {
       let mut inner = self.inner.lock();
       inner.running_add_indexes_merges.insert(merger.id.clone());
@@ -3360,7 +3402,7 @@ where
 
     let use_compound_file = {
       let inner = self.inner.lock();
-      merge.check_aborted(&inner.segment_infos)?;
+      merge.check_aborted()?;
       self
         .config
         .get_merge_policy()
@@ -4973,7 +5015,6 @@ where
   }
   /// Returns a string description of the specified segment, for debugging.
   fn seg_string_from_info(&self, info: &SegmentCommitInfo<D>) -> Result<String> {
-    // numDeletedDocs(info) - info.getDelCount(softDeletesEnabled)
     let num_deleted = self.num_deleted_docs(info)?
       - info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
     Ok(info.to_string_with_pending_del_count(num_deleted))
@@ -5861,6 +5902,7 @@ where
     })();
 
     for s in seg_states.iter_mut() {
+      // TODO IMPORTANT 这里要捕获错误并扔到上层
       let _ = s.close(self, inner);
     }
     res?;
@@ -6182,6 +6224,82 @@ where
       },
     }
   }
+  /// Counts soft-deleted and hard-deleted documents in the given reader.
+  /// Updates the provided counters.
+  ///
+  /// Corresponds to Java: IndexWriter.countSoftDeletes(CodecReader, Bits, Bits, Counter, Counter)
+  fn count_soft_deletes<L>(
+    &self,
+    reader: &L,
+    wrapped_live_docs: Option<&impl Bits>,
+    hard_live_docs: Option<&impl Bits>,
+    soft_delete_counter: &impl Counter,
+    hard_delete_counter: &impl Counter,
+  ) -> Result<()>
+  where
+    L: LeafReader,
+  {
+    let soft_deletes_field = self.config.get_soft_deletes_field().ok_or_else(|| {
+      LuceneError::illegal_state(
+        "soft_deletes_enabled is true but soft_deletes_field is not configured",
+      )
+    })?;
+    let mut hard_delete_count = 0_i64;
+    let mut soft_deletes_count = 0_i64;
+    let mut soft_deleted_docs = get_doc_values_doc_id_set_iterator(soft_deletes_field, reader)?;
+    if let Some(ref mut docs) = soft_deleted_docs {
+      loop {
+        let doc_id = docs.next_doc()?;
+        if doc_id == NO_MORE_DOCS {
+          break;
+        }
+        let is_wrapped_live = match wrapped_live_docs {
+          Some(bits) => bits.get(doc_id as usize)?,
+          None => true,
+        };
+        if is_wrapped_live {
+          let is_hard_live = match hard_live_docs {
+            Some(bits) => bits.get(doc_id as usize)?,
+            None => true,
+          };
+          if is_hard_live {
+            soft_deletes_count += 1;
+          } else {
+            hard_delete_count += 1;
+          }
+        }
+      }
+    }
+    soft_delete_counter.add_and_get(soft_deletes_count);
+    hard_delete_counter.add_and_get(hard_delete_count);
+    Ok(())
+  }
+
+  /// Asserts that the soft delete count in the given reader matches the expected count.
+  ///
+  /// Corresponds to Java: IndexWriter.assertSoftDeletesCount(CodecReader, int)
+  fn assert_soft_deletes_count<L>(&self, reader: &L, expected_count: i32) -> Result<bool>
+  where
+    L: LeafReader,
+  {
+    let count = new_counter(false);
+    let hard_deletes = new_counter(false);
+    let live_docs = reader.get_live_docs()?;
+    self.count_soft_deletes(
+      reader,
+      live_docs.as_ref(),
+      None::<&FixedBitSet>,
+      &count,
+      &hard_deletes,
+    )?;
+    let actual = count.get() as i32;
+    debug_assert!(
+      actual == expected_count,
+      "soft-deletes count mismatch expected: {expected_count} but actual: {actual}"
+    );
+    Ok(true)
+  }
+
   pub(crate) fn get_segment_infos_version(&self) -> i64 {
     let inner = self.inner.lock();
     inner.segment_infos.get_version()
@@ -6434,6 +6552,20 @@ where
   hard_live_docs: B1,
   wrapped_live_docs: B2,
   id: Identity,
+}
+
+impl<B1, B2> Clone for BitsImpl<B1, B2>
+where
+  B1: Bits + Clone,
+  B2: Bits + Clone,
+{
+  fn clone(&self) -> Self {
+    Self {
+      hard_live_docs: self.hard_live_docs.clone(),
+      wrapped_live_docs: self.wrapped_live_docs.clone(),
+      id: Identity::new(),
+    }
+  }
 }
 
 impl<B1, B2> HasIdentity for BitsImpl<B1, B2>
@@ -6862,6 +6994,7 @@ use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQue
 use crate::core::index::documents_writer_flush_queue::FlushTicket;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers, FieldNumbersLock};
+use crate::core::index::filter_codec_reader::wrap_live_docs;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -6875,7 +7008,9 @@ use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldU
 use crate::core::index::pending_soft_deletes::count_soft_deletes;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
-use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
+use crate::core::index::segment_commit_info::{
+  SegmentCommitInfo, SegmentCommitInfoMeta, validate_soft_del_count,
+};
 use crate::core::index::segment_merger::SegmentMerger;
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
@@ -6898,15 +7033,16 @@ use crate::core::store::merge_info::MergeInfo;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::constants::Constants;
+use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
   BYTE_BLOCK_SIZE, Comparator, CoreHelper, HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR,
-  SerialCounter, StringHelper, TryIntoInt,
+  StringHelper, TryIntoInt,
 };
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;

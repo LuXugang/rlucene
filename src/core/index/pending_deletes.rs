@@ -20,11 +20,10 @@ use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
-use crate::core::index::readers_and_updates::IOSupplierImpl;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::store::IOContext;
@@ -315,24 +314,22 @@ impl PendingDeletesBase for PendingDeletes {
     Ok(true)
   }
 
-  fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
+  fn is_fully_deleted<D>(
+    &mut self,
+    info: &SegmentCommitInfo<D>,
+    _reader: Option<&DefaultLeafReader<D>>,
+    _field_infos: Option<FieldInfos>,
+    _on_new_reader: bool,
+  ) -> Result<bool>
   where
     D: Directory,
   {
-    let info = &reader_io_supplier.info;
     debug_assert!(info.info.max_doc()? == self.max_doc);
     Ok(self.get_del_count(info) == info.info.max_doc()?)
   }
 
   fn max_doc(&self) -> i32 {
     self.max_doc
-  }
-
-  fn on_doc_values_update(
-    &self,
-    _info: &FieldInfo,
-    _iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
-  ) {
   }
 
   fn must_init_on_delete(&self) -> bool {
@@ -382,23 +379,27 @@ pub(crate) trait PendingDeletesBase: Display {
   where
     D1: Directory,
     D2: Directory;
-  fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
+  fn is_fully_deleted<D>(
+    &mut self,
+    info: &SegmentCommitInfo<D>,
+    reader: Option<&DefaultLeafReader<D>>,
+    field_infos: Option<FieldInfos>,
+    on_new_reader: bool,
+  ) -> Result<bool>
   where
     D: Directory;
 
-  fn num_deletes_to_merge<P, D, F>(
-    &self,
-    policy: &P,
-    info: &SegmentCommitInfo<D>,
-    reader_io_supplier: F,
-  ) -> Result<i32>
+  fn num_deletes_to_merge<D>(
+    &mut self,
+    _info: &SegmentCommitInfo<D>,
+    _reader: Option<&DefaultLeafReader<D>>,
+    _field_infos: Option<FieldInfos>,
+    _on_new_reader: bool,
+  ) -> Result<()>
   where
-    P: MergePolicy,
     D: Directory,
-    F: Fn() -> Result<DefaultLeafReader<D>>,
   {
-    let dec_count = self.get_del_count(info);
-    policy.num_deletes_to_merge(info, dec_count, reader_io_supplier)
+    Ok(())
   }
 
   /// Returns true if the given reader needs to be refreshed to see the latest deletes
@@ -489,45 +490,56 @@ pub(crate) trait PendingDeletesBase: Display {
     Ok(true)
   }
   fn max_doc(&self) -> i32;
-  fn on_doc_values_update(
-    &self,
-    info: &FieldInfo,
-    iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
-  );
+  fn on_doc_values_update<D>(
+    &mut self,
+    _field_info: &FieldInfo,
+    _iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
+    _info: &mut SegmentCommitInfo<D>,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    Ok(())
+  }
   /// Returns `true` if this `PendingDeletes` must be initialized before [`delete`](Self::delete);
   /// otherwise it is ready to accept deletes.
   /// A `PendingDeletes` can be initialized by providing it a reader via [`on_new_reader`](Self::on_new_reader).
   fn must_init_on_delete(&self) -> bool;
 }
 
-pub(crate) type PendingDeletesEnum = PendingDeletesEnum2<PendingDeletes, PendingSoftDeletes>;
-pub(crate) enum PendingDeletesEnum2<A, B> {
-  A(A),
-  B(B),
+pub(crate) enum PendingDeletesEnum {
+  PD(PendingDeletes),
+  Soft(PendingSoftDeletes),
 }
-
-impl<A, B> Display for PendingDeletesEnum2<A, B>
-where
-  A: PendingDeletesBase,
-  B: PendingDeletesBase,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl PendingDeletesEnum {
+  pub(crate) fn dv_gen(&self) -> Result<i64> {
     match self {
-      PendingDeletesEnum2::A(a) => a.fmt(f),
-      PendingDeletesEnum2::B(b) => b.fmt(f),
+      PendingDeletesEnum::PD(_a) => Err(LuceneError::unsupported_operation("no dvGen for PD")),
+      PendingDeletesEnum::Soft(b) => Ok(b.dv_generation),
+    }
+  }
+  pub(crate) fn field(&self) -> Result<&str> {
+    match self {
+      PendingDeletesEnum::PD(_a) => Err(LuceneError::unsupported_operation("no dvGen for PD")),
+      PendingDeletesEnum::Soft(b) => Ok(&b.field),
     }
   }
 }
 
-impl<A, B> PendingDeletesBase for PendingDeletesEnum2<A, B>
-where
-  A: PendingDeletesBase,
-  B: PendingDeletesBase,
-{
+impl Display for PendingDeletesEnum {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    match self {
+      PendingDeletesEnum::PD(a) => a.fmt(f),
+      PendingDeletesEnum::Soft(b) => b.fmt(f),
+    }
+  }
+}
+
+impl PendingDeletesBase for PendingDeletesEnum {
   fn get_info_id(&self) -> &str {
     match self {
-      PendingDeletesEnum2::A(a) => a.get_info_id(),
-      PendingDeletesEnum2::B(b) => b.get_info_id(),
+      PendingDeletesEnum::PD(a) => a.get_info_id(),
+      PendingDeletesEnum::Soft(b) => b.get_info_id(),
     }
   }
 
@@ -536,29 +548,29 @@ where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.delete(doc_id, info),
-      PendingDeletesEnum2::B(b) => b.delete(doc_id, info),
+      PendingDeletesEnum::PD(a) => a.delete(doc_id, info),
+      PendingDeletesEnum::Soft(b) => b.delete(doc_id, info),
     }
   }
 
   fn get_hard_live_docs(&mut self) -> Option<DocBits> {
     match self {
-      PendingDeletesEnum2::A(a) => a.get_hard_live_docs(),
-      PendingDeletesEnum2::B(b) => b.get_hard_live_docs(),
+      PendingDeletesEnum::PD(a) => a.get_hard_live_docs(),
+      PendingDeletesEnum::Soft(b) => b.get_hard_live_docs(),
     }
   }
 
   fn get_live_docs(&mut self) -> Option<DocBits> {
     match self {
-      PendingDeletesEnum2::A(a) => a.get_live_docs(),
-      PendingDeletesEnum2::B(b) => b.get_live_docs(),
+      PendingDeletesEnum::PD(a) => a.get_live_docs(),
+      PendingDeletesEnum::Soft(b) => b.get_live_docs(),
     }
   }
 
   fn num_pending_deletes(&self) -> i32 {
     match self {
-      PendingDeletesEnum2::A(a) => a.num_pending_deletes(),
-      PendingDeletesEnum2::B(b) => b.num_pending_deletes(),
+      PendingDeletesEnum::PD(a) => a.num_pending_deletes(),
+      PendingDeletesEnum::Soft(b) => b.num_pending_deletes(),
     }
   }
 
@@ -571,15 +583,15 @@ where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.on_new_reader(reader, info),
-      PendingDeletesEnum2::B(b) => b.on_new_reader(reader, info),
+      PendingDeletesEnum::PD(a) => a.on_new_reader(reader, info),
+      PendingDeletesEnum::Soft(b) => b.on_new_reader(reader, info),
     }
   }
 
   fn drop_changes(&mut self) {
     match self {
-      PendingDeletesEnum2::A(a) => a.drop_changes(),
-      PendingDeletesEnum2::B(b) => b.drop_changes(),
+      PendingDeletesEnum::PD(a) => a.drop_changes(),
+      PendingDeletesEnum::Soft(b) => b.drop_changes(),
     }
   }
 
@@ -589,18 +601,24 @@ where
     D2: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.write_live_docs(dir, info),
-      PendingDeletesEnum2::B(b) => b.write_live_docs(dir, info),
+      PendingDeletesEnum::PD(a) => a.write_live_docs(dir, info),
+      PendingDeletesEnum::Soft(b) => b.write_live_docs(dir, info),
     }
   }
 
-  fn is_fully_deleted<D>(&self, reader_io_supplier: &IOSupplierImpl<D>) -> Result<bool>
+  fn is_fully_deleted<D>(
+    &mut self,
+    info: &SegmentCommitInfo<D>,
+    reader: Option<&DefaultLeafReader<D>>,
+    field_infos: Option<FieldInfos>,
+    on_new_reader: bool,
+  ) -> Result<bool>
   where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.is_fully_deleted(reader_io_supplier),
-      PendingDeletesEnum2::B(b) => b.is_fully_deleted(reader_io_supplier),
+      PendingDeletesEnum::PD(a) => a.is_fully_deleted(info, reader, field_infos, on_new_reader),
+      PendingDeletesEnum::Soft(b) => b.is_fully_deleted(info, reader, field_infos, on_new_reader),
     }
   }
 
@@ -613,8 +631,8 @@ where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.needs_refresh(reader, info),
-      PendingDeletesEnum2::B(b) => b.needs_refresh(reader, info),
+      PendingDeletesEnum::PD(a) => a.needs_refresh(reader, info),
+      PendingDeletesEnum::Soft(b) => b.needs_refresh(reader, info),
     }
   }
 
@@ -623,8 +641,8 @@ where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.get_del_count(info),
-      PendingDeletesEnum2::B(b) => b.get_del_count(info),
+      PendingDeletesEnum::PD(a) => a.get_del_count(info),
+      PendingDeletesEnum::Soft(b) => b.get_del_count(info),
     }
   }
 
@@ -633,8 +651,8 @@ where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.num_docs(info),
-      PendingDeletesEnum2::B(b) => b.num_docs(info),
+      PendingDeletesEnum::PD(a) => a.num_docs(info),
+      PendingDeletesEnum::Soft(b) => b.num_docs(info),
     }
   }
 
@@ -647,33 +665,37 @@ where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum2::A(a) => a.verify_doc_counts(reader, info),
-      PendingDeletesEnum2::B(b) => b.verify_doc_counts(reader, info),
+      PendingDeletesEnum::PD(a) => a.verify_doc_counts(reader, info),
+      PendingDeletesEnum::Soft(b) => b.verify_doc_counts(reader, info),
     }
   }
 
   fn max_doc(&self) -> i32 {
     match self {
-      PendingDeletesEnum2::A(a) => a.max_doc(),
-      PendingDeletesEnum2::B(b) => b.max_doc(),
+      PendingDeletesEnum::PD(a) => a.max_doc(),
+      PendingDeletesEnum::Soft(b) => b.max_doc(),
     }
   }
 
-  fn on_doc_values_update(
-    &self,
+  fn on_doc_values_update<D>(
+    &mut self,
     info: &FieldInfo,
     iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
-  ) {
+    segment_info: &mut SegmentCommitInfo<D>,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
     match self {
-      PendingDeletesEnum2::A(a) => a.on_doc_values_update(info, iterator),
-      PendingDeletesEnum2::B(b) => b.on_doc_values_update(info, iterator),
+      PendingDeletesEnum::PD(a) => a.on_doc_values_update(info, iterator, segment_info),
+      PendingDeletesEnum::Soft(b) => b.on_doc_values_update(info, iterator, segment_info),
     }
   }
 
   fn must_init_on_delete(&self) -> bool {
     match self {
-      PendingDeletesEnum2::A(a) => a.must_init_on_delete(),
-      PendingDeletesEnum2::B(b) => b.must_init_on_delete(),
+      PendingDeletesEnum::PD(a) => a.must_init_on_delete(),
+      PendingDeletesEnum::Soft(b) => b.must_init_on_delete(),
     }
   }
 }

@@ -347,22 +347,14 @@ where
 
   pub fn set_soft_del_count(&mut self, soft_del_count: i32) -> Result<()> {
     let max_doc = self.info.max_doc()?;
-    if soft_del_count < 0 || soft_del_count > max_doc {
-      return Err(LuceneError::illegal_argument(format!(
-        "invalid softDelCount={soft_del_count} (maxDoc={max_doc})"
-      )));
-    }
-
-    debug_assert!(
-      self.del_count + soft_del_count <= max_doc,
-      "maxDoc={}, delCount={}, softDelCount={}",
-      max_doc,
-      self.del_count,
-      soft_del_count
-    );
+    validate_soft_del_count(self.del_count, max_doc, soft_del_count)?;
     self.soft_del_count = soft_del_count;
     Ok(())
   }
+  pub fn set_soft_del_count_without_check(&mut self, soft_del_count: i32) {
+    self.soft_del_count = soft_del_count;
+  }
+
   /// Returns a description of this segment.
   pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> String {
     let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count);
@@ -413,6 +405,22 @@ where
       self.id.as_ref()
     }
   }
+}
+pub fn validate_soft_del_count(del_count: i32, max_doc: i32, soft_del_count: i32) -> Result<()> {
+  if soft_del_count < 0 || soft_del_count > max_doc {
+    return Err(LuceneError::illegal_argument(format!(
+      "invalid softDelCount={soft_del_count} (maxDoc={max_doc})"
+    )));
+  }
+
+  debug_assert!(
+    del_count + soft_del_count <= max_doc,
+    "maxDoc={}, delCount={}, softDelCount={}",
+    max_doc,
+    del_count,
+    soft_del_count
+  );
+  Ok(())
 }
 pub struct SegmentCommitInfoMeta<D>
 where

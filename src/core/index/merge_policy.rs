@@ -342,7 +342,6 @@ pub trait MergePolicy: Display {
   {
     Ok(false)
   }
-
   /// Returns the number of deletes that a merge would claim on the given segment.
   ///
   /// By default, this returns the sum of:
@@ -1290,12 +1289,9 @@ where
   pub fn is_aborted(&self) -> bool {
     self.merge_progress.is_aborted()
   }
-  pub fn check_aborted(&self, segments: &SegmentInfos<D>) -> Result<()> {
+  pub fn check_aborted(&self) -> Result<()> {
     if self.is_aborted() {
-      return Err(LuceneError::merge_abort(format!(
-        "merge is aborted: {}",
-        self.seg_string(segments)?
-      )));
+      return Err(LuceneError::merge_abort("merge is aborted"));
     }
     Ok(())
   }

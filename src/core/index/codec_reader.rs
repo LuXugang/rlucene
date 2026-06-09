@@ -474,6 +474,19 @@ macro_rules! either_codec_reader {
             B($B),
         }
 
+        impl<$A, $B> Clone for $name<$A, $B>
+        where
+            $A: Clone,
+            $B: Clone,
+        {
+            fn clone(&self) -> Self {
+                match self {
+                    Self::A(inner) => Self::A(inner.clone()),
+                    Self::B(inner) => Self::B(inner.clone()),
+                }
+            }
+        }
+
         impl<$A, $B> Display for $name<$A, $B>
         where
             $A: CodecReader,

@@ -3261,7 +3261,6 @@ fn test_prevent_changing_soft_deletes_field() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT PendingSoftDeletes# on_new_reader未实现
 fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()> {
   let mut random = random();
 
@@ -3411,7 +3410,6 @@ fn test_broken_payload() -> Result<()> {
   assert!(result.is_err());
   Ok(())
 }
-// TODO IMPORTANT PendingSoftDeletes# on_new_reader未实现
 fn test_soft_and_hard_live_docs() -> Result<()> {
   let mut random = random();
 

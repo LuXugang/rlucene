@@ -122,6 +122,19 @@ pub enum BitsEnum2<A, B> {
   B(B),
 }
 
+impl<A, B> Clone for BitsEnum2<A, B>
+where
+  A: Clone,
+  B: Clone,
+{
+  fn clone(&self) -> Self {
+    match self {
+      BitsEnum2::A(t) => BitsEnum2::A(t.clone()),
+      BitsEnum2::B(s) => BitsEnum2::B(s.clone()),
+    }
+  }
+}
+
 impl<A, B> HasIdentity for BitsEnum2<A, B>
 where
   A: Bits,

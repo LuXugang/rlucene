@@ -61,7 +61,7 @@ use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, get_only_leaf_reader, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
-  new_searcher_with_reader, random,
+  new_searcher_with_reader, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -1513,13 +1513,13 @@ fn test_stress_multi_threading() -> Result<()> {
     for i in 0..num_threads {
       let writer = writer.clone();
       let num_updates = &num_updates;
+      let seed = random.random();
       handles.push(
         thread::Builder::new()
           .name(format!("UpdateThread-{i}"))
           .spawn_scoped(scope, move || -> Result<()> {
-            let mut random =
-              crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
             let mut reader = None;
+            let mut random = random_from_seed(seed);
             while num_updates.fetch_sub(1, Ordering::SeqCst) > 0 {
               let group = random.random::<f64>();
               let t = if group < 0.1 {

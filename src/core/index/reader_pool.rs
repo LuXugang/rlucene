@@ -518,8 +518,10 @@ where
   }
   fn new_pending_deletes(&self, info: &SegmentCommitInfoMeta<D>) -> Result<PendingDeletesEnum> {
     match &self.soft_deletes_field {
-      Some(field) => Ok(PendingDeletesEnum::B(PendingSoftDeletes::new(field, info)?)),
-      None => Ok(PendingDeletesEnum::A(PendingDeletes::new(info)?)),
+      Some(field) => Ok(PendingDeletesEnum::Soft(PendingSoftDeletes::new(
+        field, info,
+      )?)),
+      None => Ok(PendingDeletesEnum::PD(PendingDeletes::new(info)?)),
     }
   }
 
@@ -529,10 +531,10 @@ where
     info: &SegmentCommitInfo<D>,
   ) -> Result<PendingDeletesEnum> {
     match soft_deletes_field {
-      Some(field) => Ok(PendingDeletesEnum::B(PendingSoftDeletes::from_reader(
+      Some(field) => Ok(PendingDeletesEnum::Soft(PendingSoftDeletes::from_reader(
         field, reader, info,
       )?)),
-      None => Ok(PendingDeletesEnum::A(PendingDeletes::from_reader(
+      None => Ok(PendingDeletesEnum::PD(PendingDeletes::from_reader(
         reader, info,
       )?)),
     }

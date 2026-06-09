@@ -17,6 +17,7 @@
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::readers_and_updates;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::IOContext;
@@ -317,7 +318,15 @@ where
   D: Directory,
 {
   pub(crate) fn new(rld: Arc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Result<Self> {
-    rld.get_reader(&IOContext::default_io_context()?, info, None)?;
+    {
+      let mut inner = rld.inner.lock();
+      readers_and_updates::get_reader(
+        &IOContext::default_io_context()?,
+        info,
+        &mut inner,
+        rld.index_created_version_major,
+      )?;
+    }
     Ok(SegmentState {
       del_gen: info.get_buffered_deletes_gen(),
       rld,

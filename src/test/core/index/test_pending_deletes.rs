@@ -18,9 +18,7 @@ use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::pending_deletes::{
-  PendingDeletes, PendingDeletesBase, PendingDeletesEnum2,
-};
+use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_info::SegmentInfo;
 
@@ -33,8 +31,6 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, random,
 };
 
-use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
-use crate::core::index::readers_and_updates::{IOSupplierImpl, ReadersAndUpdates};
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use rand::RngExt;
 use std::collections::HashMap;
@@ -43,13 +39,11 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestPendingDeletes;
 
-fn new_pending_deletes<D>(
-  commit_info: &SegmentCommitInfoMeta<D>,
-) -> Result<PendingDeletesEnum2<PendingDeletes, PendingSoftDeletes>>
+fn new_pending_deletes<D>(commit_info: &SegmentCommitInfoMeta<D>) -> Result<PendingDeletesEnum>
 where
   D: Directory,
 {
-  Ok(PendingDeletesEnum2::A(PendingDeletes::new(commit_info)?))
+  Ok(PendingDeletesEnum::PD(PendingDeletes::new(commit_info)?))
 }
 #[test]
 fn test_delete_doc() -> Result<()> {
@@ -226,18 +220,16 @@ fn test_is_fully_deleted() -> Result<()> {
   let mut deletes = new_pending_deletes(&meta)?;
   let lock = dir.obtain_lock("write_lock")?;
   let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
-  let rld = ReadersAndUpdates::new(
-    0,
-    commit_info.info.get_id_key().to_string(),
-    new_pending_deletes(&meta)?,
-  );
   for i in 0..3 {
     assert!(deletes.delete(i, &commit_info)?);
     if random.random_bool(0.5) {
       assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
     }
-    let padding = IOSupplierImpl::new(&rld, &commit_info);
-    assert_eq!(i == 2, deletes.is_fully_deleted(&padding)?);
+
+    assert_eq!(
+      i == 2,
+      deletes.is_fully_deleted(&commit_info, None, None, false)?
+    );
   }
 
   Ok(())
