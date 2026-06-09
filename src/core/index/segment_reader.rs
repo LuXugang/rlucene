@@ -331,6 +331,12 @@ where
   pub fn get_segment_info(&self) -> &SegmentCommitInfo<D> {
     &self.si
   }
+  #[cfg(test)]
+  #[allow(invalid_reference_casting)]
+  #[allow(clippy::mut_from_ref)]
+  pub(crate) fn get_segment_info_mut(&self) -> &mut SegmentCommitInfo<D> {
+    unsafe { &mut *(&self.si as *const SegmentCommitInfo<D> as *mut SegmentCommitInfo<D>) }
+  }
   /// Returns the directory this index resides in.
   pub fn directory(&self) -> &D {
     self.si.info.dir.as_ref()

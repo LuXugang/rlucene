@@ -46,6 +46,10 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{Sorter, ToInt, TryIntoInt};
 use crate::impl_from_for_enum;
+#[cfg(test)]
+use crate::test::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldIterator;
+#[cfg(test)]
+use crate::test::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldUpdates;
 
 /// Holds updates for a single DocValues field, for a set of documents within
 /// one segment.
@@ -362,6 +366,8 @@ pub(crate) enum DocValuesFieldUpdatesBaseEnum {
   Numeric(NumericDocValuesFieldUpdates),
   Binary(BinaryDocValuesFieldUpdates),
   SingleValue(SingleValueDocValuesFieldUpdates),
+  #[cfg(test)]
+  SingleUpdate(TestSingleUpdateDocValuesFieldUpdates),
 }
 #[cfg(test)]
 impl DocValuesFieldUpdatesBaseEnum {
@@ -378,12 +384,20 @@ impl_from_for_enum!(
     BinaryDocValuesFieldUpdates => Binary,
     SingleValueDocValuesFieldUpdates => SingleValue,
 );
+#[cfg(test)]
+impl From<TestSingleUpdateDocValuesFieldUpdates> for DocValuesFieldUpdatesBaseEnum {
+  fn from(value: TestSingleUpdateDocValuesFieldUpdates) -> Self {
+    DocValuesFieldUpdatesBaseEnum::SingleUpdate(value)
+  }
+}
 impl Accountable for DocValuesFieldUpdatesBaseEnum {
   fn ram_bytes_used(&self) -> Result<i64> {
     match self {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.ram_bytes_used(),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.ram_bytes_used(),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.ram_bytes_used(),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.ram_bytes_used(),
     }
   }
 }
@@ -394,6 +408,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.finish(),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.finish(),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.finish(),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.finish(),
     }
   }
 
@@ -402,6 +418,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_value(doc, value, index),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_value(doc, value, index),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_value(doc, value, index),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.add_value(doc, value, index),
     }
   }
 
@@ -410,6 +428,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_byte_ref(doc, value, index),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_byte_ref(doc, value, index),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_byte_ref(doc, value, index),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.add_byte_ref(doc, value, index),
     }
   }
 
@@ -421,6 +441,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_iterator(doc_id, iterator),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_iterator(doc_id, iterator),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_iterator(doc_id, iterator),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.add_iterator(doc_id, iterator),
     }
   }
 
@@ -433,6 +455,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.iterator(inner, del_gen),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.iterator(inner, del_gen),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.iterator(inner, del_gen),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.iterator(inner, del_gen),
     }
   }
 
@@ -441,6 +465,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.swap(i, j),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.swap(i, j),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.swap(i, j),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.swap(i, j),
     }
   }
 
@@ -449,6 +475,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.grow(_size),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.grow(_size),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.grow(_size),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.grow(_size),
     }
   }
 
@@ -457,6 +485,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.resize(_size),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.resize(_size),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.resize(_size),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.resize(_size),
     }
   }
 
@@ -465,6 +495,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.reset(_doc),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.reset(_doc),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.reset(_doc),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.reset(_doc),
     }
   }
 
@@ -473,6 +505,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.need_reset(),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.need_reset(),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.need_reset(),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.need_reset(),
     }
   }
 
@@ -481,6 +515,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.any(_super_any),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.any(_super_any),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.any(_super_any),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.any(_super_any),
     }
   }
 
@@ -489,6 +525,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.need_any(),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.need_any(),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.need_any(),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.need_any(),
     }
   }
 
@@ -497,6 +535,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.sub_type(),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.sub_type(),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.sub_type(),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.sub_type(),
     }
   }
 
@@ -505,6 +545,8 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.need_add_doc(),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.need_add_doc(),
       DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.need_add_doc(),
+      #[cfg(test)]
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.need_add_doc(),
     }
   }
 }
@@ -597,6 +639,8 @@ pub enum DocValuesFieldIteratorEnum {
   AbstractBinary(AbstractIterator<AbstractIteratorBinary>),
   AbstractNumeric(AbstractIterator<AbstractIteratorNumeric>),
   SingleValue(SingleValueDocValuesFieldUpdatesIterator),
+  #[cfg(test)]
+  SingleUpdate(TestSingleUpdateDocValuesFieldIterator),
 }
 
 impl DocValuesIterator for DocValuesFieldIteratorEnum {
@@ -605,6 +649,8 @@ impl DocValuesIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.advance_exact(target),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.advance_exact(target),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.advance_exact(target),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.advance_exact(target),
     }
   }
 }
@@ -615,6 +661,8 @@ impl DocIdSetIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.doc_id(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.doc_id(),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.doc_id(),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.doc_id(),
     }
   }
 
@@ -623,6 +671,8 @@ impl DocIdSetIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.next_doc(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.next_doc(),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.next_doc(),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.next_doc(),
     }
   }
 
@@ -631,6 +681,8 @@ impl DocIdSetIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.advance(target),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.advance(target),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.slow_advance(target),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.slow_advance(target),
     }
   }
 
@@ -639,6 +691,8 @@ impl DocIdSetIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.slow_advance(target),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.slow_advance(target),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.slow_advance(target),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.slow_advance(target),
     }
   }
 
@@ -647,6 +701,8 @@ impl DocIdSetIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.cost(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.cost(),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.cost(),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.cost(),
     }
   }
 }
@@ -659,6 +715,8 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
       )),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.long_value(),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.long_value(),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.long_value(),
     }
   }
 
@@ -667,6 +725,8 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.binary_value(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.binary_value(),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.binary_value(),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.binary_value(),
     }
   }
 
@@ -675,6 +735,8 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.del_gen(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.del_gen(),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.del_gen(),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.del_gen(),
     }
   }
 
@@ -683,6 +745,8 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.has_value(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.has_value(),
       DocValuesFieldIteratorEnum::SingleValue(it) => it.has_value(),
+      #[cfg(test)]
+      DocValuesFieldIteratorEnum::SingleUpdate(it) => it.has_value(),
     }
   }
 }
