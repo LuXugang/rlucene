@@ -49,16 +49,17 @@ use crate::test::core::index::test_binary_doc_values_field_updates::{get_value, 
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
-  new_searcher_with_reader, random, random_from_seed, rarely,
+  new_searcher_with_leaf_reader, new_searcher_with_reader, random, random_from_seed, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
+use parking_lot::Mutex;
 use rand::RngExt;
 #[cfg(feature = "nightly")]
 use rand::prelude::IndexedRandom;
 #[cfg(feature = "nightly")]
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::{Arc, Barrier};
 use std::thread;
 
 #[allow(dead_code)] // for quick search
@@ -480,7 +481,7 @@ fn test_tons_of_updates() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT 测试不稳定
+#[test]
 fn test_try_update_doc_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -511,23 +512,24 @@ fn test_try_update_doc_values() -> Result<()> {
   )?;
 
   let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
-  let top_docs = searcher.search(TermQuery::new(Term::from_text("id", doc.to_string())), 10)?;
-  assert_eq!(1, top_docs.total_hits.value());
-  let global_doc = top_docs.score_docs[0].doc;
   let context = get_context(reader.clone())?;
   let mut numeric_id_values = None;
   let mut binary_id_values = None;
   for c in context.leaves()? {
-    let max_doc = c.reader().max_doc()? as usize;
-    if global_doc as usize >= c.doc_base && (global_doc as usize) < c.doc_base + max_doc {
-      let leaf_doc = global_doc - c.doc_base as i32;
+    let searcher = new_searcher_with_leaf_reader(c.reader().clone())?;
+    let top_docs = searcher.search(TermQuery::new(Term::from_text("id", doc.to_string())), 10)?;
+    if top_docs.total_hits.value() == 1 {
+      assert!(numeric_id_values.is_none());
+      assert!(binary_id_values.is_none());
+      let leaf_doc = top_docs.score_docs[0].doc;
       let mut numeric = c.reader().get_numeric_doc_values("numericId")?.unwrap();
       assert_eq!(leaf_doc, numeric.advance(leaf_doc)?);
       let mut binary = c.reader().get_binary_doc_values("binaryId")?.unwrap();
       assert_eq!(leaf_doc, binary.advance(leaf_doc)?);
       numeric_id_values = Some(numeric.long_value()?);
       binary_id_values = Some(binary.binary_value()?.into_owned());
+    } else {
+      assert_eq!(0, top_docs.total_hits.value());
     }
   }
 
@@ -541,7 +543,7 @@ fn test_try_update_doc_values() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT  多线程索引 BUG
+#[test]
 fn test_try_update_multi_threaded() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -579,7 +581,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
         barrier.wait();
         for _ in 0..1000 {
           let doc_id = random.random_range(0..values.len());
-          let mut value_guard = values[doc_id].lock().unwrap();
+          let mut value_guard = values[doc_id].lock();
           let value = if rarely(&mut random) {
             None
           } else {
@@ -634,7 +636,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
   let searcher = new_searcher_with_reader(reader.clone())?;
   let context = get_context(reader.clone())?;
   for i in 0..values.len() {
-    let value_guard = values[i].lock().unwrap();
+    let value_guard = values[i].lock();
     let value = *value_guard;
     let top_docs = searcher.search(TermQuery::new(Term::from_text("id", i.to_string())), 10)?;
     assert_eq!(1, top_docs.total_hits.value());
@@ -670,12 +672,16 @@ where
   <<D as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
   <D as Directory>::IndexInput: Send + Sync,
 {
-  let reader = Arc::new(directory_reader::open_from_writer(writer)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
-  let top_docs = searcher.search(TermQuery::new(doc.clone()), 10)?;
-  assert_eq!(1, top_docs.total_hits.value());
-  let the_doc = top_docs.score_docs()[0].doc;
-  writer.try_update_doc_value(reader.as_ref().into(), the_doc, fields)?;
+  let mut seq_id = -1;
+  while seq_id == -1 {
+    let reader = Arc::new(directory_reader::open_from_writer(writer)?);
+    let searcher = new_searcher_with_reader(reader.clone())?;
+    let top_docs = searcher.search(TermQuery::new(doc.clone()), 10)?;
+    assert_eq!(1, top_docs.total_hits.value());
+    let the_doc = top_docs.score_docs()[0].doc;
+    seq_id = writer.try_update_doc_value(reader.as_ref().into(), the_doc, fields.clone())?;
+    reader.close()?;
+  }
   Ok(())
 }
 
