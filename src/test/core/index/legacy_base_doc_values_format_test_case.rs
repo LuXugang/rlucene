@@ -2055,12 +2055,14 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
     }
 
+    writer.commit()?;
     {
       let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
     writer.force_merge((num_docs / 256).max(1))?;
+    writer.commit()?;
 
     {
       let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
