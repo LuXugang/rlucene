@@ -114,11 +114,14 @@ where
     Ok(Arc::new(DwptWrapper::new(dwpt)))
   }
   /// Returns a new already locked [`DocumentsWriterPerThread`]
-  pub(crate) fn new_writer(
+  pub(crate) fn new_writer<F>(
     &self,
     writer: &IndexWriter<D>,
-    delete_queue: Arc<DocumentsWriterDeleteQueue>,
-  ) -> Result<Arc<DwptWrapper<D>>> {
+    delete_queue_supplier: F,
+  ) -> Result<Arc<DwptWrapper<D>>>
+  where
+    F: FnOnce() -> Arc<DocumentsWriterDeleteQueue>,
+  {
     let mut inner = self.inner.lock();
     debug_assert!(inner.taken_writer_permits >= 0);
     while inner.taken_writer_permits > 0 {
@@ -131,6 +134,7 @@ where
     // end of the world it's violating the contract that we don't release any new DWPT after this
     // pool is closed
     self.ensure_open()?;
+    let delete_queue = delete_queue_supplier();
     let dwpt = Self::new_dwpt(writer, delete_queue)?;
     dwpt.lock();
 
@@ -139,11 +143,14 @@ where
   }
   /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing
   /// operation (add/updateDocument).
-  pub(crate) fn get_and_lock(
+  pub(crate) fn get_and_lock<F>(
     &self,
     writer: &IndexWriter<D>,
-    delete_queue: Arc<DocumentsWriterDeleteQueue>,
-  ) -> Result<Arc<DwptWrapper<D>>> {
+    delete_queue_supplier: F,
+  ) -> Result<Arc<DwptWrapper<D>>>
+  where
+    F: FnOnce() -> Arc<DocumentsWriterDeleteQueue>,
+  {
     self.ensure_open()?;
 
     if let Some(dwpt) = self.free_list.lock_and_poll() {
@@ -153,7 +160,7 @@ where
     // `freeList` at this point, it will be added later on once DocumentsWriter has indexed a
     // document into this DWPT and then gives it back to the pool by calling
     // #marksAsFreeAndUnlock.
-    self.new_writer(writer, delete_queue)
+    self.new_writer(writer, delete_queue_supplier)
   }
 
   fn ensure_open(&self) -> Result<()> {

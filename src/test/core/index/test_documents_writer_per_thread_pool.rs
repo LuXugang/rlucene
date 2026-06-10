@@ -45,17 +45,17 @@ fn test_lock_release_and_close() -> Result<()> {
   )));
 
   let pool = DocumentsWriterPerThreadPool::new()?;
-  let first = pool.get_and_lock(&iw, queue.clone())?;
+  let first = pool.get_and_lock(&iw, || queue.clone())?;
   assert_eq!(pool.size(), 1);
 
-  let second = pool.get_and_lock(&iw, queue.clone())?;
+  let second = pool.get_and_lock(&iw, || queue.clone())?;
   assert_eq!(pool.size(), 2);
 
   let first_id = first.id().to_string();
   pool.mark_as_free_and_unlock(first)?;
   assert_eq!(pool.size(), 2);
 
-  let third = pool.get_and_lock(&iw, queue.clone())?;
+  let third = pool.get_and_lock(&iw, || queue.clone())?;
   assert_eq!(first_id, third.id().to_string());
   assert_eq!(pool.size(), 2);
 
@@ -95,7 +95,7 @@ fn test_close_while_new_writers_locked() -> Result<()> {
 
   let pool = Arc::new(DocumentsWriterPerThreadPool::new()?);
 
-  let first = pool.get_and_lock(&iw, queue.clone())?;
+  let first = pool.get_and_lock(&iw, || queue.clone())?;
   pool.lock_new_writers();
 
   let ready = Arc::new(AtomicBool::new(false));
@@ -104,7 +104,7 @@ fn test_close_while_new_writers_locked() -> Result<()> {
 
   let handle = thread::spawn(move || {
     ready_clone.store(true, Ordering::SeqCst);
-    let result = pool_clone.get_and_lock(&iw, queue.clone());
+    let result = pool_clone.get_and_lock(&iw, || queue.clone());
     assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
   });
 

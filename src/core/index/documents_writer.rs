@@ -381,7 +381,8 @@ where
   }
   pub(crate) fn close(&self) {
     self.closed.store(true, Ordering::SeqCst);
-    // TODO
+    self.flush_control.close();
+    self.flush_control.per_thread_pool.close();
   }
   /// Called if we hit an error at a bad time (when updating the index files) and must discard
   /// all currently buffered docs. This resets our state, discarding any docs added since last flush.
@@ -512,7 +513,6 @@ where
       if dwpt_wrapper.state.is_aborted() {
         self.flush_control.do_on_abort(&dwpt_wrapper, config)?;
       }
-      // TODO IMPORTANT 这里还要额外定义一个 Result 封装
       if let Ok(sno) = &res {
         seq_no = *sno;
         flushing_dwpt_opt = {
@@ -521,27 +521,28 @@ where
         };
       }
 
-      {
-        // If a flush is occurring, we don't want to allow this dwpt to be reused
-        // If it is aborted, we shouldn't allow it to be reused
-        // If the deleteQueue is advanced, this means the maximum seqNo has been set and it cannot be
-        // reused
-        let inner = self.flush_control.inner.lock();
-        if dwpt_wrapper.state.is_flush_pending()
-          || dwpt_wrapper.state.is_aborted()
-          || dwpt_wrapper.state.delete_queue.is_advanced()
-        {
-          dwpt_wrapper.state.unlock();
-        } else {
-          self
-            .flush_control
-            .per_thread_pool
-            .mark_as_free_and_unlock(dwpt_wrapper)?;
-        }
-        drop(inner)
-      }
       res
     })();
+
+    let release_result = {
+      let inner = self.flush_control.inner.lock();
+      let result = if dwpt_wrapper.state.is_flush_pending()
+        || dwpt_wrapper.state.is_aborted()
+        || dwpt_wrapper.state.delete_queue.is_advanced()
+      {
+        dwpt_wrapper.state.unlock();
+        Ok(())
+      } else {
+        self
+          .flush_control
+          .per_thread_pool
+          .mark_as_free_and_unlock(dwpt_wrapper)
+      };
+      drop(inner);
+      result
+    };
+
+    release_result?;
     result?;
     if self.post_update(flushing_dwpt_opt, has_events, writer)? {
       seq_no = -seq_no;

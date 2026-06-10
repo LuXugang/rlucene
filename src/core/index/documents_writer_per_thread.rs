@@ -150,7 +150,7 @@ impl Lock for State {
   }
 
   fn is_locked(&self) -> bool {
-    !self.available.is_locked()
+    !*self.available.lock()
   }
 }
 

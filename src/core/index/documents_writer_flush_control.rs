@@ -658,8 +658,9 @@ where
           return Err(LuceneError::already_closed("flush control is closed"));
         }
       }
-      let delete_queue = self.delete_queue.lock().clone();
-      let per_thread = self.per_thread_pool.get_and_lock(writer, delete_queue)?;
+      let per_thread = self
+        .per_thread_pool
+        .get_and_lock(writer, || self.delete_queue.lock().clone())?;
       if Arc::ptr_eq(&per_thread.state.delete_queue, &self.delete_queue.lock()) {
         // simply return the DWPT even in a flush all case since we already hold the lock and the
         // DWPT is not stale
@@ -765,22 +766,23 @@ where
       // blocking indexing
       let mut inner = self.inner.lock();
       self.prune_blocked_queue(&flushing_queue, &mut inner);
-      debug_assert!(self.assert_blocked_flushes(&self.delete_queue.lock(), &inner));
+      debug_assert!(self.assert_blocked_flushes(&inner));
       inner.flush_queue.extend(full_flush_buffer);
       self.update_stall_state(&mut inner, config);
       inner.full_flush_mark_done = true;
     }
 
-    debug_assert!(self.assert_active_delete_queue(&self.delete_queue.lock()));
+    debug_assert!(self.assert_active_delete_queue());
     debug_assert!(flushing_queue.get_last_sequence_number() <= flushing_queue.get_max_seq_no());
 
     Ok(seq_no)
   }
-  pub(crate) fn assert_active_delete_queue(&self, queue: &Arc<DocumentsWriterDeleteQueue>) -> bool {
+  pub(crate) fn assert_active_delete_queue(&self) -> bool {
+    let queue = self.delete_queue.lock().clone();
     let dwpts = self.per_thread_pool.iterator();
     for (_, next) in dwpts.iter() {
       debug_assert!(
-        Arc::ptr_eq(&next.state.delete_queue, queue),
+        Arc::ptr_eq(&next.state.delete_queue, &queue),
         "{}",
         format!(
           "num_docs: {}, next_queue_gen: {}, dwpt_queue_gen: {}",
@@ -829,7 +831,7 @@ where
 
     let result: Result<_> = {
       if !inner.blocked_flushes.is_empty() {
-        debug_assert!(self.assert_blocked_flushes(&self.delete_queue.lock(), &inner));
+        debug_assert!(self.assert_blocked_flushes(&inner));
         self.prune_blocked_queue(&self.delete_queue.lock(), &mut inner);
         debug_assert!(
           inner.blocked_flushes.is_empty(),
@@ -844,13 +846,10 @@ where
     let _ = self.update_stall_state(&mut inner, config);
     result
   }
-  pub(crate) fn assert_blocked_flushes(
-    &self,
-    flushing_queue: &Arc<DocumentsWriterDeleteQueue>,
-    inner: &Inner<D>,
-  ) -> bool {
+  pub(crate) fn assert_blocked_flushes(&self, inner: &Inner<D>) -> bool {
+    let flushing_queue = self.delete_queue.lock().clone();
     for blocked in inner.blocked_flushes.iter() {
-      debug_assert!(Arc::ptr_eq(&blocked.state.delete_queue, flushing_queue));
+      debug_assert!(Arc::ptr_eq(&blocked.state.delete_queue, &flushing_queue));
     }
     true
   }

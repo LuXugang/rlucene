@@ -45,7 +45,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   is_night_mode, new_directory_shared, new_index_writer_config,
-  new_log_merge_policy_with_merge_factor, new_text_field, random,
+  new_log_merge_policy_with_merge_factor, new_text_field, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -653,7 +653,6 @@ fn test_during_add_indexes() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-
 // TODO IMPORTANT 多线程索引 BUG
 fn test_during_add_delete() -> Result<()> {
   let mut random = random();
@@ -680,10 +679,11 @@ fn test_during_add_delete() -> Result<()> {
   for _ in 0..num_threads {
     let writer = writer.clone();
     let failures = failures.clone();
+    let seed = random.random();
     let remaining_threads = remaining_threads.clone();
     threads.push(thread::spawn(move || {
       let result = (|| -> Result<()> {
-        let mut random = crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+        let mut random = random_from_seed(seed);
         let mut count = 0;
         loop {
           for doc_upto in 0..10 {

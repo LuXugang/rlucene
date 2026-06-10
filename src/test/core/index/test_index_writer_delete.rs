@@ -296,6 +296,8 @@ fn test_delete_all_simple() -> Result<()> {
   modifier.close()?;
   Ok(())
 }
+
+#[test]
 fn test_delete_all_no_dead_lock() -> Result<()> {
   let mut random = random();
 

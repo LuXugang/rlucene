@@ -3052,7 +3052,8 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
 
   Ok(())
 }
-// TODO IMPORTANT 多线程索引 BUG
+
+#[test]
 fn test_check_pending_flush_post_update() -> Result<()> {
   let mut random = random();
 
@@ -3648,7 +3649,7 @@ fn test_set_index_created_version() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT 多线程索引BUG
+#[test]
 fn test_flush_while_starting_new_threads() -> Result<()> {
   let mut random = random();
 
@@ -3665,12 +3666,13 @@ fn test_flush_while_starting_new_threads() -> Result<()> {
       let mut states = Vec::new();
       let result = (|| -> Result<()> {
         for _ in 0..100 {
-          let delete_queue = w.doc_writer.flush_control.delete_queue.lock().clone();
           let state = w
             .doc_writer
             .flush_control
             .per_thread_pool
-            .get_and_lock(&w, delete_queue)?;
+            .get_and_lock(&w, || {
+              w.doc_writer.flush_control.delete_queue.lock().clone()
+            })?;
           state.state.delete_queue.get_next_sequence_number();
           states.push(state);
         }

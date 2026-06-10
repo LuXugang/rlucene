@@ -3822,11 +3822,8 @@ where
               // this rld concurrently
               // which wins and then if readerPooling is off this rld will be dropped.
               let mut inner = self.inner.lock();
-              let info = match inner.segment_infos.index_of_mut(&rld.info_id) {
-                Some(info) => info,
-                None => Err(LuceneError::illegal_state(
-                  "could not find segment info from IndexWriter#segment_infos",
-                ))?,
+              let Some(info) = inner.segment_infos.index_of_mut(&rld.info_id) else {
+                continue;
               };
               if self
                 .reader_pool

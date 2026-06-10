@@ -40,16 +40,16 @@ struct TestIndexTooManyDocs;
  */
 // TODO IMPORTANT 多线程索引 BUG
 fn test_index_too_many_docs() -> Result<()> {
-  let mut rng = random();
-  let dir = new_directory_shared(&mut rng)?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
   let num_max_doc = 25;
-  let mut config = new_index_writer_config(&mut rng);
+  let mut config = new_index_writer_config(&mut random);
   config.set_ram_buffer_size_mb(0.000001);
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   set_max_docs(num_max_doc)?;
   let result = (|| -> Result<()> {
-    let num_threads = 5 + rng.random_range(0..5);
+    let num_threads = 5 + random.random_range(0..5);
     let latch = Arc::new(Barrier::new(num_threads));
     let indexing_done = Arc::new((Mutex::new(num_threads - 2), Condvar::new()));
     let done = Arc::new(AtomicBool::new(false));
@@ -57,7 +57,7 @@ fn test_index_too_many_docs() -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::new();
       for i in 0..num_threads {
-        let seed = random().random();
+        let seed = random.random();
         if i >= 2 {
           let latch = latch.clone();
           let indexing_done = indexing_done.clone();

@@ -27,7 +27,7 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
-  new_string_field, new_text_field, random, slow_file_exists,
+  new_string_field, new_text_field, random, random_from_seed, slow_file_exists,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -37,31 +37,33 @@ use std::thread;
 use std::time::Duration;
 #[allow(dead_code)] // for quick search
 pub struct TestNeverDelete;
-// TODO IMPORTANT 多线程 BUG
-fn test_indexing() -> Result<()> {
-  let mut rng = random();
-  let tmp_dir = create_temp_dir_with_prefix("TestNeverDelete")?;
-  let mut d = new_fs_directory(&mut rng, tmp_dir)?;
 
-  let analyzer = MockAnalyzer::new(&mut rng);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut rng, analyzer);
+#[test]
+fn test_indexing() -> Result<()> {
+  let mut random = random();
+  let tmp_dir = create_temp_dir_with_prefix("TestNeverDelete")?;
+  let mut d = new_fs_directory(&mut random, tmp_dir)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   iwc.set_index_deletion_policy(NoDeletionPolicy);
-  let mut w = RandomIndexWriter::with_config(&mut rng, d.clone(), iwc);
+  let mut w = RandomIndexWriter::with_config(&mut random, d.clone(), iwc);
   w.w
     .get_config_mut()
-    .set_max_buffered_docs(TestUtil::next_int(&mut rng, 5, 30));
+    .set_max_buffered_docs(TestUtil::next_int(&mut random, 5, 30));
   let w = Arc::new(w);
 
   w.commit()?;
   let mut index_threads = Vec::new();
-  let stop_iterations = at_least(&mut rng, 100);
+  let stop_iterations = at_least(&mut random, 100);
   let field_types = Arc::new(Mutex::new(HashMap::new()));
-  for x in 0..rng.random_range(0..4) {
+  for x in 0..random.random_range(0..4) {
     let w = w.clone();
+    let seed = random.random();
     let field_types = field_types.clone();
     index_threads.push(thread::Builder::new().name(format!("Thread {x}")).spawn(
       move || -> Result<()> {
-        let mut random = random();
+        let mut random = random_from_seed(seed);
         let mut doc_count = 0;
         while doc_count < stop_iterations {
           let mut doc = Document::new();
