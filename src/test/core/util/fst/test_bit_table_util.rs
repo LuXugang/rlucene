@@ -161,17 +161,20 @@ fn reader(bits: &[u8]) -> BytesReaderImpl<'_> {
 
 struct BytesReaderImpl<'a> {
   bits: &'a [u8],
-  position: usize,
+  position: i64,
 }
 impl<'a> BytesReaderImpl<'a> {
   fn new(bits: &'a [u8]) -> Self {
-    Self { bits, position: 0 }
+    Self {
+      bits,
+      position: 0i64,
+    }
   }
 }
 
 impl DataInput for BytesReaderImpl<'_> {
   fn read_byte(&mut self) -> Result<u8> {
-    let v = self.bits[self.position];
+    let v = self.bits[self.position as usize];
     self.position += 1;
     Ok(v)
   }
@@ -186,9 +189,9 @@ impl DataInput for BytesReaderImpl<'_> {
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     if num_bytes >= 0 {
-      self.position += num_bytes as usize;
+      self.position += num_bytes;
     } else {
-      self.position -= (-num_bytes) as usize;
+      self.position -= -num_bytes;
     }
     Ok(())
   }
@@ -201,10 +204,10 @@ impl Display for BytesReaderImpl<'_> {
 }
 
 impl BytesReader for BytesReaderImpl<'_> {
-  fn get_position(&self) -> usize {
+  fn get_position(&self) -> i64 {
     self.position
   }
-  fn set_position(&mut self, pos: usize) {
+  fn set_position(&mut self, pos: i64) {
     self.position = pos;
   }
 }

@@ -477,7 +477,7 @@ where
   }
   Ok(())
 }
-
+#[test]
 fn test_real_terms() -> Result<()> {
   let mut random = random();
   let mut docs = LineFileDocs::new(&mut random)?;

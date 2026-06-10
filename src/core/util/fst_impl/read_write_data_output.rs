@@ -205,9 +205,9 @@ impl DataInput for BytesReaderImpl {
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     let num_bytes = if num_bytes >= 0 {
-      num_bytes as usize
+      num_bytes
     } else {
-      (-num_bytes) as usize
+      -num_bytes
     };
     self.set_position(self.get_position() - num_bytes);
     Ok(())
@@ -221,17 +221,17 @@ impl Display for BytesReaderImpl {
 }
 
 impl BytesReader for BytesReaderImpl {
-  fn get_position(&self) -> usize {
-    (((self.next_buffer + 1) * self.block_size) + self.next_read) as usize
+  fn get_position(&self) -> i64 {
+    (((self.next_buffer + 1) * self.block_size) + self.next_read) as i64
   }
 
-  fn set_position(&mut self, pos: usize) {
+  fn set_position(&mut self, pos: i64) {
     let buffer_index = (pos >> self.block_bits) as i32;
     if self.next_buffer != buffer_index - 1 {
       self.next_buffer = buffer_index - 1;
       self.current = buffer_index;
     }
-    self.next_read = (pos & self.block_mask as usize) as i32;
+    self.next_read = (pos & self.block_mask as i64) as i32;
     debug_assert_eq!(
       self.get_position(),
       pos,

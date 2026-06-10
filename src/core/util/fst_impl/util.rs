@@ -546,7 +546,7 @@ impl Util {
     while low <= high {
       let mid = (low + high) >> 1;
 
-      in_reader.set_position(arc.pos_arcs_start() as usize);
+      in_reader.set_position(arc.pos_arcs_start());
       in_reader.skip_bytes((arc.bytes_per_arc() * mid + 1) as i64)?;
 
       let mid_label = fst.read_label(&mut in_reader)?;

@@ -221,11 +221,9 @@ where
         let copied_bytes = node_hash.primary_table.inner.bytes_reader.get_position();
         let ram_bytes_used =
           node_hash.primary_table.count * 2 * PackedInts::bits_required(node_address)? as i64 / 8
-            + node_hash.primary_table.count
-              * 2
-              * PackedInts::bits_required(copied_bytes as i64)? as i64
+            + node_hash.primary_table.count * 2 * PackedInts::bits_required(copied_bytes)? as i64
               / 8
-            + copied_bytes as i64;
+            + copied_bytes;
         // NOTE: we could instead use the more precise RAM used, but
         // this leads to unpredictable
         // quantized behavior due to 2X rehashing where for large ranges
@@ -337,7 +335,7 @@ impl Inner {
     let local_address = self.copied_node_address.get(hash_slot)?;
     self
       .bytes_reader
-      .set_pos_delta((node_address - local_address) as usize);
+      .set_pos_delta(node_address - local_address);
     Ok(&mut self.bytes_reader)
   }
 }
@@ -491,7 +489,7 @@ where
 
     let position = self.inner.bytes_reader.get_position();
     let sub_reader = PagedGrowableWriter::with_fill_page(
-      PackedInts::bits_required(position as i64)?,
+      PackedInts::bits_required(position)?,
       PackedInts::COMPACT,
     );
     let mut new_copied_node_address =
@@ -651,7 +649,7 @@ where
 
       if self.scratch_arc.is_last() {
         return if arc_idx == (node.num_arcs as usize - 1) {
-          let len = address - in_reader.get_position() as i64;
+          let len = address - in_reader.get_position();
           Ok(len as i32)
         } else {
           Ok(-1)

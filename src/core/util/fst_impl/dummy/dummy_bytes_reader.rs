@@ -47,9 +47,9 @@ impl Display for DummyBytesReader {
 }
 
 impl BytesReader for DummyBytesReader {
-  fn get_position(&self) -> usize {
+  fn get_position(&self) -> i64 {
     0
   }
 
-  fn set_position(&mut self, _pos: usize) {}
+  fn set_position(&mut self, _pos: i64) {}
 }

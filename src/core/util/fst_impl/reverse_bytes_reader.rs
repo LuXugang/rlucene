@@ -17,14 +17,14 @@
 use std::rc::Rc;
 
 use crate::core::store::DataInput;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::BytesReader;
 use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Reads in reverse from a single byte array.
 pub struct ReverseBytesReader {
   bytes: Rc<Vec<u8>>,
-  pos: usize,
+  pos: i64,
 }
 
 impl ReverseBytesReader {
@@ -35,14 +35,16 @@ impl ReverseBytesReader {
 
 impl DataInput for ReverseBytesReader {
   fn read_byte(&mut self) -> Result<u8> {
-    let b = self.bytes[self.pos];
+    debug_assert!(self.pos >= 0);
+    let b = self.bytes[self.pos as usize];
     self.pos -= 1;
     Ok(b)
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     for i in 0..len {
-      b[offset + i] = self.bytes[self.pos];
+      debug_assert!(self.pos >= 0);
+      b[offset + i] = self.bytes[self.pos as usize];
       self.pos -= 1;
     }
     Ok(())
@@ -53,29 +55,18 @@ impl DataInput for ReverseBytesReader {
   }
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-    if num_bytes >= 0 {
-      let v = num_bytes as usize;
-      self.pos = self.pos.checked_sub(v).ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "underflow, pos {}, num_num_bytes {} ",
-          self.pos, num_bytes
-        ))
-      })?;
-    } else {
-      let v = -num_bytes as usize;
-      self.pos += v;
-    }
-
+    self.pos -= num_bytes;
     Ok(())
   }
 }
 
 impl BytesReader for ReverseBytesReader {
-  fn get_position(&self) -> usize {
+  fn get_position(&self) -> i64 {
+    debug_assert!(self.pos >= 0);
     self.pos
   }
 
-  fn set_position(&mut self, pos: usize) {
+  fn set_position(&mut self, pos: i64) {
     self.pos = pos;
   }
 }
