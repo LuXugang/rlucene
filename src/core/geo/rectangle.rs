@@ -19,6 +19,7 @@ use crate::core::geo::geometry::Geometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
 use crate::core::geo::polygon::Polygon;
 use crate::core::geo::rectangle2d::{Rectangle2DType, create_from_rectangle};
+use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -90,7 +91,8 @@ impl Rectangle {
     let max_lon;
 
     if min_lat > GeoUtils::MIN_LAT_RADIANS && max_lat < GeoUtils::MAX_LAT_RADIANS {
-      let delta_lon = (GeoUtils::sloppy_sin(rad_distance) / rad_lat.cos()).asin();
+      let delta_lon =
+        SloppyMath::asin(GeoUtils::sloppy_sin(rad_distance) / SloppyMath::cos(rad_lat));
 
       let mut min_lon_ = rad_lon - delta_lon;
       if min_lon_ < GeoUtils::MIN_LON_RADIANS {

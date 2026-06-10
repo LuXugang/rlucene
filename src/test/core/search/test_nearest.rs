@@ -244,7 +244,8 @@ fn quantize_lon(lon_raw: f64) -> Result<f64> {
     GeoEncodingUtils::encode_longitude(lon_raw)?,
   ))
 }
-// TODO IMPORTANT 测试未通过：15830251830580146327/1930376928975005192
+
+#[test]
 fn test_nearest_neighbor_random() -> Result<()> {
   let mut random = random();
 

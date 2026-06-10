@@ -81,7 +81,7 @@ impl GeoUtils {
   /// This intentionally mirrors Lucene's `sloppySin`, including its approximation
   /// behavior.
   pub fn sloppy_sin(a: f64) -> f64 {
-    (a - Self::PIO2).cos()
+    SloppyMath::cos(a - Self::PIO2)
   }
 
   /// Placeholder for Lucene's `distanceQuerySortKey`.

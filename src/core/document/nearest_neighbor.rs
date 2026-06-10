@@ -93,7 +93,10 @@ where
   PT: PointTree,
 {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-    self.distance_sort_key.total_cmp(&other.distance_sort_key)
+    // BinaryHeap pops greatest first. We want closest cells first (smallest distance_sort_key).
+    // Reverse comparison so smaller distance_sort_key is "greater" and pops first.
+    // This matches Java PriorityQueue natural ordering (closest cells explored first).
+    other.distance_sort_key.total_cmp(&self.distance_sort_key)
   }
 }
 /// Holds one hit from [`NearestNeighbor::nearest`]
@@ -399,13 +402,13 @@ where
         distance_sort_key,
       ));
 
-      let min_pv = cell.index.get_min_packed_value()?.into_owned();
-      let max_pv = cell.index.get_max_packed_value()?.into_owned();
-      let distance_sort_key =
-        approx_best_distance_from_packed(min_pv.as_ref(), max_pv.as_ref(), point_lat, point_lon);
       // TODO: we are assuming a binary tree
       let move_to_sibling = cell.index.move_to_sibling()?;
       if move_to_sibling {
+        let min_pv = cell.index.get_min_packed_value()?.into_owned();
+        let max_pv = cell.index.get_max_packed_value()?.into_owned();
+        let distance_sort_key =
+          approx_best_distance_from_packed(min_pv.as_ref(), max_pv.as_ref(), point_lat, point_lon);
         cell_queue.push(Cell::new(
           cell.index,
           cell.reader_index,
