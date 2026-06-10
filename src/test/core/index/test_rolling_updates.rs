@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::Store;
+use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH, ModifyReader};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::util::line_file_docs::LineFileDocs;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_string_field, random,
-  random_from_seed,
+  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+  new_string_field, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 #[allow(dead_code)] // for quick search
@@ -40,7 +45,129 @@ struct TestRollingUpdates;
 
 #[test]
 fn test_rolling_updates() -> Result<()> {
-  // TODO IMPORTANT tryDeleteDocument未实现
+  let mut random = random();
+  let seed = random.random::<u64>();
+  let mut doc_random = random_from_seed(seed);
+  let dir = new_directory_shared(&mut random)?;
+
+  let mut docs = LineFileDocs::new(&mut doc_random)?;
+
+  // TODO set_codec未实现 DirectPostingsFormat未实现
+  // if random.random_bool(0.5) {
+  //   Codec::set_default(TestUtil::always_postings_format(DirectPostingsFormat::new()));
+  // }
+
+  let mut analyzer = MockAnalyzer::new(&mut random);
+  analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
+
+  let w = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, analyzer),
+  )?;
+  let size = at_least(&mut random, 20);
+  let mut id = 0;
+  let mut r: Option<Arc<StandardDirectoryReaderType<_>>> = None;
+  let num_updates = (size as f64 * (2.0 + 5.0 * random.random::<f64>())).floor() as i32;
+  let mut update_count = 0;
+
+  for doc_iter in 0..num_updates {
+    let mut doc = docs.next_doc()?;
+    let my_id = id.to_string();
+    if id == size - 1 {
+      id = 0;
+    } else {
+      id += 1;
+    }
+
+    let docid_field = doc
+      .get_field_mut("docid")
+      .expect("LineFileDocs document must have docid");
+    match docid_field {
+      Fields::String(field) => field.set_string_value(&my_id)?,
+      Fields::Field(field) => field.set_string_value(&my_id)?,
+      _ => unreachable!("docid field is not string-backed"),
+    }
+
+    let id_term = Term::from_text("docid", &my_id);
+
+    let do_update = if let Some(reader) = &r {
+      if update_count < size {
+        let s = new_searcher_with_reader(reader.clone())?;
+        let hits = s.search(TermQuery::new(id_term.clone()), 1)?;
+        assert_eq!(1, hits.total_hits.value());
+        w.try_delete_document(ModifyReader::Composite(reader), hits.score_docs[0].doc)? == -1
+      } else {
+        true
+      }
+    } else {
+      true
+    };
+
+    update_count += 1;
+
+    if do_update {
+      // TODO delete by query 未实现
+      w.update_document_with_term(id_term, doc)?;
+      // if random.random_bool(0.5) {
+      //   w.update_document_with_term(id_term, doc)?;
+      // } else {
+      //   w.delete_documents_with_queries(vec![TermQuery::new(id_term).into()])?;
+      //   w.add_document(doc)?;
+      // }
+    } else {
+      w.add_document(doc)?;
+    }
+
+    if doc_iter >= size && TestUtil::next_int(&mut random, 0, 49) == 17 {
+      if let Some(reader) = r.take() {
+        reader.close()?;
+      }
+
+      let apply_deletions = random.random_bool(0.5);
+
+      let reader = Arc::new(w.get_reader(apply_deletions, false)?);
+      if apply_deletions {
+        assert_eq!(
+          size,
+          reader.num_docs()?,
+          "applyDeletions={} r.numDocs()={} vs SIZE={}",
+          apply_deletions,
+          reader.num_docs()?,
+          size
+        );
+      }
+      r = Some(reader);
+      update_count = 0;
+    }
+  }
+
+  if let Some(reader) = r.take() {
+    reader.close()?;
+  }
+
+  w.commit()?;
+  assert_eq!(size, w.get_doc_stats()?.num_docs);
+
+  w.close()?;
+
+  docs.close();
+
+  // TODO IMPORTANT
+  // TODO: memory calculation not implement
+  // let infos = SegmentInfos::read_latest_commit(dir.clone())?;
+  // let mut total_bytes = 0i64;
+  // for sipc in infos.iter() {
+  //   total_bytes += sipc.size_in_bytes()?;
+  // }
+  // let mut total_bytes2 = 0i64;
+  //
+  // for file_name in dir.list_all()? {
+  //   if CODEC_FILE_PATTERN.is_match(&file_name) {
+  //     let file_length: i64 = dir.file_length(&file_name)?.try_convert()?;
+  //     total_bytes2 += file_length;
+  //   }
+  // }
+  // assert_eq!(total_bytes2, total_bytes);
   Ok(())
 }
 

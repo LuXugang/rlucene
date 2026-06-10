@@ -147,6 +147,13 @@ impl Document {
     self.fields.iter().find(|field| field.name() == name)
   }
 
+  /// Returns a mutable field with the given name if any exist in this document, or
+  /// `None`. If multiple fields exist with this name, this method returns
+  /// the first value added.
+  pub fn get_field_mut(&mut self, name: &str) -> Option<&mut Fields> {
+    self.fields.iter_mut().find(|field| field.name() == name)
+  }
+
   /// Returns an array of `IndexableField`s with the given name. This method
   /// returns an empty array when there are no matching fields. It never
   /// returns `None`.

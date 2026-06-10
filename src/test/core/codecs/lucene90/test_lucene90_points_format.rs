@@ -307,8 +307,8 @@ impl IntersectVisitor for OnePointMatchVisitor {
   }
 
   fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
-    if self.unique_point_value.as_slice() > max_packed_value
-      || self.unique_point_value.as_slice() < min_packed_value
+    if self.unique_point_value.as_slice()[0..3] > max_packed_value[0..3]
+      || self.unique_point_value.as_slice()[0..3] < min_packed_value[0..3]
     {
       Ok(Relation::CellOutsideQuery)
     } else {

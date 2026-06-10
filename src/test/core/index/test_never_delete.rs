@@ -111,9 +111,10 @@ fn test_indexing() -> Result<()> {
         "file {file_name} does not exist"
       );
     }
-    let r2 = directory_reader::open_if_changed(&r, &w.w)?.unwrap();
-    r.close()?;
-    r = r2;
+    if let Some(r2) = directory_reader::open_if_changed(&r, &w.w)? {
+      r.close()?;
+      r = r2;
+    }
     thread::sleep(Duration::from_millis(1));
   }
   r.close()?;

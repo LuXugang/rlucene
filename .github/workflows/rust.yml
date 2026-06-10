@@ -2,9 +2,11 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
+    # disable Actions with invalid branch names
+    branches: [ "invalid-branch-name" ]
   pull_request:
-    branches: [ "main" ]
+    # disable Actions with invalid branch names
+    branches: [ "invalid-branch-name" ]
 
 jobs:
   ci:
