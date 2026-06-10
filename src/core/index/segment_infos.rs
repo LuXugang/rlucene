@@ -504,7 +504,7 @@ where
         field_infos_gen,
         dv_gen,
         sci_id,
-      )?;
+      );
       si_per_commit.set_field_infos_files(input.read_set_of_strings()?);
       let num_dv_fields = CodecUtil::read_be_int(input)?;
       let dv_update_files = if num_dv_fields == 0 {

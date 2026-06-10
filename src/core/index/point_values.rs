@@ -319,9 +319,9 @@ fn estimate_point_count_with_point_tree(
       // The cell crosses the shape boundary: keep recursing
       if point_tree.move_to_child()? {
         let mut cost = 0;
-        while cost < upper_bound {
+        loop {
           cost += estimate_point_count_with_point_tree(visitor, point_tree, upper_bound - cost)?;
-          if !point_tree.move_to_sibling()? {
+          if cost >= upper_bound || !point_tree.move_to_sibling()? {
             break;
           }
         }

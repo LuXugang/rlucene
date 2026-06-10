@@ -3390,7 +3390,7 @@ where
       -1,
       -1,
       Some(StringHelper::random_id()),
-    )?;
+    );
     Arc::get_mut(&mut sci.info)
       .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?
       .set_files(tracking_dir.take_created_files())?;
@@ -3468,7 +3468,7 @@ where
       info.get_field_infos_gen(),
       info.get_doc_values_gen(),
       info.get_id().copied(),
-    )?;
+    );
     new_info_per_commit.set_field_infos_files(info.get_field_infos_files().clone());
     new_info_per_commit.set_doc_values_updates_files(info.get_doc_values_updates_files().clone());
     #[cfg(debug_assertions)]
@@ -4896,7 +4896,7 @@ where
 
     set_diagnostics_impl(&mut si, SOURCE_MERGE, Some(details));
 
-    let sci = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+    let sci = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
     merge.set_merge_info(sci);
 
     Ok(())

@@ -612,7 +612,7 @@ where
           -1,
           -1,
           Some(StringHelper::random_id()),
-        )?;
+        );
 
         if self.info_stream.enabled("DWPT") {
           self.info_stream.message(

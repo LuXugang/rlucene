@@ -106,8 +106,7 @@ pub(crate) trait TestPendingDeletesBase {
       HashMap::new(),
       None,
     )?;
-    let commit_info =
-      SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+    let commit_info = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
     let meta = (&commit_info).into();
     let mut deletes = self.new_pending_deletes(&meta)?;
     assert!(deletes.get_live_docs().is_none());
@@ -158,7 +157,7 @@ pub(crate) trait TestPendingDeletesBase {
       None,
     )?;
     let mut commit_info =
-      SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+      SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
 
     let meta = (&commit_info).into();
     let mut deletes = self.new_pending_deletes(&meta)?;
@@ -251,7 +250,7 @@ pub(crate) trait TestPendingDeletesBase {
       None,
     )?;
     let mut commit_info =
-      SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+      SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
 
     let codec = &*LATEST_CODEC;
     let field_infos = FieldInfos::new(Vec::new())?;

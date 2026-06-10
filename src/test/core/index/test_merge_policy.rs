@@ -183,7 +183,7 @@ where
       0,
       0,
       Some(StringHelper::random_id()),
-    )?];
+    )];
     let mut merge_segments = Vec::new();
     for info in segments {
       merge_segments.push(SegmentDocAndID::new(

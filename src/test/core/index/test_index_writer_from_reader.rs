@@ -162,6 +162,7 @@ fn test_nrt_rollback() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

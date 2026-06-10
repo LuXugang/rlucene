@@ -302,6 +302,15 @@ pub mod lucene_test_case_util {
     Ok(())
   }
 
+  pub(crate) fn new_maybe_virus_checking_directory<R>(random: &mut R) -> Result<Arc<DirEnum>>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO
+    let dir = new_directory(random)?;
+    Ok(Arc::new(dir))
+  }
+
   // TODO: When we have implemented multiple directories, we need to select one
   // randomly. Currently, we choose NIOFSDirectory.
   pub(crate) fn new_directory_shared<R>(random: &mut R) -> Result<Arc<DirEnum>>

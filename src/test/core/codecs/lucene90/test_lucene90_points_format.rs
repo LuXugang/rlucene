@@ -138,7 +138,7 @@ impl TestLucene90PointsFormat {
         doc_count,
         (doc_count as f64
           * (1.0
-            - ((num_docs as i64 - point_count) as f64 / points.size()? as f64)
+            - ((num_docs as f64 - point_count as f64) / points.size()? as f64)
               .powf(points.size()? as f64 / doc_count as f64))) as i64
       );
     } else {

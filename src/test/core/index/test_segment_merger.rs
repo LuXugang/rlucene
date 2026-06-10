@@ -110,7 +110,7 @@ fn test_merge() -> Result<()> {
   assert_eq!(2, docs_merged);
   // Should be able to open a new SegmentReader against the new directory
   let merged_reader = Arc::new(SegmentReader::new(
-    &SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?,
+    &SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id())),
     LATEST.major,
     &new_io_context(&mut random)?,
   )?);

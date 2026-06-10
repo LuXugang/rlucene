@@ -42,7 +42,7 @@ fn test_num_deletes_to_merge() -> Result<()> {
     -1,
     -1,
     Some(StringHelper::random_id()),
-  )?;
+  );
   let id = dummy_commit_info.info.get_id_key().to_string();
   let v = caching_merge_context.num_deletes_to_merge(&dummy_commit_info)?;
   assert_eq!(v, 1);

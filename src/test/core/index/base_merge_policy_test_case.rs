@@ -176,7 +176,7 @@ pub trait BaseMergePolicyTestCase {
         -1,
         -1,
         Some(StringHelper::random_id()),
-      )?)?;
+      ))?;
     }
 
     let forced_deletes_merges = mp.find_forced_deletes_merges(&infos, None, &context)?;
@@ -562,7 +562,7 @@ where
   files.insert(file_name);
   info.set_files(files)?;
 
-  SegmentCommitInfo::new(
+  Ok(SegmentCommitInfo::new(
     info,
     num_deleted_docs,
     0,
@@ -570,7 +570,7 @@ where
     0,
     0,
     Some(StringHelper::random_id()),
-  )
+  ))
 }
 pub(crate) fn apply_merge<D, CR, R>(
   random: &mut R,
@@ -694,7 +694,7 @@ where
         sci.get_field_infos_gen(),
         sci.get_doc_values_gen(),
         Some(StringHelper::random_id()),
-      )?;
+      );
       new_info.info = sci.info.clone();
       new_infos.add(new_info)?;
     }

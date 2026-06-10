@@ -83,16 +83,16 @@ where
   ///   updates files).
   /// - `ID`: ID that uniquely identifies this segment commit.
   pub fn new(
-    info: SegmentInfo<D>,
+    info: impl Into<Arc<SegmentInfo<D>>>,
     del_count: i32,
     soft_del_count: i32,
     del_gen: i64,
     field_infos_gen: i64,
     doc_values_gen: i64,
     id: Option<[u8; StringHelper::ID_LENGTH]>,
-  ) -> Result<Self> {
-    Ok(Self {
-      info: Arc::new(info),
+  ) -> Self {
+    Self {
+      info: info.into(),
       del_count,
       soft_del_count,
       del_gen,
@@ -114,7 +114,7 @@ where
       field_infos_files: HashSet::new(),
       size_in_bytes: AtomicI64::new(-1),
       buffered_deletes_gen: -1,
-    })
+    }
   }
   /// Returns a reference to the per-field DocValues updates files.
   pub fn get_doc_values_updates_files(&self) -> &HashMap<i32, HashSet<String>> {
@@ -502,29 +502,29 @@ where
   D: Directory,
 {
   fn clone(&self) -> Self {
-    let mut cloned_dv_updates_files = HashMap::new();
+    let mut other = SegmentCommitInfo::new(
+      self.info.clone(),
+      self.del_count,
+      self.soft_del_count,
+      self.del_gen,
+      self.field_infos_gen,
+      self.doc_values_gen,
+      self.get_id().copied(),
+    );
+
+    other.next_write_del_gen = self.next_write_del_gen;
+    other.next_write_field_infos_gen = self.next_write_field_infos_gen;
+    other.next_write_doc_values_gen = self.next_write_doc_values_gen;
 
     for (key, value) in &self.dv_updates_files {
-      cloned_dv_updates_files.insert(*key, value.clone());
+      other.dv_updates_files.insert(*key, value.clone());
     }
 
-    let id = self.get_id().copied();
-    SegmentCommitInfo {
-      info: self.info.clone(),
-      id,
-      del_count: self.del_count,
-      soft_del_count: self.soft_del_count,
-      del_gen: self.del_gen,
-      next_write_del_gen: self.next_write_del_gen,
-      field_infos_gen: self.field_infos_gen,
-      next_write_field_infos_gen: self.next_write_field_infos_gen,
-      doc_values_gen: self.doc_values_gen,
-      next_write_doc_values_gen: self.next_write_doc_values_gen,
-      dv_updates_files: cloned_dv_updates_files,
-      field_infos_files: self.field_infos_files.clone(),
-      size_in_bytes: AtomicI64::new(self.size_in_bytes.load(Ordering::SeqCst)),
-      buffered_deletes_gen: self.buffered_deletes_gen,
-    }
+    other
+      .field_infos_files
+      .extend(self.field_infos_files.clone());
+
+    other
   }
 }
 impl<D> PartialEq for SegmentCommitInfo<D>

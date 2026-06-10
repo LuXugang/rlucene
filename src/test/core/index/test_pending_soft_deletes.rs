@@ -274,7 +274,7 @@ fn test_apply_updates() -> Result<()> {
     None,
   )?;
   let mut commit_info =
-    SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+    SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
   let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
   for _ in 0..commit_info.info.max_doc()? {
     writer.add_document(Document::new())?;

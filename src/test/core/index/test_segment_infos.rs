@@ -105,8 +105,7 @@ fn test_versions_one_segment() -> Result<()> {
     .segment_info_format()
     .write(directory.as_ref(), &mut info, &io_context)?;
 
-  let commit_info =
-    SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+  let commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
 
   sis.add(commit_info)?;
   sis.commit(directory.as_ref())?;
@@ -149,7 +148,7 @@ fn test_versions_two_segments() -> Result<()> {
     .write(directory.as_ref(), &mut info_0, &io_context)?;
 
   let commit_info_0 =
-    SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+    SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
   let _id_0 = commit_info_0.info.get_id_key().to_string();
   sis.add(commit_info_0)?;
 
@@ -173,7 +172,7 @@ fn test_versions_two_segments() -> Result<()> {
     .write(directory.as_ref(), &mut info_1, &io_context)?;
 
   let commit_info_1 =
-    SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+    SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
   let _id_1 = commit_info_1.info.get_id_key().to_string();
   sis.add(commit_info_1)?;
   sis.commit(directory.as_ref())?;
@@ -331,7 +330,7 @@ fn test_id_changes_on_advance() -> Result<()> {
     Some(Arc::new(Sort::get_index_order()?)),
   )?;
 
-  let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(id))?;
+  let mut commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(id));
   assert_eq!(
     StringHelper::id_to_string(Some(&id)),
     StringHelper::id_to_string(commit_info.get_id())
@@ -406,7 +405,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     .segment_info_format()
     .write(dir.as_ref(), &mut info_0, &io_context)?;
   let commit_info_0 =
-    SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+    SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
   sis.add(commit_info_0)?;
 
   // Add second SegmentCommitInfo
@@ -428,7 +427,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     .segment_info_format()
     .write(dir.as_ref(), &mut info_1, &io_context)?;
   let commit_info_1 =
-    SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()))?;
+    SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
   sis.add(commit_info_1)?;
 
   sis.commit(dir.as_ref())?;
