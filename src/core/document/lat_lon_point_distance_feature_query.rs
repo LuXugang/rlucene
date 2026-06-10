@@ -634,7 +634,7 @@ impl IntersectVisitor for DistanceScorerIntersectVisitor {
   }
 
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    if doc_id <= self.doc {
+    if doc_id > self.doc {
       self.result.add_doc(doc_id);
     }
     Ok(())
@@ -712,12 +712,10 @@ where
 
   fn set_empty(&mut self) {
     self.it = Some(DocIdSetIteratorEnum2::A(EmptyDISI::new()));
-    self.doc = -1;
   }
 
   fn set_builder_iterator(&mut self, it: DocIdSetBuilderIterator) {
     self.it = Some(DocIdSetIteratorEnum2::B(it));
-    self.doc = -1;
   }
 }
 impl<ND> DocIdSetIterator for DocIdSetIteratorImpl<ND>

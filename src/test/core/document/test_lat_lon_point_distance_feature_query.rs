@@ -463,7 +463,7 @@ fn test_multi_valued() -> Result<()> {
   w.close()?;
   Ok(())
 }
-// TODO IMPORTANT 测试未通过 725542389918544244/14637065881765096512
+#[test]
 fn test_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
