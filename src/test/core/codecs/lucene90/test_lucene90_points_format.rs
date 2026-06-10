@@ -138,8 +138,8 @@ impl TestLucene90PointsFormat {
         doc_count,
         (doc_count as f64
           * (1.0
-            - ((num_docs as f64 - point_count as f64) / points.size()? as f64)
-              .powf(points.size()? as f64 / doc_count as f64))) as i64
+            - (((num_docs as i64 - point_count) / points.size()? as i64) as f64)
+              .powf((points.size()? as i64 / doc_count) as f64))) as i64
       );
     } else {
       assert_eq!(std::cmp::min(point_count, num_docs as i64), doc_count);
@@ -247,8 +247,8 @@ impl TestLucene90PointsFormat {
         doc_count,
         (doc_count as f64
           * (1.0
-            - ((num_docs as i64 - point_count) as f64 / points.size()? as f64)
-              .powf(points.size()? as f64 / doc_count as f64))) as i64
+            - (((num_docs as i64 - point_count) / points.size()? as i64) as f64)
+              .powf((points.size()? as i64 / doc_count) as f64))) as i64
       );
     } else {
       assert_eq!(std::cmp::min(point_count, num_docs as i64), doc_count);
