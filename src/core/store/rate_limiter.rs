@@ -32,7 +32,7 @@ pub trait RateLimiter {
    * Sets an updated MB per second rate limit. A subclass is allowed to perform dynamic updates of
    * the rate limit during use.
    */
-  fn set_mb_per_sec(&self, mb_per_sec: f64);
+  fn set_mb_per_sec(&self, mb_per_sec: f64) -> Result<()>;
 
   /** The current MB per second rate limit. */
   fn get_mb_per_sec(&self) -> f64;
@@ -72,14 +72,15 @@ impl SimpleRateLimiter {
       min_pause_check_bytes: AtomicU64::new(0),
       last_instant: Mutex::new(Instant::now()),
     };
-    limiter.set_mb_per_sec(mb_per_sec);
+    // Safe: constructor with valid mbPerSec, ignore error
+    let _ = limiter.set_mb_per_sec(mb_per_sec);
     limiter
   }
 }
 
 impl RateLimiter for SimpleRateLimiter {
   /** Sets an updated mb per second rate limit. */
-  fn set_mb_per_sec(&self, mb_per_sec: f64) {
+  fn set_mb_per_sec(&self, mb_per_sec: f64) -> Result<()> {
     self
       .mb_per_sec
       .store(mb_per_sec.to_bits(), Ordering::SeqCst);
@@ -88,6 +89,7 @@ impl RateLimiter for SimpleRateLimiter {
     self
       .min_pause_check_bytes
       .store(min_pause_check as u64, Ordering::SeqCst);
+    Ok(())
   }
 
   fn get_min_pause_check_bytes(&self) -> i64 {

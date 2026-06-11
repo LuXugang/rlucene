@@ -1073,7 +1073,7 @@ where
   pub(crate) total_merge_bytes: AtomicI64,
   merge_readers: Vec<MergeReader<CR, CR::Bits>>,
   /// Control used to pause/stop/resume the merge thread.
-  merge_progress: OneMergeProgress,
+  pub(crate) merge_progress: OneMergeProgress,
   pub(crate) merge_start_ns: Instant,
   /// Total number of documents in segments to be merged, not accounting for deletions.
   pub(crate) total_max_doc: i32,

@@ -107,6 +107,7 @@ pub mod log_merge_policy;
 pub(crate) mod mapped_multi_fields;
 pub(crate) mod mapping_multi_postings_enum;
 pub mod merge_policy;
+pub mod merge_rate_limiter;
 pub mod merge_scheduler;
 pub mod merge_state;
 pub mod merge_trigger;

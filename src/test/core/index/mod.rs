@@ -109,6 +109,7 @@ mod test_max_position;
 mod test_max_term_frequency;
 mod test_merge_on_flush_merge_policy;
 mod test_merge_policy;
+mod test_merge_rate_limiter;
 mod test_mixed_codecs;
 mod test_mixed_doc_values_updates;
 mod test_multi_doc_values;
