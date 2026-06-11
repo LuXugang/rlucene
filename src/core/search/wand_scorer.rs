@@ -494,7 +494,6 @@ where
 
   /// Update upTo and maximum scores of sub scorers so that upTo is greater than or equal to the next candidate after target,
   /// i.e. the top of `head`.
-  #[allow(clippy::never_loop)]
   fn move_to_next_block(&mut self, mut target: i32) -> Result<()> {
     debug_assert!(self.lead.is_none());
 
@@ -523,7 +522,6 @@ where
           break;
         }
       }
-      break;
     }
 
     debug_assert!(
