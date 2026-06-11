@@ -28,7 +28,6 @@ use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::segment_infos::SegmentInfos;
-#[cfg(feature = "nightly")]
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -164,137 +163,140 @@ struct Operation {
   seq_no: i64,
 }
 
-#[test]
+// TODO IMPORTANT 多线程 BUG
 fn test_stress_concurrent_commit() -> Result<()> {
-  // let mut random = random();
-  // let op_count = at_least(&mut random, 10000);
-  // let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
-  //
-  // let dir = new_directory_shared(&mut random)?;
-  // let mut iwc = new_index_writer_config(&mut random);
-  // iwc.set_index_deletion_policy(NoDeletionPolicy);
-  // let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
-  //
-  // let num_threads = TestUtil::next_int(&mut random, 2, 10) as usize;
-  // let starting_gun = Arc::new(Barrier::new(num_threads + 1));
-  // let thread_ops = (0..num_threads)
-  //   .map(|_| Arc::new(Mutex::new(Vec::new())))
-  //   .collect::<Vec<_>>();
-  // let commit_lock = Arc::new(Mutex::new(()));
-  // let commits = Arc::new(Mutex::new(Vec::new()));
-  //
-  // thread::scope(|scope| -> Result<()> {
-  //   let mut handles = Vec::new();
-  //   for (thread_id, ops) in thread_ops.iter().cloned().enumerate() {
-  //     let seed = random.random();
-  //     let w = w.clone();
-  //     let starting_gun = starting_gun.clone();
-  //     let commit_lock = commit_lock.clone();
-  //     let commits = commits.clone();
-  //     handles.push(scope.spawn(move || -> Result<()> {
-  //       let mut random = random_from_seed(seed);
-  //       starting_gun.wait();
-  //       for _ in 0..op_count {
-  //         let mut op = Operation::default();
-  //         if random.random_range(0..500) == 17 {
-  //           op.what = 2;
-  //           let _guard = commit_lock.lock().unwrap();
-  //           op.seq_no = w.commit()?;
-  //           if op.seq_no != -1 {
-  //             commits.lock().unwrap().push(op);
-  //           }
-  //         } else {
-  //           op.id = random.random_range(0..id_count);
-  //           let id_term = Term::from_text("id", op.id.to_string());
-  //           if random.random_range(0..10) == 1 {
-  //             op.what = 1;
-  //             op.seq_no = if random.random_bool(0.5) {
-  //               w.delete_documents_with_terms(vec![id_term])?
-  //             } else {
-  //               w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
-  //             };
-  //           } else {
-  //             let mut doc = Document::new();
-  //             doc.add(StoredField::from_i32("thread", thread_id as i32)?);
-  //             doc.add(StringField::from_string(
-  //               "id",
-  //               op.id.to_string(),
-  //               Store::No,
-  //             )?);
-  //             op.seq_no = w.update_document_with_term(id_term, doc)?;
-  //             op.what = 0;
-  //           }
-  //           ops.lock().unwrap().push(op);
-  //         }
-  //       }
-  //       Ok(())
-  //     }));
-  //   }
-  //
-  //   starting_gun.wait();
-  //   for handle in handles {
-  //     handle.join().expect("thread panicked")?;
-  //   }
-  //   Ok(())
-  // })?;
-  //
-  // let commit_op = Operation {
-  //   seq_no: w.commit()?,
-  //   ..Default::default()
-  // };
-  // if commit_op.seq_no != -1 {
-  //   commits.lock().unwrap().push(commit_op);
-  // }
-  //
-  // let index_commits = list_commits(dir.clone())?;
-  // let commits = commits.lock().unwrap().clone();
-  // assert_eq!(commits.len(), index_commits.len());
-  //
-  // let mut expected_thread_ids = vec![-1; id_count];
-  // let mut seq_nos = vec![0_i64; id_count];
-  //
-  // for (i, commit) in commits.iter().enumerate() {
-  //   let commit_seq_no = commit.seq_no;
-  //   expected_thread_ids.fill(-1);
-  //   seq_nos.fill(0);
-  //
-  //   for (thread_id, ops) in thread_ops.iter().enumerate() {
-  //     let mut last_seq_no = 0;
-  //     for op in ops.lock().unwrap().iter() {
-  //       if op.seq_no <= commit_seq_no && op.seq_no > seq_nos[op.id] {
-  //         seq_nos[op.id] = op.seq_no;
-  //         if op.what == 0 {
-  //           expected_thread_ids[op.id] = thread_id as i32;
-  //         } else {
-  //           expected_thread_ids[op.id] = -1;
-  //         }
-  //       }
-  //       assert!(op.seq_no > last_seq_no);
-  //       last_seq_no = op.seq_no;
-  //     }
-  //   }
-  //
-  //   let r = directory_reader::open_from_commit::<_, DummyComparator, _>(&index_commits[i])?;
-  //   let s = new_searcher_with_reader(r)?;
-  //   for (id, expected_thread_id) in expected_thread_ids.iter().enumerate() {
-  //     let hits = s.search(TermQuery::new(Term::from_text("id", id.to_string())), 1)?;
-  //     if *expected_thread_id != -1 {
-  //       assert_eq!(1, hits.total_hits.value());
-  //       let doc = s.stored_fields()?.document(hits.score_docs[0].doc)?;
-  //       assert_eq!(
-  //         *expected_thread_id,
-  //         get_i32_field(&doc, "thread")?,
-  //         "id={id}"
-  //       );
-  //     } else {
-  //       assert_eq!(0, hits.total_hits.value());
-  //     }
-  //   }
-  // }
-  // w.close()?;
+  let mut random = random();
+  let op_count = at_least(&mut random, 10000);
+  let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random);
+  iwc.set_index_deletion_policy(NoDeletionPolicy);
+  let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+
+  let num_threads = TestUtil::next_int(&mut random, 2, 10) as usize;
+  let starting_gun = Arc::new(Barrier::new(num_threads + 1));
+  let thread_ops = (0..num_threads)
+    .map(|_| Arc::new(Mutex::new(Vec::new())))
+    .collect::<Vec<_>>();
+  let commit_lock = Arc::new(Mutex::new(()));
+  let commits = Arc::new(Mutex::new(Vec::new()));
+
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+    for (thread_id, ops) in thread_ops.iter().cloned().enumerate() {
+      let seed = random.random();
+      let w = w.clone();
+      let starting_gun = starting_gun.clone();
+      let commit_lock = commit_lock.clone();
+      let commits = commits.clone();
+      handles.push(scope.spawn(move || -> Result<()> {
+        let mut random = random_from_seed(seed);
+        starting_gun.wait();
+        for _ in 0..op_count {
+          let mut op = Operation::default();
+          if random.random_range(0..500) == 17 {
+            op.what = 2;
+            let _guard = commit_lock.lock().unwrap();
+            op.seq_no = w.commit()?;
+            if op.seq_no != -1 {
+              commits.lock().unwrap().push(op);
+            }
+          } else {
+            op.id = random.random_range(0..id_count);
+            let id_term = Term::from_text("id", op.id.to_string());
+            if random.random_range(0..10) == 1 {
+              op.what = 1;
+              op.seq_no = w.delete_documents_with_terms(vec![id_term])?;
+              // TODO delete by query 未实现
+              // op.seq_no = if random.random_bool(0.5) {
+              //   w.delete_documents_with_terms(vec![id_term])?
+              // } else {
+              //   w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
+              // };
+            } else {
+              let mut doc = Document::new();
+              doc.add(StoredField::from_i32("thread", thread_id as i32)?);
+              doc.add(StringField::from_string(
+                "id",
+                op.id.to_string(),
+                Store::No,
+              )?);
+              op.seq_no = w.update_document_with_term(id_term, doc)?;
+              op.what = 0;
+            }
+            ops.lock().unwrap().push(op);
+          }
+        }
+        Ok(())
+      }));
+    }
+
+    starting_gun.wait();
+    for handle in handles {
+      handle.join().expect("thread panicked")?;
+    }
+    Ok(())
+  })?;
+
+  let commit_op = Operation {
+    seq_no: w.commit()?,
+    ..Default::default()
+  };
+  if commit_op.seq_no != -1 {
+    commits.lock().unwrap().push(commit_op);
+  }
+
+  let index_commits = list_commits(dir.clone())?;
+  let commits = commits.lock().unwrap().clone();
+  assert_eq!(commits.len(), index_commits.len());
+
+  let mut expected_thread_ids = vec![-1; id_count];
+  let mut seq_nos = vec![0_i64; id_count];
+
+  for (i, commit) in commits.iter().enumerate() {
+    let commit_seq_no = commit.seq_no;
+    expected_thread_ids.fill(-1);
+    seq_nos.fill(0);
+
+    for (thread_id, ops) in thread_ops.iter().enumerate() {
+      let mut last_seq_no = 0;
+      for op in ops.lock().unwrap().iter() {
+        if op.seq_no <= commit_seq_no && op.seq_no > seq_nos[op.id] {
+          seq_nos[op.id] = op.seq_no;
+          if op.what == 0 {
+            expected_thread_ids[op.id] = thread_id as i32;
+          } else {
+            expected_thread_ids[op.id] = -1;
+          }
+        }
+        assert!(op.seq_no > last_seq_no);
+        last_seq_no = op.seq_no;
+      }
+    }
+
+    let r = directory_reader::open_from_commit::<_, DummyComparator, _>(&index_commits[i])?;
+    let s = new_searcher_with_reader(r)?;
+    for (id, expected_thread_id) in expected_thread_ids.iter().enumerate() {
+      let hits = s.search(TermQuery::new(Term::from_text("id", id.to_string())), 1)?;
+      if *expected_thread_id != -1 {
+        assert_eq!(1, hits.total_hits.value());
+        let doc = s.stored_fields()?.document(hits.score_docs[0].doc)?;
+        assert_eq!(
+          *expected_thread_id,
+          get_i32_field(&doc, "thread")?,
+          "id={id}"
+        );
+      } else {
+        assert_eq!(0, hits.total_hits.value());
+      }
+    }
+  }
+  w.close()?;
   Ok(())
 }
-// TODO IMPORTANT 多线程 BUG
+
+#[test]
 fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);
@@ -423,134 +425,134 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   w.close()?;
   Ok(())
 }
-
-// TODO IMPORTANT 多线程 BUG
+// TODO IMPORTANT 多线程索引 BUG
 fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
-  // let mut random = random();
-  // let op_count = at_least(&mut random, 10000);
-  // let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
-  //
-  // let dir = new_directory_shared(&mut random)?;
-  // let mut iwc = new_index_writer_config(&mut random);
-  // iwc.set_index_deletion_policy(NoDeletionPolicy);
-  // let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
-  //
-  // let num_threads = TestUtil::next_int(&mut random, 2, 5) as usize;
-  // let starting_gun = Arc::new(Barrier::new(num_threads + 1));
-  // let thread_ops = (0..num_threads)
-  //   .map(|_| Arc::new(Mutex::new(Vec::new())))
-  //   .collect::<Vec<_>>();
-  // let commit_lock = Arc::new(Mutex::new(()));
-  // let commits = Arc::new(Mutex::new(Vec::new()));
-  //
-  // thread::scope(|scope| -> Result<()> {
-  //   let mut handles = Vec::new();
-  //   for (thread_id, ops) in thread_ops.iter().cloned().enumerate() {
-  //     let seed = random.random();
-  //     let w = w.clone();
-  //     let starting_gun = starting_gun.clone();
-  //     let commit_lock = commit_lock.clone();
-  //     let commits = commits.clone();
-  //     handles.push(scope.spawn(move || -> Result<()> {
-  //       let mut random = random_from_seed(seed);
-  //       starting_gun.wait();
-  //       for _ in 0..op_count {
-  //         let mut op = Operation::default();
-  //         if random.random_range(0..500) == 17 {
-  //           op.what = 2;
-  //           let _guard = commit_lock.lock().unwrap();
-  //           op.seq_no = w.commit()?;
-  //           if op.seq_no != -1 {
-  //             commits.lock().unwrap().push(op);
-  //           }
-  //         } else {
-  //           op.id = random.random_range(0..id_count);
-  //           let id_term = Term::from_text("id", op.id.to_string());
-  //           if random.random_range(0..10) == 1 {
-  //             op.what = 1;
-  //             // TODO delete by query 未实现
-  //             op.seq_no = if random.random_bool(0.5) {
-  //               w.delete_documents_with_terms(vec![id_term])?
-  //             } else {
-  //               w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
-  //             };
-  //           } else {
-  //             let thread_op = format!("{}-{}", thread_id, ops.lock().unwrap().len());
-  //             let mut doc = Document::new();
-  //             doc.add(StoredField::from_string("threadop", thread_op)?);
-  //             doc.add(StringField::from_string(
-  //               "id",
-  //               op.id.to_string(),
-  //               Store::No,
-  //             )?);
-  //             op.seq_no = if random.random_bool(0.5) {
-  //               w.add_documents(vec![doc])?
-  //             } else {
-  //               w.add_document(doc)?
-  //             };
-  //             op.what = 3;
-  //           }
-  //           ops.lock().unwrap().push(op);
-  //         }
-  //       }
-  //       Ok(())
-  //     }));
-  //   }
-  //
-  //   starting_gun.wait();
-  //   for handle in handles {
-  //     handle.join().expect("thread panicked")?;
-  //   }
-  //   Ok(())
-  // })?;
-  //
-  // let commit_op = Operation {
-  //   seq_no: w.commit()?,
-  //   ..Default::default()
-  // };
-  // if commit_op.seq_no != -1 {
-  //   commits.lock().unwrap().push(commit_op);
-  // }
-  //
-  // let index_commits = list_commits(dir.clone())?;
-  // let commits = commits.lock().unwrap().clone();
-  // assert_eq!(commits.len(), index_commits.len());
-  //
-  // let mut expected_counts = vec![0; id_count];
-  // let mut last_del_seq_nos = vec![-1_i64; id_count];
-  //
-  // for (i, commit) in commits.iter().enumerate() {
-  //   let commit_seq_no = commit.seq_no;
-  //   last_del_seq_nos.fill(-1);
-  //
-  //   for ops in &thread_ops {
-  //     let mut last_seq_no = 0;
-  //     for op in ops.lock().unwrap().iter() {
-  //       if op.what == 1 && op.seq_no <= commit_seq_no && op.seq_no > last_del_seq_nos[op.id] {
-  //         last_del_seq_nos[op.id] = op.seq_no;
-  //       }
-  //       assert!(op.seq_no > last_seq_no);
-  //       last_seq_no = op.seq_no;
-  //     }
-  //   }
-  //
-  //   expected_counts.fill(0);
-  //   for ops in &thread_ops {
-  //     for op in ops.lock().unwrap().iter() {
-  //       if op.what == 3 && op.seq_no <= commit_seq_no && op.seq_no > last_del_seq_nos[op.id] {
-  //         expected_counts[op.id] += 1;
-  //       }
-  //     }
-  //   }
-  //
-  //   let r = directory_reader::open_from_commit::<_, DummyComparator, _>(&index_commits[i])?;
-  //   let s = new_searcher_with_reader(r)?;
-  //   for (id, expected_count) in expected_counts.iter().enumerate() {
-  //     let actual_count = s.count(TermQuery::new(Term::from_text("id", id.to_string())))?;
-  //     assert_eq!(*expected_count, actual_count as i32, "commit {i} id={id}");
-  //   }
-  // }
-  // w.close()?;
+  let mut random = random();
+  let op_count = at_least(&mut random, 10000);
+  let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random);
+  iwc.set_index_deletion_policy(NoDeletionPolicy);
+  let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+
+  let num_threads = TestUtil::next_int(&mut random, 2, 5) as usize;
+  let starting_gun = Arc::new(Barrier::new(num_threads + 1));
+  let thread_ops = (0..num_threads)
+    .map(|_| Arc::new(Mutex::new(Vec::new())))
+    .collect::<Vec<_>>();
+  let commit_lock = Arc::new(Mutex::new(()));
+  let commits = Arc::new(Mutex::new(Vec::new()));
+
+  thread::scope(|scope| -> Result<()> {
+    let mut handles = Vec::new();
+    for (thread_id, ops) in thread_ops.iter().cloned().enumerate() {
+      let seed = random.random();
+      let w = w.clone();
+      let starting_gun = starting_gun.clone();
+      let commit_lock = commit_lock.clone();
+      let commits = commits.clone();
+      handles.push(scope.spawn(move || -> Result<()> {
+        let mut random = random_from_seed(seed);
+        starting_gun.wait();
+        for _ in 0..op_count {
+          let mut op = Operation::default();
+          if random.random_range(0..500) == 17 {
+            op.what = 2;
+            let _guard = commit_lock.lock().unwrap();
+            op.seq_no = w.commit()?;
+            if op.seq_no != -1 {
+              commits.lock().unwrap().push(op);
+            }
+          } else {
+            op.id = random.random_range(0..id_count);
+            let id_term = Term::from_text("id", op.id.to_string());
+            if random.random_range(0..10) == 1 {
+              op.what = 1;
+              op.seq_no = w.delete_documents_with_terms(vec![id_term])?;
+              // TODO delete by query 未实现
+              // op.seq_no = if random.random_bool(0.5) {
+              //   w.delete_documents_with_terms(vec![id_term])?
+              // } else {
+              //   w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
+              // };
+            } else {
+              let thread_op = format!("{}-{}", thread_id, ops.lock().unwrap().len());
+              let mut doc = Document::new();
+              doc.add(StoredField::from_string("threadop", thread_op)?);
+              doc.add(StringField::from_string(
+                "id",
+                op.id.to_string(),
+                Store::No,
+              )?);
+              op.seq_no = if random.random_bool(0.5) {
+                w.add_documents(vec![doc])?
+              } else {
+                w.add_document(doc)?
+              };
+              op.what = 3;
+            }
+            ops.lock().unwrap().push(op);
+          }
+        }
+        Ok(())
+      }));
+    }
+
+    starting_gun.wait();
+    for handle in handles {
+      handle.join().expect("thread panicked")?;
+    }
+    Ok(())
+  })?;
+
+  let commit_op = Operation {
+    seq_no: w.commit()?,
+    ..Default::default()
+  };
+  if commit_op.seq_no != -1 {
+    commits.lock().unwrap().push(commit_op);
+  }
+
+  let index_commits = list_commits(dir.clone())?;
+  let commits = commits.lock().unwrap().clone();
+  assert_eq!(commits.len(), index_commits.len());
+
+  let mut expected_counts = vec![0; id_count];
+  let mut last_del_seq_nos = vec![-1_i64; id_count];
+
+  for (i, commit) in commits.iter().enumerate() {
+    let commit_seq_no = commit.seq_no;
+    last_del_seq_nos.fill(-1);
+
+    for ops in &thread_ops {
+      let mut last_seq_no = 0;
+      for op in ops.lock().unwrap().iter() {
+        if op.what == 1 && op.seq_no <= commit_seq_no && op.seq_no > last_del_seq_nos[op.id] {
+          last_del_seq_nos[op.id] = op.seq_no;
+        }
+        assert!(op.seq_no > last_seq_no);
+        last_seq_no = op.seq_no;
+      }
+    }
+
+    expected_counts.fill(0);
+    for ops in &thread_ops {
+      for op in ops.lock().unwrap().iter() {
+        if op.what == 3 && op.seq_no <= commit_seq_no && op.seq_no > last_del_seq_nos[op.id] {
+          expected_counts[op.id] += 1;
+        }
+      }
+    }
+
+    let r = directory_reader::open_from_commit::<_, DummyComparator, _>(&index_commits[i])?;
+    let s = new_searcher_with_reader(r)?;
+    for (id, expected_count) in expected_counts.iter().enumerate() {
+      let actual_count = s.count(TermQuery::new(Term::from_text("id", id.to_string())))?;
+      assert_eq!(*expected_count, actual_count as i32, "commit {i} id={id}");
+    }
+  }
+  w.close()?;
   Ok(())
 }
 

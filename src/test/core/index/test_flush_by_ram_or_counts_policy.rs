@@ -200,7 +200,7 @@ fn test_flush_doc_count() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT 多线程索引 BUG
+#[test]
 fn test_random() -> Result<()> {
   let mut random = random();
   let num_threads = 1 + random.random_range(0..8);

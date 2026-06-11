@@ -5595,7 +5595,7 @@ where
       self.force_apply(updates)?;
       return Ok(true);
     }
-    Ok(true)
+    Ok(false)
   }
   /// Translates a frozen packet of delete term/query, or doc values updates, into their actual
   /// doc IDs in the index, and applies the change.
