@@ -845,12 +845,14 @@ where
         &format!("{thread_name} finishFullFlush success={success}"),
       );
     }
-    debug_assert!(self.set_flushing_delete_queue(None, None));
-    if success {
-      self.flush_control.finish_full_flush(config)?;
-    } else {
-      self.flush_control.abort_full_flushes(self, config)?;
-    }
+    let result = {
+      debug_assert!(self.set_flushing_delete_queue(None, None));
+      if success {
+        self.flush_control.finish_full_flush(config)
+      } else {
+        self.flush_control.abort_full_flushes(self, config)
+      }
+    };
     self
       .pending_changes_in_current_full_flush
       .store(false, Ordering::SeqCst);
@@ -858,7 +860,7 @@ where
     // flush
     self.apply_all_deletes()?;
 
-    Ok(())
+    result
   }
 
   /// Returns the number of bytes currently being flushed

@@ -62,20 +62,23 @@ where
     // first inc the ticket count - freeze opens a window for #anyChanges to fail
     let mut inner = self.inner.lock();
     self.inc_tickets();
+    let mut success = false;
     let result = (|| {
       let ticket_opt = ticket_supplier.get_mut()?;
       if let Some(ticket) = ticket_opt {
         let id = ticket.id.clone();
         inner.queue.push_back(ticket.id.clone());
         inner.value.insert(ticket.id.clone(), ticket);
+        success = true;
         Ok(Some(id))
       } else {
         Ok(None)
       }
     })();
-    result.inspect_err(|_| {
+    if !success {
       self.dec_tickets();
-    })
+    }
+    result
   }
   fn inc_tickets(&self) {
     // incrementAndGet

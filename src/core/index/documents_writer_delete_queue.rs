@@ -79,16 +79,31 @@ use crate::core::util::info_stream::InfoStreamMT;
 /// [`DeleteSlice`](crate::core::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread)
 pub struct DocumentsWriterDeleteQueue {
+  // TODO IMPORTANT 需要 2 个 Mutex
   pub(crate) inner: Mutex<Inner>,
   pub(crate) generation: i64,
   /// Generates the sequence number that IW returns to callers changing the
   /// index, showing the effective serialization of all operations.
-  next_seq_no: AtomicI64,
+  next_seq_no: Arc<AtomicI64>,
   info_stream: InfoStreamMT,
   start_seq_no: i64,
-  previous_max_seq_id: i64,
+  previous_max_seq_id: PreviousMaxSeqId,
   max_seq_no: AtomicI64,
 }
+enum PreviousMaxSeqId {
+  Fixed(i64),
+  FromNextSeqNo(Arc<AtomicI64>),
+}
+
+impl PreviousMaxSeqId {
+  fn get(&self) -> i64 {
+    match self {
+      PreviousMaxSeqId::Fixed(value) => *value,
+      PreviousMaxSeqId::FromNextSeqNo(next_seq_no) => next_seq_no.load(Ordering::SeqCst) - 1,
+    }
+  }
+}
+
 pub(crate) struct Inner {
   tail: Arc<Node>,
   /// Used to record deletes against all prior (already written to disk)
@@ -131,8 +146,22 @@ impl DocumentsWriterDeleteQueue {
     start_seq_no: i64,
     previous_max_seq_id: i64,
   ) -> Self {
+    Self::with_previous_max_seq_id(
+      info_stream,
+      generation,
+      start_seq_no,
+      PreviousMaxSeqId::Fixed(previous_max_seq_id),
+    )
+  }
+
+  fn with_previous_max_seq_id(
+    info_stream: InfoStreamMT,
+    generation: i64,
+    start_seq_no: i64,
+    previous_max_seq_id: PreviousMaxSeqId,
+  ) -> Self {
     let tail = Arc::new(Node::new(NodeEnum::EmptyNode(EmptyNode::new())));
-    let value = previous_max_seq_id;
+    let value = previous_max_seq_id.get();
     debug_assert!(
       value <= start_seq_no,
       "illegal max sequence ID: {value} start was: {start_seq_no}"
@@ -142,7 +171,7 @@ impl DocumentsWriterDeleteQueue {
     Self {
       inner: Mutex::new(global_slice),
       generation,
-      next_seq_no: AtomicI64::new(start_seq_no),
+      next_seq_no: Arc::new(AtomicI64::new(start_seq_no)),
       info_stream,
       start_seq_no,
       previous_max_seq_id,
@@ -432,7 +461,7 @@ impl DocumentsWriterDeleteQueue {
       self.get_last_sequence_number()
     } else {
       // If we haven't advanced the seqNo, fall back to the previous queue
-      let value = self.previous_max_seq_id;
+      let value = self.previous_max_seq_id.get();
       debug_assert!(
         value < self.start_seq_no,
         "illegal max sequence ID: {} start was: {}",
@@ -472,13 +501,12 @@ impl DocumentsWriterDeleteQueue {
     // introduced a memory leak since it would
     // implicitly reference this.nextSeqNo which holds on to this del queue.
     // see LUCENE-9478 for reference
-    let prev_max_seq_id = self.next_seq_no.load(Ordering::SeqCst) - 1;
     // Create a new queue with updated parameters
-    Ok(DocumentsWriterDeleteQueue::with_params(
+    Ok(DocumentsWriterDeleteQueue::with_previous_max_seq_id(
       self.info_stream.clone(),
       self.generation + 1,
       seq_no + 1,
-      prev_max_seq_id,
+      PreviousMaxSeqId::FromNextSeqNo(Arc::clone(&self.next_seq_no)),
     ))
   }
 
@@ -497,13 +525,13 @@ impl DocumentsWriterDeleteQueue {
 
 impl Display for DocumentsWriterDeleteQueue {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "DWDP: [ generation: {} ]", self.generation)
+    write!(f, "DWDQ: [ generation: {} ]", self.generation)
   }
 }
 impl Accountable for DocumentsWriterDeleteQueue {
   fn ram_bytes_used(&self) -> Result<i64> {
-    //TODO: memory calculation not implement
-    Ok(0)
+    let global_state = self.inner.lock();
+    global_state.global_buffered_updates.ram_bytes_used()
   }
 }
 
@@ -624,7 +652,9 @@ impl EmptyNode {
 }
 impl NodeBase for EmptyNode {
   fn apply(&self, _buffered_deletes: &mut BufferedUpdates, _doc_id_upto: i32) -> Result<()> {
-    Ok(())
+    Err(LuceneError::illegal_state(
+      "sentinel item must never be applied",
+    ))
   }
 }
 impl Display for EmptyNode {
@@ -751,6 +781,10 @@ impl NodeBase for DocValuesUpdatesNode {
     }
     Ok(())
   }
+
+  fn is_delete(&self) -> bool {
+    false
+  }
 }
 impl Display for DocValuesUpdatesNode {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -823,7 +857,7 @@ impl Display for NodeEnum {
 
 pub(crate) trait NodeBase {
   fn apply(&self, _buffered_deletes: &mut BufferedUpdates, _doc_id_upto: i32) -> Result<()> {
-    Err(LuceneError::illegal_argument(
+    Err(LuceneError::illegal_state(
       "sentinel item must never be applied",
     ))
   }

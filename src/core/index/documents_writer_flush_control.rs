@@ -890,7 +890,7 @@ where
       let flush_queue = std::mem::take(&mut inner.flush_queue);
 
       for dwpt_wrapper in flush_queue {
-        let result = (|| -> Result<()> {
+        let _ = (|| -> Result<()> {
           let num_docs_in_ram = {
             let dwpt = dwpt_wrapper.dwpt.lock();
             dwpt.get_num_docs_in_ram()
@@ -901,13 +901,12 @@ where
         })();
 
         self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config)?;
-        result?;
       }
 
       let blocked_flushes = std::mem::take(&mut inner.blocked_flushes);
 
       for dwpt_wrapper in blocked_flushes {
-        let result = (|| -> Result<()> {
+        let _ = (|| -> Result<()> {
           // add the blockedFlushes for correct accounting in doAfterFlush
           self.add_flushing_dwpt(dwpt_wrapper.clone(), inner);
           let num_docs_in_ram = {
@@ -919,7 +918,6 @@ where
           Ok(())
         })();
         self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config)?;
-        result?;
       }
 
       Ok(())
