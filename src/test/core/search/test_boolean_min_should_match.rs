@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
-use crate::core::search::boolean_query::Builder;
+use crate::core::search::boolean_query::{BooleanQuery, Builder};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::score_doc::ScoreDoc;
@@ -445,12 +445,18 @@ fn test_random_queries() -> Result<()> {
       QueryUtils::check_from_searcher(&mut random, q1.clone(), &s)?;
       QueryUtils::check_from_searcher(&mut random, q2.clone(), &s)?;
     }
-    assert_subset_of_same_scores(top1, top2)?;
+    assert_subset_of_same_scores(&q2, top1, top2)?;
   }
   Ok(())
 }
-fn assert_subset_of_same_scores(top1: TopDocs<ScoreDoc>, top2: TopDocs<ScoreDoc>) -> Result<()> {
+fn assert_subset_of_same_scores(
+  query: &BooleanQuery,
+  top1: TopDocs<ScoreDoc>,
+  top2: TopDocs<ScoreDoc>,
+) -> Result<()> {
   assert!(top2.total_hits().value() <= top1.total_hits().value());
+  let num_scoring_clauses =
+    query.get_clauses_idx(Occur::Should).len() + query.get_clauses_idx(Occur::Must).len();
 
   for hit in 0..top2.total_hits().value() {
     let id = top2.score_docs[hit].doc;
@@ -462,7 +468,15 @@ fn assert_subset_of_same_scores(top1: TopDocs<ScoreDoc>, top2: TopDocs<ScoreDoc>
         found = true;
         let other_score = top1.score_docs[other].score;
 
-        assert!((score - other_score).abs() <= ulp_f32(score));
+        // BooleanQuery sums scores into doubles where possible, but rewriting duplicate clauses
+        // into a boosted clause and ReqOptSumScorer both introduce intermediate float rounding.
+        // Allow losing one ulp of accuracy per scoring clause, as in Lucene's #14715 fix.
+        let tolerance = ulp_f32(score) * num_scoring_clauses as f32;
+        assert!(
+          (score - other_score).abs() <= tolerance,
+          "doc {id} scores don't match for query {query:?}: score={score}, other_score={other_score}, diff={}, tolerance={tolerance}",
+          (score - other_score).abs(),
+        );
       }
     }
 
@@ -482,12 +496,12 @@ fn test_rewrite_negate() -> Result<()> {
   q2.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
   q2.add(TermQuery::new(Term::from_text("data", "Z")), Occur::MustNot)?;
 
-  let q1: Query = q1.build().into();
-  let q2: Query = q2.build().into();
+  let q1 = q1.build();
+  let q2 = q2.build();
 
   let top1 = s.search(q1.clone(), 100)?;
   let top2 = s.search(q2.clone(), 100)?;
-  assert_subset_of_same_scores(top1, top2)?;
+  assert_subset_of_same_scores(&q2, top1, top2)?;
   Ok(())
 }
 
