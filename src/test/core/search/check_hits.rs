@@ -49,6 +49,8 @@ use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::version::LATEST;
+use crate::test::core::search::query_utils::QueryUtils;
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::rarely;
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
@@ -90,6 +92,52 @@ impl CheckHits {
 
     Ok(())
   }
+
+  /// Tests that a query matches the expected set of documents using Hits.
+  ///
+  /// Note that when using the Hits API, documents will only be returned if they have a positive
+  /// normalized score.
+  ///
+  /// * `random` - a random instance
+  /// * `query` - the query to test
+  /// * `default_field_name` - used for displaying the query in assertion messages
+  /// * `searcher` - the searcher to test the query against
+  /// * `results` - a list of documentIds that must match the query
+  /// See also: `check_hit_collector`
+  pub fn check_hits<IRC, R>(
+    random: &mut R,
+    query: Query,
+    default_field_name: &str,
+    searcher: &IndexSearcher<IRC>,
+    results: &[i32],
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    IRC: IndexReaderContext + Sync,
+    IRC::LeafReader: Clone,
+  {
+    let hits = searcher
+      .search(query.clone(), (10usize).max(results.len() * 2))?
+      .score_docs;
+
+    let correct: BTreeSet<i32> = results.iter().copied().collect();
+
+    let mut actual = BTreeSet::new();
+    for hit in &hits {
+      actual.insert(hit.doc());
+    }
+
+    assert_eq!(
+      correct,
+      actual,
+      "{}",
+      query.to_string(default_field_name).unwrap()
+    );
+
+    let wrap = rarely(random);
+    QueryUtils::check_from_searcher_with_wrap(random, query, searcher, wrap)
+  }
+
   pub fn check_doc_ids<S>(mes: &str, result: &[i32], hits: &[S]) -> Result<()>
   where
     S: ScoreDocLike,
