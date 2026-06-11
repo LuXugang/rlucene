@@ -56,6 +56,7 @@ pub mod output_stream_data_output;
 pub mod output_stream_index_output;
 pub mod raf_directory;
 pub mod random_access_input;
+pub mod rate_limiter;
 pub mod read_advice;
 pub mod simple_fs_lock_factory;
 pub mod single_instance_lock_factory;
