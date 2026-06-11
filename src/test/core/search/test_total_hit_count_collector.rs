@@ -30,7 +30,7 @@ use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollect
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_searcher_with_reader, random,
+  new_directory_shared, new_searcher_with_threads, random,
 };
 
 #[allow(dead_code)] // for quick search
@@ -60,8 +60,8 @@ fn test_basics() -> Result<()> {
   let reader = writer.get_reader()?;
   writer.close()?;
 
-  // TODO IMPORTANT 多线程查询未实现
-  let searcher = new_searcher_with_reader(reader)?;
+  // TODO IMPORTANT Concurrency未实现
+  let searcher = new_searcher_with_threads(&mut random, reader, true, true, true)?;
   let collector_manager = TotalHitCountCollectorManager::new(searcher.get_slices()?.as_slice());
   let mut total_hits =
     searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;

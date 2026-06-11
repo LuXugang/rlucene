@@ -393,11 +393,12 @@ fn test_de_morgan() -> Result<()> {
   query.add(wildcard_query, Occur::MustNot)?;
   let query = query.build();
 
-  let multireader = MultiReader::with_composite_reader(vec![reader1, reader2])?;
-  let searcher = new_searcher_with_reader(multireader)?;
+  let multi_reader = Arc::new(MultiReader::with_composite_reader(vec![reader1, reader2])?);
+  let searcher = new_searcher_with_reader(multi_reader.clone())?;
   assert_eq!(0, searcher.search(query.clone(), 10)?.total_hits.value());
 
-  // TODO IMPORTANT 多线程未实现
+  let searcher = IndexSearcher::from_cr_with_thread(multi_reader, 2)?;
+  assert_eq!(0, searcher.search(query, 10)?.total_hits.value());
   Ok(())
 }
 #[test]

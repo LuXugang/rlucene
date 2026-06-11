@@ -102,11 +102,10 @@ where
 #[test]
 fn test_multiple_slices_of_same_index_searcher() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANT 多线程未实现
   let (reader1, reader2) = set_up_readers(&mut random)?;
 
-  let searcher1 = IndexSearcher::from_cr(reader1)?;
-  let searcher2 = IndexSearcher::from_cr(reader2)?;
+  let searcher1 = IndexSearcher::from_cr_with_thread(reader1, random.random_range(2..=5))?;
+  let searcher2 = IndexSearcher::from_cr_with_thread(reader2, random.random_range(2..=5))?;
 
   let query = MatchAllDocsQuery::new();
 
@@ -120,11 +119,10 @@ fn test_multiple_slices_of_same_index_searcher() -> Result<()> {
 #[test]
 fn test_multiple_slices_of_multiple_index_searchers() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANT 多线程未实现
   let (reader1, reader2) = set_up_readers(&mut random)?;
 
-  let searcher1 = IndexSearcher::from_cr(reader1)?;
-  let searcher2 = IndexSearcher::from_cr(reader2)?;
+  let searcher1 = IndexSearcher::from_cr_with_thread(reader1, random.random_range(2..=5))?;
+  let searcher2 = IndexSearcher::from_cr_with_thread(reader2, random.random_range(2..=5))?;
 
   let query = MatchAllDocsQuery::new();
 

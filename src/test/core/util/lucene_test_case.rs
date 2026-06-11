@@ -701,7 +701,7 @@ pub mod lucene_test_case_util {
   {
     let irc = get_context(composite_reader)?;
     if use_threads {
-      let threads = random.random_range(2..=3);
+      let threads = random.random_range(2..=5);
       IndexSearcher::with_threads(irc, threads)
     } else {
       IndexSearcher::new(irc)

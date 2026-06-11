@@ -106,15 +106,12 @@ impl TestIndexSearcher {
 #[test]
 fn test_huge_n() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANTA 未实现多线程
   let TestIndexSearcher { dir: _dir, reader } = TestIndexSearcher::set_up(&mut random)?;
 
-  // Java also constructs an executor-backed IndexSearcher here. The Rust IndexSearcher currently
-  // has no executor parameter, so both entries share the same reader through Arc.
   let reader = Arc::new(reader);
   let searchers = vec![
     IndexSearcher::from_cr(reader.clone())?,
-    IndexSearcher::from_cr(reader.clone())?,
+    IndexSearcher::from_cr_with_thread(reader.clone(), 4)?,
   ];
   let queries: Vec<Query> = vec![
     MatchAllDocsQuery::new().into(),
@@ -295,7 +292,6 @@ fn test_get_slices_no_leaves_no_executor() -> Result<()> {
 }
 #[test]
 fn test_get_slices_no_leaves_with_executor() -> Result<()> {
-  // TODO IMPORTANT  多线程未实现
   let searcher = IndexSearcher::from_cr(MultiReader::empty()?)?;
   let slices = searcher.get_slices()?;
   assert_eq!(0, slices.len());
@@ -335,8 +331,7 @@ fn test_slices_offloaded_to_the_executor() -> Result<()> {
 
 #[test]
 fn test_null_executor_non_null_task_executor() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]

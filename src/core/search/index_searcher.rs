@@ -188,6 +188,12 @@ where
     let reader = get_context(context)?;
     Self::new(reader)
   }
+  pub fn from_cr_with_thread(context: CR, thread_num: usize) -> Result<Self> {
+    let reader = get_context(context)?;
+    let mut is = Self::new(reader)?;
+    is.set_threads(thread_num)?;
+    Ok(is)
+  }
 }
 
 impl<IRC> IndexSearcher<IRC>
