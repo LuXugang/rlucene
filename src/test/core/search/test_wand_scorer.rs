@@ -54,12 +54,15 @@ use crate::core::search::wand_scorer::{
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{HasIdentity, ToInt};
+use crate::test::core::search::asserting_query::AssertingQuery;
+use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, new_searcher_with_threads, random,
 };
-use rand::RngExt;
+use crate::test::core::util::test_util::TestUtil;
+use rand::{Rng, RngExt};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -118,6 +121,16 @@ fn test_scale_max_score() -> Result<()> {
   assert_eq!(1, scaled3);
 
   Ok(())
+}
+fn maybe_wrap<R>(random: &mut R, mut query: Query) -> Result<Query>
+where
+  R: Rng + ?Sized,
+{
+  if random.random_bool(0.5) {
+    query = BlockScoreQueryWrapper::new(query, TestUtil::next_usize(random, 2, 8)).into();
+    query = AssertingQuery::new(random, query).into()
+  }
+  Ok(query)
 }
 #[test]
 fn test_basics() -> Result<()> {
@@ -947,8 +960,8 @@ fn test_random() -> Result<()> {
     let mut builder = Builder::new();
     for i in 0..num_clauses {
       let tq = TermQuery::new(Term::from_text("foo", (start + i).to_string()));
-      // TODO IMPORTANT 这里没有调用maybeWrap方法
-      builder.add(tq, Occur::Should)?;
+      let q = maybe_wrap(&mut random, tq.into())?;
+      builder.add(q, Occur::Should)?;
     }
 
     let query = WANDScorerQuery::new(builder.build(), random.random_bool(0.5)).into();
@@ -1011,7 +1024,7 @@ fn test_random_with_zero_scores() -> Result<()> {
     for i in 0..num_clauses {
       let tq = TermQuery::new(Term::from_text("foo", (start + i).to_string()));
       let q: Query = BoostQuery::new(ConstantScoreQuery::new(tq), 0.0)?.into();
-      // TODO IMPORTANT 这里没有调用maybeWrap方法
+      let q = maybe_wrap(&mut random, q)?;
       builder.add(q, Occur::Should)?;
     }
 

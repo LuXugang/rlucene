@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod asserting_query;
 pub mod base_knn_vector_query_test_case;
 pub(crate) mod base_range_field_query_test_case;
 pub mod base_vector_similarity_query_test_case;

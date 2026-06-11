@@ -22,6 +22,7 @@ use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::search::asserting_query::AssertingQuery;
 use crate::test::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
@@ -283,8 +284,10 @@ fn test_boost_query_simplification() -> Result<()> {
   let term = case.random_term(&mut random);
 
   let q1 = BoostQuery::new(BoostQuery::new(TermQuery::new(term.clone()), b2)?, b1)?;
-  // TODO IMPORTANT AssertingQuery未实现
-  let q2 = BoostQuery::new(BoostQuery::new(TermQuery::new(term), b2)?, b1)?;
+  let q2 = AssertingQuery::new(
+    &mut random,
+    BoostQuery::new(BoostQuery::new(TermQuery::new(term), b2)?, b1)?,
+  );
 
   case.assert_same_scores(&mut random, &q1.into(), &q2.into())
 }

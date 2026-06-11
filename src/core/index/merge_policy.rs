@@ -1338,7 +1338,7 @@ where
   type CodecReader = DefaultLeafReader<D>;
 
   fn wrap_for_merge(&self, reader: DefaultLeafReader<D>) -> Result<Self::CodecReader> {
-    Ok(reader.clone())
+    Ok(reader)
   }
 
   type DocMap = DummyDocMap;

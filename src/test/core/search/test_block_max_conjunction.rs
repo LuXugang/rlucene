@@ -25,6 +25,7 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::query::Query;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::search::asserting_query::AssertingQuery;
 use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
@@ -37,27 +38,25 @@ use rand::{Rng, RngExt};
 #[allow(dead_code)] // for quick search
 pub struct TestBlockMaxConjunction;
 
-fn maybe_wrap<R>(random: &mut R, query: Query) -> Result<Query>
+fn maybe_wrap<R>(random: &mut R, mut query: Query) -> Result<Query>
 where
   R: Rng + ?Sized,
 {
   if random.random_bool(0.5) {
-    Ok(BlockScoreQueryWrapper::new(query, TestUtil::next_usize(random, 2, 8)).into())
-    // TODO AssertingQuery未实现
-  } else {
-    Ok(query)
+    query = BlockScoreQueryWrapper::new(query, TestUtil::next_usize(random, 2, 8)).into();
+    query = AssertingQuery::new(random, query).into()
   }
+  Ok(query)
 }
-fn maybe_wrap_two_phase<R>(random: &mut R, query: Query) -> Result<Query>
+fn maybe_wrap_two_phase<R>(random: &mut R, mut query: Query) -> Result<Query>
 where
   R: Rng + ?Sized,
 {
   if random.random_bool(0.5) {
-    Ok(RandomApproximationQuery::new(query, random).into())
-    // TODO AssertingQuery未实现
-  } else {
-    Ok(query)
+    query = RandomApproximationQuery::new(query, random).into();
+    query = AssertingQuery::new(random, query).into()
   }
+  Ok(query)
 }
 #[test]
 fn test_random() -> Result<()> {

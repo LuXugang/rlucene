@@ -68,6 +68,8 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
+use crate::test::core::search::asserting_query::AssertingQuery;
+#[cfg(test)]
 use crate::test::core::search::base_vector_similarity_query_test_case::CountingQuery;
 #[cfg(test)]
 use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
@@ -152,6 +154,8 @@ macro_rules! dispatch_query {
       Query::XYDocValuesPointInGeometry($inner) => $body,
       Query::XYPointInGeometry($inner) => $body,
       #[cfg(test)]
+      Query::Asserting($inner) => $body,
+      #[cfg(test)]
       Query::AssertNeedsScores($inner) => $body,
       #[cfg(test)]
       Query::BitSet($inner) => $body,
@@ -221,6 +225,7 @@ impl_from_for_enum!(
 #[cfg(test)]
 impl_from_for_enum!(
     Query,
+    AssertingQuery => Asserting,
     AssertNeedsScores => AssertNeedsScores,
     BitSetQuery => BitSet,
     BlockScoreQueryWrapper => BlockScoreQueryWrapper,
@@ -338,6 +343,8 @@ pub enum Query {
   XYDocValuesPointInGeometry(XYDocValuesPointInGeometryQuery),
   XYPointInGeometry(XYPointInGeometryQuery),
   #[cfg(test)]
+  Asserting(AssertingQuery),
+  #[cfg(test)]
   AssertNeedsScores(AssertNeedsScores),
   #[cfg(test)]
   BitSet(BitSetQuery),
@@ -423,6 +430,7 @@ impl Query {
             XYPointInGeometry,
         ];
         test: [
+            Asserting,
             AssertNeedsScores,
             BitSet,
             BlockScoreQueryWrapper,
