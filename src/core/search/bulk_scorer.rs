@@ -70,6 +70,7 @@ pub trait BulkScorer {
 }
 #[cfg(test)]
 pub enum BulkScorerKind {
+  Asserting,
   Default,
   ReqExcl,
 }

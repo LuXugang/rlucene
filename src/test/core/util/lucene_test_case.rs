@@ -142,6 +142,12 @@ pub mod lucene_test_case_util {
     let min = 100 - p.min(20); // Never more than 20% chance
     random.random_range(0..100) >= min
   }
+  pub(crate) fn usually<R>(random: &mut R) -> bool
+  where
+    R: Rng + ?Sized,
+  {
+    !rarely(random)
+  }
 
   pub(crate) fn new_index_writer_config<R>(random: &mut R) -> IndexWriterConfig
   where

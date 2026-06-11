@@ -15,24 +15,19 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::explanation::Explanation;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::weight::Weight;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::search::asserting_weight::AssertingWeight;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
 use rand::RngExt;
 use rand::prelude::StdRng;
 use rand_xoshiro::rand_core::Rng;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// Assertion-enabled query.
 #[derive(Clone, Debug)]
@@ -111,16 +106,12 @@ impl QueryBase for AssertingQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    debug_assert!(boost >= 0.0);
+    assert!(boost >= 0.0);
     let mut random = random_from_seed(self.random_seed);
-    let next_seed: u64 = random.random();
-    let inner_weight = (*self.in_)
-      .clone()
-      .create_weight(searcher, score_mode, boost)?;
+    let weight = self.in_.create_weight(searcher, score_mode, boost)?;
     Ok(Box::new(AssertingWeight::new(
-      self,
-      next_seed,
-      inner_weight,
+      random.random(),
+      weight,
       *score_mode,
     )))
   }
@@ -152,87 +143,5 @@ impl QueryBase for AssertingQuery {
 impl IntoBoxQuery for AssertingQuery {
   fn into_box_query(self) -> Box<Query> {
     Box::new(self.into())
-  }
-}
-
-struct AssertingWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  query: Arc<Query>,
-  #[allow(dead_code)]
-  random_seed: u64,
-  #[allow(dead_code)]
-  score_mode: ScoreMode,
-  inner_weight: QueryWeight<IRC>,
-}
-
-impl<IRC> AssertingWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  fn new(
-    query: AssertingQuery,
-    random_seed: u64,
-    inner_weight: QueryWeight<IRC>,
-    score_mode: ScoreMode,
-  ) -> Self {
-    Self {
-      query: Arc::new(query.into()),
-      random_seed,
-      score_mode,
-      inner_weight,
-    }
-  }
-}
-
-impl<IRC> SegmentCacheable<IRC> for AssertingWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    self.inner_weight.is_cacheable(ctx)
-  }
-}
-
-impl<IRC> Weight<IRC> for AssertingWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  type Matches = MatchWithNoTerms;
-  type ScorerSupplier = QueryWeightSs<IRC>;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.inner_weight.matches(context, doc, searcher)
-  }
-
-  fn explain(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
-    self.inner_weight.explain(context, doc, searcher)
-  }
-
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
-  }
-
-  fn scorer_supplier(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
-    self.inner_weight.scorer_supplier(context, searcher)
-  }
-
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    self.inner_weight.count(context)
   }
 }

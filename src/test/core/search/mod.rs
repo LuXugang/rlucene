@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod asserting_bulk_scorer;
+pub mod asserting_leaf_collector;
 pub mod asserting_query;
+pub mod asserting_scorable;
+pub mod asserting_scorer;
+pub mod asserting_weight;
 pub mod base_knn_vector_query_test_case;
 pub(crate) mod base_range_field_query_test_case;
 pub mod base_vector_similarity_query_test_case;
