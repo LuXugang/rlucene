@@ -14,26 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![cfg_attr(debug_assertions, allow(dead_code))]
-
-#[macro_export]
-macro_rules! dummy_unreachable {
-  () => {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
-  };
+use crate::core::search::query::QueryBase;
+/// Base class for span-based queries.
+pub trait SpanQuery: QueryBase {
+  /// Returns the name of the field matched by this query.
+  fn get_field(&self) -> &str;
 }
-
-#[macro_export]
-macro_rules! test_not_required_in_rust_lucene {
-  () => {
-    return Ok(());
-  };
-}
-
-pub mod analysis;
-pub mod core;
-pub mod migration_notes;
-pub mod queries;
-pub mod sandbox;
-#[cfg(test)]
-pub mod test;

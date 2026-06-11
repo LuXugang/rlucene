@@ -14,26 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![cfg_attr(debug_assertions, allow(dead_code))]
-
-#[macro_export]
-macro_rules! dummy_unreachable {
-  () => {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
-  };
-}
-
-#[macro_export]
-macro_rules! test_not_required_in_rust_lucene {
-  () => {
-    return Ok(());
-  };
-}
-
-pub mod analysis;
-pub mod core;
-pub mod migration_notes;
-pub mod queries;
-pub mod sandbox;
-#[cfg(test)]
-pub mod test;
+pub mod span_collector;
+pub mod span_query;
+pub mod span_scorer;
+pub mod span_weight;
+pub mod spans;

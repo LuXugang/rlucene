@@ -14,26 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![cfg_attr(debug_assertions, allow(dead_code))]
+use crate::core::index::postings_enum::PostingsEnum;
+use crate::core::index::term::Term;
+use crate::core::util::error::lucene_error::Result;
 
-#[macro_export]
-macro_rules! dummy_unreachable {
-  () => {
-    unreachable!("Dummy implementation: this method should never be called in real usage")
-  };
+/// An interface defining the collection of postings information from the
+/// leaves of a [`Spans`](crate::queries::span::spans::Spans)
+///
+/// @lucene.experimental
+pub trait SpanCollector {
+  /// Collect information from postings
+  ///
+  /// * `postings` a [`PostingsEnum`]
+  /// * `position` the position of the PostingsEnum
+  /// * `term`    the [`Term`] for this postings list
+  fn collect_leaf<P: PostingsEnum>(
+    &mut self,
+    postings: &mut P,
+    position: i32,
+    term: &Term,
+  ) -> Result<()>;
+
+  /// Call to indicate that the driving Spans has moved to a new position
+  fn reset(&mut self);
 }
-
-#[macro_export]
-macro_rules! test_not_required_in_rust_lucene {
-  () => {
-    return Ok(());
-  };
-}
-
-pub mod analysis;
-pub mod core;
-pub mod migration_notes;
-pub mod queries;
-pub mod sandbox;
-#[cfg(test)]
-pub mod test;

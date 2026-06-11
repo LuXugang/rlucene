@@ -103,7 +103,7 @@ impl CheckHits {
   /// * `default_field_name` - used for displaying the query in assertion messages
   /// * `searcher` - the searcher to test the query against
   /// * `results` - a list of documentIds that must match the query
-  /// See also: `check_hit_collector`
+  ///   See also: `check_hit_collector`
   pub fn check_hits<IRC, R>(
     random: &mut R,
     query: Query,
