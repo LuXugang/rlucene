@@ -156,11 +156,13 @@ where
     true
   }
   /// Drops reader for the given SegmentCommitInfo if it's pooled
-  pub(crate) fn drop(&self, info_id: &str) -> Result<bool> {
+  pub(crate) fn drop(&self, info_id: &str, segment_infos: &mut SegmentInfos<D>) -> Result<bool> {
     let mut inner = self.inner.lock();
-    if let Some(rld) = inner.reader_map.remove(info_id) {
+    if let Some(rld) = inner.reader_map.get(info_id) {
       debug_assert_eq!(info_id, rld.info_id);
       rld.drop_readers()?;
+      inner.reader_map.remove(info_id);
+      segment_infos.remove_dropped_segment_commit_info(info_id);
       return Ok(true);
     }
     Ok(false)
@@ -214,7 +216,8 @@ where
     &self,
     rld: &ReadersAndUpdates<D>,
     _assert_info_live: bool,
-    info: Option<&mut SegmentCommitInfo<D>>,
+    segment_infos: &mut SegmentInfos<D>,
+    merge_info: Option<&mut SegmentCommitInfo<D>>,
     global_field_number: &FieldNumbers,
   ) -> Result<bool> {
     let mut inner = self.inner.lock();
@@ -245,6 +248,10 @@ where
       {
         // This is the last ref to this RLD, and we're not
         // pooling, so remove it:
+        let info = match segment_infos.index_of_mut(&rld.info_id) {
+          Some(info) => Some(info),
+          None => merge_info,
+        };
         let info = info.ok_or_else(|| LuceneError::illegal_state("info is None"))?;
         if rld.write_live_docs(&self.directory, info)? {
           // Make sure we only write del docs for a live segment:
@@ -270,7 +277,9 @@ where
         }
         if rld.get_num_dv_updates() == 0 {
           rld.drop_readers()?;
-          inner.reader_map.remove(&rld.info_id);
+          if inner.reader_map.remove(&rld.info_id).is_some() {
+            segment_infos.remove_dropped_segment_commit_info(&rld.info_id);
+          }
         } else {
           // We are forced to pool this segment until its deletes fully apply
           // (no delGen gaps)
@@ -281,7 +290,7 @@ where
     Ok(changed)
   }
 
-  pub(crate) fn close(&self) -> Result<()> {
+  pub(crate) fn close(&self, segment_infos: &mut SegmentInfos<D>) -> Result<()> {
     if self
       .inner
       .lock()
@@ -294,7 +303,7 @@ where
       )
       .is_ok()
     {
-      self.drop_all()?;
+      self.drop_all(segment_infos)?;
     }
     Ok(())
   }
@@ -395,7 +404,7 @@ where
     holders.into_iter().map(|h| h.updates).collect()
   }
   /// Remove all our references to readers, and commits any pending changes.
-  pub(crate) fn drop_all(&self) -> Result<()> {
+  pub(crate) fn drop_all(&self, segment_infos: &mut SegmentInfos<D>) -> Result<()> {
     let mut prior_errs = None;
 
     let mut inner = self.inner.lock();
@@ -405,9 +414,10 @@ where
       }
     }
     debug_assert!(inner.reader_map.is_empty());
+    segment_infos.clear_dropped_segment_commit_infos();
     prior_errs.map_or(Ok(()), Err)
   }
-  /// Commit live docs changes for the segment readers for the provided infos.
+  /// Commit live docs changes for the  readers for the provided infos.
   pub(crate) fn commit(
     &self,
     infos: &mut SegmentInfos<D>,

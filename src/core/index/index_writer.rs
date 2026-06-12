@@ -1097,7 +1097,7 @@ where
       },
     };
     let info_id = info_id_owned.as_str();
-    if let Some(info) = inner.segment_infos.index_of(info_id) {
+    if let Some(info) = inner.segment_infos.index_of_live(info_id) {
       let rld_opt = self.get_pooled_instance(SegmentCommitInfoMeta::from(info), false, None)?;
       if let Some(rld) = rld_opt {
         let _guard = self.buffered_updates_stream_lock.lock();
@@ -1134,7 +1134,8 @@ where
       // already
       // removed the segment for the segmentInfo and we lost the pendingDocs update due to that.
       // therefore, we execute the adjustPendingNumDocs in a finally block to account for that.
-      drop_pending_docs |= self.reader_pool.drop(seg_id)?;
+      let dropped_reader = self.reader_pool.drop(seg_id, &mut inner.segment_infos)?;
+      drop_pending_docs |= dropped_reader;
       Ok(())
     })();
 
@@ -2448,7 +2449,7 @@ where
         .last_commit_change_count
         .store(inner.change_count, Ordering::Release);
       // Don't bother saving any changes in our segmentInfos
-      self.reader_pool.close()?;
+      self.reader_pool.close(&mut inner.segment_infos)?;
       // Must set closed while inside same sync block where we call deleter.refresh, else
       // concurrent threads may try to sneak a flush in,
       // after we leave this sync block and before we enter the sync block in the finally clause
@@ -2469,7 +2470,7 @@ where
         }
 
         let mut cleanup_err = None;
-        if let Err(e) = self.reader_pool.close() {
+        if let Err(e) = self.reader_pool.close(&mut inner.segment_infos) {
           cleanup_err = Some(e);
         }
         if let Err(e) = inner.deleter.close()
@@ -2582,7 +2583,7 @@ where
       )?;
 
       // Don't bother saving any changes in our segmentInfos.
-      self.reader_pool.drop_all()?;
+      self.reader_pool.drop_all(&mut inner.segment_infos)?;
 
       // Mark that the index has changed.
       inner.change_count += 1;
@@ -3822,8 +3823,11 @@ where
               // this rld concurrently
               // which wins and then if readerPooling is off this rld will be dropped.
               let mut inner = self.inner.lock();
-              let Some(info) = inner.segment_infos.index_of_mut(&rld.info_id) else {
-                continue;
+              let info = match inner.segment_infos.index_of_mut(&rld.info_id) {
+                Some(info) => info,
+                None => Err(LuceneError::illegal_state(
+                  "could not find segment info from IndexWriter#segment_infos",
+                ))?,
               };
               if self
                 .reader_pool
@@ -4504,7 +4508,9 @@ where
       // doing this makes  MockDirWrapper angry in
       // TestNRTThreads (LUCENE-5434):
       if let Some(ref info) = merge.info {
-        self.reader_pool.drop(info.info.get_id_key())?;
+        self
+          .reader_pool
+          .drop(info.info.get_id_key(), &mut inner.segment_infos)?;
         // Safe: these files must exist
         self.delete_new_files(info.files()?.iter(), Some(&inner))?;
       } else {
@@ -4548,7 +4554,6 @@ where
     debug_assert!(sci.info.max_doc()? != 0 || drop_segment);
 
     if let Some(merged_updates) = merged_updates {
-      let mut success = false;
       let res: Result<()> = (|| {
         if drop_segment {
           merged_updates.drop_changes();
@@ -4557,15 +4562,13 @@ where
         // segment is not yet live (only below do we commit it
         // to the segment_infos):
         self.release_with_assert(&merged_updates, false, &mut inner, merge.info.as_mut())?;
-        success = true;
         Ok(())
       })();
 
       if res.is_err() {
         merged_updates.drop_changes();
-        self
-          .reader_pool
-          .drop(merge.info.as_ref().unwrap().info.get_id_key())?;
+        let info_id = merge.info.as_ref().unwrap().info.get_id_key();
+        self.reader_pool.drop(info_id, &mut inner.segment_infos)?;
         return Err(res.err().unwrap());
       }
     }
@@ -4578,10 +4581,6 @@ where
     inner
       .segment_infos
       .apply_merge_changes(merge, drop_segment)?;
-    // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
-    let merge_sci = inner.segment_infos.index_of(&merge_id).ok_or_else(|| {
-      LuceneError::illegal_state("merge's SegmentCommitInfo not in IndexWriter#inner#segment_infos")
-    })?;
 
     // Now deduct the deleted docs that we just reclaimed from this
     // merge:
@@ -4591,14 +4590,27 @@ where
       // the docs when we apply deletes if the segment is currently merged.
       merge.total_max_doc
     } else {
+      // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
+      let merge_sci = inner.segment_infos.index_of(&merge_id).ok_or_else(|| {
+        LuceneError::illegal_state(
+          "merge's SegmentCommitInfo not in IndexWriter#inner#segment_infos",
+        )
+      })?;
       merge.total_max_doc - merge_sci.info.max_doc()?
     };
     debug_assert!(del_doc_count >= 0);
     self.adjust_pending_num_docs(-(del_doc_count as i64));
 
     if drop_segment {
+      let merge_sci = merge
+        .info
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
       debug_assert!(!inner.segment_infos.contains(merge_sci.info.get_id_key()));
-      self.reader_pool.drop(merge_sci.info.get_id_key())?;
+      let merge_info_id = merge_sci.info.get_id_key().to_string();
+      self
+        .reader_pool
+        .drop(&merge_info_id, &mut inner.segment_infos)?;
       // Safe: these files must exist
       self.delete_new_files(merge_sci.files()?.iter(), Some(&inner))?;
     }
@@ -4953,7 +4965,9 @@ where
                 rld.release(sr.as_ref(), None)?;
                 self.release(rld.as_ref(), inner)?;
                 if drop {
-                  self.reader_pool.drop(&rld.info_id)?;
+                  self
+                    .reader_pool
+                    .drop(&rld.info_id, &mut inner.segment_infos)?;
                 }
               },
               None => {
@@ -5557,15 +5571,11 @@ where
     inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
     merge_info: Option<&mut SegmentCommitInfo<D>>,
   ) -> Result<()> {
-    let info_id = &readers_and_updates.info_id;
-    let info = match inner.segment_infos.index_of_mut(info_id) {
-      Some(info) => Some(info),
-      None => merge_info,
-    };
     if self.reader_pool.release(
       readers_and_updates,
       assert_live_info,
-      info,
+      &mut inner.segment_infos,
+      merge_info,
       &self.global_field_number_map.lock(),
     )? {
       // if we write anything here we have to hold the lock otherwise IDF will delete files

@@ -136,6 +136,9 @@ where
   pub user_data: HashMap<String, String>,
   /// List of `SegmentCommitInfo` objects.
   pub(crate) segments: Vec<SegmentCommitInfo<D>>,
+  /// `SegmentCommitInfo`s removed from `segments` but still needed by
+  /// concurrent reader-pool work.
+  pub(crate) dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
   /// ID for this commit; only written starting with Lucene 5.0.
   id: Option<[u8; StringHelper::ID_LENGTH]>,
   /// Which Lucene version wrote this commit?
@@ -178,6 +181,7 @@ where
       last_generation: 0,
       user_data: HashMap::new(),
       segments: Vec::new(),
+      dropped_segment_commit_infos: HashMap::new(),
       id: None,
       lucene_version: None,
       min_segment_lucene_version: None,
@@ -186,7 +190,18 @@ where
     })
   }
   /// Returns [`SegmentCommitInfo`] at the provided index.
+  /// Returns the `SegmentCommitInfo` for the given ID, looking in live
+  /// segments first and then in segments retained after being dropped.
   pub fn index_of(&self, seg_id: &str) -> Option<&SegmentCommitInfo<D>> {
+    self
+      .segments
+      .iter()
+      .find(|sci| sci.info.get_id_key() == seg_id)
+      .or_else(|| self.dropped_segment_commit_infos.get(seg_id))
+  }
+
+  /// Returns the live `SegmentCommitInfo` for the given ID.
+  pub(crate) fn index_of_live(&self, seg_id: &str) -> Option<&SegmentCommitInfo<D>> {
     self
       .segments
       .iter()
@@ -199,11 +214,17 @@ where
   pub fn info_idx_mut(&mut self, i: usize) -> Option<&mut SegmentCommitInfo<D>> {
     self.segments.get_mut(i)
   }
+  /// Returns the mutable `SegmentCommitInfo` for the given ID, looking in live
+  /// segments first and then in segments retained after being dropped.
   pub fn index_of_mut(&mut self, seg_id: &str) -> Option<&mut SegmentCommitInfo<D>> {
-    self
+    if let Some(index) = self
       .segments
-      .iter_mut()
-      .find(|sci| sci.info.get_id_key() == seg_id)
+      .iter()
+      .position(|sci| sci.info.get_id_key() == seg_id)
+    {
+      return self.segments.get_mut(index);
+    }
+    self.dropped_segment_commit_infos.get_mut(seg_id)
   }
 
   /// Get the segments_N filename in use by this segment infos.
@@ -731,6 +752,7 @@ where
       last_generation: self.last_generation,
       user_data: self.user_data.clone(),
       segments: Vec::new(),
+      dropped_segment_commit_infos: self.dropped_segment_commit_infos.clone(),
       id: self.id,
       lucene_version: self.lucene_version.clone(),
       min_segment_lucene_version: self.min_segment_lucene_version.clone(),
@@ -978,8 +1000,9 @@ where
     let mut new_segments: Vec<SegmentCommitInfo<D>> = Vec::with_capacity(self.segments.len());
 
     for info in self.segments.drain(..) {
-      let info_id = info.info.get_id_key();
-      if merged_away.contains(info_id) {
+      let info_id = info.info.get_id_key().to_string();
+      if merged_away.contains(&info_id) {
+        self.dropped_segment_commit_infos.insert(info_id, info);
         if !inserted && !drop_segment {
           new_segments.push(merge.info.take().unwrap());
           inserted = true;
@@ -1047,7 +1070,11 @@ where
 
   /// Clears all `SegmentCommitInfo`s.
   pub fn clear(&mut self) {
-    self.segments.clear();
+    for info in self.segments.drain(..) {
+      self
+        .dropped_segment_commit_infos
+        .insert(info.info.get_id_key().to_string(), info);
+    }
   }
 
   /// Removes the provided `SegmentCommitInfo`.
@@ -1056,7 +1083,11 @@ where
       .segments
       .iter()
       .position(|sci| sci.info.get_id_key() == si_id)?;
-    Some(self.segments.remove(idx))
+    let info = self.segments.remove(idx);
+    self
+      .dropped_segment_commit_infos
+      .insert(info.info.get_id_key().to_string(), info.clone());
+    Some(info)
   }
 
   /// Removes the `SegmentCommitInfo` at the provided index.
@@ -1064,12 +1095,27 @@ where
     if index >= self.segments.len() {
       return None;
     }
-    Some(self.segments.remove(index))
+    let info = self.segments.remove(index);
+    self
+      .dropped_segment_commit_infos
+      .insert(info.info.get_id_key().to_string(), info.clone());
+    Some(info)
+  }
+
+  pub(crate) fn remove_dropped_segment_commit_info(
+    &mut self,
+    si_id: &str,
+  ) -> Option<SegmentCommitInfo<D>> {
+    self.dropped_segment_commit_infos.remove(si_id)
+  }
+
+  pub(crate) fn clear_dropped_segment_commit_infos(&mut self) {
+    self.dropped_segment_commit_infos.clear();
   }
 
   /// Returns true if the provided `SegmentCommitInfo` is contained.
   pub fn contains(&self, si_id: &str) -> bool {
-    self.index_of(si_id).is_some()
+    self.index_of_live(si_id).is_some()
   }
 
   /// Returns the `Version` of the Lucene commit.
