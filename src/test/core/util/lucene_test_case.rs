@@ -168,8 +168,17 @@ pub mod lucene_test_case_util {
     // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
     IndexWriterConfig::with_analyzer(analyzer)
   }
-
-  pub fn new_merge_policy<R>(r: &mut R, _include_mock_mp: bool) -> Result<MergePolicyEnum>
+  pub fn new_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO
+    Ok(new_tiered_merge_policy(r).into())
+  }
+  pub fn new_merge_policy_with_mock_mp<R>(
+    r: &mut R,
+    _include_mock_mp: bool,
+  ) -> Result<MergePolicyEnum>
   where
     R: Rng + ?Sized,
   {

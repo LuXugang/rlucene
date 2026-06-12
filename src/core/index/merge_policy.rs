@@ -46,6 +46,8 @@ use crate::test::core::index::force_merge_policy::ForceMergePolicy;
 #[cfg(test)]
 use crate::test::core::index::test_index_writer::KeepFullyDeletedSegmentsMergePolicy;
 #[cfg(test)]
+use crate::test::core::index::test_index_writer_merge_policy::MergeOnXMergePolicy;
+#[cfg(test)]
 use crate::test::core::index::test_index_writer_merge_policy::MockMergePolicy;
 #[cfg(test)]
 use crate::test::core::index::test_per_segment_deletes::RangeMergePolicy;
@@ -464,6 +466,8 @@ pub enum MergePolicyEnum {
   Mock(MockMergePolicy),
   Upgrade(UpgradeIndexMergePolicy),
   MergeOnFlush(MergeOnFlushMergePolicy),
+  #[cfg(test)]
+  MergeOnX(MergeOnXMergePolicy),
 }
 impl_from_for_enum!(
     MergePolicyEnum,
@@ -475,6 +479,12 @@ impl_from_for_enum!(
     UpgradeIndexMergePolicy => Upgrade,
     MergeOnFlushMergePolicy => MergeOnFlush
 );
+#[cfg(test)]
+impl From<MergeOnXMergePolicy> for MergePolicyEnum {
+  fn from(v: MergeOnXMergePolicy) -> Self {
+    MergePolicyEnum::MergeOnX(v)
+  }
+}
 impl Display for MergePolicyEnum {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
@@ -493,6 +503,8 @@ impl Display for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => write!(f, "{}", mp),
       MergePolicyEnum::Upgrade(mp) => write!(f, "{}", mp),
       MergePolicyEnum::MergeOnFlush(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => write!(f, "{}", mp),
     }
   }
 }
@@ -515,6 +527,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.get_base(),
       MergePolicyEnum::Upgrade(mp) => mp.get_base(),
       MergePolicyEnum::MergeOnFlush(mp) => mp.get_base(),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.get_base(),
     }
   }
 
@@ -535,6 +549,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.get_base_mut(),
       MergePolicyEnum::Upgrade(mp) => mp.get_base_mut(),
       MergePolicyEnum::MergeOnFlush(mp) => mp.get_base_mut(),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.get_base_mut(),
     }
   }
 
@@ -583,6 +599,10 @@ impl MergePolicy for MergePolicyEnum {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       MergePolicyEnum::MergeOnFlush(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
     }
@@ -682,6 +702,14 @@ impl MergePolicy for MergePolicyEnum {
         inner,
         merge_context,
       ),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
     }
   }
 
@@ -729,6 +757,10 @@ impl MergePolicy for MergePolicyEnum {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
       MergePolicyEnum::MergeOnFlush(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
     }
@@ -783,6 +815,10 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::MergeOnFlush(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
     }
   }
 
@@ -816,6 +852,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.use_compound_file(infos, merged_info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.use_compound_file(infos, merged_info, merge_context),
     }
   }
 
@@ -840,6 +878,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.size(info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.size(info, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.size(info, merge_context),
     }
   }
 
@@ -860,6 +900,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.max_full_flush_merge_size(),
       MergePolicyEnum::Upgrade(mp) => mp.max_full_flush_merge_size(),
       MergePolicyEnum::MergeOnFlush(mp) => mp.max_full_flush_merge_size(),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.max_full_flush_merge_size(),
     }
   }
 
@@ -889,6 +931,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.has_merged(infos, info, merge_context),
     }
   }
 
@@ -915,6 +959,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::Upgrade(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::MergeOnFlush(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.keep_fully_deleted_segment(reader_supplier),
     }
   }
 
@@ -952,6 +998,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::MergeOnFlush(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
     }
   }
 
@@ -976,6 +1024,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::Upgrade(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::MergeOnFlush(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.seg_string(merge_context, infos),
     }
   }
 
@@ -1000,6 +1050,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.message(message, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.message(message, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.message(message, merge_context),
     }
   }
 
@@ -1024,6 +1076,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::Mock(mp) => mp.verbose(merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.verbose(merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MergeOnX(mp) => mp.verbose(merge_context),
     }
   }
 }

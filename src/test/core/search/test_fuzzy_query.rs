@@ -34,8 +34,9 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::mock_tokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy,
-  new_searcher_with_reader, new_string_field, new_text_field, random,
+  at_least, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_merge_policy_with_mock_mp, new_searcher_with_reader, new_string_field, new_text_field,
+  random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -74,7 +75,7 @@ fn test_fuzziness() -> Result<()> {
 
   let mock = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-  iwc.set_merge_policy(new_merge_policy(&mut random, false)?);
+  iwc.set_merge_policy(new_merge_policy_with_mock_mp(&mut random, false)?);
 
   let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
   let mut field_to_type = HashMap::new();

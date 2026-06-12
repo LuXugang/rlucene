@@ -49,7 +49,7 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::dummy_total_hit_count_collector::CollectorManagerImpl;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy_with_mock_mp,
   new_searcher_with_reader, random,
 };
 
@@ -99,7 +99,7 @@ fn test_similarity() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
   iwc.set_similarity(new_simple_similarity());
-  iwc.set_merge_policy(new_merge_policy(&mut random, false)?);
+  iwc.set_merge_policy(new_merge_policy_with_mock_mp(&mut random, false)?);
   let writer = RandomIndexWriter::with_config(&mut random, store.clone(), iwc);
 
   let mut d1 = Document::new();
