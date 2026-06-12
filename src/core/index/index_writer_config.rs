@@ -67,17 +67,20 @@ impl IndexWriterConfig {
     self.base.max_full_flush_merge_wait_millis = max_full_flush_merge_wait_millis;
     self
   }
-  pub fn set_open_mode(&mut self, open_mode: OpenMode) -> &mut Self {
-    let base = self.get_base_mut();
-    base.open_mode = open_mode;
-    self
-  }
 
   pub fn set_similarity<T>(&mut self, similarity: T)
   where
     T: Into<SimilarityEnum>,
   {
     self.base.similarity = Arc::new(similarity.into());
+  }
+
+  /// Specifies [`OpenMode`] of the index.
+  ///
+  /// Only takes effect when IndexWriter is first created.
+  pub fn set_open_mode(&mut self, open_mode: OpenMode) -> &mut Self {
+    self.base.open_mode = open_mode;
+    self
   }
   pub fn set_index_created_version_major(
     &mut self,
