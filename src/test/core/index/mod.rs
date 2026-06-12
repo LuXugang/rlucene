@@ -171,5 +171,6 @@ mod test_terms_enum_index;
 pub(crate) mod test_terms_hash_per_field;
 mod test_threaded_force_merge;
 mod test_tiered_merge_policy;
+pub(crate) mod test_transaction_rollback;
 mod test_unique_term_count;
 mod test_upgrade_index_merge_policy;
