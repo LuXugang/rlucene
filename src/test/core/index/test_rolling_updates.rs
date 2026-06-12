@@ -170,8 +170,6 @@ fn test_rolling_updates() -> Result<()> {
   // assert_eq!(total_bytes2, total_bytes);
   Ok(())
 }
-
-// TODO IMPORTANT 多线程索引 BUG
 fn test_update_same_doc() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

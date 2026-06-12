@@ -4659,7 +4659,6 @@ where
         self.merge_init(merge)?;
         // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
         self.merge_middle(merge, merge_policy)?;
-        debug_assert!(merge.info.is_none());
         self.merge_success(merge)?;
         success = true;
         Ok(())
@@ -5887,30 +5886,23 @@ where
             && !self
               .get_config()
               .get_merge_policy()
-              .keep_fully_deleted_segment(|| {
-                Ok(seg_state.rld.inner.lock().reader.as_ref().unwrap().clone())
-              })?
+              .keep_fully_deleted_segment(|| Ok(seg_state.reader.clone()))?
           {
-            all_deleted.push(
-              seg_state
-                .rld
-                .inner
-                .lock()
-                .reader
-                .as_ref()
-                .unwrap()
-                .original_si_id
-                .clone(),
-            );
+            all_deleted.push(seg_state.reader.original_si_id.clone());
           }
         }
       }
       Ok(())
     })();
 
+    let mut close_err = None;
     for s in seg_states.iter_mut() {
-      // TODO IMPORTANT 这里要捕获错误并扔到上层
-      let _ = s.close(self, inner);
+      if let Err(e) = s.close(self, inner) {
+        close_err = Some(IOUtils::use_or_suppress(close_err, e));
+      }
+    }
+    if let Some(close_err) = close_err {
+      return Err(IOUtils::use_or_suppress(res.err(), close_err));
     }
     res?;
 

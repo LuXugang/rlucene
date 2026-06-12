@@ -62,8 +62,7 @@ impl IndexWriterHooks for MyIndexWriter {
     Ok(())
   }
 }
-
-// TODO IMPORTANT 多线程索引 BUG
+#[test]
 fn test() -> Result<()> {
   let mut random = random();
   let d = new_directory_shared(&mut random)?;

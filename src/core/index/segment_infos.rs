@@ -1109,10 +1109,6 @@ where
     self.dropped_segment_commit_infos.remove(si_id)
   }
 
-  pub(crate) fn clear_dropped_segment_commit_infos(&mut self) {
-    self.dropped_segment_commit_infos.clear();
-  }
-
   /// Returns true if the provided `SegmentCommitInfo` is contained.
   pub fn contains(&self, si_id: &str) -> bool {
     self.index_of_live(si_id).is_some()

@@ -431,7 +431,7 @@ impl MergeScheduler for MyMergeScheduler {
   }
 }
 
-// TODO IMPORTANT 多线程索引 BUG
+#[test]
 fn test_no_wait_close() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;

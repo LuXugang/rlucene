@@ -2153,7 +2153,6 @@ fn test_multi_valued_random1() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-// TODO IMPORTANT 多线程索引 BUG
 fn test_concurrent_updates() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -2293,7 +2292,8 @@ fn test_bad_dv_update() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-// TODO IMPORTANT 测试未通过15464959585302135953
+
+#[test]
 fn test_concurrent_dv_updates() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

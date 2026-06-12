@@ -158,12 +158,13 @@ where
   /// Drops reader for the given SegmentCommitInfo if it's pooled
   pub(crate) fn drop(&self, info_id: &str, segment_infos: &mut SegmentInfos<D>) -> Result<bool> {
     let mut inner = self.inner.lock();
-    if let Some(rld) = inner.reader_map.get(info_id) {
+    if let Some(rld) = inner.reader_map.remove(info_id) {
       debug_assert_eq!(info_id, rld.info_id);
       rld.drop_readers()?;
-      inner.reader_map.remove(info_id);
-      debug_assert!(segment_infos.index_of(info_id).is_some());
-      segment_infos.remove_dropped_segment_commit_info(info_id);
+      let remove_dropped_info = rld.ref_count() == 0;
+      if remove_dropped_info {
+        segment_infos.remove_dropped_segment_commit_info(info_id);
+      }
       return Ok(true);
     }
     Ok(false)
@@ -179,6 +180,7 @@ where
     }
     bytes
   }
+
   /// Returns true iff any of the buffered readers and updates has at least one pending delete
   pub(crate) fn any_deletions(&self, infos: &SegmentInfos<D>) -> Result<bool> {
     let inner = self.inner.lock();
@@ -234,6 +236,7 @@ where
         "seg={} has refCount 0 but still unexpectedly exists in the reader pool",
         rld.info_id
       );
+      segment_infos.remove_dropped_segment_commit_info(&rld.info_id);
     } else {
       // Pool still holds a ref:
       debug_assert!(
@@ -279,6 +282,7 @@ where
         if rld.get_num_dv_updates() == 0 {
           rld.drop_readers()?;
           if inner.reader_map.remove(&rld.info_id).is_some() {
+            debug_assert_eq!(rld.ref_count(), 0);
             segment_infos.remove_dropped_segment_commit_info(&rld.info_id);
           }
         } else {
@@ -409,13 +413,19 @@ where
     let mut prior_errs = None;
 
     let mut inner = self.inner.lock();
-    for (_, rld) in inner.reader_map.drain() {
-      if let Err(e) = rld.drop_readers() {
-        prior_errs = Some(IOUtils::use_or_suppress(prior_errs, e));
+    for (info_id, rld) in inner.reader_map.drain() {
+      match rld.drop_readers() {
+        Ok(()) => {
+          if rld.ref_count() == 0 {
+            segment_infos.remove_dropped_segment_commit_info(&info_id);
+          }
+        },
+        Err(e) => {
+          prior_errs = Some(IOUtils::use_or_suppress(prior_errs, e));
+        },
       }
     }
     debug_assert!(inner.reader_map.is_empty());
-    segment_infos.clear_dropped_segment_commit_infos();
     prior_errs.map_or(Ok(()), Err)
   }
   /// Commit live docs changes for the  readers for the provided infos.

@@ -38,7 +38,8 @@ struct TestIndexTooManyDocs;
  * This test produces a boat load of very small segments with lot of deletes which are likely deleting
  * the entire segment. see https://issues.apache.org/jira/browse/LUCENE-8043
  */
-// TODO IMPORTANT 多线程索引 BUG
+
+#[test]
 fn test_index_too_many_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

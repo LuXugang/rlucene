@@ -20,8 +20,10 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::readers_and_updates;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
@@ -311,6 +313,7 @@ where
 {
   pub(crate) del_gen: i64,
   pub(crate) rld: Arc<ReadersAndUpdates<D>>,
+  pub(crate) reader: DefaultLeafReader<D>,
   pub(crate) start_del_count: i32,
 }
 impl<D> SegmentState<D>
@@ -318,7 +321,7 @@ where
   D: Directory,
 {
   pub(crate) fn new(rld: Arc<ReadersAndUpdates<D>>, info: &SegmentCommitInfo<D>) -> Result<Self> {
-    {
+    let reader = {
       let mut inner = rld.inner.lock();
       readers_and_updates::get_reader(
         &IOContext::default_io_context()?,
@@ -326,10 +329,12 @@ where
         &mut inner,
         rld.index_created_version_major,
       )?;
-    }
+      inner.reader.as_ref().unwrap().clone()
+    };
     Ok(SegmentState {
       del_gen: info.get_buffered_deletes_gen(),
       rld,
+      reader,
       start_del_count: info.get_del_count(),
     })
   }
@@ -338,20 +343,14 @@ where
     writer: &IndexWriter<D>,
     inner: &mut crate::core::index::index_writer::Inner<D>,
   ) -> Result<()> {
-    {
-      let rld_inner = self.rld.inner.lock();
-      let reader = match rld_inner.reader {
-        Some(ref reader) => reader,
-        None => {
-          return Err(LuceneError::illegal_state(
-            "read in ReadersAndUpdates should not None",
-          ));
-        },
-      };
-      self.rld.release(reader.as_ref(), Some(&rld_inner))?;
+    let mut prior_errs = None;
+    if let Err(e) = self.rld.release(self.reader.as_ref(), None) {
+      prior_errs = Some(e);
     }
-    writer.release(self.rld.as_ref(), inner)?;
-    Ok(())
+    if let Err(e) = writer.release(self.rld.as_ref(), inner) {
+      prior_errs = Some(IOUtils::use_or_suppress(prior_errs, e));
+    }
+    prior_errs.map_or(Ok(()), Err)
   }
 }
 impl<D> Display for SegmentState<D>

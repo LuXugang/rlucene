@@ -197,7 +197,7 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
   Ok(())
 }
 
-// TODO IMPORTANT 多线程索引 BUG
+#[test]
 fn test_stress_index_and_searching() -> Result<()> {
   let mut random = new_random();
   let directory = new_directory_shared(&mut random)?;

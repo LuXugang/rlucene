@@ -571,9 +571,9 @@ fn test_after_close() -> Result<()> {
   searcher.reader_context.reader().close()?;
   Ok(())
 }
-// TODO IMPORTANT 多线程索引 BUG
 #[cfg(feature = "nightly")]
 #[ignore = "nightly"]
+#[test]
 fn test_during_add_indexes() -> Result<()> {
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
@@ -653,7 +653,8 @@ fn test_during_add_indexes() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-// TODO IMPORTANT 多线程索引 BUG
+
+#[test]
 fn test_during_add_delete() -> Result<()> {
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;

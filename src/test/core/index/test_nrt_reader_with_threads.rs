@@ -35,7 +35,7 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 struct TestNRTReaderWithThreads;
 
-// TODO IMPORTANT 多线程索引 BUG
+#[test]
 fn test_indexing() -> Result<()> {
   let mut random = random();
   let main_dir = new_directory_shared(&mut random)?;

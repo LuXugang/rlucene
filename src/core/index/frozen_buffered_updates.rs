@@ -212,8 +212,7 @@ impl FrozenBufferedUpdates {
         1,
         "private packet must target exactly one segment"
       );
-      let lock = seg_states[0].rld.inner.lock();
-      let seg0_id = lock.reader.as_ref().unwrap().get_original_segment_info_id();
+      let seg0_id = seg_states[0].reader.get_original_segment_info_id();
       debug_assert!(
         *private_segment.as_str() == *seg0_id,
         "privateSegment={} vs seg0={}",
@@ -308,10 +307,8 @@ impl FrozenBufferedUpdates {
     for (update_field, value) in updates.iter() {
       let is_numeric = value.is_numeric();
       let mut iterator = value.iterator()?;
-      let inner = seg_state.rld.inner.lock();
-      let reader = inner.reader.as_ref().unwrap();
       let mut term_docs_iterator = TermDocsIterator::new(
-        TermsProviderImpl2::new(reader.as_ref()),
+        TermsProviderImpl2::new(seg_state.reader.as_ref()),
         iterator.is_sorted_terms(),
       );
       let mut dv_updates = None;
@@ -348,7 +345,7 @@ impl FrozenBufferedUpdates {
           };
 
           if dv_updates.is_none() {
-            let max_doc = reader.max_doc()?;
+            let max_doc = seg_state.reader.max_doc()?;
             let field = update_field.clone();
             let v = if is_numeric {
               if value.has_single_value() {
@@ -464,16 +461,7 @@ impl FrozenBufferedUpdates {
         continue;
       }
 
-      let reader = {
-        let inner = seg_state.rld.inner.lock();
-
-        inner
-          .reader
-          .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("reader is missing"))?
-          .clone()
-      };
-      let reader_context = Arc::new(get_context(reader)?);
+      let reader_context = Arc::new(get_context(seg_state.reader.clone())?);
 
       for (i, query0) in self.delete_queries.iter().cloned().enumerate() {
         let limit = if self.del_gen == seg_state.del_gen {
@@ -559,8 +547,8 @@ impl FrozenBufferedUpdates {
       let mut iter = self.delete_terms.iterator()?;
       {
         let mut inner = seg_state.rld.inner.lock();
-        let reader = inner.reader.as_ref().unwrap().clone();
-        let mut term_docs_iter = TermDocsIterator::new(TermsProviderImpl2::new(&reader), true);
+        let mut term_docs_iter =
+          TermDocsIterator::new(TermsProviderImpl2::new(&seg_state.reader), true);
         while iter.set_next()? {
           if let Some(it) = term_docs_iter.next_term(iter.field(), &iter.builder.bytes_ref)? {
             loop {

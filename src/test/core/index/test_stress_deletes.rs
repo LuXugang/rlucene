@@ -42,7 +42,6 @@ struct TestStressDeletes;
  * Make sure that order of adds/deletes across threads is respected as long as each ID is only
  * changed by one thread at a time.
  */
-// TODO IMPORTANT 多线程索引 BUG
 fn test() -> Result<()> {
   let mut random = random();
   let num_ids = at_least(&mut random, 100);
