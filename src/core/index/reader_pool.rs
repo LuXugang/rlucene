@@ -162,6 +162,7 @@ where
       debug_assert_eq!(info_id, rld.info_id);
       rld.drop_readers()?;
       inner.reader_map.remove(info_id);
+      debug_assert!(segment_infos.index_of(info_id).is_some());
       segment_infos.remove_dropped_segment_commit_info(info_id);
       return Ok(true);
     }

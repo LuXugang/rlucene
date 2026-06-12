@@ -265,10 +265,10 @@ where
     let mut inner = self.inner.lock();
     // TODO: can we somehow use IOUtils here...?  problem is
     // we are calling .decRef not .close)...
-    if let Some(reader) = &inner.reader {
+    if let Some(reader) = inner.reader.take() {
       reader.dec_ref()?;
     }
-    inner.reader = None;
+    self.dec_ref();
     Ok(())
   }
   /// Returns a ref to a clone. NOTE: you should decRef() the reader when you're done (ie do not call close()).
@@ -394,6 +394,7 @@ where
     dir: D1,
     dv_format: &F,
     inner: &mut Inner<D>,
+    reader: &SegmentReader<D>,
     field_files: &mut HashMap<i32, HashSet<String>>,
     max_del_gen: i64,
     info_stream: &impl InfoStream,
@@ -474,20 +475,10 @@ where
           info,
         )?;
         if ty == DocValuesType::Binary {
-          let v = DocValuesProducerBinary::new(
-            update_supplier,
-            field,
-            inner.reader.as_ref().unwrap(),
-            field_info.clone(),
-          );
+          let v = DocValuesProducerBinary::new(update_supplier, field, reader, field_info.clone());
           fields_consumer.add_binary_field(&field_info, &v)?
         } else {
-          let v = DocValuesProducerNumeric::new(
-            update_supplier,
-            field,
-            inner.reader.as_mut().unwrap(),
-            field_info.clone(),
-          );
+          let v = DocValuesProducerNumeric::new(update_supplier, field, reader, field_info.clone());
           fields_consumer.add_numeric_field(&field_info, &v)?;
         }
       }
@@ -575,84 +566,94 @@ where
     // exception; this saves all codecs from having to do it:
     let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(&dir));
 
-    let is_reader_none = inner.reader.is_none();
     let result = (|| -> Result<()> {
       let codec = &*LATEST_CODEC;
 
-      if is_reader_none {
-        let reader = SegmentReader::new(
+      let reader = if let Some(reader) = inner.reader.as_ref() {
+        Arc::clone(reader)
+      } else {
+        let reader = Arc::new(SegmentReader::new(
           info,
           self.index_created_version_major,
           &IOContext::read_once_io_context()?,
-        )?;
+        )?);
         inner.pending_deletes.on_new_reader(&reader, info)?;
-        inner.reader = Option::from(Arc::new(reader));
-      }
+        reader
+      };
 
-      // clone FieldInfos so that we can update their dvGen separately from
-      // the reader's infos and write them to a new fieldInfos_gen file.
-      let mut max_field_number: i32 = -1;
-      let mut by_name = HashMap::new();
+      let result = (|| -> Result<()> {
+        // clone FieldInfos so that we can update their dvGen separately from
+        // the reader's infos and write them to a new fieldInfos_gen file.
+        let mut max_field_number: i32 = -1;
+        let mut by_name = HashMap::new();
 
-      for fi in inner.reader.as_ref().unwrap().get_field_infos()?.iter() {
-        // cannot use builder.add(fi) because it does not preserve
-        // the local field number. Field numbers can be different from
-        // the global ones if the segment was created externally (and added to
-        // this index with IndexWriter#addIndexes(Directory)).
-        by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number)?);
-        max_field_number = max_field_number.max(fi.number);
-      }
+        for fi in reader.get_field_infos()?.iter() {
+          // cannot use builder.add(fi) because it does not preserve
+          // the local field number. Field numbers can be different from
+          // the global ones if the segment was created externally (and added to
+          // this index with IndexWriter#addIndexes(Directory)).
+          by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number)?);
+          max_field_number = max_field_number.max(fi.number);
+        }
 
-      // create new fields with the right DV type for updates whose field doesn't yet exist
-      for updates in inner.pending_dv_updates.values() {
-        if let Some(update) = updates.first() {
-          let field = &update.field;
-          if by_name.contains_key(field) {
-            // the field already exists in this segment
-            let fi = by_name.get(field).expect("should not fail");
-            debug_assert_eq!(*fi.get_doc_values_type(), update.type_);
-          } else {
-            // the field is not present in this segment so we clone the global field
-            // (which is guaranteed to exist) and remaps its field number locally.
-            if let Some(fi) =
-              field_numbers.construct_field_info(field, update.type_, max_field_number + 1)?
-            {
-              max_field_number += 1;
-              by_name.insert(fi.name.to_string(), fi);
+        // create new fields with the right DV type for updates whose field doesn't yet exist
+        for updates in inner.pending_dv_updates.values() {
+          if let Some(update) = updates.first() {
+            let field = &update.field;
+            if by_name.contains_key(field) {
+              // the field already exists in this segment
+              let fi = by_name.get(field).expect("should not fail");
+              debug_assert_eq!(*fi.get_doc_values_type(), update.type_);
             } else {
-              debug_assert!(false);
+              // the field is not present in this segment so we clone the global field
+              // (which is guaranteed to exist) and remaps its field number locally.
+              if let Some(fi) =
+                field_numbers.construct_field_info(field, update.type_, max_field_number + 1)?
+              {
+                max_field_number += 1;
+                by_name.insert(fi.name.to_string(), fi);
+              } else {
+                debug_assert!(false);
+              }
             }
           }
         }
+
+        field_infos = FieldInfos::new(by_name.into_values().map(Arc::new).collect())?;
+
+        let dv_format = codec.doc_values_format();
+
+        self.handle_dv_updates(
+          &field_infos,
+          tracking_dir.clone(),
+          &dv_format,
+          &mut inner,
+          &reader,
+          &mut new_dv_files,
+          max_del_gen,
+          info_stream,
+          info,
+        )?;
+
+        let files = self.write_field_infos_gen(
+          &field_infos,
+          tracking_dir.clone(),
+          &codec.field_infos_format(),
+          info,
+        )?;
+        field_infos_files = Some(files);
+
+        Ok(())
+      })();
+
+      if !matches!(
+        inner.reader.as_ref(),
+        Some(pooled_reader) if Arc::ptr_eq(&reader, pooled_reader)
+      ) {
+        reader.close()?;
       }
 
-      field_infos = FieldInfos::new(by_name.into_values().map(Arc::new).collect())?;
-
-      let dv_format = codec.doc_values_format();
-
-      self.handle_dv_updates(
-        &field_infos,
-        tracking_dir.clone(),
-        &dv_format,
-        &mut inner,
-        &mut new_dv_files,
-        max_del_gen,
-        info_stream,
-        info,
-      )?;
-
-      let files = self.write_field_infos_gen(
-        &field_infos,
-        tracking_dir.clone(),
-        &codec.field_infos_format(),
-        info,
-      )?;
-      field_infos_files = Some(files);
-
-      if is_reader_none {
-        let _ = inner.reader.take();
-      }
-      Ok(())
+      result
     })();
 
     if let Err(e) = result {
@@ -699,7 +700,7 @@ where
     }
     info.set_doc_values_updates_files(new_dv_files.clone());
     // if there is a reader open, reopen it to reflect the updates
-    if !is_reader_none {
+    if inner.reader.is_some() {
       swap_new_reader_with_latest_live_docs(&mut inner, info)?;
     }
 
@@ -921,10 +922,10 @@ where
     Ok(())
   })();
 
-  if res.is_err() {
-    let _ = new_reader.dec_ref();
+  if let Err(e) = res {
+    new_reader.dec_ref()?;
+    return Err(e);
   }
-  res?;
   Ok(new_reader)
 }
 fn swap_new_reader_with_latest_live_docs<D>(
