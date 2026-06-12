@@ -44,7 +44,7 @@ pub const DATE_FIELD_VALUE_TO_LOCALDATETIME: fn(&str) -> Result<NaiveDateTime> =
 /// Minimal port of benchmark's LineDocSource + DocMaker, so tests can enum docs from a line file
 /// created by benchmark's WriteLineDoc task.
 pub struct LineFileDocs {
-  reader: Option<Box<dyn BufRead>>,
+  reader: Option<Box<dyn BufRead + Send>>,
   id: i32,
   path: String,
   random: StdRng,
@@ -92,7 +92,7 @@ impl LineFileDocs {
     let size = file.metadata()?.len();
     let need_skip;
 
-    let is: Box<dyn Read> = if self.path.ends_with(".gz") {
+    let is: Box<dyn Read + Send> = if self.path.ends_with(".gz") {
       need_skip = true;
       Box::new(file)
     } else {
@@ -111,7 +111,7 @@ impl LineFileDocs {
       Box::new(file)
     };
 
-    let is: Box<dyn Read> = if need_skip {
+    let is: Box<dyn Read + Send> = if need_skip {
       let v = seek_file_path(&self.path)?;
       let seek_file = resolve_line_file_path(&v)?;
       let mut skip_points = Vec::new();

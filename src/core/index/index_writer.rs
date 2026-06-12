@@ -2385,10 +2385,6 @@ where
       // TODO IMPORTANT : merge scheduler close requires mutable config access in this port.
 
       self.doc_writer.close();
-      debug_assert!(
-        !self.inner.is_locked(),
-        "IndexWriter lock should never be held when aborting"
-      );
       self.doc_writer.abort(self.get_config())?;
       self.doc_writer.flush_control.wait_for_flush();
       self.publish_flushed_segments(true)?;
@@ -2837,7 +2833,7 @@ where
             },
             Some(ref rld) => {
               let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
-              let is_fully_deleted = self.is_fully_deleted(rld, new_segment)?;
+              let is_fully_deleted = self.is_fully_deleted(rld, new_segment, &inner)?;
               if is_fully_deleted {
                 self.drop_deleted_segment(&new_segment_id, &mut *inner)?;
                 self.checkpoint(&mut *inner)?;
@@ -3720,7 +3716,7 @@ where
 
     for info in inner.segment_infos.iter() {
       if let Some(rld) = self.reader_pool.get(info.into(), false, None)?
-        && self.is_fully_deleted(rld.as_ref(), info)?
+        && self.is_fully_deleted(rld.as_ref(), info, inner)?
       {
         to_drop.push(info.info.get_id_key().to_string());
       }
@@ -4535,7 +4531,7 @@ where
     let all_deleted = merge.stat.segments.is_empty()
       || sci.info.max_doc()? == 0
       || (merged_updates.is_some()
-        && self.is_fully_deleted(merged_updates.as_ref().unwrap().as_ref(), sci)?);
+        && self.is_fully_deleted(merged_updates.as_ref().unwrap().as_ref(), sci, &inner)?);
 
     if self.info_stream.enabled("IW")
       && all_deleted
@@ -5545,9 +5541,9 @@ where
     &self,
     readers_and_updates: &ReadersAndUpdates<D>,
     info: &SegmentCommitInfo<D>,
+    _inner: &Inner<D>, // Same to Java's Thread.holdsLock(this)
   ) -> Result<bool> {
     if readers_and_updates.is_fully_deleted(info)? {
-      debug_assert!(self.inner.is_locked());
       return Ok(
         !readers_and_updates.keep_fully_deleted_segment(self.config.get_merge_policy(), info)?,
       );
@@ -7746,7 +7742,7 @@ impl DocModifier for DocModifierImpl1 {
       .index_of(info_id)
       .ok_or_else(|| LuceneError::illegal_argument(format!("invalid info id: {info_id}")))?;
     if readers_and_updates.delete(left_doc_id, info, None)? {
-      if writer.is_fully_deleted(readers_and_updates, info)? {
+      if writer.is_fully_deleted(readers_and_updates, info, inner)? {
         writer.drop_deleted_segment(readers_and_updates.get_info_id(), inner)?;
         writer.checkpoint(inner)?;
       }
