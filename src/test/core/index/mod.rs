@@ -58,6 +58,7 @@ mod test_custom_term_freq;
 pub(crate) mod test_deletion_policy;
 mod test_directory_reader;
 mod test_directory_reader_reopen;
+pub mod test_doc;
 mod test_doc_count;
 mod test_doc_id_merger;
 mod test_doc_values;

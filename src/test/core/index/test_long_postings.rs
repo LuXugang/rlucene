@@ -45,7 +45,7 @@ use rand::{Rng, RngExt};
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
-pub struct TestLongPostings;
+struct TestLongPostings;
 
 fn get_random_term<R>(random: &mut R, other: Option<&str>) -> Result<String>
 where
