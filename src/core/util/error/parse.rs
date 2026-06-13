@@ -16,7 +16,7 @@
  */
 use crate::core::util::error::IllegalArgumentError;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Parse {
   pub message: String,
   pub position: i32,

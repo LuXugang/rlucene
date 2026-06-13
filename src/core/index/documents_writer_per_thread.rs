@@ -518,7 +518,6 @@ where
       .set_max_doc(self.state.num_docs_in_ram.load(SeqCst))?;
 
     let index_writer_config = writer.get_config();
-    let mut aborting_exception = None;
     let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       (|| -> Result<Option<FlushedSegment<D>>> {
         let (mut fs, sort_map, t0) = {
@@ -727,24 +726,17 @@ where
         Ok(Some(fs))
       })()
     })) {
-      Ok(result) => result,
+      Ok(Ok(flushed_segment)) => Ok(flushed_segment),
+      Ok(Err(err)) => {
+        self.on_aborting_exception(err.clone());
+        Err(err)
+      },
       Err(e) => {
-        aborting_exception = Some(LuceneError::tragedy_from_panic(
-          "panic while flushing documents",
-          e.as_ref(),
-        ));
-        Err(LuceneError::tragedy_from_panic(
-          "panic while flushing documents",
-          e.as_ref(),
-        ))
+        let tragedy = LuceneError::tragedy_from_panic("panic while flushing documents", e.as_ref());
+        self.on_aborting_exception(tragedy.clone());
+        Err(tragedy)
       },
     };
-    if result.is_err() {
-      self.on_aborting_exception(
-        aborting_exception
-          .ok_or_else(|| LuceneError::illegal_state("aborting_exception should be set"))?,
-      );
-    }
     self.maybe_abort("flush", flush_notifications, writer)?;
     self
       .state

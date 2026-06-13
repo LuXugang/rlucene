@@ -20,7 +20,7 @@ pub mod parse;
 #[macro_export]
 macro_rules! message_error {
   ($name:ident) => {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct $name {
       pub message: String,
       pub source: Option<Box<$crate::core::util::error::lucene_error::LuceneError>>,

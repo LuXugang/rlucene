@@ -129,6 +129,67 @@ pub enum LuceneError {
   #[error("{0}")]
   VersionError(#[from] VersionError),
 }
+
+impl Clone for LuceneError {
+  fn clone(&self) -> Self {
+    match self {
+      LuceneError::AlreadyClosed(err) => LuceneError::AlreadyClosed(err.clone()),
+      LuceneError::ArrayIndexOutOfBounds(err) => LuceneError::ArrayIndexOutOfBounds(err.clone()),
+      LuceneError::BorrowError(message) => LuceneError::BorrowError(message.clone()),
+      LuceneError::BufferAllocation(err) => LuceneError::BufferAllocation(err.clone()),
+      LuceneError::CollectionTerminated(err) => LuceneError::CollectionTerminated(err.clone()),
+      LuceneError::CorruptIndex(err) => LuceneError::CorruptIndex(err.clone()),
+      LuceneError::Eof(err) => LuceneError::Eof(err.clone()),
+      LuceneError::Fmt(err) => LuceneError::Fmt(*err),
+      LuceneError::FromUtf8Error(err) => LuceneError::FromUtf8Error(err.clone()),
+      LuceneError::FuzzyTerms(err) => LuceneError::FuzzyTerms(err.clone()),
+      LuceneError::IllegalArgument(err) => LuceneError::IllegalArgument(err.clone()),
+      LuceneError::IllegalState(err) => LuceneError::IllegalState(err.clone()),
+      LuceneError::IndexFormatTooNew(err) => LuceneError::IndexFormatTooNew(err.clone()),
+      LuceneError::IndexFormatTooOld(err) => LuceneError::IndexFormatTooOld(err.clone()),
+      LuceneError::IndexNotFound(err) => LuceneError::IndexNotFound(err.clone()),
+      LuceneError::Io(err) => LuceneError::Io(Error::new(err.kind(), err.to_string())),
+      LuceneError::IoWithPath {
+        source,
+        path,
+        err_kind,
+      } => LuceneError::IoWithPath {
+        source: Error::new(source.kind(), source.to_string()),
+        path: path.clone(),
+        err_kind: err_kind.clone(),
+      },
+      LuceneError::LockAlreadyHeld(err) => LuceneError::LockAlreadyHeld(err.clone()),
+      LuceneError::LockError(message) => LuceneError::LockError(message.clone()),
+      LuceneError::LockHeldByOther(err) => LuceneError::LockHeldByOther(err.clone()),
+      LuceneError::LockObtainFailed(err) => LuceneError::LockObtainFailed(err.clone()),
+      LuceneError::LockReleaseFailed(err) => LuceneError::LockReleaseFailed(err.clone()),
+      LuceneError::MaxBytesLengthExceeded(err) => LuceneError::MaxBytesLengthExceeded(err.clone()),
+      LuceneError::Merge(err) => LuceneError::Merge(err.clone()),
+      LuceneError::MergeAborted(err) => LuceneError::MergeAborted(err.clone()),
+      LuceneError::NeedImplemented(err) => LuceneError::NeedImplemented(err.clone()),
+      LuceneError::NoMoreTerms(err) => LuceneError::NoMoreTerms(err.clone()),
+      LuceneError::NoSuchElement(err) => LuceneError::NoSuchElement(err.clone()),
+      LuceneError::NoSuchFile(err) => LuceneError::NoSuchFile(err.clone()),
+      LuceneError::NotImplemented(err) => LuceneError::NotImplemented(err.clone()),
+      LuceneError::NumberFormat(err) => LuceneError::NumberFormat(err.clone()),
+      LuceneError::NumberOverflow(err) => LuceneError::NumberOverflow(err.clone()),
+      LuceneError::Parse(err) => LuceneError::Parse(err.clone()),
+      LuceneError::ParseIntError(err) => LuceneError::ParseIntError(err.clone()),
+      LuceneError::TimeExceeded(err) => LuceneError::TimeExceeded(err.clone()),
+      LuceneError::TooComplexToDeterminize(err) => {
+        LuceneError::TooComplexToDeterminize(err.clone())
+      },
+      LuceneError::TooManyClauses(err) => LuceneError::TooManyClauses(err.clone()),
+      LuceneError::TooManyNestedClauses(err) => LuceneError::TooManyNestedClauses(err.clone()),
+      LuceneError::Tragedy(err) => LuceneError::Tragedy(err.clone()),
+      LuceneError::UncheckedIO(err) => LuceneError::UncheckedIO(err.clone()),
+      LuceneError::Unreachable(err) => LuceneError::Unreachable(err.clone()),
+      LuceneError::UnsupportedOperation(err) => LuceneError::UnsupportedOperation(err.clone()),
+      LuceneError::Utf8Error(err) => LuceneError::Utf8Error(*err),
+      LuceneError::VersionError(err) => LuceneError::VersionError(err.clone()),
+    }
+  }
+}
 macro_rules! error_ctor {
   (@add_suppressed $(($variant:ident)),+ $(,)?) => {
     pub fn add_suppressed(&mut self, source: LuceneError) -> Result<()> {

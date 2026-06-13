@@ -287,7 +287,7 @@ impl Display for Version {
   }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, Clone)]
 pub enum VersionError {
   #[error("{0}")]
   IllegalState(#[from] IllegalStateError),
