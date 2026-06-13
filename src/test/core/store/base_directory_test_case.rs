@@ -867,6 +867,7 @@ pub trait BaseDirectoryTestCase {
                   path: file.to_string(),
                   source: Error::other(format!("{:?}", e)),
                   err_kind: e.to_string(),
+                  suppressed: None,
                 });
               },
             }

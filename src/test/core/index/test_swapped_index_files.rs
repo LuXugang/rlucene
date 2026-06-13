@@ -139,7 +139,7 @@ fn is_expected_swapped_file_error(err: &LuceneError) -> bool {
     LuceneError::CorruptIndex(_)
       | LuceneError::Eof(_)
       | LuceneError::IndexFormatTooOld(_)
-      | LuceneError::Io(_)
+      | LuceneError::Io { .. }
       | LuceneError::IoWithPath { .. }
   )
 }

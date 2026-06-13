@@ -22,7 +22,6 @@ use std::string::FromUtf8Error;
 use thiserror::Error;
 
 use crate::core::util::VersionError;
-use crate::core::util::error::parse::Parse;
 use crate::core::util::error::{
   AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CollectionTerminatedError,
   CorruptIndexError, Eof, FuzzyTermsError, IllegalArgumentError, IllegalStateError,
@@ -41,8 +40,6 @@ pub enum LuceneError {
   #[error("{0}")]
   ArrayIndexOutOfBounds(#[from] ArrayIndexOutOfBoundsError),
   #[error("{0}")]
-  BorrowError(String),
-  #[error("{0}")]
   BufferAllocation(#[from] BufferAllocationError),
   #[error("{0}")]
   CollectionTerminated(#[from] CollectionTerminatedError),
@@ -50,10 +47,16 @@ pub enum LuceneError {
   CorruptIndex(#[from] CorruptIndexError),
   #[error("{0}")]
   Eof(#[from] Eof),
-  #[error("conversion failed: {0}")]
-  Fmt(#[from] fmt::Error),
-  #[error("UTF-8 conversion error: {0}")]
-  FromUtf8Error(#[from] FromUtf8Error),
+  #[error("conversion failed: {source}")]
+  Fmt {
+    source: fmt::Error,
+    suppressed: Option<Box<LuceneError>>,
+  },
+  #[error("UTF-8 conversion error: {source}")]
+  FromUtf8Error {
+    source: FromUtf8Error,
+    suppressed: Option<Box<LuceneError>>,
+  },
   #[error("{0}")]
   FuzzyTerms(#[from] FuzzyTermsError),
   #[error("{0}")]
@@ -66,18 +69,20 @@ pub enum LuceneError {
   IndexFormatTooOld(#[from] IndexFormatTooOldError),
   #[error("{0}")]
   IndexNotFound(#[from] IndexNotFound),
-  #[error("IO error: {0}")]
-  Io(#[from] Error),
+  #[error("IO error: {source}")]
+  Io {
+    source: Error,
+    suppressed: Option<Box<LuceneError>>,
+  },
   #[error("IO error on {path}: {source}, {err_kind}")]
   IoWithPath {
     source: Error,
     path: String,
     err_kind: String,
+    suppressed: Option<Box<LuceneError>>,
   },
   #[error("{0}")]
   LockAlreadyHeld(#[from] LockAlreadyHeldError),
-  #[error("{0}")]
-  LockError(String),
   #[error("{0}")]
   LockHeldByOther(#[from] LockHeldByOtherError),
   #[error("{0}")]
@@ -104,10 +109,11 @@ pub enum LuceneError {
   NumberFormat(#[from] NumberFormatError),
   #[error("{0}")]
   NumberOverflow(#[from] NumberOverflow),
-  #[error("{0}")]
-  Parse(#[from] Parse),
-  #[error("parse int error: {0}")]
-  ParseIntError(#[from] std::num::ParseIntError),
+  #[error("parse int error: {source}")]
+  ParseIntError {
+    source: std::num::ParseIntError,
+    suppressed: Option<Box<LuceneError>>,
+  },
   #[error("{0}")]
   TimeExceeded(#[from] TimeExceededError),
   #[error("{0}")]
@@ -124,10 +130,16 @@ pub enum LuceneError {
   Unreachable(#[from] UnreachableError),
   #[error("{0}")]
   UnsupportedOperation(#[from] UnsupportedOperationError),
-  #[error("UTF-8 decoding error: {0}")]
-  Utf8Error(#[from] std::str::Utf8Error),
-  #[error("{0}")]
-  VersionError(#[from] VersionError),
+  #[error("UTF-8 decoding error: {source}")]
+  Utf8Error {
+    source: std::str::Utf8Error,
+    suppressed: Option<Box<LuceneError>>,
+  },
+  #[error("{source}")]
+  VersionError {
+    source: VersionError,
+    suppressed: Option<Box<LuceneError>>,
+  },
 }
 
 impl Clone for LuceneError {
@@ -135,31 +147,40 @@ impl Clone for LuceneError {
     match self {
       LuceneError::AlreadyClosed(err) => LuceneError::AlreadyClosed(err.clone()),
       LuceneError::ArrayIndexOutOfBounds(err) => LuceneError::ArrayIndexOutOfBounds(err.clone()),
-      LuceneError::BorrowError(message) => LuceneError::BorrowError(message.clone()),
       LuceneError::BufferAllocation(err) => LuceneError::BufferAllocation(err.clone()),
       LuceneError::CollectionTerminated(err) => LuceneError::CollectionTerminated(err.clone()),
       LuceneError::CorruptIndex(err) => LuceneError::CorruptIndex(err.clone()),
       LuceneError::Eof(err) => LuceneError::Eof(err.clone()),
-      LuceneError::Fmt(err) => LuceneError::Fmt(*err),
-      LuceneError::FromUtf8Error(err) => LuceneError::FromUtf8Error(err.clone()),
+      LuceneError::Fmt { source, suppressed } => LuceneError::Fmt {
+        source: *source,
+        suppressed: suppressed.clone(),
+      },
+      LuceneError::FromUtf8Error { source, suppressed } => LuceneError::FromUtf8Error {
+        source: source.clone(),
+        suppressed: suppressed.clone(),
+      },
       LuceneError::FuzzyTerms(err) => LuceneError::FuzzyTerms(err.clone()),
       LuceneError::IllegalArgument(err) => LuceneError::IllegalArgument(err.clone()),
       LuceneError::IllegalState(err) => LuceneError::IllegalState(err.clone()),
       LuceneError::IndexFormatTooNew(err) => LuceneError::IndexFormatTooNew(err.clone()),
       LuceneError::IndexFormatTooOld(err) => LuceneError::IndexFormatTooOld(err.clone()),
       LuceneError::IndexNotFound(err) => LuceneError::IndexNotFound(err.clone()),
-      LuceneError::Io(err) => LuceneError::Io(Error::new(err.kind(), err.to_string())),
+      LuceneError::Io { source, suppressed } => LuceneError::Io {
+        source: Error::new(source.kind(), source.to_string()),
+        suppressed: suppressed.clone(),
+      },
       LuceneError::IoWithPath {
         source,
         path,
         err_kind,
+        suppressed,
       } => LuceneError::IoWithPath {
         source: Error::new(source.kind(), source.to_string()),
         path: path.clone(),
         err_kind: err_kind.clone(),
+        suppressed: suppressed.clone(),
       },
       LuceneError::LockAlreadyHeld(err) => LuceneError::LockAlreadyHeld(err.clone()),
-      LuceneError::LockError(message) => LuceneError::LockError(message.clone()),
       LuceneError::LockHeldByOther(err) => LuceneError::LockHeldByOther(err.clone()),
       LuceneError::LockObtainFailed(err) => LuceneError::LockObtainFailed(err.clone()),
       LuceneError::LockReleaseFailed(err) => LuceneError::LockReleaseFailed(err.clone()),
@@ -173,8 +194,10 @@ impl Clone for LuceneError {
       LuceneError::NotImplemented(err) => LuceneError::NotImplemented(err.clone()),
       LuceneError::NumberFormat(err) => LuceneError::NumberFormat(err.clone()),
       LuceneError::NumberOverflow(err) => LuceneError::NumberOverflow(err.clone()),
-      LuceneError::Parse(err) => LuceneError::Parse(err.clone()),
-      LuceneError::ParseIntError(err) => LuceneError::ParseIntError(err.clone()),
+      LuceneError::ParseIntError { source, suppressed } => LuceneError::ParseIntError {
+        source: source.clone(),
+        suppressed: suppressed.clone(),
+      },
       LuceneError::TimeExceeded(err) => LuceneError::TimeExceeded(err.clone()),
       LuceneError::TooComplexToDeterminize(err) => {
         LuceneError::TooComplexToDeterminize(err.clone())
@@ -185,24 +208,90 @@ impl Clone for LuceneError {
       LuceneError::UncheckedIO(err) => LuceneError::UncheckedIO(err.clone()),
       LuceneError::Unreachable(err) => LuceneError::Unreachable(err.clone()),
       LuceneError::UnsupportedOperation(err) => LuceneError::UnsupportedOperation(err.clone()),
-      LuceneError::Utf8Error(err) => LuceneError::Utf8Error(*err),
-      LuceneError::VersionError(err) => LuceneError::VersionError(err.clone()),
+      LuceneError::Utf8Error { source, suppressed } => LuceneError::Utf8Error {
+        source: *source,
+        suppressed: suppressed.clone(),
+      },
+      LuceneError::VersionError { source, suppressed } => LuceneError::VersionError {
+        source: source.clone(),
+        suppressed: suppressed.clone(),
+      },
     }
   }
 }
+
+impl From<fmt::Error> for LuceneError {
+  fn from(source: fmt::Error) -> Self {
+    LuceneError::Fmt {
+      source,
+      suppressed: None,
+    }
+  }
+}
+
+impl From<FromUtf8Error> for LuceneError {
+  fn from(source: FromUtf8Error) -> Self {
+    LuceneError::FromUtf8Error {
+      source,
+      suppressed: None,
+    }
+  }
+}
+
+impl From<Error> for LuceneError {
+  fn from(source: Error) -> Self {
+    LuceneError::Io {
+      source,
+      suppressed: None,
+    }
+  }
+}
+
+impl From<std::num::ParseIntError> for LuceneError {
+  fn from(source: std::num::ParseIntError) -> Self {
+    LuceneError::ParseIntError {
+      source,
+      suppressed: None,
+    }
+  }
+}
+
+impl From<std::str::Utf8Error> for LuceneError {
+  fn from(source: std::str::Utf8Error) -> Self {
+    LuceneError::Utf8Error {
+      source,
+      suppressed: None,
+    }
+  }
+}
+
+impl From<VersionError> for LuceneError {
+  fn from(source: VersionError) -> Self {
+    LuceneError::VersionError {
+      source,
+      suppressed: None,
+    }
+  }
+}
+
 macro_rules! error_ctor {
   (@add_suppressed $(($variant:ident)),+ $(,)?) => {
-    pub fn add_suppressed(&mut self, source: LuceneError) -> Result<()> {
+    pub fn add_suppressed(&mut self, source: LuceneError) {
       match self {
         $(
           LuceneError::$variant(err) => {
             err.add_suppressed(source);
-            Ok(())
           },
         )+
-        _ => Err(LuceneError::unsupported_operation(
-          "add_suppressed is not supported for this error",
-        )),
+        LuceneError::Fmt { suppressed, .. }
+        | LuceneError::FromUtf8Error { suppressed, .. }
+        | LuceneError::Io { suppressed, .. }
+        | LuceneError::IoWithPath { suppressed, .. }
+        | LuceneError::ParseIntError { suppressed, .. }
+        | LuceneError::Utf8Error { suppressed, .. }
+        | LuceneError::VersionError { suppressed, .. } => {
+          *suppressed = Some(Box::new(source));
+        },
       }
     }
 
@@ -211,9 +300,13 @@ macro_rules! error_ctor {
         $(
           LuceneError::$variant(err) => Ok(err.get_suppressed()),
         )+
-        _ => Err(LuceneError::unsupported_operation(
-          "get_suppressed is not supported for this error",
-        )),
+        LuceneError::Fmt { suppressed, .. }
+        | LuceneError::FromUtf8Error { suppressed, .. }
+        | LuceneError::Io { suppressed, .. }
+        | LuceneError::IoWithPath { suppressed, .. }
+        | LuceneError::ParseIntError { suppressed, .. }
+        | LuceneError::Utf8Error { suppressed, .. }
+        | LuceneError::VersionError { suppressed, .. } => Ok(suppressed.as_deref()),
       }
     }
   };
@@ -248,11 +341,16 @@ impl LuceneError {
       source: err,
       path: path.into(),
       err_kind: message,
+      suppressed: None,
     }
   }
 
   pub fn io(err: std::io::Error) -> Self {
     Self::io_with_path("", err)
+  }
+
+  pub fn is_tragedy_error(&self) -> bool {
+    matches!(self, LuceneError::Tragedy(_))
   }
 
   error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);

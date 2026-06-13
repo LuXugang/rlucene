@@ -125,6 +125,25 @@ use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 use std::vec;
 
+macro_rules! catch_aborting_exception {
+  ($has_hit_aborting_exception:expr, $aborting_exception:expr, $panic_message:expr, $operation:expr) => {{
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $operation)) {
+      Ok(Ok(value)) => Ok(value),
+      Ok(Err(err)) => {
+        *$has_hit_aborting_exception = true;
+        let _ = $aborting_exception.set(err.clone());
+        Err(err)
+      },
+      Err(e) => {
+        let tragedy = LuceneError::tragedy_from_panic($panic_message, e.as_ref());
+        *$has_hit_aborting_exception = true;
+        let _ = $aborting_exception.set(tragedy.clone());
+        Err(tragedy)
+      },
+    }
+  }};
+}
+
 /// Default general purpose indexing chain, which handles indexing all types of fields.
 pub(crate) struct IndexingChain<D>
 where
@@ -672,42 +691,25 @@ where
   where
     D1: Directory,
   {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    catch_aborting_exception!(
+      &mut self.has_hit_aborting_exception,
+      aborting_exception,
+      "panic while starting stored fields",
       self.stored_fields_consumer.start_document(doc_id, info)
-    })) {
-      Ok(Ok(_)) => Ok(()),
-      Ok(Err(err)) => {
-        self.on_aborting_exception(aborting_exception, err.clone());
-        Err(err)
-      },
-      Err(e) => {
-        let tragedy =
-          LuceneError::tragedy_from_panic("panic while starting stored fields", e.as_ref());
-        self.on_aborting_exception(aborting_exception, tragedy.clone());
-        Err(tragedy)
-      },
-    }
+    )?;
+    Ok(())
   }
   ///  Calls StoredFieldsWriter.finishDocument, aborting the segment if it hits any error .
   pub(crate) fn finish_stored_fields(
     &mut self,
     aborting_exception: &OnceLock<LuceneError>,
   ) -> Result<()> {
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    catch_aborting_exception!(
+      &mut self.has_hit_aborting_exception,
+      aborting_exception,
+      "panic while finishing stored fields",
       self.stored_fields_consumer.finish_document()
-    })) {
-      Ok(Ok(())) => Ok(()),
-      Ok(Err(err)) => {
-        self.on_aborting_exception(aborting_exception, err.clone());
-        Err(err)
-      },
-      Err(e) => {
-        let tragedy =
-          LuceneError::tragedy_from_panic("panic while finishing stored fields", e.as_ref());
-        self.on_aborting_exception(aborting_exception, tragedy.clone());
-        Err(tragedy)
-      },
-    }
+    )
   }
   pub(crate) fn process_document<DF, D1>(
     &mut self,
@@ -813,7 +815,7 @@ where
       }
       Ok(())
     })();
-    if !self.has_hit_aborting_exception && aborting_exception_consumer.get().is_none() {
+    if !self.has_hit_aborting_exception {
       // Finish each indexed field name seen in the document:
       for i in 0..indexed_field_count {
         let idx = self.fields[i];
@@ -826,7 +828,10 @@ where
         )?;
       }
       self.finish_stored_fields(aborting_exception_consumer)?;
-      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      catch_aborting_exception!(
+        &mut self.has_hit_aborting_exception,
+        aborting_exception_consumer,
+        "panic while finishing terms hash document",
         self.terms_hash.finish_document(
           doc_id,
           info,
@@ -834,21 +839,7 @@ where
           &mut self.context.term_vectors_int_pool,
           &mut self.context.byte_pool,
         )
-      })) {
-        Ok(Ok(())) => {},
-        Ok(Err(err)) => {
-          self.on_aborting_exception(aborting_exception_consumer, err.clone());
-          return Err(err);
-        },
-        Err(e) => {
-          let tragedy = LuceneError::tragedy_from_panic(
-            "panic while finishing terms hash document",
-            e.as_ref(),
-          );
-          self.on_aborting_exception(aborting_exception_consumer, tragedy.clone());
-          return Err(tragedy);
-        },
-      }
+      )?;
     }
     result
   }
@@ -959,25 +950,15 @@ where
     }
 
     if fi.get_vector_dimension() != 0 {
-      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      let writer = catch_aborting_exception!(
+        &mut self.has_hit_aborting_exception,
+        aborting_exception,
+        "panic while adding vector field",
         self
           .vector_values_consumer
           .add_field(fi.clone(), segment_info)
-      })) {
-        Ok(Ok(writer)) => {
-          pf.knn_field_vectors_writer = Some(writer);
-        },
-        Ok(Err(err)) => {
-          self.on_aborting_exception(aborting_exception, err.clone());
-          return Err(err);
-        },
-        Err(e) => {
-          let tragedy =
-            LuceneError::tragedy_from_panic("panic while adding vector field", e.as_ref());
-          self.on_aborting_exception(aborting_exception, tragedy.clone());
-          return Err(tragedy);
-        },
-      }
+      )?;
+      pf.knn_field_vectors_writer = Some(writer);
     }
 
     Ok(())
@@ -1006,6 +987,7 @@ where
           index_writer_config.get_analyzer(),
           self.info_stream.as_ref(),
           &mut self.context,
+          &mut self.has_hit_aborting_exception,
           aborting_exception,
         )?;
         pf.first = false;
@@ -1018,6 +1000,7 @@ where
           index_writer_config.get_analyzer(),
           self.info_stream.as_ref(),
           &mut self.context,
+          &mut self.has_hit_aborting_exception,
           aborting_exception,
         )?;
       }
@@ -1037,23 +1020,14 @@ where
           s.len()
         )));
       };
-      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      catch_aborting_exception!(
+        &mut self.has_hit_aborting_exception,
+        aborting_exception,
+        "panic while writing stored field",
         self
           .stored_fields_consumer
           .write_field(pf.field_info.as_ref().unwrap(), stored_value)
-      })) {
-        Ok(Ok(())) => {},
-        Ok(Err(err)) => {
-          self.on_aborting_exception(aborting_exception, err.clone());
-          return Err(err);
-        },
-        Err(e) => {
-          let tragedy =
-            LuceneError::tragedy_from_panic("panic while writing stored field", e.as_ref());
-          self.on_aborting_exception(aborting_exception, tragedy.clone());
-          return Err(tragedy);
-        },
-      }
+      )?;
     }
 
     let dv_type = *field_type.doc_values_type();
@@ -1409,6 +1383,15 @@ pub(crate) struct PerField {
   pub(crate) idx_in_doc_field: i32,
 }
 impl PerField {
+  fn on_aborting_exception(
+    has_hit_aborting_exception: &mut bool,
+    aborting_exception: &OnceLock<LuceneError>,
+    throwable: LuceneError,
+  ) {
+    *has_hit_aborting_exception = true;
+    let _ = aborting_exception.set(throwable);
+  }
+
   pub(crate) fn new(
     field: &Fields,
     index_created_version_major: i32,
@@ -1524,6 +1507,7 @@ impl PerField {
     analyzer: &A,
     info_stream: &InfoStreamEnum,
     context: &mut IndexContext,
+    has_hit_aborting_exception: &mut bool,
     aborting_exception: &OnceLock<LuceneError>,
   ) -> Result<()>
   where
@@ -1558,6 +1542,7 @@ impl PerField {
           analyzer,
           info_stream,
           context,
+          has_hit_aborting_exception,
           aborting_exception,
         )?;
       },
@@ -1574,6 +1559,7 @@ impl PerField {
     analyzer: &A,
     info_stream: &InfoStreamEnum,
     context: &mut IndexContext,
+    has_hit_aborting_exception: &mut bool,
     aborting_exception: &OnceLock<LuceneError>,
   ) -> Result<()>
   where
@@ -1695,11 +1681,15 @@ impl PerField {
                           prefix,
                           e
                         ));
-                        ia.add_suppressed(e.into())?;
+                        ia.add_suppressed(e.into());
                         return Err(ia);
                       },
                       other => {
-                        let _ = aborting_exception.set(other.clone());
+                        Self::on_aborting_exception(
+                          has_hit_aborting_exception,
+                          aborting_exception,
+                          other.clone(),
+                        );
                         return Err(other);
                       },
                     }
@@ -1707,7 +1697,11 @@ impl PerField {
                   Err(e) => {
                     let tragedy =
                       LuceneError::tragedy_from_panic("panic while adding term", e.as_ref());
-                    let _ = aborting_exception.set(tragedy.clone());
+                    Self::on_aborting_exception(
+                      has_hit_aborting_exception,
+                      aborting_exception,
+                      tragedy.clone(),
+                    );
                     return Err(tragedy);
                   },
                 }
@@ -1812,7 +1806,7 @@ impl PerField {
             prefix
           );
           let mut ia = LuceneError::illegal_argument(msg);
-          ia.add_suppressed(e.into())?;
+          ia.add_suppressed(e.into());
           return Err(ia);
         },
         other => {

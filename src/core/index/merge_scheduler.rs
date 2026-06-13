@@ -19,7 +19,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::store::directory::{Directory, DirectoryEnum2};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
 #[cfg(test)]
@@ -30,7 +30,7 @@ use crate::test::core::index::base_merge_policy_test_case::SerialMergeSchedulerI
 use crate::test::core::index::test_index_writer_merging::MyMergeScheduler;
 use parking_lot::MutexGuard;
 
-pub trait MergeScheduler: Closeable {
+pub trait MergeScheduler: CloseableRef {
   fn merge<MS, D>(
     &self,
     merge_source: &MS,
@@ -127,8 +127,8 @@ impl Default for MergeSchedulerEnum {
   }
 }
 
-impl Closeable for MergeSchedulerEnum {
-  fn close(&mut self) -> Result<()> {
+impl CloseableRef for MergeSchedulerEnum {
+  fn close(&self) -> Result<()> {
     match self {
       MergeSchedulerEnum::Serial(s) => s.close(),
       MergeSchedulerEnum::No(n) => n.close(),

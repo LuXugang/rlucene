@@ -19,12 +19,12 @@ use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 
 pub struct DummyMergeScheduler;
 
-impl Closeable for DummyMergeScheduler {
-  fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+impl CloseableRef for DummyMergeScheduler {
+  fn close(&self) -> crate::core::util::error::lucene_error::Result<()> {
     dummy_unreachable!()
   }
 }

@@ -95,7 +95,7 @@ where
 
     if let Err(mut e) = result {
       if let Err(dec_err) = seg_doc_values.dec_ref(&dv_gens) {
-        e.add_suppressed(dec_err)?;
+        e.add_suppressed(dec_err);
       }
       return Err(e);
     }

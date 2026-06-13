@@ -104,7 +104,7 @@ impl FSLockFactory for SimpleFSLockFactory {
         let error = LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e);
         let mut lock_obtain_failed_error =
           LuceneError::lock_obtain_failed(format!("Lock held elsewhere: {}", lock_file.display()));
-        lock_obtain_failed_error.add_suppressed(error)?;
+        lock_obtain_failed_error.add_suppressed(error);
         Err(lock_obtain_failed_error)
       },
       Err(e) => Err(LuceneError::io_with_path(

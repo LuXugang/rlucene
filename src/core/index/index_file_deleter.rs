@@ -275,8 +275,7 @@ where
     index_writer.do_ensure_open(false)?;
 
     let tragic_arc = index_writer.get_tragic_exception();
-    let tragic = tragic_arc.lock();
-    let error = tragic.as_ref();
+    let error = tragic_arc.get();
     if let Some(e) = error {
       return Err(LuceneError::already_closed(format!(
         "refusing to delete any files: this IndexWriter hit an unrecoverable exception: {e}",

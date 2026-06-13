@@ -58,7 +58,7 @@ use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::directory::Directory;
 use crate::core::util::ToInt;
 use crate::core::util::bits::Bits;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VectorUtil;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
@@ -2555,7 +2555,7 @@ impl TestMergeScheduler {
   }
 }
 
-impl Closeable for TestMergeScheduler {}
+impl CloseableRef for TestMergeScheduler {}
 
 impl MergeScheduler for TestMergeScheduler {
   fn merge<MS, D>(

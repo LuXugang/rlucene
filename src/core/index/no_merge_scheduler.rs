@@ -18,7 +18,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 /// A [`MergeScheduler`] which never executes any merges.
 ///
@@ -44,11 +44,7 @@ impl NoMergeScheduler {
   }
 }
 
-impl Closeable for NoMergeScheduler {
-  fn close(&mut self) -> Result<()> {
-    todo!()
-  }
-}
+impl CloseableRef for NoMergeScheduler {}
 
 impl MergeScheduler for NoMergeScheduler {
   fn merge<MS, D>(

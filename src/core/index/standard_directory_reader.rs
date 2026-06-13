@@ -300,7 +300,7 @@ where
     Ok(r) => Ok(r),
     Err(mut e) => {
       if let Err(e1) = IOUtils::apply_to_all(&readers_backup, IndexReader::dec_ref) {
-        e.add_suppressed(e1)?;
+        e.add_suppressed(e1);
       }
       Err(e)
     },

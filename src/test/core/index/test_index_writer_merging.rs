@@ -33,7 +33,7 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -373,8 +373,8 @@ fn test_set_max_merge_docs() -> Result<()> {
 
 pub struct MyMergeScheduler;
 
-impl Closeable for MyMergeScheduler {
-  fn close(&mut self) -> Result<()> {
+impl CloseableRef for MyMergeScheduler {
+  fn close(&self) -> Result<()> {
     Ok(())
   }
 }

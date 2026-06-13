@@ -18,7 +18,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 
 /// A [`MergeScheduler`] that simply does each merge sequentially, using the current thread.
@@ -35,11 +35,7 @@ impl SerialMergeScheduler {
   }
 }
 
-impl Closeable for SerialMergeScheduler {
-  fn close(&mut self) -> Result<()> {
-    todo!()
-  }
-}
+impl CloseableRef for SerialMergeScheduler {}
 /// Just do the merges in sequence.
 /// We do this "synchronized" so that even if the application is using multiple threads,
 /// only one merge may run at a time.

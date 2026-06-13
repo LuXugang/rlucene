@@ -413,7 +413,9 @@ where
     {
       let sis = match SegmentInfos::read_commit(dir.clone(), &file_name) {
         Ok(sis) => Some(sis),
-        Err(LuceneError::Io(err)) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(LuceneError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {
+          None
+        },
         Err(LuceneError::IoWithPath { source, .. })
           if source.kind() == std::io::ErrorKind::NotFound =>
         {

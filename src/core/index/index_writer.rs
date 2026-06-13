@@ -37,7 +37,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
 use parking_lot::{Condvar, Mutex, MutexGuard};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 /// An `IndexWriter` creates and maintains an index.
 ///
 /// The [`OpenMode`] option on [`IndexWriterConfig::set_open_mode`] determines whether a new index
@@ -138,7 +138,6 @@ where
   pub(crate) enable_test_points: bool,
   // when unrecoverable disaster strikes, we populate this with the reason that we had to close
   // IndexWriter
-  // TODO IMPORTANT 这里的类型需要优化 要满足 only set it once
   tragedy: TragicException,
   // original user directory
   pub(crate) directory_orig: Arc<D>,
@@ -295,9 +294,11 @@ where
     // obtain the write.lock. If the user configured a timeout,
     // we wrap with a sleeper and this might take some time.
     let write_lock = d.obtain_lock(WRITE_LOCK_NAME)?;
+    let mut directory_for_cleanup = None;
     let result = (|| {
       let directory_orig = d.clone();
       let directory = Arc::new(LockValidatingDirectoryWrapper::new(d.clone(), write_lock));
+      directory_for_cleanup = Some(directory.clone());
 
       let mode = conf.get_open_mode();
       let (index_exists, create) = match mode {
@@ -546,7 +547,7 @@ where
 
       let iw = Self {
         enable_test_points,
-        tragedy: Arc::new(Mutex::new(None)),
+        tragedy: Arc::new(OnceLock::new()),
         directory_orig,
         directory,
         last_commit_change_count: AtomicI64::new(0),
@@ -602,10 +603,16 @@ where
       Ok(iw)
     })();
     if result.is_err() && info_stream.enabled("IW") {
-      // TODO
       let msg = "init: hit exception on init; releasing write lock";
-
       info_stream.message("IW", msg);
+    }
+    if result.is_err()
+      && let Some(directory) = directory_for_cleanup.as_ref()
+    {
+      IOUtils::close_while_handling_error(
+        std::iter::once(&directory.write_lock),
+        CloseableRef::close,
+      )?;
     }
     result
   }
@@ -708,10 +715,8 @@ where
           self.rollback_internal()?;
         },
         Err(mut t) => {
-          if let Err(t1) = self.rollback_internal()
-            && let Err(e) = t.add_suppressed(t1)
-          {
-            t = e;
+          if let Err(t1) = self.rollback_internal() {
+            t.add_suppressed(t1);
           }
           return Err(t);
         },
@@ -784,13 +789,15 @@ where
   /// - `Io` if a low-level IO error occurs.
   pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64> {
     self.do_ensure_open(true)?;
-    let res = (|| {
+    let res: Result<i64> = (|| {
       let seq = self.maybe_process_events(self.doc_writer.delete_terms(&self.config, terms)?)?;
       Ok(seq)
     })();
 
-    if let Err(ref e) = res {
-      self.tragic_event(e, "deleteDocuments(Term..)")?;
+    if let Err(ref e) = res
+      && e.is_tragedy_error()
+    {
+      self.tragic_event(e.clone(), "deleteDocuments(Term..)")?;
     }
 
     res
@@ -814,14 +821,16 @@ where
       }
     }
 
-    let res = (|| {
+    let res: Result<i64> = (|| {
       let seq0 = self.doc_writer.delete_queries(&self.config, queries)?;
       let seq = self.maybe_process_events(seq0)?;
       Ok(seq)
     })();
 
-    if let Err(ref e) = res {
-      self.tragic_event(e, "deleteDocuments(Query..)")?;
+    if let Err(ref e) = res
+      && e.is_tragedy_error()
+    {
+      self.tragic_event(e.clone(), "deleteDocuments(Query..)")?;
     }
 
     res
@@ -971,8 +980,14 @@ where
       Ok(seq)
     })();
 
-    if let Err(ref e) = res {
-      self.tragic_event(e, "updateDocuments")?;
+    let tragic_res = if let Err(ref e) = res
+      && e.is_tragedy_error()
+    {
+      self.tragic_event(e.clone(), "updateDocuments")
+    } else {
+      Ok(())
+    };
+    if res.is_err() {
       if self.info_stream.enabled("IW") {
         self
           .info_stream
@@ -980,6 +995,7 @@ where
       }
       self.maybe_close_on_tragic_event()?;
     }
+    tragic_res?;
     res
   }
   /// Expert: Atomically updates documents matching the provided `term` with the given
@@ -1245,8 +1261,10 @@ where
       self.maybe_process_events(seq)
     })();
 
-    if let Err(ref e) = res {
-      self.tragic_event(e, "updateNumericDocValue")?;
+    if let Err(ref e) = res
+      && e.is_tragedy_error()
+    {
+      self.tragic_event(e.clone(), "updateNumericDocValue")?;
     }
     res
   }
@@ -1306,8 +1324,10 @@ where
       self.maybe_process_events(seq)
     })();
 
-    if let Err(ref e) = res {
-      self.tragic_event(e, "updateBinaryDocValue")?;
+    if let Err(ref e) = res
+      && e.is_tragedy_error()
+    {
+      self.tragic_event(e.clone(), "updateBinaryDocValue")?;
     }
     res
   }
@@ -1343,8 +1363,10 @@ where
       self.maybe_process_events(seq)
     })();
 
-    if let Err(ref e) = res {
-      self.tragic_event(e, "updateDocValues")?;
+    if let Err(ref e) = res
+      && e.is_tragedy_error()
+    {
+      self.tragic_event(e.clone(), "updateDocValues")?;
     }
     res
   }
@@ -2025,7 +2047,7 @@ where
     if let Some(requested_merges) = requested_merges.filter(|_| do_wait) {
       let mut inner = self.inner.lock();
       loop {
-        if let Some(t) = &*self.tragedy.lock() {
+        if let Some(t) = self.tragedy.get() {
           return Err(LuceneError::illegal_state(format!(
             "this writer hit an unrecoverable error; cannot complete forceMergeDeletes {}",
             t
@@ -2136,7 +2158,7 @@ where
     if do_wait {
       let mut inner = self.inner.lock();
       loop {
-        if let Some(t) = &*self.tragedy.lock() {
+        if let Some(t) = self.tragedy.get() {
           return Err(LuceneError::illegal_state(format!(
             "this writer hit an unrecoverable error; cannot complete forceMerge {}",
             t
@@ -2245,7 +2267,7 @@ where
     }
 
     // Do not start new merges if disaster struck
-    if self.tragedy.lock().is_some() {
+    if self.tragedy.get().is_some() {
       return Ok(false);
     }
 
@@ -2312,7 +2334,7 @@ where
   fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>> {
     let mut inner = self.inner.lock();
 
-    if let Some(t) = &*self.tragedy.lock() {
+    if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot merge: {}",
         t
@@ -2331,7 +2353,7 @@ where
   pub fn has_pending_merges(&self) -> Result<bool> {
     let inner = self.inner.lock();
 
-    if let Some(t) = &*self.tragedy.lock() {
+    if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot merge: {}",
         t
@@ -2360,7 +2382,7 @@ where
       self.info_stream.message("IW", "rollback");
     }
 
-    let mut result = (|| -> Result<()> {
+    let result = (|| -> Result<()> {
       {
         let mut inner = self.inner.lock();
         // must be synced otherwise register merge might throw an exception if merges
@@ -2381,7 +2403,7 @@ where
 
       // Must pre-close in case it increments change_count so that we can then
       // set it to false before calling rollback_internal.
-      // TODO IMPORTANT : merge scheduler close requires mutable config access in this port.
+      self.config.get_merge_scheduler().close()?;
 
       self.doc_writer.close();
       self.doc_writer.abort(self.get_config())?;
@@ -2426,7 +2448,7 @@ where
       // Ask deleter to locate unreferenced files & remove
       // them ... only when we are not experiencing a tragedy, else
       // these methods throw ACE:
-      if self.tragedy.lock().is_none() {
+      if self.tragedy.get().is_none() {
         let (deleter, segment_infos) = {
           let v = &mut *inner;
           (&mut v.deleter, &v.segment_infos)
@@ -2450,42 +2472,63 @@ where
       // after we leave this sync block and before we enter the sync block in the finally clause
       // below that sets closed:
       self.closed.store(true, Ordering::SeqCst);
+
+      // TODO IMPORTANT 这里需要捕获 panic 吗
+      let close_result = IOUtils::close_one_ref(self.writer_lock());
       self.closing.store(false, Ordering::SeqCst);
-      IOUtils::close_one_ref(self.writer_lock())?;
+      self.pausing.notify_all();
+      close_result?;
       Ok(())
     })();
-    // TODO IMPORTANT 这里的错误处理不对
-    if result.is_err() {
-      let cleanup_result = (|| -> Result<()> {
-        let mut inner = self.inner.lock();
 
-        if let Some(mut pending_commit) = commit_lock.pending_commit.take() {
-          pending_commit.rollback_commit(self.directory.as_ref());
-          inner.deleter.dec_ref_from_segment(&pending_commit)?;
+    let result = match result {
+      Ok(()) => Ok(()),
+      Err(mut error) => {
+        let mut cleanup_error = None;
+        if let Err(e) = self.config.get_merge_scheduler().close() {
+          cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
         }
 
-        let mut cleanup_err = None;
-        if let Err(e) = self.reader_pool.close(&mut inner.segment_infos) {
-          cleanup_err = Some(e);
-        }
-        if let Err(e) = inner.deleter.close()
-          && cleanup_err.is_none()
         {
-          cleanup_err = Some(e);
-        }
-        self.closed.store(true, Ordering::SeqCst);
+          let mut inner = self.inner.lock();
 
-        match cleanup_err {
-          Some(e) => Err(e),
-          None => Ok(()),
-        }
-      })();
+          if let Some(mut pending_commit) = commit_lock.pending_commit.take() {
+            pending_commit.rollback_commit(self.directory.as_ref());
+            if let Err(e) = inner.deleter.dec_ref_from_segment(&pending_commit) {
+              cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
+            }
+          }
 
-      if let Err(cleanup_err) = cleanup_result {
-        result = result.map_err(|err| LuceneError::illegal_state(format!("{err}, {cleanup_err}")));
-      }
+          // TODO IMPORTANT 这里需要捕获 panic 吗
+          if let Err(e) = self.reader_pool.close(&mut inner.segment_infos) {
+            cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
+          }
+          if let Err(e) = inner.deleter.close() {
+            cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
+          }
+          if let Err(e) = IOUtils::close_one_ref(self.writer_lock()) {
+            cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
+          }
+
+          self.closed.store(true, Ordering::SeqCst);
+          self.closing.store(false, Ordering::SeqCst);
+          self.pausing.notify_all();
+        }
+
+        if let Some(cleanup_error) = cleanup_error {
+          error.add_suppressed(cleanup_error);
+        }
+        Err(error)
+      },
+    };
+
+    let mut result = result;
+    if let Err(error) = &mut result
+      && error.is_tragedy_error()
+      && let Err(tragic_error) = self.tragic_event(error.clone(), "rollbackInternal")
+    {
+      error.add_suppressed(tragic_error);
     }
-    self.pausing.notify_all();
     result
   }
   fn writer_lock(&self) -> &D::Lock {
@@ -2587,8 +2630,10 @@ where
       Ok(self.doc_writer.get_next_sequence_number())
     })();
 
-    if let Err(ref e) = result {
-      self.tragic_event(e, "deleteAll")?;
+    if let Err(ref e) = result
+      && e.is_tragedy_error()
+    {
+      self.tragic_event(e.clone(), "deleteAll")?;
     }
 
     result
@@ -3014,30 +3059,18 @@ where
       Ok(seq_no)
     })();
 
-    let close_result = self.close_locks(&locks);
-    match (result, close_result) {
-      (Ok(seq_no), Ok(())) => {
+    match result {
+      Ok(seq_no) => {
+        IOUtils::close_refs(&locks)?;
         self.maybe_merge()?;
         Ok(seq_no)
       },
-      // TODO IMPORTANT 如果两个都报错 需要前台错误
-      (Err(err), _) => Err(err),
-      (Ok(_), Err(err)) => Err(err),
-    }
-  }
-
-  fn close_locks(&self, locks: &[D::Lock]) -> Result<()> {
-    let mut first_err = None;
-    for lock in locks {
-      if let Err(err) = lock.close()
-        && first_err.is_none()
-      {
-        first_err = Some(err);
-      }
-    }
-    match first_err {
-      Some(err) => Err(err),
-      None => Ok(()),
+      Err(mut err) => {
+        if let Err(close_err) = IOUtils::close_while_handling_error(&locks, CloseableRef::close) {
+          err.add_suppressed(close_err);
+        }
+        Err(err)
+      },
     }
   }
 
@@ -3547,8 +3580,10 @@ where
       }
     })();
 
-    if let Err(err) = &result {
-      self.tragic_event(err, "flush_next_buffer")?;
+    if let Err(err) = &result
+      && err.is_tragedy_error()
+    {
+      self.tragic_event(err.clone(), "flush_next_buffer")?;
     }
     self.maybe_close_on_tragic_event()?;
     result
@@ -3570,7 +3605,7 @@ where
       );
     }
 
-    if let Some(t) = &*self.tragedy.lock() {
+    if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot commit {}",
         t
@@ -3598,7 +3633,7 @@ where
     // This is copied from doFlush, except it's modified to
     // clone & incRef the flushed SegmentInfos inside the
     // sync block:
-    let tragic_res: Result<()> = (|| {
+    let tragic_res: Result<()> = {
       let _guard = self.full_flush_lock.lock();
       let mut flush_success = false;
       let body_res: Result<()> = (|| {
@@ -3665,19 +3700,33 @@ where
           .info_stream
           .message("IW", "hit exception during prepareCommit");
       }
-      // Done: finish the full flush!
-      self
-        .doc_writer
-        .finish_full_flush(flush_success, &self.config)?;
-      if let Some(ref s) = self.hooks {
-        s.do_after_flush()?
+      match (
+        body_res,
+        (|| {
+          // Done: finish the full flush!
+          self
+            .doc_writer
+            .finish_full_flush(flush_success, &self.config)?;
+          if let Some(ref s) = self.hooks {
+            s.do_after_flush()?
+          }
+          Ok(())
+        })(),
+      ) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(mut err), Err(finish_err)) => {
+          err.add_suppressed(finish_err);
+          Err(err)
+        },
+        (Err(err), Ok(())) => Err(err),
+        (Ok(()), Err(err)) => Err(err),
       }
-      body_res
-    })();
+    };
     let tragic_res = match tragic_res {
       Err(e) => {
-        // TODO IMPORTANT 这里没有处理好嵌套错误
-        self.tragic_event(&e, "prepareCommit")?;
+        if e.is_tragedy_error() {
+          self.tragic_event(e.clone(), "prepareCommit")?;
+        }
         Err(e)
       },
       Ok(()) => Ok(()),
@@ -3715,7 +3764,7 @@ where
         match std::mem::take(&mut commit_lock.files_to_commit) {
           Some(files_to_commit) => {
             if let Err(e) = inner.deleter.dec_ref(files_to_commit.iter()) {
-              t.add_suppressed(e)?
+              t.add_suppressed(e);
             }
 
             Err(t)
@@ -3935,8 +3984,7 @@ where
     if self.closed.load(Ordering::SeqCst)
       || (fail_if_closing && self.closing.load(Ordering::SeqCst))
     {
-      let tragedy = self.tragedy.lock();
-      let error_opt = tragedy.as_ref();
+      let error_opt = self.tragedy.get();
       let message = "this IndexWriter is closed";
       match error_opt {
         Some(err) => Err(LuceneError::already_closed(format!("{} {}", message, err))),
@@ -4015,7 +4063,7 @@ where
       let mut inner = self.inner.lock();
       self.do_ensure_open(false)?;
 
-      if let Some(t) = &*self.tragedy.lock() {
+      if let Some(t) = self.tragedy.get() {
         return Err(LuceneError::illegal_state(format!(
           "this writer hit an unrecoverable error; cannot complete commit {}",
           t
@@ -4101,7 +4149,7 @@ where
           .message("IW", &format!("hit exception during finishCommit: {}", t));
       }
       if commit_completed {
-        self.tragic_event(&t, "finishCommit")?;
+        self.tragic_event(t.clone(), "finishCommit")?;
       }
       return Err(t);
     }
@@ -4155,7 +4203,7 @@ where
   }
   /// Returns true a segment was flushed or deletes were applied.
   fn do_flush(&self, apply_all_deletes: bool) -> Result<bool> {
-    if let Some(t) = &*self.tragedy.lock() {
+    if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot flush {}",
         t
@@ -4167,7 +4215,6 @@ where
     }
 
     self.test_point("startDoFlush");
-    let mut success = false;
 
     let res: Result<bool> = (|| {
       if self.info_stream.enabled("IW") {
@@ -4213,25 +4260,24 @@ where
         if let Some(ref s) = self.hooks {
           s.do_after_flush()?;
         }
-        success = true;
       }
 
       Ok(any_changes)
     })();
 
-    if !success {
+    if let Err(t) = &res
+      && t.is_tragedy_error()
+    {
+      self.tragic_event(t.clone(), "doFlush")?;
+    }
+
+    if res.is_err() {
       if self.info_stream.enabled("IW") {
         self.info_stream.message("IW", "hit exception during flush");
       }
       self.maybe_close_on_tragic_event()?;
     }
-    match res {
-      Ok(v) => Ok(v),
-      Err(t) => {
-        self.tragic_event(&t, "doFlush")?;
-        Err(t)
-      },
-    }
+    res
   }
 
   fn apply_all_deletes_and_updates(&self) -> Result<()> {
@@ -4512,7 +4558,7 @@ where
     merge.on_merge_complete()?;
     self.test_point("startCommitMerge");
 
-    if let Some(t) = &*self.tragedy.lock() {
+    if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot complete merge: {}",
         t
@@ -4728,7 +4774,7 @@ where
       Ok(())
     })();
     if let Err(e) = result {
-      self.tragic_event(&e, "merge")?;
+      self.tragic_event(e.clone(), "merge")?;
       return Err(e);
     }
     Ok(())
@@ -4856,7 +4902,7 @@ where
         || merge.stat.max_num_segments > 0
     );
 
-    if let Some(t) = &*self.tragedy.lock() {
+    if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot merge: {}",
         t
@@ -5101,14 +5147,14 @@ where
     debug_assert!(to_sync.is_some());
     self.test_point("startStartCommit");
     debug_assert!(commit_lock.pending_commit.is_none());
-    if let Some(t) = &*self.tragedy.lock() {
+    if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot commit {}",
         t
       )));
     }
 
-    if self.tragedy.lock().is_some() {
+    if self.tragedy.get().is_some() {
       return Err(LuceneError::illegal_state(
         "this writer hit an unrecoverable error; cannot commit",
       ));
@@ -5235,9 +5281,9 @@ where
             let files = commit_lock.files_to_commit.take().unwrap();
             match inner.deleter.dec_ref(files.iter()) {
               Ok(()) => Err(t),
-              Err(e) => match t.add_suppressed(e) {
-                Ok(_) => Err(t),
-                Err(e) => Err(e),
+              Err(e) => {
+                t.add_suppressed(e);
+                Err(t)
               },
             }
           } else {
@@ -5270,7 +5316,9 @@ where
     match result {
       Ok(()) => {},
       Err(e) => {
-        self.tragic_event(&e, "startCommit")?;
+        if e.is_tragedy_error() {
+          self.tragic_event(e.clone(), "startCommit")?;
+        }
         return Err(e);
       },
     }
@@ -5284,10 +5332,10 @@ where
   ///
   /// Note: This method will not close the writer, but it can be called from any location without
   /// respecting any lock order.
-  fn on_tragic_event(&self, tragedy: &LuceneError, location: &str) -> Result<()> {
+  fn on_tragic_event(&self, tragedy: LuceneError, location: &str) -> Result<()> {
     // This is not supposed to be tragic: IW is supposed to catch this and
     // ignore, because it means we asked the merge to abort:
-    debug_assert!(!matches!(tragedy, LuceneError::MergeAborted(_)));
+    debug_assert!(!matches!(&tragedy, LuceneError::MergeAborted(_)));
 
     if self.info_stream.enabled("IW") {
       self.info_stream.message(
@@ -5295,25 +5343,20 @@ where
         &format!("hit tragic {:?} inside {}", tragedy, location),
       );
     }
-    // TODO IMPORTANT  Error 跟 Exception 需要能区分出来
-    // let mut current = self.tragedy.lock();
-    // if current.is_none() {
-    //   let v = LuceneError::illegal_state(format!("{} {}", tragedy, location));
-    //   *current = Some(v);
-    // }
+    let _ = self.tragedy.set(tragedy);
     Ok(())
   }
 
   /// This method set the tragic exception unless it's already set and closes the writer if necessary.
   /// Note this method will not rethrow the throwable passed to it.
-  fn tragic_event(&self, tragedy: &LuceneError, location: &str) -> Result<()> {
+  fn tragic_event(&self, tragedy: LuceneError, location: &str) -> Result<()> {
     let result = self.on_tragic_event(tragedy, location);
     self.maybe_close_on_tragic_event()?;
     result
   }
 
   fn maybe_close_on_tragic_event(&self) -> Result<()> {
-    if self.tragedy.lock().is_some() && self.should_close(false) {
+    if self.tragedy.get().is_some() && self.should_close(false) {
       self.rollback_internal()?;
     }
 
@@ -5498,7 +5541,7 @@ where
   }
 
   fn process_events(&self, trigger_merge: bool) -> Result<()> {
-    if self.tragedy.lock().is_none() {
+    if self.tragedy.get().is_none() {
       self.event_queue.process_events(self)?;
     }
 
@@ -6026,10 +6069,8 @@ where
         }
       }
 
-      if let Some(suppressed) = suppressed
-        && let Err(new_err) = e.add_suppressed(suppressed)
-      {
-        e = new_err;
+      if let Some(suppressed) = suppressed {
+        e.add_suppressed(suppressed);
       }
 
       return Err(e);
@@ -6168,7 +6209,7 @@ where
       let mut success = false;
       let res = {
         let _full_flush_lock = self.full_flush_lock.lock();
-        let result2 = (|| {
+        let result2: Result<StandardDirectoryReader<C, D>> = (|| {
           any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
           if !any_changes {
             self.flush_count.fetch_add(1, Ordering::AcqRel);
@@ -6246,7 +6287,7 @@ where
     match result1 {
       Ok(v) => Ok(v),
       Err(e) => {
-        self.tragic_event(&e, "get_reader")?;
+        self.tragic_event(e.clone(), "get_reader")?;
         Err(e)
       },
     }
@@ -6922,7 +6963,7 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     }
   }
 }
-pub(crate) type TragicException = Arc<Mutex<Option<LuceneError>>>;
+pub(crate) type TragicException = Arc<OnceLock<LuceneError>>;
 
 pub(crate) struct FlushNotificationsImpl {
   event_queue: Arc<EventQueue>,
@@ -6970,7 +7011,7 @@ impl FlushNotifications for FlushNotificationsImpl {
   where
     D: Directory,
   {
-    writer.on_tragic_event(&event, message)
+    writer.on_tragic_event(event, message)
   }
 
   fn on_deletes_applied(&self) -> Result<()> {
@@ -7383,7 +7424,7 @@ impl EventQueue {
 
     self.closed.store(true, Ordering::Release);
 
-    if writer.get_tragic_exception().lock().is_some() {
+    if writer.get_tragic_exception().get().is_some() {
       while self.queue.pop().is_some() {
         // we are already handling a tragic exception let's drop it all on the floor and return
       }
@@ -7484,21 +7525,26 @@ where
     // we call tryApply here since we don't want to block if a refresh or a flush is already
     // applying the
     // packet. The flush will retry this packet anyway to ensure all of them are applied
-    match writer.try_apply(&self.packet) {
-      Ok(_) => {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      writer.try_apply(&self.packet)
+    })) {
+      Ok(Ok(_)) => {
         writer.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
         Ok(())
       },
-      Err(e) => {
-        match writer.on_tragic_event(&e, "applyUpdatesPacket") {
-          Ok(_) => Err(e),
-          Err(err) => {
-            // TODO IMPORTANT 这里没有将e跟err 合并成一个合理的Error
-            Err(LuceneError::illegal_state(format!(
-              "{err} + supper error:{{e}}"
-            )))
-          },
+      Ok(Err(mut e)) => {
+        if let Err(err) = writer.on_tragic_event(e.clone(), "applyUpdatesPacket") {
+          e.add_suppressed(err);
         }
+        Err(e)
+      },
+      Err(e) => {
+        let mut tragedy =
+          LuceneError::tragedy_from_panic("panic while applying updates packet", e.as_ref());
+        if let Err(err) = writer.on_tragic_event(tragedy.clone(), "applyUpdatesPacket") {
+          tragedy.add_suppressed(err);
+        }
+        Err(tragedy)
       },
     }
   }
@@ -7564,13 +7610,7 @@ impl MergeSource for IndexWriterMergeSource {
   where
     D: Directory,
   {
-    match writer.get_next_merge()? {
-      Some(next_merge) => {
-        // todo
-        Ok(Some(next_merge))
-      },
-      None => Ok(None),
-    }
+    writer.get_next_merge()
   }
 
   fn on_merge_finished<D>(

@@ -547,7 +547,7 @@ impl CodecUtil {
           let suppressed = LuceneError::corrupt_index(format!(
             "checksum passed ({checksum}). possibly transient resource issue, or a Lucene bug"
           ));
-          prior_error.add_suppressed(suppressed)?;
+          prior_error.add_suppressed(suppressed);
         }
       }
       Ok(())
@@ -556,21 +556,15 @@ impl CodecUtil {
       Ok(_) => prior_error,
       Err(mut t) => {
         if matches!(t, LuceneError::CorruptIndex(_)) {
-          if let Err(e) = t.add_suppressed(prior_error) {
-            e
-          } else {
-            t
-          }
+          t.add_suppressed(prior_error);
+          t
         } else {
           let suppressed = LuceneError::corrupt_index(format!(
             "checksum status indeterminate: unexpected exception: {}",
             checksum_in,
           ));
-          if let Err(e) = prior_error.add_suppressed(suppressed) {
-            e
-          } else {
-            prior_error
-          }
+          prior_error.add_suppressed(suppressed);
+          prior_error
         }
       },
     }

@@ -243,8 +243,8 @@ where
         if cfg!(target_os = "windows") {
           if matches!(
               e,
-              LuceneError::Io(ref io_err)
-                  if io_err.kind() == std::io::ErrorKind::NotFound
+              LuceneError::Io { ref source, .. }
+                  if source.kind() == std::io::ErrorKind::NotFound
           ) {
             Ok(())
           } else {

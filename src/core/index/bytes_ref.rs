@@ -126,7 +126,7 @@ where
     self.bytes.access(|bytes| {
       std::str::from_utf8(&bytes[self.offset..(self.offset + self.length)])
         .map(|s| s.to_owned())
-        .map_err(LuceneError::Utf8Error)
+        .map_err(LuceneError::from)
     })
   }
   pub fn deep_copy_of(other: &BytesRef<AV>) -> Self {

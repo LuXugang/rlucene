@@ -757,14 +757,11 @@ where
     FN: FlushNotifications,
   {
     match self.aborting_exception.get() {
-      Some(_) if !self.state.aborted.load(Ordering::SeqCst) => {
+      Some(v) if !self.state.aborted.load(Ordering::SeqCst) => {
         // if we are not already aborted, we can abort
+        let err = v.clone();
         let result = self.abort();
-        flush_notifications.on_tragic_event(
-          self.aborting_exception.take().unwrap(),
-          location,
-          writer,
-        )?;
+        flush_notifications.on_tragic_event(err, location, writer)?;
         result
       },
       _ => Ok(()),

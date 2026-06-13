@@ -194,7 +194,7 @@ where
     let failure_reason = failure_reason.expect("lock obtain failure must be recorded");
     let reason = format!("Lock obtain timed out: {self}: {failure_reason}");
     let mut error = LuceneError::lock_obtain_failed(reason);
-    error.add_suppressed(failure_reason)?;
+    error.add_suppressed(failure_reason);
     Err(error)
   }
 

@@ -130,11 +130,11 @@ impl IOUtils {
       }
     }
 
-    if let Some(mut first_error) = first_error {
-      if let Some(panic) = first_panic {
-        first_error = IOUtils::use_or_suppress(Some(first_error), panic);
+    if let Some(mut first_panic) = first_panic {
+      if let Some(error) = first_error {
+        first_panic = IOUtils::use_or_suppress(Some(first_panic), error);
       }
-      Err(first_error)
+      Err(first_panic)
     } else {
       Ok(())
     }
@@ -202,11 +202,8 @@ impl IOUtils {
     match first {
       None => second,
       Some(mut first) => {
-        if let Err(e) = first.add_suppressed(second) {
-          e
-        } else {
-          first
-        }
+        first.add_suppressed(second);
+        first
       },
     }
   }
