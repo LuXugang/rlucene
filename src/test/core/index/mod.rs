@@ -158,6 +158,7 @@ mod test_sorting_codec_reader;
 mod test_stress_advance;
 mod test_stress_deletes;
 mod test_stress_indexing;
+pub mod test_stress_indexing2;
 mod test_sum_doc_freq;
 mod test_swapped_index_files;
 mod test_term;
