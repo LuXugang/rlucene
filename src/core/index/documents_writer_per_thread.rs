@@ -79,7 +79,7 @@ where
   num_deleted_doc_ids: i32,
   index_major_version_created: i32,
   files_to_delete: HashSet<String>,
-  aborting_exception: Option<LuceneError>,
+  aborting_exception: OnceLock<LuceneError>,
   pub(crate) state: Arc<State>,
   parent_field: Option<String>,
 }
@@ -160,10 +160,10 @@ where
 {
   fn on_aborting_exception(&mut self, throwable: LuceneError) {
     debug_assert!(
-      self.aborting_exception.is_none(),
+      self.aborting_exception.get().is_none(),
       "aborting exception has already been set"
     );
-    self.aborting_exception = Some(throwable);
+    let _ = self.aborting_exception.set(throwable);
   }
   pub(crate) fn is_aborted(&self) -> bool {
     self.state.is_aborted()
@@ -279,7 +279,7 @@ where
       num_deleted_doc_ids: 0,
       index_major_version_created,
       files_to_delete: HashSet::new(),
-      aborting_exception: None,
+      aborting_exception: OnceLock::new(),
       state: Arc::new(state),
       parent_field,
     })
@@ -322,7 +322,7 @@ where
   {
     self.test_point("DocumentsWriterPerThread addDocuments start");
     debug_assert!(
-      self.aborting_exception.is_none(),
+      self.aborting_exception.get().is_none(),
       "DWPT has hit aborting exception but is still indexing"
     );
 
@@ -360,6 +360,7 @@ where
               &mut self.segment_info,
               &mut self.field_infos,
               index_writer_config,
+              &self.aborting_exception,
             )?;
           },
           None => {
@@ -381,6 +382,7 @@ where
                 &mut self.segment_info,
                 &mut self.field_infos,
                 index_writer_config,
+                &self.aborting_exception,
               )?;
             }
           },
@@ -737,17 +739,18 @@ where
         ))
       },
     };
+    if result.is_err() {
+      self.on_aborting_exception(
+        aborting_exception
+          .ok_or_else(|| LuceneError::illegal_state("aborting_exception should be set"))?,
+      );
+    }
     self.maybe_abort("flush", flush_notifications, writer)?;
     self
       .state
       .has_flushed
       .set(true)
       .map_err(|_| LuceneError::illegal_state("flush already called"))?;
-    if result.is_err() {
-      self.on_aborting_exception(
-        aborting_exception.unwrap_or_else(|| LuceneError::illegal_state("")),
-      );
-    }
 
     result
   }
@@ -761,7 +764,7 @@ where
   where
     FN: FlushNotifications,
   {
-    match self.aborting_exception {
+    match self.aborting_exception.get() {
       Some(_) if !self.state.aborted.load(Ordering::SeqCst) => {
         // if we are not already aborted, we can abort
         let result = self.abort();
