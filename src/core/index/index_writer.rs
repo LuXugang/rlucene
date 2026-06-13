@@ -1525,154 +1525,160 @@ where
 
     let dir_wrapper = TrackingDirectoryWrapper::new(&merge_directory);
     let mut success = false;
-    let res = (|| {
-      merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
-        let rld = {
-          let inner = self.inner.lock();
-          let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
-            LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
-          })?;
-          let rld_opt = self.get_pooled_instance(sci.into(), true, None)?;
-          match rld_opt {
-            Some(v) => v,
-            None => {
-              return Err(LuceneError::illegal_state(
-                "failed to get pooled instance for merge",
-              ));
-            },
-          }
-        };
-        rld.set_is_merging();
-        let reader = {
-          let mut inner = self.inner.lock();
-          let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
-            LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
-          })?;
-          let reader = rld.get_reader_for_merge(&context, sci, &inner.segment_infos)?;
-          inner
-            .deleter
-            .inc_ref_files(reader.reader.get_segment_info().files()?);
-          reader
-        };
+    let res =
+      (|| {
+        merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
+          let rld = {
+            let inner = self.inner.lock();
+            let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
+              LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
+            })?;
+            let rld_opt = self.get_pooled_instance(sci.into(), true, None)?;
+            match rld_opt {
+              Some(v) => v,
+              None => {
+                return Err(LuceneError::illegal_state(
+                  "failed to get pooled instance for merge",
+                ));
+              },
+            }
+          };
+          rld.set_is_merging();
+          let reader = {
+            let mut inner = self.inner.lock();
+            let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
+              LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
+            })?;
+            let reader = rld.get_reader_for_merge(&context, sci, &inner.segment_infos)?;
+            inner
+              .deleter
+              .inc_ref_files(reader.reader.get_segment_info().files()?);
+            reader
+          };
 
-        Ok(reader)
-      })?;
-      // Let the merge wrap readers
-      let mut merge_readers = Vec::new();
-      let soft_delete_count = new_counter(false);
-      let merge_reader = merge
-        .get_merge_reader()
-        .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
-      for merge_reader in merge_reader {
-        let reader = &merge_reader.reader;
-        let wrapped_reader = merge.wrap_for_merge(reader.clone())?;
-        self.validate_merge_reader(&wrapped_reader)?;
-        let mut live_docs_wrapped_reader = None;
-        if self.soft_deletes_enabled {
-          // If we don't have a wrapped reader we won't preserve any soft-deletes.
-          if !Arc::ptr_eq(reader, &wrapped_reader) {
-            let hard_live_docs = merge_reader.hard_live_docs.as_ref();
-            // We only need to do this accounting if we have mixed deletes.
-            if let Some(hard_live_docs) = hard_live_docs {
-              let wrapped_live_docs = wrapped_reader.get_live_docs()?;
-              let hard_delete_counter = new_counter(false);
-              self.count_soft_deletes(
-                &wrapped_reader,
-                wrapped_live_docs.as_ref(),
-                Some(hard_live_docs),
-                &soft_delete_count,
-                &hard_delete_counter,
-              )?;
-              let hard_delete_count: i32 = hard_delete_counter.get().try_convert()?;
-              // Wrap the wrapped reader again if we have excluded some hard-deleted docs.
-              if hard_delete_count > 0 {
-                let live_docs = match wrapped_live_docs {
-                  Some(wrapped_live_docs) => BitsEnum2::B(BitsImpl {
-                    hard_live_docs: hard_live_docs.clone(),
-                    wrapped_live_docs,
-                    id: Identity::new(),
-                  }),
-                  None => BitsEnum2::A(hard_live_docs.clone()),
-                };
-                let num_docs = wrapped_reader.num_docs()? - hard_delete_count;
-                live_docs_wrapped_reader = Some((live_docs, num_docs));
+          Ok(reader)
+        })?;
+        // Let the merge wrap readers
+        let mut merge_readers = Vec::new();
+        let soft_delete_count = new_counter(false);
+        {
+          let merge_reader = merge.get_merge_reader();
+          for merge_reader in merge_reader.iter() {
+            let reader = &merge_reader.reader;
+            let wrapped_reader = merge.wrap_for_merge(reader.clone())?;
+            self.validate_merge_reader(&wrapped_reader)?;
+            let mut live_docs_wrapped_reader = None;
+            if self.soft_deletes_enabled {
+              // If we don't have a wrapped reader we won't preserve any soft-deletes.
+              if !Arc::ptr_eq(reader, &wrapped_reader) {
+                let hard_live_docs = merge_reader.hard_live_docs.as_ref();
+                // We only need to do this accounting if we have mixed deletes.
+                if let Some(hard_live_docs) = hard_live_docs {
+                  let wrapped_live_docs = wrapped_reader.get_live_docs()?;
+                  let hard_delete_counter = new_counter(false);
+                  self.count_soft_deletes(
+                    &wrapped_reader,
+                    wrapped_live_docs.as_ref(),
+                    Some(hard_live_docs),
+                    &soft_delete_count,
+                    &hard_delete_counter,
+                  )?;
+                  let hard_delete_count: i32 = hard_delete_counter.get().try_convert()?;
+                  // Wrap the wrapped reader again if we have excluded some hard-deleted docs.
+                  if hard_delete_count > 0 {
+                    let live_docs = match wrapped_live_docs {
+                      Some(wrapped_live_docs) => BitsEnum2::B(BitsImpl {
+                        hard_live_docs: hard_live_docs.clone(),
+                        wrapped_live_docs,
+                        id: Identity::new(),
+                      }),
+                      None => BitsEnum2::A(hard_live_docs.clone()),
+                    };
+                    let num_docs = wrapped_reader.num_docs()? - hard_delete_count;
+                    live_docs_wrapped_reader = Some((live_docs, num_docs));
+                  }
+                } else {
+                  let carry_over_soft_deletes = reader.get_segment_info().get_soft_del_count()
+                    - wrapped_reader.num_deleted_docs()?;
+                  debug_assert!(
+                    carry_over_soft_deletes >= 0,
+                    "carry-over soft-deletes must be positive"
+                  );
+                  debug_assert!(
+                    self.assert_soft_deletes_count(&wrapped_reader, carry_over_soft_deletes)?
+                  );
+                  soft_delete_count.add_and_get(i64::from(carry_over_soft_deletes));
+                }
               }
-            } else {
-              let carry_over_soft_deletes = reader.get_segment_info().get_soft_del_count()
-                - wrapped_reader.num_deleted_docs()?;
-              debug_assert!(
-                carry_over_soft_deletes >= 0,
-                "carry-over soft-deletes must be positive"
-              );
-              debug_assert!(
-                self.assert_soft_deletes_count(&wrapped_reader, carry_over_soft_deletes)?
-              );
-              soft_delete_count.add_and_get(i64::from(carry_over_soft_deletes));
+            }
+            match live_docs_wrapped_reader {
+              Some((live_docs, num_docs)) => merge_readers.push(CodecReaderEnum2::B(
+                wrap_live_docs(wrapped_reader, Some(live_docs), num_docs),
+              )),
+              None => merge_readers.push(CodecReaderEnum2::A(wrapped_reader)),
             }
           }
         }
-        match live_docs_wrapped_reader {
-          Some((live_docs, num_docs)) => merge_readers.push(CodecReaderEnum2::B(wrap_live_docs(
-            wrapped_reader,
-            Some(live_docs),
-            num_docs,
-          ))),
-          None => merge_readers.push(CodecReaderEnum2::A(wrapped_reader)),
-        }
-      }
 
-      // let mut reorder_doc_maps = None;
-      // Don't reorder if an explicit sort is configured.
-      let has_index_sort = self.config.get_index_sort().is_some();
-      // Don't reorder if blocks can't be identified using the parent field.
-      let has_blocks_but_no_parent_field = {
-        let mut any_block = false;
-        let mut any_parent_missing = false;
+        // let mut reorder_doc_maps = None;
+        // Don't reorder if an explicit sort is configured.
+        let has_index_sort = self.config.get_index_sort().is_some();
+        // Don't reorder if blocks can't be identified using the parent field.
+        let has_blocks_but_no_parent_field = {
+          let mut any_block = false;
+          let mut any_parent_missing = false;
 
-        for r in &merge_readers {
-          if r.get_metadata()?.get_has_blocks() {
-            any_block = true;
+          for r in &merge_readers {
+            if r.get_metadata()?.get_has_blocks() {
+              any_block = true;
+            }
+
+            if r.get_field_infos()?.get_parent_field().is_none() {
+              any_parent_missing = true;
+            }
+
+            if any_block && any_parent_missing {
+              break;
+            }
           }
+          any_block && any_parent_missing
+        };
 
-          if r.get_field_infos()?.get_parent_field().is_none() {
-            any_parent_missing = true;
+        let mut reorder_doc_maps = Vec::with_capacity(merge_readers.len());
+        let new_merge_readers;
+        if !has_index_sort && !has_blocks_but_no_parent_field {
+          // Create a merged view of the input segments. This effectively does the merge.
+          let merged_view = wrap(merge_readers.clone())?;
+
+          let doc_map_opt = merge.reorder(&merged_view, self.directory.as_ref())?;
+
+          if let Some(doc_map) = doc_map_opt {
+            let mut doc_base = 0;
+            for reader in &merge_readers {
+              let current_doc_base = doc_base;
+              let max_doc = reader.max_doc()?;
+
+              let dm = DocMapImpl1::new(doc_map.clone(), max_doc, current_doc_base);
+
+              reorder_doc_maps.push(dm);
+              doc_base += max_doc;
+            }
+
+            // This makes merging more expensive as it disables some bulk merging optimizations,
+            // so only do this if a non-null DocMap is returned.
+            let v = vec![CodecReaderEnum2::B(wrap_with_doc_map(
+              merged_view,
+              Some(doc_map),
+              None,
+            )?)];
+            new_merge_readers = v
+          } else {
+            let mut v = Vec::with_capacity(merge_readers.len());
+            for cr in merge_readers.into_iter() {
+              v.push(CodecReaderEnum2::A(cr));
+            }
+            new_merge_readers = v;
           }
-
-          if any_block && any_parent_missing {
-            break;
-          }
-        }
-        any_block && any_parent_missing
-      };
-
-      let mut reorder_doc_maps = Vec::with_capacity(merge_readers.len());
-      let new_merge_readers;
-      if !has_index_sort && !has_blocks_but_no_parent_field {
-        // Create a merged view of the input segments. This effectively does the merge.
-        let merged_view = wrap(merge_readers.clone())?;
-
-        let doc_map_opt = merge.reorder(&merged_view, self.directory.as_ref())?;
-
-        if let Some(doc_map) = doc_map_opt {
-          let mut doc_base = 0;
-          for reader in &merge_readers {
-            let current_doc_base = doc_base;
-            let max_doc = reader.max_doc()?;
-
-            let dm = DocMapImpl1::new(doc_map.clone(), max_doc, current_doc_base);
-
-            reorder_doc_maps.push(dm);
-            doc_base += max_doc;
-          }
-
-          // This makes merging more expensive as it disables some bulk merging optimizations,
-          // so only do this if a non-null DocMap is returned.
-          let v = vec![CodecReaderEnum2::B(wrap_with_doc_map(
-            merged_view,
-            Some(doc_map),
-            None,
-          )?)];
-          new_merge_readers = v
         } else {
           let mut v = Vec::with_capacity(merge_readers.len());
           for cr in merge_readers.into_iter() {
@@ -1680,215 +1686,208 @@ where
           }
           new_merge_readers = v;
         }
-      } else {
-        let mut v = Vec::with_capacity(merge_readers.len());
-        for cr in merge_readers.into_iter() {
-          v.push(CodecReaderEnum2::A(cr));
-        }
-        new_merge_readers = v;
-      }
 
-      let doc_maps = {
-        merge.check_aborted()?;
-        let sci = merge.info.as_mut().unwrap();
-        let soft_delete_count = soft_delete_count.get().try_convert()?;
-        sci.set_soft_del_count_without_check(soft_delete_count);
-        let del_count = sci.get_del_count();
-        let segment_info = Arc::get_mut(&mut sci.info)
-          .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
-        let mut merger = SegmentMerger::new(
-          &new_merge_readers,
-          segment_info,
-          self.info_stream.clone(),
-          &dir_wrapper,
-          self.global_field_number_map.clone(),
-          &context,
-        )?;
-        validate_soft_del_count(
-          del_count,
-          merger.merge_state.segment_info.max_doc()?,
-          soft_delete_count,
-        )?;
-
-        let doc_maps = if reorder_doc_maps.is_empty() {
-          let mut v = Vec::with_capacity(merger.merge_state.doc_maps.len());
-          for doc_map in merger.merge_state.doc_maps.iter() {
-            v.push(DocMapEnum2::A(doc_map.clone()))
-          }
-          v
-        } else {
-          debug_assert!(merger.merge_state.doc_maps.len() == 1);
-          let compaction_doc_map = merger.merge_state.doc_maps[0].clone();
-          let len = reorder_doc_maps.len();
-          let mut v = Vec::with_capacity(len);
-          for rdm in reorder_doc_maps.into_iter() {
-            v.push(DocMapEnum2::B(DocMapIMpl2::new(
-              compaction_doc_map.clone(),
-              rdm,
-            )));
-          }
-          v
-        };
-        if merger.should_merge()? {
-          merger.merge()?;
-        }
-        merger.merge_state.segment_info.set_files(
-          dir_wrapper
-            .get_created_files()
-            .lock()
-            .created_filenames
-            .clone(),
-        )?;
-        if !merger.should_merge()? {
-          debug_assert!(merger.merge_state.segment_info.max_doc()? == 0);
-          success = self.commit_merge(merge, &doc_maps)?;
-          // TODO IMPORTANT
-          return Ok(0);
-        }
-        doc_maps
-      };
-
-      debug_assert!(merge.info.is_some());
-      let sci = merge.info.as_mut().unwrap();
-      max_doc = sci.info.max_doc()?;
-      debug_assert!(max_doc > 0);
-
-      // Very important to do this before opening the reader
-      // because codec must know if prox was written for
-      // this segment:
-      let use_compound_file;
-      {
-        let inner = self.inner.lock();
-        use_compound_file = merge_policy.use_compound_file(&inner.segment_infos, sci, self)?;
-      }
-      if use_compound_file {
-        success = false;
-        let sci = merge.info.as_mut().unwrap();
-        let files_to_remove = sci.files()?;
-
-        // NOTE: Creation of the CFS file must be performed with the original
-        // directory rather than with the merging directory, so that it is not
-        // subject to merge throttling.
-        let tracking_cfs_dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
-
-        // We'll need a mutable view of SegmentInfo to pass into create_compound_file.
-        // Keep this in a tight scope.
-        let cfs_res: Result<i32> = (|| {
+        let doc_maps = {
+          merge.check_aborted()?;
+          let sci = merge.info.as_mut().unwrap();
+          let soft_delete_count = soft_delete_count.get().try_convert()?;
+          sci.set_soft_del_count_without_check(soft_delete_count);
+          let del_count = sci.get_del_count();
           let segment_info = Arc::get_mut(&mut sci.info)
             .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
-
-          let delete_new_files = IOConsumerImpl1::new(self);
-
-          create_compound_file(
-            &self.info_stream,
-            &tracking_cfs_dir,
+          let mut merger = SegmentMerger::new(
+            &new_merge_readers,
             segment_info,
+            self.info_stream.clone(),
+            &dir_wrapper,
+            self.global_field_number_map.clone(),
             &context,
-            delete_new_files,
+          )?;
+          validate_soft_del_count(
+            del_count,
+            merger.merge_state.segment_info.max_doc()?,
+            soft_delete_count,
           )?;
 
-          success = true;
-          Ok(0)
-        })();
-        if !success {
-          if self.info_stream.enabled("IW") {
-            self
-              .info_stream
-              .message("IW", "hit exception creating compound file during merge");
-          }
-          // Safe: these files must exist
-          let files = sci.files()?;
-          self.delete_new_files(files.iter(), None)?;
-        }
-        if let Err(e) = cfs_res {
-          let inner = self.inner.lock();
-          if merge.is_aborted() {
-            // This can happen if rollback is called while we were building
-            // our CFS -- fall through to logic below to remove the non-CFS
-            // merged files:
-            if self.info_stream.enabled("IW") {
-              self.info_stream.message(
-                "IW",
-                "hit merge abort exception creating compound file during merge",
-              );
+          let doc_maps = if reorder_doc_maps.is_empty() {
+            let mut v = Vec::with_capacity(merger.merge_state.doc_maps.len());
+            for doc_map in merger.merge_state.doc_maps.iter() {
+              v.push(DocMapEnum2::A(doc_map.clone()))
             }
-            return Ok(0);
+            v
           } else {
-            drop(inner);
-            return Err(self.handle_merge_exception(e, merge)?);
+            debug_assert!(merger.merge_state.doc_maps.len() == 1);
+            let compaction_doc_map = merger.merge_state.doc_maps[0].clone();
+            let len = reorder_doc_maps.len();
+            let mut v = Vec::with_capacity(len);
+            for rdm in reorder_doc_maps.into_iter() {
+              v.push(DocMapEnum2::B(DocMapIMpl2::new(
+                compaction_doc_map.clone(),
+                rdm,
+              )));
+            }
+            v
+          };
+          if merger.should_merge()? {
+            merger.merge()?;
           }
-        }
+          merger.merge_state.segment_info.set_files(
+            dir_wrapper
+              .get_created_files()
+              .lock()
+              .created_filenames
+              .clone(),
+          )?;
+          if !merger.should_merge()? {
+            debug_assert!(merger.merge_state.segment_info.max_doc()? == 0);
+            success = self.commit_merge(merge, &doc_maps)?;
+            // TODO IMPORTANT
+            return Ok(0);
+          }
+          doc_maps
+        };
 
-        // So that, if we hit exc in deleteNewFiles (next) or in commitMerge (later),
-        // we close the per-segment readers in the final clause below:
-        success = false;
+        debug_assert!(merge.info.is_some());
+        let sci = merge.info.as_mut().unwrap();
+        max_doc = sci.info.max_doc()?;
+        debug_assert!(max_doc > 0);
+
+        // Very important to do this before opening the reader
+        // because codec must know if prox was written for
+        // this segment:
+        let use_compound_file;
         {
           let inner = self.inner.lock();
-          // delete new non cfs files directly: they were never
-          // registered with IFD
-          self.delete_new_files(files_to_remove.iter(), Some(&inner))?;
-          if merge.is_aborted() {
+          use_compound_file = merge_policy.use_compound_file(&inner.segment_infos, sci, self)?;
+        }
+        if use_compound_file {
+          success = false;
+          let sci = merge.info.as_mut().unwrap();
+          let files_to_remove = sci.files()?;
+
+          // NOTE: Creation of the CFS file must be performed with the original
+          // directory rather than with the merging directory, so that it is not
+          // subject to merge throttling.
+          let tracking_cfs_dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
+
+          // We'll need a mutable view of SegmentInfo to pass into create_compound_file.
+          // Keep this in a tight scope.
+          let cfs_res: Result<i32> = (|| {
+            let segment_info = Arc::get_mut(&mut sci.info)
+              .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
+
+            let delete_new_files = IOConsumerImpl1::new(self);
+
+            create_compound_file(
+              &self.info_stream,
+              &tracking_cfs_dir,
+              segment_info,
+              &context,
+              delete_new_files,
+            )?;
+
+            success = true;
+            Ok(0)
+          })();
+          if !success {
             if self.info_stream.enabled("IW") {
               self
                 .info_stream
-                .message("IW", "abort merge after building CFS");
+                .message("IW", "hit exception creating compound file during merge");
             }
             // Safe: these files must exist
-            let files = merge.info.as_ref().unwrap().files()?;
+            let files = sci.files()?;
             self.delete_new_files(files.iter(), None)?;
-            return Ok(0);
           }
-        }
+          if let Err(e) = cfs_res {
+            let inner = self.inner.lock();
+            if merge.is_aborted() {
+              // This can happen if rollback is called while we were building
+              // our CFS -- fall through to logic below to remove the non-CFS
+              // merged files:
+              if self.info_stream.enabled("IW") {
+                self.info_stream.message(
+                  "IW",
+                  "hit merge abort exception creating compound file during merge",
+                );
+              }
+              return Ok(0);
+            } else {
+              drop(inner);
+              return Err(self.handle_merge_exception(e, merge)?);
+            }
+          }
 
+          // So that, if we hit exc in deleteNewFiles (next) or in commitMerge (later),
+          // we close the per-segment readers in the final clause below:
+          success = false;
+          {
+            let inner = self.inner.lock();
+            // delete new non cfs files directly: they were never
+            // registered with IFD
+            self.delete_new_files(files_to_remove.iter(), Some(&inner))?;
+            if merge.is_aborted() {
+              if self.info_stream.enabled("IW") {
+                self
+                  .info_stream
+                  .message("IW", "abort merge after building CFS");
+              }
+              // Safe: these files must exist
+              let files = merge.info.as_ref().unwrap().files()?;
+              self.delete_new_files(files.iter(), None)?;
+              return Ok(0);
+            }
+          }
+
+          {
+            let sci = merge.info.as_mut().unwrap();
+            let segment_info = Arc::get_mut(&mut sci.info)
+              .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
+            segment_info.set_use_compound_file(true);
+          }
+        } else {
+          // So that, if we hit exc in commitMerge (later), we close the per-segment readers in the
+          // final clause below:
+          success = false;
+        }
+        // Have codec write SegmentInfo.  Must do this after
+        // creating CFS so that 1) .si isn't slurped into CFS,
+        // and 2) .si reflects useCompoundFile=true change
+        // above:
+        let mut success2 = false;
+        let sci = merge.info.as_mut().unwrap();
         {
-          let sci = merge.info.as_mut().unwrap();
-          let segment_info = Arc::get_mut(&mut sci.info)
-            .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
-          segment_info.set_use_compound_file(true);
+          let write_res: Result<()> = (|| {
+            let segment_info = Arc::get_mut(&mut sci.info)
+              .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
+
+            LATEST_CODEC.segment_info_format().write(
+              self.directory.as_ref(),
+              segment_info,
+              &context,
+            )?;
+
+            success2 = true;
+            Ok(())
+          })();
+
+          if !success2 {
+            // Safe: these files must exist
+            let files = sci.files()?;
+            self.delete_new_files(files.iter(), None)?;
+          }
+          write_res?;
         }
-      } else {
-        // So that, if we hit exc in commitMerge (later), we close the per-segment readers in the
-        // final clause below:
-        success = false;
-      }
-      // Have codec write SegmentInfo.  Must do this after
-      // creating CFS so that 1) .si isn't slurped into CFS,
-      // and 2) .si reflects useCompoundFile=true change
-      // above:
-      let mut success2 = false;
-      let sci = merge.info.as_mut().unwrap();
-      {
-        let write_res: Result<()> = (|| {
-          let segment_info = Arc::get_mut(&mut sci.info)
-            .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
+        // TODO IMPORTANT IndexReaderWarmer not supported
 
-          LATEST_CODEC.segment_info_format().write(
-            self.directory.as_ref(),
-            segment_info,
-            &context,
-          )?;
-
-          success2 = true;
-          Ok(())
-        })();
-
-        if !success2 {
-          // Safe: these files must exist
-          let files = sci.files()?;
-          self.delete_new_files(files.iter(), None)?;
+        if !self.commit_merge(merge, &doc_maps)? {
+          // commitMerge will return false if this merge was
+          // aborted
+          return Ok(0);
         }
-        write_res?;
-      }
-      // TODO IMPORTANT IndexReaderWarmer not supported
-
-      if !self.commit_merge(merge, &doc_maps)? {
-        // commitMerge will return false if this merge was
-        // aborted
-        return Ok(0);
-      }
-      success = true;
-      Ok(0)
-    })();
+        success = true;
+        Ok(0)
+      })();
     if !success {
       self.close_merge_readers(merge, true, false, None)?;
     }
@@ -3113,7 +3112,7 @@ where
   /// - `IllegalArgumentException` if `add_indexes` would cause the index to exceed `MAX_DOCS`
   pub fn add_indexes_from_codec_readers<CR>(&self, _readers: Vec<CR>) -> Result<i64>
   where
-    CR: CodecReader,
+    CR: CodecReader + Clone,
   {
     // self.ensure_open()?;
     // let res = (|| {
@@ -3134,91 +3133,121 @@ where
     //   {
     //     let inner = self.inner.lock();
     //     self.ensure_open()?;
-    //     if !inner.merges.are_enabled(&inner) {
+    //     if !inner.merges.are_enabled() {
     //       return Err(LuceneError::already_closed(
     //         "this IndexWriter is closed. Cannot execute add_indexes(CodecReaders...) API",
     //       ));
     //     }
     //   }
     //   let merge_policy = self.config.get_merge_policy();
-    //   match merge_policy.find_merges_readers::<CR, D>(readers)? {
-    //     Some(mut spec) if !spec.merges.is_empty() => {
-    //       let merge_result: Result<()> = (|| {
-    //         for merge in &mut spec.merges {
-    //           todo!()
-    //         }
-    //
-    //         Ok(())
-    //       })();
-    //     }
-    //     Some(_) => {
+    //   let mut spec = match merge_policy.find_merges_readers::<CR, D>(readers)? {
+    //     Some(spec) if !spec.merges.is_empty() => spec,
+    //     None => {
     //       self.info_stream.message(
     //         "addIndexes(CodecReaders...)",
     //         "received null mergeSpecification from MergePolicy. No indexes to add, returning..",
     //       );
     //       return Ok(self.doc_writer.get_next_sequence_number());
-    //     }
-    //     None => {
+    //     },
+    //     Some(_) => {
     //       self.info_stream.message(
     //         "addIndexes(CodecReaders...)",
     //         "received empty mergeSpecification from MergePolicy. No indexes to add, returning..",
     //       );
     //       return Ok(self.doc_writer.get_next_sequence_number());
-    //     }
-    //   }
+    //     },
+    //   };
     //
-    //
-    //   let mut merges = vec![OneMerge::from_codec_readers(readers)?];
+    //   let mut merge_success = false;
     //   let merge_result: Result<()> = (|| {
-    //     for merge in &mut merges {
-    //       todo!()
+    //     for merge in &mut spec.merges {
+    //       let mut success = false;
+    //       let result = (|| {
+    //         self.add_indexes_reader_merge(merge)?;
+    //         success = true;
+    //         Ok(())
+    //       })();
+    //       let close_result = merge.close(success, false, |_| Ok(()));
+    //       if let Err(err) = result {
+    //         close_result?;
+    //         return Err(err);
+    //       }
+    //       close_result?;
     //     }
     //     Ok(())
     //   })();
+    //   if merge_result.is_ok() {
+    //     merge_success = spec
+    //       .merges
+    //       .iter()
+    //       .all(|merge| merge.has_completed_successfully().unwrap_or(false));
+    //   }
     //
-    //   if let Err(err) = merge_result {
-    //     for merge in &merges {
+    //   if !merge_success {
+    //     for merge in &spec.merges {
     //       if let Some(merge_info) = merge.info.as_ref() {
     //         self.delete_new_files(merge_info.files()?.iter(), None)?;
     //       }
     //     }
+    //   }
+    //   if let Err(err) = merge_result {
     //     return Err(err);
     //   }
     //
-    //   let mut infos = Vec::new();
-    //   let mut total_docs = 0_i64;
-    //   for merge in &merges {
-    //     total_docs += i64::from(merge.total_max_doc);
-    //     if let Some(merge_info) = merge.info.as_ref() {
-    //       infos.push(merge_info.clone());
-    //     }
-    //   }
-    //
-    //   let seq_no = {
-    //     let mut inner = self.inner.lock();
-    //     if !infos.is_empty() {
-    //       let register_result: Result<()> = (|| {
-    //         self.ensure_open()?;
-    //         self.reserve_docs(total_docs)?;
-    //         inner.segment_infos.add_all(infos.clone())?;
-    //         self.checkpoint(&mut inner)?;
-    //         Ok(())
-    //       })();
-    //
-    //       if register_result.is_err() {
-    //         for sipc in &infos {
-    //           self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
-    //         }
+    //   if merge_success {
+    //     let mut infos = Vec::new();
+    //     let mut total_docs = 0_i64;
+    //     for merge in &spec.merges {
+    //       total_docs += i64::from(merge.total_max_doc);
+    //       if let Some(merge_info) = merge.info.as_ref() {
+    //         infos.push(merge_info.clone());
     //       }
-    //       register_result?;
     //     }
-    //     self.doc_writer.get_next_sequence_number()
-    //   };
-    //   Ok(seq_no)
+    //
+    //     let seq_no = {
+    //       let mut inner = self.inner.lock();
+    //       if !infos.is_empty() {
+    //         let register_result: Result<()> = (|| {
+    //           self.ensure_open()?;
+    //           self.reserve_docs(total_docs)?;
+    //           inner.segment_infos.add_all(infos.clone())?;
+    //           self.checkpoint(&mut inner)?;
+    //           Ok(())
+    //         })();
+    //
+    //         if register_result.is_err() {
+    //           for sipc in &infos {
+    //             self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
+    //           }
+    //         }
+    //         register_result?;
+    //       }
+    //       self.doc_writer.get_next_sequence_number()
+    //     };
+    //     Ok(seq_no)
+    //   } else {
+    //     if self.info_stream.enabled("IW") {
+    //       self.info_stream.message(
+    //         "IW",
+    //         "addIndexes(CodecReaders...): failed to successfully merge all provided readers.",
+    //       );
+    //     }
+    //     for merge in &spec.merges {
+    //       if merge.is_aborted() {
+    //         return Err(LuceneError::merge_abort("merge was aborted."));
+    //       }
+    //       if let Some(err) = merge.get_exception() {
+    //         return Err(err);
+    //       }
+    //     }
+    //     Err(LuceneError::illegal_state(
+    //       "failed to successfully merge all provided readers in addIndexes(CodecReader...)",
+    //     ))
+    //   }
     // })();
     //
     // if let Err(ref e) = res {
-    //   self.tragic_event(e, "addIndexes(CodecReader...)");
+    //   self.tragic_event(e, "addIndexes(CodecReader...)")?;
     // }
     // self.maybe_merge()?;
     // res
@@ -3236,7 +3265,12 @@ where
   /// # Errors
   ///
   /// Returns an error if there is a low-level IO error.
-  fn add_indexes_reader_merge(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
+  fn add_indexes_reader_merge<CR>(&self, merge: &mut OneMerge<D, CR>) -> Result<()>
+  where
+    CR: CodecReader + Clone,
+    OneMerge<D, CR>: OneMergeBase<D, CR>,
+    <OneMerge<D, CR> as OneMergeBase<D, CR>>::CodecReader: Clone,
+  {
     merge.merge_init();
     merge.check_aborted()?;
 
@@ -3256,29 +3290,29 @@ where
 
     let mut num_soft_deleted = 0;
     let mut has_blocks = false;
-    let merge_reader = merge
-      .get_merge_reader()
-      .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
-    for reader in merge_reader {
-      let leaf = &reader.reader;
-      num_docs += i64::from(leaf.num_docs()?);
-      let v = get_context(leaf)?;
-      let contexts = v.leaves()?;
-      for context in contexts {
-        has_blocks |= context.reader().get_metadata()?.has_blocks
-      }
+    {
+      let merge_reader = merge.get_merge_reader();
+      for reader in merge_reader.iter() {
+        let leaf = &reader.reader;
+        num_docs += i64::from(leaf.num_docs()?);
+        let v = get_context(leaf)?;
+        let contexts = v.leaves()?;
+        for context in contexts {
+          has_blocks |= context.reader().get_metadata()?.has_blocks
+        }
 
-      if self.soft_deletes_enabled {
-        let field = self.config.get_soft_deletes_field().ok_or_else(|| {
-          LuceneError::illegal_state(
-            "soft_deletes_enabled is true but soft_deletes_field is not configured",
-          )
-        })?;
+        if self.soft_deletes_enabled {
+          let field = self.config.get_soft_deletes_field().ok_or_else(|| {
+            LuceneError::illegal_state(
+              "soft_deletes_enabled is true but soft_deletes_field is not configured",
+            )
+          })?;
 
-        let mut soft_deleted_docs = get_doc_values_doc_id_set_iterator(field, leaf)?;
+          let mut soft_deleted_docs = get_doc_values_doc_id_set_iterator(field, leaf)?;
 
-        num_soft_deleted +=
-          count_soft_deletes(soft_deleted_docs.as_mut(), reader.hard_live_docs.as_ref())?;
+          num_soft_deleted +=
+            count_soft_deletes(soft_deleted_docs.as_mut(), reader.hard_live_docs.as_ref())?;
+        }
       }
     }
     // Best-effort up front check:
@@ -3305,14 +3339,15 @@ where
       HashMap::new(),
       self.config.get_index_sort(),
     )?;
-    let merge_reader = merge
-      .get_merge_reader()
-      .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
-    let mut readers = Vec::with_capacity(merge_reader.len());
-    for mr in merge_reader {
-      let wrapped_reader = merge.wrap_for_merge(mr.reader.clone())?;
-      readers.push(wrapped_reader);
-    }
+    let readers = {
+      let merge_reader = merge.get_merge_reader();
+      let mut readers = Vec::with_capacity(merge_reader.len());
+      for mr in merge_reader.iter() {
+        let wrapped_reader = merge.wrap_for_merge(mr.reader.clone())?;
+        readers.push(wrapped_reader);
+      }
+      readers
+    };
     // Don't reorder if an explicit sort is configured.
     let has_index_sort = self.config.get_index_sort().is_some();
     // Don't reorder if blocks can't be identified using the parent field.
@@ -4303,9 +4338,7 @@ where
 
       // TODO IMPORTANT
       // carry over hard deletes
-      let merge_reader = merge
-        .get_merge_reader()
-        .ok_or_else(|| LuceneError::illegal_state("merge.get_merge_reader() is none"))?;
+      let merge_reader = merge.get_merge_reader();
       Self::carry_over_hard_deletes(
         merged_deletes_and_updates.as_ref(),
         max_doc,
@@ -4978,7 +5011,7 @@ where
       merge.close(!suppress_error, dropper_segment, c)?;
     } else {
       debug_assert!(
-        merge.get_merge_reader().is_none(),
+        merge.get_merge_reader().is_empty(),
         "we are done but still have readers"
       );
       debug_assert!(

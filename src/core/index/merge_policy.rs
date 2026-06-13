@@ -52,7 +52,7 @@ use crate::test::core::index::test_index_writer_merge_policy::MergeOnXMergePolic
 use crate::test::core::index::test_index_writer_merge_policy::MockMergePolicy;
 #[cfg(test)]
 use crate::test::core::index::test_per_segment_deletes::RangeMergePolicy;
-use parking_lot::{Condvar, Mutex};
+use parking_lot::{Condvar, MappedMutexGuard, Mutex, MutexGuard};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -1174,7 +1174,7 @@ where
   pub estimated_merge_bytes: AtomicI64,
   /// Sum of sizeInBytes of all SegmentInfos; set by IW.mergeInit
   pub(crate) total_merge_bytes: AtomicI64,
-  merge_readers: Vec<MergeReader<CR, CR::Bits>>,
+  merge_readers: Mutex<Vec<MergeReader<CR, CR::Bits>>>,
   /// Control used to pause/stop/resume the merge thread.
   pub(crate) merge_progress: OneMergeProgress,
   pub(crate) merge_start_ns: Instant,
@@ -1241,7 +1241,7 @@ where
       uses_pooled_readers: true,
       estimated_merge_bytes: AtomicI64::new(0),
       total_merge_bytes: AtomicI64::new(0),
-      merge_readers: Vec::new(),
+      merge_readers: Mutex::new(Vec::new()),
       merge_progress: OneMergeProgress::new(),
       merge_start_ns: Instant::now(),
       total_max_doc,
@@ -1270,7 +1270,7 @@ where
   /// Constructor for wrapping.
   pub(crate) fn from_other(one_merge: OneMerge<D, CR>) -> Self {
     let mut one_merge = Self {
-      merge_readers: one_merge.merge_readers,
+      merge_readers: Mutex::new(one_merge.merge_readers.into_inner()),
       total_max_doc: one_merge.total_max_doc,
       #[cfg(test)]
       segments: one_merge.segments,
@@ -1309,7 +1309,7 @@ where
       uses_pooled_readers: false,
       estimated_merge_bytes: AtomicI64::new(0),
       total_merge_bytes: AtomicI64::new(0),
-      merge_readers,
+      merge_readers: Mutex::new(merge_readers),
       merge_progress: OneMergeProgress::new(),
       merge_start_ns: Instant::now(),
       total_max_doc: total_docs,
@@ -1398,21 +1398,23 @@ where
     }
     Ok(())
   }
-  pub fn get_merge_reader(&self) -> Option<&[MergeReader<CR, CR::Bits>]> {
-    if self.merge_completed.get() == Some(&true) {
-      None
-    } else {
-      Some(&self.merge_readers)
-    }
+  pub fn get_merge_reader(&self) -> MappedMutexGuard<'_, [MergeReader<CR, CR::Bits>]> {
+    MutexGuard::map(self.merge_readers.lock(), |readers| readers.as_mut_slice())
   }
 
   pub(crate) fn has_finished(&self) -> bool {
-    self.merge_completed.get().copied().unwrap_or(false)
+    self.merge_completed.get().is_some()
+  }
+
+  pub(crate) fn has_completed_successfully(&self) -> Option<bool> {
+    self.merge_completed.get().copied()
   }
 }
-impl<D> OneMerge<D, DefaultLeafReader<D>>
+impl<D, CR> OneMerge<D, CR>
 where
   D: Directory,
+  CR: CodecReader,
+  Self: OneMergeBase<D, CR>,
 {
   pub(crate) fn close<F>(
     &self,
@@ -1421,26 +1423,28 @@ where
     reader_consumer: F,
   ) -> Result<()>
   where
-    F: FnMut(&MergeReaderSR<D>) -> Result<()>,
+    F: FnMut(&MergeReader<CR, CR::Bits>) -> Result<()>,
   {
-    if self.merge_completed.set(true).is_err() {
+    if self.merge_completed.set(success).is_err() {
       return Err(LuceneError::illegal_state("merge has already finished"));
     }
     let result = (|| -> Result<()> {
       self.merge_finished(success, segment_dropped)?;
       Ok(())
     })();
-    IOUtils::apply_to_all(&self.merge_readers, reader_consumer)?;
+    let merge_readers = std::mem::take(&mut *self.merge_readers.lock());
+    IOUtils::apply_to_all(&merge_readers, reader_consumer)?;
     result
   }
 }
-impl<D> OneMergeBase<D, DefaultLeafReader<D>> for OneMerge<D, DefaultLeafReader<D>>
+impl<D, CR> OneMergeBase<D, CR> for OneMerge<D, CR>
 where
   D: Directory,
+  CR: CodecReader,
 {
-  type CodecReader = DefaultLeafReader<D>;
+  type CodecReader = CR;
 
-  fn wrap_for_merge(&self, reader: DefaultLeafReader<D>) -> Result<Self::CodecReader> {
+  fn wrap_for_merge(&self, reader: CR) -> Result<Self::CodecReader> {
     Ok(reader)
   }
 
@@ -1452,14 +1456,14 @@ where
     self.info = Some(info);
   }
 
-  type MergeCodecReader = DefaultLeafReader<D>;
-  type Bits = <DefaultLeafReader<D> as LeafReader>::Bits;
+  type MergeCodecReader = CR;
+  type Bits = <CR as LeafReader>::Bits;
 
   fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
   where
     F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>,
   {
-    debug_assert!(self.merge_readers.is_empty());
+    debug_assert!(self.merge_readers.lock().is_empty());
     // TODO merge_completed未实现
     let mut readers = Vec::with_capacity(self.stat.segments.len());
     let result: Result<_> = (|| {
@@ -1468,7 +1472,7 @@ where
       }
       Ok(())
     })();
-    self.merge_readers = readers;
+    *self.merge_readers.lock() = readers;
     result
   }
 }
