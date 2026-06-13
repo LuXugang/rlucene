@@ -104,6 +104,49 @@ impl IOUtils {
     Self::close(objects, CloseableRef::close)
   }
 
+  /// Closes all given objects, suppressing all returned errors.
+  ///
+  /// Even if a panic is raised, all given closeables are closed before the
+  /// first panic is returned as an error.
+  pub fn close_while_handling_error<I, F>(objects: I, mut close: F) -> Result<()>
+  where
+    I: IntoIterator,
+    F: FnMut(I::Item) -> Result<()>,
+  {
+    let mut first_error = None;
+    let mut first_panic = None;
+    for object in objects {
+      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| close(object))) {
+        Ok(Ok(())) => {},
+        Ok(Err(e)) => {
+          first_error = Some(IOUtils::use_or_suppress(first_error, e));
+        },
+        Err(e) => {
+          let message = if let Some(message) = e.downcast_ref::<&str>() {
+            (*message).to_string()
+          } else if let Some(message) = e.downcast_ref::<String>() {
+            message.clone()
+          } else {
+            "unknown panic payload".to_string()
+          };
+          first_panic = Some(IOUtils::use_or_suppress(
+            first_panic,
+            LuceneError::tragedy(format!("panic while closing: {message}")),
+          ));
+        },
+      }
+    }
+
+    if let Some(mut first_error) = first_error {
+      if let Some(panic) = first_panic {
+        first_error = IOUtils::use_or_suppress(Some(first_error), panic);
+      }
+      Err(first_error)
+    } else {
+      Ok(())
+    }
+  }
+
   /// Ensure that any writes to the given file are written to the storage
   /// device.
   ///
