@@ -69,8 +69,12 @@ pub trait MergeSource {
     D: Directory;
 
   /// Does finishing for a merge.
-  fn on_merge_finished<D>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D>)
-  where
+  fn on_merge_finished<D>(
+    &self,
+    merge: &Self::OneMerge<D>,
+    writer: &IndexWriter<D>,
+    inner: Option<&mut Inner<D>>,
+  ) where
     D: Directory;
 
   /// Expert: returns true if there are merges waiting to be scheduled.

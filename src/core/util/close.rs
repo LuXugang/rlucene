@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 pub trait Closeable {
@@ -25,9 +25,7 @@ pub trait Closeable {
 
 impl<T: ?Sized + Closeable> Closeable for Arc<T> {
   fn close(&mut self) -> Result<()> {
-    Err(LuceneError::unsupported_operation(
-      "close is not supported for Arc",
-    ))
+    Ok(())
   }
 }
 

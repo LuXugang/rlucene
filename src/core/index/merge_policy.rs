@@ -39,6 +39,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
+use crate::core::util::io_utils::IOUtils;
 use crate::impl_from_for_enum;
 use crate::sandbox::index::merge_on_flush_merge_policy::MergeOnFlushMergePolicy;
 #[cfg(test)]
@@ -1420,7 +1421,7 @@ where
     reader_consumer: F,
   ) -> Result<()>
   where
-    F: FnOnce(&[MergeReaderSR<D>]) -> Result<()>,
+    F: FnMut(&MergeReaderSR<D>) -> Result<()>,
   {
     if self.merge_completed.set(true).is_err() {
       return Err(LuceneError::illegal_state("merge has already finished"));
@@ -1429,7 +1430,7 @@ where
       self.merge_finished(success, segment_dropped)?;
       Ok(())
     })();
-    reader_consumer(self.merge_readers.as_ref())?;
+    IOUtils::apply_to_all(&self.merge_readers, reader_consumer)?;
     result
   }
 }

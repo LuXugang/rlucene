@@ -2600,7 +2600,8 @@ where
     inner.merges.disable();
 
     // Abort all pending & running merges:
-    while let Some(merge) = inner.pending_merges.pop_front() {
+    let mut pending_merges = std::mem::take(&mut inner.pending_merges);
+    IOUtils::apply_to_all(pending_merges.make_contiguous(), |merge| {
       if self.info_stream.enabled("IW") {
         self.info_stream.message(
           "IW",
@@ -2610,10 +2611,10 @@ where
           ),
         );
       }
-      self.abort_one_merge(&merge, inner)?;
-      self.merge_finish(&merge, Some(inner));
-    }
-    inner.pending_merges.clear();
+      self.abort_one_merge(merge, inner)?;
+      self.merge_finish(merge, Some(inner));
+      Ok(())
+    })?;
 
     // abort any merges pending from addIndexes(CodecReader...)
     self
@@ -4935,45 +4936,43 @@ where
     dropper_segment: bool,
     inner: Option<&mut Inner<D>>,
   ) -> Result<()> {
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
     if !merge.has_finished() {
       let drop = !suppress_error;
       let uses_pooled_readers = merge.uses_pooled_readers;
-      let c = |mrs: &[MergeReaderSR<D>]| {
-        let inner = match inner {
-          Some(i) => i,
-          None => &mut *self.inner.lock(),
-        };
-        for mr in mrs {
-          let sr = &mr.reader;
-          if uses_pooled_readers {
-            let info_meta = SegmentCommitInfoMeta::new(
-              sr.get_original_dir(),
-              sr.get_original_segment_info_id().to_string(),
-            );
-            match self.get_pooled_instance(info_meta, false, None)? {
-              Some(rld) => {
-                if drop {
-                  rld.drop_changes();
-                } else {
-                  rld.drop_merging_updates(None);
-                }
-                rld.release(sr.as_ref(), None)?;
-                self.release(rld.as_ref(), inner)?;
-                if drop {
-                  self
-                    .reader_pool
-                    .drop(&rld.info_id, &mut inner.segment_infos)?;
-                }
-              },
-              None => {
-                return Err(LuceneError::illegal_state(
-                  "merging reader could not found in reader pool",
-                ));
-              },
-            }
+      let c = |mr: &MergeReaderSR<D>| {
+        let sr = &mr.reader;
+        if uses_pooled_readers {
+          let info_meta = SegmentCommitInfoMeta::new(
+            sr.get_original_dir(),
+            sr.get_original_segment_info_id().to_string(),
+          );
+          match self.get_pooled_instance(info_meta, false, None)? {
+            Some(rld) => {
+              if drop {
+                rld.drop_changes();
+              } else {
+                rld.drop_merging_updates(None);
+              }
+              rld.release(sr.as_ref(), None)?;
+              self.release(rld.as_ref(), inner)?;
+              if drop {
+                self
+                  .reader_pool
+                  .drop(&rld.info_id, &mut inner.segment_infos)?;
+              }
+            },
+            None => {
+              return Err(LuceneError::illegal_state(
+                "merging reader could not found in reader pool",
+              ));
+            },
           }
-          inner.deleter.dec_ref(&sr.get_segment_info().files()?)?;
         }
+        inner.deleter.dec_ref(&sr.get_segment_info().files()?)?;
         Ok(())
       };
       merge.close(!suppress_error, dropper_segment, c)?;
@@ -7541,11 +7540,15 @@ impl MergeSource for IndexWriterMergeSource {
     }
   }
 
-  fn on_merge_finished<D>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D>)
-  where
+  fn on_merge_finished<D>(
+    &self,
+    merge: &Self::OneMerge<D>,
+    writer: &IndexWriter<D>,
+    inner: Option<&mut Inner<D>>,
+  ) where
     D: Directory,
   {
-    writer.merge_finish(merge, None)
+    writer.merge_finish(merge, inner)
   }
 
   fn has_pending_merges<D>(
@@ -7602,7 +7605,8 @@ impl AddIndexesMergeSource {
   where
     D: Directory,
   {
-    while let Some(merge) = inner.pending_add_indexes_merges.pop_front() {
+    let mut pending_add_indexes_merges = std::mem::take(&mut inner.pending_add_indexes_merges);
+    IOUtils::apply_to_all(pending_add_indexes_merges.make_contiguous(), |merge| {
       if writer.info_stream.enabled("IW") {
         writer
           .info_stream
@@ -7610,8 +7614,9 @@ impl AddIndexesMergeSource {
       }
       merge.set_aborted()?;
       merge.close(false, false, |_| Ok(()))?;
-    }
-    inner.pending_add_indexes_merges.clear();
+      <Self as MergeSource>::on_merge_finished(self, merge, writer, Some(&mut *inner));
+      Ok(())
+    })?;
 
     Ok(())
   }
@@ -7638,11 +7643,18 @@ impl MergeSource for AddIndexesMergeSource {
     Ok(Some(merge))
   }
 
-  fn on_merge_finished<D>(&self, merge: &Self::OneMerge<D>, writer: &IndexWriter<D>)
-  where
+  fn on_merge_finished<D>(
+    &self,
+    merge: &Self::OneMerge<D>,
+    writer: &IndexWriter<D>,
+    inner: Option<&mut Inner<D>>,
+  ) where
     D: Directory,
   {
-    let mut inner = writer.inner.lock();
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *writer.inner.lock(),
+    };
     inner.running_merges.remove(&merge.stat);
   }
 
@@ -7667,28 +7679,18 @@ impl MergeSource for AddIndexesMergeSource {
     D: Directory,
   {
     let mut success = false;
-    let result = (|| -> Result<()> {
-      writer.add_indexes_reader_merge(merge)?;
-      success = true;
-      Ok(())
-    })();
-    let result = match result {
-      Ok(()) => Ok(()),
+    let result = match writer.add_indexes_reader_merge(merge) {
+      Ok(()) => {
+        success = true;
+        Ok(())
+      },
       Err(err) => Err(writer.handle_merge_exception(err, merge)?),
     };
 
-    let close_result = merge.close(success, false, |_| Ok(()));
-    self.on_merge_finished(merge, writer);
-
-    if let Err(err) = result {
-      if let Err(close_err) = close_result {
-        return Err(close_err);
-      }
-      Err(err)
-    } else {
-      close_result?;
-      Ok(())
-    }
+    let mut inner = writer.inner.lock();
+    merge.close(success, false, |_| Ok(()))?;
+    <Self as MergeSource>::on_merge_finished(self, merge, writer, Some(&mut inner));
+    result
   }
 
   fn merge_segment_ids<'a, D>(&self, merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>

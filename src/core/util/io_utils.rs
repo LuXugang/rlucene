@@ -24,10 +24,10 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 macro_rules! close_objects {
-  ($objects:expr) => {{
+  ($objects:expr, $close:expr) => {{
     let mut error = None;
     for object in $objects {
-      if let Err(e) = object.close() {
+      if let Err(e) = $close(object) {
         error = Some(IOUtils::use_or_suppress(error, e));
       }
     }
@@ -63,6 +63,45 @@ impl IOUtils {
       dir.delete_file(name)?;
     }
     Ok(())
+  }
+
+  /// Closes the given object.
+  pub fn close_one<T>(object: &mut T) -> Result<()>
+  where
+    T: Closeable,
+  {
+    Self::close(std::iter::once(object), Closeable::close)
+  }
+
+  /// Closes all given objects.
+  ///
+  /// After everything is closed, the method either returns the first error it hit
+  /// while closing, or completes normally if there were no errors.
+  pub fn close<I, F>(objects: I, mut close: F) -> Result<()>
+  where
+    I: IntoIterator,
+    F: FnMut(I::Item) -> Result<()>,
+  {
+    close_objects!(objects, close)
+  }
+
+  /// Closes the given object by shared reference.
+  pub fn close_one_ref<T>(object: &T) -> Result<()>
+  where
+    T: CloseableRef,
+  {
+    Self::close_refs(std::slice::from_ref(object))
+  }
+
+  /// Closes all given objects by shared reference.
+  ///
+  /// After everything is closed, the method either returns the first error it hit
+  /// while closing, or completes normally if there were no errors.
+  pub fn close_refs<T>(objects: &[T]) -> Result<()>
+  where
+    T: CloseableRef,
+  {
+    Self::close(objects, CloseableRef::close)
   }
 
   /// Ensure that any writes to the given file are written to the storage
@@ -120,43 +159,6 @@ impl IOUtils {
 
     Ok(())
   }
-  /// Closes the given object.
-  pub fn close_one<T>(object: &mut T) -> Result<()>
-  where
-    T: Closeable,
-  {
-    Self::close(std::slice::from_mut(object))
-  }
-
-  /// Closes all given objects.
-  ///
-  /// After everything is closed, the method either returns the first error it hit
-  /// while closing, or completes normally if there were no errors.
-  pub fn close<T>(objects: &mut [T]) -> Result<()>
-  where
-    T: Closeable,
-  {
-    close_objects!(objects)
-  }
-
-  /// Closes the given object by shared reference.
-  pub fn close_one_ref<T>(object: &T) -> Result<()>
-  where
-    T: CloseableRef,
-  {
-    Self::close_refs(std::slice::from_ref(object))
-  }
-
-  /// Closes all given objects by shared reference.
-  ///
-  /// After everything is closed, the method either returns the first error it hit
-  /// while closing, or completes normally if there were no errors.
-  pub fn close_refs<T>(objects: &[T]) -> Result<()>
-  where
-    T: CloseableRef,
-  {
-    close_objects!(objects)
-  }
 
   /// Returns the second error if the first is [`None`], otherwise adds the second
   /// as suppressed to the first and returns it.
@@ -171,5 +173,14 @@ impl IOUtils {
         }
       },
     }
+  }
+
+  /// Applies the consumer to all elements in the collection even if an error is returned.
+  /// The first error returned by the consumer is returned and subsequent errors are suppressed.
+  pub fn apply_to_all<T, F>(collection: &[T], consumer: F) -> Result<()>
+  where
+    F: FnMut(&T) -> Result<()>,
+  {
+    Self::close(collection, consumer)
   }
 }

@@ -220,3 +220,4 @@ impl CacheHelper for SegmentCoreReadersCacheHelperImpl {
     self.cache_key.clone()
   }
 }
+// TODO IMPORTANT coreClosedListeners未实现

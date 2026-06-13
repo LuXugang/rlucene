@@ -41,6 +41,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_function::IOFunction;
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{Comparator, LATEST, MIN_SUPPORTED_MAJOR};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -297,9 +298,9 @@ where
   })();
   match result {
     Ok(r) => Ok(r),
-    Err(e) => {
-      for r in readers_backup {
-        let _ = r.dec_ref();
+    Err(mut e) => {
+      if let Err(e1) = IOUtils::apply_to_all(&readers_backup, IndexReader::dec_ref) {
+        e.add_suppressed(e1)?;
       }
       Err(e)
     },
@@ -529,8 +530,9 @@ where
   }
 
   fn do_close(&self) -> Result<()> {
-    // TODO
-    Ok(())
+    // TODO IMPORTANT 这里需要调用writer的dec_ref_deleter 有点不好搞
+    let sequential_sub_readers = self.get_sequential_sub_readers();
+    IOUtils::apply_to_all(sequential_sub_readers, IndexReader::dec_ref)
   }
 
   type ReaderCacheHelper = CacheHelperImpl;
@@ -968,3 +970,4 @@ where
     &self.user_data
   }
 }
+// TODO IMPORTANT readerClosedListeners未实现
