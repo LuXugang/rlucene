@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::any::Any;
 use std::fmt;
 use std::io::Error;
 use std::string::FromUtf8Error;
@@ -163,6 +164,23 @@ macro_rules! error_ctor {
   };
 }
 impl LuceneError {
+  pub fn panic_payload_message(payload: &(dyn Any + Send)) -> String {
+    if let Some(message) = payload.downcast_ref::<&str>() {
+      (*message).to_string()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+      message.clone()
+    } else {
+      "unknown panic payload".to_string()
+    }
+  }
+
+  pub fn tragedy_from_panic(prefix: &str, payload: &(dyn Any + Send)) -> Self {
+    LuceneError::tragedy(format!(
+      "{prefix}: {}",
+      LuceneError::panic_payload_message(payload)
+    ))
+  }
+
   pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
     let message = err.kind().to_string();
     LuceneError::IoWithPath {

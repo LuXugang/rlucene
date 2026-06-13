@@ -516,226 +516,239 @@ where
       .set_max_doc(self.state.num_docs_in_ram.load(SeqCst))?;
 
     let index_writer_config = writer.get_config();
-    let result = (|| -> Result<Option<FlushedSegment<D>>> {
-      let (mut fs, sort_map, t0) = {
-        let io_context = IOContext::with_flush(FlushInfo::new(
-          self.state.num_docs_in_ram.load(SeqCst),
-          self.state.last_committed_bytes_used.load(Ordering::SeqCst),
-        ))?;
-        let mut flush_state = SegmentWriteState::new(
-          self.info_stream.clone(),
-          self.directory.as_ref(),
-          Arc::new(self.field_infos.finish()?),
-          &io_context,
-        );
+    let mut aborting_exception = None;
+    let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      (|| -> Result<Option<FlushedSegment<D>>> {
+        let (mut fs, sort_map, t0) = {
+          let io_context = IOContext::with_flush(FlushInfo::new(
+            self.state.num_docs_in_ram.load(SeqCst),
+            self.state.last_committed_bytes_used.load(Ordering::SeqCst),
+          ))?;
+          let mut flush_state = SegmentWriteState::new(
+            self.info_stream.clone(),
+            self.directory.as_ref(),
+            Arc::new(self.field_infos.finish()?),
+            &io_context,
+          );
 
-        let start_mb_used =
-          self.state.last_committed_bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
+          let start_mb_used =
+            self.state.last_committed_bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
 
-        // Apply delete-by-docID now (delete-byDocID only
-        // happens when an exception is hit processing that
-        // doc, eg if analyzer has some problem w/ the text):
-        if self.num_deleted_doc_ids > 0 {
-          let mut live_docs = FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst) as usize);
-          live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst) as usize);
+          // Apply delete-by-docID now (delete-byDocID only
+          // happens when an exception is hit processing that
+          // doc, eg if analyzer has some problem w/ the text):
+          if self.num_deleted_doc_ids > 0 {
+            let mut live_docs = FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst) as usize);
+            live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst) as usize);
 
-          for doc_id in 0..self.num_deleted_doc_ids {
-            live_docs.clear_with_index(doc_id as usize);
+            for doc_id in 0..self.num_deleted_doc_ids {
+              live_docs.clear_with_index(doc_id as usize);
+            }
+
+            flush_state.live_docs = Some(live_docs);
+            flush_state.del_count_on_flush = self.num_deleted_doc_ids;
+            self.delete_doc_ids.clear();
+            self.num_deleted_doc_ids = 0;
           }
 
-          flush_state.live_docs = Some(live_docs);
-          flush_state.del_count_on_flush = self.num_deleted_doc_ids;
-          self.delete_doc_ids.clear();
-          self.num_deleted_doc_ids = 0;
-        }
+          if self.state.aborted.load(Ordering::SeqCst) {
+            if self.info_stream.enabled("DWPT") {
+              self
+                .info_stream
+                .message("DWPT", "flush: skip because aborting is set");
+            }
+            return Ok(None);
+          }
 
-        if self.state.aborted.load(Ordering::SeqCst) {
+          let t0 = std::time::Instant::now();
+
           if self.info_stream.enabled("DWPT") {
-            self
-              .info_stream
-              .message("DWPT", "flush: skip because aborting is set");
+            self.info_stream.message(
+              "DWPT",
+              &format!(
+                "flush postings as segment {} numDocs={}",
+                self.segment_info.name,
+                self.state.num_docs_in_ram.load(SeqCst)
+              ),
+            );
           }
-          return Ok(None);
-        }
 
-        let t0 = std::time::Instant::now();
-
-        if self.info_stream.enabled("DWPT") {
-          self.info_stream.message(
-            "DWPT",
-            &format!(
-              "flush postings as segment {} numDocs={}",
-              self.segment_info.name,
-              self.state.num_docs_in_ram.load(SeqCst)
-            ),
-          );
-        }
-
-        let sort_map = self.indexing_chain.flush(
-          &mut flush_state,
-          &mut self.segment_info,
-          Some(&mut self.pending_updates),
-          index_writer_config,
-          &mut self.field_infos,
-        )?;
-        let mut soft_deleted_docs =
-          if let Some(field) = index_writer_config.get_soft_deletes_field() {
-            self.indexing_chain.get_has_doc_values(field)?
+          let sort_map = self.indexing_chain.flush(
+            &mut flush_state,
+            &mut self.segment_info,
+            Some(&mut self.pending_updates),
+            index_writer_config,
+            &mut self.field_infos,
+          )?;
+          let mut soft_deleted_docs =
+            if let Some(field) = index_writer_config.get_soft_deletes_field() {
+              self.indexing_chain.get_has_doc_values(field)?
+            } else {
+              None
+            };
+          flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs {
+            let cnt = count_soft_deletes(Some(iter), flush_state.live_docs.as_ref())?;
+            debug_assert!(self.segment_info.max_doc()? >= (cnt + flush_state.del_count_on_flush));
+            cnt
           } else {
-            None
+            0
           };
-        flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs {
-          let cnt = count_soft_deletes(Some(iter), flush_state.live_docs.as_ref())?;
-          debug_assert!(self.segment_info.max_doc()? >= (cnt + flush_state.del_count_on_flush));
-          cnt
-        } else {
-          0
+
+          // We clear this here because we already resolved them (private to this segment) when writing
+          // postings:
+          self.pending_updates.clear_delete_terms();
+          let files = self
+            .directory
+            .get_created_files()
+            .lock()
+            .created_filenames
+            .clone();
+          self.segment_info.set_files(files)?;
+
+          let dir = self.segment_info.dir.clone();
+          let segment_info_per_commit = SegmentCommitInfo::new(
+            std::mem::replace(&mut self.segment_info, SegmentInfo::dummy(dir)),
+            0,
+            flush_state.soft_del_count_on_flush,
+            -1,
+            -1,
+            -1,
+            Some(StringHelper::random_id()),
+          );
+
+          if self.info_stream.enabled("DWPT") {
+            self.info_stream.message(
+              "DWPT",
+              &format!(
+                "new segment has {} deleted docs",
+                flush_state.del_count_on_flush
+              ),
+            );
+            self.info_stream.message(
+              "DWPT",
+              &format!(
+                "new segment has {} soft-deleted docs",
+                flush_state.soft_del_count_on_flush
+              ),
+            );
+            self.info_stream.message(
+              "DWPT",
+              &format!(
+                "new segment has {}; {}; {}; {}; {}",
+                if flush_state.field_infos.has_term_vectors() {
+                  "vectors"
+                } else {
+                  "no vectors"
+                },
+                if flush_state.field_infos.has_norms() {
+                  "norms"
+                } else {
+                  "no norms"
+                },
+                if flush_state.field_infos.has_doc_values() {
+                  "docValues"
+                } else {
+                  "no docValues"
+                },
+                if flush_state.field_infos.has_prox() {
+                  "prox"
+                } else {
+                  "no prox"
+                },
+                if flush_state.field_infos.has_freq() {
+                  "freqs"
+                } else {
+                  "no freqs"
+                }
+              ),
+            );
+            self.info_stream.message(
+              "DWPT",
+              &format!("flushedFiles={:?}", segment_info_per_commit.files()),
+            );
+            self.info_stream.message(
+              "DWPT",
+              &format!("flushed codec={}", index_writer_config.get_codec()),
+            );
+          }
+
+          let segment_deletes = if self.pending_updates.delete_queries.is_empty()
+            && self
+              .pending_updates
+              .num_field_updates
+              .load(Ordering::SeqCst)
+              == 0
+          {
+            self.pending_updates.clear();
+            None
+          } else {
+            Some(std::mem::replace(
+              &mut self.pending_updates,
+              BufferedUpdates::new("dummy"),
+            ))
+          };
+
+          if self.info_stream.enabled("DWPT") {
+            let new_size_mb = segment_info_per_commit.size_in_bytes()? as f64 / 1024.0 / 1024.0;
+            self.info_stream.message(
+              "DWPT",
+              &format!(
+                "flushed: segment={} ramUsed={:.2} MB newFlushedSize={:.2} MB docs/MB={:.2}",
+                self.segment_info.name,
+                start_mb_used,
+                new_size_mb,
+                segment_info_per_commit.info.max_doc()? as f64 / new_size_mb
+              ),
+            );
+          }
+
+          let fs = FlushedSegment::new(
+            self.info_stream.clone(),
+            segment_info_per_commit,
+            flush_state.field_infos.clone(),
+            segment_deletes,
+            flush_state.live_docs.take(),
+            flush_state.del_count_on_flush,
+            sort_map.clone(),
+          )?;
+          (fs, sort_map, t0)
         };
-
-        // We clear this here because we already resolved them (private to this segment) when writing
-        // postings:
-        self.pending_updates.clear_delete_terms();
-        let files = self
-          .directory
-          .get_created_files()
-          .lock()
-          .created_filenames
-          .clone();
-        self.segment_info.set_files(files)?;
-
-        let dir = self.segment_info.dir.clone();
-        let segment_info_per_commit = SegmentCommitInfo::new(
-          std::mem::replace(&mut self.segment_info, SegmentInfo::dummy(dir)),
-          0,
-          flush_state.soft_del_count_on_flush,
-          -1,
-          -1,
-          -1,
-          Some(StringHelper::random_id()),
-        );
+        self.seal_flushed_segment(&mut fs, sort_map, flush_notifications, index_writer_config)?;
 
         if self.info_stream.enabled("DWPT") {
           self.info_stream.message(
             "DWPT",
-            &format!(
-              "new segment has {} deleted docs",
-              flush_state.del_count_on_flush
-            ),
-          );
-          self.info_stream.message(
-            "DWPT",
-            &format!(
-              "new segment has {} soft-deleted docs",
-              flush_state.soft_del_count_on_flush
-            ),
-          );
-          self.info_stream.message(
-            "DWPT",
-            &format!(
-              "new segment has {}; {}; {}; {}; {}",
-              if flush_state.field_infos.has_term_vectors() {
-                "vectors"
-              } else {
-                "no vectors"
-              },
-              if flush_state.field_infos.has_norms() {
-                "norms"
-              } else {
-                "no norms"
-              },
-              if flush_state.field_infos.has_doc_values() {
-                "docValues"
-              } else {
-                "no docValues"
-              },
-              if flush_state.field_infos.has_prox() {
-                "prox"
-              } else {
-                "no prox"
-              },
-              if flush_state.field_infos.has_freq() {
-                "freqs"
-              } else {
-                "no freqs"
-              }
-            ),
-          );
-          self.info_stream.message(
-            "DWPT",
-            &format!("flushedFiles={:?}", segment_info_per_commit.files()),
-          );
-          self.info_stream.message(
-            "DWPT",
-            &format!("flushed codec={}", index_writer_config.get_codec()),
+            &format!("flush time {} ms", t0.elapsed().as_millis()),
           );
         }
 
-        let segment_deletes = if self.pending_updates.delete_queries.is_empty()
-          && self
-            .pending_updates
-            .num_field_updates
-            .load(Ordering::SeqCst)
-            == 0
-        {
-          self.pending_updates.clear();
-          None
-        } else {
-          Some(std::mem::replace(
-            &mut self.pending_updates,
-            BufferedUpdates::new("dummy"),
-          ))
-        };
-
-        if self.info_stream.enabled("DWPT") {
-          let new_size_mb = segment_info_per_commit.size_in_bytes()? as f64 / 1024.0 / 1024.0;
-          self.info_stream.message(
-            "DWPT",
-            &format!(
-              "flushed: segment={} ramUsed={:.2} MB newFlushedSize={:.2} MB docs/MB={:.2}",
-              self.segment_info.name,
-              start_mb_used,
-              new_size_mb,
-              segment_info_per_commit.info.max_doc()? as f64 / new_size_mb
-            ),
-          );
-        }
-
-        let fs = FlushedSegment::new(
-          self.info_stream.clone(),
-          segment_info_per_commit,
-          flush_state.field_infos.clone(),
-          segment_deletes,
-          flush_state.live_docs.take(),
-          flush_state.del_count_on_flush,
-          sort_map.clone(),
-        )?;
-        (fs, sort_map, t0)
-      };
-      self.seal_flushed_segment(&mut fs, sort_map, flush_notifications, index_writer_config)?;
-
-      if self.info_stream.enabled("DWPT") {
-        self.info_stream.message(
-          "DWPT",
-          &format!("flush time {} ms", t0.elapsed().as_millis()),
-        );
-      }
-
-      Ok(Some(fs))
-    })();
-
+        Ok(Some(fs))
+      })()
+    })) {
+      Ok(result) => result,
+      Err(e) => {
+        aborting_exception = Some(LuceneError::tragedy_from_panic(
+          "panic while flushing documents",
+          e.as_ref(),
+        ));
+        Err(LuceneError::tragedy_from_panic(
+          "panic while flushing documents",
+          e.as_ref(),
+        ))
+      },
+    };
     self.maybe_abort("flush", flush_notifications, writer)?;
     self
       .state
       .has_flushed
       .set(true)
       .map_err(|_| LuceneError::illegal_state("flush already called"))?;
-    match &result {
-      Ok(_) => {},
-      Err(_e) => {
-        // TODO Lucene 没有实现clone
-        self.on_aborting_exception(LuceneError::illegal_state(""))
-      },
+    if result.is_err() {
+      self.on_aborting_exception(
+        aborting_exception.unwrap_or_else(|| LuceneError::illegal_state("")),
+      );
     }
+
     result
   }
 

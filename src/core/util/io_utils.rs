@@ -122,16 +122,9 @@ impl IOUtils {
           first_error = Some(IOUtils::use_or_suppress(first_error, e));
         },
         Err(e) => {
-          let message = if let Some(message) = e.downcast_ref::<&str>() {
-            (*message).to_string()
-          } else if let Some(message) = e.downcast_ref::<String>() {
-            message.clone()
-          } else {
-            "unknown panic payload".to_string()
-          };
           first_panic = Some(IOUtils::use_or_suppress(
             first_panic,
-            LuceneError::tragedy(format!("panic while closing: {message}")),
+            LuceneError::tragedy_from_panic("panic while closing", e.as_ref()),
           ));
         },
       }
