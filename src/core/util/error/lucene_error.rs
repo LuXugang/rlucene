@@ -29,8 +29,8 @@ use crate::core::util::error::{
   LockHeldByOtherError, LockObtainFailedError, LockReleaseFailedError, MaxBytesLengthExceededError,
   MergeAbortedError, MergeError, NeedImplementedError, NoMoreTermsError, NoSuchElementError,
   NotImplementedError, NotSuchFileError, NumberFormatError, NumberOverflow, TimeExceededError,
-  TooComplexToDeterminizeError, TooManyClausesError, TooManyNestedClausesError, UncheckedIOError,
-  UnreachableError, UnsupportedOperationError,
+  TooComplexToDeterminizeError, TooManyClausesError, TooManyNestedClausesError, TragedyError,
+  UncheckedIOError, UnreachableError, UnsupportedOperationError,
 };
 
 #[derive(Debug, Error)]
@@ -115,6 +115,8 @@ pub enum LuceneError {
   TooManyClauses(#[from] TooManyClausesError),
   #[error("{0}")]
   TooManyNestedClauses(#[from] TooManyNestedClausesError),
+  #[error("{0}")]
+  Tragedy(#[from] TragedyError),
   #[error("{0}")]
   UncheckedIO(#[from] UncheckedIOError),
   #[error("{0}")]
@@ -236,6 +238,7 @@ impl LuceneError {
     TooManyNestedClauses,
     TooManyNestedClausesError
   );
+  error_ctor!(tragedy, Tragedy, TragedyError);
   error_ctor!(unchecked_io_error, UncheckedIO, UncheckedIOError);
   error_ctor!(unreachable, Unreachable, UnreachableError);
   error_ctor!(
@@ -276,6 +279,7 @@ impl LuceneError {
     (TooComplexToDeterminize),
     (TooManyClauses),
     (TooManyNestedClauses),
+    (Tragedy),
     (UncheckedIO),
     (Unreachable),
     (UnsupportedOperation),

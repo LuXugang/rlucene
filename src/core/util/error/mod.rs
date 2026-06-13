@@ -101,6 +101,7 @@ message_error!(TimeExceededError);
 message_error!(TooComplexToDeterminizeError);
 message_error!(TooManyClausesError);
 message_error!(TooManyNestedClausesError);
+message_error!(TragedyError);
 message_error!(UncheckedIOError);
 message_error!(UnreachableError);
 message_error!(UnsupportedOperationError);
