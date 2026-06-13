@@ -308,6 +308,8 @@ impl Display for PagedBytesDataInput {
   }
 }
 
+impl crate::core::util::close::Closeable for PagedBytesDataInput {}
+
 impl DataInput for PagedBytesDataInput {
   fn read_byte(&mut self) -> Result<u8> {
     if self.current_block_upto == self.block_size {

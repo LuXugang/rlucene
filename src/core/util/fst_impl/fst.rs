@@ -1202,6 +1202,8 @@ pub enum BytesReaderEnum2<A, B> {
   B(B),
 }
 
+impl<A, B> crate::core::util::close::Closeable for BytesReaderEnum2<A, B> {}
+
 impl<A, B> DataInput for BytesReaderEnum2<A, B>
 where
   A: BytesReader,

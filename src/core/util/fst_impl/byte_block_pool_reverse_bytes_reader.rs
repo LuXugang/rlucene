@@ -43,6 +43,8 @@ impl ByteBlockPoolReverseBytesReader {
   }
 }
 
+impl crate::core::util::close::Closeable for ByteBlockPoolReverseBytesReader {}
+
 impl DataInput for ByteBlockPoolReverseBytesReader {
   fn read_byte(&mut self) -> Result<u8> {
     debug_assert!(self.pos >= 0);

@@ -546,11 +546,4 @@ impl<D: Directory> Directory for Arc<D> {
   }
 }
 
-impl<D: Directory> Closeable for Arc<D> {
-  fn close(&mut self) -> Result<()> {
-    // TODO
-    Ok(())
-  }
-}
-
 pub(crate) type DirEnum = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;

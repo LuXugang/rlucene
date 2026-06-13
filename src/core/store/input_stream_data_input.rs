@@ -32,6 +32,8 @@ impl<R: Read + Seek> InputStreamDataInput<R> {
   }
 }
 
+impl<R: Read + Seek> crate::core::util::close::Closeable for InputStreamDataInput<R> {}
+
 impl<R: Read + Seek> DataInput for InputStreamDataInput<R> {
   fn read_byte(&mut self) -> Result<u8> {
     let mut b = [0u8; 1];

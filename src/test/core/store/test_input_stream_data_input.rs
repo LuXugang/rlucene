@@ -121,6 +121,8 @@ impl<R: Read + Seek> DataInput for NoReadInputStreamDataInput<R> {
   }
 }
 
+impl<R: Read + Seek> crate::core::util::close::Closeable for NoReadInputStreamDataInput<R> {}
+
 impl<R: Read + Seek> Display for NoReadInputStreamDataInput<R> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.input)

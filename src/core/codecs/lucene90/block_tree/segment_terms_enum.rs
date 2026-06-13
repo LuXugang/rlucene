@@ -932,6 +932,8 @@ impl Display for OutputAccumulator {
   }
 }
 
+impl crate::core::util::close::Closeable for OutputAccumulator {}
+
 impl DataInput for OutputAccumulator {
   fn read_byte(&mut self) -> Result<u8> {
     if self.index >= self.current.length {

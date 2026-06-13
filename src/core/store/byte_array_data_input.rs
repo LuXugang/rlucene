@@ -100,6 +100,8 @@ where
   }
 }
 
+impl<B> crate::core::util::close::Closeable for ByteArrayDataInput<B> where B: ByteSource {}
+
 impl<B> DataInput for ByteArrayDataInput<B>
 where
   B: ByteSource,

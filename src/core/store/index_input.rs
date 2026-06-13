@@ -187,6 +187,8 @@ impl IndexInputEnum {
   }
 }
 
+impl crate::core::util::close::Closeable for IndexInputEnum {}
+
 impl DataInput for IndexInputEnum {
   fn read_byte(&mut self) -> Result<u8> {
     match self {
@@ -499,6 +501,8 @@ macro_rules! either_index_input {
         $vis enum $name<$( $T ),+> {
             $( $Variant($T), )+
         }
+
+        impl<$( $T ),+> crate::core::util::close::Closeable for $name<$( $T ),+> {}
 
         impl<$( $T ),+> DataInput for $name<$( $T ),+>
         where

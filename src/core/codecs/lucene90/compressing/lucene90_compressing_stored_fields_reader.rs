@@ -887,6 +887,8 @@ where
   }
 }
 
+impl<I> crate::core::util::close::Closeable for DataInputImpl<'_, I> where I: IndexInput {}
+
 impl<I> DataInput for DataInputImpl<'_, I>
 where
   I: IndexInput,

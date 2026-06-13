@@ -197,6 +197,8 @@ impl DataInput for BytesReaderImpl<'_> {
   }
 }
 
+impl crate::core::util::close::Closeable for BytesReaderImpl<'_> {}
+
 impl Display for BytesReaderImpl<'_> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())

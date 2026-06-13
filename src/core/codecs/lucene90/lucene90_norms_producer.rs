@@ -376,6 +376,8 @@ where
   offset: usize,
 }
 
+impl<I> crate::core::util::close::Closeable for IndexInputImpl<I> where I: IndexInput {}
+
 impl<I> DataInput for IndexInputImpl<I>
 where
   I: IndexInput,

@@ -46,6 +46,11 @@ where
   }
 }
 
+impl<B> crate::core::util::close::Closeable for ByteBuffersIndexInput<B> where
+  B: ByteBuffersDataInputBlock
+{
+}
+
 impl<B> DataInput for ByteBuffersIndexInput<B>
 where
   B: ByteBuffersDataInputBlock + Clone,

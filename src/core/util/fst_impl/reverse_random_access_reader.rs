@@ -40,6 +40,11 @@ where
   }
 }
 
+impl<R> crate::core::util::close::Closeable for ReverseRandomAccessReader<R> where
+  R: RandomAccessInput
+{
+}
+
 impl<R> DataInput for ReverseRandomAccessReader<R>
 where
   R: RandomAccessInput,

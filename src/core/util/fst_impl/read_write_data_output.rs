@@ -180,6 +180,8 @@ impl BytesReaderImpl {
   }
 }
 
+impl crate::core::util::close::Closeable for BytesReaderImpl {}
+
 impl DataInput for BytesReaderImpl {
   fn read_byte(&mut self) -> Result<u8> {
     if self.next_read == -1 {

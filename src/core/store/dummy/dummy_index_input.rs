@@ -22,6 +22,8 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyIndexInput;
 
+impl crate::core::util::close::Closeable for DummyIndexInput {}
+
 impl DataInput for DummyIndexInput {
   fn read_byte(&mut self) -> Result<u8> {
     dummy_unreachable!()

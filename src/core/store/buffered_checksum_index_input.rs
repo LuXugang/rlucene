@@ -80,6 +80,8 @@ where
   }
 }
 
+impl<T: IndexInput> crate::core::util::close::Closeable for BufferedChecksumIndexInput<T> {}
+
 // TODO IMPORTANT: readInt/Long not implement
 impl<T> DataInput for BufferedChecksumIndexInput<T>
 where

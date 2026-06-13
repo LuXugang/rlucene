@@ -22,6 +22,8 @@ use crate::core::util::fst_impl::fst::BytesReader;
 
 pub struct DummyBytesReader;
 
+impl crate::core::util::close::Closeable for DummyBytesReader {}
+
 impl DataInput for DummyBytesReader {
   fn read_byte(&mut self) -> Result<u8> {
     dummy_unreachable!()

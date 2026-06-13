@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, TryIntoInt};
 use std::collections::{HashMap, HashSet};
@@ -25,7 +26,7 @@ use std::fmt::Display;
 /// # Note
 /// [`DataInput`] is not thread-safe as it maintains internal state (e.g., file
 /// position).
-pub trait DataInput: Display {
+pub trait DataInput: Display + Closeable {
   /// Reads and returns a single byte.
   ///
   /// # See Also
@@ -333,6 +334,8 @@ pub trait DataInput: Display {
   }
 }
 
+impl<T: ?Sized> Closeable for Box<T> {}
+
 impl<T: ?Sized + DataInput> DataInput for Box<T> {
   fn read_byte(&mut self) -> Result<u8> {
     (**self).read_byte()
@@ -446,6 +449,8 @@ macro_rules! define_data_input_enum {
                 }
             }
         }
+
+        impl<$( $T ),+> Closeable for $name<$( $T ),+> {}
 
         impl<$( $T ),+> DataInput for $name<$( $T ),+>
         where

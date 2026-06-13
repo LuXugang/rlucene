@@ -269,6 +269,8 @@ impl InterceptingIndexInput {
   }
 }
 
+impl crate::core::util::close::Closeable for InterceptingIndexInput {}
+
 impl DataInput for InterceptingIndexInput {
   fn read_byte(&mut self) -> Result<u8> {
     Err(LuceneError::unsupported_operation(""))

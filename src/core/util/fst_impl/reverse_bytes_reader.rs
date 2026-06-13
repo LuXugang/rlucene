@@ -33,6 +33,8 @@ impl ReverseBytesReader {
   }
 }
 
+impl crate::core::util::close::Closeable for ReverseBytesReader {}
+
 impl DataInput for ReverseBytesReader {
   fn read_byte(&mut self) -> Result<u8> {
     debug_assert!(self.pos >= 0);

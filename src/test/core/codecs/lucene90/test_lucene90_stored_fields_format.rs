@@ -321,6 +321,8 @@ where
   }
 }
 
+impl<I> crate::core::util::close::Closeable for CountingPrefetchIndexInput<I> where I: IndexInput {}
+
 impl<I> DataInput for CountingPrefetchIndexInput<I>
 where
   I: IndexInput,
