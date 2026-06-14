@@ -70,10 +70,12 @@ static SEED: i32 = 0;
 #[test]
 fn test_random_iw_reader() -> Result<()> {
   let mut r = random();
+  let field_types = Mutex::new(HashMap::new());
   let dir = new_maybe_virus_checking_directory(&mut r)?;
 
   let dw = index_random_iw_reader(
     &mut r,
+    &field_types,
     5,
     3,
     100,
@@ -93,11 +95,13 @@ fn test_random_iw_reader() -> Result<()> {
 #[test]
 fn test_random() -> Result<()> {
   let mut r = random();
+  let field_types = Mutex::new(HashMap::new());
   let dir1 = new_maybe_virus_checking_directory(&mut r)?;
   let dir2 = new_maybe_virus_checking_directory(&mut r)?;
   let do_reader_pooling = r.random_bool(0.5);
   let docs = index_random(
     &mut r,
+    &field_types,
     5,
     3,
     100,
@@ -116,6 +120,7 @@ fn test_random() -> Result<()> {
 #[test]
 fn test_multi_config() -> Result<()> {
   let mut r = random();
+  let field_types = Mutex::new(HashMap::new());
   let num = at_least(&mut r, 3);
   let mut seed = SEED;
   for _ in 0..num {
@@ -132,6 +137,7 @@ fn test_multi_config() -> Result<()> {
     let dir2 = new_directory_shared(&mut r)?;
     let docs = index_random(
       &mut r,
+      &field_types,
       n_threads,
       iter,
       range,
@@ -155,6 +161,7 @@ struct DocsAndWriter {
 #[allow(clippy::too_many_arguments)]
 fn index_random_iw_reader<R>(
   random: &mut R,
+  field_types: &Mutex<HashMap<String, FieldType>>,
   n_threads: i32,
   iterations: i32,
   range: i32,
@@ -181,12 +188,10 @@ where
   let w = IndexWriter::new(dir.clone(), config)?;
   w.commit()?;
 
-  let field_types = Mutex::new(HashMap::new());
   let thread_results = thread::scope(|scope| {
     let mut handles = Vec::new();
     for i in 0..n_threads {
       let w = &w;
-      let field_types = &field_types;
       handles.push(scope.spawn(move || {
         IndexingThread::new(1000000 * i, range, iterations, same_field_order, seed)
           .run(w, field_types)
@@ -214,6 +219,7 @@ where
 #[allow(clippy::too_many_arguments)]
 fn index_random<R>(
   random: &mut R,
+  field_types: &Mutex<HashMap<String, FieldType>>,
   n_threads: i32,
   iterations: i32,
   range: i32,
@@ -241,12 +247,10 @@ where
   )?);
   let w = IndexWriter::new(dir.clone(), config)?;
 
-  let field_types = Mutex::new(HashMap::new());
   let thread_results = thread::scope(|scope| {
     let mut handles = Vec::new();
     for i in 0..n_threads {
       let w = &w;
-      let field_types = &field_types;
       handles.push(scope.spawn(move || {
         IndexingThread::new(1000000 * i, range, iterations, same_field_order, seed)
           .run(w, field_types)

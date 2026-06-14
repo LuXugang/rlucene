@@ -47,6 +47,12 @@ impl IdentityId for WeightedLock {
   }
 }
 
+impl IdentityId for Arc<WeightedLock> {
+  fn id(&self) -> &str {
+    ""
+  }
+}
+
 impl Lock for WeightedLock {
   fn lock(&self) {
     let mut guard = self.available.lock();
@@ -77,6 +83,24 @@ impl Lock for WeightedLock {
     !*flag
   }
 }
+
+impl Lock for Arc<WeightedLock> {
+  fn lock(&self) {
+    self.as_ref().lock()
+  }
+
+  fn try_lock(&self) -> bool {
+    self.as_ref().try_lock()
+  }
+
+  fn unlock(&self) {
+    self.as_ref().unlock()
+  }
+
+  fn is_locked(&self) -> bool {
+    self.as_ref().is_locked()
+  }
+}
 impl PartialEq for WeightedLock {
   fn eq(&self, other: &Self) -> bool {
     self.weight == other.weight
@@ -103,7 +127,7 @@ fn test_never_return_none_on_non_empty_queue() {
         lock.lock();
         lock.weight += 1;
         let weight = lock.weight;
-        q.add_and_unlock(lock, weight);
+        q.add_and_unlock(Arc::new(lock), weight);
         for _ in 0..10_000 {
           let lock = q.lock_and_poll().expect("Queue was non-empty");
           let weight = lock.weight;

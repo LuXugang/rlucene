@@ -4518,7 +4518,7 @@ where
         // check if the before/after liveDocs have changed.
         // If so, we must carefully merge the liveDocs one
         // doc at a time:
-        if current_hard_live_docs.identity() == prev_hard_live_docs.identity() {
+        if current_hard_live_docs.identity() != prev_hard_live_docs.identity() {
           // This means this segment received new deletes
           // since we started the merge, so we
           // must merge them:

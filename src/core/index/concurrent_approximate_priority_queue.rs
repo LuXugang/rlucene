@@ -21,7 +21,6 @@ use std::hash::{Hash, Hasher};
 use parking_lot::Mutex;
 
 use crate::core::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
-use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub(crate) const MIN_CONCURRENCY: usize = 1;
@@ -32,7 +31,7 @@ pub(crate) const MAX_CONCURRENCY: usize = 256;
 /// subs is computed dynamically based on hardware concurrency.
 pub struct ConcurrentApproximatePriorityQueue<T>
 where
-  T: Lock + IdentityId,
+  T: IdentityId,
 {
   concurrency: usize,
   pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
@@ -40,7 +39,7 @@ where
 
 impl<T> ConcurrentApproximatePriorityQueue<T>
 where
-  T: Lock + IdentityId,
+  T: IdentityId,
 {
   fn get_concurrency() -> usize {
     let core_count = std::thread::available_parallelism()

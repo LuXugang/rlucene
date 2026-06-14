@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use std::vec::Vec;
 
 /// An approximate priority queue, which attempts to poll items by decreasing
@@ -22,7 +21,7 @@ use std::vec::Vec;
 /// doesn't support None elements.
 pub(crate) struct ApproximatePriorityQueue<T>
 where
-  T: Lock + IdentityId,
+  T: IdentityId,
 {
   /// Indexes between 0 and 63 are sparsely populated, and indexes that are
   /// greater than or equal to 64 are densely populated
@@ -35,7 +34,7 @@ where
 }
 impl<T> ApproximatePriorityQueue<T>
 where
-  T: Lock + IdentityId,
+  T: IdentityId,
 {
   pub(crate) fn new() -> Self {
     let mut slots = Vec::with_capacity(i64::BITS as usize);
@@ -58,7 +57,6 @@ where
     let offset = (free_slots >> expected_slot).trailing_zeros() as usize;
     let destination_slot = expected_slot + offset;
 
-    entry.unlock();
     if destination_slot < i64::BITS as usize {
       self.used_slots |= 1 << destination_slot;
       debug_assert!(self.slots[destination_slot].is_none());

@@ -149,14 +149,20 @@ where
          * the downside is that we need to force a purge on fullFlush since there could
          * be a ticket still in the queue.
          */
-        let head = {
+        let (id, head) = {
           let mut inner = self.inner.lock();
-          let id = inner.queue.pop_front().unwrap();
+          let id = inner.queue.front().unwrap().clone();
           let head = inner.value.remove(&id).unwrap();
-          self.dec_tickets();
-          head
+          (id, head)
         };
-        consumer(head)?;
+        let result = consumer(head);
+        {
+          let mut inner = self.inner.lock();
+          let polled = inner.queue.pop_front().unwrap();
+          self.dec_tickets();
+          debug_assert!(polled == id);
+        }
+        result?;
       } else {
         break;
       }
