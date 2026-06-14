@@ -63,7 +63,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 const FIELD_NAME: &str = "point";
-/// Abstract class to do basic tests for a xy spatial impl (high level fields and queries)
+/// Base test support for XY spatial implementations (high-level fields and queries).
 pub trait BaseXYPointTestCase {
   fn next_x<R>(&self, random: &mut R) -> f32
   where
@@ -110,7 +110,7 @@ pub trait BaseXYPointTestCase {
     Ok(geometries)
   }
 
-  /// Valid values that should not cause exception.
+  /// Valid values that should not cause error.
   fn test_index_extreme_values(&self) -> Result<()> {
     let mut document = Document::new();
     self.add_point_to_doc("foo", &mut document, f32::MAX, f32::MAX)?;

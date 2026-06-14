@@ -21,7 +21,7 @@ use crate::core::util::automation::levenshtein_automata::{
 
 /// Parametric description for generating a Levenshtein automaton of degree 2,
 /// with transpositions as primitive edits. The comment in [`Lev1ParametricDescription`]
-/// may be helpful for you to understand this class.
+/// may help explain this type.
 ///
 /// See [`Lev1ParametricDescription`].
 pub(crate) struct Lev2TParametricDescription;

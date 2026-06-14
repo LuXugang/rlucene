@@ -211,8 +211,8 @@ fn test_early_termination() -> Result<()> {
   let docs = TestUtil::next_int(&mut random, 1000, 10000);
   let expected = generate_doc_ids(docs, &mut random);
 
-  // The first collector manager should collect all docs even though the second throws
-  // CollectionTerminatedException immediately:
+  // The first collector manager should collect all docs even though the second returns
+  // collection-terminated error immediately:
   let cm1 = CollectorManagerEnum::Simple(SimpleCollectorManager::default());
   let cm2 = CollectorManagerEnum::Terminating(TerminatingCollectorManager);
   let mcm = MultiCollectorManager::new(vec![&cm1, &cm2])?;
@@ -221,8 +221,8 @@ fn test_early_termination() -> Result<()> {
   assert_eq!(Some(expected.iter().copied().collect()), results[0]);
   assert_eq!(None, results[1]);
 
-  // If we wrap multiple collector managers that throw CollectionTerminatedException, the
-  // exception should be thrown by the MultiCollectorManager's collector:
+  // If multiple wrapped collector managers return collection-terminated errors, the
+  // error should be returned by the MultiCollectorManager's collector:
   let cm2 = CollectorManagerEnum::Terminating(TerminatingCollectorManager);
   let cm3 = CollectorManagerEnum::Terminating(TerminatingCollectorManager);
   let mcm = MultiCollectorManager::new(vec![&cm2, &cm3])?;

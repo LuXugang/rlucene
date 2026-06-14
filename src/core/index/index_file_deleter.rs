@@ -41,7 +41,7 @@ use std::sync::atomic::Ordering::SeqCst;
 /// referencing a certain file have been deleted, the refcount for that file becomes zero, and the
 /// file is deleted.
 ///
-/// A separate deletion policy interface (`IndexDeletionPolicy`) is consulted on creation
+/// A separate deletion policy trait (`IndexDeletionPolicy`) is consulted on creation.
 /// (`on_init`) and once per commit (`on_commit`), to decide when a commit should be removed.
 ///
 /// It is the business of the `IndexDeletionPolicy` to choose when to delete commit points. The
@@ -343,7 +343,7 @@ where
 
   /// Writer calls this when it has hit an error and had to roll back, to tell us that there may now be unreferenced files in the filesystem.
   /// So we re-list the filesystem and delete such files.
-  /// If segmentName is non-null, we will only delete files corresponding to that segment.
+  /// If segmentName is present, we will only delete files corresponding to that segment.
   pub(crate) fn refresh(&self) -> Result<()> {
     // debug_assert!(self.locked());
     let mut to_delete = HashSet::new();
@@ -499,7 +499,7 @@ where
     self.file_deleter.inc_ref(files);
   }
 
-  /// Decrefs all provided files, even on exception; throws first exception hit, if any.
+  /// Decrefs all provided files, even on error; returns first error hit, if any.
   pub(crate) fn dec_ref<'a, I>(&mut self, files: I) -> Result<()>
   where
     I: IntoIterator<Item = &'a String>,

@@ -42,7 +42,7 @@ use std::hash::Hash;
 /// - The term dictionary is enumerated in an intelligent way, to avoid comparisons. See
 ///   [`AutomatonQuery`] for more details.
 ///
-/// The supported syntax is documented in the [`RegExp`] class. Note this might be different
+/// The supported syntax is documented by [`RegExp`]. Note this might differ
 /// than other regular expression implementations. For some alternatives with different syntax, look
 /// under the sandbox.
 ///

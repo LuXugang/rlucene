@@ -69,7 +69,7 @@ impl ParametricDescriptionBase for Lev1ParametricDescription {
     vector: i32,
     base: &ParametricDescription,
   ) -> i32 {
-    // null absState should never be passed in
+    // None absState should never be passed in
     debug_assert_ne!(abs_state, -1);
 
     // decode absState -> state, offset
@@ -102,7 +102,7 @@ impl ParametricDescriptionBase for Lev1ParametricDescription {
     }
 
     if state == -1 {
-      // null state
+      // None state
       -1
     } else {
       // translate back to abs

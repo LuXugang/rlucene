@@ -44,7 +44,7 @@ pub trait FieldsConsumer {
   ///   provided `Fields` API will expose them; this typically requires lazily writing the field or
   ///   term until you’ve actually seen the first term or document.
   /// - The provided `Fields` instance is limited: you cannot call any methods that return
-  ///   statistics/counts; you cannot pass a non-null live docs when pulling docs/positions enums.
+  ///   statistics/counts; you cannot pass a present live docs when pulling docs/positions enums.
   fn write<F, N>(&mut self, fields: &mut F, norms: Option<&N>) -> Result<()>
   where
     F: Fields,
@@ -55,7 +55,7 @@ pub trait FieldsConsumer {
   /// calls [`Self::write`] with the merged [`Fields`] and the provided
   /// [`NormsProducer`].
   ///
-  /// Implementations may override this method to perform more sophisticated
+  /// Implementations may provide this method to perform more sophisticated
   /// merging strategies (such as bulk byte copying, etc.).
   fn merge<D, N, CR>(&mut self, merge_state: &MergeState<D, CR>, norms: Option<&N>) -> Result<()>
   where

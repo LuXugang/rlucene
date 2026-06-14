@@ -93,9 +93,9 @@ pub trait Similarity: Display {
   /// The default implementation uses [`SmallFloat::int_to_byte4`] to encode the number of terms
   /// into a single byte.
   ///
-  /// **Warning:** The default implementation is used by Lucene’s supplied similarity classes,
+  /// **Warning:** The default implementation is used by Lucene's supplied similarity implementations,
   /// allowing you to swap in a different `Similarity` at runtime without reindexing. If you
-  /// override this method, you **must** reindex documents for your change to take effect.
+  /// provide a different implementation, you **must** reindex documents for the change to take effect.
   ///
   /// Matches in longer fields are less precise, so implementations typically emit smaller norm
   /// values when `state.length()` is large, and larger values when `state.length()` is small.

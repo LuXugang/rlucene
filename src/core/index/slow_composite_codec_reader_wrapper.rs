@@ -328,7 +328,7 @@ where
 
   fn num_docs(&self) -> Result<i32> {
     // Compute the number of docs lazily, in case some leaves need to recompute it the first time it
-    // is called, see BaseCompositeReader#numDocs.
+    // is called; see `BaseCompositeReader::num_docs`.
     let mut inner = self.inner.lock();
     if inner.num_docs == -1 {
       let mut total = 0;
@@ -1430,7 +1430,7 @@ where
         && let Some(v) = reader.get_values(field)?
       {
         // Apparently FieldInfo can claim a field has points, yet the returned
-        // PointValues is null
+        // PointValues is None
         values.push(PointValuesSub::new(v, self.doc_starts[i] as i32));
       }
     }

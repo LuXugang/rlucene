@@ -16,7 +16,7 @@
  */
 use crate::core::util::automation::transition::Transition;
 
-/// Interface accessing the transitions of an automaton.
+/// Trait for accessing an automaton's transitions.
 pub trait TransitionAccessor {
   /// Initialize the provided `Transition` to iterate through all transitions
   /// leaving the specified state. Returns the number of transitions

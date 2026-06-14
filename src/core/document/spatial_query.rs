@@ -473,7 +473,7 @@ pub fn transpose_relation(r: Relation) -> Relation {
   }
 }
 
-/// Utility class for implementing constant score logic specific to INTERSECT, WITHIN, DISJOINT
+/// Utility struct implementing constant-score logic for INTERSECT, WITHIN, DISJOINT,
 /// and CONTAINS.
 pub struct RelationScorerSupplier<PV, V>
 where

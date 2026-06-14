@@ -37,7 +37,7 @@ impl SerialMergeScheduler {
 
 impl CloseableRef for SerialMergeScheduler {}
 /// Just do the merges in sequence.
-/// We do this "synchronized" so that even if the application is using multiple threads,
+/// A lock ensures that even if the application uses multiple threads,
 /// only one merge may run at a time.
 impl MergeScheduler for SerialMergeScheduler {
   fn merge<MS, D>(

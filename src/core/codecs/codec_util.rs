@@ -501,23 +501,23 @@ impl CodecUtil {
 
   /// Validates the codec footer previously written by
   /// [`write_footer`](CodecUtil::write_footer), optionally handling
-  /// an unexpected exception that has already occurred.
+  /// an unexpected error that has already occurred.
   ///
   /// When a `prior_exception` is provided, this method will add a suppressed
-  /// exception indicating whether the checksum for the stream passes,
-  /// fails, or cannot be computed, and rethrow it. Otherwise, it behaves
+  /// error indicating whether the checksum for the stream passes,
+  /// fails, or cannot be computed, and return it. Otherwise, it behaves
   /// the same as [`check_footer`](CodecUtil::check_footer).
   ///
   /// # Parameters
   /// - `input`: The input stream to validate.
-  /// - `prior_exception`: An optional previously occurred exception to
+  /// - `prior_exception`: An optional previously occurred error to
   ///   handle.
   ///
   /// # Errors
   /// - `IoError`: If the footer is invalid, the checksum does not match, or
   ///   the input is not properly positioned before the footer at the end of
   ///   the stream.
-  /// - `PriorException`: If a prior exception is provided and rethrown after
+  /// - `prior_error`: If a prior error is provided and returned after
   ///   adding supplemental information.
   pub fn check_footer_with_error(
     checksum_in: &mut impl ChecksumIndexInput,
@@ -525,9 +525,9 @@ impl CodecUtil {
   ) -> LuceneError {
     let result = (|prior_error: &mut LuceneError| -> Result<()> {
       // If we have evidence of corruption, then we return the corruption as
-      // the main exception and the prior exception gets suppressed.
-      // Otherwise, we return the prior exception with a suppressed
-      // exception that notifies the user that checksums matched.
+      // the main error and the prior error gets suppressed.
+      // Otherwise, we return the prior error with a suppressed
+      // error that notifies the user that checksums matched.
       let remaining = checksum_in.length() - checksum_in.get_file_pointer()?;
       if remaining < Self::footer_length() {
         // corruption caused us to read into the checksum footer already: we

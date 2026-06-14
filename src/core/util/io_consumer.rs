@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-/// An IO operation with a single input that may throw an Error.
+/// An IO operation with a single input that may return an Error.
 pub trait IOConsumer<T> {
   /// Performs this operation on the given argument.
   fn accept(&mut self, _input: T) -> Result<()> {

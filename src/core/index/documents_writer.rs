@@ -53,10 +53,10 @@ use std::thread;
 ///
 /// Threads:
 ///
-/// Multiple threads are allowed into `add_document` at once. There is an initial synchronized call
+/// Multiple threads may enter `add_document` at once. An initial locked call
 /// to [`DocumentsWriterFlushControl::obtain_and_lock()`] which allocates a DWPT for this indexing
 /// thread. The same thread will not necessarily get the same DWPT over time. Then `update_documents` is
-/// called on that DWPT without synchronization (most of the “heavy lifting” is in this call). Once a
+/// called on that DWPT without holding the allocation lock (most of the heavy lifting is in this call). Once a
 /// DWPT fills up enough RAM or holds enough documents in memory, the DWPT is checked out for flush and
 /// all changes are written to the directory. Each DWPT corresponds to one segment being written.
 ///
@@ -66,18 +66,18 @@ use std::thread;
 /// them from adding documents if flushing can’t keep up with new documents being added. Unless the
 /// stall control kicks in to block indexing threads, flushes happen concurrently with indexing requests.
 ///
-/// Exceptions:
+/// Errors:
 ///
 /// Because this struct directly updates in-memory posting lists, and flushes stored fields and
 /// term vectors directly to files in the directory, there are limited times when an
-/// exception can corrupt this state. For example, a disk full while flushing stored fields can leave
-/// the file in a corrupt state. Or an OOM exception while appending to the in-memory posting lists
-/// can corrupt that posting list. We call such errors “aborting exceptions.” In these cases we
+/// error can corrupt this state. For example, a disk full while flushing stored fields can leave
+/// the file in a corrupt state. Or an OOM error while appending to the in-memory posting lists
+/// can corrupt that posting list. We call such errors “aborting errors.” In these cases we
 /// must call `abort()` to discard all docs added since the last flush.
 ///
-/// All other exceptions (“non-aborting exceptions”) can still partially update the index
+/// All other errors (“non-aborting errors”) can still partially update the index
 /// structures. These updates are consistent but represent only a part of the document seen up
-/// until the exception was hit. When this happens, we immediately mark the document as deleted so
+/// until the error was hit. When this happens, we immediately mark the document as deleted so
 /// that the document is always atomically (“all or none”) added to the index.
 pub(crate) struct DocumentsWriter<D, FN>
 where
@@ -91,7 +91,7 @@ where
   // we preserve changes during a full flush since IW might not check out before
   // we release all changes. NRT Readers otherwise suddenly return true from
   // isCurrent while there are actually changes currently committed. See also
-  // #anyChanges() & #flushAllThreads
+  // `any_changes` and `flush_all_threads`.
   pending_changes_in_current_full_flush: AtomicBool,
   pending_num_docs: Arc<AtomicI64>,
   pub(crate) guard: Mutex<()>,
@@ -641,7 +641,7 @@ where
         {
           // In the case of a failure make sure we are making progress and
           // apply all the deletes since the segment flush failed since the flush
-          // ticket could hold global deletes see FlushTicket#canPublish()
+          // The ticket could hold global deletes; see `FlushTicket::can_publish`.
           self.ticket_queue.mark_ticket_failed(ticket_idx)?;
         }
         result?;

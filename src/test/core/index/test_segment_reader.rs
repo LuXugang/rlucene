@@ -67,7 +67,7 @@ impl TestSegmentReader {
         assert_eq!(norms_opt.is_some(), !f.field_type().omit_norms());
         assert_eq!(norms_opt.is_some(), !DATA.no_norms.contains_key(field_name));
         if norms_opt.is_none() {
-          // test for norms of null
+          // test for norms of None
           let norms2 = MultiDocValues::get_norm_values(&multi_readers, field_name)?;
           assert!(norms2.is_none());
         }

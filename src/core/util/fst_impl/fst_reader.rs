@@ -34,7 +34,7 @@ pub trait FstReader: Accountable {
   /// - `out`: The `DataOutput` to write to.
   ///
   /// # Errors
-  /// Returns an error if an exception occurred during writing.
+  /// Returns an error if writing fails.
   fn write_to(&self, out: &mut impl DataOutput) -> Result<()>;
 
   fn init_reader(&mut self) {}

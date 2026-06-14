@@ -60,7 +60,7 @@ where
   TwoPhaseIteratorImpl::new(v, confirmed)
 }
 
-/// Return an anonym class so that ConjunctionDISI cannot optimize it like it does eg. for BitSetIterators.
+/// Returns an anonymous implementation so `ConjunctionDISI` cannot optimize it as a `BitSetIterator`.
 fn anonymize_iterator<D>(it: D) -> DocIdSetIteratorImpl<D>
 where
   D: DocIdSetIterator,

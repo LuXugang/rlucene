@@ -100,7 +100,7 @@ impl XYDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if the field name is null or x or y are infinite or NaN.
+  /// Returns an error if `x` or `y` is infinite or NaN.
   pub fn new<T>(name: T, x: f32, y: f32) -> Result<Self>
   where
     T: Into<String>,
@@ -130,7 +130,7 @@ impl XYDocValuesField {
     Ok(())
   }
 
-  /// helper: checks a fieldinfo and throws exception if its definitely not a XYDocValuesField
+  /// Checks field information and returns an error if it is definitely not an `XYDocValuesField`.
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     if *field_info.get_doc_values_type() != DocValuesType::None
       && field_info.get_doc_values_type() != TYPE.doc_values_type()
@@ -158,7 +158,7 @@ impl XYDocValuesField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
+  /// - `field`: field name.
   /// - `x`: x at the center.
   /// - `y`: y at the center.
   ///
@@ -168,7 +168,7 @@ impl XYDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null or location has invalid coordinates.
+  /// Returns an error if the location has invalid coordinates.
   pub fn new_distance_sort<T>(field: T, x: f32, y: f32) -> Result<XYPointSortField>
   where
     T: Into<String>,
@@ -201,7 +201,7 @@ impl XYDocValuesField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
+  /// - `field`: field name.
   /// - `x`: x at the center.
   /// - `y`: y at the center: must be within standard +/-180 coordinate bounds.
   /// - `radius`: maximum distance from the center in cartesian distance: must be non-negative and
@@ -213,7 +213,7 @@ impl XYDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, location has invalid coordinates, or radius is invalid.
+  /// Returns an error if the location or radius is invalid.
   pub fn new_slow_distance_query<T>(field: T, x: f32, y: f32, radius: f32) -> Result<Query>
   where
     T: Into<String>,
@@ -229,8 +229,8 @@ impl XYDocValuesField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
-  /// - `polygons`: array of polygons. must not be null or empty.
+  /// - `field`: field name.
+  /// - `polygons`: array of polygons. must not be empty.
   ///
   /// # Returns
   ///
@@ -238,7 +238,7 @@ impl XYDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null or polygons is empty or contain a null polygon.
+  /// Returns an error if `polygons` is empty.
   pub fn new_slow_polygon_query<T>(field: T, polygons: Vec<XYPolygon>) -> Result<Query>
   where
     T: Into<String>,
@@ -253,8 +253,8 @@ impl XYDocValuesField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
-  /// - `geometries`: array of XY geometries. must not be null or empty.
+  /// - `field`: field name.
+  /// - `geometries`: array of XY geometries. must not be empty.
   ///
   /// # Returns
   ///
@@ -262,8 +262,7 @@ impl XYDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `polygons` is null, empty or contains a null or XYLine
-  /// geometry.
+  /// Returns an error if `geometries` is empty or contains an unsupported `XYLine` geometry.
   pub fn new_slow_geometry_query<S, T>(field: S, geometries: Vec<T>) -> Result<Query>
   where
     S: Into<String>,

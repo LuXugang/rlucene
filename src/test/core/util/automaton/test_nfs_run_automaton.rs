@@ -66,7 +66,7 @@ fn test_with_random_regex() -> Result<()> {
     let generator = match RandomAcceptedStrings::new(&dfa) {
       Ok(g) => g,
       Err(_) => continue, /* sometimes the automaton accept nothing and throw this
-                           * exception  */
+                           * error  */
     };
 
     for _ in 0..20 {

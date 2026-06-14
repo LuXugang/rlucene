@@ -131,7 +131,7 @@ pub trait DataOutput {
   }
 
   /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i32)-encoded
-  /// [`write_vint`](#method.write_vint) variable-length integer.
+  /// [`write_vint`](Self::write_vint) variable-length integer.
   /// This is typically useful for writing small signed integers and is
   /// equivalent to calling `write_vint(BitUtil::zig_zag_encode(i))`.
   ///
@@ -181,7 +181,7 @@ pub trait DataOutput {
     Ok(())
   }
   /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i64)-encoded
-  /// [`write_vlong`](#method.write_vlong) variable-length `long`.
+  /// [`write_vlong`](Self::write_vlong) variable-length integer.
   /// Writes between one and ten bytes. This is typically useful for writing
   /// small signed integers.
   ///
@@ -192,7 +192,7 @@ pub trait DataOutput {
   }
 
   /// Writes a [`zig-zag`](BitUtil::zig_zag_encode_i64)-encoded
-  /// [`write_vlong`](#method.write_vlong) variable-length `long`.
+  /// [`write_vlong`](Self::write_vlong) variable-length integer.
   /// Writes between one and ten bytes. This is typically useful for writing
   /// small signed integers.
   ///
@@ -219,9 +219,9 @@ pub trait DataOutput {
   }
   /// Writes a `HashMap<String, String>`.
   ///
-  /// First, the size is written as a [`write_vint`](#method.write_vint),
+  /// First, the size is written with [`write_vint`](Self::write_vint),
   /// followed by each key-value pair written as two consecutive
-  /// [`write_string`](#method.write_string) calls.
+  /// [`write_string`](Self::write_string) calls.
   ///
   /// # Arguments
   /// * `map` - The input map.
@@ -236,9 +236,9 @@ pub trait DataOutput {
 
   /// Writes a `HashSet<String>`.
   ///
-  /// First, the size is written as a [`write_vint`](#method.write_vint),
+  /// First, the size is written with [`write_vint`](Self::write_vint),
   /// followed by each value written as a
-  /// [`write_string`](#method.write_string).
+  /// [`write_string`](Self::write_string).
   ///
   /// # Arguments
   /// * `set` - The input set.

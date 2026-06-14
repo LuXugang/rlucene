@@ -23,7 +23,7 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A grammar-based tokenizer constructed with JFlex.
 ///
-/// This class implements the Word Break rules from the Unicode Text
+/// This struct implements the Word Break rules from the Unicode Text
 /// Segmentation algorithm, as specified in
 /// [Unicode Standard Annex #29](http://unicode.org/reports/tr29/).
 ///

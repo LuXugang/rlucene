@@ -25,7 +25,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 /// Reads vectors from an index. When searching this reader, it iterates every vector in the index
 /// and scores them
 ///
-/// This class is useful when:
+/// This trait is useful when:
 ///
 /// * the number of vectors is small
 /// * when used along side some additional indexing structure that can be used to better search
@@ -33,7 +33,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   type FlatVectorsScorer: FlatVectorsScorer;
 
-  /// @return the [`FlatVectorsScorer`] for this reader.
+  /// Returns the [`FlatVectorsScorer`] for this reader.
   fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer;
 
   fn search_f32<B, K>(

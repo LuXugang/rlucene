@@ -400,7 +400,7 @@ where
     })();
 
     if result.is_err() && !all_docs_indexed && !self.state.aborted.load(Ordering::SeqCst) {
-      // the iterator threw an exception that is not aborting
+      // the iterator threw an error that is not aborting
       // go and mark all docs from this block as deleted
       let to_delete = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
       self.delete_last_docs(to_delete)?;
@@ -446,8 +446,8 @@ where
     Ok(seq_no)
   }
   // This method marks the last N docs as deleted. This is used
-  // in the case of a non-aborting exception. There are several cases
-  // where we fail a document ie. due to an exception during analysis
+  // in the case of a non-aborting error. There are several cases
+  // where we fail a document ie. due to an error during analysis
   // that causes the doc to be rejected but won't cause the DWPT to be
   // stale nor the entire IW to abort and shutdown. In such a case
   // we only mark these docs as deleted and turn it into a livedocs
@@ -465,12 +465,12 @@ where
     // NOTE: we do not trigger flush here.  This is
     // potentially a RAM leak, if you have an app that tries
     // to add docs but every single doc always hits a
-    // non-aborting exception.  Allowing a flush here gets
+    // non-aborting error.  Allowing a flush here gets
     // very messy because we are only invoked when handling
-    // exceptions so to do this properly, while handling an
-    // exception we'd have to go off and flush new deletes
+    // errors so to do this properly, while handling an
+    // error we'd have to go off and flush new deletes
     // which is risky (likely would hit some other
-    // confounding exception).
+    // confounding error).
     Ok(())
   }
   /// Returns the number of RAM resident documents in this [`DocumentsWriterPerThread`]
@@ -485,7 +485,7 @@ where
       .state
       .delete_queue
       .freeze_global_buffer(self.delete_slice.as_mut())?;
-    // deleteSlice can possibly be null if we have hit non-aborting exceptions during indexing and never succeeded adding a document
+    // deleteSlice can possibly be None if we have hit non-aborting errors during indexing and never succeeded adding a document
     if let Some(delete_slice) = self.delete_slice.as_mut() {
       // apply all deletes before we flush and release the delete slice
       delete_slice.apply(
@@ -536,7 +536,7 @@ where
             self.state.last_committed_bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
 
           // Apply delete-by-docID now (delete-byDocID only
-          // happens when an exception is hit processing that
+          // happens when an error is hit processing that
           // doc, eg if analyzer has some problem w/ the text):
           if self.num_deleted_doc_ids > 0 {
             let mut live_docs = FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst) as usize);

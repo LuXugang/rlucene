@@ -183,7 +183,7 @@ impl OrdinalMap {
   ///
   /// # Errors
   ///
-  /// May return an error corresponding to I/O failures (equivalent to throwing `IOException` in Java).
+  /// May return an I/O error.
   fn new<TE>(
     owner: Option<CacheKey>,
     subs: Vec<TE>,

@@ -44,7 +44,7 @@ impl Default for MatchNoDocsQuery {
 }
 
 impl MatchNoDocsQuery {
-  /// Default constructor
+  /// Creates an instance with default settings.
   pub fn new() -> Self {
     Self {
       id: Identity::new(),

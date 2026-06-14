@@ -20,7 +20,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 
-/// Abstract class to do basic tests for a norms format. NOTE: This test focuses on the norms impl,
+/// Base test support for a norms format. NOTE: This test focuses on the norms implementation,
 /// nothing else. The [stretch] goal is for this test to be so thorough in testing a new NormsFormat
 /// that if this test passes, then all Lucene tests should also pass. Ie, if there is some bug in a
 /// given NormsFormat that this test fails to catch then this test needs to be improved!

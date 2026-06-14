@@ -36,10 +36,10 @@ use std::fmt::{Display, Formatter};
 /// segments within the level are merged. You can get or set the merge factor using
 /// [`LogMergePolicy::get_merge_factor()`] and [`LogMergePolicy::set_merge_factor()`] respectively.
 ///
-/// A subclass to define the [`LogMergePolicy::size`] method
-/// which specifies how a segment's size is determined. `LogDocMergePolicy` is one subclass that
+/// Implementations define the [`LogMergePolicy::size`] method,
+/// which specifies how a segment's size is determined. `LogDocMergePolicy` is one implementation that
 /// measures size by document count in the segment. `LogByteSizeMergePolicy` is another
-/// subclass that measures size as the total byte size of the file(s) for the segment.
+/// implementation that measures size as the total byte size of the segment's files.
 ///
 /// **NOTE**: This policy returns natural merges whose size is below the `LogMergePolicy::min_merge_size`
 /// minimum merge size for [`LogMergePolicy::find_full_flush_merges`] full-flush merges.
@@ -80,13 +80,13 @@ where
   pub const LEVEL_LOG_SPAN: f64 = 0.75;
   /// Default merge factor, which is how many segments are merged at a time
   pub const DEFAULT_MERGE_FACTOR: usize = 10;
-  /// Default maximum segment size. A segment of this size or larger will never be merged. @see
-  /// setMaxMergeDocs
+  /// Default maximum segment size. A segment of this size or larger will never be merged.
+  /// See [`Self::set_max_merge_docs`].
   pub const DEFAULT_MAX_MERGE_DOCS: i32 = i32::MAX;
   /// Default noCFSRatio. If a merge's size is `>= 10%` of the index, then we disable compound
   /// file for it.
   ///
-  /// @see MergePolicy#setNoCFSRatio
+  /// See `MergePolicyBase::set_no_cfs_ratio`.
   pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
   /// Returns the number of segments that are merged at once and also controls the total number of
   /// segments allowed to accumulate in the index.

@@ -24,7 +24,7 @@ pub(crate) struct BKDUtil;
 
 impl BKDUtil {
   /// Return a comparator that computes the common prefix length across the
-  /// next {@code numBytes} of the provided arrays.
+  /// next `num_bytes` of the provided arrays.
   pub fn get_prefix_length_comparator(num_bytes: usize) -> ByteArrayComparatorEnum {
     if num_bytes == BitUtil::LONG_BYTES {
       ByteArrayComparatorEnum::CommonPrefixLength8(CommonPrefixLength8)

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::query::QueryBase;
-/// Base class for span-based queries.
+/// Base trait for span-based queries.
 pub trait SpanQuery: QueryBase {
   /// Returns the name of the field matched by this query.
   fn get_field(&self) -> &str;

@@ -37,7 +37,7 @@ use std::sync::Arc;
 /// element of the postings. This API is somewhat analogous to an XML SAX API,
 /// while [`PostingsWriterBase`] is more like an XML DOM API.
 ///
-/// @see [`PostingsWriterBase`]
+/// See also [`PostingsWriterBase`].
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
@@ -265,7 +265,7 @@ pub trait PushPostingsWriterBaseAbstract {
     N: NormsProducer;
 
   /// Add a new position and payload, and start/end offset.
-  /// A null payload means no payload; a non-null payload with zero length
+  /// An absent payload means no payload; a present payload with zero length
   /// also means no payload. Caller may reuse the [`BytesRef`] for the payload
   /// between calls (method must fully consume the payload).
   /// `start_offset` and `end_offset` will be -1 when offsets are not indexed.

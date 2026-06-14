@@ -45,8 +45,7 @@ use std::sync::atomic::AtomicI32;
 ///
 /// # Note
 /// - Instances of this structure are accessed either via a private instance on
-///   `DocumentWriterPerThread`, or through synchronized code in the
-///   `DocumentsWriterDeleteQueue`.
+///   `DocumentWriterPerThread`, or while holding the `DocumentsWriterDeleteQueue` lock.
 pub(crate) struct BufferedUpdates {
   pub(crate) num_field_updates: AtomicI32,
   pub delete_terms: DeletedTerms,

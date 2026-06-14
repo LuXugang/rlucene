@@ -16,7 +16,7 @@
  */
 use crate::core::analysis::reader::Reader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-/// Internal class to enable reuse of the string reader by Analyzer#tokenStream(String,String)
+/// Internal reader that allows a string reader to be reused by an analyzer's token stream.
 #[derive(Debug, Clone)]
 pub struct ReusableStringReader {
   pos: usize,

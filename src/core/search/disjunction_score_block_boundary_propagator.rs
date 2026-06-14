@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 /// A helper to propagate block boundaries for disjunctions. Because a disjunction matches if any of
 /// its sub clauses matches, it is tempting to return the minimum block boundary across all clauses.
 /// The problem is that it might then make the query slow when the minimum competitive score is high
-/// and low-scoring clauses don't drive iteration anymore. So this class computes block boundaries
+/// and low-scoring clauses no longer drive iteration. This struct computes block boundaries
 /// only across clauses whose maximum score is greater than or equal to the minimum competitive
 /// score, or the maximum scoring clause if there is no such clause.
 pub struct DisjunctionScoreBlockBoundaryPropagator {

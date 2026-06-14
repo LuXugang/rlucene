@@ -22,14 +22,14 @@ use std::time::{Duration, Instant};
 use crate::core::util::error::lucene_error::Result;
 
 /**
- * Abstract base class to rate limit IO. Typically implementations are shared across multiple
+ * Base trait for rate-limiting I/O. Implementations are typically shared across multiple
  * IndexInputs or IndexOutputs (for example those involved all merging). Those IndexInputs and
  * IndexOutputs would call [`RateLimiter::pause`] whenever the have read or written more than
  * [`RateLimiter::get_min_pause_check_bytes`] bytes.
  */
 pub trait RateLimiter {
   /**
-   * Sets an updated MB per second rate limit. A subclass is allowed to perform dynamic updates of
+   * Sets an updated MB-per-second rate limit. An implementation may dynamically update
    * the rate limit during use.
    */
   fn set_mb_per_sec(&self, mb_per_sec: f64) -> Result<()>;
@@ -42,7 +42,7 @@ pub trait RateLimiter {
    *
    * <p>Note: the implementation is thread-safe
    *
-   * @return the pause time in nano seconds
+   * Returns the pause time in nanoseconds.
    */
   fn pause(&self, bytes: i64) -> Result<i64>;
 
@@ -57,7 +57,7 @@ pub trait RateLimiter {
 
 const MIN_PAUSE_CHECK_MSEC: i64 = 5;
 
-/** Simple class to rate limit IO. */
+/** Simple rate limiter for I/O. */
 pub struct SimpleRateLimiter {
   mb_per_sec: AtomicU64,
   min_pause_check_bytes: AtomicU64,
@@ -72,7 +72,7 @@ impl SimpleRateLimiter {
       min_pause_check_bytes: AtomicU64::new(0),
       last_instant: Mutex::new(Instant::now()),
     };
-    // Safe: constructor with valid mbPerSec, ignore error
+    // Safe: initialized with a valid MB-per-second rate; ignore the error.
     let _ = limiter.set_mb_per_sec(mb_per_sec);
     limiter
   }
@@ -106,7 +106,7 @@ impl RateLimiter for SimpleRateLimiter {
    * only call this method when bytes &gt; [`RateLimiter::get_min_pause_check_bytes`], otherwise it will pause
    * way too long!
    *
-   * @return the pause time in nano seconds
+   * Returns the pause time in nanoseconds.
    */
   fn pause(&self, bytes: i64) -> Result<i64> {
     let start = Instant::now();
@@ -143,13 +143,13 @@ impl RateLimiter for SimpleRateLimiter {
     // enough:
     // NOTE: using park_timeout instead of sleep so that the thread can be
     // interrupted by another thread calling unpark(), analogous to Java's
-    // Thread.interrupt() which interrupts Thread.sleep(). In Java this throws
-    // ThreadInterruptedException; in Rust park_timeout returns early without
+    // Thread.interrupt() which interrupts Thread.sleep(). In Java this returns
+    // Java reports thread interruption; Rust's `park_timeout` returns early without
     // error, and the loop re-checks the condition.
     loop {
       match target.checked_duration_since(cur) {
         Some(pause_dur) if pause_dur > Duration::ZERO => {
-          // NOTE: except maybe on real-time JVMs, minimum realistic sleep time
+          // The minimum practical sleep duration on a general-purpose runtime
           // is 1 msec; if you pass just 1 nsec the default impl rounds
           // this up to 1 msec:
           thread::park_timeout(pause_dur);

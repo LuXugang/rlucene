@@ -19,7 +19,7 @@ use crate::core::search::max_non_competitive_boost_attribute::MaxNonCompetitiveB
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
-/// Implementation class for [`MaxNonCompetitiveBoostAttribute`].
+/// Implementation of [`MaxNonCompetitiveBoostAttribute`].
 #[derive(Clone)]
 pub struct MaxNonCompetitiveBoostAttributeImpl {
   max_non_competitive_boost: f32,

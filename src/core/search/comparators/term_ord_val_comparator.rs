@@ -434,7 +434,7 @@ where
       let has_value = comparator.values[bottom_slot].is_some();
       match has_value {
         false => {
-          // missingOrd is null for all segments
+          // missingOrd is None for all segments
           debug_assert!(comparator.ords[bottom_slot] == self.missing_ord);
           self.bottom_ord = self.missing_ord;
           self.bottom_same_reader = true;

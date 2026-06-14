@@ -39,7 +39,7 @@ use std::fmt::{Debug, Display};
 use std::sync::Arc;
 
 /// Expert: directly creates a field for a document. Most users should use one
-/// of the convenience SubStruct:
+/// of the convenience implementations:
 ///
 /// - [`TextField`](crate::core::document::text_field::TextField):
 ///   [`Reader`](std::io::Read) or `String` indexed for full-text search.
@@ -89,15 +89,13 @@ impl Clone for Field {
 }
 impl Field {
   /// Expert: creates a field with no initial value. This is intended to be
-  /// used by custom [`Field`] sub-classes with pre-configured
+  /// used by custom [`Field`] implementations with preconfigured
   /// [`IndexableFieldType`].
   ///
   /// # Parameters
   /// - `name`: Field name.
   /// - `field_type`: Field type.
   ///
-  /// # Errors
-  /// - Returns an error if either the `name` or `field_type` is `None`.
   pub fn new<T, FD>(name: T, fields_data: FD, indexable_field_type: FieldType) -> Self
   where
     T: Into<String>,

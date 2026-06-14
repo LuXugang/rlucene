@@ -21,7 +21,7 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::Result;
 /// Provides the ability to use a different [`Similarity`] for different fields.
 ///
-/// Subclasses should implement [`Self::get`] to return an appropriate [`Similarity`] for the field
+/// Implementations should implement [`Self::get`] to return an appropriate [`Similarity`] for the field.
 /// (for example, using field-specific parameter values) for the field.
 pub trait PerFieldSimilarityWrapper: Similarity {
   fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {

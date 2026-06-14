@@ -55,7 +55,7 @@ pub trait FlushPolicy {
   /// Called for each delete, insert or update.
   /// For pure deletes, the given [`DocumentsWriterPerThread`] may be `None`.
   ///
-  /// Note: This method is called synchronized on the given [`DocumentsWriterFlushControl`]
+  /// This method is called while the given [`DocumentsWriterFlushControl`] is locked.
   /// and it is guaranteed that the calling thread holds the lock on the given
   /// [`DocumentsWriterPerThread`].
   fn on_change<D, L>(

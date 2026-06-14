@@ -37,7 +37,7 @@ pub trait IndexableField: Display {
   /// Field name
   fn name(&self) -> &str;
 
-  /// {@link IndexableFieldType} describing the properties of this field.
+  /// [`IndexableFieldType`] describing the properties of this field.
   type FieldType: IndexableFieldType;
   fn field_type(&self) -> &Self::FieldType;
   /// Creates the TokenStream used for indexing this field. If appropriate,
@@ -55,35 +55,35 @@ pub trait IndexableField: Display {
   ///
   /// # Returns
   /// TokenStream value for indexing the document. Should always return a
-  /// non-null value if the field is to be indexed.
+  /// present value if the field is to be indexed.
   fn token_stream<'a>(
     &'a mut self,
     analyzer_token_stream: Option<&'a mut AnalyzerTokenStreams>,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>>;
-  /// Non-null if this field has a binary value.
+  /// present if this field has a binary value.
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;
 
-  /// Non-null if this field has a string value.
+  /// present if this field has a string value.
   fn string_value(&self) -> Result<Option<Cow<'_, String>>>;
   fn take_string_value(&mut self) -> Result<Option<String>>;
-  /// Non-null if this field has a string value.
+  /// present if this field has a string value.
   fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
     self.string_value()
   }
 
-  /// Non-null if this field has a Reader value.
+  /// present if this field has a Reader value.
   fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>>;
 
-  /// Non-null if this field has a numeric value.
+  /// present if this field has a numeric value.
   fn numeric_value(&self) -> Result<Option<Number>>;
 
   /// Stored value. This method is called to populate stored fields and must
-  /// return a non-null value if the field stored.
+  /// return a present value if the field stored.
   fn stored_value(&self) -> Option<&FieldDataEnum>;
 
-  /// Describes how this field should be inverted. This must return a non-null
+  /// Describes how this field should be inverted. This must return a present
   /// value if the field indexes terms and postings.
   fn invertable_type(&self) -> &InvertableType;
 

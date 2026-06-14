@@ -40,7 +40,7 @@ impl MatchingReaders {
   {
     // If the i'th reader is a SegmentReader and has
     // identical fieldName -> number mapping, then this
-    // array will be non-null at position i:
+    // array will be present at position i:
     let num_readers = merge_state.max_docs.len();
     let mut matching_readers = vec![false; num_readers];
     let mut matched_count: i32 = 0;

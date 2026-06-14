@@ -131,7 +131,7 @@ fn test_empty_language_concatenate() -> Result<()> {
 /// contains a cycle. This test case constructs an Automaton with two
 /// disjoint sets of states—one without a cycle and one with
 /// a cycle. The topoSortStates method should detect the presence of a cycle
-/// and throw an IllegalArgumentException.
+/// and return an illegal-argument error.
 #[test]
 fn test_cycled_automaton() -> Result<()> {
   let mut random = random();
@@ -566,7 +566,7 @@ fn test_duel_optional() -> Result<()> {
 
   Ok(())
 }
-// This is the original implementation of Operations#optional, before we
+// This is the original implementation of `Operations::optional`, before we
 // improved it to generate simpler automata in some common cases.
 fn naive_optional(a: &Automaton) -> Result<Automaton> {
   let mut result = Automaton::new();

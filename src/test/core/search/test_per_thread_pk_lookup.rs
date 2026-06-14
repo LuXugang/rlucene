@@ -53,7 +53,7 @@ fn test_reopen() -> Result<()> {
   writer.add_document(doc)?;
   writer.flush()?;
 
-  // Terms in PK is null.
+  // Terms in PK is None.
   doc = Document::new();
   doc.add(KeywordField::from_string("PK2", "3", Store::No)?);
   writer.add_document(doc)?;
@@ -77,7 +77,7 @@ fn test_reopen() -> Result<()> {
   writer.delete_documents_with_terms(vec![Term::from_text("PK", "1")])?;
   writer.flush()?;
 
-  // Terms in PK is null.
+  // Terms in PK is None.
   doc = Document::new();
   doc.add(KeywordField::from_string("PK2", "7", Store::No)?);
   writer.add_document(doc)?;

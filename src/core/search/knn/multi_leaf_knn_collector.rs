@@ -155,7 +155,7 @@ where
       if first_k_results_collected
         || (AbstractKnnCollector::visited_count(&self.sub_collector) & self.interval) == 0
       {
-        // BlockingFloatHeap#offer requires input to be sorted in ascending order, so we can't
+        // `BlockingFloatHeap::offer` requires ascending input, so we cannot
         // pass in the underlying updatesQueue array as-is since it is only partially ordered
         // (see GH#13462):
         let len = self.updates_queue.size();

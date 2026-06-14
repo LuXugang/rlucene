@@ -26,12 +26,12 @@ pub static EMPTY_TOP_DOCS: LazyLock<TopDocs<ScoreDoc>> =
   LazyLock::new(|| TopDocs::new(TotalHits::new(0, EqualTo), vec![]));
 /// A base trait for all collectors that return a [`TopDocs`] output.
 ///
-/// This collector allows easy extension by providing a constructor that accepts a [`PriorityQueue`],
-/// as well as protected-like members for that priority queue and a counter of the number of total hits.
+/// This collector supports customization by accepting a [`PriorityQueue`] during creation,
+/// together with reusable state for that priority queue and a total-hit counter.
 ///
-/// Extending implementations can override any of the methods to provide their own behavior.
+/// Implementations can provide any of the methods to customize behavior.
 /// It is also possible to avoid the use of the priority queue entirely by passing `None` instead of a [`PriorityQueue`].
-/// In that case, however, you should consider overriding all relevant methods in order to avoid errors.
+/// In that case, provide all relevant methods to avoid inconsistent behavior.
 ///
 /// # Notes
 /// - This trait is analogous to Lucene's `TopDocsCollector` abstract base class.

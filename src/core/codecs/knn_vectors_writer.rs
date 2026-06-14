@@ -171,7 +171,7 @@ pub trait KnnVectorsWriter: Accountable {
 ///
 /// # Arguments
 /// * `old_doc_ids` - the old or current document ordinals.
-/// * `sort_map` - the document sorting map for how to make the new ordinals. Must not be null.
+/// * `sort_map` - the document sorting map for how to make the new ordinals. Must not be None.
 /// * `old2new_ord` - maps from old ord to new ord
 /// * `new2old_ord` - maps from new ord to old ord
 /// * `new_docs_with_field` - set of new doc ids which has the value

@@ -19,7 +19,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 use std::hash::Hash;
 
-/// Base class for LatLonGeometry and XYGeometry
+/// Base trait for latitude/longitude and XY geometries.
 pub trait Geometry: Display + Hash + PartialEq + Eq {
   type Component2D: Component2D;
   fn to_component2d(&self) -> Result<Self::Component2D>;

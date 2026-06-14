@@ -25,15 +25,15 @@ use crate::core::util::error::lucene_error::Result;
 #[derive(Clone)]
 pub struct LogByteSizeMergePolicy;
 impl LogByteSizeMergePolicy {
-  /// Default minimum segment size. @see setMinMergeMB
+  /// Default minimum segment size. See `LogMergePolicy::set_min_merge_mb`.
   pub const DEFAULT_MIN_MERGE_MB: f64 = 1.6;
 
-  /// Default maximum segment size. A segment of this size or larger will never be merged. @see
-  /// setMaxMergeMB
+  /// Default maximum segment size. A segment of this size or larger will never be merged.
+  /// See `LogMergePolicy::set_max_merge_mb`.
   pub const DEFAULT_MAX_MERGE_MB: f64 = 2048.0;
 
   /// Default maximum segment size. A segment of this size or larger will never be merged during
-  /// forceMerge. @see setMaxMergeMBForForceMerge
+  /// force merge. See `LogMergePolicy::set_max_merge_mb_for_forced_merge`.
   pub const DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE: f64 = i64::MAX as f64;
 }
 impl LogMergePolicyBase for LogByteSizeMergePolicy {
@@ -87,7 +87,7 @@ impl LogMergePolicy<LogByteSizeMergePolicy> {
   /// Returns the largest segment (measured by total byte size of the segment's files, in MB) that
   /// may be merged with other segments.
   ///
-  /// @see LogByteSizeMergePolicy::set_max_merge_mb
+  /// See also [`Self::set_max_merge_mb`].
   pub fn get_max_merge_mb(&self) -> f64 {
     (self.max_merge_size as f64) / 1024.0 / 1024.0
   }
@@ -102,7 +102,7 @@ impl LogMergePolicy<LogByteSizeMergePolicy> {
   /// Returns the largest segment (measured by total byte size of the segment's files, in MB) that
   /// may be merged with other segments during forceMerge.
   ///
-  /// @see LogByteSizeMergePolicy::set_max_merge_mb_for_forced_merge
+  /// See also [`Self::set_max_merge_mb_for_forced_merge`].
   pub fn get_max_merge_mb_for_forced_merge(&self) -> f64 {
     (self.max_merge_size_for_forced_merge as f64) / 1024.0 / 1024.0
   }
@@ -117,7 +117,7 @@ impl LogMergePolicy<LogByteSizeMergePolicy> {
 
   /// Get the minimum size for a segment to remain un-merged.
   ///
-  /// @see LogByteSizeMergePolicy::set_min_merge_mb *
+  /// See also [`Self::set_min_merge_mb`].
   pub fn get_min_merge_mb(&self) -> f64 {
     (self.min_merge_size as f64) / 1024.0 / 1024.0
   }

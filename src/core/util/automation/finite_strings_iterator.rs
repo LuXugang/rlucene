@@ -28,7 +28,7 @@ use crate::core::util::ints_ref_builder::IntsRefBuilder;
 
 /// Iterates all accepted strings.
 ///
-/// If the [`Automaton`] has cycles, then this iterator may throw an error,
+/// If the [`Automaton`] has cycles, then this iterator may return an error,
 /// but this is not guaranteed.
 ///
 /// Be aware that the iteration order is implementation dependent and may change

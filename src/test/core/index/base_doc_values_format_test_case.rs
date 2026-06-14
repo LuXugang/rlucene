@@ -48,13 +48,13 @@ use rand::RngExt;
 use std::collections::HashMap;
 
 pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
-  /// Override and return `false` if the [`DocValuesSkipper`] produced by this format
+  /// Return `false` if the [`DocValuesSkipper`] produced by this format
   /// sometimes returns documents in [`DocValuesSkipper::min_doc_id`] or
   /// [`DocValuesSkipper::max_doc_id`] that may not have a value.
   fn skipper_has_accurate_doc_bounds(&self) -> bool {
     true
   }
-  /// Override and return `false` if the [`DocValuesSkipper`] produced by this format
+  /// Return `false` if the [`DocValuesSkipper`] produced by this format
   /// sometimes returns values in [`DocValuesSkipper::min_value`] or
   /// [`DocValuesSkipper::max_value`] that none of the documents in the range have.
   fn skipper_has_accurate_value_bounds(&self) -> bool {

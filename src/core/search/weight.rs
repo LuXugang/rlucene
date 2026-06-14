@@ -210,7 +210,7 @@ where
   ///
   /// # Notes
   ///
-  /// - Specific query classes should override this to provide other accurate
+  /// - Specific query types should implement this to provide other accurate
   ///   sub-linear implementations (that actually return the count).
   ///   For example, see how `MatchAllDocsQuery::create_weight` does it.
   /// - This method is used by [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count) to count hits.

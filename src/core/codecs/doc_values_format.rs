@@ -45,7 +45,7 @@ pub trait DocValuesFormat: Display {
   /// need to use; otherwise, those files may be deleted. Additionally,
   /// required files may be deleted during the execution of this call
   /// before there is a chance to open them. Under these circumstances, an
-  /// io error should be returned by the implementation. IOExceptions are
+  /// I/O error should be returned by the implementation. I/O errors are
   /// expected and will automatically cause a retry of the segment opening
   /// logic with the newly revised segments.
   fn fields_producer<D1, D2>(

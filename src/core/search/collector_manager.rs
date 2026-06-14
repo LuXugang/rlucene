@@ -32,7 +32,7 @@ use crate::core::search::collector::Collector;
 ///
 /// See also: `IndexSearcher::search(query, manager)`
 use crate::core::util::error::lucene_error::Result;
-/// A manager of collectors. This class is useful to parallelize execution of search requests and has
+/// A manager of collectors. This trait supports parallel search execution and has
 /// two main methods:
 ///
 /// - [`CollectorManager::new_collector`], which must return a NEW collector which will be used to

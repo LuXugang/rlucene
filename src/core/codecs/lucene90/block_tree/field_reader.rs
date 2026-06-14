@@ -303,7 +303,7 @@ where
 /// [`Lucene90BlockTreeTermsWriter::write_msb_vlong`](crate::core::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::write_msb_vlong).
 ///
 ///
-/// Package-private for testing.
+/// Visible within the crate for testing.
 pub(crate) fn read_msb_vlong(input: &mut impl DataInput) -> Result<i64> {
   let mut l: i64 = 0;
   loop {

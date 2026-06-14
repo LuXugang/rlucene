@@ -63,7 +63,7 @@ impl ScorerIndexSearcherSearchLeafHelper {
     W: Weight<IRC> + ?Sized,
   {
     // the default slices method does not create segment partitions, and we don't provide an
-    // executor to this searcher in our codebase, so we should not run into this problem. This class
+    // executor to this searcher in our codebase, so we should not run into this problem. This type
     // can though be used externally, hence it is better to provide a clear and hard error.
     if min_doc_id != 0 || max_doc_id != NO_MORE_DOCS {
       return Err(LuceneError::illegal_state(

@@ -261,7 +261,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     DM: DocMap,
     DC: DocValuesConsumer,
   {
-    // `final_ords` should always not None here, because we call finish() before flush()
+    // `final_ords` should always be `Some` here, because we call finish() before flush()
     // but we still keep the check here for consistent with Java Lucene.
     let ords = self.final_ords.take().unwrap();
     let ord_counts = self.final_ord_counts.take();
@@ -643,7 +643,7 @@ where
   S: SortedSetDocValues,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    // needed in IndexSorter#StringSorter
+    // Needed by `IndexSorter::StringSorter`.
     self.doc_id = target;
     self.init_count()?;
     Ok(self.ords.offsets[self.doc_id as usize] > 0)

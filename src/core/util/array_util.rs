@@ -53,7 +53,7 @@ impl ArrayUtil {
   }
 
   /// Parses the string argument as if it were an `i32` value and returns the
-  /// result. Throws a `LuceneError::NumberFormat` if the string does not
+  /// result. Returns an `LuceneError::NumberFormat` if the string does not
   /// represent an `i32` quantity. The second argument specifies the radix
   /// to use when parsing the value.
   pub fn parse_int(chars: &[char], mut offset: i32, mut len: i32, radix: i32) -> Result<i32> {
@@ -185,8 +185,8 @@ impl ArrayUtil {
     let bytes_per_element = size_of::<T>();
     Self::grow_exact(vec, Self::oversize(vec.len() + 1, bytes_per_element))
   }
-  /// Returns an array whose size is at least {@code minLength}, generally
-  /// over-allocating exponentially, but never allocating more than {@code
+  /// Returns an array whose size is at least `min_length`, generally
+  /// over-allocating exponentially, but never allocating more than
   /// maxLength} elements.
   pub fn grow_in_range<T>(vec: &mut Vec<T>, min_length: usize, max_length: usize) -> Result<()>
   where

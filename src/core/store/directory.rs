@@ -186,7 +186,7 @@ pub trait Directory: Display + Closeable + HasIdentity {
   /// Acquires and returns a `Lock` for a file with the given name.
   ///
   /// # Errors
-  /// - Returns a `LockObtainFailedError` (optional specific exception) if
+  /// - Returns a `LockObtainFailedError` (optional specific error) if
   ///   the lock could not be obtained because it is currently held elsewhere.
   /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
   ///   the lock.

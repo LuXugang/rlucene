@@ -77,7 +77,7 @@ impl Default for Inner {
 }
 
 impl FieldInfo {
-  /// Sole constructor.
+  /// Creates a new instance.
   #[allow(clippy::too_many_arguments)]
   pub fn new<T>(
     name: T,
@@ -139,7 +139,7 @@ impl FieldInfo {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgumentException` if some options are incorrect
+  /// Returns [`LuceneError::IllegalArgument`] if any option is invalid.
   pub fn check_consistency(&self) -> Result<()> {
     {
       if self.index_options != IndexOptions::None {
@@ -234,7 +234,7 @@ impl FieldInfo {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgumentException` if the field schemas are not the same
+  /// Returns [`LuceneError::IllegalArgument`] if the field schemas differ.
   pub fn verify_same_schema(&self, other: &FieldInfo) -> Result<()> {
     let field_name = &self.name;
 
@@ -498,8 +498,7 @@ impl FieldInfo {
     Ok(())
   }
 
-  /// Returns IndexOptions for the field, or IndexOptions.None if the field is
-  /// not indexed
+  /// Returns [`IndexOptions::None`] if the field is not indexed.
   pub fn get_index_options(&self) -> &IndexOptions {
     &self.index_options
   }
@@ -514,8 +513,7 @@ impl FieldInfo {
     self.number
   }
 
-  /// Returns DocValuesType of the docValues; this is DocValuesType.None if
-  /// the field has no docvalues.
+  /// Returns [`DocValuesType::None`] if the field has no doc values.
   pub fn get_doc_values_type(&self) -> &DocValuesType {
     &self.doc_values_type
   }

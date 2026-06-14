@@ -268,7 +268,7 @@ where
     }
     let size = inner.size;
     debug_assert!(doc < self.max_doc, "doc must be less than max_doc");
-    // TODO: if the Sorter interface changes to take long indexes, we can
+    // TODO: If the Sorter trait changes to take long indexes, we can
     // remove that limitation
     if size == i32::MAX as usize {
       return Err(LuceneError::illegal_state(
@@ -1232,7 +1232,7 @@ impl SingleValueDocValuesFieldUpdatesIterator {
   /// Creates a new instance of `SingleValueDocValuesFieldUpdatesIterator`.
   ///
   /// # Note
-  /// Avoid using the `Default` trait. This constructor should be used
+  /// Avoid using the `Default` trait. Use this method
   /// instead.
   pub fn new(
     iterator: BitSetIterator<Arc<SparseFixedBitSet>>,

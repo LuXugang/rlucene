@@ -287,7 +287,7 @@ impl StringHelper {
   /// Helper method to render an ID as a string for debugging.
   ///
   /// Returns the string `"null"` if the ID is `None`. Otherwise, returns a
-  /// string representation for debugging. Never throws an exception. The
+  /// string representation for debugging. Never returns an error. The
   /// returned string may indicate if the ID is definitely invalid.
   pub fn id_to_string(id: Option<&[u8; StringHelper::ID_LENGTH]>) -> String {
     if let Some(id) = id {
@@ -300,7 +300,7 @@ impl StringHelper {
   /// Converts each `i32` in the incoming [`IntsRef`] to a `u8` in the
   /// returned [`BytesRef`].
   ///
-  /// Throws an [`IllegalArgument`](crate::core::util::error::IllegalArgumentError)
+  /// Returns an [`IllegalArgument`](crate::core::util::error::IllegalArgumentError)
   /// if any int value is out of bounds for a byte.
   pub fn ints_ref_to_bytes_ref<AV, AV1>(ints: &IntsRef<AV>) -> Result<BytesRef<AV1>>
   where

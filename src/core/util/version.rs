@@ -51,7 +51,7 @@ pub static LUCENE_10_1_1: LazyLock<Version> =
 pub static LATEST: LazyLock<Version> = LazyLock::new(|| LUCENE_10_1_1.clone());
 pub static LUCENE_CURRENT: LazyLock<Version> = LazyLock::new(|| LATEST.clone());
 pub static MIN_SUPPORTED_MAJOR: LazyLock<i32> = LazyLock::new(|| LATEST.major - 1);
-/// Used by certain classes to match version compatibility across releases of
+/// Used by certain types to match version compatibility across releases of
 /// Lucene.
 ///
 /// # Warning

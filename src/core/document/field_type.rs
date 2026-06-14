@@ -108,8 +108,8 @@ impl FieldType {
       attributes,
     })
   }
-  /// Throws an error if this FieldType is frozen.
-  /// SubStruct should call this within setters for additional state.
+  /// Returns an error if this FieldType is frozen.
+  /// Implementations should call this from setters for additional state.
   pub fn check_if_frozen(&self) -> Result<()> {
     if self.frozen {
       return Err(LuceneError::illegal_state(

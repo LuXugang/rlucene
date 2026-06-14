@@ -50,7 +50,7 @@ use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 /// <http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.24.3698>
 ///
 ///
-/// The parameterized type `T` is the output type. See the SubStruct of
+/// The parameterized type `T` is the output type. See the implementations of
 /// `Outputs`.
 ///
 ///
@@ -65,7 +65,7 @@ use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 ///   `DataOutput`, and load it later and use it
 /// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to
 ///   be saved at the end). In order to use it, you need to construct the
-///   corresponding `DataInput` and use the FST constructor to read it.
+///   corresponding `DataInput` and use the FST loading method to read it.
 pub struct FSTCompiler<O, D>
 where
   O: Outputs,
@@ -105,12 +105,7 @@ where
   pub(crate) data_output: DataOutputEnum<D>,
   pub(crate) scratch_bytes: GrowableByteArrayDataOutput,
   pub(crate) num_bytes_written: i64,
-  /// NOTE: cutting this over to ArrayList instead loses ~6%
-  /// in build performance on 9.8M Wikipedia terms; so we
-  /// left this as an array:
-  /// current "frontier"
-  /// # Note:
-  /// Wrap with `Option` for easy frontier growing
+  /// Current frontier. Entries use `Option` so the frontier can grow incrementally.
   pub(crate) frontier: Vec<Option<UnCompiledNode<O::V>>>,
 }
 impl<O, D> FSTCompiler<O, D>
@@ -367,7 +362,7 @@ where
     self.last_input.copy_ints_ref(input);
     Ok(())
   }
-  /// Returns the metadata of the final FST. NOTE: this will return null if
+  /// Returns the metadata of the final FST. NOTE: this will return None if
   /// nothing is accepted by the FST themselves.
   ///
   /// To create the FST, you need to:
@@ -391,7 +386,7 @@ where
     self.freeze_tail(0)?;
     if self.frontier[0].as_ref().unwrap().num_arcs == 0 {
       if self.fst.metadata.empty_output.is_none() {
-        // return null for completely empty FST which accepts nothing
+        // return None for completely empty FST which accepts nothing
         return Ok(None);
       } else {
         // we haven't written the padding byte so far, but the FST is
@@ -598,7 +593,7 @@ where
   /// Get the respective [`DataOutputEnum`]. To call this method, you need
   /// to use the default `DataOutput` or
   /// [`get_on_heap_reader_writer`],
-  /// otherwise an error will be thrown.
+  /// otherwise an error will be returned.
   pub fn get_fst_reader(&mut self) -> Result<DataOutputEnum<D>> {
     let is_fst_reader = match self.data_output {
       DataOutputEnum::FromDir(_) => false,
@@ -1123,7 +1118,7 @@ where
   ///
   /// Otherwise you need to construct the corresponding
   /// [`DataInput`](crate::core::store::data_input::DataInput) and use the FST
-  /// constructor to read it.
+  /// loading method to read it.
   ///
   /// # Arguments
   ///
@@ -1166,7 +1161,7 @@ where
     self.version = version;
     Ok(())
   }
-  /// Creates a new {@link FSTCompiler}
+  /// Creates a new `FSTCompiler`.
   pub fn build(mut self) -> Result<FSTCompiler<O, D>> {
     if self.data_output.is_none() {
       self.data_output = Some(DataOutputEnum::ReadWriter(get_on_heap_reader_writer(15)?));

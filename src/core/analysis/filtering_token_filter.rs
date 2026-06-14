@@ -118,10 +118,10 @@ where
 {
 }
 
-/// Abstract base class for `TokenFilter`s that may remove tokens.
+/// Base trait for token filters that may remove tokens.
 /// You must implement [`accept`](FilteringTokenFilterBase::accept) and return a boolean indicating whether the current token should be preserved.
 /// [`increment_token`](TokenStream::increment_token) uses this method to decide if a token should be passed to the caller.
 pub trait FilteringTokenFilterBase {
-  /// Override this method and return if the current input token should be returned by #incrementToken.
+  /// Returns whether the current input token should be emitted by `increment_token`.
   fn accept(&self, att: &Attributes) -> Result<bool>;
 }

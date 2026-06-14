@@ -26,7 +26,7 @@ use std::sync::Arc;
 /// # NOTE
 /// a `StoredFieldVisitor` implementation should not try to load or visit other
 /// stored documents in the same reader because the implementation of stored
-/// fields for most codecs is not reentrant and you will see strange exceptions
+/// fields for most codecs is not reentrant and you will see strange errors
 /// as a result.
 ///
 /// See [`DocumentStoredFieldVisitor`](crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor), which is a `StoredFieldVisitor` that builds the [`Document`](crate::core::document::document::Document)

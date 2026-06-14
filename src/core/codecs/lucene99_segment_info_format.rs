@@ -286,7 +286,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         }
       };
 
-      // Catch the exception if there was one during the reading process
+      // Catch the error if there was one during the reading process
       if let Err(exception) = result {
         prior_e = Some(exception);
       }

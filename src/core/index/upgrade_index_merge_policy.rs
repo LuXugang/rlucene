@@ -34,7 +34,7 @@ use std::fmt::{Display, Formatter};
 /// This [`MergePolicy`] is used for upgrading all existing segments of an index when calling
 /// `IndexWriter::force_merge`.
 ///
-/// All other methods delegate to the base [`MergePolicy`] given to the constructor. This allows
+/// All other methods delegate to the base [`MergePolicy`] supplied at creation. This allows
 /// for an as-cheap-as possible upgrade of an older index by only upgrading segments that are
 /// created by previous Lucene versions. `force_merge` does no longer really merge; it is just
 /// used to "force_merge" older segment versions away.
@@ -56,7 +56,7 @@ use std::fmt::{Display, Formatter};
 /// the index is preserved), do a `force_merge(1)` instead. Please note, the delegate
 /// [`MergePolicy`] may also reorder documents.
 ///
-/// @see IndexUpgrader
+/// See also `IndexUpgrader`.
 #[derive(Clone)]
 pub struct UpgradeIndexMergePolicy {
   base: MergePolicyBase,

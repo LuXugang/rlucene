@@ -24,7 +24,7 @@ use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 
-/// Base class for producing [`DoubleValues`].
+/// Base trait for producing [`DoubleValues`].
 ///
 /// To obtain a [`DoubleValues`] object for a leaf reader, clients should call
 /// [`DoubleValuesSource::rewrite`] against the top-level searcher, and then

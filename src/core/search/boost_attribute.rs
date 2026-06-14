@@ -23,7 +23,7 @@ use crate::core::util::attribute::Attribute;
 /// `FuzzyQuery` is using this to take the edit distance into account.
 ///
 /// **Please note:** This attribute is intended to be added only by the `TermsEnum`
-/// to itself in its constructor and consumed by the `MultiTermQuery::RewriteMethod`.
+/// to itself when created and consumed by the `MultiTermQuery::RewriteMethod`.
 ///
 /// @lucene.internal
 pub trait BoostAttribute: Attribute {

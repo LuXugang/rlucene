@@ -385,7 +385,7 @@ impl NFARunAutomaton {
     {
       let transitions = &self.dstates[t.source as usize].transitions;
       loop {
-        // this shouldn't throw AIOOBE as long as this function is only called
+        // this shouldn't return AIOOBE as long as this function is only called
         // numTransitions times
         t.transition_upto += 1;
         let idx = t.transition_upto as usize;

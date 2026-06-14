@@ -46,7 +46,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::sync::Arc;
-/// Simple base class for checking search equivalence. Extend it, and write tests that create [`
+/// Base test support for checking search equivalence. Implement it and write tests that create [`
 /// random_term()`]s (all terms are single characters a-z), and use [`assert_same_set(Query,
 /// Query)`] and [`assert_subset_of(Query, Query)`]
 pub trait SearchEquivalenceTestBase {

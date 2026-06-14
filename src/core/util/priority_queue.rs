@@ -24,8 +24,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// # Note
 /// This struct pre-allocates an array of length `max_size + 1` and pre-fills it
 /// with elements if instantiated via the
-/// [`PriorityQueue::with_sentinel_object`](#method.with_sentinel_object)
-/// constructor.
+/// [`PriorityQueue::with_sentinel_object`]
+/// initialization method.
 ///
 /// # Note
 /// Iteration order is not specified.
@@ -95,12 +95,12 @@ where
   /// be used to pre-populate the queue.
   ///
   /// # Usage
-  /// If this method is extended to return a non-None value, the following
+  /// If this method is extended to return a `Some` value, the following
   /// usage pattern is recommended:
   ///
   /// ```text
   /// let mut pq: MyQueue<MyObject> = MyQueue::new(num_hits);
-  /// // Save the 'top' element, which is guaranteed to not be null.
+  /// // Save the 'top' element, which is guaranteed to not be None.
   /// let mut pq_top = pq.top();
   /// // Now, in order to add a new element that is 'better' than the top (after
   /// // you've verified it is better), it is as simple as:
@@ -113,7 +113,7 @@ where
   /// object to be returned and will not check if it's `None` again.
   /// Therefore, you should ensure any call to this method creates a new
   /// instance and behaves consistently, e.g., it cannot return `None` if it
-  /// previously returned a non-null value, and all returned instances
+  /// previously returned a present value, and all returned instances
   /// must be comparable using [`lessThan`](Compare::less_than).
   pub fn with_sentinel_object<F>(
     max_size: usize,
@@ -169,13 +169,13 @@ where
   }
 
   /// Adds all elements of the collection into the queue. This method should
-  /// be preferred over calling [`add`](#method.add) in a loop if all
+  /// be preferred over calling [`add`](Self::add) in a loop if all
   /// elements are known in advance, as it builds the queue faster.
   ///
   /// # Errors
   /// If one tries to add more objects than the `max_size` passed in the
-  /// constructor, an
-  /// [`ArrayIndexOutOfBoundsError`](crate::core::util::error::ArrayIndexOutOfBoundsError) is thrown.
+  /// initialization method, an
+  /// [`ArrayIndexOutOfBoundsError`](crate::core::util::error::ArrayIndexOutOfBoundsError) is returned.
   pub fn add_all(&mut self, elements: Vec<T>) -> Result<()> {
     if (self.size + elements.len()) > self.max_size {
       return Err(LuceneError::array_index_out_of_bounds(format!(
@@ -202,7 +202,7 @@ where
   /// Adds an object to a priority queue in `O(log(size))` time. If more
   /// objects are added than the `max_size` initialized, an
   /// [`ArrayIndexOutOfBoundsError`](crate::core::util::error::ArrayIndexOutOfBoundsError)
-  /// is thrown.
+  /// is returned.
   ///
   /// # Returns
   /// The new 'top' element in the queue.
@@ -243,8 +243,8 @@ where
   /// Returns the least element of the PriorityQueue in constant time.
   pub fn top_mut(&mut self) -> Option<&mut T> {
     // We don't need to check size here: if maxSize is 0,
-    // then heap is length 2 array with both entries null.
-    // If size is 0 then heap[1] is already null.
+    // then heap is length 2 array with both entries None.
+    // If size is 0 then heap[1] is already None.
     self.heap[1].as_mut()
   }
   pub fn top(&self) -> Option<&T> {
@@ -471,7 +471,7 @@ where
 }
 
 pub trait Compare<T> {
-  /// Determines the ordering of objects in this priority queue. SubStruct
+  /// Determines the ordering of values in this priority queue. Implementations
   /// must define this method.
   ///
   /// # Arguments

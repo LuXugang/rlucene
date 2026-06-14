@@ -55,7 +55,7 @@ pub struct CompiledAutomaton {
 
   /// Matcher directly run on a NFA, it will determinize the state on need and
   /// caches it, note that this field and
-  /// [`CompiledAutomaton::run_automaton`] will not be non-null at the same
+  /// [`CompiledAutomaton::run_automaton`] will not be present at the same
   /// time.
   ///
   /// TODO: merge this with run_automaton
@@ -232,7 +232,7 @@ impl CompiledAutomaton {
         transition: Transition::default(),
       })
     } else {
-      // We already had a DFA (or threw exception), according to mike UTF32toUTF8
+      // We already had a DFA (or threw error), according to mike UTF32toUTF8
       // won't "blow up"
       let dfa = match Operations::determinize(&binary, i32::MAX as usize)? {
         Cow::Borrowed(_) => binary,
@@ -406,14 +406,14 @@ impl CompiledAutomaton {
   }
   /// Returns a [`ByteRunnable`] instance, which differs depending on whether
   /// an NFA or DFA is passed in. This method does not guarantee returning
-  /// a non-null object.
+  /// a present object.
   #[allow(dead_code)]
   pub fn get_byte_runnable(&self) {
     // use get_automaton instead of this
   }
   /// Returns a [`TransitionAccessor`] instance, which varies depending on
   /// whether an NFA or DFA is passed in. This method does not guarantee
-  /// returning a non-null object.
+  /// returning a present object.
   #[allow(dead_code)]
   pub fn get_transition_accessor(&self) {
     // use get_automaton instead of this

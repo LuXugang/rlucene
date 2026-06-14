@@ -35,7 +35,7 @@ impl Default for BooleanClause {
 impl BooleanClause {
   /// Constructs a BooleanClause.
   ///
-  /// In Java this validated non-null arguments. In Rust, `Q` is a value type,
+  /// In Java this validated present arguments. In Rust, `Q` is a value type,
   /// so we just take ownership.
   pub fn new(query: Query, occur: Occur) -> Self {
     Self { query, occur }

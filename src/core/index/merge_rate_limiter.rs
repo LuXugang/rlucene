@@ -41,7 +41,7 @@ pub struct MergeRateLimiter {
 }
 
 impl MergeRateLimiter {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new(merge_progress: OneMergeProgress) -> Self {
     // Initially no IO limit; use setter here so minPauseCheckBytes is set:
     let limiter = Self {
@@ -51,7 +51,7 @@ impl MergeRateLimiter {
       total_bytes_written: AtomicI64::new(0),
       merge_progress,
     };
-    // Safe: constructor with valid mbPerSec, ignore error
+    // Safe: initialized with a valid MB-per-second rate; ignore the error.
     let _ = limiter.set_mb_per_sec(f64::INFINITY);
     limiter
   }

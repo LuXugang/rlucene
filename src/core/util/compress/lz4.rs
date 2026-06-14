@@ -455,7 +455,7 @@ impl Default for FastCompressionHashTable {
 }
 
 impl FastCompressionHashTable {
-  /// Sole constructor
+  /// Creates a new instance.
   pub fn new() -> Self {
     FastCompressionHashTable {
       base: 0,
@@ -567,7 +567,7 @@ impl Default for HighCompressionHashTable {
 impl HighCompressionHashTable {
   const MAX_ATTEMPTS: i32 = 256;
   pub const MASK: i32 = LZ4::MAX_DISTANCE - 1;
-  /// Sole constructor
+  /// Creates a new instance.
   pub fn new() -> Self {
     HighCompressionHashTable {
       base: 0,

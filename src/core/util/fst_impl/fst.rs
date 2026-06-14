@@ -1097,7 +1097,7 @@ where
   pub input_type: InputType,
   pub outputs: O,
   pub version: i32,
-  /// If non-None, this FST accepts the empty string and produces this
+  /// If `Some`, this FST accepts the empty string and produces this
   /// output.
   pub empty_output: Option<O::V>,
   pub start_node: i64,
@@ -1355,7 +1355,7 @@ pub(crate) fn flag_mod(flags: i32, bit: i32) -> bool {
 ///
 /// # Errors
 ///
-/// Returns an error if an exception occurred during parsing
+/// Returns an error if parsing fails.
 pub fn read_metadata<O>(meta_in: &mut impl DataInput, outputs: O) -> Result<FSTMetadata<O>>
 where
   O: Outputs,

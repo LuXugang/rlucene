@@ -27,7 +27,7 @@ use std::rc::Rc;
 /// Successive calls to `score()` will return the same result and will not invoke
 /// the wrapped scorer’s `score()` method, unless the current document has changed.
 ///
-/// This struct is useful due to changes in the [`Collector`](crate::core::search::collector::Collector) interface, where the score
+/// This struct is useful due to changes in the [`Collector`](crate::core::search::collector::Collector) trait, where the score
 /// is not computed for a document by default—only if the collector explicitly requests it.
 ///
 /// Some collectors may need to use the score in multiple places, but they only have a

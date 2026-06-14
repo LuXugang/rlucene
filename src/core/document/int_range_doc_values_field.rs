@@ -45,7 +45,7 @@ pub struct IntRangeDocValuesField {
 }
 
 impl IntRangeDocValuesField {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new<T, P>(field: T, min: P, max: P) -> Result<Self>
   where
     T: Into<String>,

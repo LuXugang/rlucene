@@ -226,7 +226,7 @@ impl<'a> TopScoreDocLeafCollector<'a> {
       && let Some(pq_top) = self.base.base.pq.top()
     {
       // since we tie-break on doc id and collect in doc id order, we can require the next float
-      // pqTop is never null since TopScoreDocCollector fills the priority queue with sentinel
+      // pqTop is always present since TopScoreDocCollector fills the priority queue with sentinel
       // values if the top element is a sentinel value, its score will be -Infty and the below
       // logic is still valid
       let local_min_score = pq_top.score.next_up();

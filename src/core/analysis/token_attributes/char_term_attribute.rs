@@ -62,7 +62,7 @@ pub trait CharTermAttribute: Attribute + Display {
 
   /// Resets the term buffer to zero length.
   ///
-  /// Use before appending via the `Appendable` interface.
+  /// Use before appending through the `Appendable` API.
   ///
   /// # Returns
   ///

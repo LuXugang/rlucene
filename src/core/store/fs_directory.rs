@@ -37,27 +37,11 @@ use parking_lot::Mutex;
 /// Base trait for `Directory` implementations that store index files in the
 /// file system. There are currently two core implementations:
 ///
-/// - [`MMapDirectory`](crate::core::store::mmap_directory::MMapDirectory): Uses
-///   memory-mapped IO when reading. This is a good choice if you have plenty of
-///   virtual memory relative to your index size. It works well on 64-bit
-///   systems or on 32-bit systems with small enough index sizes. This
-///   implementation utilizes the modern `MemorySegment` API available since
-///   Rust 21, allowing safe unmapping of previously memory-mapped files after
-///   closing `IndexInput`s. No need to enable the "preview feature" of your
-///   Java version.
+/// - [`MMapDirectory`](crate::core::store::mmap_directory::MMapDirectory): Reserved for a
+///   memory-mapped directory implementation.
 /// - [`NIOFSDirectory`](crate::core::store::nio_fs_directory::NIOFSDirectory): Uses
-///   `java.nio`'s `FileChannel`'s positional IO to avoid synchronization when
-///   reading from the same file. This is the preferred choice on all platforms
-///   except Windows, where a bug in the Sun JRE causes performance issues.
-///   Applications using thread interruption or future cancellation should use
-///   `RAFDirectory` instead.
-///
-/// # Note
-/// Accessing one of the above SubStruct directly or indirectly from a thread
-/// while it's interrupted can cause the underlying channel to close
-/// immediately, leading to subsequent `ClosedChannelException` errors. If your
-/// application uses `Thread::interrupt()` or `Future::cancel()`, it's
-/// recommended to use the legacy `RAFDirectory` from the `misc` module.
+///   `std::fs::File` positional reads so multiple threads can read from the same file without a
+///   shared seek position.
 ///
 /// The default locking implementation is [`NativeFSLockFactory`],
 /// but it can be replaced with a custom `LockFactory`.
@@ -162,7 +146,7 @@ where
     pending_deletes: &mut HashSet<String>,
   ) -> Result<()> {
     if !pending_deletes.is_empty() {
-      // TODO: we could fix IndexInputs from FSDirectory SubStruct to
+      // TODO: We could fix IndexInputs from FSDirectory implementations to
       // call this when they are closed?
 
       // Clone the set since we mutate it in privateDeleteFile:
@@ -212,13 +196,13 @@ where
         // open file handle against it.  We record this
         // in pendingDeletes and try again later.
 
-        // TODO: this is hacky/lenient (we don't know which IOException
+        // TODO: This is lenient because we do not know which I/O error
         // this is), and it should only happen on
         // filesystems that can do this, so really we should
         // move this logic to WindowsDirectory or something
 
         // TODO: can/should we do if (Constants.WINDOWS) here, else
-        // throw the exc? but what about a Linux box
+        // return the exc? but what about a Linux box
         // with a CIFS mount?
         if cfg!(windows) {
           pending_deletes.insert(name.to_string());

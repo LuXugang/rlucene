@@ -750,7 +750,7 @@ pub trait Reader: Accountable {
     unimplemented!("size() must be implemented if it needs to be used")
   }
 }
-/// Run-once iterator interface to decode previously saved PackedInts.
+/// Run-once iterator trait for decoding previously saved packed integers.
 pub trait ReaderIterator: Display {
   /// Returns the next value.
   ///
@@ -858,7 +858,7 @@ pub trait Mutable: Reader + Display {
   /// Returns the number of bits used to store any given value.
   ///
   /// Note: This does not imply that memory usage is `bits_per_value *
-  /// #values` as implementations are free to use non-space-optimal
+  /// values, as implementations may use non-space-optimal
   /// packing of bits.
   fn get_bits_per_value(&self) -> i32 {
     unimplemented!("get_bits_per_value() must be implemented if it needs to be used")

@@ -361,7 +361,7 @@ fn test_boolean_query_containing_single_term_prefix_query() -> Result<()> {
 
   q.add(trouble_builder.build(), Occur::Must)?;
 
-  // exception will be thrown here without fix
+  // error will be returned here without fix
   let query = q.build();
   let hits = searcher.search(query.clone(), 1000)?.score_docs;
 
@@ -409,7 +409,7 @@ fn test_phrase_prefix_with_boolean_query() -> Result<()> {
 
   q.add(trouble_builder.build(), Occur::Must)?;
 
-  // exception will be thrown here without fix for #35626:
+  // error will be returned here without fix for #35626:
   let hits = searcher.search(q.build(), 1000)?.score_docs;
 
   assert_eq!(0, hits.len(), "Wrong number of hits");

@@ -83,7 +83,7 @@ use crate::core::util::error::lucene_error::Result;
 /// ```
 ///
 /// Productions marked [OPTIONAL](RegExpKind::Optional) are only allowed if
-/// specified by the syntax flags passed to the [`RegExp`] constructor.
+/// specified by the syntax flags used to create the [`RegExp`].
 ///
 /// Reserved characters used in the enabled syntax must be escaped with
 /// backslash (`\`) or double-quotes (`"..."`). This escaping is also required
@@ -529,7 +529,7 @@ impl RegExp {
     }
     Ok(())
   }
-  /// The string that was used to construct the regex. Compare to toString.
+  /// The string used to construct the regular expression. Compare with its `Display` output.
   pub fn get_original_string(&self) -> &str {
     &self.original_string
   }
@@ -1335,7 +1335,7 @@ pub enum RegExpKind {
   #[deprecated(note = "Will be removed in Lucene 11")]
   DeprecatedComplement,
 }
-/// Custom functional interface for supplying methods with the signature:
+/// Custom callback trait for methods with the signature:
 /// `RegExp(int int1, RegExp exp1, RegExp exp2)`
 trait MakeRegexGroup {
   fn get(&self, int1: i32, exp1: RegExp, exp2: RegExp) -> RegExp;

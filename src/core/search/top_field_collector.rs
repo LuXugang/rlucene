@@ -59,7 +59,7 @@ use std::vec;
 
 /// A [`Collector`] that sorts by [`SortField`] using [`FieldComparator`]s.
 ///
-/// See the constructor of [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) for instantiating a
+/// See [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) for creating a
 /// `TopFieldCollectorManager` with support for concurrency in `IndexSearcher`.
 pub struct TopFieldCollector {
   base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
@@ -225,7 +225,7 @@ impl TopFieldCollector {
 ///
 /// # Errors
 ///
-/// Returns `IllegalArgumentException` if there is evidence that `topDocs` have been computed
+/// Returns [`LuceneError::IllegalArgument`] if there is evidence that `topDocs` were computed
 /// against a different searcher or a different query.
 pub fn populate_scores<IRC, T, S>(
   top_docs: &mut [S],
@@ -368,7 +368,7 @@ impl TopDocsCollector for TopFieldCollector {
     Self: Sized,
   {
     let result = results.unwrap_or_else(std::vec::Vec::new);
-    // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
+    // TODO: `TopFieldDocs::fields` is unused in Java Lucene, so set it to an empty vector for now.
     TopFieldDocs::new(
       TotalHits::new(self.total_hits(), self.get_total_hits_relation()),
       result,

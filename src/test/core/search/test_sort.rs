@@ -652,7 +652,7 @@ fn test_long_missing() -> Result<()> {
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
   assert_eq!(3, td.total_hits().value);
 
-  // null treated as 0 → -1, null, 4
+  // None treated as 0 → -1, None, 4
   let v0 = searcher
     .stored_fields()?
     .document(td.score_docs()[0].doc())?;
@@ -858,7 +858,7 @@ fn test_float_missing() -> Result<()> {
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
   assert_eq!(3, td.total_hits().value);
 
-  // null treated as 0 → -1.3, null, 4.2
+  // None treated as 0 → -1.3, None, 4.2
   let v0 = searcher
     .stored_fields()?
     .document(td.score_docs()[0].doc())?;
@@ -910,7 +910,7 @@ fn test_float_missing_last() -> Result<()> {
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
   assert_eq!(3, td.total_hits().value);
 
-  // null → Float.MAX_VALUE
+  // None → Float.MAX_VALUE
   let v0 = searcher
     .stored_fields()?
     .document(td.score_docs()[0].doc())?;
@@ -1160,7 +1160,7 @@ fn test_double_missing() -> Result<()> {
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
   assert_eq!(4, td.total_hits().value);
 
-  // null treated as 0
+  // None treated as 0
   let v0 = searcher
     .stored_fields()?
     .document(td.score_docs()[0].doc())?;

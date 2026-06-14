@@ -448,7 +448,7 @@ impl<'a> BufferedUpdateIterator<'a> {
   pub(crate) fn is_sorted_terms(&self) -> bool {
     self.field_updates_buffer.term_sort_state.indices.is_some()
   }
-  /// Moves to the next BufferedUpdate or return null if all updates are
+  /// Moves to the next BufferedUpdate or return None if all updates are
   /// consumed. The returned instance is a shared instance and must be
   /// fully consumed before the next call to this method.
   pub(crate) fn next_value(&mut self) -> Result<Option<BufferedUpdate>> {
@@ -539,8 +539,7 @@ impl<'a> BufferedUpdateIterator<'a> {
   }
 }
 /// # Warning
-/// this struct should not be use in map or other data-structures that use
-/// hashCode / equals
+/// This struct should not be used as a map key or in data structures that depend on `Hash` and `Eq`.
 #[derive(Default, Clone)]
 
 pub struct BufferedUpdate {
@@ -548,13 +547,13 @@ pub struct BufferedUpdate {
   pub doc_upto: i32,
   /// a numeric value or 0 if this buffer holds binary updates.
   pub numeric_value: i64,
-  /// a binary value or null if this buffer holds numeric updates.
+  /// a binary value or None if this buffer holds numeric updates.
   pub binary_value: Option<BytesRef<Vec<u8>>>,
   /// true if this update has a value.
   pub has_value: bool,
-  /// The update terms field. This will never be null.
+  /// The update terms field. This will never be None.
   pub term_field: String,
-  /// The update terms value. This will never be null.
+  /// The update terms value. This will never be None.
   pub term_value: Option<BytesRef<Vec<u8>>>,
 }
 

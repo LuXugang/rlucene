@@ -71,7 +71,7 @@ where
   }
 
   /// Decrease ref counts for all provided files, delete them if ref counts down to 0, even on
-  /// error. Throw first exception hit, if any
+  /// error. Returns the first error encountered, if any.
   pub fn dec_ref<'a, I>(&mut self, file_names: I) -> Result<()>
   where
     I: IntoIterator<Item = &'a String>,

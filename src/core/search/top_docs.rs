@@ -96,7 +96,7 @@ where
   let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
   let queue = PriorityQueue::new(len, &cmp)?;
   let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
-  // TODO: TopFieldDocs#fields not used in Java Lucene, so far we set it to empty vec
+  // TODO: `TopFieldDocs::fields` is unused in Java Lucene, so set it to an empty vector for now.
   Ok(TopFieldDocs::new(total_hits, hits, vec![]))
 }
 /// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],

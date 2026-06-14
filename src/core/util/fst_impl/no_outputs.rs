@@ -25,7 +25,7 @@ static NO_OUTPUT: LazyLock<Arc<i64>> = LazyLock::new(|| Arc::new(0));
 
 pub static SINGLETON: LazyLock<NoOutputs> = LazyLock::new(|| NoOutputs);
 
-/// A null FST Outputs implementation; use this if you just want to build an FSA.
+/// FST outputs implementation for automata that do not store output values.
 ///
 /// lucene.experimental
 #[derive(Default, Clone)]

@@ -22,7 +22,7 @@ use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
-/// This class makes a best-effort check that a provided [`Lock`] is valid before any destructive filesystem operation.
+/// This struct makes a best-effort check that a provided [`Lock`] is valid before any destructive filesystem operation.
 pub struct LockValidatingDirectoryWrapper<D>
 where
   D: Directory,

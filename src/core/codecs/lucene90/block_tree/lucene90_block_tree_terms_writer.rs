@@ -251,7 +251,7 @@ where
       segment_info,
     )
   }
-  /// Expert constructor that allows configuring the version, used for bw tests
+  /// Creates a writer with an explicit version for backward-compatibility tests.
   pub fn with_version<D1, D2>(
     state: &SegmentWriteState<D1>,
     mut postings_writer: PW,
@@ -329,7 +329,7 @@ where
       closed: false,
     })
   }
-  /// Throws `IllegalArgumentError` if any of these settings is invalid.
+  /// Returns `IllegalArgumentError` if any setting is invalid.
   pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
     if min_items_in_block <= 1 {
       return Err(LuceneError::illegal_argument(format!(

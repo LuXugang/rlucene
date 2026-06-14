@@ -26,7 +26,7 @@ pub trait VectorScorer {
   /// The score for the current document ID
   ///
   /// # Errors
-  /// Returns an error if an exception occurs during score computation.
+  /// Returns an error if score computation fails.
   fn score(&self) -> Result<f32>;
 
   type DocIdSetIteratorRef<'a>: DocIdSetIterator

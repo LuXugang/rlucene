@@ -42,17 +42,17 @@ where
   /// Generation number of the live docs file (-1 if there are no deletes
   /// yet).
   del_gen: i64,
-  /// Normally 1 + del_gen, unless an exception was hit on the last attempt
+  /// Normally 1 + del_gen, unless an error was hit on the last attempt
   /// to write.
   next_write_del_gen: i64,
   /// Generation number of the FieldInfos (-1 if there are no updates).
   field_infos_gen: i64,
-  /// Normally 1 + field_infos_gen, unless an exception was hit on the last
+  /// Normally 1 + field_infos_gen, unless an error was hit on the last
   /// attempt to write.
   next_write_field_infos_gen: i64,
   /// Generation number of the DocValues (-1 if there are no updates).
   doc_values_gen: i64,
-  /// Normally 1 + doc_values_gen, unless an exception was hit on the last
+  /// Normally 1 + doc_values_gen, unless an error was hit on the last
   /// attempt to write.
   next_write_doc_values_gen: i64,
   /// Track the per-field DocValues update files.
@@ -69,7 +69,7 @@ impl<D> SegmentCommitInfo<D>
 where
   D: Directory,
 {
-  /// Sole constructor.
+  /// Creates a new instance.
   ///
   /// # Arguments
   /// - `info`: The `SegmentInfo` that this wraps.
@@ -155,7 +155,7 @@ where
     self.generation_advanced();
   }
 
-  /// Called if there was an exception while writing deletes, so that we don't
+  /// Called if there was an error while writing deletes, so that we don't
   /// try to write to the same file more than once.
   pub fn advance_next_write_del_gen(&mut self) {
     self.next_write_del_gen += 1;
@@ -178,7 +178,7 @@ where
     self.generation_advanced();
   }
 
-  /// Called if there was an exception while writing a new generation of
+  /// Called if there was an error while writing a new generation of
   /// FieldInfos, so that we don't try to write to the same file more than
   /// once.
   pub fn advance_next_write_field_infos_gen(&mut self) {
@@ -202,7 +202,7 @@ where
     self.generation_advanced();
   }
 
-  /// Called if there was an exception while writing a new generation of
+  /// Called if there was an error while writing a new generation of
   /// DocValues, so that we don't try to write to the same file more than
   /// once.
   pub fn advance_next_write_doc_values_gen(&mut self) {
@@ -260,7 +260,7 @@ where
   }
 
   /// Sets the buffered deletes generation number.
-  /// Can only be set once, otherwise it will throw an error.
+  /// Can only be set once, otherwise it will return an error.
   pub fn set_buffered_deletes_gen(&mut self, v: i64) -> Result<()> {
     if self.buffered_deletes_gen == -1 {
       self.buffered_deletes_gen = v;

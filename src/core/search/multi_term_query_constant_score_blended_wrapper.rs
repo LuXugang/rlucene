@@ -232,7 +232,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
             .take()
             .ok_or_else(|| LuceneError::illegal_state("posting enum is None"))?;
           other_terms.add_disi(&mut dropped_pe)?;
-          // Reuse the postings that drop out of the PQ. Note that `dropped` will be null here
+          // Reuse the postings that drop out of the PQ. Note that `dropped` will be None here
           // if nothing is evicted, meaning we will _not_ reuse any postings (which is intentional
           // since we can't reuse postings that are in the PQ).
           reuse = Some(dropped_pe);

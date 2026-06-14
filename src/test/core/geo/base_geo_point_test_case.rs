@@ -62,7 +62,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
 const FIELD_NAME: &str = "point";
-/// Abstract class to do basic tests for a geospatial impl (high level fields and queries) NOTE: This
+/// Base test support for geospatial implementations (high-level fields and queries). NOTE: This
 /// test focuses on geospatial (distance queries, polygon queries, etc) indexing and search, not any
 /// underlying storage format or encoding: it merely supplies two hooks for the encoding so that
 /// tests can be exact. The [stretch] goal is for this test to be so thorough in testing a new geo
@@ -121,7 +121,7 @@ pub trait BaseGeoPointTestCase {
     Ok(geometries)
   }
 
-  /// Valid values that should not cause exception.
+  /// Valid values that should not cause error.
   fn test_index_extreme_values(&self) -> Result<()> {
     let mut document = Document::new();
     self.add_point_to_doc("foo", &mut document, 90.0, 180.0)?;
@@ -1730,13 +1730,13 @@ pub trait BaseGeoPointTestCase {
     Ok(())
   }
 
-  /// Override this to quantize randomly generated lat, so the test won't fail due to quantization
+  /// Implement this to quantize randomly generated latitudes so tests do not fail due to quantization.
   /// errors.
   fn quantize_lat(&self, lat: f64) -> f64 {
     lat
   }
 
-  /// Override this to quantize randomly generated lon, so the test won't fail due to quantization
+  /// Implement this to quantize randomly generated longitudes so tests do not fail due to quantization.
   /// errors.
   fn quantize_lon(&self, lon: f64) -> f64 {
     lon

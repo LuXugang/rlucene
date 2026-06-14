@@ -36,9 +36,9 @@ where
   /// maximum X of this geometry's bounding box area
   max_x: f64,
 
-  /// child components, or null. Note internal nodes might mot have
+  /// child components, or None. Note internal nodes might mot have
   /// a consistent bounding box. Internal nodes should not be accessed
-  /// outside if this class.
+  /// outside this type.
   left: Option<Box<ComponentTree<T>>>,
   right: Option<Box<ComponentTree<T>>>,
 

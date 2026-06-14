@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// Interface for implementations of VectorUtil support.
+/// Trait for implementations of vector utility support.
 ///
 /// Ported from Lucene's VectorUtilSupport.
 /// All methods use static dispatch.

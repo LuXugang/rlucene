@@ -142,7 +142,7 @@ fn test_non_ram_delete() -> Result<()> {
 }
 #[test]
 fn test_ram_deletes() -> Result<()> {
-  // TODO: FrozenBufferedUpdates#apply_query_deletes未实现
+  // TODO: FrozenBufferedUpdates::apply_query_deletes未实现
   Ok(())
 }
 // TODO IMPORTANT  测试未通过

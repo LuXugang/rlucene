@@ -47,7 +47,7 @@ use crate::core::util::ints_ref_builder::IntsRefBuilder;
 pub struct Operations;
 impl Operations {
   /// Default maximum effort that [`Operations::determinize`] should spend
-  /// before giving up and throwing
+  /// before giving up and returning
   /// [`TooComplexToDeterminizeError`](crate::core::util::error::TooComplexToDeterminizeError).
   pub const DEFAULT_DETERMINIZE_WORK_LIMIT: usize = 10000;
   /// Returns an automaton that accepts the concatenation of the languages of
@@ -1181,7 +1181,7 @@ impl Operations {
   /// state.
   ///
   /// This method assumes that the automaton does not contain cycles, and will
-  /// throw an error if a cycle is detected. The CPU cost is
+  /// return an error if a cycle is detected. The CPU cost is
   /// O(num_transitions), and the implementation is non-recursive, so it
   /// will not exhaust the stack for automatons matching long strings.
   /// If there are dead states in the automaton, they will be removed from the

@@ -30,7 +30,7 @@ use crate::core::util::automation::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 
-/// Class to construct DFAs that match a word within some edit distance.
+/// Constructs DFAs that match a word within some edit distance.
 ///
 /// Implements the algorithm described in: Schulz and Mihov: Fast String Correction with
 /// Levenshtein Automata.
@@ -50,7 +50,7 @@ pub struct LevenshteinAutomata {
 }
 
 impl LevenshteinAutomata {
-  /// Maximum edit distance this class can generate an automaton for.
+  /// Maximum edit distance this type can generate an automaton for.
   pub const MAXIMUM_SUPPORTED_DISTANCE: i32 = 2;
 
   /// Create a new `LevenshteinAutomata` for some input string. Optionally count transpositions as a

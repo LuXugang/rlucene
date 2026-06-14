@@ -51,7 +51,7 @@ pub trait ImpactsSource {
   ///
   /// This method may not be called on an unpositioned iterator where
   /// [`advance_shallow()`](ImpactsSource::advance_shallow) has never been
-  /// called. #Note :
+  /// called.
   ///  advancing this iterator may
   ///   invalidate the returned impacts, so they should not be used after the
   /// iterator has been advanced.

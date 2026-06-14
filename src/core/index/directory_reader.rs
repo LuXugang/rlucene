@@ -456,7 +456,7 @@ pub fn index_exists(directory: &impl Directory) -> Result<bool> {
   // safer to err towards "index exists" than try to be
   // smart about detecting not-yet-fully-committed or
   // corrupt indices.  This means that IndexWriter will
-  // throw an exception on such indices and the app must
+  // return an error on such indices and the app must
   // resolve the situation manually:
   let files = directory.list_all()?; // returns Vec<String>
 

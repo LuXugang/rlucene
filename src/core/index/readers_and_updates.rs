@@ -298,7 +298,7 @@ where
       return Ok(Some(Arc::new(sr)));
     }
     {
-      // liveDocs == null and reader != null. That can only be if there are no deletes
+      // liveDocs == None and reader != None. That can only be if there are no deletes
       let r = inner.reader.as_ref().unwrap();
       debug_assert!(r.get_live_docs()?.is_none());
       r.inc_ref()?;
@@ -563,7 +563,7 @@ where
     }
 
     // Do this so we can delete any created files on
-    // exception; this saves all codecs from having to do it:
+    // error; this saves all codecs from having to do it:
     let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(&dir));
 
     let result = (|| -> Result<()> {
@@ -591,7 +591,7 @@ where
           // cannot use builder.add(fi) because it does not preserve
           // the local field number. Field numbers can be different from
           // the global ones if the segment was created externally (and added to
-          // this index with IndexWriter#addIndexes(Directory)).
+          // this index with `IndexWriter::add_indexes(Directory)`.)
           by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number)?);
           max_field_number = max_field_number.max(fi.number);
         }
@@ -963,7 +963,7 @@ enum CurrentSource {
   OnDisk,
   Update,
 }
-/// This class merges the current on-disk DV with an incoming update DV instance and merges the two instances giving the incoming update precedence in terms of values,
+/// Merges current on-disk doc values with incoming updates, giving the updates precedence.
 /// in other words the values of the update always wins over the on-disk version.
 struct MergedDocValues<DI>
 where

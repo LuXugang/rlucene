@@ -451,7 +451,7 @@ where
   S: SortedDocValues,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    // needed in IndexSorter#StringSorter
+    // Needed by `IndexSorter::StringSorter`.
     self.doc_id = target;
     Ok(self.ords[target as usize] != -1)
   }

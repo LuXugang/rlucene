@@ -66,7 +66,7 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 ///
 /// This field defines static factory methods for common operations:
 ///
-/// - [`newDistanceSort`](#newdistancesort) for ordering documents by distance from a specified
+/// - [`new_distance_sort`](Self::new_distance_sort) for ordering documents by distance from a specified
 ///   location.
 ///
 /// If you also need query operations, you should add a separate `LatLonPoint` instance. If you
@@ -129,7 +129,7 @@ impl LatLonDocValuesField {
     Ok(())
   }
 
-  /// helper: checks a fieldinfo and throws exception if its definitely not a LatLonDocValuesField
+  /// Checks field information and returns an error if it is definitely not a `LatLonDocValuesField`.
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     if *field_info.get_doc_values_type() != DocValuesType::None
       && field_info.get_doc_values_type() != TYPE.doc_values_type()
@@ -254,7 +254,7 @@ impl LatLonDocValuesField {
   /// # Parameters
   ///
   /// - `field`: field name.
-  /// - `polygons`: array of polygons. must not be null or empty.
+  /// - `polygons`: array of polygons. must not be empty.
   ///
   /// # Returns
   ///
@@ -262,7 +262,7 @@ impl LatLonDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if  `polygons` is empty or contains a null polygon.
+  /// Returns an error if `polygons` is empty.
   pub fn new_slow_polygon_query(field: &str, polygons: Vec<Polygon>) -> Result<Query> {
     Self::new_slow_geometry_query(field, QueryRelation::Intersects, polygons)
   }
@@ -275,9 +275,8 @@ impl LatLonDocValuesField {
   /// # Parameters
   ///
   /// - `field`: field name.
-  /// - `query_relation`: the relation the points need to satisfy with the provided geometries; must
-  ///   not be null.
-  /// - `lat_lon_geometries`: array of `LatLonGeometry` values. must not be null or empty.
+  /// - `query_relation`: relation the points must satisfy with the provided geometries.
+  /// - `lat_lon_geometries`: array of `LatLonGeometry` values. must not be empty.
   ///
   /// # Returns
   ///
@@ -285,8 +284,7 @@ impl LatLonDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `query_relation` is null, or `lat_lon_geometries` is null,
-  /// empty, or contains a null or line geometry.
+  /// Returns an error if `lat_lon_geometries` is empty or contains an unsupported line geometry.
   pub fn new_slow_geometry_query<T>(
     field: &str,
     query_relation: QueryRelation,

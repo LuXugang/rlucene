@@ -31,7 +31,7 @@ use parking_lot::Mutex;
 /// Implements [`LockFactory`] using `Files::create_file`.
 ///
 /// The main downside with using this API for locking is that the Lucene write lock may not be
-/// released when the JVM exits abnormally.
+/// released when the process exits abnormally.
 ///
 /// When this happens, a `LockObtainFailedError` is hit when trying to create a writer,
 /// in which case you may need to explicitly clear the lock file first by manually removing the file.

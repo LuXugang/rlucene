@@ -21,7 +21,7 @@ use crate::core::util::automation::levenshtein_automata::{
 
 /// Parametric description for generating a Levenshtein automaton of degree 2.
 /// The comment in [`Lev1ParametricDescription`] may be helpful for you to
-/// understand this class.
+/// understand this type.
 ///
 /// See [`Lev1ParametricDescription`].
 pub(crate) struct Lev2ParametricDescription;
@@ -78,7 +78,7 @@ impl ParametricDescriptionBase for Lev2ParametricDescription {
     vector: i32,
     base: &ParametricDescription,
   ) -> i32 {
-    // null absState should never be passed in
+    // None absState should never be passed in
     debug_assert_ne!(abs_state, -1);
 
     // decode absState -> state, offset
@@ -123,7 +123,7 @@ impl ParametricDescriptionBase for Lev2ParametricDescription {
     }
 
     if state == -1 {
-      // null state
+      // None state
       -1
     } else {
       // translate back to abs

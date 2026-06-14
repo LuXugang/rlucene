@@ -1386,7 +1386,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(2, terms_enum.ord()?);
 
-    // TODO IMPORTANT SortedDocValues#intersect 未实现
+    // TODO IMPORTANT SortedDocValues::intersect 未实现
     Ok(())
   }
 
@@ -3092,7 +3092,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(2, terms_enum.ord()?);
 
-    // TODO IMPORTANT SortedDocValues#intersect 未实现
+    // TODO IMPORTANT SortedDocValues::intersect 未实现
     Ok(())
   }
 

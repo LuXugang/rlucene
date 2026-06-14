@@ -19,7 +19,7 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
 
-/// A builder for {@link BytesRef} instances.
+/// A builder for [`BytesRef`] instances.
 pub struct BytesRefBuilder<AV>
 where
   AV: SharedAccessVec<u8> + WritableVec<u8>,

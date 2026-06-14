@@ -42,7 +42,7 @@ pub struct BooleanScorer<S>
 where
   S: Scorer,
 {
-  // One bucket per doc ID in the window, non-null if scores are needed or if frequencies need to be
+  // One bucket per doc ID in the window, present if scores are needed or if frequencies need to be
   // counted
   pub(crate) buckets: Option<Vec<Bucket>>,
   // This is basically an inlined FixedBitSet... seems to help with bound checks

@@ -126,8 +126,8 @@ impl IndexFileNames {
   }
 
   /// Strips the segment name out of the given file name. If you used
-  /// [`segment_file_name`](#method.segment_file_name) or
-  /// [`file_name_from_generation`](#method.file_name_from_generation) to
+  /// [`segment_file_name`](Self::segment_file_name) or
+  /// [`file_name_from_generation`](Self::file_name_from_generation) to
   /// create your files, this method simply removes whatever comes before
   /// the first `.` or the second `_` (excluding both).
   ///
@@ -185,7 +185,7 @@ impl IndexFileNames {
     }
   }
 
-  /// Return the extension (anything after the first '.'), or null if there is
+  /// Return the extension (anything after the first '.'), or None if there is
   /// no '.' in the file name.
   pub fn get_extension(filename: &str) -> Option<&str> {
     if let Some(idx) = filename.find('.') {

@@ -95,7 +95,7 @@ pub trait MergePolicy: Display {
   fn get_base_mut(&mut self) -> &mut MergePolicyBase;
   /// Determine what set of merge operations are now necessary on the index.
   /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) calls this whenever there is a change to the segments.
-  /// This call is always synchronized on the [`IndexWriter`](crate::core::index::index_writer::IndexWriter) instance so only
+  /// This method is always called while the [`IndexWriter`](crate::core::index::index_writer::IndexWriter) lock is held, so only
   /// one thread at a time will call this method.
   ///
   /// * `merge_trigger` — the event that triggered the merge  
@@ -139,7 +139,7 @@ pub trait MergePolicy: Display {
 
   ///   Determine what set of merge operations is necessary in order to merge to
   ///   `<=` the specified segment count. [`IndexWriter`](crate::core::index::index_writer::IndexWriter) calls this when its
-  ///   `forceMerge` method is invoked. This call is always synchronized on the
+  ///   `force_merge` method is invoked. This call always runs while holding the
   ///   [`IndexWriter`](crate::core::index::index_writer::IndexWriter) instance so only one thread at a time will call it.
   ///
   /// * `segment_infos` — the total set of segments in the index  
@@ -194,7 +194,7 @@ pub trait MergePolicy: Display {
   ///
   /// If a [`OneMerge`] in the returned [`MergeSpecification`] includes a segment
   /// that is already included in a registered merge, then
-  /// `IndexWriter::commit` or `IndexWriter::prepare_commit` will throw an
+  /// `IndexWriter::commit` or `IndexWriter::prepare_commit` will return an
   /// error. Use [`MergeContext::get_merging_segments`] to determine which
   /// segments are currently registered to merge.
   ///
@@ -353,7 +353,7 @@ pub trait MergePolicy: Display {
   /// - the number of deletes on disk, and
   /// - the number of pending deletes.
   ///
-  /// Subclasses that wrap merge readers may override this in order to reflect
+  /// Implementations that wrap merge readers may provide this method to reflect
   /// deletes that are carried over into the target segment in the case of soft deletes.
   ///
   /// Soft deletes allow deleted documents to survive across merges so that the
@@ -1193,9 +1193,9 @@ pub struct MergeStat {
   pub(crate) max_num_segments: i32,
   pub(crate) info_id: Option<String>,
   /// Segments to be merged.
-  /// SegmentInfo#name and SegmentInfo#Id
+  /// `SegmentInfo::name` and `SegmentInfo::id`.
   pub(crate) segments: Vec<String>,
-  /// SegmentInfo#name
+  /// `SegmentInfo::name`.
   pub(crate) name: Option<String>,
   pub(crate) merge_gen: i64,
 }
@@ -1267,7 +1267,7 @@ where
     }
     Self::new(segments_meta)
   }
-  /// Constructor for wrapping.
+  /// Creates wrapping.
   pub(crate) fn from_other(one_merge: OneMerge<D, CR>) -> Self {
     let mut one_merge = Self {
       merge_readers: Mutex::new(one_merge.merge_readers.into_inner()),
@@ -1332,13 +1332,13 @@ where
   pub fn merge_init(&self) {
     self.merge_progress.set_merge_thread()
   }
-  /// Record that an exception occurred while executing this merge.
+  /// Record that an error occurred while executing this merge.
   pub fn set_exception(&self, error: LuceneError) {
     let mut guard = self.error.lock();
     *guard = Some(error);
   }
 
-  /// Retrieve previous exception set by `set_exception`.
+  /// Retrieve previous error set by `set_exception`.
   pub fn get_exception(&self) -> Option<LuceneError> {
     let mut guard = self.error.lock();
     guard.take()
@@ -1579,7 +1579,7 @@ pub struct OneMergeProgress {
   pause_times: PauseTimes,
   aborted: AtomicBool,
   /// This field is for sanity-check purpos only. Only the same thread that
-  //     /// invoked `OneMerge#mergeInit()` is permiestted to be calling `pauseNanos`.
+  //     /// Invoking `OneMerge::merge_init` permits calls to `pause_nanos`.
   /// This is always verified at runtime.
   owner: Mutex<Option<ThreadId>>,
 }

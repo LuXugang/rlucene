@@ -744,8 +744,7 @@ impl FieldNumbers {
   }
 
   /// Constructs a new `FieldInfo` based on the options in global field
-  /// numbers. This method is not synchronized as all the options it uses
-  /// are not modifiable.
+  /// numbers. This method needs no lock because all options it uses are immutable.
   ///
   /// # Parameters
   /// - `field_name`: Name of the field.

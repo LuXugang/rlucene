@@ -46,7 +46,7 @@ struct TestDocument;
 /// that has not been indexed yet.
 ///
 /// # Errors
-/// - Returns an error if an exception occurs during execution.
+/// - Returns an error if execution fails.
 #[test]
 fn test_binary_field() -> Result<()> {
   let binary_val = "this text will be stored as a byte array in the index";
@@ -110,7 +110,7 @@ fn test_binary_field() -> Result<()> {
 /// that has not been indexed yet.
 ///
 /// # Errors
-/// - Returns an error if an exception occurs.
+/// - Returns an error if execution fails.
 #[test]
 fn test_remove_for_new_document() -> Result<()> {
   let mut doc = make_document_with_fields()?;

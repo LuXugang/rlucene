@@ -35,14 +35,14 @@ use std::sync::Arc;
 ///   the `AV` type. This allows multiple parts of the program to mutate the
 ///   same underlying data safely in a single-threaded context.
 ///
-/// - **Multi-threaded, synchronized access:**   Use `Arc<Mutex<Vec<i32>>>` for
+/// - **Multi-threaded, locked access:** Use `Arc<Mutex<Vec<i32>>>` for
 ///   safe concurrent access and mutation across threads.
 ///
 /// - **No sharing / performance-focused:**   Use plain `Vec<i32>` if the data
 ///   is owned locally and doesn’t need to be shared. This offers the best
 ///   performance with no synchronization overhead.
 ///
-/// The generic `AccessVec` trait provides a unified interface for all three
+/// The generic `AccessVec` trait provides unified access for all three
 /// modes, abstracting over access, mutation, cloning, and construction.
 /// Represents int[], as a slice (offset + length) into an existing int[].
 #[derive(Debug)]

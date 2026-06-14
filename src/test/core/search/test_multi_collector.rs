@@ -590,7 +590,7 @@ impl LeafCollector for TerminatingDummyCollector {
 
 #[test]
 fn test_null_collectors() -> Result<()> {
-  // Tests that the collector rejects all null collectors.
+  // Tests that the collector rejects all None collectors.
   assert!(matches!(
     wrap::<DummyCollector>(vec![None, None]),
     Err(LuceneError::IllegalArgument(_))
@@ -605,8 +605,8 @@ fn test_null_collectors() -> Result<()> {
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
-  // Tests that the collector handles some null collectors well. If it
-  // doesn't, an NPE would be thrown.
+  // Tests that the collector handles some None collectors well. If it
+  // does not, the test would fail on an absent collector.
   let mut c = wrap(vec![
     Some(DummyCollector::new()),
     None,
@@ -649,8 +649,8 @@ fn test_collector() -> Result<()> {
 
   // Tests that the collector delegates calls to input collectors properly.
 
-  // Tests that the collector handles some null collectors well. If it
-  // doesn't, an NPE would be thrown.
+  // Tests that the collector handles some None collectors well. If it
+  // does not, the test would fail on an absent collector.
   let mut c = wrap(vec![
     Some(DummyCollector::new()),
     Some(DummyCollector::new()),

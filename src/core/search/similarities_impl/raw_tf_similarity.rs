@@ -26,7 +26,7 @@ pub struct RawTFSimilarity {
   discount_overlaps: bool,
 }
 
-/// Default constructor: parameter-free
+/// Creates a parameter-free instance.
 impl Default for RawTFSimilarity {
   fn default() -> Self {
     Self {
@@ -36,7 +36,7 @@ impl Default for RawTFSimilarity {
 }
 
 impl RawTFSimilarity {
-  /// Primary constructor
+  /// Creates a fully configured instance.
   pub fn with_discount_overlaps(discount_overlaps: bool) -> Self {
     Self { discount_overlaps }
   }

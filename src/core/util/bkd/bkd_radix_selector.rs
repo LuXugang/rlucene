@@ -96,7 +96,7 @@ impl BKDRadixSelector {
   const HISTOGRAM_SIZE: usize = 256;
   // size of the online buffer: 8 KB
   const MAX_SIZE_OFFLINE_BUFFER: usize = 1024 * 8;
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new(
     config: BKDConfig,
     max_points_sort_in_heap: usize,

@@ -38,12 +38,12 @@ const MAX_SKIP_INTERVAL: i32 = 8192;
 /// This comparator provides a skipping functionality – an iterator that can skip over
 /// non-competitive documents.
 ///
-/// The parameter `field` provided in the constructor is used as a field name in the default
+/// The `field` parameter supplied at creation is used as a field name in the default
 /// implementations of the methods `get_numeric_doc_values` and `get_point_values` to retrieve
 /// doc values and points.
 ///
 /// You can pass a dummy value for a field name (e.g. when sorting by script),
-/// but in this case you must override both of these methods.
+/// but in this case both methods must be provided.
 #[derive(Default)]
 pub struct NumericComparator<V>
 where

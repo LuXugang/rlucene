@@ -18,7 +18,7 @@ use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
 
-/// An interface defining the collection of postings information from the
+/// A trait defining the collection of postings information from the
 /// leaves of a [`Spans`](crate::queries::span::spans::Spans)
 ///
 /// @lucene.experimental

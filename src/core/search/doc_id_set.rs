@@ -34,7 +34,7 @@ pub trait DocIdSet: Accountable {
   // this is the opposite of what bits() is for now
   // (down-low filtering using e.g. FixedBitSet)
 
-  /// Optionally provides a [`Bits`] interface for random access to matching
+  /// Optionally provides a [`Bits`] view for random access to matching
   /// documents.
   ///
   /// # Returns
@@ -46,7 +46,7 @@ pub trait DocIdSet: Accountable {
   /// The default implementation does not provide random access, so you only
   /// need to implement this method if your [`DocIdSet`] can guarantee
   /// random access to every document ID in `O(1)` time without external
-  /// disk access (as the [`Bits`] interface cannot throw an `IOError`).
+  /// disk access because the [`Bits`] trait cannot return an I/O error.
   /// This is generally true for bit sets like
   /// [`FixedBitSet`](crate::core::util::fixed_bit_set::FixedBitSet),
   /// which return themselves if used as a [`DocIdSet`].

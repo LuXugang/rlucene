@@ -71,7 +71,7 @@ impl LatLonBoundingBox {
   ///
   /// # Arguments
   ///
-  /// - `name` - Field name. must not be null.
+  /// - `name` - Field name.
   /// - `min_lat` - Minimum latitude value (in degrees); valid in `[-90.0 : 90.0]`.
   /// - `min_lon` - Minimum longitude value (in degrees); valid in `[-180.0 : 180.0]`.
   /// - `max_lat` - Maximum latitude value (in degrees); valid in `[minLat : 90.0]`.
@@ -135,7 +135,7 @@ impl LatLonBoundingBox {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min_lat` - Minimum latitude value (in degrees); valid in `[-90.0 : 90.0]`.
   /// - `min_lon` - Minimum longitude value (in degrees); valid in `[-180.0 : 180.0]`.
   /// - `max_lat` - Maximum latitude value (in degrees); valid in `[minLat : 90.0]`.
@@ -169,7 +169,7 @@ impl LatLonBoundingBox {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min_lat` - Minimum latitude value (in degrees); valid in `[-90.0 : 90.0]`.
   /// - `min_lon` - Minimum longitude value (in degrees); valid in `[-180.0 : 180.0]`.
   /// - `max_lat` - Maximum latitude value (in degrees); valid in `[minLat : 90.0]`.
@@ -196,7 +196,7 @@ impl LatLonBoundingBox {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min_lat` - Minimum latitude value (in degrees); valid in `[-90.0 : 90.0]`.
   /// - `min_lon` - Minimum longitude value (in degrees); valid in `[-180.0 : 180.0]`.
   /// - `max_lat` - Maximum latitude value (in degrees); valid in `[minLat : 90.0]`.
@@ -230,7 +230,7 @@ impl LatLonBoundingBox {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min_lat` - Minimum latitude value (in degrees); valid in `[-90.0 : 90.0]`.
   /// - `min_lon` - Minimum longitude value (in degrees); valid in `[-180.0 : 180.0]`.
   /// - `max_lat` - Maximum latitude value (in degrees); valid in `[minLat : 90.0]`.

@@ -18,7 +18,7 @@ use crate::core::search::boost_attribute::{BoostAttribute, DEFAULT_BOOST};
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
-/// Implementation class for [`BoostAttribute`].
+/// Implementation of [`BoostAttribute`].
 pub struct BoostAttributeImpl {
   boost: f32,
 }

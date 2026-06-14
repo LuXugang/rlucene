@@ -30,7 +30,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 
 #[allow(dead_code)] // for quick search
 pub struct TestBinaryDocument;
-/// Tests {@link Document} class.
+/// Tests [`Document`].
 #[test]
 fn test_binary_field_in_index() -> Result<()> {
   let binary_val_stored = "this text will be stored as a byte array in the index";

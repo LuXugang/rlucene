@@ -32,7 +32,7 @@ pub trait OffsetAttribute: Attribute {
   ///
   /// # Errors
   ///
-  /// Implementations should throw errors if `start_offset` or `end_offset`
+  /// Implementations should return errors if `start_offset` or `end_offset`
   /// are negative, or if `start_offset > end_offset`.
   ///
   /// See also: [`Self::start_offset`], [`Self::end_offset`]

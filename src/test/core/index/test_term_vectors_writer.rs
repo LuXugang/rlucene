@@ -912,7 +912,7 @@ where
   doc.add(Field::new("field", "value1", ft1.clone()));
   doc.add(Field::new("field", "value1", ft2.clone()));
 
-  // ensure broken doc hits exception
+  // ensure broken doc hits error
   let err = iw.add_document(doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {

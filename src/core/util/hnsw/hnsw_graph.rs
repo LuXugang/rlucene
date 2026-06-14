@@ -337,7 +337,7 @@ pub struct ArrayNodesIterator {
 }
 
 impl ArrayNodesIterator {
-  /// Constructor for explicit node list (with partial length).
+  /// Creates explicit node list (with partial length).
   pub fn from_nodes(nodes: Option<Arc<Vec<usize>>>, size: usize) -> Self {
     debug_assert!(nodes.is_some());
     debug_assert!(size <= nodes.as_ref().unwrap().len());
@@ -348,7 +348,7 @@ impl ArrayNodesIterator {
     }
   }
 
-  /// Constructor for implicit index-based iteration (0..size).
+  /// Creates implicit index-based iteration (0..size).
   pub fn from_size(size: usize) -> Self {
     Self {
       nodes: None,

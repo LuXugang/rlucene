@@ -459,7 +459,7 @@ impl Bits for FixedBitSet {
     );
     let i = index >> 6;
     // signed shift will keep a negative index and force an
-    // array-index-out-of-bounds-exception, removing the need for an
+    // array-index-out-of-bounds-error, removing the need for an
     // explicit check.
     let bit_mask = 1_i64 << (index % 64);
     Ok((bit_mask & self.bits[i]) != 0)

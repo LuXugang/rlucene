@@ -32,7 +32,7 @@ use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
-/// Subclass of [`TermsEnum`] for enumerating all terms that are similar to the specified filter term.
+/// [`TermsEnum`] implementation that enumerates terms similar to the specified filter term.
 ///
 /// Term enumerations are always ordered by [`BytesRef::cmp`]. Each term in the
 /// enumeration is greater than all that precede it.
@@ -54,11 +54,11 @@ impl<T> FuzzyTermsEnum<T>
 where
   T: Terms,
 {
-  /// Constructor for enumeration of all terms from specified `reader` which share a
+  /// Creates enumeration of all terms from specified `reader` which share a
   /// prefix of length `prefixLength` with `term` and which have at most `maxEdits`
   /// edits.
   ///
-  /// After calling the constructor the enumeration is already pointing to the first valid term if
+  /// After creation, the enumeration already points to the first valid term if
   /// such a term exists.
   ///
   /// # Parameters
@@ -85,11 +85,11 @@ where
     })
   }
 
-  /// Constructor for enumeration of all terms from specified `reader` which share a
+  /// Creates enumeration of all terms from specified `reader` which share a
   /// prefix of length `prefixLength` with `term` and which have at most `maxEdits`
   /// edits.
   ///
-  /// After calling the constructor the enumeration is already pointing to the first valid term if
+  /// After creation, the enumeration already points to the first valid term if
   /// such a term exists.
   ///
   /// # Parameters

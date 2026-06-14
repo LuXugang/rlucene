@@ -1526,7 +1526,7 @@ fn test_wicked_long_term() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT IndexReader#do_close需要重新设计
+// TODO IMPORTANT IndexReader::do_close需要重新设计
 fn test_delete_all_nrt_leftover_files() -> Result<()> {
   let mut random = random();
 

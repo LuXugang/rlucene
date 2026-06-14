@@ -23,16 +23,16 @@ use crate::core::search::weight::Weight;
 /// and implement sorting or custom result filtering, collation, etc.
 ///
 /// Lucene's core collectors are derived from [`Collector`] and [`SimpleCollector`](crate::core::search::simple_collector::SimpleCollector).
-/// Likely your application can use one of these classes, or subclass [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector),
+/// Applications can usually use one of these collector types or implement [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector),
 /// instead of implementing Collector directly:
 ///
-/// - [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) is an abstract base class that assumes you will retrieve the top N
+/// - [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) is a base trait that assumes you will retrieve the top N
 ///   docs, according to some criteria, after collection is done.
-/// - `TopScoreDocCollector` is a concrete subclass [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts
+/// - `TopScoreDocCollector` implements [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts
 ///   according to score + docID. This is used internally by the [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search
 ///   methods that do not take an explicit `Sort`(crate::core::index::sort::Sort). It is likely the most frequently used
 ///   collector.
-/// - [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector) subclasses [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts according to a
+/// - [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector) implements [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts according to a
 ///   specified `Sort`(crate::core::index::sort::Sort) object (sort by field). This is used internally by the
 ///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search methods that take an explicit `Sort`(crate::core::index::sort::Sort).
 /// - [`PositiveScoresOnlyCollector`](crate::core::search::positive_scores_only_collector::PositiveScoresOnlyCollector) wraps any other Collector and prevents collection of

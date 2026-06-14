@@ -62,7 +62,7 @@ pub trait NormsConsumer {
   /// [`merge_norms_field`](NormsConsumer::merge_norms_field) for each field,
   /// filling segments with missing norms for the field with zeros.
   ///
-  /// Implementations can override this method for more sophisticated merging
+  /// Implementations can provide this method for more sophisticated merging.
   /// (e.g. bulk-byte copying).
   fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
   where

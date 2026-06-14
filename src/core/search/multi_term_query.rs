@@ -44,7 +44,7 @@ use std::fmt::Debug;
 /// An abstract [`Query`] that matches documents containing a subset of terms provided by a
 /// `FilteredTermsEnum` enumeration.
 ///
-/// This query cannot be used directly; you must subclass it and define
+/// This query cannot be used directly; implement the trait and define
 /// `MultiTermQuery::get_terms_enum` to provide a `FilteredTermsEnum` that iterates
 /// through the terms to be matched.
 ///
@@ -84,7 +84,7 @@ pub trait MultiTermQuery: QueryBase + Clone {
 
   fn to_query(&self) -> Query;
 }
-/// Abstract class that defines how the query is rewritten.
+/// Trait defining how the query is rewritten.
 pub trait RewriteMethod {
   fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
   where
@@ -129,7 +129,7 @@ impl RewriteMethod for ConstantScoreBlendedRewrite {
 ///
 /// This method is faster than the BooleanQuery rewrite methods when the number of matched terms
 /// or matched documents is non-trivial. Also, it will never hit an errant `IndexSearcher.TooManyClauses`
-/// exception.
+/// error.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreRewrite;
 impl RewriteMethod for ConstantScoreRewrite {

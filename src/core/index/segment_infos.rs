@@ -157,7 +157,7 @@ impl<D> SegmentInfos<D>
 where
   D: Directory,
 {
-  /// Sole constructor.
+  /// Creates a new instance.
   ///
   /// # Arguments
   /// - `index_created_version_major`: The Lucene version major at index
@@ -247,7 +247,7 @@ where
   pub fn get_id(&self) -> Option<&[u8; StringHelper::ID_LENGTH]> {
     self.id.as_ref()
   }
-  /// Read a particular `segmentFileName`. This may throw an error if a commit
+  /// Read a particular `segmentFileName`. This may return an error if a commit
   /// is in process.
   ///
   /// # Arguments
@@ -268,8 +268,8 @@ where
   /// is strictly greater than the provided minimum supported major version.
   ///
   /// If the commits version is older,
-  /// an [`IndexFormatTooOldException`](LuceneError::index_format_too_old)
-  /// will be thrown.
+  /// [`LuceneError::IndexFormatTooOld`]
+  /// will be returned.
   /// Note that this may return an `Err` if a commit is in process.
   pub fn read_commit_with_file_min_version(
     directory: Arc<D>,
@@ -651,7 +651,7 @@ where
       let mut min_segment_version: Option<Version> = None;
       // We do a separate loop up front so we can write the
       // minSegmentVersion before any SegmentInfo; this makes
-      // it cleaner to throw IndexFormatTooOldExc at read time:
+      // it cleaner to return IndexFormatTooOldExc at read time:
       for si_per_commit in self.segments.iter() {
         let segment_version = si_per_commit.info.version.clone();
         debug_assert!(segment_version.is_some());
@@ -826,7 +826,7 @@ where
         "",
         self.generation,
       ) {
-        // Suppress, so we keep throwing the original exception in our
+        // Suppress, so we keep returning the original error in our
         // caller
         IOUtils::delete_files_ignoring_exceptions(directory, std::iter::once(&pending));
       }
@@ -909,7 +909,7 @@ where
     }
   }
   /// Writes and syncs to the Directory, taking care to remove the segment
-  /// file on exception.
+  /// file on error.
   ///
   /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
   /// this method if changes have been made to this [`SegmentInfos`] instance.
@@ -1181,14 +1181,14 @@ pub trait FindSegmentsFile {
     let mut gen_: i64 = -1;
     let mut exc: Option<LuceneError> = None;
     // Loop until we succeed in calling doBody() without
-    // hitting an IOException.  An IOException most likely
+    // hitting an I/O error. An I/O error most likely
     // means an IW deleted our commit while opening
     // the time it took us to load the now-old infos files
     // (and segments files).  It's also possible it's a
     // true error (corrupt index).  To distinguish these,
     // on each retry we must see "forward progress" on
     // which generation we are trying to load.  If we
-    // don't, then the original error is real and we throw
+    // don't, then the original error is real and we return
     // it.
     let directory = self.get_directory_point();
     loop {
@@ -1244,7 +1244,7 @@ pub trait FindSegmentsFile {
     }
   }
   /// Sub struct must implement this.
-  /// The assumption is an error will be thrown if something goes wrong during the processing that could have been caused by a writer committing.
+  /// The assumption is an error will be returned if something goes wrong during the processing that could have been caused by a writer committing.
   fn do_body(&mut self, segment_file_name: &str) -> Result<Self::V>;
 }
 
@@ -1317,7 +1317,7 @@ pub fn get_last_commit_generation(files: &[String]) -> Result<i64> {
   let mut max = -1;
   for file in files {
     if file.starts_with(IndexFileNames::SEGMENTS)
-                // skipping this file here helps deliver the right exception when opening an old index
+                // skipping this file here helps deliver the right error when opening an old index
                 && !file.starts_with(OLD_SEGMENTS_GEN)
     {
       let gen_ = generation_from_segments_file_name(file)?;

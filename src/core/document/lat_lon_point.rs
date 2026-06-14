@@ -177,7 +177,7 @@ impl LatLonPoint {
     Ok(bytes)
   }
 
-  /// helper: checks a fieldinfo and throws exception if its definitely not a LatLonPoint
+  /// Checks field information and returns an error if it is definitely not a `LatLonPoint`.
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     // point/dv properties could be "unset", if you e.g. used only StoredField with this same name
     // in the segment.

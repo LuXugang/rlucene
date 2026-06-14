@@ -473,6 +473,6 @@ pub trait TimSorterBase: Sorter {
   fn restore(&mut self, i: usize, j: usize);
 
   /// Compare element `i` from the temporary storage with element `j` from the
-  /// slice to sort, similarly to #compare(i32, i32).
+  /// slice to sort, similarly to `compare`.
   fn compare_saved(&self, i: usize, j: usize) -> Result<i32>;
 }

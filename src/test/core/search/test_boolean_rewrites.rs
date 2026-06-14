@@ -124,7 +124,7 @@ fn test_single_filter_clause() -> Result<()> {
     _ => return Err(LuceneError::illegal_state("expected BoostQuery")),
   }
   // When there are two clauses, we cannot rewrite, but if one of them creates
-  // a null scorer we will end up with a single filter scorer and will need to
+  // an absent scorer we will end up with a single filter scorer and will need to
   // make sure to set score=0
   let mut query2 = Builder::new();
   query2.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;

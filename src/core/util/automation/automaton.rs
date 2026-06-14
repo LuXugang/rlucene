@@ -84,7 +84,7 @@ impl Automaton {
   pub fn new() -> Self {
     Self::with_capacity(2, 2)
   }
-  /// Constructor which creates an automaton with enough space for the given
+  /// Creates an automaton with enough space for the given
   /// number of states and transitions.
   ///
   /// Parameters:
@@ -606,7 +606,7 @@ impl Builder {
   pub fn new() -> Self {
     Self::with_capacity(16, 16)
   }
-  /// Constructor which creates a builder with enough space for the given
+  /// Creates a builder with enough space for the given
   /// number of states and transitions.
   ///
   /// Parameters:

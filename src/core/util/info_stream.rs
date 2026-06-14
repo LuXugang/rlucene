@@ -19,7 +19,7 @@ use std::sync::Arc;
 
 use std::sync::LazyLock;
 
-/// Debugging API for Lucene classes such as
+/// Debugging API for Lucene components such as
 /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter)
 /// and [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos).
 pub trait InfoStream: Send + Sync {
@@ -59,12 +59,12 @@ impl InfoStream for NoOutput {
   }
 }
 
-/// The default `InfoStream` used by a newly instantiated classes.
+/// The default `InfoStream` used by newly created types.
 pub fn get_default_info_stream() -> Arc<InfoStreamEnum> {
   DEFAULT_INFO_STREAM.clone()
 }
 
-/// Sets the default [`InfoStream`] used by a newly instantiated classes.
+/// Sets the default [`InfoStream`] used by newly created types.
 pub fn set_default(_info_stream: InfoStreamEnum) {
   todo!()
 }

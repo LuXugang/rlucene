@@ -33,7 +33,7 @@ pub type Disi<S> = DocIdSetIteratorEnum2<
   DisjunctionDISIApproximation<S>,
   TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>,
 >;
-/// Base class for Scorers that score disjunctions.
+/// Base trait for scorers that score disjunctions.
 pub struct DisjunctionScorer<S, T>
 where
   S: Scorer,

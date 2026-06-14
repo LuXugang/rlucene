@@ -72,7 +72,7 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
     D: 'a,
     I: 'a;
   /// Write the field for merging, providing a scorer over the newly merged flat vectors. This way
-  /// any additional merging logic can be implemented by the user of this class.
+  /// callers may implement any additional merging logic.
   ///
   /// # Arguments
   ///

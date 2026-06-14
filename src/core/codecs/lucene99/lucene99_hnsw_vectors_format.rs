@@ -118,7 +118,7 @@ impl Lucene99HnswVectorsFormat {
   /// - `max_conn`: the maximum number of connections to a node in the HNSW graph
   /// - `beam_width`: the size of the queue maintained during graph construction.
   /// - `num_merge_workers`: number of workers (threads) that will be used when doing merge. If
-  ///   larger than 1, a non-null `ExecutorService` must be passed as `merge_exec`
+  ///   larger than 1, a present `ExecutorService` must be passed as `merge_exec`
   ///
   /// # Errors
   ///

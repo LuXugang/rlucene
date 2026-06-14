@@ -28,7 +28,7 @@ use crate::core::util::error::lucene_error::Result;
 pub struct LogDocMergePolicy;
 
 impl LogDocMergePolicy {
-  /// Default minimum segment size. @see setMinMergeDocs
+  /// Default minimum segment size. See [`LogMergePolicy::set_min_merge_docs`].
   pub const DEFAULT_MIN_MERGE_DOCS: i32 = 1000;
 }
 
@@ -48,7 +48,7 @@ impl LogMergePolicyBase for LogDocMergePolicy {
 }
 
 impl LogMergePolicy<LogDocMergePolicy> {
-  /// Sole constructor, setting all settings to their defaults.
+  /// Creates a new instance with default settings.
   pub fn log_doc() -> Self {
     let base = MergePolicyBase::new(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE);
     let mut mp = LogMergePolicy {
@@ -83,7 +83,7 @@ impl LogMergePolicy<LogDocMergePolicy> {
 
   /// Get the minimum size for a segment to remain un-merged.
   ///
-  /// @see `LogMergePolicy::<LogDocMergePolicy>::set_min_merge_docs` *
+  /// See also [`Self::set_min_merge_docs`].
   pub fn get_min_merge_docs(&self) -> i32 {
     self.min_merge_size as i32
   }

@@ -62,7 +62,7 @@ use crate::core::util::error::lucene_error::Result;
 ///   A position is an integer indicating where the term occurs within one document. A payload is a blob of
 ///   metadata associated with current position. An offset is a pair of integers indicating the tokenized
 ///   start/end offsets for given term in current position: it is essentially a specialized payload.
-///   When payloads and offsets are not omitted, numPositions==numPayloads==numOffsets (assuming a null
+///   When payloads and offsets are not omitted, numPositions==numPayloads==numOffsets (assuming a missing
 ///   payload contributes one count). As mentioned in block structure, it is possible to encode these three
 ///   either combined or separately.
 ///   In all cases, payloads and offsets are stored together. When encoded as a packed block, position data is

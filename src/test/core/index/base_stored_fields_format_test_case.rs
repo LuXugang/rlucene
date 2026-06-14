@@ -57,9 +57,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::thread;
 
-/// Base class aiming at testing [`StoredFieldsFormat`] stored fields formats. To test a new
-/// format, all you need is to register a new [`Codec`] which uses it and extend this class and
-/// override [`Self::get_codec`].
+/// Base test support for [`StoredFieldsFormat`] implementations. To test a new format, register a
+/// [`Codec`] that uses it, implement this trait, and implement [`Self::get_codec`].
 pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   fn test_random_stored_fields<R>(&self, random: &mut R) -> Result<()>
   where

@@ -161,7 +161,7 @@ where
   let mut starts: Vec<usize> = Vec::with_capacity(size + 1);
 
   for ctx in leaves {
-    // record all liveDocs, even if they are null
+    // record all liveDocs, even if they are None
     live_docs.push(ctx.reader().get_live_docs()?);
     starts.push(ctx.doc_base);
   }

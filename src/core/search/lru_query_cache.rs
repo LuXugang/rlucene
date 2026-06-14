@@ -83,7 +83,7 @@ use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 ///
 ///
 /// In case you would like to have more fine-grained statistics, such as per-index or
-/// per-query-class statistics, it is possible to override various callbacks:
+/// per-query-type statistics, customize the following callbacks:
 /// [`on_hit`](LRUQueryCache::on_hit), [`on_miss`](LRUQueryCache::on_miss), [`on_query_cache`](LRUQueryCache::on_query_cache), [`on_query_eviction`](LRUQueryCache::on_query_eviction),
 /// [`on_docidset_cache`](LRUQueryCache::on_doc_id_set_cache), [`on_docidset_eviction`](LRUQueryCache::on_doc_id_set_eviction) and [`on_clear`](LRUQueryCache::on_clear).
 ///
@@ -105,7 +105,7 @@ where
   skip_cache_factor: f32,
   hit_count: AtomicU64,
   miss_count: AtomicU64,
-  // these variables are volatile so that we do not need to sync reads
+  // These atomics avoid locking reads.
   // but increments need to be performed under the lock
   ram_bytes_used: AtomicI64,
   cache_count: AtomicI64,

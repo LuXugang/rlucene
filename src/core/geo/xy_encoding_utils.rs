@@ -36,46 +36,28 @@ impl XYEncodingUtils {
     Ok(x)
   }
 
-  /**
-   * Quantizes double (64 bit) values into 32 bits
-   *
-   * @param x cartesian value
-   * @return encoded value as a 32-bit `i32`
-   * @throws IllegalArgumentException if value is out of bounds
-   */
+  /// Quantizes a Cartesian value into a 32-bit integer.
+  ///
+  /// # Errors
+  ///
+  /// Returns [`LuceneError::IllegalArgument`] if `x` is out of bounds.
   pub fn encode(x: f32) -> Result<i32> {
     Ok(NumericUtils::float_to_sortable_int(Self::check_val(x)?))
   }
 
-  /**
-   * Turns quantized value from `encode` back into a double.
-   *
-   * @param encoded encoded value: 32-bit quantized value.
-   * @return decoded value.
-   */
+  /// Decodes a 32-bit quantized value produced by [`Self::encode`].
   pub fn decode(encoded: i32) -> f32 {
     let result = NumericUtils::sortable_int_to_float(encoded);
     debug_assert!(result >= Self::MIN_VAL_INCL as f32 && result <= Self::MAX_VAL_INCL as f32);
     result
   }
 
-  /**
-   * Turns quantized value from byte array back into a double.
-   *
-   * @param src byte array containing 4 bytes to decode at `offset`
-   * @param offset offset into `src` to decode from.
-   * @return decoded value.
-   */
+  /// Decodes four bytes from `src` starting at `offset`.
   pub fn decode_bytes(src: &[u8], offset: usize) -> f32 {
     Self::decode(NumericUtils::sortable_bytes_to_int(src, offset))
   }
 
-  /**
-   * Convert an array of `f32` numbers to `f64` numbers.
-   *
-   * @param f The input floats
-   * @return Corresponding double array.
-   */
+  /// Converts a slice of `f32` values into `f64` values.
   pub fn float_array_to_double_array(f: &[f32]) -> Vec<f64> {
     f.iter().map(|&x| x as f64).collect()
   }

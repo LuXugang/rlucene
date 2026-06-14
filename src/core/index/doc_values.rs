@@ -74,7 +74,7 @@ impl DocValues {
 
   /// Returns a single-valued view of the SortedSetDocValues, if it was
   /// previously wrapped with
-  /// [`singleton_sorted`](DocValues::singleton_sorted), or null.
+  /// [`singleton_sorted`](DocValues::singleton_sorted), or None.
   pub fn unwrap_singleton_sorted<S>(dv: &mut S) -> Result<S::SortedDocValues>
   where
     S: SortedSetDocValues,
@@ -84,7 +84,7 @@ impl DocValues {
 
   /// Returns a single-valued view of the SortedNumericDocValues, if it was
   /// previously wrapped with
-  /// [`singleton_numeric`](DocValues::singleton_numeric), or null.
+  /// [`singleton_numeric`](DocValues::singleton_numeric), or None.
   pub fn unwrap_singleton_numeric<SN>(dv: &mut SN) -> Result<SN::NumericDocValues>
   where
     SN: SortedNumericDocValues,
@@ -126,8 +126,8 @@ impl DocValues {
   ///
   /// # Error
   ///
-  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
+  /// - [`LuceneError::IllegalState`] if `field` exists but was not indexed with doc values.  
+  /// - [`LuceneError::IllegalState`] if `field` has doc values but the type is not [`DocValuesType::Numeric`].  
   pub fn get_numeric<LR>(reader: &LR, field: &str) -> Result<Numeric<LR>>
   where
     LR: LeafReader,
@@ -148,8 +148,8 @@ impl DocValues {
   ///
   /// # Error
   ///
-  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Binary`].  
+  /// - [`LuceneError::IllegalState`] if `field` exists but was not indexed with doc values.  
+  /// - [`LuceneError::IllegalState`] if `field` has doc values but the type is not [`DocValuesType::Binary`].  
   pub fn get_binary<LR>(reader: &LR, field: &str) -> Result<Binary<LR>>
   where
     LR: LeafReader,
@@ -170,8 +170,8 @@ impl DocValues {
   ///
   /// # Error
   ///
-  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
+  /// - [`LuceneError::IllegalState`] if `field` exists but was not indexed with doc values.  
+  /// - [`LuceneError::IllegalState`] if `field` has doc values but the type is not [`DocValuesType::Sorted`].  
   pub fn get_sorted<LR>(reader: &LR, field: &str) -> Result<Sorted<LR>>
   where
     LR: LeafReader,
@@ -192,8 +192,8 @@ impl DocValues {
   ///
   /// # Error
   ///
-  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
+  /// - [`LuceneError::IllegalState`] if `field` exists but was not indexed with doc values.  
+  /// - [`LuceneError::IllegalState`] if `field` has doc values but the type is not [`DocValuesType::SortedNumeric`] or [`DocValuesType::Numeric`].  
   pub fn get_sorted_numeric<LR>(reader: &LR, field: &str) -> Result<SortedNumeric<LR>>
   where
     LR: LeafReader,
@@ -220,8 +220,8 @@ impl DocValues {
   ///
   /// # Error
   ///
-  /// - IllegalStateException if `field` exists but was not indexed with doc values.  
-  /// - IllegalStateException if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
+  /// - [`LuceneError::IllegalState`] if `field` exists but was not indexed with doc values.  
+  /// - [`LuceneError::IllegalState`] if `field` has doc values but the type is not [`DocValuesType::SortedSet`] or [`DocValuesType::Sorted`].  
   pub fn get_sorted_set<LR>(reader: &LR, field: &str) -> Result<SortedSet<LR>>
   where
     LR: LeafReader,

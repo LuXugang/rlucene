@@ -28,13 +28,13 @@ pub enum IndexOptions {
   /// Not indexed
   None,
   /// Only documents are indexed: term frequencies and positions are omitted.
-  /// Phrase and other positional queries on the field will throw an
-  /// exception, and scoring will behave as if any term in the document
+  /// Phrase and other positional queries on the field will return an
+  /// error, and scoring will behave as if any term in the document
   /// appears only once.
   Docs,
   /// Only documents and term frequencies are indexed: positions are omitted.
   /// This enables normal scoring, but Phrase and other positional queries
-  /// will throw an Error.
+  /// will return an Error.
   DocsAndFreqs,
   /// Indexes documents, frequencies, and positions.
   /// This is the typical default for full-text search: full scoring is

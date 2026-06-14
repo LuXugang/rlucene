@@ -42,7 +42,7 @@ macro_rules! close_objects {
 
 pub struct IOUtils;
 impl IOUtils {
-  /// Deletes all given files, suppressing all thrown errors.
+  /// Deletes all given files, suppressing all returned errors.
   ///
   /// Note: The `files` collection should not be empty or contain `None`.
   pub fn delete_files_ignoring_exceptions<'a, T>(dir: &impl Directory, files: T)

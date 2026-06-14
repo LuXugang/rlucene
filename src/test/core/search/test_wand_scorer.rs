@@ -948,7 +948,7 @@ fn test_random() -> Result<()> {
   w.close()?;
 
   // turn off concurrent search to avoid Random object used across threads resulting into
-  // RuntimeException, as WANDScorerQuery#createWeight has reference to this searcher,
+  // Runtime error because `WANDScorerQuery::create_weight` references this searcher,
   // but will be called during searching
   let searcher = new_searcher_with_threads(&mut random, reader, true, true, false)?;
 
@@ -1011,7 +1011,7 @@ fn test_random_with_zero_scores() -> Result<()> {
   w.close()?;
 
   // turn off concurrent search to avoid Random object used across threads resulting into
-  // RuntimeException, as WANDScorerQuery#createWeight has reference to this searcher,
+  // Runtime error because `WANDScorerQuery::create_weight` references this searcher,
   // but will be called during searching
   let searcher = new_searcher_with_threads(&mut random, reader, true, true, false)?;
 
@@ -1084,7 +1084,7 @@ fn do_test_random_special_max_score(max_score: f32) -> Result<()> {
   w.close()?;
 
   // turn off concurrent search to avoid Random object used across threads resulting into
-  // RuntimeException, as WANDScorerQuery::create_weight has reference to this searcher,
+  // Runtime error because `WANDScorerQuery::create_weight` references this searcher,
   // but will be called during searching
   let searcher = new_searcher_with_threads(&mut random, reader, true, true, false)?;
 

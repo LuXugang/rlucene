@@ -19,7 +19,7 @@ use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
 use crate::core::index::terms_enum::TermsEnum;
-/// SubStruct of `FilteredTermsEnum` for enumerating a single term.
+/// `FilteredTermsEnum` implementation for enumerating a single term.
 ///
 /// For example, this can be used by [`MultiTermQuery`](crate::core::search::multi_term_query::MultiTermQuery)s that need only visit one term, but
 /// want to preserve `MultiTermQuery` semantics such as `MultiTermQuery::get_rewrite_method`.

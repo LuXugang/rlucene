@@ -23,7 +23,7 @@ pub type FieldsValue = FieldComparatorValue;
 /// In addition to the document number and score, this object contains an array of values for the
 /// document from the field(s) used to sort. For example, if the sort criteria was to sort by fields
 /// `"a"`, `"b"` then `"c"`, the `fields` object array will have three elements, corresponding
-/// respectively to the term values for the document in fields `"a"`, `"b"` and `"c"`. The class of
+/// respectively to the term values for the document in fields `"a"`, `"b"` and `"c"`. The type of
 /// each element in the array will be either `Integer`, `Float` or `String` depending on the type of
 /// values in the terms of each field.
 ///

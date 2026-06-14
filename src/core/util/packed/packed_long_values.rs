@@ -166,7 +166,7 @@ impl LongValues for PackedLongValues {
   }
 }
 
-/// A Builder for a {@link PackedLongValues} instance.
+/// Builder for a [`PackedLongValues`] instance.
 #[derive(Default)]
 pub struct PackedLongValuesBuilder {
   pub(crate) page_shift: i32,

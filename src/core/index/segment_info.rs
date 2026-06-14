@@ -55,7 +55,7 @@ where
   /// Tracks the Lucene version this segment was created with, since 3.1.
   /// Null indicates an older than 3.0 index, and it's used to detect a
   /// too-old index. The format expected is "x.y" - "2.x" for pre-3.0
-  /// indexes (or null), and specific versions afterward ("3.0.0",
+  /// indexes (or None), and specific versions afterward ("3.0.0",
   /// "3.1.0" etc.). See `Version` for details.
   pub(crate) version: Option<Version>,
   /// Tracks the minimum version that contributed documents to a segment.
@@ -419,7 +419,7 @@ where
   pub fn put_attribute(&mut self, key: String, value: String) -> Option<String> {
     // This needs to be thread-safe because multiple threads may be updating
     // (different) attributes at the same time due to concurrent
-    // merging, plus some threads may be calling toString() on
+    // merging, while other threads may be formatting
     // segment info while other threads are updating attributes.
     self.attributes.insert(key, value)
   }

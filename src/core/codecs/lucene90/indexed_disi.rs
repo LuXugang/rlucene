@@ -126,7 +126,7 @@ where
   /// Constructs a new `IndexedDISI` instance by reading from the backing
   /// input data.
   ///
-  /// This constructor always creates a new `block_slice` and a new
+  /// This method always creates a new `block_slice` and a new
   /// `jump_table` from the input, to ensure that operations are
   /// independent from the caller. For re-using existing slices and
   /// tables, see [`IndexedDISI::from_components`] (if implemented).
@@ -999,7 +999,7 @@ where
 }
 
 // Creates a DENSE rank-entry (the number of set bits up to a given point)
-// for the buffer. One rank-entry for every {@code 2^denseRankPower}
+// for the buffer. One rank entry for every `2^dense_rank_power`.
 // bits, with each rank-entry using 2 bytes. Represented as a byte[] for
 // fast flushing and mirroring of the retrieval representation.
 fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {

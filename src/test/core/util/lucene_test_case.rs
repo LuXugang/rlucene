@@ -505,7 +505,7 @@ pub mod lucene_test_case_util {
   }
   // TODO: if we can pull out the "make term vector options
   // consistent across all instances of the same field name"
-  // write-once schema sort of helper class then we can
+  // write-once schema helper type, then we can
   // remove the sync here.  We can also fold the random
   // "enable norms" (now commented out, below) into that:
   pub(crate) fn new_field_with_random<S, R>(
@@ -838,8 +838,8 @@ pub mod lucene_test_case_util {
   }
 
   /// Creates a copy of the incoming bytes slice that sometimes uses a non-zero
-  /// {@code offset}, and non-zero end-padding, to tickle latent bugs that fail to
-  /// look at {@code BytesRef.offset}.
+  /// `offset`, and non-zero end-padding, to expose latent bugs that fail to
+  /// account for `BytesRef::offset`.
   pub(crate) fn new_bytes_ref<R, AV>(
     random: &mut R,
     bytes_in: &[u8],

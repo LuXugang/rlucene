@@ -322,7 +322,7 @@ pub struct Builder {
 }
 
 impl Builder {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new<T>(field: T) -> Self
   where
     T: Into<String>,

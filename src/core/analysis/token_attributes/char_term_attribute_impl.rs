@@ -35,7 +35,7 @@ where
 {
   term_buffer: Vec<char>,
   term_length: usize,
-  /// May be used by subclasses to convert to different charsets / encodings for implementing [`get_bytes_ref`](Self::get_bytes_ref).
+  /// Implementations may use this to convert to other character sets or encodings when implementing [`get_bytes_ref`](Self::get_bytes_ref).
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
   pub(crate) sub: T,
   #[cfg(debug_assertions)]

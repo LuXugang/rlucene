@@ -38,7 +38,7 @@ pub struct AssertingQuery {
 }
 
 impl AssertingQuery {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub(crate) fn new<R, Q>(random: &mut R, query: Q) -> Self
   where
     R: Rng + ?Sized,

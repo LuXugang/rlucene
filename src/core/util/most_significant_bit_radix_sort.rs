@@ -45,7 +45,7 @@ impl<T> MSBRadixSorter<T>
 where
   T: MSBRadixSorterBase,
 {
-  /// Sole constructor.
+  /// Creates a new instance.
   ///
   /// # Parameters
   /// - `max_length`: The maximum length of keys. Pass `i32::MAX` if unknown.

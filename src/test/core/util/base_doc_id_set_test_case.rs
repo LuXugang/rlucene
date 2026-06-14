@@ -66,7 +66,7 @@ pub trait BaseDocIdSetTestCase {
     let copy = self.copy_of(&bs, 2)?;
     self.assert_equals(random, 2, &bs, copy)
   }
-  /// Compare the content of the set against a {@link BitSet}.
+  /// Compares the contents of the set against a [`BitSet`].
   fn test_against_bit_set<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

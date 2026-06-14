@@ -354,9 +354,11 @@ where
     Ok(())
   }
 
-  /// @param graph Write the graph in a compressed format
-  /// @return The non-cumulative offsets for the nodes. Should be used to create cumulative offsets.
-  /// @throws IOException if writing to vectorIndex fails
+  /// Writes `graph` in compressed form and returns non-cumulative node offsets.
+  ///
+  /// # Errors
+  ///
+  /// Returns an I/O error if writing to `vector_index` fails.
   fn write_graph(
     vector_index: &mut O,
     graph: Option<&mut OnHeapHnswGraph>,

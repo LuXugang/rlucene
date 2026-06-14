@@ -136,7 +136,7 @@ where
       other.length,
     )
   }
-  /// Performs internal consistency checks. Always returns `true` (or throws
+  /// Performs internal consistency checks. Always returns `true` (or returns
   /// `IllegalStateError`).
   pub fn is_valid(&self) -> Result<bool> {
     self.bytes.access(|bytes| {

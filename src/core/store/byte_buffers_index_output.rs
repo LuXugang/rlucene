@@ -123,7 +123,7 @@ impl IndexOutput for ByteBuffersIndexOutput<'_> {
       let (length, mut data) = self.delegate.to_buffer_list_ref();
       if let Some(last_block) = data.pop() {
         //  block length was limited by
-        // ByteBuffersDataOutput#LIMIT_MAX_BITS_PER_BLOCK
+        // ByteBuffersDataOutput::LIMIT_MAX_BITS_PER_BLOCK
         debug_assert!(last_block.get_ref().len() <= u32::MAX as usize);
         let mut last_block_len = length;
         for block in data {

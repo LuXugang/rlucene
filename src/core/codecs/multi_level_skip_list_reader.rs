@@ -39,7 +39,7 @@ where
 
   /// skipStream for each level.
   // TODO: if IndexInput impl Default , we could use Default for padding when
-  // we need take ownership in `#load_skip_levels` then there no need
+  // Take ownership in `load_skip_levels`; then there is no need
   // wrap with `Option`
   skip_stream: Vec<Option<I>>,
 
@@ -289,7 +289,7 @@ pub(crate) trait MultiLevelSkipListReaderAbstract {
 }
 #[allow(dead_code)]
 pub(crate) trait MultiLevelSkipListReaderBase {
-  /// SubStruct must implement the actual skip data encoding in this method.
+  /// Implementations must provide the actual skip-data encoding in this method.
   ///
   /// Parameters:
   /// - `level`: the level skip data shall be read from

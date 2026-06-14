@@ -81,7 +81,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns an error if an error occurs while reading from the merge state.
+  /// Returns an error if reading from the merge state fails.
   fn create_builder<KV, R, D>(
     &mut self,
     merged_vector_values: &mut KV,
@@ -169,7 +169,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns an error if an error occurs while reading from the merge state.
+  /// Returns an error if reading from the merge state fails.
   fn get_new_ord_mapping<KV, R, D>(
     &self,
     merged_vector_values: &mut KV,

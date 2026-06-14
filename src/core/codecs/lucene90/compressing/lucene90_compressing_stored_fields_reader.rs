@@ -617,7 +617,7 @@ where
     if result.is_err() {
       // if the read failed, set chunkDocs to 0 so that it does not
       // contain any docs anymore and is not reused. This should help
-      // get consistent exceptions when trying to get several
+      // get consistent errors when trying to get several
       // documents which are in the same corrupted block since it will
       // force the header to be decoded again
       self.chunk_docs = 0;

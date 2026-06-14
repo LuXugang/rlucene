@@ -159,7 +159,7 @@ where
     // newWriter() adds the DWPT to the `dwpts` set as a side-effect. However it is not added to
     // `freeList` at this point, it will be added later on once DocumentsWriter has indexed a
     // document into this DWPT and then gives it back to the pool by calling
-    // #marksAsFreeAndUnlock.
+    // `marks_as_free_and_unlock`.
     self.new_writer(writer, delete_queue_supplier)
   }
 

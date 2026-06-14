@@ -65,7 +65,7 @@ impl DocIdsWriter {
   pub fn new(max_points_in_leaf: usize) -> Self {
     let mut scratch_ints_ref = IntsRef::default();
     {
-      // This is here to not rely on the default constructor of IntsRef to
+      // This avoids relying on `IntsRef::default` to
       // set1 offset to 0
       scratch_ints_ref.offset = 0;
     }

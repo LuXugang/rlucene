@@ -117,7 +117,7 @@ fn test_add_and_update_term() -> Result<()> {
   let mut byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
   let mut base = hash.base.take().unwrap();
   base.start(&dummy_filed, true, &mut byte_pool)?;
-  // Pass `None` for the field as in the Java version (null)
+  // Pass `None` for the field as in the Java version (None)
   let mut int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(Arc::new(
     AtomicCounter::new(),
   )));

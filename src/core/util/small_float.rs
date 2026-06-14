@@ -58,7 +58,7 @@ impl SmallFloat {
   }
   /// Converts an 8-bit float to a 32-bit float.
   pub fn byte_to_float(b: u8, num_mantissa_bits: i32, zero_exp: i32) -> f32 {
-    // on Java1.5 & 1.6 JVMs, prebuilding a decoding array and doing a
+    // Prebuilding a decoding array and using a
     // lookup is only a little bit faster (anywhere from 0% to 7%)
     if b == 0 {
       return 0.0f32;

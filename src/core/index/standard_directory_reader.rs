@@ -745,7 +745,7 @@ where
       )?;
       readers.push(Arc::new(reader));
     }
-    // This may throw CorruptIndexException if there are too many docs, so
+    // This may return `LuceneError::CorruptIndex` if there are too many documents, so
     // it must be inside try clause so we close readers in that case:
     let reader = StandardDirectoryReader::new(
       self.directory.clone(),

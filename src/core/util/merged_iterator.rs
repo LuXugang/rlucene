@@ -28,7 +28,7 @@ use crate::core::util::ToInt;
 /// # Caveats
 ///
 /// - The behavior is undefined if the iterators are not actually sorted.
-/// - `None` (null) elements are unsupported.
+/// - `None` elements are unsupported.
 /// - If `remove_duplicates` is set to `true` and a single iterator itself contains duplicates,
 ///   those duplicates will **not** be deduplicated.
 /// - When elements are deduplicated, it is not defined which instance is returned.

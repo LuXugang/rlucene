@@ -28,7 +28,7 @@ pub struct Explanation {
 }
 
 impl Explanation {
-  /// Internal constructor, equivalent to private constructor in Java
+  /// Internal creation method, equivalent to a private Java constructor.
   fn new<N, S>(matched: bool, value: N, description: S, details: Vec<Explanation>) -> Self
   where
     N: Into<Number>,

@@ -31,7 +31,7 @@ pub struct BinaryRangeDocValues<T: BinaryDocValues> {
 }
 
 impl<T: BinaryDocValues> BinaryRangeDocValues<T> {
-  /// Constructor for BinaryRangeDocValues
+  /// Creates BinaryRangeDocValues
   ///
   /// - `inner`: the binary doc values source field
   /// - `num_dims`: the number of dimensions in each doc values field

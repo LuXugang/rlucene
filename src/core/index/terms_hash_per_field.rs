@@ -47,7 +47,7 @@ pub struct TermsHashPerField {
   // bytePool above the address is updated once data is written to the
   // stream to point to the next free offset in the terms stream. The
   // start address for the stream is stored in postingsArray.
-  // byteStarts[termId] This is initialized in the #addTerm method,
+  // `byte_starts[term_id]` is initialized in `add_term`,
   // either to a brand new per term stream if the term is new or
   // to the addresses where the term stream was written to when we saw it the
   // last time.    term_stream_address_buffer: Vec<i32>,

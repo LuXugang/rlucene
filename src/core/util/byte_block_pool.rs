@@ -26,8 +26,8 @@ use crate::core::util::{SliceCopyOps, TryIntoInt};
 /// management as part of a buffer array. Allocation is done through the use of
 /// an [`AllocatorByte`] which can
 /// be customized, e.g., to allow recycling old buffers. There are methods for
-/// writing ([`append`](#method.append)) and reading from the buffers (e.g.,
-/// [`read_bytes`](#method.read_bytes)), which handle read/write operations
+/// writing ([`append`](Self::append)) and reading from the buffers (for example,
+/// [`read_bytes`](Self::read_bytes)), which handle read/write operations
 /// across buffer boundaries.
 ///
 /// # Note
@@ -76,9 +76,9 @@ impl ByteBlockPool {
   /// * `zero_fill_buffers` - If `true`, the buffers are filled with `0`. This
   ///   should be set to `true` if this pool is used with slices.
   /// * `reuse_first` - If `true`, the first buffer will be reused, and
-  ///   calling [`ByteBlockPool::next_buffer`](#method.next_buffer) is not
+  ///   calling [`ByteBlockPool::next_buffer`] is not
   ///   needed after reset, if the block pool was used before (i.e.,
-  ///   [`ByteBlockPool::next_buffer`](#method.next_buffer) was called
+  ///   [`ByteBlockPool::next_buffer`] was called
   ///   before).
   pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
     if let Some(buffer_upto) = self.buffer_upto {
@@ -109,8 +109,8 @@ impl ByteBlockPool {
     }
   }
   /// Allocates a new buffer and advances the pool to it. This method should
-  /// be called once after the constructor to initialize the pool. In
-  /// contrast to the constructor, a [`ByteBlockPool::reset`](#method.
+  /// be called once after creation to initialize the pool. In contrast to
+  /// initialization, [`ByteBlockPool::reset`](Self::reset)
   /// reset) call will advance the pool to its first buffer immediately.
   pub fn next_buffer(&mut self) -> Result<usize> {
     let next_upto = match self.buffer_upto {
@@ -143,7 +143,7 @@ impl ByteBlockPool {
   /// In Java, the length of result is adjusted through BytesRefBuilder,
   /// whereas in Rust Lucene, to avoid copying, we operate directly on result.
   ///
-  /// However, we still retain the interface definitions from Java Lucene to
+  /// However, we retain the corresponding trait definitions from Java Lucene to
   /// maintain consistency with the original implementation as much as
   /// possible.
   pub fn set_bytes_ref<AV>(

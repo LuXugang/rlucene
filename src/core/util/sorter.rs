@@ -18,7 +18,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Base struct for sorting algorithm implementations.
 ///
-/// There are a number of SubStruct to choose from that vary in performance and [stability](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability).
+/// Several implementations are available with different performance and [stability](https://en.wikipedia.org/wiki/Sorting_algorithm#Stability) characteristics.
 /// We suggest that you pick the first from this ranked list that meets your
 /// requirements:
 ///
@@ -56,7 +56,7 @@ pub trait Sorter {
     ))
   }
 
-  /// Compare the pivot with the slot at j, similarly to `#compare(i32, i32)`
+  /// Compares the pivot with slot `j`, similarly to [`Self::compare`].
   /// compare(i, j).
   fn compare_pivot(&mut self, _i: usize) -> Result<i32> {
     Err(LuceneError::illegal_state(

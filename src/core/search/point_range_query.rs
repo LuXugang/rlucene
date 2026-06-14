@@ -62,7 +62,7 @@ use std::sync::Arc;
 /// Struct for range queries over single- or multi-dimensional point fields,
 /// such as [`IntPoint`](crate::core::document::int_point::IntPoint).
 ///
-/// This type is intended for subclasses and works directly on the underlying
+/// This type is intended for query implementations and works directly on the underlying
 /// binary encoding. For Lucene's standard point types, use the factory methods
 /// on those types instead—for example, [`IntPoint::new_range_query`](crate::core::document::int_point::IntPoint::new_range_query) for fields
 /// indexed with [`IntPoint`](crate::core::document::int_point::IntPoint).
@@ -462,8 +462,8 @@ where
             .compare(&q.upper_point, offset, field_packed_lower.as_ref(), offset)
             < 0
         {
-          // If this query is a required clause of a boolean query, then returning null here
-          // will help make sure that we don't call ScorerSupplier#get on other required clauses
+          // If this query is a required clause of a boolean query, then returning None here
+          // This ensures that we do not call `ScorerSupplier::get` on other required clauses.
           // of the same boolean query, which is an expensive operation for some queries (e.g.
           // multi-term queries).
           return Ok(None);

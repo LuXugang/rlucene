@@ -58,7 +58,7 @@ where
     k: usize,
     mut max_depth: i32,
   ) -> Result<()> {
-    // This code is inspired from IntroSorter#sort, adapted to loop on a
+    // This code is adapted from `IntroSorter::sort` to loop on a
     // single partition.
 
     // For efficiency, we must enter the loop with at least 4 entries to be

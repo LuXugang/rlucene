@@ -57,7 +57,7 @@ where
   // This is a "write once" variable (like the organic dye
   // on a DVD-R that may or may not be heated by a laser and
   // then cooled to permanently record the event): it's
-  // false, by default until {@link #enableReaderPooling()}
+  // false by default until reader pooling is enabled.
   // is called for the first time,
   // at which point it's switched to true and never changes
   // back to false.  Once this is true, we hold open and
@@ -65,7 +65,7 @@ where
   // deletes, doing merges, and reopening near real-time
   // readers.
   // in practice this should be called once the readers are likely
-  // to be needed and reused ie if IndexWriter#getReader is called.
+  // to be needed and reused, for example when `IndexWriter::get_reader` is called.
   pool_readers: AtomicBool,
   inner: Mutex<Inner<D>>,
   completed_del_gen_supplier: F,
@@ -322,7 +322,7 @@ where
     let copy: Vec<Arc<ReadersAndUpdates<D>>> = {
       let inner = self.inner.lock();
       // this needs to be protected by the reader pool lock otherwise we hit
-      // ConcurrentModificationException
+      // concurrent-modification error
       inner.reader_map.values().cloned().collect()
     };
 

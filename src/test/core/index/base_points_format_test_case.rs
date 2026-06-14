@@ -198,7 +198,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
   }
 
   fn test_with_exceptions(&self) -> Result<()> {
-    // TODO IMPORTANT: MockDirectoryWrapper and random IO exception injection are not implemented yet.
+    // TODO IMPORTANT: MockDirectoryWrapper and random IO error injection are not implemented yet.
     Ok(())
   }
 

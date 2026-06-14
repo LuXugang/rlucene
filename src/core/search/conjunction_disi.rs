@@ -120,7 +120,7 @@ where
       return Ok(doc);
     }
   }
-  // Returns {@code true} if all sub-iterators are on the same doc ID, {@code false} otherwise
+  // Returns `true` if all sub-iterators are on the same document ID, `false` otherwise.
   fn assert_iters_on_same_doc(&self) -> bool {
     let cur_doc = self.all_disi[self.lead1].doc_id();
     let mut iterators_on_the_same_doc = self.all_disi[self.lead2].doc_id() == cur_doc;

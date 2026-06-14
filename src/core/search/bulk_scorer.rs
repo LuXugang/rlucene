@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 /// This trait is used to score a range of documents at once, and is returned by [`Weight::bulk_scorer`](crate::core::search::weight::Weight::bulk_scorer).
 ///
 /// Only queries that have a more optimized means of scoring across a range of
-/// documents need to override this. Otherwise, a default implementation is
+/// documents need to provide this method. Otherwise, a default implementation is
 /// wrapped around the `Scorer` returned by [`Weight::scorer`](crate::core::search::weight::Weight::bulk_scorer).
 pub trait BulkScorer {
   /// Collects matching documents in a range and returns an estimation of the

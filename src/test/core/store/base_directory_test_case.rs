@@ -1233,7 +1233,7 @@ pub trait BaseDirectoryTestCase {
 
     let fsdir = self.get_directory(path.clone())?;
 
-    // Ensure the directory is an FSDirectory subclass
+    // Ensure the directory is an FSDirectory implementation.
     if !fsdir.is_fs_directory() {
       // This test only applies to FSDirectory-like implementations
       return Ok(());
@@ -2008,7 +2008,7 @@ pub trait BaseDirectoryTestCase {
     let iterations = at_least_usize(random, 100);
     Self::do_test_group_vint(&dir1, &dir2, random, iterations, 1, 31, 128)?;
 
-    // BaseChunkedDirectoryTestCase#testGroupVIntMultiBlocks covers multiple
+    // BaseChunkedDirectoryTestCase::test_group_vint_multi_blocks covers multiple
     // blocks This part might be covered in another test or
     // implementation
     Ok(())

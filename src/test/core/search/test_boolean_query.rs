@@ -740,7 +740,7 @@ fn test_conjunction_propagates_approximations() -> Result<()> {
 
   let reader = writer.get_reader()?;
   // not new_searcher_with_reader to not have the asserting wrappers
-  // and do instanceof checks
+  // and perform type checks.
   let mut searcher = IndexSearcher::from_cr(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
@@ -826,7 +826,7 @@ fn test_boosted_scorer_propagates_approximations() -> Result<()> {
 
   let reader = writer.get_reader()?;
   // not new_searcher_with_reader to not have the asserting wrappers
-  // and do instanceof checks
+  // and perform type checks.
   let mut searcher = IndexSearcher::from_cr(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 

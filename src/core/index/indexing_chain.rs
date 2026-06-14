@@ -320,7 +320,7 @@ where
       };
       comparators.push(v);
     }
-    // returns null if the documents are already sorted
+    // returns None if the documents are already sorted
     match Sorter::sort(max_doc, comparators)? {
       Some(doc_map) => Ok(Some(Arc::new(doc_map))),
       None => Ok(None),
@@ -342,7 +342,7 @@ where
     let pool = std::mem::take(&mut self.doc_values_byte_pool);
     self.finish_doc_values_writer(pool)?;
     // NOTE: caller (DocumentsWriterPerThread) handles
-    // aborting on any exception from this method
+    // aborting on any error from this method
     let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
     let max_doc = segment_info.max_doc()?;
 
@@ -1568,7 +1568,7 @@ impl PerField {
     let analyzed = field.field_type().tokenized();
     /*
      * To assist people in tracking down problems in analysis components, we wish to write the field name to the infostream
-     * when we fail. We expect some caller to eventually deal with the real exception, so we don't want any 'catch' clauses,
+     * when we fail. We expect some caller to eventually deal with the real error, so we don't want any 'catch' clauses,
      * but rather a finally that takes note of the problem.
      */
 
@@ -1589,7 +1589,7 @@ impl PerField {
         let result = (|| {
             stream.reset()?;
             while stream.increment_token()? {
-                // If we hit an exception in stream.next below
+                // If we hit an error in stream.next below
                 // (which is fairly common, e.g. if analyzer
                 // chokes on a given document), then it's
                 // non-aborting and (above) this one document
@@ -1646,7 +1646,7 @@ impl PerField {
                         field_name
                     ))
                 })?;
-                // If we hit an exception in here, we abort
+                // If we hit an error in here, we abort
                 // all buffered documents since the last
                 // flush, on the likelihood that the
                 // internal state of the terms hash is now

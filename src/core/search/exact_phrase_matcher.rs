@@ -75,8 +75,8 @@ where
     })
   }
   /**
-   * Advance the given pos enum to the first position on or after {@code target}. Return {@code
-   * false} if the enum was exhausted before reaching {@code target} and {@code true} otherwise.
+   * Advances the position iterator to the first position on or after `target`. Returns
+   * `false` if it is exhausted before reaching `target`, and `true` otherwise.
    */
   fn advance_position(&mut self, idx: usize, target: i32) -> Result<bool> {
     let mut pos = self.postings[idx].pos;

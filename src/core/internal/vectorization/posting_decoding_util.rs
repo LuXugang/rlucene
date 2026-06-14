@@ -19,12 +19,12 @@ use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 /// Utility struct to decode postings.
 pub struct PostingDecodingUtil<I: IndexInput> {
-  /// The wrapper {@link IndexInput}.
+  /// The wrapped [`IndexInput`].
   pub input: I,
 }
 
 impl<I: IndexInput> PostingDecodingUtil<I> {
-  /// Sole constructor, called by sub-classes.
+  /// Creates a new instance for use by implementations.
   pub fn new(input: I) -> Self {
     PostingDecodingUtil { input }
   }

@@ -625,7 +625,7 @@ where
         parent_splits.iter().all(|&x| x == 0),
         "parentSplits should be all zeros at the end"
       );
-      // If no exception, we should have cleaned everything up:
+      // If no error, we should have cleaned everything up:
       debug_assert!(
         self
           .temp_dir
@@ -1170,7 +1170,7 @@ where
   }
   /// Return an array that contains the min and max values for the [offset,
   ///
-  /// offset+length] interval of the given {@link BytesRef}s.
+  /// `offset..offset + length` interval of the given [`BytesRef`] values.
   #[allow(clippy::type_complexity)]
   fn compute_min_max(
     &self,
@@ -1273,9 +1273,9 @@ where
     Ok(())
   }
 
-  /// Called on exception, to check whether the checksum is also corrupt in
+  /// Called on error, to check whether the checksum is also corrupt in
   /// this source, and add that information (checksum matched or didn't)
-  /// as a suppressed exception.
+  /// as a suppressed error.
   fn verify_checksum(
     &self,
     prior_exception: LuceneError,

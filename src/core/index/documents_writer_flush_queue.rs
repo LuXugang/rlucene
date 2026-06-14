@@ -29,8 +29,8 @@ where
   D: Directory,
 {
   pub(crate) inner: Mutex<Inner<D>>,
-  // we track tickets separately since count must be present even before the ticket is
-  // constructed ie. queue.size would not reflect it.
+  // Track tickets separately because the count exists before the ticket is constructed, so the
+  // queue length would not reflect it.
   ticket_count: AtomicI32,
   purge_lock: ReentrantMutex<()>,
 }
@@ -59,7 +59,7 @@ where
   where
     S: Supplier<Option<FlushTicket<D>>>,
   {
-    // first inc the ticket count - freeze opens a window for #anyChanges to fail
+    // Increment the ticket count first; freezing opens a window in which `any_changes` can fail.
     let mut inner = self.inner.lock();
     self.inc_tickets();
     let mut success = false;

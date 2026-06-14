@@ -45,7 +45,7 @@ impl<F> MultiFields<F>
 where
   F: Fields,
 {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new(subs: Vec<F>, sub_slices: Vec<Rc<ReaderSlice>>) -> Self {
     Self {
       subs,

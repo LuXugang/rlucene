@@ -66,7 +66,7 @@ fn test_custom_lock_factory() -> Result<()> {
   Ok(())
 }
 
-// Verify: we can use the NoLockFactory w/ no exceptions raised.
+// Verify: we can use the NoLockFactory w/ no errors raised.
 // Verify: NoLockFactory allows two IndexWriters
 #[test]
 fn test_directory_no_locking() -> Result<()> {

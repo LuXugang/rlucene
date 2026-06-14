@@ -490,7 +490,7 @@ impl IndexInput for IndexInputEnum {
   }
 }
 
-/// SubStruct call this to get the String for resourceDescription of a slice of
+/// Implementations call this to build the resource description for a slice of
 /// this `IndexInput`.
 pub fn get_full_slice_description(slice_description: &str) -> String {
   format!(" [slice={slice_description}] ")

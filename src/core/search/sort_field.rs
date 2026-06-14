@@ -192,7 +192,7 @@ impl SortField {
   pub fn get_field_doc() -> Result<Self> {
     SortField::new::<String>(None, SortFieldType::Doc)
   }
-  // Sets field & type, and ensures field is not NULL unless
+  // Sets field & type, and ensures field is `Some` unless
   // type is SCORE or DOC
   fn init_field_type(field: Option<String>, field_type: SortFieldType) -> Result<Self> {
     if field.is_none() && field_type != SortFieldType::Score && field_type != SortFieldType::Doc {
@@ -1126,7 +1126,7 @@ pub trait SortFiledBase: Display {
     T: Into<MissingValueEnum>;
   /// Rewrites this [`SortField`], returning a new [`SortField`] if a change is made.
   ///
-  /// Subclasses should override this to define their rewriting behavior when this
+  /// Implementations should provide this method to define their rewriting behavior when this
   /// [`SortField`] is of type [`SortFieldType::Rewritable`].
   ///
   /// # Arguments

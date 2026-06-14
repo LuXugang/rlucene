@@ -271,7 +271,7 @@ impl GroupVIntUtil {
     BitUtil::INT_BYTES as u32 - ((v | 1).leading_zeros() / 8)
   }
   /// Converts an i64 value to an i32, ensuring it fits within the valid
-  /// range. Throws an error if the value is not within 0 to 0xFFFFFFFF.
+  /// range. Returns an error if the value is not within 0 to 0xFFFFFFFF.
   fn get_int(value: i64) -> Result<i32> {
     if value > 0xFFFFFFFF {
       Err(LuceneError::number_overflow(format!(

@@ -20,7 +20,7 @@ use crate::core::util::automation::levenshtein_automata::{
 };
 /// Parametric description for generating a Levenshtein automaton of degree 1, with transpositions as
 /// primitive edits. The comment in [`Lev1ParametricDescription`] may be helpful for you to
-/// understand this class.
+/// understand this type.
 ///
 /// See [`Lev1ParametricDescription`].
 pub(crate) struct Lev1TParametricDescription;
@@ -44,7 +44,7 @@ impl ParametricDescriptionBase for Lev1TParametricDescription {
     vector: i32,
     base: &ParametricDescription,
   ) -> i32 {
-    // null absState should never be passed in
+    // None absState should never be passed in
     debug_assert_ne!(abs_state, -1);
 
     // decode absState -> state, offset
@@ -77,7 +77,7 @@ impl ParametricDescriptionBase for Lev1TParametricDescription {
     }
 
     if state == -1 {
-      // null state
+      // None state
       -1
     } else {
       // translate back to abs

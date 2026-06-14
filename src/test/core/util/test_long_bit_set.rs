@@ -446,7 +446,7 @@ fn test_bits2words() -> Result<()> {
   let v4 = LongBitSet::bits2words((1 << 32) + 1)?;
   assert_eq!(v4, (1 << (32 - 6)) + 1);
 
-  // Ensure MAX_NUM_BITS doesn't throw
+  // Ensure MAX_NUM_BITS doesn't return
   let v5 = LongBitSet::bits2words(LongBitSet::MAX_NUM_BITS)?;
   assert!(v5 > 0);
 

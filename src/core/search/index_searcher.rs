@@ -102,8 +102,8 @@ where
   query_cache: Option<QueryCacheEnum<IRC>>,
   search_threads: usize,
   // partialResult may be set on one of the threads of the executor. It may be correct to not make
-  // this variable volatile since joining these threads should ensure a happens-before relationship
-  // that guarantees that writes become visible on the main thread, but making the variable volatile
+  // Joining these threads establishes the required happens-before relationship, but using an atomic
+  // value also makes cross-thread visibility explicit.
   // shouldn't hurt either.
   partial_result: AtomicBool,
   #[cfg(test)]
@@ -705,7 +705,7 @@ where
       }
     }
     // Note: this is called if collection ran successfully, including the above special cases of
-    // CollectionTerminatedException and TimeExceededException, but no other exception.
+    // collection-terminated and time-exceeded errors, but no other error.
     leaf_collector.finish()?;
     Ok(())
   }
@@ -894,9 +894,9 @@ where
 
 /// Returns the maximum number of clauses permitted, `1024` by default.
 ///
-/// Attempts to add more than the permitted number of clauses cause a [`TooManyClauses`] error to be thrown.
+/// Adding more than the permitted number of clauses returns a [`TooManyClauses`] error.
 ///
-/// Tests can override this value with `set_max_clause_count`.
+/// Tests can change this value with `set_max_clause_count`.
 pub fn get_max_clause_count() -> usize {
   #[cfg(test)]
   {
@@ -1111,7 +1111,7 @@ fn enforce_distinct_leaves(leaf_slice: &LeafSlice) -> Result<()> {
 
   Ok(())
 }
-/// Thrown when an attempt is made to add more than [`get_max_clause_count()`] clauses.
+/// Returned when an attempt is made to add more than [`get_max_clause_count()`] clauses.
 ///
 /// This typically happens if a `PrefixQuery`, `FuzzyQuery`, `WildcardQuery`,
 /// or `TermRangeQuery` is expanded to many terms during search.
@@ -1212,7 +1212,7 @@ impl LeafReaderContextPartition {
     Self::new(ctx, min_doc_id, max_doc_id, max_doc_id - min_doc_id)
   }
 }
-/// A class holding a subset of the [`IndexSearcher`]’s leaf contexts to be executed within a
+/// A struct holding a subset of the [`IndexSearcher`]'s leaf contexts to be executed within a
 /// single thread. A leaf slice holds references to one or more [`LeafReaderContextPartition`]
 /// instances. Each partition targets a specific doc id range of a [`LeafReaderContext`].
 pub struct LeafSlice {

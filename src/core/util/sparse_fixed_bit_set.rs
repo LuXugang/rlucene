@@ -45,7 +45,7 @@ fn block_count(length: usize) -> usize {
 ///
 /// - A `Vec<i64>` which stores the non-zero `i64`s for that block.
 /// - A `i64` so that bit `i` being set means that the `i-th` `i64` of the block
-///   is non-null, and its offset in the array of `i64`s is the number of one
+///   is present, and its offset in the array of `i64`s is the number of one
 ///   bits on the right of the `i-th` bit.
 ///
 /// # Note
@@ -302,7 +302,7 @@ impl SparseFixedBitSet {
     self.bits[i4096] = Some(new_bits);
     self.non_zero_long_count += non_zero_long_count - (current_index & index).count_ones() as usize;
   }
-  /// [`or`](#method.or) implementation that works best when `it` is dense.
+  /// [`or`](Self::or) implementation that works best when `it` is dense.
   fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<()> {
     check_unpositioned(&it)?;
     // The goal here is to try to take advantage of the ordering of

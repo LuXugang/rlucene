@@ -230,7 +230,7 @@ where
   /// hashed before.
   ///
   /// # Errors
-  /// Returns `MaxBytesLengthExceededException` if the given bytes are greater
+  /// Returns [`LuceneError::MaxBytesLengthExceeded`] if the given bytes are greater
   /// than 2 + [`BYTE_BLOCK_SIZE`].
   pub fn add(
     &mut self,

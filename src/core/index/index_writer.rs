@@ -75,8 +75,7 @@ use std::sync::{Arc, OnceLock};
 /// <a href="#mergePolicy">below</a> for changing the [`MergeScheduler`]).
 ///
 /// Opening an `IndexWriter` creates a lock file for the directory in use. Trying to open another
-/// `IndexWriter` on the same directory will lead to a
-/// [`LockObtainFailedException`]. <a id="deletionPolicy"></a>
+/// `IndexWriter` on the same directory returns a [`LuceneError::LockObtainFailed`] error.
 ///
 /// Expert: `IndexWriter` allows an optional [`IndexDeletionPolicy`] implementation to be specified.
 /// You can use this to control when prior commits are deleted from the index. The default policy is
@@ -109,10 +108,8 @@ use std::sync::{Arc, OnceLock};
 /// you should **not** synchronize on the `IndexWriter` instance as this may cause deadlock; use
 /// your own (non-Lucene) objects instead.
 ///
-/// **NOTE**: If you call `Thread.interrupt()` on a thread that's within `IndexWriter`,
-/// `IndexWriter` will try to catch this (eg, if it's in a `wait()` or `Thread.sleep()`), and
-/// will then throw the unchecked exception [`ThreadInterruptedException`] and **clear**
-/// the interrupt status on the thread.
+/// **NOTE**: Rust does not expose Java-style thread interruption. Callers should use explicit
+/// cancellation or timeout mechanisms when coordinating work performed by `IndexWriter`.
 ///
 /// Clarification: Check Points (and commits)
 ///
@@ -313,8 +310,8 @@ where
         },
       };
 
-      // If index is too old, reading the segments will throw
-      // IndexFormatTooOldException.
+      // If index is too old, reading the segments will return
+      // `LuceneError::IndexFormatTooOld`.
 
       let files = directory.list_all()?;
 
@@ -730,9 +727,9 @@ where
   /// writing any changes, waiting for any running merges, committing, and closing.
   /// In this case, note that:
   ///
-  /// - If you called `prepare_commit` but failed to call `commit`, this method will throw
-  ///   `IllegalStateException` and the `IndexWriter` will not be closed.
-  /// - If this method throws any other exception, the `IndexWriter` will be closed, but
+  /// - If you called `prepare_commit` but failed to call `commit`, this method returns
+  ///   [`LuceneError::IllegalState`] and the `IndexWriter` is not closed.
+  /// - If this method returns any other error, the `IndexWriter` is closed, but
   ///   changes may have been lost.
   ///
   /// Note that this may be a costly operation, so try to re-use a single writer instead of
@@ -838,7 +835,7 @@ where
 
   /// Adds a document to this index.
   ///
-  /// Note that if an exception is hit (for example, disk full) then the index will remain consistent,
+  /// Note that if an error is hit (for example, disk full) then the index will remain consistent,
   /// but this document may not have been added. Furthermore, it’s possible the index will have one
   /// segment in non-compound format even when using compound files (when a merge has partially succeeded).
   ///
@@ -851,15 +848,15 @@ where
   /// (see [`force_merge(int)`](Self::force_merge) for details). The sequence of primitive merge operations performed is
   /// governed by the merge policy.
   ///
-  /// Note that each term in the document can be no longer than [`MAX_TERM_LENGTH`] in bytes; otherwise
-  /// an `IllegalArgumentException` will be thrown.
+  /// Each term in the document can be no longer than [`MAX_TERM_LENGTH`] bytes; otherwise this
+  /// method returns [`LuceneError::IllegalArgument`].
   ///
   /// # Returns
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// - Returns a `CorruptIndexException` if the index is corrupt.
-  /// - Returns an `io::Error` if there is a low-level I/O error.
+  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  /// - Returns an I/O error if a low-level I/O operation fails.
   pub fn add_document<DF>(&self, doc: DF) -> Result<i64>
   where
     DF: IntoIterator<Item = Fields>,
@@ -881,7 +878,7 @@ where
   /// documents (for example, perhaps to obtain better index compression). In that case you may need
   /// to fully re-index your documents at that time.
   ///
-  /// See [`add_document(Iterable)`](Self::add_document) for details on index and `IndexWriter` state after an exception,
+  /// See [`add_document(Iterable)`](Self::add_document) for details on index and `IndexWriter` state after an error,
   /// and flushing/merging temporary free space requirements.
   ///
   /// **NOTE**: tools that do offline splitting of an index (for example, `IndexSplitter` in contrib)
@@ -892,7 +889,7 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// - Returns a `CorruptIndexException` if the index is corrupt.
+  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
   pub fn add_documents<DI, DF>(&self, docs: DI) -> Result<i64>
   where
@@ -911,7 +908,7 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// - Returns a `CorruptIndexException` if the index is corrupt.
+  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
   pub fn update_document_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
   where
@@ -1146,7 +1143,7 @@ where
       None => (false, -1),
     };
     let res: Result<()> = (|| {
-      // this is sneaky - we might hit an exception while dropping a reader, but then we have
+      // this is sneaky - we might hit an error while dropping a reader, but then we have
       // already
       // removed the segment for the segmentInfo and we lost the pendingDocs update due to that.
       // therefore, we execute the adjustPendingNumDocs in a finally block to account for that.
@@ -1462,7 +1459,7 @@ where
 
   /// Return an unmodifiable set of all field names as visible from this IndexWriter, across all segments of the index.
   pub fn get_field_names(&self) -> HashSet<String> {
-    // FieldNumbers#getFieldNames() returns an unmodifiableSet
+    // `FieldNumbers::get_field_names` returns an immutable set.
     self.global_field_number_map.lock().get_field_names()
   }
 
@@ -1532,7 +1529,7 @@ where
     self.flush_deletes_count.load(Ordering::Acquire)
   }
 
-  /// Does the actual (time-consuming) work of the merge, but without holding synchronized lock on IndexWriter instance
+  /// Performs the time-consuming merge work without holding the `IndexWriter` lock.
   fn merge_middle(&self, merge: &mut OneMergeSR<D>, merge_policy: &MergePolicyEnum) -> Result<i32> {
     let mut max_doc = -1;
     self.test_point("mergeMiddleStart");
@@ -1687,7 +1684,7 @@ where
             }
 
             // This makes merging more expensive as it disables some bulk merging optimizations,
-            // so only do this if a non-null DocMap is returned.
+            // so only do this if a present DocMap is returned.
             let v = vec![CodecReaderEnum2::B(wrap_with_doc_map(
               merged_view,
               Some(doc_map),
@@ -1962,11 +1959,11 @@ where
   /// than the size of the starting index. It may be significantly smaller (if
   /// there were many pending deletes) or only slightly smaller.
   ///
-  /// If an exception occurs, for example due to running out of disk space, the
+  /// If an error occurs, for example due to running out of disk space, the
   /// index will not be corrupted and no documents will be lost. However, the index
   /// may have been partially merged (some segments were merged but not all), and it
   /// is possible that one of the segments will be left in non-compound format even
-  /// when compound file format is enabled. This can happen if the exception occurs
+  /// when compound file format is enabled. This can happen if the error occurs
   /// while converting a segment into compound format.
   ///
   /// This call merges only the segments that were present in the index when the
@@ -2125,7 +2122,7 @@ where
       for merge in pending_merges.iter_mut() {
         merge.stat.max_num_segments = max_num_segments;
         if let Some(info_id) = &merge.stat.info_id {
-          // this can be null since we register the merge under lock before we then do the actual
+          // this can be None since we register the merge under lock before we then do the actual
           // merge and
           // set the merge.info in _mergeInit
           segments_to_merge.insert(info_id.clone(), Some(true));
@@ -2138,7 +2135,7 @@ where
           let mut m = m.clone();
           m.max_num_segments = max_num_segments;
           if let Some(ref id) = m.info_id {
-            // this can be null since we put the merge on runningMerges before we do the actual merge
+            // this can be None since we put the merge on runningMerges before we do the actual merge
             // and set the merge.info in _mergeInit
             segments_to_merge.insert(id.clone(), Some(true));
           }
@@ -2181,7 +2178,7 @@ where
       }
 
       // If close is called while we are still
-      // running, throw an exception so the calling
+      // running, return an error so the calling
       // thread will know merging did not
       // complete
       self.ensure_open()?;
@@ -2384,7 +2381,7 @@ where
     let result = (|| -> Result<()> {
       {
         let mut inner = self.inner.lock();
-        // must be synced otherwise register merge might throw an exception if merges
+        // must be synced otherwise register merge might return an error if merges
         // change concurrently; abort_merges is synced as well.
         self.abort_merges(&mut inner)?;
         debug_assert!(
@@ -2446,7 +2443,7 @@ where
       self.test_point("rollback before checkpoint");
       // Ask deleter to locate unreferenced files & remove
       // them ... only when we are not experiencing a tragedy, else
-      // these methods throw ACE:
+      // these methods return ACE:
       if self.tragedy.get().is_none() {
         let (deleter, segment_infos) = {
           let v = &mut *inner;
@@ -3123,13 +3120,13 @@ where
   /// The provided `IndexReader`s are not closed.
   ///
   /// See `Self::add_indexes` for details on transactional semantics, temporary free space
-  /// required in the `Directory`, and non-CFS segments on an exception.
+  /// required in the `Directory`, and non-CFS segments on an error.
   ///
   /// **NOTE:** empty segments are dropped by this method and not added to this index.
   ///
   /// **NOTE:** provided `LeafReader`s are merged as specified by the
   /// `MergePolicy::find_merges(CodecReader...)` API. Default behavior is to merge all provided
-  /// readers into a single segment. You can modify this by overriding the `find_merge` API in your
+  /// readers into a single segment. Customize this by implementing the `find_merge` API in your
   /// custom merge policy.
   ///
   /// # Returns
@@ -3139,9 +3136,9 @@ where
   /// # Errors
   ///
   /// Returns:
-  /// - `CorruptIndexException` if the index is corrupt
+  /// - [`LuceneError::CorruptIndex`] if the index is corrupt
   /// - an error if there is a low-level IO error
-  /// - `IllegalArgumentException` if `add_indexes` would cause the index to exceed `MAX_DOCS`
+  /// - [`LuceneError::IllegalArgument`] if `add_indexes` would cause the index to exceed `MAX_DOCS`
   pub fn add_indexes_from_codec_readers<CR>(&self, _readers: Vec<CR>) -> Result<i64>
   where
     CR: CodecReader + Clone,
@@ -3177,7 +3174,7 @@ where
     //     None => {
     //       self.info_stream.message(
     //         "addIndexes(CodecReaders...)",
-    //         "received null mergeSpecification from MergePolicy. No indexes to add, returning..",
+    //         "received None mergeSpecification from MergePolicy. No indexes to add, returning..",
     //       );
     //       return Ok(self.doc_writer.get_next_sequence_number());
     //     },
@@ -3642,7 +3639,7 @@ where
           seq_no = -seq_no;
         }
         if !any_changes {
-          // prevent double increment since docWriter#doFlush increments the flushcount
+          // Prevent a double increment because `doc_writer::do_flush` increments the flush count.
           // if we flushed anything.
           self.flush_count.fetch_add(1, Ordering::AcqRel);
         }
@@ -3896,7 +3893,7 @@ where
             // way
             // other threads get a chance to run in between our writes.
             {
-              // It's possible that the segment of a reader returned by readerPool#getReadersByRam
+              // A reader returned by `reader_pool::get_readers_by_ram`
               // is dropped before being processed here. If it happens, we need to skip that
               // reader.
               // this is also best effort to free ram, there might be some other thread writing
@@ -4648,7 +4645,7 @@ where
     }
 
     // Must do this after reader_pool.release, in case an
-    // exception is hit e.g. writing the live docs for the
+    // error is hit e.g. writing the live docs for the
     // merge segment, in which case we need to abort the
     // merge:
     let merge_id = merge.info.as_ref().unwrap().info.get_id_key().to_string();
@@ -4664,7 +4661,7 @@ where
       // the docs when we apply deletes if the segment is currently merged.
       merge.total_max_doc
     } else {
-      // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
+      // The merge's SegmentCommitInfo has moved to `IndexWriter::inner::segment_infos`.
       let merge_sci = inner.segment_infos.index_of(&merge_id).ok_or_else(|| {
         LuceneError::illegal_state(
           "merge's SegmentCommitInfo not in IndexWriter#inner#segment_infos",
@@ -4732,7 +4729,7 @@ where
     let result = (|| -> Result<()> {
       let inner_result = (|| -> Result<()> {
         self.merge_init(merge)?;
-        // Note: merge's SegmentCommitInfo has move to IndexWriter#inner#segment_infos
+        // The merge's SegmentCommitInfo has moved to `IndexWriter::inner::segment_infos`.
         self.merge_middle(merge, merge_policy)?;
         self.merge_success(merge)?;
         success = true;
@@ -4821,7 +4818,7 @@ where
     merge.is_external = is_external;
 
     // OK it does not conflict; now record that this merge
-    // is running (while synchronized) to avoid race
+    // is running while the lock is held to avoid a race.
     // condition where two conflicting merges from different
     // threads, start
     if self.info_stream.enabled("IW") {
@@ -4871,7 +4868,7 @@ where
     inner.pending_merges.push_back(merge);
     Ok(true)
   }
-  /// Does initial setup for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
+  /// Performs fast initial merge setup while holding the `IndexWriter` lock.
   pub(crate) fn merge_init(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
     // Make sure any deletes that must be resolved before we commit the merge are complete:
     self
@@ -4985,7 +4982,7 @@ where
     Ok(())
   }
 
-  /// Does finishing for a merge, which is fast but holds the synchronized lock on IndexWriter instance.
+  /// Performs fast merge finalization while holding the `IndexWriter` lock.
   fn merge_finish(&self, merge: &OneMergeSR<D>, inner: Option<&mut Inner<D>>) {
     let inner = match inner {
       Some(i) => i,
@@ -4996,7 +4993,7 @@ where
     self.pausing.notify_all();
 
     // It's possible we are called twice, e.g. if there was an
-    // exception inside mergeInit
+    // error inside mergeInit
     if merge.register_done.load(Ordering::Acquire) {
       for seg_id in &merge.stat.segments {
         inner.merging_segments.remove(seg_id);
@@ -5207,9 +5204,9 @@ where
           debug_assert!(
             inner.segment_infos.get_generation() == to_sync.as_ref().unwrap().get_generation()
           );
-          // Exception here means nothing is prepared
+          // Error here means nothing is prepared
           // (this method unwinds everything it did on
-          // an exception)
+          // an error)
 
           to_sync
             .as_mut()
@@ -5326,8 +5323,8 @@ where
     Ok(())
   }
 
-  /// This method should be called on a tragic event, i.e. if a downstream class of the writer hits
-  /// an unrecoverable exception. This method does not rethrow the tragic event exception.
+  /// This method should be called on a tragic event, such as when a downstream writer component hits
+  /// an unrecoverable error. This method does not return the tragic event error.
   ///
   /// Note: This method will not close the writer, but it can be called from any location without
   /// respecting any lock order.
@@ -5346,8 +5343,8 @@ where
     Ok(())
   }
 
-  /// This method set the tragic exception unless it's already set and closes the writer if necessary.
-  /// Note this method will not rethrow the throwable passed to it.
+  /// This method set the tragic error unless it's already set and closes the writer if necessary.
+  /// Note this method will not return the throwable passed to it.
   fn tragic_event(&self, tragedy: LuceneError, location: &str) -> Result<()> {
     let result = self.on_tragic_event(tragedy, location);
     self.maybe_close_on_tragic_event()?;
@@ -5362,8 +5359,7 @@ where
     Ok(())
   }
 
-  /// Returns the [`TragicException`] if a tragic (unrecoverable) error has occurred,
-  /// or `TragicException::None` otherwise.
+  /// Returns the shared tragedy state, which contains an unrecoverable error if one occurred.
   pub fn get_tragic_exception(&self) -> TragicException {
     self.tragedy.clone()
   }
@@ -5564,7 +5560,7 @@ where
     debug_assert!(added_num_docs >= 0);
 
     if self.adjust_pending_num_docs(added_num_docs) > get_actual_max_docs() as i64 {
-      // Reserve failed: put the docs back and throw error
+      // Reserve failed: put the docs back and return error
       self.adjust_pending_num_docs(-added_num_docs);
       return self.too_many_docs(added_num_docs);
     }
@@ -6511,7 +6507,7 @@ where
   }
 }
 /// If `open(IndexWriter)` has been called (ie, this writer is in near
-/// real-time mode), then after a merge completes, this class can be invoked to warm the reader on
+/// real-time mode), then after a merge completes, this callback can warm the reader on
 /// the newly merged segment, before the merge commits. This is not required for near real-time
 /// search, but will reduce search latency on opening a new near real-time reader after a merge
 /// completes.
@@ -6890,18 +6886,18 @@ impl DocStats {
 }
 
 pub trait IndexWriterHooks {
-  /// A hook for extending classes to execute operations before a merge begins.
+  /// A hook for implementations to execute operations before a merge begins.
   #[cfg(test)]
   fn do_before_merge(&self, _merge: &MergeStat) -> Result<()> {
     Ok(())
   }
 
-  /// A hook for extending classes to execute operations after pending added and deleted documents have been flushed to the Directory
+  /// A hook for implementations to execute operations after pending added and deleted documents have been flushed to the directory.
   /// but before the change is committed (new segments_N file written).
   fn do_after_flush(&self) -> Result<()> {
     Ok(())
   }
-  /// A hook for extending classes to execute operations before pending added and deleted documents are flushed to the Directory.
+  /// A hook for implementations to execute operations before pending added and deleted documents are flushed to the directory.
   fn do_before_flush(&self) -> Result<()> {
     Ok(())
   }
@@ -7138,7 +7134,7 @@ thread_local! {
 pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 1;
 const UNBOUNDED_MAX_MERGE_SEGMENTS: i32 = -1;
 pub const WRITE_LOCK_NAME: &str = "write.lock";
-/// Key for the source of a segment in the [`SegmentInfo#get_diagnostics()`](SegmentInfo::get_diagnostics)
+/// Key for the source of a segment in [`SegmentInfo::get_diagnostics`].
 pub const SOURCE: &str = "source";
 /// Source of a segment which results from a merge of other segments.
 pub const SOURCE_MERGE: &str = "merge";
@@ -7425,7 +7421,7 @@ impl EventQueue {
 
     if writer.get_tragic_exception().get().is_some() {
       while self.queue.pop().is_some() {
-        // we are already handling a tragic exception let's drop it all on the floor and return
+        // we are already handling a tragic error let's drop it all on the floor and return
       }
       return Ok(());
     }
@@ -7439,7 +7435,7 @@ impl EventQueue {
   }
 }
 
-/// Interface for internal atomic events. See [`DocumentsWriter`] for details.
+/// Trait for internal atomic events. See [`DocumentsWriter`] for details.
 /// Events are executed concurrently and no order is guaranteed. Each event should only rely on
 /// the serializability within its `process` method. All actions that must happen before or after
 /// a certain action must be encoded inside the [`process(IndexWriter)`](Self::process) method.

@@ -82,8 +82,8 @@ where
       sub: None,
     }
   }
-  // runs the term, returning the output, or null if term
-  // isn't accepted.  if prefixLength is non-null it must be
+  // runs the term, returning the output, or None if term
+  // isn't accepted.  if prefixLength is present it must be
   // length 1 int array; prefixLength[0] is set to the length
   // of the term prefix that matches
   pub fn run<F, AV>(

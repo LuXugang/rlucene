@@ -497,7 +497,7 @@ impl DocumentsWriterDeleteQueue {
 
     self.max_seq_no.store(seq_no, Ordering::SeqCst);
 
-    // we use a static method to get this lambda since we previously
+    // Use an associated function to obtain this closure because we previously
     // introduced a memory leak since it would
     // implicitly reference this.nextSeqNo which holds on to this del queue.
     // see LUCENE-9478 for reference
@@ -562,7 +562,7 @@ impl DeleteSlice {
     // When we apply a slice we take the head and get its next as our first
     //item to apply and continue until we applied the tail. If the head and
     //tail in this slice are not equal then there will be at least one more
-    //non-null node in the slice!
+    //present node in the slice!
     {
       let mut current = self.slice_head.clone();
       loop {

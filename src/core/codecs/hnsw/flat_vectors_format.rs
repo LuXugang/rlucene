@@ -23,7 +23,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
-/// Encodes/decodes per-document vectors and provides a scoring interface for the flat stored vectors
+/// Encodes and decodes per-document vectors and provides a scoring API for flat stored vectors.
 pub trait FlatVectorsFormat: KnnVectorsFormat {
   type FlatVectorsWriter<T: IndexOutput>: FlatVectorsWriter;
   /// Returns a `KnnVectorsWriter` to write the vectors to the index.

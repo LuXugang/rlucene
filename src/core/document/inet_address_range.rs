@@ -63,7 +63,7 @@ impl InetAddressRange {
   ///
   /// # Arguments
   ///
-  /// - `name` - Field name. must not be null.
+  /// - `name` - Field name.
   /// - `min` - Range min value; defined as an `InetAddress`.
   /// - `max` - Range max value; defined as an `InetAddress`.
   pub fn new<T>(name: T, min: IpAddr, max: IpAddr) -> Result<Self>
@@ -113,7 +113,7 @@ impl InetAddressRange {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min` - Range min value; provided as an `InetAddress`.
   /// - `max` - Range max value; provided as an `InetAddress`.
   ///
@@ -123,7 +123,7 @@ impl InetAddressRange {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `min` or `max` is invalid.
+  /// Returns an error if `min` or `max` is invalid.
   pub fn new_intersects_query<T>(field: T, min: IpAddr, max: IpAddr) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
@@ -135,7 +135,7 @@ impl InetAddressRange {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min` - Range min value; provided as an `InetAddress`.
   /// - `max` - Range max value; provided as an `InetAddress`.
   ///
@@ -145,7 +145,7 @@ impl InetAddressRange {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `min` or `max` is invalid.
+  /// Returns an error if `min` or `max` is invalid.
   pub fn new_contains_query<T>(field: T, min: IpAddr, max: IpAddr) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
@@ -157,7 +157,7 @@ impl InetAddressRange {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min` - Range min value; provided as an `InetAddress`.
   /// - `max` - Range max value; provided as an `InetAddress`.
   ///
@@ -167,7 +167,7 @@ impl InetAddressRange {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `min` or `max` is invalid.
+  /// Returns an error if `min` or `max` is invalid.
   pub fn new_within_query<T>(field: T, min: IpAddr, max: IpAddr) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
@@ -178,7 +178,7 @@ impl InetAddressRange {
   ///
   /// # Arguments
   ///
-  /// - `field` - Field name. must not be null.
+  /// - `field` - Field name.
   /// - `min` - Range min value; provided as an `InetAddress`.
   /// - `max` - Range max value; provided as an `InetAddress`.
   ///
@@ -188,7 +188,7 @@ impl InetAddressRange {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `min` or `max` is invalid.
+  /// Returns an error if `min` or `max` is invalid.
   pub fn new_crosses_query<T>(field: T, min: IpAddr, max: IpAddr) -> Result<RangeFieldQuery>
   where
     T: Into<String>,

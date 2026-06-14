@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 
-/// A simple class that stores key Strings as char[]'s in a hash table
+/// A map that stores string keys as character arrays in a hash table.
 pub struct CharArrayMap<T> {
   ignore: bool,
   map: HashMap<Vec<char>, T>,

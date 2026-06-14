@@ -196,7 +196,7 @@ impl TieredMergePolicy {
 
   /// Returns the current floorSegmentMB.
   ///
-  /// @see [`TieredMergePolicy::set_floor_segment_mb`]
+  /// See also [`TieredMergePolicy::set_floor_segment_mb`].
   pub fn get_floor_segment_mb(&self) -> f64 {
     self.floor_segment_bytes as f64 / (1024.0 * 1024.0)
   }
@@ -215,7 +215,7 @@ impl TieredMergePolicy {
 
   /// Returns the current forceMergeDeletesPctAllowed setting.
   ///
-  /// @see [`TieredMergePolicy::set_force_merge_deletes_pct_allowed`]
+  /// See also [`TieredMergePolicy::set_force_merge_deletes_pct_allowed`].
   pub fn force_merge_deletes_pct_allowed(&self) -> f64 {
     self.force_merge_deletes_pct_allowed
   }
@@ -237,7 +237,7 @@ impl TieredMergePolicy {
 
   /// Returns the current segmentsPerTier setting.
   ///
-  /// @see [`TieredMergePolicy::set_segments_per_tier`]
+  /// See also [`TieredMergePolicy::set_segments_per_tier`].
   pub fn get_segments_per_tier(&self) -> f64 {
     self.segs_per_tier
   }
@@ -453,7 +453,7 @@ impl TieredMergePolicy {
           // biggest input segment.
           // Otherwise we could run into pathological O(N^2) merging where merges keep rewriting
           // again and again the biggest input segment into a segment that is barely bigger.
-          // The only exception we make is when the merge would reclaim lots of deletes in the
+          // The only error we make is when the merge would reclaim lots of deletes in the
           // biggest segment. This is important for cases when lots of documents get deleted at once
           // without introducing new segments of a similar size for instance.
           continue;
@@ -506,7 +506,7 @@ impl TieredMergePolicy {
     }
   }
 
-  /// Expert: scores one merge; subclasses can override.
+  /// Expert: scores one merge; implementations may provide custom behavior.
   fn score(
     &self,
     candidate: &[SegmentCommitInfoMeta],

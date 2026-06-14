@@ -99,8 +99,8 @@ impl IntBlockPool {
     }
   }
   /// Advances the pool to its next buffer. This method should be called once
-  /// after the constructor to initialize the pool. In contrast to the
-  /// constructor, a `IntBlockPool::reset(boolean, boolean)`
+  /// after creation to initialize the pool. In contrast to initialization,
+  /// `IntBlockPool::reset`
   /// call will advance the pool to its first buffer immediately.
   pub fn next_buffer(&mut self) -> Result<()> {
     if self.buffer_upto + 1 == self.buffers.len() as i32 {

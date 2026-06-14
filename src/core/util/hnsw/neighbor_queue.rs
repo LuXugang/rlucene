@@ -24,7 +24,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 /// The queue provides both fixed-size and unbounded operations via
 /// [`insert_with_overflow(i32, f32)`](NeighborQueue::insert_with_overflow) and
 /// [`add(i32, f32)`](NeighborQueue::add), and provides MIN and MAX heap
-/// SubStruct.
+/// Neighbor priority queue implementation.
 pub struct NeighborQueue {
   pub heap: LongHeap,
   pub order: Order,
@@ -61,7 +61,7 @@ impl NeighborQueue {
     self.heap.push(encoded);
   }
   /// If the heap is not full (size is less than the `initial_size` provided
-  /// to the constructor), adds a new node-and-score element. If the heap
+  /// at creation), adds a new node-and-score element. If the heap
   /// is full, compares the score against the current top score, and
   /// replaces the top element if `new_score` is better than (greater than
   /// unless the heap is reversed) the current top score.

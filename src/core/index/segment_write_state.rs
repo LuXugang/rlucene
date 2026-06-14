@@ -65,7 +65,7 @@ impl<'a, D> SegmentWriteState<'a, D>
 where
   D: Directory,
 {
-  /// Constructor without suffix.
+  /// Creates an instance without a suffix.
   pub(crate) fn new(
     info_stream: InfoStreamMT,
     directory: &'a D,
@@ -75,7 +75,7 @@ where
     Self::with_suffix(info_stream, directory, field_infos, context, "")
   }
 
-  /// Constructor with segment suffix.
+  /// Creates an instance with a segment suffix.
   pub(crate) fn with_suffix(
     info_stream: InfoStreamMT,
     directory: &'a D,

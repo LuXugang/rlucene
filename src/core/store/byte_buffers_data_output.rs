@@ -247,7 +247,7 @@ impl ByteBuffersDataOutput {
   }
   /// Resets this object to a clean (zero-size) state and publishes any
   /// currently allocated buffers for reuse according to the reuse
-  /// strategy provided in the constructor.
+  /// strategy provided when this value was created.
   ///
   /// # Warning
   /// Sharing byte buffers for reads and writes is dangerous and may lead to

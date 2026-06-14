@@ -41,7 +41,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 
-/// Base class for per-LockFactory tests
+/// Base test support for each `LockFactory` implementation.
 pub trait BaseLockFactoryTestCase
 where
   <<Self::Directory as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
@@ -49,7 +49,7 @@ where
 {
   type Directory: Directory + Send + Sync + 'static;
 
-  /// Subclass returns the Directory to be tested; if it's an FS-based directory it should point to
+  /// Implementations return the directory to test; an FS-based directory should point to
   /// the specified path, else it can ignore it.
   fn get_directory(&self, path: PathBuf) -> Result<Self::Directory>;
 
@@ -94,7 +94,7 @@ where
     Ok(())
   }
 
-  /// Test ensureValid throws exception after close
+  /// Test ensureValid returns error after close
   fn test_invalid_after_close(&self) -> Result<()> {
     let temp_path = create_temp_dir()?;
     let dir = self.get_directory(temp_path.path().to_path_buf())?;
@@ -159,7 +159,7 @@ where
 
   // Verify: do stress test, by opening IndexReaders and
   // IndexWriters over & over in 2 threads and making sure
-  // no unexpected exceptions are raised:
+  // no unexpected errors are raised:
   fn test_stress_locks<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

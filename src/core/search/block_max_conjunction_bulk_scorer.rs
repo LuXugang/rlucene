@@ -134,7 +134,7 @@ where
         0.0
       };
       // This is the same logic as in the below for loop, specialized for the 2nd least costly
-      // clause. This seems to help the JVM.
+      // clause. Keeping this specialization helps the optimizer.
 
       // First check if we have a chance of having a match based on max scores
       if has_min_comp

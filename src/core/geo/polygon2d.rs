@@ -45,7 +45,7 @@ pub struct Polygon2D {
   /// maximum X of this geometry's bounding box area
   max_x: f64,
 
-  /// tree of holes, or null
+  /// tree of holes, or None
   pub(crate) holes: Option<Box<HolesType>>,
 
   /// Edges of the polygon represented as a 2-d interval tree.

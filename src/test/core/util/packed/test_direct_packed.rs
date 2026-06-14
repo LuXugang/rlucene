@@ -58,7 +58,7 @@ fn test_simple() -> Result<()> {
   assert_eq!(2, reader.get_mut(4)?);
   Ok(())
 }
-/// test exception is delivered if you add the wrong number of values.
+/// test error is delivered if you add the wrong number of values.
 #[test]
 fn test_not_enough_values() -> Result<()> {
   let mut random = random();

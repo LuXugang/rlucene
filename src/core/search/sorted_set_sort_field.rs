@@ -79,7 +79,7 @@ impl SortedSetSortField {
   ///   set.
   /// # Note
   /// selectors other than
-  /// [`SortedSetSelectorType#Min`](SortedSetSelectorType::Min) require
+  /// [`SortedSetSelectorType::Min`] requires
   /// optional codec support.
   pub fn with_selector<T>(field: T, reverse: bool, selector: SortedSetSelectorType) -> Result<Self>
   where

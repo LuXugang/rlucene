@@ -18,7 +18,7 @@ use crate::core::index::query_timeout::QueryTimeout;
 use std::time::{Duration, Instant};
 
 /// An implementation of [`QueryTimeout`] that can be used by the `ExitableDirectoryReader`
-/// class to time out and exit out when a query takes a long time to rewrite.
+/// Query timeout used to stop rewriting queries that take too long.
 pub struct QueryTimeoutImpl {
   /// The local variable to store the time beyond which, the processing should exit.
   timeout_at: Option<Instant>,

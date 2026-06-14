@@ -158,7 +158,7 @@ impl LongBitSet {
     );
     let i = index >> 6;
     // signed shift will keep a negative index and force an
-    // array-index-out-of-bounds-exception, removing the need for an
+    // array-index-out-of-bounds-error, removing the need for an
     // explicit check.
     let bitmask = 1i64 << index;
     (self.bits[i] & bitmask) != 0

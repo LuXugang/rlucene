@@ -18,7 +18,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::info_stream::InfoStreamMT;
 
-/// Interface for building an [`OnHeapHnswGraph`].
+/// Trait for building an [`OnHeapHnswGraph`].
 ///
 /// # Experimental
 /// This API is experimental and subject to change.
@@ -46,7 +46,7 @@ pub trait HnswBuilder {
   /// accepted.
   ///
   /// Calling this method disables further calls to `add_graph_node`, which
-  /// will panic (equivalent to throwing `IllegalStateException` in Java).
+  /// will panic because the builder is in an invalid state.
   /// Final modifications to the graph—such as patching disconnected
   /// components or reordering node IDs for better delta compression—may be
   /// triggered.

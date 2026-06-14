@@ -249,7 +249,7 @@ impl Node {
     })
   }
 
-  /// simple deep copy constructor
+  /// Creates a deep copy.
   pub(crate) fn copy_from(other: &Node) -> Self {
     Self {
       id: Identity::new(),

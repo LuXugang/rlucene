@@ -213,7 +213,7 @@ impl TermVectorsConsumerPerField {
     if first {
       if self.base.get_num_terms() != 0 {
         // Only necessary if previous doc hit a
-        // non-aborting exception while writing vectors in
+        // non-aborting error while writing vectors in
         // this field:
         self.base.reset(byte_pool);
       }

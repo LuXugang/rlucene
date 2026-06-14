@@ -93,7 +93,7 @@ pub enum Option_ {
   /// Sometimes reuse the `PostingsEnum` across terms.
   ReuseEnums,
 
-  /// Sometimes pass non-null live docs.
+  /// Sometimes pass present live docs.
   LiveDocs,
 
   /// Sometimes seek to term using previously saved `TermState`.
@@ -125,7 +125,7 @@ impl<P> Default for ThreadState<P> {
   }
 }
 
-/// Helper class extracted from BasePostingsFormatTestCase to exercise a postings format.
+/// Helper struct extracted from `BasePostingsFormatTestCase` to exercise a postings format.
 pub struct RandomPostingsTester {
   fields: HashMap<String, BTreeMap<BytesRef<Vec<u8>>, SeedAndOrd>>,
   field_infos: Arc<FieldInfos>,

@@ -62,7 +62,7 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-/// Abstract query class to find all documents whose indexed point values are
+/// Base query trait for finding documents whose indexed point values are
 /// contained in the specified set.
 ///
 /// This works on the underlying binary encoding. Point field types should add

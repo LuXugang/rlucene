@@ -47,7 +47,7 @@ use crate::core::util::{LATEST, StringHelper};
 use std::sync::Arc;
 use std::time::Instant;
 
-/// The `SegmentMerger` class combines two or more segments, represented by
+/// The `SegmentMerger` struct combines two or more segments represented by
 /// `IndexReader`s, into a single segment. Call the `merge` method to combine
 /// the segments.
 ///
@@ -320,7 +320,7 @@ where
   pub(crate) fn should_merge(&self) -> Result<bool> {
     Ok(self.merge_state.segment_info.max_doc()? > 0)
   }
-  /// Merges the readers into the directory passed to the constructor.
+  /// Merges the readers into the directory supplied when this value was created.
   ///
   /// # Returns
   ///

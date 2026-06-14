@@ -37,9 +37,9 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-/// This class handles accounting and applying pending deletes for live segment readers
+/// This struct handles accounting and applies pending deletes for live segment readers.
 pub(crate) struct PendingDeletes {
-  // SegmentInfo#id
+  // SegmentInfo::id
   pub(crate) info_id: String,
   live_docs: Option<DocBits>,
   writeable_live_docs: bool,
@@ -274,7 +274,7 @@ impl PendingDeletesBase for PendingDeletes {
       "liveDocs.length must match maxDoc"
     );
     // Do this so we can delete any created files on
-    // exception; this saves all codecs from having to do
+    // error; this saves all codecs from having to do
     // it:
     let tracking_dir = TrackingDirectoryWrapper::new(dir);
     // We can write directly to the actual name (vs to a

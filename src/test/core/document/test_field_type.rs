@@ -90,13 +90,13 @@ fn test_points_to_string() -> Result<()> {
 
 #[test]
 fn test_attribute_map_frozen() -> Result<()> {
-  // FieldType#put_attribute no need to Implement, so as this test
+  // FieldType::put_attribute does not need to be implemented, so neither does this test.
   Ok(())
 }
 
 #[test]
 fn test_attribute_map_not_frozen() -> Result<()> {
-  // FieldType#put_attribute no need to Implement, so as this test
+  // FieldType::put_attribute does not need to be implemented, so neither does this test.
   Ok(())
 }
 

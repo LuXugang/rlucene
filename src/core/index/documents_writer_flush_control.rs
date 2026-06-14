@@ -294,7 +294,7 @@ where
       // this lock is held
       // per document. The reason we update this under lock is that we mark DWPTs as pending without
       // acquiring it's
-      // lock in #setFlushPending and this also reads the committed bytes and modifies the
+      // lock in `set_flush_pending`; this also reads committed bytes and modifies the
       // flush/activeBytes.
       // In the future we can clean this up to be more intuitive.
       per_thread.commit_last_bytes_used(delta)?;
@@ -360,7 +360,7 @@ where
     //  this is important for asserting memory upper bounds since it corresponds
     //  to the number of threads that are in-flight and crossed the stall control
     //  check before we actually stalled.
-    //  see #assertMemory()
+    // See `assert_memory`.
     if stalled {
       inner.num_docs_since_stalled += 1;
     } else {

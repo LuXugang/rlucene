@@ -29,7 +29,7 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::{
 use std::fmt::Display;
 use std::sync::Arc;
 
-/// Provides mechanisms to score vectors that are stored in a flat file The purpose of this class is
+/// Provides mechanisms to score vectors stored in a flat file. This trait
 /// for providing flexibility to the codec utilizing the vectors
 pub trait FlatVectorsScorer: Display {
   type RandomVectorScorerSupplier<B, F>: RandomVectorScorerSupplier

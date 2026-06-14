@@ -22,7 +22,7 @@ pub enum ReadAdvice {
   /// system is expected to cache the hottest pages.
   Normal,
   ///Data is expected to be read in a random-access fashion, either by
-  /// `IndexInput#seek(i64)` seeking often and reading relatively i16
+  /// `IndexInput::seek(i64)` seeking often and reading relatively i16
   /// sequences of bytes at once, or by reading data through the
   /// `RandomAccessInput` abstraction in random order.
   Random,

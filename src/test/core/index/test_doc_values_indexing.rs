@@ -67,7 +67,7 @@ struct TestDocValuesIndexing;
 
 #[test]
 fn test_add_indexes() -> Result<()> {
-  // TODO IndexWriter#add_indexes 未实现
+  // TODO IndexWriter::add_indexes 未实现
   Ok(())
 }
 #[test]

@@ -98,7 +98,7 @@ pub trait StoredFieldsWriter {
   /// default implementation skips over deleted documents, and uses
   /// [`startDocument()`](StoredFieldsWriter::start_document), `writeField`,
   /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of
-  /// documents that were written. Implementations can override this
+  /// documents that were written. Implementations can provide this
   /// method for more sophisticated merging (bulk-byte copying, etc.).
   fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
   where

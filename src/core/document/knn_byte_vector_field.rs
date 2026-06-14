@@ -192,7 +192,7 @@ impl KnnByteVectorField {
   ///
   /// # Arguments
   ///
-  /// * `value` - the value to set; must not be null, and length must match the field type
+  /// * `value` - value to set; its length must match the field type.
   ///
   /// # Errors
   ///

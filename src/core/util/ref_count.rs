@@ -34,7 +34,7 @@ where
       object,
     }
   }
-  /// Decrements the reference counting of this object. When reference counting hits 0, calls #release().
+  /// Decrements the reference count. Calls [`Self::release`] when it reaches zero.
   pub fn dec_ref(&self) -> Result<bool> {
     let rc = self.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
 
@@ -58,7 +58,7 @@ where
   pub fn get_ref_count(&self) -> i32 {
     self.ref_count.load(Ordering::SeqCst)
   }
-  /// Increments the reference count. Calls to this method must be matched with calls to #decRef().
+  /// Increments the reference count. Each call must be matched by [`Self::dec_ref`].
   pub fn inc_ref(&self) {
     self.ref_count.fetch_add(1, Ordering::SeqCst);
   }

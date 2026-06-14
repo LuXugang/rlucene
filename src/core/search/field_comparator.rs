@@ -125,7 +125,7 @@ pub trait FieldComparator {
   /// Default implementation assumes the type implements [`Ord`] (like Java's `Comparable`)
   /// and invokes `.cmp`.
   ///
-  /// Be sure to override this method if your `FieldComparator`'s type isn't comparable
+  /// Provide this method if the `FieldComparator` value type does not implement ordering.
   /// or if your values may sometimes be `null` (represented as [`Option::None`] in Rust).
   fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
     match (first, second) {

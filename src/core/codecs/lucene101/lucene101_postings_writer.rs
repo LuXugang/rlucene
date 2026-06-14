@@ -859,7 +859,7 @@ pub(crate) fn write_vint15(out: &mut impl DataOutput, v: i32) -> Result<()> {
   write_vlong15(out, v as i64)
 }
 
-/// @see [`write_vint15`]
+/// See also [`write_vint15`].
 pub(crate) fn write_vlong15(out: &mut impl DataOutput, v: i64) -> Result<()> {
   debug_assert!(v >= 0);
   if v & !0x7FFF == 0 {

@@ -35,7 +35,7 @@ pub trait QuantizedByteVectorValues: ByteVectorValues + HasIndexSlice {
   /// * `query` - the query vector
   ///
   /// # Returns
-  /// a `VectorScorer` instance or null
+  /// a `VectorScorer` instance or None
   fn scorer(&self, _query: &[f32]) -> Result<Self::VectorScorer> {
     Err(LuceneError::unsupported_operation(""))
   }

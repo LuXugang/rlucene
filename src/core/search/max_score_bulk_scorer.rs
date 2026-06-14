@@ -60,7 +60,7 @@ where
   num_outer_windows: usize,
   // Number of candidate matches so far
   num_candidates: usize,
-  // Minimum window size. See #computeOuterWindowMax where we have heuristics that adjust the
+  // Minimum window size. See `compute_outer_window_max`, which adjusts the
   // minimum window size based on the average number of candidate matches per outer window, to keep
   // the per-window overhead under control.
   min_window_size: i32,

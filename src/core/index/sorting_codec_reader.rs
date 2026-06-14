@@ -868,8 +868,8 @@ fn assert_created_only_once(field: &str, norms: bool, inner: &mut MutexGuard<'_,
 
     let mut is_sort_field = false;
 
-    // For things that aren't sort fields, it's possible for sort to be null here
-    // In the event that we accidentally cache twice, its better not to throw an NPE
+    // For things that aren't sort fields, it's possible for sort to be None here
+    // In the event that we accidentally cache twice, its better not to return an NPE
     if let Some(ref sort) = inner.sort {
       for sf in sort.get_sort() {
         if Some(field) == sf.get_field() {

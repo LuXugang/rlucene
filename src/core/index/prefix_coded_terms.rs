@@ -238,7 +238,7 @@ impl Default for PrefixCodedTermsBuilder {
 }
 
 impl PrefixCodedTermsBuilder {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new() -> Self {
     Self {
       output: ByteBuffersDataOutput::new_resettable_instance(),

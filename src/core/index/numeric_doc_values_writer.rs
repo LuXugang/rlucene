@@ -120,7 +120,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
     DM: DocMap,
     DC: DocValuesConsumer,
   {
-    // `final_values` should always not None here, because we call finish() before flush()
+    // `final_values` should always be `Some` here, because we call finish() before flush()
     // but we still keep the check here for consistent with Java Lucene.
     if self.final_values.is_none() {
       self.final_values = Some(std::mem::take(&mut self.pending).build()?)

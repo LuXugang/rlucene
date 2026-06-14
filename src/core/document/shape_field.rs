@@ -33,16 +33,16 @@ use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
-/// A base shape utility class used for both LatLon (spherical) and XY (cartesian) shape fields.
+/// Shape utilities used for both LatLon (spherical) and XY (cartesian) shape fields.
 ///
 /// `Polygon`'s and `Line`'s are decomposed into a triangular mesh using the `Tessellator`
-/// utility class. Each [`Triangle`] is encoded by this base class and indexed as a seven dimension
+/// utility. Each [`Triangle`] is encoded by this type and indexed as a seven-dimensional
 /// multi-value field.
 ///
 /// Finding all shapes that intersect a range (e.g., bounding box), or target shape, at search
 /// time is efficient.
 ///
-/// This class defines the static methods for encoding the three vertices of a tessellated
+/// This struct defines associated methods for encoding the three vertices of tessellated
 /// triangles as a seven dimension point. The coordinates are converted from double precision
 /// values into 32 bit integers so they are sortable at index time.
 pub struct ShapeField;
@@ -64,7 +64,7 @@ pub struct Triangle {
 }
 
 impl Triangle {
-  /// constructor for points and lines
+  /// Creates a triangle field for points and lines.
   pub(crate) fn new(
     name: &str,
     a_x_encoded: i32,

@@ -159,7 +159,7 @@ impl CollectorManager for TopFieldCollectorManager {
     let collector = if self.after.is_none() {
       // Inform a comparator that sort is based on a single field,
       // to enable optimizations for skipping over non-competitive documents.
-      // We can't set single sort when `after` is non-null as it's
+      // We can't set single sort when `after` is present as it's
       // an implicit sort over the document id.
       if queue.get_comparators().len() == 1 {
         let comparators = queue.get_comparators_mut();
@@ -211,7 +211,7 @@ impl CollectorManager for TopFieldCollectorManager {
     let mut top_docs_list = Vec::with_capacity(len);
     for mut collector in collectors {
       let mut v = collector.top_docs()?;
-      // Here we discard TopFieldDocs#fields because it is not used in the original Java Lucene implementation
+      // Discard `TopFieldDocs::fields` because the original Java Lucene implementation does not use it.
       top_docs_list.push(std::mem::take(&mut v.base));
     }
     top_docs::merge_top_field_docs_with_start(&self.sort, 0, self.num_hits, top_docs_list)

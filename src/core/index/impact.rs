@@ -28,7 +28,7 @@ pub struct Impact {
 }
 
 impl Impact {
-  /// Constructor
+  /// Creation method
   pub fn new(freq: i32, norm: i64) -> Self {
     Self { freq, norm }
   }

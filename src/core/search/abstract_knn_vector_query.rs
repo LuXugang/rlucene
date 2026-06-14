@@ -551,7 +551,7 @@ pub struct DocAndScoreQuery {
   id: Identity,
 }
 impl DocAndScoreQuery {
-  /// Constructor
+  /// Creation method
   ///
   /// # Arguments
   ///

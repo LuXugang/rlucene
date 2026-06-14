@@ -351,7 +351,7 @@ fn test_tim_sort_stability() -> Result<()> {
   }
   Ok(())
 }
-// should produce no exceptions
+// should produce no errors
 #[test]
 fn test_empty_array_sort() -> Result<()> {
   let mut a: Vec<i32> = Vec::new();
@@ -532,7 +532,7 @@ fn test_grow_in_range() -> Result<()> {
   // If minLength is negative, maxLength does not matter
   // TODO
 
-  // If minLength > maxLength, we throw an exception
+  // If minLength > maxLength, we return an error
   let result = ArrayUtil::grow_in_range(&mut array, 1, 0);
   assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
   let result = ArrayUtil::grow_in_range(&mut array, 4, 3);

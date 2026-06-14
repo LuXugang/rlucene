@@ -35,7 +35,7 @@ pub trait BytesRefIterator {
   /// when reusing internal buffers to reduce allocations and improve
   /// performance.
   ///
-  /// To simplify the interface and allow for both owned and borrowed variants
+  /// To simplify the API and allow both owned and borrowed variants
   /// in a unified way, it is recommended to use
   /// [`Cow<BytesRef>`](std::borrow::Cow). This enables returning either:
   ///

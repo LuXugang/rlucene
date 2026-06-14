@@ -134,7 +134,7 @@ impl XYPointField {
     Ok(field)
   }
 
-  /// helper: checks a fieldinfo and throws exception if its definitely not a XYPoint
+  /// Checks field information and returns an error if it is definitely not an `XYPoint`.
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     if field_info.get_point_dimension_count() != 0
       && field_info.get_point_dimension_count() != TYPE.point_dimension_count()
@@ -165,7 +165,7 @@ impl XYPointField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
+  /// - `field`: field name.
   /// - `min_x`: x lower bound.
   /// - `max_x`: x upper bound.
   /// - `min_y`: y lower bound.
@@ -177,7 +177,7 @@ impl XYPointField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, or the box has invalid coordinates.
+  /// Returns an error if the box has invalid coordinates.
   pub fn new_box_query<T>(field: T, min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Result<Query>
   where
     T: Into<String>,
@@ -190,7 +190,7 @@ impl XYPointField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
+  /// - `field`: field name.
   /// - `x`: x at the center.
   /// - `y`: y at the center.
   /// - `radius`: maximum distance from the center in cartesian units: must be non-negative and
@@ -202,7 +202,7 @@ impl XYPointField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, location has invalid coordinates, or radius is invalid.
+  /// Returns an error if the location or radius is invalid.
   pub fn new_distance_query<T>(field: T, x: f32, y: f32, radius: f32) -> Result<Query>
   where
     T: Into<String>,
@@ -215,8 +215,8 @@ impl XYPointField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
-  /// - `polygons`: array of polygons. must not be null or empty
+  /// - `field`: field name.
+  /// - `polygons`: array of polygons. must not be empty
   ///
   /// # Returns
   ///
@@ -224,7 +224,7 @@ impl XYPointField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `polygons` is null or empty
+  /// Returns an error if `polygons` is empty.
   ///
   /// See `Polygon`.
   pub fn new_polygon_query<T>(field: T, polygons: Vec<XYPolygon>) -> Result<Query>
@@ -239,8 +239,8 @@ impl XYPointField {
   ///
   /// # Parameters
   ///
-  /// - `field`: field name. must not be null.
-  /// - `xy_geometries`: array of geometries. must not be null or empty.
+  /// - `field`: field name.
+  /// - `xy_geometries`: array of geometries. must not be empty.
   ///
   /// # Returns
   ///
@@ -248,8 +248,7 @@ impl XYPointField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `field` is null, `polygons` is null, empty or contains a null or XYLine
-  /// geometry.
+  /// Returns an error if `xy_geometries` is empty or contains an unsupported `XYLine` geometry.
   ///
   /// See [`XYGeometry`].
   pub fn new_geometry_query<S, T>(field: S, xy_geometries: Vec<T>) -> Result<Query>

@@ -30,7 +30,7 @@ use rand::RngExt;
 pub(crate) const MAXDOC_FORTESTING: i64 = 1 << 48;
 // must be at least MAXDOC_FORTESTING + i32::MAX
 pub(crate) const MAXTOKENS_FORTESTING: i64 = 1 << 49;
-/// Abstract class to do basic tests for a similarity. NOTE: This test focuses on the similarity
+/// Base test support for a similarity. NOTE: This test focuses on the similarity
 /// impl, nothing else. The [stretch] goal is for this test to be so thorough in testing a new
 /// Similarity that if this test passes, then all Lucene tests should also pass. Ie, if there is some
 /// bug in a given Similarity that this test fails to catch then this test needs to be improved!

@@ -23,7 +23,7 @@ use crate::core::store::merge_info::MergeInfo;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// A default context for normal reads/writes. Use
-/// [`with_read_advice`](#method.with_read_advice) to specify
+/// `with_read_advice` to specify
 /// another [`ReadAdvice`].
 ///
 /// # Note

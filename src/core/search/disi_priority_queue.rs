@@ -50,7 +50,7 @@ impl DisiPriorityQueue {
   pub fn top(&self) -> Option<usize> {
     self.heap[0]
   }
-  /// Return the 2nd least value in this heap, or null if the heap contains less than 2 values
+  /// Return the 2nd least value in this heap, or None if the heap contains less than 2 values
   pub fn top2<S>(&self, wrappers: &[DisiWrapper<S>]) -> Option<usize>
   where
     S: Scorer,

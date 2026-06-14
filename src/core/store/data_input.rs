@@ -88,7 +88,7 @@ pub trait DataInput: Display + Closeable {
     Ok(i32::from_le_bytes([b1, b2, b3, b4]))
   }
 
-  /// Override if you have an efficient implementation.
+  /// Implement this method when a more efficient implementation is available.
   /// In general, this is when the input supports
   /// random access.
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()>;
@@ -116,7 +116,7 @@ pub trait DataInput: Display + Closeable {
     Ok(i)
   }
   /// Reads a [`zig-zag`](BitUtil::zig_zag_decode_i32)-encoded
-  /// [`read_vint`](#method.read_vint) variable-length integer.
+  /// [`read_vint`](Self::read_vint) variable-length integer.
   ///
   /// # See Also
   /// [`DataOutput::write_zint`](crate::core::store::data_output::DataOutput::write_zint)
@@ -205,7 +205,7 @@ pub trait DataInput: Display + Closeable {
     Ok(i)
   }
   /// Reads a [`zig-zag`](BitUtil::zig_zag_decode_i64)-encoded
-  /// [`read_vlong`](#method.read_vlong) variable-length integer. Reads
+  /// [`read_vlong`](Self::read_vlong) variable-length integer. Reads
   /// between one and ten bytes.
   ///
   /// # See Also

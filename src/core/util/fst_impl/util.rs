@@ -39,7 +39,7 @@ use crate::core::util::{Comparator, ToInt};
 /// # Lucene experimental
 pub struct Util;
 impl Util {
-  /// Looks up the output for this input, or null if the input is not
+  /// Looks up the output for this input, or None if the input is not
   /// accepted.
   pub fn get_from_ints<O, F, AV>(fst: &FST<O, F>, input: &IntsRef<AV>) -> Result<Option<O::V>>
   where
@@ -663,7 +663,7 @@ where
   }
 }
 
-/// Utility class to find top N shortest paths from start point(s).
+/// Utility for finding the top N shortest paths from one or more starting points.
 pub struct TopNSearcher<'a, O, F, C, PC>
 where
   O: Outputs,
@@ -690,7 +690,7 @@ where
     self.accept_result(path.input.get(), &path.output)
   }
 
-  /// Override this to prevent considering a path before it's complete.
+  /// Implement this to prevent considering a path before it is complete.
   fn accept_partial_path(&mut self, _path: &FSTPath<T>) -> bool {
     true
   }

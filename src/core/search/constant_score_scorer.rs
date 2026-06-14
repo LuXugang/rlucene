@@ -43,7 +43,7 @@ impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator>
 where
   DISI: DocIdSetIterator,
 {
-  /// Constructor based on a [`DocIdSetIterator`] used to drive iteration. Two-phase
+  /// Creates an instance based on a [`DocIdSetIterator`] used to drive iteration. Two-phase
   /// iteration is not supported.
   ///
   /// # Parameters
@@ -69,7 +69,7 @@ impl<TPI> ConstantScoreScorer<DummyDISI, TPI>
 where
   TPI: TwoPhaseIterator,
 {
-  /// Constructor based on a [`TwoPhaseIterator`]. In this case the `Scorer` will
+  /// Creates an instance based on a [`TwoPhaseIterator`]. In this case the `Scorer` will
   /// support two-phase iteration.
   ///
   /// # Parameters
@@ -297,10 +297,10 @@ where
   }
 }
 
-// used for Constructor from DISI
+// used for Creation method from DISI
 pub type ConstantDISI<DISI> =
   DocIdSetIteratorEnum2<DocIdSetIteratorWrapper<DummyTwoPhaseIterator, DISI>, DISI>;
-// used Constructor from TwoPhaseIterator
+// used Creation method from TwoPhaseIterator
 pub type ConstantTPI<TPI> = TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl<TPI>, TPI>;
 
 pub type ConstantDISI_<DISI, TPI> =

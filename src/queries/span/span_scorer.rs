@@ -48,7 +48,7 @@ where
   SS: SimScorer,
   N: NumericDocValues,
 {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new(spans: S, scorer: Option<SS>, norms: Option<N>) -> Self {
     SpanScorer {
       spans,

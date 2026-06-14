@@ -659,7 +659,7 @@ pub(crate) struct FreqProxPostingsArray {
   pub(crate) parent: ParallelPostingsArray,
 }
 impl FreqProxPostingsArray {
-  // Constructor for FreqProxPostingsArray
+  // Creates FreqProxPostingsArray
   pub(crate) fn new(size: usize, write_freqs: bool, write_prox: bool, write_offsets: bool) -> Self {
     let mut term_freqs = None;
     if write_freqs {

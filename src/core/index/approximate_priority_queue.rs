@@ -19,7 +19,7 @@ use std::vec::Vec;
 
 /// An approximate priority queue, which attempts to poll items by decreasing
 /// log of the weight, though exact ordering is not guaranteed. This struct
-/// doesn't support null elements.
+/// doesn't support None elements.
 pub(crate) struct ApproximatePriorityQueue<T>
 where
   T: Lock + IdentityId,
@@ -69,7 +69,7 @@ where
   }
   /// Return an entry matching the predicate. This will usually be one of the
   /// available entries that have the highest weight, though this is not
-  /// guaranteed. This method returns {@code null} if no free entries are
+  /// guaranteed. This method returns `None` if no free entries are
   /// available.
   pub(crate) fn poll<F>(&mut self, predicate: F) -> Option<T>
   where

@@ -36,7 +36,7 @@ pub trait LeafCollector: Display {
   /// - The collection of the current segment can be terminated by returning an
   ///   error such as `LuceneError::CollectionTerminated`. In this case, the last
   ///   docs of the current [`LeafReaderContext`](crate::core::index::leaf_reader_context::LeafReaderContext) will be skipped and
-  ///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) will swallow the exception and continue collection with
+  ///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) will swallow the error and continue collection with
   ///   the next leaf.
   ///
   /// - This is called in an inner search loop. For good search performance,
@@ -94,7 +94,7 @@ pub trait LeafCollector: Display {
 
   /// Hook that gets called once the leaf associated with this collector has
   /// finished collecting successfully, including when a
-  /// [`CollectionTerminatedError`](crate::core::util::error::CollectionTerminatedError) is thrown.
+  /// [`CollectionTerminatedError`](crate::core::util::error::CollectionTerminatedError) is returned.
   ///
   /// This is typically useful to compile data that has been collected on this
   /// leaf, e.g. to convert facet counts on leaf ordinals to facet counts on

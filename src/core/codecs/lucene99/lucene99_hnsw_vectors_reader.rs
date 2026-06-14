@@ -422,7 +422,7 @@ where
 // List of vector similarity functions. This list is defined here, in order
 // to avoid an undesirable dependency on the declaration and order of values
 // in VectorSimilarityFunction. The list values and order must be identical
-// to that of {@link o.a.l.c.l.Lucene94FieldInfosFormat#SIMILARITY_FUNCTIONS}.
+// to `Lucene94FieldInfosFormat::SIMILARITY_FUNCTIONS`.
 pub const SIMILARITY_FUNCTIONS: &[VectorSimilarityFunction] = &[
   VectorSimilarityFunction::Euclidean,
   VectorSimilarityFunction::DotProduct,

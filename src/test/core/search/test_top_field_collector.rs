@@ -238,7 +238,7 @@ fn test_sort_without_total_hit_tracking() -> Result<()> {
   for i in 0..2 {
     let query = MatchAllDocsQuery::new();
 
-    // check that setting trackTotalHits to false does not throw an error
+    // check that setting trackTotalHits to false does not return an error
     // because the index is not sorted
     let manager = if i % 2 == 0 {
       TopFieldCollectorManager::new(sort.clone(), 10, 1)?

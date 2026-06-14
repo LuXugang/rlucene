@@ -42,7 +42,7 @@ use crate::core::util::unicode_util::UnicodeUtil;
 /// implementations for testing.
 pub struct AutomatonTestUtil;
 impl AutomatonTestUtil {
-  /// Default maximum number of states that {@link Operations#determinize}
+  /// Default maximum number of states that `Operations::determinize`
   /// should create.
   pub const DEFAULT_MAX_DETERMINIZED_STATES: usize = 1000000;
   ///  Maximum level of recursion allowed in recursive operations.
@@ -94,8 +94,8 @@ impl AutomatonTestUtil {
     }
     result
   }
-  /// picks a random int code point, avoiding surrogates; throws
-  /// IllegalArgumentException if this transition only accepts surrogates
+  /// picks a random int code point, avoiding surrogates; returns
+  /// Returns an illegal-argument error if this transition accepts only surrogates.
   fn get_random_codepoint<R>(random: &mut R, min: i32, max: i32) -> Result<i32>
   where
     R: Rng + ?Sized,

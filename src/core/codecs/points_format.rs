@@ -38,8 +38,8 @@ pub trait PointsFormat {
   type PointsReader<T: IndexInput>: PointsReader;
   /// Reads a segment. NOTE: by the time this call returns, it must hold open any files it will need
   ///  to use; else, those files may be deleted. Additionally, required files may be deleted during
-  ///  the execution of this call before there is a chance to open them. Under these circumstances an
-  ///  IOException should be thrown by the implementation. IOExceptions are expected and will
+  ///  the execution of this call before there is a chance to open them. Under these circumstances,
+  ///  the implementation should return an I/O error. I/O errors are expected and will
   ///  automatically cause a retry of the segment opening logic with the newly revised segments.
   fn fields_reader<D1, D2>(
     &self,

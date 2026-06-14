@@ -40,7 +40,7 @@ impl WhitespaceTokenizer {
   ///
   /// # Errors
   ///
-  /// Returns an `IllegalArgumentException` if `max_token_len` is invalid.
+  /// Returns `LuceneError::IllegalArgument` if `max_token_len` is invalid.
   pub fn with_max_token_len(max_token_len: usize) -> Result<CharTokenizer<WhitespaceTokenizer>> {
     CharTokenizer::with_max_token_len(default_attribute(), max_token_len, WhitespaceTokenizer)
   }
@@ -53,7 +53,7 @@ impl WhitespaceTokenizer {
   ///
   /// # Errors
   ///
-  /// Returns an `IllegalArgumentException` if `max_token_len` is invalid.
+  /// Returns `LuceneError::IllegalArgument` if `max_token_len` is invalid.
   pub fn with_max_token_len_and_att(
     att: Attributes,
     max_token_len: usize,

@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
 
-/// Base interface for attributes.
+/// Base trait for attributes.
 pub trait Attribute {
   #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {

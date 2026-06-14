@@ -99,7 +99,7 @@ where
   ///   This vector is returned by [`get_sequential_sub_readers`](Self::get_sequential_sub_readers)
   ///   and used to resolve the correct sub-reader for docID-based methods.
   ///   **Please note:** this vector is **not** cloned and **not** protected for modification;
-  ///   the subclass is responsible for doing this.
+  ///   the implementation is responsible for doing this.
   ///
   /// * `sub_readers_sorter` – a comparator for sorting sub-readers.
   ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
@@ -272,7 +272,7 @@ where
     }
     Ok(total)
   }
-  /// Helper method for subclasses to get the docBase of the given sub-reader index.
+  /// Helper method for implementations to get the document base of a sub-reader index.
   pub fn reader_base(&self, reader_index: usize) -> Result<usize> {
     if reader_index >= self.sub_reader.len() {
       return Err(LuceneError::illegal_argument(
@@ -479,7 +479,7 @@ where
     ))
   }
 }
-/// Helper method for subclasses to get the corresponding reader for a doc ID
+/// Helper method for implementations to get the corresponding reader for a document ID.
 pub fn reader_index(doc_id: i32, max_doc: i32, starts: &[usize]) -> Result<usize> {
   if doc_id < 0 || doc_id >= max_doc {
     return Err(LuceneError::illegal_argument(format!(

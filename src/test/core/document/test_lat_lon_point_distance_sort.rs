@@ -174,7 +174,7 @@ fn test_random_huge() -> Result<()> {
   Ok(())
 }
 
-// result class used for testing. holds an id+distance.
+// Test result containing an ID and distance.
 // we sort these with Arrays.sort and compare with lucene's results
 #[derive(Clone, Debug)]
 struct ResultItem {

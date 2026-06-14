@@ -44,7 +44,7 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///
 /// <p>Expert: Scoring API.
 ///
-/// <p>TFIDFSimilarity defines the components of Lucene scoring. Overriding computation of these
+/// <p>TFIDFSimilarity defines the components of Lucene scoring. Customizing these
 /// components is a convenient way to alter Lucene scoring.
 ///
 /// <p>Suggested reading: <a
@@ -54,7 +54,7 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 /// <p>The following describes how Lucene scoring evolves from underlying information retrieval
 /// models to (efficient) implementation. We first brief on <i>VSM Score</i>, then derive from it
 /// <i>Lucene's Conceptual Scoring Formula</i>, from which, finally, evolves <i>Lucene's Practical
-/// Scoring Function</i> (the latter is connected directly with Lucene classes and methods).
+/// Scoring Function</i> (the latter is connected directly with Lucene types and methods).
 ///
 /// <p>Lucene combines <a href="http://en.wikipedia.org/wiki/Standard_Boolean_model">Boolean model
 /// (BM) of Information Retrieval</a> with <a href="http://en.wikipedia.org/wiki/Vector_Space_Model">
@@ -316,10 +316,9 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///      </table>
 ///       <br>
 ///       &nbsp;<br>
-///   <li><a id="formula_termBoost"></A> <b><i>t.getBoost()</i></b> is a search time boost of term
-///       <i>t</i> in the query <i>q</i> as specified in the query text (see <A
-///       HREF="{@docRoot}/../queryparser/org/apache/lucene/queryparser/classic/package-summary.html#Boosting_a_Term">query
-///       syntax</A>), or as set by wrapping with [`BoostQuery`]. Notice that there is really no direct API for accessing a boost of one term in
+///   <li><a id="formula_termBoost"></A> <b><i>t.getBoost()</i></b> is a search-time boost of term
+///       <i>t</i> in query <i>q</i>, as specified by the query syntax or by wrapping with
+///       [`BoostQuery`]. There is no direct API for accessing the boost of one term in
 ///       a multi term query, but rather multi terms are represented in a query as multi [`TermQuery`]
 ///       objects, and so the boost of a term in the query is accessible by calling the sub-query
 ///       [`BoostQuery::get_boost`] getBoost(). <br>
@@ -329,8 +328,7 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///       contribute more to the score.
 /// </ol>
 ///
-/// @see IndexWriterConfig#setSimilarity(Similarity)
-/// @see IndexSearcher#setSimilarity(Similarity)
+/// See also `IndexWriterConfig::set_similarity` and `IndexSearcher::set_similarity`.
 #[derive(Clone)]
 pub struct TFIDFSimilarity {
   sub: TFIDFSubEnum,

@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 const BASE_RAM_BYTES_USED: i64 = 0;
 
-/// Implementation of the [`DocIdSet`] interface on top of a [`BitSet`].
+/// [`DocIdSet`] implementation backed by a [`BitSet`].
 ///
 /// # Note
 /// This is an internal API.

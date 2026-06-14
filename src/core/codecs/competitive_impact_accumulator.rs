@@ -38,7 +38,7 @@ impl Default for CompetitiveImpactAccumulator {
 }
 
 impl CompetitiveImpactAccumulator {
-  /// Sole constructor.
+  /// Creates a new instance.
   pub fn new() -> Self {
     CompetitiveImpactAccumulator {
       max_freqs: [0; 256],
