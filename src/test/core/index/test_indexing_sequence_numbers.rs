@@ -163,6 +163,7 @@ struct Operation {
   seq_no: i64,
 }
 
+#[test]
 fn test_stress_concurrent_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);
@@ -424,6 +425,8 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   w.close()?;
   Ok(())
 }
+
+#[test]
 fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);

@@ -2153,6 +2153,8 @@ fn test_multi_valued_random1() -> Result<()> {
   writer.close()?;
   Ok(())
 }
+
+#[test]
 fn test_concurrent_updates() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

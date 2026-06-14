@@ -258,11 +258,13 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_update_single_doc_with_threads() -> Result<()> {
   let mut random = random();
   let force_merge = rarely(&mut random);
   stress_update_single_doc_with_threads(&mut random, false, force_merge)
 }
+#[test]
 fn test_soft_update_single_doc_with_threads() -> Result<()> {
   let mut random = random();
   let force_merge = rarely(&mut random);

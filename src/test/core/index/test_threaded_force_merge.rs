@@ -182,6 +182,7 @@ impl TestThreadedForceMerge {
   }
 }
 
+#[test]
 fn test_threaded_force_merge() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
