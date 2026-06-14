@@ -1763,7 +1763,6 @@ where
           if !merger.should_merge()? {
             debug_assert!(merger.merge_state.segment_info.max_doc()? == 0);
             success = self.commit_merge(merge, &doc_maps)?;
-            // TODO IMPORTANT
             return Ok(0);
           }
           doc_maps
@@ -4382,7 +4381,6 @@ where
 
       let seg_doc_map = &doc_maps[i];
 
-      // TODO IMPORTANT
       // carry over hard deletes
       let merge_reader = merge.get_merge_reader();
       Self::carry_over_hard_deletes(
@@ -4691,13 +4689,14 @@ where
       self.delete_new_files(merge_sci.files()?.iter(), Some(&inner))?;
     }
 
-    // TODO IMPORTANT close_merge_readers
     {
-      self.checkpoint(&mut inner)?;
       // Must close before checkpoint, otherwise IFD won't be
       // able to delete the held-open files from the merge
       // readers:
-      self.close_merge_readers(merge, false, drop_segment, Some(&mut inner))?;
+      let close_result = self.close_merge_readers(merge, false, drop_segment, Some(&mut inner));
+      let checkpoint_result = self.checkpoint(&mut inner);
+      close_result?;
+      checkpoint_result?;
     }
 
     if self.info_stream.enabled("IW") {
