@@ -7651,11 +7651,10 @@ impl MergeSource for IndexWriterMergeSource {
   where
     D: Directory,
   {
-    merge
-      .info
-      .as_ref()
-      .map(|info| info.info.max_doc())
-      .transpose()
+    match merge.info.as_ref() {
+      Some(info) => Ok(Some(info.info.max_doc()?)),
+      None => Ok(None),
+    }
   }
 }
 #[derive(Default)]
@@ -7772,11 +7771,10 @@ impl MergeSource for AddIndexesMergeSource {
   where
     D: Directory,
   {
-    merge
-      .info
-      .as_ref()
-      .map(|info| info.info.max_doc())
-      .transpose()
+    match merge.info.as_ref() {
+      Some(info) => Ok(Some(info.info.max_doc()?)),
+      None => Ok(None),
+    }
   }
 }
 /// DocModifier trait — equivalent to Java's private interface `DocModifier`

@@ -140,9 +140,7 @@ where
           }
           if self.live_docs[seg]
             .as_ref()
-            .map(|live_docs| live_docs.get(doc_id as usize))
-            .transpose()?
-            .unwrap_or(true)
+            .map_or(Ok(true), |live_docs| live_docs.get(doc_id as usize))?
           {
             return Ok(self.doc_bases[seg] + doc_id);
           }

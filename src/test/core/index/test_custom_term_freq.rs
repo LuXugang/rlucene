@@ -458,8 +458,7 @@ fn test_invalid_prox() -> Result<()> {
       "field \"field\": cannot index positions while using custom TermFrequencyAttribute"
     )
   );
-  // TODO IMPORTANT close 有 bug
-  // w.close()?;
+  w.close()?;
 
   Ok(())
 }
