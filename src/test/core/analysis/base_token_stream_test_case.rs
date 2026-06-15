@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, ReuseStrategy};
+use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::{
   char_term_attribute, flags_attribute, keyword_attribute, offset_attribute, payload_attribute,
   position_increment_attribute, position_length_attribute, term_to_bytes_ref_attribute,
@@ -869,14 +870,8 @@ where
   F: FnOnce(&mut AnalyzerTokenStreams) -> Result<()>,
 {
   let field = "dummy";
-  a.token_stream(field, input)?;
-  a.with_reuse_strategy(|reuse_strategy| {
-    let ts = reuse_strategy
-      .get_reusable_components(field)?
-      .map(|ts_ref| ts_ref.get_token_stream())
-      .ok_or_else(|| LuceneError::illegal_state("missing reusable token stream"))?;
-    f(ts)
-  })
+  let mut ts = a.token_stream(field, ReaderEnum::from(input))?;
+  f(&mut ts)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1200,46 +1195,44 @@ where
   A: Analyzer,
 {
   let field = "bogus";
-  a.token_stream(field, input)?;
-  a.with_reuse_strategy(|reuse_strategy| {
-    let ts = reuse_strategy
-      .get_reusable_components(field)?
-      .map(|ts_ref| ts_ref.get_token_stream())
-      .unwrap();
-    match ts.increment_token() {
+  {
+    let mut ts = a.token_stream(field, ReaderEnum::from(input))?;
+    let result = ts.increment_token();
+    ts.reset()?;
+    while ts.increment_token()? {}
+    ts.end()?;
+    ts.close()?;
+    match result {
       Err(e) => {
         match e {
           LuceneError::IllegalState(_) => {
             // ok
           },
-          _ => unreachable!(""),
+          _ => unreachable!("got wrong exception when reset() not called"),
         }
       },
-      Ok(_) => {
+      Ok(true) => {
         unreachable!("didn't get expected exception when reset() not called")
       },
+      Ok(false) => {},
     }
-    ts.reset()?;
-    while ts.increment_token()? {}
-    ts.end()?;
-    ts.close()?;
-    Ok(())
-  })?;
+  }
   // check for a missing close()
-  a.token_stream(field, input)?;
-  a.with_reuse_strategy(|reuse_strategy| {
-    let ts = reuse_strategy
-      .get_reusable_components(field)?
-      .map(|ts_ref| ts_ref.get_token_stream())
-      .unwrap();
-
+  {
+    let mut ts = a.token_stream(field, ReaderEnum::from(input))?;
     ts.reset()?;
     while ts.increment_token()? {}
     ts.end()?;
-    Ok(())
-  })?;
-  match a.token_stream(field, input) {
+  }
+  let result = a.token_stream(field, ReaderEnum::from(input));
+  match result {
     Err(e) => {
+      a.stored_value()
+        .reuse_strategy()
+        .get_reusable_components(field)?
+        .map(|ts_ref| ts_ref.get_token_stream())
+        .unwrap()
+        .close()?;
       match e {
         LuceneError::IllegalState(_) => {
           // ok
@@ -1247,18 +1240,11 @@ where
         _ => unreachable!("didn't get expected exception"),
       }
     },
-    Ok(_) => {
+    Ok(mut ts) => {
+      ts.close()?;
       unreachable!("didn't get expected exception when close() not called")
     },
   }
-  a.with_reuse_strategy(|reuse_strategy| {
-    let ts = reuse_strategy
-      .get_reusable_components(field)?
-      .map(|ts_ref| ts_ref.get_token_stream())
-      .unwrap();
-    ts.close()?;
-    Ok(())
-  })?;
   Ok(())
 }
 pub fn check_one_term<A, R>(random: &mut R, a: &A, input: &str, expect: &str) -> Result<()>

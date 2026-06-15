@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, ReuseStrategy};
+use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
@@ -58,12 +59,9 @@ where
       continue;
     }
     let field_name = "foo";
-    a.token_stream(field_name, &s)?;
-    let unchanged_single_token = a.with_reuse_strategy(|reuse_strategy| {
-      let ts = reuse_strategy
-        .get_reusable_components(field_name)?
-        .expect("reuse strategy components must exist after token_stream")
-        .get_token_stream();
+    let mut ts = a.token_stream(field_name, ReaderEnum::from(&s))?;
+    let unchanged_single_token;
+    {
       ts.reset()?;
 
       let mut count = 0;
@@ -85,8 +83,8 @@ where
 
       ts.end()?;
       ts.close()?;
-      Ok(!changed && count == 1)
-    })?;
+      unchanged_single_token = !changed && count == 1;
+    }
     if unchanged_single_token {
       return Ok(s);
     }

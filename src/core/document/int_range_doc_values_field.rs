@@ -16,7 +16,6 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_range_field_range_query::BinaryRangeFieldRangeQuery;
 use crate::core::document::field::{FieldBase, FieldDataEnum};
@@ -146,12 +145,15 @@ impl IndexableField for IntRangeDocValuesField {
     self.base.field_type()
   }
 
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    analyzer: &'a A,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>> {
-    self.base.token_stream(token_stream, reuse_token_stream)
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
+    self.base.token_stream(analyzer, reuse_token_stream)
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

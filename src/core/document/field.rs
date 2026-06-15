@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_attributes::packed_token_and_binary::BinaryTokenStreamAttributeImpl;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreamBase};
+use crate::core::analysis::token_stream::{TokenStream, TokenStreamBase};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
@@ -499,11 +499,14 @@ impl IndexableField for Field {
   fn field_type(&self) -> &Self::FieldType {
     &self.indexable_field_type
   }
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    analyzer: &'a A,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>> {
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
     if *self.field_type().index_options() == IndexOptions::None {
       return Ok(None);
     }
@@ -536,34 +539,39 @@ impl IndexableField for Field {
         ) {
           *reuse_token_stream = Some(ReusedIndexingTokenStream::A(BinaryTokenStream::new()?));
         }
-
         match reuse_token_stream.as_mut().unwrap() {
           ReusedIndexingTokenStream::A(s) => s.set_value(binary_value),
           ReusedIndexingTokenStream::B(_) => {
             return Err(LuceneError::illegal_state("should BinaryTokenStream here"));
           },
         }
-
         return Ok(Some(IndexingTokenStreamEnum3::Reused(
           reuse_token_stream.as_mut().unwrap(),
         )));
       }
-
       debug_assert!(reuse_token_stream.is_none());
     }
 
     debug_assert!(reuse_token_stream.is_none());
-
-    if let Some(v) = self.token_stream_value()? {
-      Ok(Some(IndexingTokenStreamEnum3::FieldTokenStream(v)))
-    } else if let Some(token_stream) = token_stream {
-      Ok(Some(IndexingTokenStreamEnum3::AnalyzerTokenStream(
+    if let FieldDataEnum::TokenStream(ref mut token_stream) = self.fields_data {
+      return Ok(Some(IndexingTokenStreamEnum3::FieldTokenStream(
         token_stream,
+      )));
+    }
+
+    if let Some(reader) = self.take_reader_value()? {
+      Ok(Some(IndexingTokenStreamEnum3::AnalyzerTokenStream(
+        analyzer.token_stream(self.name(), reader)?,
+      )))
+    } else if let Some(v) = self.string_value()? {
+      Ok(Some(IndexingTokenStreamEnum3::AnalyzerTokenStream(
+        analyzer.token_stream(self.name(), ReaderEnum::from(v.as_ref()))?,
       )))
     } else {
-      Err(LuceneError::illegal_state(
-        "not initialized Analyzer's token stream in IndexableField::init_token_stream()?",
-      ))
+      Err(LuceneError::illegal_state(format!(
+        "Field must have either TokenStream, String, Reader or Number value; got {}",
+        self
+      )))
     }
   }
 
@@ -670,10 +678,10 @@ impl IndexableField for Field {
     }
     if field_type.tokenized() {
       if let Some(reader) = self.take_reader_value()? {
-        analyzer.token_stream(self.name(), reader)?;
+        drop(analyzer.token_stream(self.name(), reader)?);
       }
       if let Some(v) = self.string_value()? {
-        analyzer.token_stream(self.name(), v.as_ref())?;
+        drop(analyzer.token_stream(self.name(), ReaderEnum::from(v.as_ref()))?);
       }
     }
     Ok(())

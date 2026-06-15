@@ -19,7 +19,6 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
@@ -182,12 +181,15 @@ impl IndexableField for KeywordField {
   fn field_type(&self) -> &Self::FieldType {
     self.parent_field.field_type()
   }
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    ts: Option<&'a mut AnalyzerTokenStreams>,
+    analyzer: &'a A,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>> {
-    self.parent_field.token_stream(ts, reuse_token_stream)
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
+    self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

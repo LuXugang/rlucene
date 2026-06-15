@@ -16,7 +16,6 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::AnalyzerTokenStreams;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -47,11 +46,14 @@ impl IndexableField for DummyIndexableField {
   fn field_type(&self) -> &Self::FieldType {
     dummy_unreachable!()
   }
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    _token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    _analyzer: &'a A,
     _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>> {
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
     dummy_unreachable!()
   }
 

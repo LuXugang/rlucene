@@ -17,7 +17,7 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::binary_point::BinaryPoint;
@@ -246,13 +246,16 @@ impl IndexableField for Fields {
   fn field_type(&self) -> &Self::FieldType {
     dispatch_fields!(self, |field| field.field_type())
   }
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    analyzer: &'a A,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>> {
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
     dispatch_fields!(self, |field| field
-      .token_stream(token_stream, reuse_token_stream))
+      .token_stream(analyzer, reuse_token_stream))
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

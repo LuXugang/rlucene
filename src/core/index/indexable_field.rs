@@ -29,6 +29,7 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
+use std::cell::RefMut;
 use std::fmt::Display;
 
 /// Represents a single field for indexing. IndexWriter consumes
@@ -56,11 +57,13 @@ pub trait IndexableField: Display {
   /// # Returns
   /// TokenStream value for indexing the document. Should always return a
   /// present value if the field is to be indexed.
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    analyzer_token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    analyzer: &'a A,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>>;
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer;
   /// present if this field has a binary value.
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;
@@ -101,7 +104,7 @@ pub trait IndexableField: Display {
 }
 pub type IndexingTokenStream<'a> = Option<
   IndexingTokenStreamEnum3<
-    &'a mut AnalyzerTokenStreams,
+    RefMut<'a, AnalyzerTokenStreams>,
     &'a mut ReusedIndexingTokenStream,
     &'a mut FieldTokenStreamEnum,
   >,

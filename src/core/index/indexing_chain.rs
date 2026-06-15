@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::{Analyzer, ReuseStrategy};
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
+use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::norms_format::NormsFormat;
@@ -1574,160 +1574,145 @@ impl PerField {
 
     let field_name = field.name().to_string();
 
-    // try init Analyzer's TokenStream
-    field.init_token_stream(analyzer)?;
-    analyzer.with_reuse_strategy(|reuse_strategy| {
-            let ts = reuse_strategy
-                    .get_reusable_components(&field_name)?
-                    .map(|ts_ref| ts_ref.get_token_stream());
-
-         let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
-                terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
-        let mut stream = field
-            .token_stream(ts, &mut self.token_stream)?
-            .ok_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))?;
-        let result = (|| {
-            stream.reset()?;
-            while stream.increment_token()? {
-                // If we hit an error in stream.next below
-                // (which is fairly common, e.g. if analyzer
-                // chokes on a given document), then it's
-                // non-aborting and (above) this one document
-                // will be marked as deleted, but still
-                // consume a docID
-                let attribute_source = stream.get_attribute_source_mut();
-                let invert_state = self.invert_state.as_mut().unwrap();
-                let pos_incr = attribute_source.get_position_increment()?;
-                invert_state.position += pos_incr;
-                if invert_state.position < invert_state.last_position {
-                    return if pos_incr == 0 {
-                        Err(LuceneError::illegal_argument(format!(
-                            "first position increment must be > 0 (got 0) for field '{}'",
-                            field_name
-                        )))
-                    } else if pos_incr < 0 {
-                        // position increment must be > 0
-                        Err(LuceneError::illegal_argument(format!(
-                            "position increment must be > 0 (got {}) for field '{}'",
-                            pos_incr, field_name
-                        )))
-                    } else {
-                        Err(LuceneError::illegal_argument(format!(
-                            "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
-                            pos_incr, invert_state.last_position, invert_state.position, field_name
-                        )))
-                    };
-                } else if invert_state.position > MAX_POSITION {
-                    return Err(LuceneError::illegal_argument(format!(
-                        "position {} too large for field {}",
-                        invert_state.position, field_name
-                    )));
-                }
-                if pos_incr == 0 {
-                    invert_state.num_overlap += 1;
-                }
-                invert_state.last_position = invert_state.position;
-                let start = attribute_source.start_offset()?;
-                let end = attribute_source.end_offset()?;
-                let start_offset = invert_state.offset + start;
-                let end_offset = invert_state.offset + end;
-                if start_offset < invert_state.last_start_offset || end_offset < start_offset {
-                    return Err(LuceneError::illegal_argument(format!(
-                        "startOffset must be non-negative, and endOffset must be >= startOffset, and offsets must not go backwards offsets: start={} end={} last_start={} for field {}",
-                        start_offset, end_offset, invert_state.last_start_offset, field_name
-                    )));
-                }
-                invert_state.last_start_offset = start_offset;
-                // update length
-                let tf = attribute_source.get_term_frequency()?;
-                invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
-                    LuceneError::illegal_argument(format!(
-                        "too many tokens for field {}",
-                        field_name
-                    ))
+    {
+      let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+      terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
+      let mut stream = field
+        .token_stream(analyzer, &mut self.token_stream)?
+        .ok_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))?;
+      let result = (|| {
+        stream.reset()?;
+        while stream.increment_token()? {
+          // If we hit an error in stream.next below
+          // (which is fairly common, e.g. if analyzer
+          // chokes on a given document), then it's
+          // non-aborting and (above) this one document
+          // will be marked as deleted, but still
+          // consume a docID
+          let attribute_source = stream.get_attribute_source_mut();
+          let invert_state = self.invert_state.as_mut().unwrap();
+          let pos_incr = attribute_source.get_position_increment()?;
+          invert_state.position += pos_incr;
+          if invert_state.position < invert_state.last_position {
+            return if pos_incr == 0 {
+              Err(LuceneError::illegal_argument(format!(
+                "first position increment must be > 0 (got 0) for field '{}'",
+                field_name
+              )))
+            } else if pos_incr < 0 {
+              // position increment must be > 0
+              Err(LuceneError::illegal_argument(format!(
+                "position increment must be > 0 (got {}) for field '{}'",
+                pos_incr, field_name
+              )))
+            } else {
+              Err(LuceneError::illegal_argument(format!(
+                "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
+                pos_incr, invert_state.last_position, invert_state.position, field_name
+              )))
+            };
+          } else if invert_state.position > MAX_POSITION {
+            return Err(LuceneError::illegal_argument(format!(
+              "position {} too large for field {}",
+              invert_state.position, field_name
+            )));
+          }
+          if pos_incr == 0 {
+            invert_state.num_overlap += 1;
+          }
+          invert_state.last_position = invert_state.position;
+          let start = attribute_source.start_offset()?;
+          let end = attribute_source.end_offset()?;
+          let start_offset = invert_state.offset + start;
+          let end_offset = invert_state.offset + end;
+          if start_offset < invert_state.last_start_offset || end_offset < start_offset {
+            return Err(LuceneError::illegal_argument(format!(
+              "startOffset must be non-negative, and endOffset must be >= startOffset, and offsets must not go backwards offsets: start={} end={} last_start={} for field {}",
+              start_offset, end_offset, invert_state.last_start_offset, field_name
+            )));
+          }
+          invert_state.last_start_offset = start_offset;
+          // update length
+          let tf = attribute_source.get_term_frequency()?;
+          invert_state.length = invert_state.length.checked_add(tf).ok_or_else(|| {
+            LuceneError::illegal_argument(format!("too many tokens for field {}", field_name))
+          })?;
+          // If we hit an error in here, we abort
+          // all buffered documents since the last
+          // flush, on the likelihood that the
+          // internal state of the terms hash is now
+          // corrupt and should not be flushed to a
+          // new segment:
+          match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            terms_hash_per_field.add_with_bytes_ref(
+              // use attribute_source's bytes_ref
+              None,
+              doc_id,
+              self.invert_state.as_mut().unwrap(),
+              attribute_source,
+              context,
+            )
+          })) {
+            Ok(Ok(())) => {},
+            Ok(Err(e)) => match e {
+              LuceneError::MaxBytesLengthExceeded(e) => {
+                let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
+                  LuceneError::illegal_state("BytesRef is None in attribute_source")
                 })?;
-                // If we hit an error in here, we abort
-                // all buffered documents since the last
-                // flush, on the likelihood that the
-                // internal state of the terms hash is now
-                // corrupt and should not be flushed to a
-                // new segment:
-                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                  terms_hash_per_field.add_with_bytes_ref(
-                      // use attribute_source's bytes_ref
-                      None,
-                      doc_id,
-                      self.invert_state.as_mut().unwrap(),
-                      attribute_source,
-                      context,
-                  )
-                })) {
-                  Ok(Ok(())) => {},
-                  Ok(Err(e)) => {
-                    match e {
-                      LuceneError::MaxBytesLengthExceeded(e) => {
-                        let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
-                          LuceneError::illegal_state(
-                            "BytesRef is None in attribute_source",
-                          )
-                        })?;
-                        let mut prefix = [0u8; 30];
-                        let len = 30.min(bytes_ref.length);
-                        prefix[..len].copy_from_slice(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len]);
-                        let mut ia = LuceneError::illegal_argument(format!(
-                          "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
-                          self.field_info.as_ref().unwrap().name,
-                          MAX_TERM_LENGTH,
-                          prefix,
-                          e
-                        ));
-                        ia.add_suppressed(e.into());
-                        return Err(ia);
-                      },
-                      other => {
-                        Self::on_aborting_exception(
-                          has_hit_aborting_exception,
-                          aborting_exception,
-                          other.clone(),
-                        );
-                        return Err(other);
-                      },
-                    }
-                  },
-                  Err(e) => {
-                    let tragedy =
-                      LuceneError::tragedy_from_panic("panic while adding term", e.as_ref());
-                    Self::on_aborting_exception(
-                      has_hit_aborting_exception,
-                      aborting_exception,
-                      tragedy.clone(),
-                    );
-                    return Err(tragedy);
-                  },
-                }
-            }
-            // trigger streams to perform end-of-stream operations
-            stream.end()?;
-            // when we come back around to the field...
-            let invert_state = self.invert_state.as_mut().unwrap();
-            // TODO
-            invert_state.position += stream
-                .get_attribute_source()
-                .get_position_increment()?;
-            invert_state.offset += stream.get_attribute_source().end_offset()?;
-            stream.close()?;
-            Ok(())
-        })();
+                let mut prefix = [0u8; 30];
+                let len = 30.min(bytes_ref.length);
+                prefix[..len]
+                  .copy_from_slice(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len]);
+                let mut ia = LuceneError::illegal_argument(format!(
+                  "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
+                  self.field_info.as_ref().unwrap().name,
+                  MAX_TERM_LENGTH,
+                  prefix,
+                  e
+                ));
+                ia.add_suppressed(e.into());
+                return Err(ia);
+              },
+              other => {
+                Self::on_aborting_exception(
+                  has_hit_aborting_exception,
+                  aborting_exception,
+                  other.clone(),
+                );
+                return Err(other);
+              },
+            },
+            Err(e) => {
+              let tragedy = LuceneError::tragedy_from_panic("panic while adding term", e.as_ref());
+              Self::on_aborting_exception(
+                has_hit_aborting_exception,
+                aborting_exception,
+                tragedy.clone(),
+              );
+              return Err(tragedy);
+            },
+          }
+        }
+        // trigger streams to perform end-of-stream operations
+        stream.end()?;
+        // when we come back around to the field...
+        let invert_state = self.invert_state.as_mut().unwrap();
+        // TODO
+        invert_state.position += stream.get_attribute_source().get_position_increment()?;
+        invert_state.offset += stream.get_attribute_source().end_offset()?;
+        stream.close()?;
+        Ok(())
+      })();
 
-                if result.is_err() && info_stream.enabled("DW"){
-                    info_stream.message(
-                        "DW",
-                        &format!("exception in invert_token_stream for {}", field.name()),
-                    );
-                }
+      if result.is_err() && info_stream.enabled("DW") {
+        info_stream.message(
+          "DW",
+          &format!("exception in invert_token_stream for {}", field_name),
+        );
+      }
 
-        result
-        })?;
+      result?;
+    }
 
     if analyzed {
       let invert_state = self.invert_state.as_mut().unwrap();
@@ -2746,12 +2731,15 @@ where
   fn field_type(&self) -> &Self::FieldType {
     self.delegate.field_type()
   }
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    analyzer: &'a A,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>> {
-    self.delegate.token_stream(token_stream, reuse_token_stream)
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
+    self.delegate.token_stream(analyzer, reuse_token_stream)
   }
 
   fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {

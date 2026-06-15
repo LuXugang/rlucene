@@ -16,7 +16,7 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
@@ -587,11 +587,14 @@ impl IndexableField for MockIndexableField {
     &self.field_type
   }
 
-  fn token_stream<'a>(
+  fn token_stream<'a, A>(
     &'a mut self,
-    _token_stream: Option<&'a mut AnalyzerTokenStreams>,
+    _analyzer: &'a A,
     _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
-  ) -> Result<IndexingTokenStream<'a>> {
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
     Ok(None)
   }
 

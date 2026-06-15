@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 #[cfg(test)]
 use std::sync::Arc;
@@ -61,13 +61,8 @@ impl AnalyzerStoredValue {
       .get_or(|| RefCell::new(self.reuse_strategy.new_reuse_strategy()))
   }
 
-  pub fn with_reuse_strategy<R>(
-    &self,
-    f: impl FnOnce(&mut ReuseStrategyEnum) -> Result<R>,
-  ) -> Result<R> {
-    let stored_value = self.get();
-    let mut reuse_strategy = stored_value.borrow_mut();
-    f(&mut reuse_strategy)
+  pub fn reuse_strategy(&self) -> RefMut<'_, ReuseStrategyEnum> {
+    self.get().borrow_mut()
   }
 }
 
@@ -108,30 +103,33 @@ pub trait Analyzer {
     Ok(in_)
   }
 
-  fn with_reuse_strategy<R>(
+  fn token_stream(
     &self,
-    f: impl FnOnce(&mut ReuseStrategyEnum) -> Result<R>,
-  ) -> Result<R> {
-    self.stored_value().with_reuse_strategy(f)
-  }
+    field_name: &str,
+    input: ReaderEnum,
+  ) -> Result<RefMut<'_, AnalyzerTokenStreams>> {
+    let reader = self.init_reader(field_name, input);
+    let mut reuse_strategy = self.stored_value().reuse_strategy();
+    if reuse_strategy
+      .get_reusable_components(field_name)?
+      .is_none()
+    {
+      let v = self.create_components(field_name)?;
+      reuse_strategy.set_reusable_components(field_name, v)?;
+    }
 
-  fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
-  where
-    R: Into<ReaderEnum>,
-  {
-    let reader = self.init_reader(field_name, input.into());
-    self.with_reuse_strategy(|reuse_strategy| {
-      let mut components = reuse_strategy.get_reusable_components(field_name)?;
-      if components.is_none() {
-        let v = self.create_components(field_name)?;
-        reuse_strategy.set_reusable_components(field_name, v)?;
-        components = reuse_strategy.get_reusable_components(field_name)?;
+    reuse_strategy
+      .get_reusable_components(field_name)?
+      .ok_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))?
+      .set_reader(reader)?;
+
+    RefMut::filter_map(reuse_strategy, |reuse_strategy| {
+      match reuse_strategy.get_reusable_components(field_name) {
+        Ok(Some(components)) => Some(components.get_token_stream()),
+        _ => None,
       }
-
-      let components = components.as_mut().unwrap();
-      components.set_reader(reader)?;
-      Ok(())
     })
+    .map_err(|_| LuceneError::illegal_state("Analyzer token_stream is not initialized"))
   }
 
   fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
@@ -281,10 +279,11 @@ impl Analyzer for AnalyzerEnum {
     }
   }
 
-  fn token_stream<R>(&self, field_name: &str, input: R) -> Result<()>
-  where
-    R: Into<ReaderEnum>,
-  {
+  fn token_stream(
+    &self,
+    field_name: &str,
+    input: ReaderEnum,
+  ) -> Result<RefMut<'_, AnalyzerTokenStreams>> {
     match self {
       AnalyzerEnum::Whitespace(v) => v.token_stream(field_name, input),
       AnalyzerEnum::Standard(v) => v.token_stream(field_name, input),
