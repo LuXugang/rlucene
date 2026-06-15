@@ -31,7 +31,6 @@ use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
-use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
@@ -534,10 +533,12 @@ fn test_intra_slice_doc_id_order_with_partitions() -> Result<()> {
   w.close()?;
 
   let context = get_context(r)?;
-  let slices = do_slices(context.leaves()?, 1, 1, true)?;
+  let mut s = IndexSearcher::with_threads(context, 2)?;
+  s.set_slice_strategy(|leaves| do_slices(leaves, 1, 1, true));
+  let slices = s.get_slices()?;
   assert!(!slices.is_empty());
 
-  for leaf_slice in &slices {
+  for leaf_slice in slices.as_slice() {
     let mut previous_doc_base = leaf_slice.partitions[0].doc_base;
 
     for leaf_reader_context_partition in &leaf_slice.partitions {

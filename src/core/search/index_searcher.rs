@@ -80,6 +80,8 @@ const TOTAL_HITS_THRESHOLD: usize = 1000;
 /// To change the default, extend IndexSearcher and use custom values
 const MAX_DOCS_PER_SLICE: i32 = 250000;
 const MAX_SEGMENTS_PER_SLICE: usize = 5;
+#[cfg(test)]
+type SliceStrategy<LR> = fn(&[LeafReaderContext<LR>]) -> Result<Vec<LeafSlice>>;
 
 pub static MAX_CACHED_QUERIES: i32 = 1000;
 pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
@@ -101,6 +103,10 @@ where
   query_caching_policy: Arc<QueryCachingPolicyEnum>,
   query_cache: Option<QueryCacheEnum<IRC>>,
   search_threads: usize,
+  #[cfg(test)]
+  slice_strategy: Option<SliceStrategy<IRC::LeafReader>>,
+  #[cfg(test)]
+  offloaded_slice_counter: Option<Arc<AtomicUsize>>,
   // partialResult may be set on one of the threads of the executor. It may be correct to not make
   // Joining these threads establishes the required happens-before relationship, but using an atomic
   // value also makes cross-thread visibility explicit.
@@ -146,6 +152,10 @@ where
       query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
       query_cache: Some(lru_query_cache.into()),
       search_threads: 1,
+      #[cfg(test)]
+      slice_strategy: None,
+      #[cfg(test)]
+      offloaded_slice_counter: None,
       partial_result: AtomicBool::new(false),
       #[cfg(test)]
       disable_rewrite: false,
@@ -237,6 +247,19 @@ where
     self.search_threads
   }
 
+  #[cfg(test)]
+  pub(crate) fn set_slice_strategy(&mut self, slice_strategy: SliceStrategy<IRC::LeafReader>) {
+    self.slice_strategy = Some(slice_strategy);
+    if self.search_threads > 1 {
+      self.inner.lock().leaf_slices = None;
+    }
+  }
+
+  #[cfg(test)]
+  pub(crate) fn set_offloaded_slice_counter(&mut self, counter: Arc<AtomicUsize>) {
+    self.offloaded_slice_counter = Some(counter);
+  }
+
   pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
     let mut inner = self.inner.lock();
     if inner.leaf_slices.is_none() {
@@ -247,7 +270,14 @@ where
 
   fn compute_and_cache_slices(&self, inner: &mut Inner) -> Result<()> {
     if inner.leaf_slices.is_none() {
-      let res = slices(self.reader_context.leaves()?)?;
+      let leaves = self.reader_context.leaves()?;
+      #[cfg(test)]
+      let res = match self.slice_strategy {
+        Some(slice_strategy) => slice_strategy(leaves)?,
+        None => slices(leaves)?,
+      };
+      #[cfg(not(test))]
+      let res = slices(leaves)?;
       // Enforce that there aren't multiple leaf partitions within the same leaf slice pointing to the
       // same leaf context. It is a requirement that [`Collector::get_leaf_collector(LeafReaderContext)`]
       // gets called once per leaf context.
@@ -573,6 +603,10 @@ where
           let weight = self.create_weight(query, score_mode, 1.0)?;
           let mut results = Vec::with_capacity(group.len());
           for (i, leaf_slice, mut collector) in group {
+            #[cfg(test)]
+            if let Some(counter) = &self.offloaded_slice_counter {
+              counter.fetch_add(1, Ordering::Relaxed);
+            }
             self.search_partitions(
               leaf_slice.partitions.as_slice(),
               weight.as_ref(),

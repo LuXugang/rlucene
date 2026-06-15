@@ -31,7 +31,9 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::field_comparator::FieldComparatorValue;
 use crate::core::search::field_doc::FieldDoc;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{
+  IndexSearcher, LeafReaderContextPartition, LeafSlice, do_slices,
+};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::query::Query;
@@ -51,6 +53,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use rand::RngExt;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[allow(dead_code)]
 pub struct TestIndexSearcher {
@@ -309,23 +312,53 @@ fn test_get_slices() -> Result<()> {
     w.flush()?;
   }
 
-  let r = w.get_reader()?;
+  let r = Arc::new(w.get_reader()?);
   w.close()?;
 
-  let context = get_context(r)?;
+  let context = get_context(r.clone())?;
   let leaves_len = context.leaves()?.len();
   let searcher = IndexSearcher::new(context)?;
   let slices = searcher.get_slices()?;
   assert_eq!(1, slices.len());
   assert_eq!(leaves_len, slices[0].partitions.len());
 
-  // TODO IMPORTANT 多线程未实现
+  let context = get_context(r)?;
+  let mut searcher = IndexSearcher::with_threads(context, 2)?;
+  searcher.set_slice_strategy(|leaves| do_slices(leaves, 1, 1, false));
+  let slices = searcher.get_slices()?;
+  for slice in slices.iter() {
+    assert_eq!(1, slice.partitions.len());
+  }
+  assert_eq!(leaves_len, slices.len());
+
   Ok(())
 }
 
 #[test]
 fn test_slices_offloaded_to_the_executor() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  let mut random = random();
+  let TestIndexSearcher { dir: _dir, reader } = TestIndexSearcher::set_up(&mut random)?;
+
+  let context = get_context(reader)?;
+  let leaves_len = context.leaves()?.len();
+  let mut searcher = IndexSearcher::with_threads(context, leaves_len.max(1))?;
+  searcher.set_slice_strategy(|leaves| {
+    leaves
+      .iter()
+      .map(|ctx| {
+        Ok(LeafSlice::new(vec![
+          LeafReaderContextPartition::create_for_entire_segment(ctx)?,
+        ]))
+      })
+      .collect()
+  });
+  let num_executions = Arc::new(AtomicUsize::new(0));
+  searcher.set_offloaded_slice_counter(num_executions.clone());
+
+  searcher.search(MatchAllDocsQuery::new(), 10)?;
+  let expected_executions = if leaves_len > 1 { leaves_len } else { 0 };
+  assert_eq!(expected_executions, num_executions.load(Ordering::Relaxed));
+
   Ok(())
 }
 
@@ -336,7 +369,40 @@ fn test_null_executor_non_null_task_executor() -> Result<()> {
 
 #[test]
 fn test_segment_partitions_same_slice() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  let mut random = random();
+  let TestIndexSearcher { dir: _dir, reader } = TestIndexSearcher::set_up(&mut random)?;
+
+  let context = get_context(reader)?;
+  let mut searcher = IndexSearcher::with_threads(context, 2)?;
+  searcher.set_slice_strategy(|leaves| {
+    leaves
+      .iter()
+      .map(|ctx| {
+        Ok(LeafSlice::new(vec![
+          LeafReaderContextPartition::create_from_and_to(ctx, 0, 1)?,
+          LeafReaderContextPartition::create_from_and_to(ctx, 1, ctx.reader().max_doc()?)?,
+        ]))
+      })
+      .collect()
+  });
+
+  for ctx in searcher.get_leaf_contexts()? {
+    if ctx.reader().max_doc()? <= 1 {
+      // mock Java's assumeTrue
+      return Ok(());
+    }
+  }
+
+  let error = match searcher.get_slices() {
+    Ok(_) => panic!("get_slices should reject multiple partitions of the same leaf in one slice"),
+    Err(error) => error,
+  };
+  assert!(matches!(
+    error,
+    LuceneError::IllegalState(ref error)
+      if error.message == "The same slice targets multiple leaf partitions of the same leaf reader context. A physical segment should rather get partitioned to be searched concurrently from as many slices as the number of leaf partitions it is split into."
+  ));
+
   Ok(())
 }
 
