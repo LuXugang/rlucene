@@ -438,7 +438,7 @@ where
             info,
             (bytes as f64) / 1024.0 / 1024.0
           ),
-        );
+        )?;
       }
 
       let next_doc_values_gen = info.get_next_doc_values_gen();
@@ -713,7 +713,7 @@ where
           start_time_ns.elapsed().as_secs_f64(),
           new_dv_files,
         ),
-      );
+      )?;
     }
     Ok(true)
   }

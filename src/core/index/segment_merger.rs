@@ -119,7 +119,7 @@ where
     {
       merge_state
         .info_stream
-        .message("SM", &format!("index sort during merge: {}", sort));
+        .message("SM", &format!("index sort during merge: {}", sort))?;
     }
     let id = StringHelper::id_to_string(Option::from(&StringHelper::random_id()));
     Ok(Self {
@@ -277,7 +277,7 @@ where
           "{} ms to merge {} [{} docs]",
           elapsed_ms, format_name, num_merged
         ),
-      );
+      )?;
     }
 
     Ok(num_merged)
@@ -310,7 +310,7 @@ where
           "{} ms to merge {} [{} docs]",
           elapsed_ms, format_name, num_merged
         ),
-      );
+      )?;
     }
 
     Ok(())

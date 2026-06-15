@@ -163,7 +163,7 @@ impl MergePolicy for DummyMergePolicy {
     dummy_unreachable!()
   }
 
-  fn message<MC, D>(&self, _message: &str, _merge_context: &MC)
+  fn message<MC, D>(&self, _message: &str, _merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
     D: Directory,

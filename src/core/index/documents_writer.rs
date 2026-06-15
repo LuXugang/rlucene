@@ -233,7 +233,7 @@ where
   pub(crate) fn flush_one_dwpt(&self, writer: &IndexWriter<D>) -> Result<bool> {
     {
       if self.info_stream.enabled("DW") {
-        self.info_stream.message("DW", "startFlushOneDWPT");
+        self.info_stream.message("DW", "startFlushOneDWPT")?;
       }
     }
 
@@ -258,7 +258,7 @@ where
   {
     let _guard = self.guard.lock();
     if self.info_stream.enabled("DW") {
-      self.info_stream.message("DW", "lockAndAbortAll");
+      self.info_stream.message("DW", "lockAndAbortAll")?;
     }
     // Make sure we move all pending tickets into the flush queue:
     self.ticket_queue.force_purge(|mut ticket| {
@@ -301,7 +301,7 @@ where
       if self.info_stream.enabled("DW") {
         self
           .info_stream
-          .message("DW", "finished lockAndAbortAll success=true");
+          .message("DW", "finished lockAndAbortAll success=true")?;
       }
       Ok(())
     })();
@@ -312,7 +312,7 @@ where
         if self.info_stream.enabled("DW") {
           self
             .info_stream
-            .message("DW", "finished lockAndAbortAll success=false");
+            .message("DW", "finished lockAndAbortAll success=false")?;
         }
         drop(finalizer);
         Err(e)
@@ -343,7 +343,7 @@ where
       .lock()
       .get_max_completed_seq_no()
   }
-  pub(crate) fn any_changes(&self) -> bool {
+  pub(crate) fn any_changes(&self) -> Result<bool> {
     // changes are either in a DWPT or in the deleteQueue.
     // yet if we currently flush deletes and / or dwpt there
     // could be a window where all changes are in the ticket queue
@@ -364,10 +364,10 @@ where
                 &format!(
                     "anyChanges? numDocsInRam={num_docs} deletes={deletions} hasTickets={tickets} pendingChangesInFullFlush={pending_full}"
                 ),
-            );
+            )?;
     }
 
-    any
+    Ok(any)
   }
   pub(crate) fn get_buffered_delete_terms_size(&self) -> Result<i32> {
     self
@@ -398,7 +398,7 @@ where
       self.flush_control.delete_queue.lock().clear();
 
       if self.info_stream.enabled("DW") {
-        self.info_stream.message("DW", "abort");
+        self.info_stream.message("DW", "abort")?;
       }
 
       for per_thread in self
@@ -445,7 +445,7 @@ where
     if self.info_stream.enabled("DW") {
       self
         .info_stream
-        .message("DW", &format!("done abort success={success}"));
+        .message("DW", &format!("done abort success={success}"))?;
     }
 
     result
@@ -765,11 +765,11 @@ where
     L: LiveIndexWriterConfig,
   {
     if self.info_stream.enabled("DW") {
-      self.info_stream.message("DW", "startFullFlush");
+      self.info_stream.message("DW", "startFullFlush")?;
     }
     let (flushing_delete_queue, seq_no) = {
       let mut guard = self.guard.lock();
-      let pending = self.any_changes();
+      let pending = self.any_changes()?;
       self
         .pending_changes_in_current_full_flush
         .store(pending, Ordering::SeqCst);
@@ -807,7 +807,7 @@ where
             let name = v.name().unwrap_or("<unnamed>");
             self
               .info_stream
-              .message("DW", &format!("{name}: flush naked frozen global deletes"));
+              .message("DW", &format!("{name}: flush naked frozen global deletes"))?;
           }
         }
 
@@ -843,7 +843,7 @@ where
       self.info_stream.message(
         "DW",
         &format!("{thread_name} finishFullFlush success={success}"),
-      );
+      )?;
     }
     let result = {
       debug_assert!(self.set_flushing_delete_queue(None, None));
@@ -918,7 +918,8 @@ where
         self
           .documents_writer
           .info_stream
-          .message("DW", "unlockAllAbortedThread");
+          .message("DW", "unlockAllAbortedThread")
+          .unwrap_or_default();
       }
       self
         .documents_writer

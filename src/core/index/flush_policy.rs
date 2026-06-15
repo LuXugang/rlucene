@@ -78,7 +78,7 @@ pub trait FlushPolicy {
     &self,
     control: &DocumentsWriterFlushControl<D>,
     per_thread: &DocumentsWriterPerThread<D>,
-  ) -> Option<Arc<DwptWrapper<D>>>
+  ) -> Result<Option<Arc<DwptWrapper<D>>>>
   where
     D: Directory,
   {
@@ -87,19 +87,20 @@ pub trait FlushPolicy {
       "expected per_thread to have >0 docs in RAM"
     );
     // the dwpt which needs to be flushed eventually
-    let max_ram_using_writer = control.find_largest_non_pending_writer();
-    debug_assert!(self.assert_message(
+    let max_ram_using_writer = control.find_largest_non_pending_writer()?;
+    let assert_message = self.assert_message(
       "set largest ram consuming thread pending on lower watermark",
-      &control.info_stream
-    ));
-    max_ram_using_writer
+      &control.info_stream,
+    )?;
+    debug_assert!(assert_message);
+    Ok(max_ram_using_writer)
   }
 
-  fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> bool {
+  fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> Result<bool> {
     if info_stream.enabled("FP") {
-      info_stream.message("FP", s);
+      info_stream.message("FP", s)?;
     }
-    true
+    Ok(true)
   }
 }
 
@@ -189,7 +190,7 @@ impl FlushPolicy for FlushPolicyEnum {
     &self,
     control: &DocumentsWriterFlushControl<D>,
     per_thread: &DocumentsWriterPerThread<D>,
-  ) -> Option<Arc<DwptWrapper<D>>>
+  ) -> Result<Option<Arc<DwptWrapper<D>>>>
   where
     D: Directory,
   {
@@ -208,7 +209,7 @@ impl FlushPolicy for FlushPolicyEnum {
     }
   }
 
-  fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> bool {
+  fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> Result<bool> {
     match self {
       FlushPolicyEnum::FlushByRamOrCounts(policy) => policy.assert_message(s, info_stream),
       #[cfg(test)]

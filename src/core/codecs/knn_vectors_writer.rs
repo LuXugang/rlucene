@@ -129,7 +129,7 @@ pub trait KnnVectorsWriter: Accountable {
         if merge_state.info_stream.enabled("VV") {
           merge_state
             .info_stream
-            .message("VV", &format!("merging {}", merge_state.segment_info));
+            .message("VV", &format!("merging {}", merge_state.segment_info))?;
         }
 
         self.merge_one_field(field_info, merge_state, segment_write_state)?;
@@ -137,7 +137,7 @@ pub trait KnnVectorsWriter: Accountable {
         if merge_state.info_stream.enabled("VV") {
           merge_state
             .info_stream
-            .message("VV", &format!("merge done {}", merge_state.segment_info));
+            .message("VV", &format!("merge done {}", merge_state.segment_info))?;
         }
       }
     }

@@ -47,17 +47,18 @@ where
       messenger,
     }
   }
-  pub fn inc_ref<I, S>(&mut self, file_names: I)
+  pub fn inc_ref<I, S>(&mut self, file_names: I) -> Result<()>
   where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
   {
     for file in file_names {
-      self.inc_ref_single(file.as_ref());
+      self.inc_ref_single(file.as_ref())?;
     }
+    Ok(())
   }
 
-  pub fn inc_ref_single(&mut self, file_name: &str) {
+  pub fn inc_ref_single(&mut self, file_name: &str) -> Result<()> {
     let rc = self.get_ref_count_internal(file_name);
     let count = rc.count;
     rc.inc_ref();
@@ -66,8 +67,9 @@ where
       messenger.accept(
         MsgType::Ref,
         &format!("IncRef \"{file_name}\": pre-incr count is {count}"),
-      );
+      )?;
     }
+    Ok(())
   }
 
   /// Decrease ref counts for all provided files, delete them if ref counts down to 0, even on
@@ -79,14 +81,14 @@ where
     let mut to_delete = Vec::new();
 
     for file_name in file_names {
-      if self.dec_ref_single(file_name.as_str()) {
+      if self.dec_ref_single(file_name.as_str())? {
         to_delete.push(file_name)
       }
     }
     self.delete_files(to_delete)
   }
   /// Returns true if the file should be deleted
-  fn dec_ref_single(&mut self, file_name: &str) -> bool {
+  fn dec_ref_single(&mut self, file_name: &str) -> Result<bool> {
     let rc = self.get_ref_count_internal(file_name);
     let count = rc.count;
     let v = if rc.dec_ref() == 0 {
@@ -99,9 +101,9 @@ where
       messenger.accept(
         MsgType::Ref,
         &format!("DecRef \"{file_name}\": pre-decr count is {count}"),
-      );
+      )?;
     }
-    v
+    Ok(v)
   }
   fn get_ref_count_internal(&mut self, file_name: &str) -> &mut RefCount {
     self
@@ -138,7 +140,7 @@ where
       .unwrap_or(false)
   }
   /// get files that are touched but not incref'ed
-  pub fn get_unrefed_files(&self) -> HashSet<String> {
+  pub fn get_unrefed_files(&self) -> Result<HashSet<String>> {
     let mut unrefed = HashSet::new();
     for (file_name, rc) in &self.ref_counts {
       if rc.count == 0 {
@@ -146,12 +148,12 @@ where
           messenger.accept(
             MsgType::File,
             &format!("removing unreferenced file \"{file_name}\""),
-          );
+          )?;
         }
         unrefed.insert(file_name.clone());
       }
     }
-    unrefed
+    Ok(unrefed)
   }
   /// delete only files that are unref'ed
   pub fn delete_files_if_no_ref<'a, I>(&self, files: I) -> Result<()>
@@ -172,7 +174,7 @@ where
           messenger.accept(
             MsgType::File,
             &format!("will delete new file \"{file_name}\""),
-          );
+          )?;
         }
         to_delete.insert(file_name);
       }
@@ -192,7 +194,7 @@ where
         messenger.accept(
           MsgType::File,
           &format!("will delete new file \"{file_name}\""),
-        );
+        )?;
       }
       self.delete_file(file_name)?;
     }
@@ -209,7 +211,7 @@ where
       messenger.accept(
         MsgType::File,
         &format!("now delete {} files: {:?}", files.len(), files),
-      );
+      )?;
     }
 
     // First pass: delete any segments_N files.  We do these first to be certain stale commit points
@@ -309,7 +311,7 @@ impl RefCount {
 }
 
 pub trait Messenger {
-  fn accept(&self, msg_type: MsgType, message: &str);
+  fn accept(&self, msg_type: MsgType, message: &str) -> Result<()>;
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MsgType {

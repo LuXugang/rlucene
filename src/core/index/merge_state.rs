@@ -235,7 +235,7 @@ where
             self.info_stream.message(
               "SM",
               &format!("{:.2} msec to build merge sorted DocMaps", elapsed),
-            );
+            )?;
           }
           result
         },

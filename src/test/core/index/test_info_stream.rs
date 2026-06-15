@@ -67,10 +67,13 @@ fn test_test_points_on() -> Result<()> {
 struct NoTestPointsInfoStream;
 
 impl InfoStream for NoTestPointsInfoStream {
-  fn close(&self) {}
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
 
-  fn message(&self, component: &str, _message: &str) {
+  fn message(&self, component: &str, _message: &str) -> Result<()> {
     assert_ne!("TP", component);
+    Ok(())
   }
 
   fn enabled(&self, component: &str) -> bool {
@@ -84,12 +87,15 @@ struct TestPointsInfoStream {
 }
 
 impl InfoStream for TestPointsInfoStream {
-  fn close(&self) {}
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
 
-  fn message(&self, component: &str, _message: &str) {
+  fn message(&self, component: &str, _message: &str) -> Result<()> {
     if component == "TP" {
       self.seen_test_point.store(true, Ordering::SeqCst);
     }
+    Ok(())
   }
 
   fn enabled(&self, _component: &str) -> bool {

@@ -72,7 +72,7 @@ impl BufferedUpdatesStream {
   pub(crate) fn push(
     &self,
     mut packet: FrozenBufferedUpdates,
-  ) -> (i64, Arc<FrozenBufferedUpdates>) {
+  ) -> Result<(i64, Arc<FrozenBufferedUpdates>)> {
     // The insert operation must be atomic. If we let threads increment the gen
     // and push the packet afterwards we risk that packets are out of order.
     // With DWPT this is possible if two or more flushes are racing for pushing
@@ -101,11 +101,11 @@ impl BufferedUpdatesStream {
           &format!(
             "push new packet ({packet_msg}), packetCount={count}, bytesUsed={used_mb:.3} MB"
           ),
-        );
+        )?;
       }
     }
     debug_assert!(self.check_delete_stats(&inner));
-    (del_gen, v)
+    Ok((del_gen, v))
   }
   pub(crate) fn get_pending_updates_count(&self) -> usize {
     let inner = self.inner.lock();
@@ -142,13 +142,13 @@ impl BufferedUpdatesStream {
     self.finished_segments.still_running(del_gen)
   }
 
-  pub(crate) fn finished_segment(&self, del_gen: i64) {
-    self.finished_segments.finished_segment(del_gen);
+  pub(crate) fn finished_segment(&self, del_gen: i64) -> Result<()> {
+    self.finished_segments.finished_segment(del_gen)
   }
   /// Called by indexing threads once they are fully done resolving all deletes for the provided `del_gen`.
   /// We track completed deletion generations and record the maximum `del_gen` for which all prior generations,
   /// inclusive, are completed, so that it’s safe for doc values updates to apply and write.
-  pub(crate) fn finished(&self, packet: &FrozenBufferedUpdates) {
+  pub(crate) fn finished(&self, packet: &FrozenBufferedUpdates) -> Result<()> {
     // TODO: would be a bit more memory efficient to track this per-segment, so when each segment
     // writes it writes all packets finished for
     // it, rather than only recording here, across all segments.  But, more complex code, and more
@@ -163,7 +163,8 @@ impl BufferedUpdatesStream {
     let bytes = packet.bytes_used as i64;
     self.bytes_used.fetch_sub(bytes, Ordering::SeqCst);
 
-    self.finished_segment(packet.del_gen());
+    self.finished_segment(packet.del_gen())?;
+    Ok(())
   }
   /// All frozen packets up to and including this del gen are guaranteed to be finished.
   pub fn get_completed_del_gen(&self) -> i64 {
@@ -215,7 +216,7 @@ impl BufferedUpdatesStream {
           wait_for.len(),
           merge_infos_id.len()
         ),
-      );
+      )?;
     }
 
     self.wait_apply(wait_for, writer)
@@ -236,7 +237,7 @@ impl BufferedUpdatesStream {
       if self.info_stream.enabled("BD") {
         self
           .info_stream
-          .message("BD", "waitApply: no deletes to apply");
+          .message("BD", "waitApply: no deletes to apply")?;
       }
       return Ok(());
     }
@@ -245,7 +246,7 @@ impl BufferedUpdatesStream {
       self.info_stream.message(
         "BD",
         &format!("waitApply: {packet_count:?} packets: {wait_for:?}"),
-      );
+      )?;
     }
 
     let mut pending = Vec::new();
@@ -276,7 +277,7 @@ impl BufferedUpdatesStream {
                     &format!(
                         "waitApply: done {packet_count} packets; totalDelCount={total_del_count}; totBytesUsed={bytes}; took {elapsed:.2} msec"
                     ),
-                );
+                )?;
     }
     Ok(())
   }
@@ -402,7 +403,7 @@ impl FinishedSegments {
     inner.completed_del_gen
   }
 
-  pub(crate) fn finished_segment(&self, del_gen: i64) {
+  pub(crate) fn finished_segment(&self, del_gen: i64) -> Result<()> {
     let mut inner = self.inner.lock();
     inner.finished_del_gens.insert(del_gen);
     while inner
@@ -421,9 +422,10 @@ impl FinishedSegments {
             "finished packet delGen={} now completedDelGen={}",
             del_gen, inner.completed_del_gen
           ),
-        );
+        )?;
       }
     }
+    Ok(())
   }
 }
 /// Result of applying deletes.

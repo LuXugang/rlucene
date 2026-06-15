@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use chrono::Utc;
+use parking_lot::Mutex;
 use std::io::{self, Write};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 /// InfoStream implementation over a writable stream such as stdout.
@@ -82,31 +83,29 @@ impl<W> InfoStream for PrintStreamInfoStream<W>
 where
   W: Write + Send + 'static,
 {
-  fn message(&self, component: &str, message: &str) {
+  fn message(&self, component: &str, message: &str) -> Result<()> {
     let current_thread = std::thread::current();
     let thread_name = current_thread.name().unwrap_or("<unnamed>");
     let timestamp = self.get_timestamp();
-    let mut stream = self.stream.lock().expect("print stream mutex poisoned");
-    let _ = writeln!(
+    let mut stream = self.stream.lock();
+    writeln!(
       stream,
       "{} {} [{}; {}]: {}",
       component, self.message_id, timestamp, thread_name, message
-    );
-    let _ = stream.flush();
+    )?;
+    stream.flush()?;
+    Ok(())
   }
 
   fn enabled(&self, _component: &str) -> bool {
     true
   }
 
-  fn close(&self) {
+  fn close(&self) -> Result<()> {
     if !self.is_system_stream() {
-      let _ = self
-        .stream
-        .lock()
-        .expect("print stream mutex poisoned")
-        .flush();
+      self.stream.lock().flush()?;
     }
+    Ok(())
   }
 }
 

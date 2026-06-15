@@ -326,7 +326,7 @@ impl TieredMergePolicy {
       self.message(
         &format!("findMerges: {} segments", original_sorted_size),
         merge_context,
-      );
+      )?;
     }
     if original_sorted_size == 0 {
       return Ok(None);
@@ -360,7 +360,7 @@ impl TieredMergePolicy {
             sorted_eligible.len()
           ),
           merge_context,
-        );
+        )?;
       }
 
       if sorted_eligible.is_empty() {

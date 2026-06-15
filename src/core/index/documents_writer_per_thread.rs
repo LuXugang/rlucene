@@ -176,7 +176,7 @@ where
     );
 
     if self.info_stream.enabled("DWPT") {
-      self.info_stream.message("DWPT", "now abort");
+      self.info_stream.message("DWPT", "now abort")?;
     }
 
     let abort_result = (|| {
@@ -186,7 +186,7 @@ where
     self.pending_updates.clear();
 
     if self.info_stream.enabled("DWPT") {
-      self.info_stream.message("DWPT", "done abort");
+      self.info_stream.message("DWPT", "done abort")?;
     }
     abort_result
   }
@@ -235,7 +235,7 @@ where
           segment_name,
           delete_queue
         ),
-      );
+      )?;
     }
 
     let indexing_chain = IndexingChain::new(
@@ -285,11 +285,12 @@ where
     })
   }
 
-  pub(crate) fn test_point(&self, message: &str) {
+  pub(crate) fn test_point(&self, message: &str) -> Result<()> {
     if self.enable_test_points {
       debug_assert!(self.info_stream.enabled("TP"));
-      self.info_stream.message("TP", message);
+      self.info_stream.message("TP", message)?;
     }
+    Ok(())
   }
   /// Anything that will add N docs to the index should reserve first to make sure it's allowed.
   fn reserve_one_doc(&self) -> Result<()> {
@@ -320,7 +321,7 @@ where
     DF: IntoIterator<Item = Fields>,
     FN: FlushNotifications,
   {
-    self.test_point("DocumentsWriterPerThread addDocuments start");
+    self.test_point("DocumentsWriterPerThread addDocuments start")?;
     debug_assert!(
       self.aborting_exception.get().is_none(),
       "DWPT has hit aborting exception but is still indexing"
@@ -339,7 +340,7 @@ where
           self.state.num_docs_in_ram.load(SeqCst),
           self.segment_info.name
         ),
-      );
+      )?;
     }
 
     let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
@@ -556,7 +557,7 @@ where
             if self.info_stream.enabled("DWPT") {
               self
                 .info_stream
-                .message("DWPT", "flush: skip because aborting is set");
+                .message("DWPT", "flush: skip because aborting is set")?;
             }
             return Ok(None);
           }
@@ -571,7 +572,7 @@ where
                 self.segment_info.name,
                 self.state.num_docs_in_ram.load(SeqCst)
               ),
-            );
+            )?;
           }
 
           let sort_map = self.indexing_chain.flush(
@@ -624,14 +625,14 @@ where
                 "new segment has {} deleted docs",
                 flush_state.del_count_on_flush
               ),
-            );
+            )?;
             self.info_stream.message(
               "DWPT",
               &format!(
                 "new segment has {} soft-deleted docs",
                 flush_state.soft_del_count_on_flush
               ),
-            );
+            )?;
             self.info_stream.message(
               "DWPT",
               &format!(
@@ -662,15 +663,15 @@ where
                   "no freqs"
                 }
               ),
-            );
+            )?;
             self.info_stream.message(
               "DWPT",
               &format!("flushedFiles={:?}", segment_info_per_commit.files()),
-            );
+            )?;
             self.info_stream.message(
               "DWPT",
               &format!("flushed codec={}", index_writer_config.get_codec()),
-            );
+            )?;
           }
 
           let segment_deletes = if self.pending_updates.delete_queries.is_empty()
@@ -700,7 +701,7 @@ where
                 new_size_mb,
                 segment_info_per_commit.info.max_doc()? as f64 / new_size_mb
               ),
-            );
+            )?;
           }
 
           let fs = FlushedSegment::new(
@@ -720,7 +721,7 @@ where
           self.info_stream.message(
             "DWPT",
             &format!("flush time {} ms", t0.elapsed().as_millis()),
-          );
+          )?;
         }
 
         Ok(Some(fs))
@@ -862,7 +863,7 @@ where
                 del_count,
                 new_segment.get_del_gen()
               ),
-            );
+            )?;
           }
           // TODO: we should prune the segment if it's 100%
           // deleted... but merge will also catch it.
@@ -906,7 +907,7 @@ where
             "hit exception creating compound file for newly flushed segment {}",
             new_segment.info.name
           ),
-        );
+        )?;
       }
       result
     })();

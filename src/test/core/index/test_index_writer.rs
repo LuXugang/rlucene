@@ -2209,43 +2209,43 @@ fn test_has_uncommitted_changes() -> Result<()> {
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  assert!(writer.has_uncommitted_changes());
+  assert!(writer.has_uncommitted_changes()?);
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("myfield", "a b c", Store::No)?);
   writer.add_document(doc.clone())?;
-  assert!(writer.has_uncommitted_changes());
+  assert!(writer.has_uncommitted_changes()?);
 
   writer.commit()?;
   writer.wait_for_merges()?;
   writer.commit()?;
-  assert!(!writer.has_uncommitted_changes());
+  assert!(!writer.has_uncommitted_changes()?);
 
   writer.add_document(doc)?;
-  assert!(writer.has_uncommitted_changes());
+  assert!(writer.has_uncommitted_changes()?);
   writer.commit()?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "xyz", Store::Yes)?);
   writer.add_document(doc.clone())?;
-  assert!(writer.has_uncommitted_changes());
+  assert!(writer.has_uncommitted_changes()?);
 
   writer.commit()?;
-  assert!(!writer.has_uncommitted_changes());
+  assert!(!writer.has_uncommitted_changes()?);
   writer.delete_documents_with_terms(vec![Term::from_text("id", "xyz")])?;
-  assert!(writer.has_uncommitted_changes());
+  assert!(writer.has_uncommitted_changes()?);
 
   writer.commit()?;
-  assert!(!writer.has_uncommitted_changes());
+  assert!(!writer.has_uncommitted_changes()?);
   writer.close()?;
   drop(writer);
 
   let mock = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
-  assert!(!writer.has_uncommitted_changes());
+  assert!(!writer.has_uncommitted_changes()?);
   writer.add_document(doc)?;
-  assert!(writer.has_uncommitted_changes());
+  assert!(writer.has_uncommitted_changes()?);
 
   writer.close()?;
 
@@ -2306,7 +2306,7 @@ fn test_has_uncommitted_changes_after_exception() -> Result<()> {
   assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 
   iwriter.commit()?;
-  assert!(!iwriter.has_uncommitted_changes());
+  assert!(!iwriter.has_uncommitted_changes()?);
   iwriter.close()?;
 
   Ok(())
@@ -2870,7 +2870,7 @@ fn test_flush_largest_writer() -> Result<()> {
   let largest_non_pending_writer = w
     .doc_writer
     .flush_control
-    .find_largest_non_pending_writer()
+    .find_largest_non_pending_writer()?
     .unwrap();
 
   assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
@@ -2949,7 +2949,7 @@ fn test_never_check_out_on_full_flush() -> Result<()> {
   let largest_non_pending_writer = w
     .doc_writer
     .flush_control
-    .find_largest_non_pending_writer()
+    .find_largest_non_pending_writer()?
     .unwrap();
 
   assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
@@ -3131,7 +3131,7 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
   let largest_non_pending_writer = w
     .doc_writer
     .flush_control
-    .find_largest_non_pending_writer()
+    .find_largest_non_pending_writer()?
     .unwrap();
   assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
   assert!(!largest_non_pending_writer.dwpt.lock().has_flushed());

@@ -83,7 +83,7 @@ impl FlushByRamOrCountsPolicy {
     L: LiveIndexWriterConfig,
   {
     let largest_non_pending_writer =
-      self.find_largest_non_pending_writer_for_thread(control, per_thread);
+      self.find_largest_non_pending_writer_for_thread(control, per_thread)?;
     if let Some(largest_non_pendingwriter) = largest_non_pending_writer {
       // If the found instance is itself, then use the `per_thread` parameter; otherwise, it may cause a deadlock.
       let v = if Arc::ptr_eq(&largest_non_pendingwriter.state, &per_thread.state) {

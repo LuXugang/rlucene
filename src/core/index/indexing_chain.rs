@@ -353,7 +353,7 @@ where
       self.info_stream.message(
         "IW",
         &format!("{} ms to write norms", t0.elapsed().as_millis()),
-      );
+      )?;
     }
 
     // write doc-values
@@ -363,7 +363,7 @@ where
       self.info_stream.message(
         "IW",
         &format!("{} ms to write docValues", t0.elapsed().as_millis()),
-      );
+      )?;
     }
 
     // write points
@@ -373,7 +373,7 @@ where
       self.info_stream.message(
         "IW",
         &format!("{} ms to write points", t0.elapsed().as_millis()),
-      );
+      )?;
     }
 
     let t0 = Instant::now();
@@ -384,7 +384,7 @@ where
       self.info_stream.message(
         "IW",
         &format!("{} ms to write vectors", t0.elapsed().as_millis()),
-      );
+      )?;
     }
 
     // finish & flush stored fields
@@ -397,7 +397,7 @@ where
       self.info_stream.message(
         "IW",
         &format!("{} ms to finish stored fields", t0.elapsed().as_millis()),
-      );
+      )?;
     }
 
     let mut fields_to_flush = HashMap::new();
@@ -462,7 +462,7 @@ where
           "{} ms to write postings and finish vectors",
           t0.elapsed().as_millis()
         ),
-      );
+      )?;
     }
     // Important to save after asking consumer to flush so
     // consumer can alter the FieldInfo* if necessary.  EG,
@@ -480,7 +480,7 @@ where
       self.info_stream.message(
         "IW",
         &format!("{} ms to write fieldInfos", t0.elapsed().as_millis()),
-      );
+      )?;
     }
 
     Ok(sort_map)
@@ -1708,7 +1708,7 @@ impl PerField {
         info_stream.message(
           "DW",
           &format!("exception in invert_token_stream for {}", field_name),
-        );
+        )?;
       }
 
       result?;

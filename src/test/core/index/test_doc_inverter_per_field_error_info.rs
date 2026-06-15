@@ -186,13 +186,6 @@ impl<T> TokenFilter for ThrowingTokenFilter<T> where T: TokenStream {}
 fn info_bytes_to_string(
   print_stream_info_stream: &PrintStreamInfoStream<Cursor<Vec<u8>>>,
 ) -> String {
-  String::from_utf8(
-    print_stream_info_stream
-      .stream
-      .lock()
-      .expect("info stream mutex poisoned")
-      .get_ref()
-      .clone(),
-  )
-  .expect("info stream should be valid UTF-8")
+  String::from_utf8(print_stream_info_stream.stream.lock().get_ref().clone())
+    .expect("info stream should be valid UTF-8")
 }

@@ -203,13 +203,13 @@ where
     if self.info_stream.enabled(HNSW_COMPONENT) {
       self
         .info_stream
-        .message(HNSW_COMPONENT, &format!("addVectors [{min_ord} {max_ord})"));
+        .message(HNSW_COMPONENT, &format!("addVectors [{min_ord} {max_ord})"))?;
     }
 
     for node in min_ord..max_ord {
       self.add_graph_node(node)?;
       if node % 10_000 == 0 && self.info_stream.enabled(HNSW_COMPONENT) {
-        last_log = self.print_graph_build_status(node, start, last_log);
+        last_log = self.print_graph_build_status(node, start, last_log)?;
       }
     }
 
@@ -218,7 +218,7 @@ where
   fn add_vectors(&mut self, max_ord: usize) -> Result<()> {
     self.add_vectors_with_range(0, max_ord)
   }
-  fn print_graph_build_status(&self, node: usize, start: Instant, t: Instant) -> Instant {
+  fn print_graph_build_status(&self, node: usize, start: Instant, t: Instant) -> Result<Instant> {
     let now = Instant::now();
     if self.info_stream.enabled(HNSW_COMPONENT) {
       let elapsed_t = now.duration_since(t).as_millis();
@@ -226,9 +226,9 @@ where
       self.info_stream.message(
         HNSW_COMPONENT,
         &format!("built {node} in {elapsed_t}/{elapsed_start} ms"),
-      );
+      )?;
     }
-    now
+    Ok(now)
   }
   fn add_diverse_neighbors(
     hnsw: &mut OnHeapHnswGraph,
@@ -382,7 +382,7 @@ where
           self.info_stream.message(
             HNSW_COMPONENT,
             &format!("connectComponents failed on level {level}"),
-          );
+          )?;
         },
         Err(e) => return Err(e),
         _ => {},
@@ -393,7 +393,7 @@ where
       let elapsed = start.elapsed().as_millis();
       self
         .info_stream
-        .message(HNSW_COMPONENT, &format!("connectComponents {elapsed} ms"));
+        .message(HNSW_COMPONENT, &format!("connectComponents {elapsed} ms"))?;
     }
 
     Ok(())
@@ -418,7 +418,7 @@ where
       self.info_stream.message(
         HNSW_COMPONENT,
         &format!("connect {} components on level={}", components.len(), level),
-      );
+      )?;
     }
 
     let mut result = true;
@@ -449,7 +449,7 @@ where
           self.info_stream.message(
             HNSW_COMPONENT,
             &format!("connect component {c:?} to {c0:?}"),
-          );
+          )?;
         }
 
         beam.clear();
@@ -492,7 +492,7 @@ where
             self.info_stream.message(
               HNSW_COMPONENT,
               &format!("connected ok {} -> {}", c0node, c.start),
-            );
+            )?;
           }
         }
 
@@ -500,7 +500,7 @@ where
           if self.info_stream.enabled(HNSW_COMPONENT) {
             self
               .info_stream
-              .message(HNSW_COMPONENT, "not connected; no free nodes found");
+              .message(HNSW_COMPONENT, "not connected; no free nodes found")?;
           }
           result = false;
         }
@@ -574,7 +574,7 @@ where
       self.info_stream.message(
         HNSW_COMPONENT,
         &format!("build graph from {max_ord} vectors"),
-      );
+      )?;
     }
 
     self.add_vectors(max_ord)?;

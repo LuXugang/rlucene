@@ -392,14 +392,15 @@ pub trait MergePolicy: Display {
   }
 
   /// Print a debug message to the [`MergeContext`]’s `infoStream`.
-  fn message<MC, D>(&self, message: &str, merge_context: &MC)
+  fn message<MC, D>(&self, message: &str, merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
     D: Directory,
   {
     if self.verbose(merge_context) {
-      merge_context.get_info_stream().message("MP", message)
+      merge_context.get_info_stream().message("MP", message)?;
     }
+    Ok(())
   }
 
   /// Returns `true` if the info-stream is in verbose mode.
@@ -1030,7 +1031,7 @@ impl MergePolicy for MergePolicyEnum {
     }
   }
 
-  fn message<MC, D>(&self, message: &str, merge_context: &MC)
+  fn message<MC, D>(&self, message: &str, merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
     D: Directory,

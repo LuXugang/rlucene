@@ -237,7 +237,7 @@ impl MergePolicy for MergeOnFlushMergePolicy {
     self.inner.seg_string(merge_context, infos)
   }
 
-  fn message<MC, D>(&self, message: &str, merge_context: &MC)
+  fn message<MC, D>(&self, message: &str, merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
     D: Directory,

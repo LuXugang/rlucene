@@ -75,11 +75,11 @@ fn test_deletes1() -> Result<()> {
   writer.flush_with_apply_merge_deletes(false, false)?;
 
   // deletes are now resolved on flush, so there shouldn't be any deletes after flush
-  assert!(!writer.has_changes_in_ram());
+  assert!(!writer.has_changes_in_ram()?);
 
   // get reader flushes pending deletes so there should not be anymore
   let r1 = writer.get_reader(true, true)?;
-  assert!(!writer.has_changes_in_ram());
+  assert!(!writer.has_changes_in_ram()?);
   drop(r1);
 
   // delete id:2 from the first segment

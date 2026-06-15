@@ -111,7 +111,7 @@ where
                 &format!(
                     "init: current segments file is \"{current_segments_file_opt:?}\"; deletionPolicy={policy}"
                 ),
-            );
+            )?;
     }
 
     // create file_deleter
@@ -152,7 +152,7 @@ where
             if index_file_deleter.info_stream.enabled("IFD") {
               index_file_deleter
                 .info_stream
-                .message("IFD", &format!("init: load commit \"{file}\""));
+                .message("IFD", &format!("init: load commit \"{file}\""))?;
             }
             let sis = SegmentInfos::read_commit(directory_orig.clone(), &file)?;
             let commit_point = CommitPoint::new(
@@ -200,7 +200,7 @@ where
             "forced open of current segments file {:?}",
             segment_infos.get_segments_file_name()
           ),
-        );
+        )?;
       }
       let commit_point = CommitPoint::new(
         index_file_deleter.commits_to_delete.clone(),
@@ -239,7 +239,7 @@ where
     }
 
     // inflate gens and delete abandoned files
-    let unrefed = index_file_deleter.file_deleter.get_unrefed_files();
+    let unrefed = index_file_deleter.file_deleter.get_unrefed_files()?;
     for file in &unrefed {
       if file.starts_with(IndexFileNames::SEGMENTS) {
         return Err(LuceneError::illegal_state(
@@ -250,7 +250,7 @@ where
         index_file_deleter.info_stream.message(
           "IFD",
           &format!("init: removing unreferenced file \"{file}\""),
-        );
+        )?;
       }
     }
     index_file_deleter
@@ -324,7 +324,7 @@ where
             "deleteCommits: now decRef commit \"{}\"",
             commit.get_segments_file_name()
           ),
-        );
+        )?;
       }
       let files = std::mem::take(&mut commit.files);
       match self.dec_ref(files.iter()) {
@@ -369,7 +369,7 @@ where
           self.info_stream.message(
             "IFD",
             &format!("refresh: removing newly created unreferenced file \"{file_name}\""),
-          );
+          )?;
         }
         to_delete.insert(file_name);
       }
@@ -403,7 +403,7 @@ where
   {
     {
       if self.info_stream.enabled("IFD") {
-        self.info_stream.message("IFD", "now revisitPolicy");
+        self.info_stream.message("IFD", "now revisitPolicy")?;
       }
     }
 
@@ -473,7 +473,7 @@ where
         let elapsed_ms = t0.elapsed().as_millis();
         self
           .info_stream
-          .message("IFD", &format!("{elapsed_ms} ms to checkpoint"));
+          .message("IFD", &format!("{elapsed_ms} ms to checkpoint"))?;
       }
     }
 
@@ -485,18 +485,18 @@ where
     is_commit: bool,
   ) -> Result<()> {
     for file_name in segment_infos.files(is_commit)? {
-      self.file_deleter.inc_ref_single(&file_name);
+      self.file_deleter.inc_ref_single(&file_name)?;
     }
 
     Ok(())
   }
 
-  pub fn inc_ref_files<I, S>(&mut self, files: I)
+  pub fn inc_ref_files<I, S>(&mut self, files: I) -> Result<()>
   where
     I: IntoIterator<Item = S>,
     S: AsRef<str>,
   {
-    self.file_deleter.inc_ref(files);
+    self.file_deleter.inc_ref(files)
   }
 
   /// Decrefs all provided files, even on error; returns first error hit, if any.
@@ -533,7 +533,8 @@ where
         if self.info_stream.enabled("IFD") {
           self
             .info_stream
-            .message("IFD", &format!("Error closing IndexFileDeleter: {e}"));
+            .message("IFD", &format!("Error closing IndexFileDeleter: {e}"))
+            .unwrap_or_default();
         }
       },
     }
@@ -684,13 +685,14 @@ impl MessengerImpl {
   }
 }
 impl Messenger for MessengerImpl {
-  fn accept(&self, msg_type: MsgType, msg: &str) {
+  fn accept(&self, msg_type: MsgType, msg: &str) -> Result<()> {
     if msg_type == MsgType::Ref && !self.verbose_ref_counts {
-      return;
+      return Ok(());
     }
     if self.info_stream.enabled("IFD") {
-      self.info_stream.message("IFD", msg);
+      self.info_stream.message("IFD", msg)?;
     }
+    Ok(())
   }
 }
 
@@ -790,7 +792,7 @@ where
           "init: inflate infos.counter to {} vs current={}",
           desired, infos.counter
         ),
-      );
+      )?;
     }
     infos.counter = desired;
   }
@@ -809,7 +811,7 @@ where
             gen_long + 1,
             next_del
           ),
-        );
+        )?;
       }
       info.set_next_write_del_gen(gen_long + 1);
     }
@@ -825,7 +827,7 @@ where
             gen_long + 1,
             next_fi
           ),
-        );
+        )?;
       }
       info.set_next_write_field_infos_gen(gen_long + 1);
     }
@@ -841,7 +843,7 @@ where
             gen_long + 1,
             next_dv
           ),
-        );
+        )?;
       }
       info.set_next_write_doc_values_gen(gen_long + 1);
     }

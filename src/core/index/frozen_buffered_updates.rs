@@ -150,7 +150,7 @@ impl FrozenBufferedUpdates {
           100.0 * bytes_used as f64 / updates.ram_bytes_used()? as f64,
           private_segment_msg
         ),
-      );
+      )?;
     }
     Ok(Self {
       info_stream: info_stream.clone(),
@@ -276,7 +276,7 @@ impl FrozenBufferedUpdates {
           self.field_updates_count,
           update_count
         ),
-      );
+      )?;
     }
 
     Ok(update_count)
@@ -579,7 +579,7 @@ impl FrozenBufferedUpdates {
           self.delete_terms.size(),
           del_count
         ),
-      );
+      )?;
     }
 
     Ok(del_count)

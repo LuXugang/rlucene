@@ -321,7 +321,7 @@ where
       self.checkout(&mut inner, per_thread, false, config)
     })();
 
-    let stall = self.update_stall_state(&mut inner, config);
+    let stall = self.update_stall_state(&mut inner, config)?;
     debug_assert!(
       self.assert_num_docs_since_stalled(stall, &mut inner)
         && self.assert_memory(&mut inner, config)
@@ -395,12 +395,12 @@ where
       Ok(())
     };
 
-    let _ = self.update_stall_state(inner, config);
+    self.update_stall_state(inner, config)?;
     self.pausing.notify_all();
 
     result
   }
-  fn update_stall_state<L>(&self, inner: &mut Inner<D>, config: &L) -> bool
+  fn update_stall_state<L>(&self, inner: &mut Inner<D>, config: &L) -> Result<bool>
   where
     L: LiveIndexWriterConfig,
   {
@@ -419,7 +419,7 @@ where
             (self.get_flushing_bytes(Some(inner)) as f64) / 1024.0 / 1024.0,
             inner.full_flush
           ),
-        );
+        )?;
         inner.stall_start_ns = Instant::now()
       } else {
         let elapsed = Instant::now()
@@ -435,12 +435,12 @@ where
                             (self.get_flushing_bytes(Some(inner)) as f64) / 1024.0 / 1024.0,
                             inner.full_flush
                         ),
-                    );
+                    )?;
       }
     }
 
     self.stall_control.update_stalled(stall);
-    stall
+    Ok(stall)
   }
 
   pub(crate) fn wait_for_flush(&self) {
@@ -494,7 +494,7 @@ where
       Ok(())
     };
 
-    let _ = self.update_stall_state(&mut inner, config);
+    self.update_stall_state(&mut inner, config)?;
     let checked_out = {
       let dwpt = per_thread.dwpt.lock();
       self.per_thread_pool.checkout(&dwpt)
@@ -549,7 +549,7 @@ where
       };
       Ok(v)
     })();
-    self.update_stall_state(inner, config);
+    self.update_stall_state(inner, config)?;
     result
   }
   fn add_flushing_dwpt(&self, per_thread: Arc<DwptWrapper<D>>, inner: &mut Inner<D>) {
@@ -578,7 +578,7 @@ where
       };
       if let Some(dwpt) = inner.flush_queue.pop_front() {
         // update stall state before returning
-        self.update_stall_state(inner, config);
+        self.update_stall_state(inner, config)?;
         return Ok(Some(dwpt));
       }
       full_flush = inner.full_flush;
@@ -768,7 +768,7 @@ where
       self.prune_blocked_queue(&flushing_queue, &mut inner);
       debug_assert!(self.assert_blocked_flushes(&inner));
       inner.flush_queue.extend(full_flush_buffer);
-      self.update_stall_state(&mut inner, config);
+      self.update_stall_state(&mut inner, config)?;
       inner.full_flush_mark_done = true;
     }
 
@@ -843,7 +843,7 @@ where
 
     inner.full_flush_mark_done = false;
     inner.full_flush = false;
-    let _ = self.update_stall_state(&mut inner, config);
+    self.update_stall_state(&mut inner, config)?;
     result
   }
   pub(crate) fn assert_blocked_flushes(&self, inner: &Inner<D>) -> bool {
@@ -926,7 +926,7 @@ where
     inner.flush_queue.clear();
     inner.blocked_flushes.clear();
 
-    self.update_stall_state(inner, config);
+    self.update_stall_state(inner, config)?;
 
     result
   }
@@ -963,7 +963,7 @@ where
   pub(crate) fn any_stalled_threads(&self) -> bool {
     self.stall_control.any_stalled_threads()
   }
-  pub(crate) fn find_largest_non_pending_writer(&self) -> Option<Arc<DwptWrapper<D>>> {
+  pub(crate) fn find_largest_non_pending_writer(&self) -> Result<Option<Arc<DwptWrapper<D>>>> {
     let mut max_ram_using_writer: Option<Arc<DwptWrapper<D>>> = None;
     // Note: should be initialized to -1 since some DWPTs might return 0 if their RAM usage has not
     // been committed yet.
@@ -982,7 +982,7 @@ where
               next_ram,
               next.state.get_num_docs_in_ram()
             ),
-          );
+          )?;
         }
 
         count += 1;
@@ -997,10 +997,10 @@ where
       self.info_stream.message(
         "FP",
         &format!("{} in-use non-flushing threads states", count),
-      );
+      )?;
     }
 
-    max_ram_using_writer
+    Ok(max_ram_using_writer)
   }
 
   /// Returns the largest non-pending flushable DWPT or `None` if there is none.
@@ -1011,7 +1011,7 @@ where
   where
     L: LiveIndexWriterConfig,
   {
-    if let Some(largest_non_pending_writer) = self.find_largest_non_pending_writer() {
+    if let Some(largest_non_pending_writer) = self.find_largest_non_pending_writer()? {
       largest_non_pending_writer.lock();
       let result = {
         let per_thread = largest_non_pending_writer.dwpt.lock();
@@ -1021,7 +1021,7 @@ where
             let mark_pending = !per_thread.is_flush_pending();
             self.checkout(&mut inner, &per_thread, mark_pending, config)
           };
-          self.update_stall_state(&mut inner, config);
+          self.update_stall_state(&mut inner, config)?;
           result
         } else {
           Ok(None)

@@ -451,7 +451,7 @@ where
     doc.add(field_supplier(&format!("f{}", i))?);
   }
   writer.add_document(doc)?;
-  assert!(writer.has_changes_in_ram());
+  assert!(writer.has_changes_in_ram()?);
   // TODO: memory calculation not implement
   // assert!(writer.doc_writer.ram_bytes_used()? < num_fields * 16384);
   writer.close()?;
