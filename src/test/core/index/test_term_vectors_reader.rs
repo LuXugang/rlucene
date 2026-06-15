@@ -18,7 +18,7 @@ use crate::core::analysis::analyzer::{
   Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
 };
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream, default_attribute};
+use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::codecs::codec::{Codec, LATEST_CODEC};
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
@@ -590,18 +590,6 @@ impl Analyzer for MyAnalyzer {
 
   fn stored_value(&self) -> &AnalyzerStoredValue {
     &self.stored_value
-  }
-
-  fn normalize_from_ts(
-    &self,
-    field_name: &str,
-    in_: NormalizeTokenStream,
-  ) -> Result<NormalizeTokenStream> {
-    self.default_normalize_from_ts(field_name, in_)
-  }
-
-  fn get_offset_gap(&self, field_name: &str) -> i32 {
-    self.default_get_offset_gap(field_name)
   }
 }
 

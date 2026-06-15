@@ -20,7 +20,7 @@ use crate::core::analysis::analyzer::{
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_attributes::type_attribute::TypeAttribute;
-use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
@@ -608,14 +608,6 @@ impl Analyzer for CrazyOffsetGapAnalyzer {
 
   fn stored_value(&self) -> &AnalyzerStoredValue {
     &self.stored_value
-  }
-
-  fn normalize_from_ts(
-    &self,
-    field_name: &str,
-    in_: NormalizeTokenStream,
-  ) -> Result<NormalizeTokenStream> {
-    self.default_normalize_from_ts(field_name, in_)
   }
 
   fn get_offset_gap(&self, _field_name: &str) -> i32 {

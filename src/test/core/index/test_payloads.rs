@@ -21,7 +21,7 @@ use crate::core::analysis::reader::{ReaderEnum, StringReader};
 use crate::core::analysis::token_attributes::payload_attribute;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
-use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::fields::FieldTokenStreamEnum;
@@ -516,18 +516,6 @@ impl Analyzer for PayloadAnalyzer {
 
   fn stored_value(&self) -> &AnalyzerStoredValue {
     &self.stored_value
-  }
-
-  fn normalize_from_ts(
-    &self,
-    field_name: &str,
-    in_: NormalizeTokenStream,
-  ) -> Result<NormalizeTokenStream> {
-    self.default_normalize_from_ts(field_name, in_)
-  }
-
-  fn get_offset_gap(&self, field_name: &str) -> i32 {
-    self.default_get_offset_gap(field_name)
   }
 }
 

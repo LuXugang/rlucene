@@ -53,23 +53,11 @@ impl Analyzer for DummyAnalyzer {
     dummy_unreachable!()
   }
 
-  fn default_normalize_from_ts(
-    &self,
-    _field_name: &str,
-    _in_: NormalizeTokenStream,
-  ) -> Result<NormalizeTokenStream> {
-    dummy_unreachable!()
-  }
-
   fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
     dummy_unreachable!()
   }
 
   fn get_offset_gap(&self, _field_name: &str) -> i32 {
-    dummy_unreachable!()
-  }
-
-  fn default_get_offset_gap(&self, _field_name: &str) -> i32 {
     dummy_unreachable!()
   }
 }

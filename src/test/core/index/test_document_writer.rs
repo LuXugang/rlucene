@@ -14,8 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::reader::ReaderEnum;
+use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
@@ -59,7 +60,8 @@ use crate::core::util::LATEST;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_analyzer::{MockAnalyzer, WHITESPACE};
+use crate::test::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test::core::index::doc_helper::{
   DocHelper, FIELD_1_TEXT, FIELD_2_TEXT, FIELD_3_TEXT, KEYWORD_FIELD_KEY, KEYWORD_TEXT,
   NO_NORMS_KEY, NO_NORMS_TEXT, TEXT_FIELD_1_KEY, TEXT_FIELD_2_KEY, TEXT_FIELD_3_KEY,
@@ -69,6 +71,8 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_index_writer_config_with_analyzer, random,
 };
 use crate::test::core::util::test_util::TestUtil;
+use rand::prelude::StdRng;
+use rand::{RngExt, SeedableRng};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
@@ -123,15 +127,210 @@ fn test_add_document() -> Result<()> {
 
 #[test]
 fn test_position_increment_gap() -> Result<()> {
-  // TODO IMPORTANT 自定义分词器有问题
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = PositionIncrementGapAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+    seed: random.random(),
+  };
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>),
+  )?;
+
+  let mut doc = Document::new();
+  doc.add(TextField::from_string(
+    "repeated",
+    "repeated one",
+    Store::Yes,
+  )?);
+  doc.add(TextField::from_string(
+    "repeated",
+    "repeated two",
+    Store::Yes,
+  )?);
+
+  writer.add_document(doc)?;
+  writer.commit()?;
+  writer.close()?;
+  let reader = directory_reader::open(dir)?;
+  let leaf = get_only_leaf_reader(&reader)?;
+
+  let mut term_positions = leaf
+    .postings_with_flag(&Term::from_text("repeated", "repeated"), ALL as i32)?
+    .expect("repeated postings should exist");
+  assert_ne!(NO_MORE_DOCS, term_positions.next_doc()?);
+  assert_eq!(2, term_positions.freq()?);
+  assert_eq!(0, term_positions.next_position()?);
+  assert_eq!(502, term_positions.next_position()?);
+
   Ok(())
+}
+
+struct PositionIncrementGapAnalyzer {
+  stored_value: AnalyzerStoredValue,
+  seed: u64,
+}
+
+impl Analyzer for PositionIncrementGapAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    let tokenizer = MockTokenizer::with_default_max_token_length(
+      StdRng::seed_from_u64(self.seed),
+      WHITESPACE.clone(),
+      false,
+    );
+    Ok(TokenStreamComponents::new(
+      Box::new(tokenizer) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+
+  fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
+    500
+  }
 }
 
 #[test]
 fn test_token_reuse() -> Result<()> {
-  // TODO IMPORTANT 自定义分词器有问题
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = TokenReuseAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+    seed: random.random(),
+  };
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>),
+  )?;
+
+  let mut doc = Document::new();
+  doc.add(TextField::from_string("f1", "a 5 a a", Store::Yes)?);
+
+  writer.add_document(doc)?;
+  writer.commit()?;
+  writer.close()?;
+  let reader = directory_reader::open(dir)?;
+  let leaf = get_only_leaf_reader(&reader)?;
+
+  let mut term_positions = leaf
+    .postings_with_flag(&Term::from_text("f1", "a"), ALL as i32)?
+    .expect("a postings should exist");
+  assert_ne!(NO_MORE_DOCS, term_positions.next_doc()?);
+  assert_eq!(3, term_positions.freq()?);
+  assert_eq!(0, term_positions.next_position()?);
+  assert!(term_positions.get_payload()?.is_some());
+  assert_eq!(6, term_positions.next_position()?);
+  assert!(term_positions.get_payload()?.is_none());
+  assert_eq!(7, term_positions.next_position()?);
+  assert!(term_positions.get_payload()?.is_none());
+
   Ok(())
 }
+
+struct TokenReuseAnalyzer {
+  stored_value: AnalyzerStoredValue,
+  seed: u64,
+}
+
+impl Analyzer for TokenReuseAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    let tokenizer = MockTokenizer::with_default_max_token_length(
+      StdRng::seed_from_u64(self.seed),
+      WHITESPACE.clone(),
+      false,
+    );
+    let filter = TokenReuseFilter {
+      token_filter_base: TokenFilterBase::new(tokenizer),
+      first: true,
+      state: false,
+    };
+    Ok(TokenStreamComponents::new(
+      Box::new(filter) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+struct TokenReuseFilter {
+  token_filter_base: TokenFilterBase<MockTokenizer<StdRng>>,
+  first: bool,
+  state: bool,
+}
+
+impl TokenStream for TokenReuseFilter {
+  fn increment_token(&mut self) -> Result<bool> {
+    if self.state {
+      let attrs = self.token_filter_base.input.get_attribute_source_mut();
+      attrs.set_payload(None)?;
+      attrs.set_position_increment(0)?;
+      attrs.set_empty()?.append_str(Some("b"))?;
+      self.state = false;
+      return Ok(true);
+    }
+
+    if !self.token_filter_base.input.increment_token()? {
+      return Ok(false);
+    }
+
+    let attrs = self.token_filter_base.input.get_attribute_source_mut();
+    let position_increment = attrs
+      .buffer()?
+      .first()
+      .and_then(|ch| ch.to_digit(10))
+      .map(|value| value as i32);
+    if let Some(position_increment) = position_increment {
+      attrs.set_position_increment(position_increment)?;
+    }
+    if self.first {
+      attrs.set_payload(Some(BytesRef::from_bytes(vec![100])))?;
+      self.first = false;
+    }
+
+    self.state = true;
+    Ok(true)
+  }
+
+  fn end(&mut self) -> Result<()> {
+    self.token_filter_base.end()
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    self.token_filter_base.reset()?;
+    self.first = true;
+    self.state = false;
+    Ok(())
+  }
+
+  fn close(&mut self) -> Result<()> {
+    self.token_filter_base.close()
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    self.token_filter_base.input.get_attribute_source()
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    self.token_filter_base.input.get_attribute_source_mut()
+  }
+
+  fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
+    self.token_filter_base.input.set_reader(input)
+  }
+
+  fn set_reader_test_point(&mut self) -> Result<()> {
+    self.token_filter_base.input.set_reader_test_point()
+  }
+}
+
+impl TokenFilter for TokenReuseFilter {}
 
 #[test]
 fn test_pre_analyzed_field() -> Result<()> {

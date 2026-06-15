@@ -94,11 +94,6 @@ pub trait Analyzer: Send + Sync {
     &self,
     _field_name: &str,
     in_: NormalizeTokenStream,
-  ) -> Result<NormalizeTokenStream>;
-  fn default_normalize_from_ts(
-    &self,
-    _field_name: &str,
-    in_: NormalizeTokenStream,
   ) -> Result<NormalizeTokenStream> {
     Ok(in_)
   }
@@ -197,15 +192,16 @@ pub trait Analyzer: Send + Sync {
     Attributes::default()
   }
   fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
-    0
+    DEFAULT_POSITION_INCREMENT_GAP
   }
-  fn get_offset_gap(&self, _field_name: &str) -> i32;
-  fn default_get_offset_gap(&self, _field_name: &str) -> i32 {
-    1
+  fn get_offset_gap(&self, _field_name: &str) -> i32 {
+    DEFAULT_OFFSET_GAP
   }
 
   fn stored_value(&self) -> &AnalyzerStoredValue;
 }
+pub const DEFAULT_OFFSET_GAP: i32 = 1;
+pub const DEFAULT_POSITION_INCREMENT_GAP: i32 = 0;
 impl_from_for_enum!(
     AnalyzerEnum,
     WhitespaceAnalyzer=> Whitespace,
@@ -341,16 +337,6 @@ impl Analyzer for AnalyzerEnum {
       #[cfg(test)]
       AnalyzerEnum::Mock(v) => v.get_offset_gap(field_name),
       AnalyzerEnum::Custom(v) => v.get_offset_gap(field_name),
-    }
-  }
-
-  fn default_get_offset_gap(&self, field_name: &str) -> i32 {
-    match self {
-      AnalyzerEnum::Whitespace(v) => v.default_get_offset_gap(field_name),
-      AnalyzerEnum::Standard(v) => v.default_get_offset_gap(field_name),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.default_get_offset_gap(field_name),
-      AnalyzerEnum::Custom(v) => v.default_get_offset_gap(field_name),
     }
   }
 }

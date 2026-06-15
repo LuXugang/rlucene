@@ -98,10 +98,6 @@ impl Analyzer for StandardAnalyzer {
   ) -> Result<NormalizeTokenStream> {
     Ok(LowerCaseFilter::new(Box::new(in_)).into())
   }
-
-  fn get_offset_gap(&self, field_name: &str) -> i32 {
-    self.default_get_offset_gap(field_name)
-  }
 }
 impl StopWordAnalyzerBase for StandardAnalyzer {
   fn get_stop_words(&self) -> &CharArraySet {

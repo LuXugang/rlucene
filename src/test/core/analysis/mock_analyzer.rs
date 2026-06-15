@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
+use crate::core::analysis::analyzer::{
+  Analyzer, AnalyzerStoredValue, DEFAULT_OFFSET_GAP, TokenStreamComponents,
+};
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::error::lucene_error::Result;
@@ -151,22 +153,6 @@ impl Analyzer for MockAnalyzer {
     &self.stored_value
   }
 
-  fn normalize_from_ts(
-    &self,
-    _field_name: &str,
-    in_: NormalizeTokenStream,
-  ) -> Result<NormalizeTokenStream> {
-    self.default_normalize_from_ts(_field_name, in_)
-  }
-
-  fn default_normalize_from_ts(
-    &self,
-    _field_name: &str,
-    in_: NormalizeTokenStream,
-  ) -> Result<NormalizeTokenStream> {
-    Ok(in_)
-  }
-
   fn get_position_increment_gap(&self, field_name: &str) -> i32 {
     let _ = field_name;
     self.position_increment_gap
@@ -177,10 +163,7 @@ impl Analyzer for MockAnalyzer {
   ///
   /// - `field_name` - Currently not used, the same offset gap is returned for each field.
   fn get_offset_gap(&self, _field_name: &str) -> i32 {
-    match self.offset_gap {
-      Some(gap) => gap,
-      None => self.default_get_offset_gap(_field_name),
-    }
+    self.offset_gap.unwrap_or(DEFAULT_OFFSET_GAP)
   }
 }
 pub struct MockFilterWrap<TS>
