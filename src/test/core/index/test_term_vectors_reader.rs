@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
 };
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream, default_attribute};
@@ -576,13 +576,7 @@ impl MyAnalyzer {
 
 impl From<MyAnalyzer> for AnalyzerEnum {
   fn from(analyzer: MyAnalyzer) -> Self {
-    let tokens = analyzer.tokens;
-    AnalyzerEnum::Custom(BoxedAnalyzer::new(move |_field_name| {
-      Ok(TokenStreamComponents::new(
-        Box::new(MyTokenizer::new(tokens.clone())) as Box<dyn TokenStream + Send + Sync>,
-        None,
-      ))
-    }))
+    AnalyzerEnum::Custom(Box::new(analyzer))
   }
 }
 

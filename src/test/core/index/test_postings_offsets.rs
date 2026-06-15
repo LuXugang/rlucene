@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
 };
 use crate::core::analysis::token_attributes::offset_attribute::OffsetAttribute;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
@@ -54,7 +54,7 @@ use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::english::English;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
-  random,
+  random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -486,12 +486,11 @@ fn test_stacked_tokens() -> Result<()> {
     None,
   )
 }
-
-// TODO IMPORTANT 测试未通过 因为BoxedAnalyzer的设计不合理 不能正确转发
+#[test]
 fn test_crazy_offset_gap() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let analyzer = CrazyOffsetGapAnalyzer::new();
+  let analyzer = CrazyOffsetGapAnalyzer::new(random.random());
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -582,19 +581,25 @@ fn check_tokens(field1: Vec<token::Token>, field2: Option<Vec<token::Token>>) ->
 
 struct CrazyOffsetGapAnalyzer {
   stored_value: AnalyzerStoredValue,
+  seed: u64,
 }
 
 impl CrazyOffsetGapAnalyzer {
-  fn new() -> Self {
+  fn new(seed: u64) -> Self {
     Self {
       stored_value: AnalyzerStoredValue::per_field(),
+      seed,
     }
   }
 }
 
 impl Analyzer for CrazyOffsetGapAnalyzer {
   fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
-    let tokenizer = MockTokenizer::with_default_max_token_length(random(), KEYWORD.clone(), false);
+    let tokenizer = MockTokenizer::with_default_max_token_length(
+      random_from_seed(self.seed),
+      KEYWORD.clone(),
+      false,
+    );
     Ok(TokenStreamComponents::new(
       Box::new(tokenizer) as Box<dyn TokenStream + Send + Sync>,
       None,
@@ -620,8 +625,6 @@ impl Analyzer for CrazyOffsetGapAnalyzer {
 
 impl From<CrazyOffsetGapAnalyzer> for AnalyzerEnum {
   fn from(analyzer: CrazyOffsetGapAnalyzer) -> Self {
-    AnalyzerEnum::Custom(BoxedAnalyzer::new(move |field| {
-      analyzer.create_components(field)
-    }))
+    AnalyzerEnum::Custom(Box::new(analyzer))
   }
 }

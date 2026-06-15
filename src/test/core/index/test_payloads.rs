@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
 };
 use crate::core::analysis::reader::{ReaderEnum, StringReader};
 use crate::core::analysis::token_attributes::payload_attribute;
@@ -533,9 +533,7 @@ impl Analyzer for PayloadAnalyzer {
 
 impl From<PayloadAnalyzer> for AnalyzerEnum {
   fn from(analyzer: PayloadAnalyzer) -> Self {
-    AnalyzerEnum::Custom(BoxedAnalyzer::new(move |field| {
-      analyzer.create_components(field)
-    }))
+    AnalyzerEnum::Custom(Box::new(analyzer))
   }
 }
 struct PayloadFilter<TS>

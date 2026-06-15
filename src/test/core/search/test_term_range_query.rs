@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
 };
 use crate::core::analysis::reader::Reader;
 use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream, default_attribute};
@@ -538,13 +538,8 @@ fn test_inclusive_lower_null() -> Result<()> {
 }
 #[cfg(test)]
 impl From<SingleCharAnalyzer> for AnalyzerEnum {
-  fn from(_analyzer: SingleCharAnalyzer) -> Self {
-    AnalyzerEnum::Custom(BoxedAnalyzer::new(|_field| {
-      Ok(TokenStreamComponents::new(
-        Box::new(SingleCharTokenizer::new()) as Box<dyn TokenStream + Send + Sync>,
-        None,
-      ))
-    }))
+  fn from(analyzer: SingleCharAnalyzer) -> Self {
+    AnalyzerEnum::Custom(Box::new(analyzer))
   }
 }
 pub struct SingleCharAnalyzer {

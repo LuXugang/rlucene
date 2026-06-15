@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{
-  Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
 };
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
@@ -186,9 +186,7 @@ impl Analyzer for RepeatingAnalyzer {
 
 impl From<RepeatingAnalyzer> for AnalyzerEnum {
   fn from(analyzer: RepeatingAnalyzer) -> Self {
-    AnalyzerEnum::Custom(BoxedAnalyzer::new(move |field| {
-      analyzer.create_components(field)
-    }))
+    AnalyzerEnum::Custom(Box::new(analyzer))
   }
 }
 
