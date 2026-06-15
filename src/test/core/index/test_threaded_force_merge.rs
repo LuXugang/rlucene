@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::Store;
-use crate::core::document::string_field::StringField;
+use crate::core::document::field_type::FieldType;
+use crate::core::document::string_field::TYPE_STORED;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -32,11 +32,12 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::mock_tokenizer;
 use crate::test::core::util::english::English;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, random,
+  new_directory_shared, new_field, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_merge_factor, random, random_from_seed,
 };
-use rand::Rng;
-use std::sync::Arc;
+use rand::{Rng, RngExt};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub struct TestThreadedForceMerge {
@@ -79,18 +80,32 @@ impl TestThreadedForceMerge {
     config.set_max_buffered_docs(2);
     config.set_merge_policy(new_log_merge_policy_with_merge_factor(random, 1000)?);
     let mut writer = IndexWriter::new(directory.clone(), config)?;
+    let field_to_type = Mutex::new(HashMap::new());
 
     for iter in 0..NUM_ITER {
       Self::set_merge_factor(&mut writer, 1000)?;
 
+      let mut custom_type = FieldType::from_ref(&*TYPE_STORED)?;
+      custom_type.set_omit_norms(true)?;
+
       for i in 0..200 {
         let mut doc = Document::new();
-        doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-        doc.add(StringField::from_string(
+        let mut field_to_type = field_to_type.lock().expect("field_to_type mutex poisoned");
+        doc.add(new_field(
+          random,
+          "id",
+          i.to_string(),
+          &custom_type,
+          &mut field_to_type,
+        )?);
+        doc.add(new_field(
+          random,
           "contents",
           English::int_to_english(i),
-          Store::Yes,
+          &custom_type,
+          &mut field_to_type,
         )?);
+        drop(field_to_type);
         writer.add_document(doc)?;
       }
 
@@ -100,21 +115,31 @@ impl TestThreadedForceMerge {
         let mut handles = Vec::new();
         for i in 0..NUM_THREADS {
           let writer_ref = &writer;
+          let field_to_type = &field_to_type;
+          let custom_type = &custom_type;
+          let seed = random.random();
           handles.push(scope.spawn(move || -> Result<()> {
+            let mut random = random_from_seed(seed);
             for j in 0..NUM_ITER2 {
               writer_ref.force_merge_with_wait(1, false)?;
               for k in 0..17 * (1 + i) {
                 let mut doc = Document::new();
-                doc.add(StringField::from_string(
+                let mut field_to_type = field_to_type.lock().expect("field_to_type mutex poisoned");
+                doc.add(new_field(
+                  &mut random,
                   "id",
                   format!("{iter}_{i}_{j}_{k}"),
-                  Store::Yes,
+                  custom_type,
+                  &mut field_to_type,
                 )?);
-                doc.add(StringField::from_string(
+                doc.add(new_field(
+                  &mut random,
                   "contents",
                   English::int_to_english(i + k),
-                  Store::Yes,
+                  custom_type,
+                  &mut field_to_type,
                 )?);
+                drop(field_to_type);
                 writer_ref.add_document(doc)?;
               }
               for k in 0..9 * (1 + i) {

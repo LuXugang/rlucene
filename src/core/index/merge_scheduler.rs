@@ -123,7 +123,7 @@ impl_from_for_enum!(
 );
 impl Default for MergeSchedulerEnum {
   fn default() -> Self {
-    Self::Serial(SerialMergeScheduler)
+    Self::Serial(SerialMergeScheduler::new())
   }
 }
 

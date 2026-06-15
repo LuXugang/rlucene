@@ -20,9 +20,12 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use parking_lot::ReentrantMutex;
 
 /// A [`MergeScheduler`] that simply does each merge sequentially, using the current thread.
-pub struct SerialMergeScheduler;
+pub struct SerialMergeScheduler {
+  merge_lock: ReentrantMutex<()>,
+}
 impl Default for SerialMergeScheduler {
   fn default() -> Self {
     Self::new()
@@ -31,7 +34,9 @@ impl Default for SerialMergeScheduler {
 
 impl SerialMergeScheduler {
   pub fn new() -> Self {
-    SerialMergeScheduler
+    Self {
+      merge_lock: ReentrantMutex::new(()),
+    }
   }
 }
 
@@ -50,6 +55,7 @@ impl MergeScheduler for SerialMergeScheduler {
     MS: MergeSource,
     D: Directory,
   {
+    let _guard = self.merge_lock.lock();
     loop {
       let mut merge = match merge_source.get_next_merge(index_writer)? {
         Some(merge) => merge,

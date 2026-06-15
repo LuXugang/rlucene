@@ -600,7 +600,7 @@ fn test_term_vector_corruption2() -> Result<()> {
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
     iwc.set_max_buffered_docs(2);
     iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
-    iwc.set_merge_scheduler(SerialMergeScheduler);
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
     iwc.set_merge_policy(LogMergePolicy::log_doc());
 
     let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -663,7 +663,7 @@ fn test_term_vector_corruption3() -> Result<()> {
   let mut iwc1 = new_index_writer_config_with_analyzer(&mut random, mock);
   iwc1.set_max_buffered_docs(2);
   iwc1.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
-  iwc1.set_merge_scheduler(SerialMergeScheduler);
+  iwc1.set_merge_scheduler(SerialMergeScheduler::new());
   iwc1.set_merge_policy(LogMergePolicy::log_doc());
   let mut document = Document::new();
   let mut field_types = HashMap::new();
@@ -705,7 +705,7 @@ fn test_term_vector_corruption3() -> Result<()> {
   let mut iwc2 = new_index_writer_config_with_analyzer(&mut random, mock);
   iwc2.set_max_buffered_docs(2);
   iwc2.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
-  iwc2.set_merge_scheduler(SerialMergeScheduler);
+  iwc2.set_merge_scheduler(SerialMergeScheduler::new());
   iwc2.set_merge_policy(LogMergePolicy::log_doc());
 
   let writer = IndexWriter::new(dir.clone(), iwc2)?;
