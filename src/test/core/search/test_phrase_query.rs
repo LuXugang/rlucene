@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::fields::FieldTokenStreamEnum;
@@ -37,6 +39,10 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test::core::analysis::mock_analyzer::{
+  ENGLISH_STOPSET, MockAnalyzer, SIMPLE, WHITESPACE,
+};
+use crate::test::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test::core::analysis::{canned_token_stream::CannedTokenStream, token};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
@@ -44,7 +50,7 @@ use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::util::DefaultIndexSearchCR;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config, new_log_merge_policy,
-  new_searcher_with_reader, new_text_field, random,
+  new_searcher_with_reader, new_text_field, random, random_from_seed,
 };
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
@@ -56,13 +62,44 @@ use std::rc::Rc;
 struct TestPhraseQuery;
 pub const SCORE_COMP_THRESH: f32 = 1e-6;
 
+struct PhraseQueryAnalyzer {
+  stored_value: AnalyzerStoredValue,
+  seed: u64,
+}
+
+impl Analyzer for PhraseQueryAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    let tokenizer = MockTokenizer::with_default_max_token_length(
+      random_from_seed(self.seed),
+      WHITESPACE.clone(),
+      false,
+    );
+    Ok(TokenStreamComponents::new(
+      Box::new(tokenizer) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
+    100
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  // TODO IMPORTANT 这里需要自定义分词器
-  let writer = RandomIndexWriter::new(random, dir.clone());
+  let analyzer = PhraseQueryAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+    seed: random.random(),
+  };
+  let writer =
+    RandomIndexWriter::with_analyzer(random, dir.clone(), Box::new(analyzer) as Box<dyn Analyzer>);
   let mut field_to_type = HashMap::new();
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -246,8 +283,9 @@ fn test_multiple_terms() -> Result<()> {
 fn test_phrase_query_with_stop_analyzer() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  // TODO  这里需要自定义分词器
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let stop_analyzer =
+    MockAnalyzer::with_filter(&mut random, SIMPLE.clone(), true, ENGLISH_STOPSET.clone());
+  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), stop_analyzer);
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -508,29 +546,20 @@ fn test_to_string() -> Result<()> {
 }
 #[test]
 fn test_wrapped_phrase() -> Result<()> {
-  // TODO IMPORTANT 这里before_class中的自定义分词器 导致这个测试不能成功
-  // let mut random = random();
-  // let searcher = before_class(&mut random)?;
-  //
-  // let query = PhraseQuery::from_terms(
-  //     100,
-  //     "repeated",
-  //     &["first", "part", "second", "part"],
-  // )?;
-  // let top_docs = searcher.search(query.clone(), 1000)?;
-  // let hits = top_docs.score_docs();
-  // assert_eq!(1, hits.len(), "slop of 100 just right");
-  // QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
-  //
-  // let query = PhraseQuery::from_terms(
-  //     99,
-  //     "repeated",
-  //     &["first", "part", "second", "part"],
-  // )?;
-  // let top_docs = searcher.search(query.clone(), 1000)?;
-  // let hits = top_docs.score_docs();
-  // assert_eq!(0, hits.len(), "slop of 99 not enough");
-  // QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  let mut random = random();
+  let searcher = set_up(&mut random)?;
+
+  let query = PhraseQuery::from_terms(100, "repeated", &["first", "part", "second", "part"])?;
+  let top_docs = searcher.search(query.clone(), 1000)?;
+  let hits = top_docs.score_docs();
+  assert_eq!(1, hits.len(), "slop of 100 just right");
+  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+
+  let query = PhraseQuery::from_terms(99, "repeated", &["first", "part", "second", "part"])?;
+  let top_docs = searcher.search(query.clone(), 1000)?;
+  let hits = top_docs.score_docs();
+  assert_eq!(0, hits.len(), "slop of 99 not enough");
+  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
 
   Ok(())
 }

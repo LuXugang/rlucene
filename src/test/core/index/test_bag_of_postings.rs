@@ -48,6 +48,9 @@ fn test() -> Result<()> {
   let mut postings_list: Vec<String> = Vec::new();
   let num_terms = at_least(&mut random, 300);
   let max_terms_per_doc = TestUtil::next_int(&mut random, 10, 20);
+  let analyzer = MockAnalyzer::new(&mut random);
+  // TODO MockRandomMergePolicy未实现
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
 
   for i in 0..num_terms {
     let term = i.to_string();
@@ -60,8 +63,6 @@ fn test() -> Result<()> {
   let postings = Arc::new(Mutex::new(VecDeque::from(postings_list)));
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("bagofpostings")?)?;
 
-  let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let iw = Arc::new(RandomIndexWriter::with_config(&mut random, dir, iwc));
 
   let thread_count = TestUtil::next_int(&mut random, 1, 5);

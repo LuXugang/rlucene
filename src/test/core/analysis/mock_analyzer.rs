@@ -23,9 +23,10 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::analysis::mock_token_filter::{EMPTY_STOPSET, MockTokenFilter};
+use crate::test::core::analysis::mock_token_filter::EMPTY_STOPSET;
+pub(crate) use crate::test::core::analysis::mock_token_filter::{ENGLISH_STOPSET, MockTokenFilter};
 pub(crate) use crate::test::core::analysis::mock_tokenizer::{
-  DEFAULT_MAX_TOKEN_LENGTH, MockTokenizer, WHITESPACE,
+  DEFAULT_MAX_TOKEN_LENGTH, MockTokenizer, SIMPLE, WHITESPACE,
 };
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};

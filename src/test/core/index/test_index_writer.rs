@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::reader::StringReader;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_stream::TokenStream;
@@ -72,19 +73,23 @@ use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::phrase_query::Builder as PhraseQueryBuilder;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{DataOutput, FSDirectory, IOContext, SimpleFSLockFactory};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::automation::automata::Automata;
+use crate::core::util::automation::automaton::Automaton;
+use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_analyzer::{ENGLISH_STOPSET, MockAnalyzer, MockTokenFilter};
 use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test::core::analysis::token;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
@@ -1859,8 +1864,60 @@ fn test_prepare_commit_then_rollback2() -> Result<()> {
 
 #[test]
 fn test_dont_invoke_analyzer_for_un_analyzed_fields() -> Result<()> {
-  // TODO IMPORTANT  自定义分词器有 bug
+  let mut random = random();
+  let analyzer = DontInvokeAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+  };
+  let dir = new_directory_shared(&mut random)?;
+  let config =
+    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>);
+  let w = IndexWriter::new(dir, config)?;
+
+  let mut doc = Document::new();
+  let mut custom_type =
+    FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
+  custom_type.set_store_term_vectors(true)?;
+  custom_type.set_store_term_vector_positions(true)?;
+  custom_type.set_store_term_vector_offsets(true)?;
+  let mut field_to_type = HashMap::new();
+  let f = new_field(
+    &mut random,
+    "field",
+    "abcd",
+    &custom_type,
+    &mut field_to_type,
+  )?;
+  doc.add(f.clone());
+  doc.add(f.clone());
+  let f2 = new_field(&mut random, "field", "", &custom_type, &mut field_to_type)?;
+  doc.add(f2);
+  doc.add(f);
+  w.add_document(doc)?;
+  w.close()?;
+
   Ok(())
+}
+
+struct DontInvokeAnalyzer {
+  stored_value: AnalyzerStoredValue,
+}
+
+impl Analyzer for DontInvokeAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    unreachable!("don't invoke me!")
+  }
+
+  fn get_position_increment_gap(&self, _field_name: &str) -> i32 {
+    unreachable!("don't invoke me!")
+  }
+
+  fn get_offset_gap(&self, _field_name: &str) -> i32 {
+    unreachable!("don't invoke me!")
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
 }
 
 #[test]
@@ -1896,14 +1953,98 @@ fn test_other_files() -> Result<()> {
 
 #[test]
 fn test_stopwords_pos_inc_hole() -> Result<()> {
-  // TODO IMPORTANT  自定义分词器有 bug
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = StopwordsPosIncHoleAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+    seed: random.random(),
+  };
+  let iw =
+    RandomIndexWriter::with_analyzer(&mut random, dir, Box::new(analyzer) as Box<dyn Analyzer>);
+  let mut doc = Document::new();
+  doc.add(TextField::from_string("body", "just a", Store::No)?);
+  doc.add(TextField::from_string("body", "test of gaps", Store::No)?);
+  iw.add_document(doc)?;
+  let ir = iw.get_reader()?;
+  iw.close()?;
+  let searcher = new_searcher_with_reader(ir)?;
+  let mut builder = PhraseQueryBuilder::new();
+  builder.add(Term::from_text("body", "just"), 0)?;
+  builder.add(Term::from_text("body", "test"), 2)?;
+  let pq = builder.build()?;
+  assert_eq!(1, searcher.search(pq, 5)?.total_hits.value());
+
   Ok(())
 }
 
 #[test]
 fn test_stopwords_pos_inc_hole2() -> Result<()> {
-  // TODO IMPORTANT  自定义分词器有 bug
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let second_set = Automata::make_string("foobar")?;
+  let analyzer = StopwordsPosIncHole2Analyzer {
+    stored_value: AnalyzerStoredValue::new(),
+    seed: random.random(),
+    second_set,
+  };
+  let iw =
+    RandomIndexWriter::with_analyzer(&mut random, dir, Box::new(analyzer) as Box<dyn Analyzer>);
+  let mut doc = Document::new();
+  doc.add(TextField::from_string("body", "just a foobar", Store::No)?);
+  doc.add(TextField::from_string("body", "test of gaps", Store::No)?);
+  iw.add_document(doc)?;
+  let ir = iw.get_reader()?;
+  iw.close()?;
+  let searcher = new_searcher_with_reader(ir)?;
+  let mut builder = PhraseQueryBuilder::new();
+  builder.add(Term::from_text("body", "just"), 0)?;
+  builder.add(Term::from_text("body", "test"), 3)?;
+  let pq = builder.build()?;
+  assert_eq!(1, searcher.search(pq, 5)?.total_hits.value());
+
   Ok(())
+}
+
+struct StopwordsPosIncHoleAnalyzer {
+  stored_value: AnalyzerStoredValue,
+  seed: u64,
+}
+
+impl Analyzer for StopwordsPosIncHoleAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    let tokenizer = MockTokenizer::new(random_from_seed(self.seed));
+    let stream = MockTokenFilter::new(tokenizer, ENGLISH_STOPSET.clone());
+    Ok(TokenStreamComponents::new(
+      Box::new(stream) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+struct StopwordsPosIncHole2Analyzer {
+  stored_value: AnalyzerStoredValue,
+  seed: u64,
+  second_set: Automaton,
+}
+
+impl Analyzer for StopwordsPosIncHole2Analyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    let tokenizer = MockTokenizer::new(random_from_seed(self.seed));
+    let stream = MockTokenFilter::new(tokenizer, ENGLISH_STOPSET.clone());
+    let stream = MockTokenFilter::new(stream, CharacterRunAutomaton::new(self.second_set.clone())?);
+    Ok(TokenStreamComponents::new(
+      Box::new(stream) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
 }
 
 #[test]

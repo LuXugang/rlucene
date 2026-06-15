@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(feature = "nightly")]
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
+#[cfg(feature = "nightly")]
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
@@ -27,6 +31,8 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
+#[cfg(feature = "nightly")]
+use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
@@ -38,6 +44,8 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::mock_tokenizer;
+#[cfg(feature = "nightly")]
+use crate::test::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
@@ -145,7 +153,7 @@ fn test_ram_deletes() -> Result<()> {
   // TODO: FrozenBufferedUpdates::apply_query_deletes未实现
   Ok(())
 }
-// TODO IMPORTANT  测试未通过
+#[test]
 fn test_both_deletes() -> Result<()> {
   let mut random = random();
 
@@ -609,19 +617,19 @@ where
 }
 #[test]
 fn test_deletes_on_disk_full() -> Result<()> {
-  // TODO
+  // TODO MockDirectoryWrapper未实现
   Ok(())
 }
 
 #[test]
 fn test_updates_on_disk_full() -> Result<()> {
-  // TODO
+  // TODO MockDirectoryWrapper未实现
   Ok(())
 }
 
 #[test]
 fn test_error_after_apply_deletes() -> Result<()> {
-  // TODO
+  // TODO MockDirectoryWrapper未实现
   Ok(())
 }
 
@@ -685,9 +693,85 @@ fn test_delete_all_slowly() -> Result<()> {
   Ok(())
 }
 
-#[test]
+// TODO: memory calculation not implement 这个 测试未通过
+#[cfg(feature = "nightly")]
+#[ignore = "nightly"]
 fn test_indexing_then_deleting() -> Result<()> {
-  // TODO IMPORTANT 分词器有 BUG
+  use rand::RngExt;
+
+  struct IndexingThenDeletingAnalyzer {
+    stored_value: AnalyzerStoredValue,
+    seed: u64,
+  }
+
+  impl Analyzer for IndexingThenDeletingAnalyzer {
+    fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+      let tokenizer = MockTokenizer::with_default_max_token_length(
+        crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed(
+          self.seed,
+        ),
+        mock_tokenizer::WHITESPACE.clone(),
+        true,
+      );
+      Ok(TokenStreamComponents::new(
+        Box::new(tokenizer) as Box<dyn TokenStream + Send + Sync>,
+        None,
+      ))
+    }
+
+    fn stored_value(&self) -> &AnalyzerStoredValue {
+      &self.stored_value
+    }
+  }
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = IndexingThenDeletingAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+    seed: random.random(),
+  };
+  let mut iwc =
+    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>);
+  iwc
+    .set_ram_buffer_size_mb(4.0)
+    .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+  let writer = IndexWriter::new(dir, iwc)?;
+
+  let mut doc = Document::new();
+  let mut field_types = HashMap::new();
+  doc.add(new_text_field(
+    &mut random,
+    "field",
+    "go 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20",
+    Store::No,
+    &mut field_types,
+  )?);
+  let num = at_least(&mut random, 1);
+  for _ in 0..num {
+    let mut count = 0;
+
+    let do_indexing = random.random_bool(0.5);
+    if do_indexing {
+      let start_flush_count = writer.get_flush_count();
+      while writer.get_flush_count() == start_flush_count {
+        writer.add_document(doc.clone())?;
+        count += 1;
+      }
+    } else {
+      let start_flush_count = writer.get_flush_count();
+      while writer.get_flush_count() == start_flush_count {
+        writer.delete_documents_with_terms(vec![Term::from_text("foo", count.to_string())])?;
+        count += 1;
+      }
+    }
+    assert!(
+      count > 2500,
+      "flush happened too quickly during {} count={count}",
+      if do_indexing { "indexing" } else { "deleting" }
+    );
+  }
+  writer.close()?;
+
   Ok(())
 }
 
@@ -733,10 +817,93 @@ fn test_flush_pushed_deletes_by_ram() -> Result<()> {
 
   Ok(())
 }
-
-#[test]
+// TODO: memory calculation not implement 这个 测试未通过
+#[cfg(feature = "nightly")]
+#[ignore = "nightly"]
 fn test_apply_deletes_on_flush() -> Result<()> {
-  // TODO
+  use crate::core::index::index_writer::{IndexWriterHooks, IndexWriterHooksEnum};
+  use crate::core::index::no_merge_policy::NoMergePolicy;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::slow_file_exists;
+  use crate::test::core::util::test_util::TestUtil;
+  use std::sync::atomic::{AtomicBool, AtomicI32};
+
+  struct ApplyDeletesOnFlushHooks {
+    docs_in_segment: Arc<AtomicI32>,
+    closing: Arc<AtomicBool>,
+    saw_after_flush: Arc<AtomicBool>,
+  }
+
+  impl IndexWriterHooks for ApplyDeletesOnFlushHooks {
+    fn do_after_flush(&self) -> Result<()> {
+      let docs_in_segment = self.docs_in_segment.load(Ordering::SeqCst);
+      assert!(
+        self.closing.load(Ordering::SeqCst) || docs_in_segment >= 7,
+        "only {docs_in_segment} in segment"
+      );
+      self.docs_in_segment.store(0, Ordering::SeqCst);
+      self.saw_after_flush.store(true, Ordering::SeqCst);
+      Ok(())
+    }
+  }
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let docs_in_segment = Arc::new(AtomicI32::new(0));
+  let closing = Arc::new(AtomicBool::new(false));
+  let saw_after_flush = Arc::new(AtomicBool::new(false));
+  let hooks = ApplyDeletesOnFlushHooks {
+    docs_in_segment: docs_in_segment.clone(),
+    closing: closing.clone(),
+    saw_after_flush: saw_after_flush.clone(),
+  };
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  iwc
+    .set_ram_buffer_size_mb(0.5)
+    .set_max_buffered_docs(DISABLE_AUTO_FLUSH)
+    .set_merge_policy(NoMergePolicy::default())
+    .set_reader_pooling(false)
+    .set_use_compound_file(true);
+  let writer =
+    IndexWriter::with_hooks(dir.clone(), iwc, Some(IndexWriterHooksEnum::custom(hooks)))?;
+
+  let mut id = 0;
+  let mut field_types = HashMap::new();
+  loop {
+    let mut body = String::new();
+    for _ in 0..100 {
+      body.push(' ');
+      body.push_str(&TestUtil::random_realistic_unicode_string(&mut random));
+    }
+    if id == 500 {
+      writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
+    }
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "id",
+      id.to_string(),
+      Store::No,
+      &mut field_types,
+    )?);
+    doc.add(new_text_field(
+      &mut random,
+      "body",
+      body,
+      Store::No,
+      &mut field_types,
+    )?);
+    writer.update_document_with_term(Term::from_text("id", id.to_string()), doc)?;
+    docs_in_segment.fetch_add(1, Ordering::SeqCst);
+    if slow_file_exists(dir.as_ref(), "_0_1.del")? || slow_file_exists(dir.as_ref(), "_0_1.liv")? {
+      break;
+    }
+    id += 1;
+  }
+  closing.store(true, Ordering::SeqCst);
+  assert!(saw_after_flush.load(Ordering::SeqCst));
+  writer.close()?;
+
   Ok(())
 }
 

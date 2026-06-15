@@ -144,7 +144,7 @@ fn test_max_num_segments2() -> Result<()> {
 }
 #[test]
 fn test_force_merge_temp_space_usage() -> Result<()> {
-  // TODO IMPORTANT 自定义分词器有 bug
+  // TODO IMPORTANT MockDirectoryWrapper未实现
   Ok(())
 }
 

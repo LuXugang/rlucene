@@ -210,7 +210,7 @@ impl_from_for_enum!(
 #[cfg(test)]
 impl From<MockAnalyzer> for AnalyzerEnum {
   fn from(v: MockAnalyzer) -> Self {
-    AnalyzerEnum::Mock(Box::new(v))
+    AnalyzerEnum::Custom(Box::new(v))
   }
 }
 impl From<Box<dyn Analyzer>> for AnalyzerEnum {
@@ -222,8 +222,6 @@ impl From<Box<dyn Analyzer>> for AnalyzerEnum {
 pub enum AnalyzerEnum {
   Whitespace(WhitespaceAnalyzer),
   Standard(StandardAnalyzer),
-  #[cfg(test)]
-  Mock(Box<MockAnalyzer>),
   Custom(Box<dyn Analyzer>),
 }
 impl Default for AnalyzerEnum {
@@ -236,8 +234,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.create_components(field),
       AnalyzerEnum::Standard(v) => v.create_components(field),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.create_components(field),
       AnalyzerEnum::Custom(v) => v.create_components(field),
     }
   }
@@ -246,8 +242,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.stored_value(),
       AnalyzerEnum::Standard(v) => v.stored_value(),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.stored_value(),
       AnalyzerEnum::Custom(v) => v.stored_value(),
     }
   }
@@ -260,8 +254,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.normalize_from_ts(field_name, in_),
       AnalyzerEnum::Standard(v) => v.normalize_from_ts(field_name, in_),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.normalize_from_ts(field_name, in_),
       AnalyzerEnum::Custom(v) => v.normalize_from_ts(field_name, in_),
     }
   }
@@ -274,8 +266,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.token_stream(field_name, input),
       AnalyzerEnum::Standard(v) => v.token_stream(field_name, input),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.token_stream(field_name, input),
       AnalyzerEnum::Custom(v) => v.token_stream(field_name, input),
     }
   }
@@ -284,8 +274,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.normalize(field_name, text),
       AnalyzerEnum::Standard(v) => v.normalize(field_name, text),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.normalize(field_name, text),
       AnalyzerEnum::Custom(v) => v.normalize(field_name, text),
     }
   }
@@ -294,8 +282,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.init_reader(_filed_name, reader),
       AnalyzerEnum::Standard(v) => v.init_reader(_filed_name, reader),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.init_reader(_filed_name, reader),
       AnalyzerEnum::Custom(v) => v.init_reader(_filed_name, reader),
     }
   }
@@ -304,8 +290,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.init_reader_for_normalization(_filed_name, reader),
       AnalyzerEnum::Standard(v) => v.init_reader_for_normalization(_filed_name, reader),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.init_reader_for_normalization(_filed_name, reader),
       AnalyzerEnum::Custom(v) => v.init_reader_for_normalization(_filed_name, reader),
     }
   }
@@ -314,8 +298,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.attribute_factory(field_name),
       AnalyzerEnum::Standard(v) => v.attribute_factory(field_name),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.attribute_factory(field_name),
       AnalyzerEnum::Custom(v) => v.attribute_factory(field_name),
     }
   }
@@ -324,8 +306,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.get_position_increment_gap(field_name),
       AnalyzerEnum::Standard(v) => v.get_position_increment_gap(field_name),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.get_position_increment_gap(field_name),
       AnalyzerEnum::Custom(v) => v.get_position_increment_gap(field_name),
     }
   }
@@ -334,8 +314,6 @@ impl Analyzer for AnalyzerEnum {
     match self {
       AnalyzerEnum::Whitespace(v) => v.get_offset_gap(field_name),
       AnalyzerEnum::Standard(v) => v.get_offset_gap(field_name),
-      #[cfg(test)]
-      AnalyzerEnum::Mock(v) => v.get_offset_gap(field_name),
       AnalyzerEnum::Custom(v) => v.get_offset_gap(field_name),
     }
   }
