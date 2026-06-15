@@ -154,6 +154,7 @@ pub(crate) mod req_excl_scorer;
 pub(crate) mod req_opt_sum_scorer;
 pub(crate) mod scorer_util;
 pub(crate) mod scoring_rewrite;
+pub mod searcher_factory;
 pub(crate) mod simple_scorable;
 pub(crate) mod sloppy_phrase_matcher;
 pub mod sort;
