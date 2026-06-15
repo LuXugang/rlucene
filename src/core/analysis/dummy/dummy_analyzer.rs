@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
-use crate::core::analysis::dummy::dummy_token_stream::DummyTokenStream;
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::NormalizeTokenStream;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyAnalyzer {
@@ -46,22 +45,19 @@ impl Analyzer for DummyAnalyzer {
     &self.stored_value
   }
 
-  type TokenStream<TS>
-    = DummyTokenStream
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    _field_name: &str,
+    _in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     dummy_unreachable!()
   }
 
-  fn default_normalize_from_ts<TS>(&self, _field_name: &str, _in_: TS) -> Result<TS>
-  where
-    TS: TokenStream,
-  {
+  fn default_normalize_from_ts(
+    &self,
+    _field_name: &str,
+    _in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     dummy_unreachable!()
   }
 

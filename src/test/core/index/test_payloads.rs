@@ -21,7 +21,7 @@ use crate::core::analysis::reader::{ReaderEnum, StringReader};
 use crate::core::analysis::token_attributes::payload_attribute;
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::fields::FieldTokenStreamEnum;
@@ -518,15 +518,11 @@ impl Analyzer for PayloadAnalyzer {
     &self.stored_value
   }
 
-  type TokenStream<TS>
-    = TS
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     self.default_normalize_from_ts(field_name, in_)
   }
 

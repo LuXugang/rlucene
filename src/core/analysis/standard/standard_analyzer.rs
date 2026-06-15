@@ -23,7 +23,7 @@ use crate::core::analysis::standard::standard_tokenizer::{
 };
 use crate::core::analysis::stop_filter::StopFilter;
 use crate::core::analysis::stop_word_analyzer_base::{StopWordAnalyzerBase, init_stop_wors};
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::NormalizeTokenStream;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -91,16 +91,12 @@ impl Analyzer for StandardAnalyzer {
     &self.stored_value
   }
 
-  type TokenStream<TS>
-    = LowerCaseFilter<TS>
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
-    Ok(LowerCaseFilter::new(in_))
+  fn normalize_from_ts(
+    &self,
+    _field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
+    Ok(LowerCaseFilter::new(Box::new(in_)).into())
   }
 
   fn get_offset_gap(&self, field_name: &str) -> i32 {

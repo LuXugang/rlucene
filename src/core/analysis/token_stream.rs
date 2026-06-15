@@ -20,7 +20,6 @@ use crate::core::analysis::lower_case_filter::LowerCaseFilter;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzerTS;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
-use crate::core::document::field::StringTokenStream;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
@@ -135,6 +134,7 @@ macro_rules! either_token_stream {
 }
 either_token_stream!(pub TokenStreamEnum { Whitespace: A, Dummy: B });
 either_token_stream!(pub TokenStreamEnum2 { A: A, B: B });
+either_token_stream!(pub TokenStreamEnum3 { String: A, LowerCase: B, Custom: C });
 either_token_stream!(pub TokenStreamEnum4 { Whitespace: A, Standard: B, Dummy: C, Custom: D });
 
 type CustomAnalyzerTokenStream = Box<dyn TokenStream + Send + Sync>;
@@ -145,6 +145,13 @@ pub type AnalyzerTokenStreams = TokenStreamEnum4<
   DummyTokenStream,
   CustomAnalyzerTokenStream,
 >;
+type NormalizeTokenStreamEnum = TokenStreamEnum3<
+  crate::core::analysis::analyzer::StringTokenStream,
+  LowerCaseFilter<Box<NormalizeTokenStream>>,
+  CustomAnalyzerTokenStream,
+>;
+
+pub struct NormalizeTokenStream(NormalizeTokenStreamEnum);
 
 impl_from_for_enum!(
     AnalyzerTokenStreams,
@@ -154,7 +161,28 @@ impl_from_for_enum!(
     Box<dyn TokenStream + Send + Sync> => Custom,
 );
 
-impl TokenStream for Box<dyn TokenStream + Send + Sync> {
+impl From<crate::core::analysis::analyzer::StringTokenStream> for NormalizeTokenStream {
+  fn from(v: crate::core::analysis::analyzer::StringTokenStream) -> Self {
+    Self(NormalizeTokenStreamEnum::String(v))
+  }
+}
+
+impl From<LowerCaseFilter<Box<NormalizeTokenStream>>> for NormalizeTokenStream {
+  fn from(v: LowerCaseFilter<Box<NormalizeTokenStream>>) -> Self {
+    Self(NormalizeTokenStreamEnum::LowerCase(v))
+  }
+}
+
+impl From<Box<dyn TokenStream + Send + Sync>> for NormalizeTokenStream {
+  fn from(v: Box<dyn TokenStream + Send + Sync>) -> Self {
+    Self(NormalizeTokenStreamEnum::Custom(v))
+  }
+}
+
+impl<T> TokenStream for Box<T>
+where
+  T: TokenStream + ?Sized,
+{
   fn increment_token(&mut self) -> Result<bool> {
     (**self).increment_token()
   }
@@ -193,6 +221,48 @@ impl TokenStream for Box<dyn TokenStream + Send + Sync> {
 
   fn set_reader_test_point(&mut self) -> Result<()> {
     (**self).set_reader_test_point()
+  }
+}
+
+impl TokenStream for NormalizeTokenStream {
+  fn increment_token(&mut self) -> Result<bool> {
+    self.0.increment_token()
+  }
+
+  fn end(&mut self) -> Result<()> {
+    self.0.end()
+  }
+
+  fn default_end(&mut self) -> Result<()> {
+    self.0.default_end()
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    self.0.reset()
+  }
+
+  fn default_reset(&mut self) -> Result<()> {
+    self.0.default_reset()
+  }
+
+  fn close(&mut self) -> Result<()> {
+    self.0.close()
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    self.0.get_attribute_source()
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    self.0.get_attribute_source_mut()
+  }
+
+  fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
+    self.0.set_reader(input)
+  }
+
+  fn set_reader_test_point(&mut self) -> Result<()> {
+    self.0.set_reader_test_point()
   }
 }
 impl<T> TokenStream for &mut T
@@ -282,142 +352,5 @@ where
 
   fn set_reader_test_point(&mut self) -> Result<()> {
     (**self).set_reader_test_point()
-  }
-}
-
-pub enum TokenStreams<TS>
-where
-  TS: TokenStream,
-{
-  Whitespace(TS),
-  Standard(LowerCaseFilter<TS>),
-  StringField(StringTokenStream),
-  String(crate::core::analysis::analyzer::StringTokenStream),
-  Dummy(DummyTokenStream),
-  #[cfg(test)]
-  Mock(TS),
-}
-impl<TS> TokenStream for TokenStreams<TS>
-where
-  TS: TokenStream,
-{
-  fn increment_token(&mut self) -> Result<bool> {
-    match self {
-      TokenStreams::Whitespace(v) => v.increment_token(),
-      TokenStreams::Standard(v) => v.increment_token(),
-      TokenStreams::StringField(v) => v.increment_token(),
-      TokenStreams::String(v) => v.increment_token(),
-      TokenStreams::Dummy(v) => v.increment_token(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.increment_token(),
-    }
-  }
-
-  fn end(&mut self) -> Result<()> {
-    match self {
-      TokenStreams::Whitespace(v) => v.end(),
-      TokenStreams::Standard(v) => v.end(),
-      TokenStreams::StringField(v) => v.end(),
-      TokenStreams::String(v) => v.end(),
-      TokenStreams::Dummy(v) => v.end(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.end(),
-    }
-  }
-
-  fn default_end(&mut self) -> Result<()> {
-    match self {
-      TokenStreams::Whitespace(v) => v.default_end(),
-      TokenStreams::Standard(v) => v.default_end(),
-      TokenStreams::StringField(v) => v.default_end(),
-      TokenStreams::String(v) => v.default_end(),
-      TokenStreams::Dummy(v) => v.default_end(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.default_end(),
-    }
-  }
-
-  fn reset(&mut self) -> Result<()> {
-    match self {
-      TokenStreams::Whitespace(v) => v.reset(),
-      TokenStreams::Standard(v) => v.reset(),
-      TokenStreams::StringField(v) => v.reset(),
-      TokenStreams::String(v) => v.reset(),
-      TokenStreams::Dummy(v) => v.reset(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.reset(),
-    }
-  }
-
-  fn default_reset(&mut self) -> Result<()> {
-    match self {
-      TokenStreams::Whitespace(v) => v.default_reset(),
-      TokenStreams::Standard(v) => v.default_reset(),
-      TokenStreams::StringField(v) => v.default_reset(),
-      TokenStreams::String(v) => v.default_reset(),
-      TokenStreams::Dummy(v) => v.default_reset(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.default_reset(),
-    }
-  }
-
-  fn close(&mut self) -> Result<()> {
-    match self {
-      TokenStreams::Whitespace(v) => v.close(),
-      TokenStreams::Standard(v) => v.close(),
-      TokenStreams::StringField(v) => v.close(),
-      TokenStreams::String(v) => v.close(),
-      TokenStreams::Dummy(v) => v.close(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.close(),
-    }
-  }
-
-  fn get_attribute_source(&self) -> &Attributes {
-    match self {
-      TokenStreams::Whitespace(v) => v.get_attribute_source(),
-      TokenStreams::Standard(v) => v.get_attribute_source(),
-      TokenStreams::StringField(v) => v.get_attribute_source(),
-      TokenStreams::String(v) => v.get_attribute_source(),
-      TokenStreams::Dummy(v) => v.get_attribute_source(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.get_attribute_source(),
-    }
-  }
-
-  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-    match self {
-      TokenStreams::Whitespace(v) => v.get_attribute_source_mut(),
-      TokenStreams::Standard(v) => v.get_attribute_source_mut(),
-      TokenStreams::StringField(v) => v.get_attribute_source_mut(),
-      TokenStreams::String(v) => v.get_attribute_source_mut(),
-      TokenStreams::Dummy(v) => v.get_attribute_source_mut(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.get_attribute_source_mut(),
-    }
-  }
-
-  fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
-    match self {
-      TokenStreams::Whitespace(v) => v.set_reader(input),
-      TokenStreams::Standard(v) => v.set_reader(input),
-      TokenStreams::StringField(v) => v.set_reader(input),
-      TokenStreams::String(v) => v.set_reader(input),
-      TokenStreams::Dummy(v) => v.set_reader(input),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.set_reader(input),
-    }
-  }
-
-  fn set_reader_test_point(&mut self) -> Result<()> {
-    match self {
-      TokenStreams::Whitespace(v) => v.set_reader_test_point(),
-      TokenStreams::Standard(v) => v.set_reader_test_point(),
-      TokenStreams::StringField(v) => v.set_reader_test_point(),
-      TokenStreams::String(v) => v.set_reader_test_point(),
-      TokenStreams::Dummy(v) => v.set_reader_test_point(),
-      #[cfg(test)]
-      TokenStreams::Mock(v) => v.set_reader_test_point(),
-    }
   }
 }

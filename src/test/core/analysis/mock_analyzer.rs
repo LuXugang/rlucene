@@ -17,7 +17,7 @@
 
 use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::error::lucene_error::Result;
@@ -151,22 +151,19 @@ impl Analyzer for MockAnalyzer {
     &self.stored_value
   }
 
-  type TokenStream<TS>
-    = TS
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    _field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     self.default_normalize_from_ts(_field_name, in_)
   }
 
-  fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
-  where
-    TS: TokenStream,
-  {
+  fn default_normalize_from_ts(
+    &self,
+    _field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     Ok(in_)
   }
 

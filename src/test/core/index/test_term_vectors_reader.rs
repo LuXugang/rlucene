@@ -18,7 +18,7 @@ use crate::core::analysis::analyzer::{
   Analyzer, AnalyzerEnum, AnalyzerStoredValue, BoxedAnalyzer, TokenStreamComponents,
 };
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::{TokenStream, default_attribute};
+use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::codecs::codec::{Codec, LATEST_CODEC};
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
@@ -598,15 +598,11 @@ impl Analyzer for MyAnalyzer {
     &self.stored_value
   }
 
-  type TokenStream<TS>
-    = TS
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     self.default_normalize_from_ts(field_name, in_)
   }
 

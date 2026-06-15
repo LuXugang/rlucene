@@ -19,7 +19,7 @@ use crate::core::analysis::analyzer::{
 };
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
 use crate::core::index::bytes_ref::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
@@ -60,15 +60,11 @@ impl Analyzer for MockPayloadAnalyzer {
     &self.stored_value
   }
 
-  type TokenStream<TS>
-    = TS
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     self.default_normalize_from_ts(field_name, in_)
   }
 

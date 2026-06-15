@@ -18,7 +18,9 @@ use crate::analysis::common::analysis_impl::core::whitespace_analyzer::Whitespac
 use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
-use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream, TokenStreams};
+use crate::core::analysis::token_stream::{
+  AnalyzerTokenStreams, NormalizeTokenStream, TokenStream,
+};
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -90,16 +92,16 @@ impl ReuseStrategyFactory {
 
 pub trait Analyzer {
   fn create_components(&self, field: &str) -> Result<TokenStreamComponents>;
-  type TokenStream<TS>: TokenStream
-  where
-    TS: TokenStream;
-  fn normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream;
-  fn default_normalize_from_ts<TS>(&self, _field_name: &str, in_: TS) -> Result<TS>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    _field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream>;
+  fn default_normalize_from_ts(
+    &self,
+    _field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     Ok(in_)
   }
 
@@ -155,7 +157,7 @@ pub trait Analyzer {
     debug_assert!(text.len() <= i32::MAX as usize);
     let mut ts = self.normalize_from_ts(
       field_name,
-      StringTokenStream::new(att, &filtered, text.len() as i32),
+      StringTokenStream::new(att, &filtered, text.len() as i32).into(),
     )?;
 
     ts.reset()?;
@@ -256,26 +258,18 @@ impl Analyzer for AnalyzerEnum {
     }
   }
 
-  type TokenStream<TS>
-    = TokenStreams<TS>
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     match self {
-      AnalyzerEnum::Whitespace(v) => Ok(TokenStreams::Whitespace(
-        v.normalize_from_ts(field_name, in_)?,
-      )),
-      AnalyzerEnum::Standard(v) => Ok(TokenStreams::Standard(
-        v.normalize_from_ts(field_name, in_)?,
-      )),
+      AnalyzerEnum::Whitespace(v) => v.normalize_from_ts(field_name, in_),
+      AnalyzerEnum::Standard(v) => v.normalize_from_ts(field_name, in_),
       #[cfg(test)]
-      AnalyzerEnum::Mock(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
+      AnalyzerEnum::Mock(v) => v.normalize_from_ts(field_name, in_),
       #[cfg(test)]
-      AnalyzerEnum::Custom(v) => Ok(TokenStreams::Mock(v.normalize_from_ts(field_name, in_)?)),
+      AnalyzerEnum::Custom(v) => v.normalize_from_ts(field_name, in_),
     }
   }
 
@@ -610,15 +604,11 @@ impl Analyzer for BoxedAnalyzer {
     &self.stored_value
   }
 
-  type TokenStream<TS>
-    = TS
-  where
-    TS: TokenStream;
-
-  fn normalize_from_ts<TS>(&self, field_name: &str, in_: TS) -> Result<Self::TokenStream<TS>>
-  where
-    TS: TokenStream,
-  {
+  fn normalize_from_ts(
+    &self,
+    field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
     self.default_normalize_from_ts(field_name, in_)
   }
 
