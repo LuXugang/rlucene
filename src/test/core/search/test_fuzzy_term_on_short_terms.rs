@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
-use crate::core::analysis::analyzer::AnalyzerEnum;
+use crate::core::analysis::analyzer::{
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
+};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
@@ -25,13 +27,14 @@ use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::query::{IntoQuery, QueryBase};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, SIMPLE};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
-  new_searcher_with_reader, new_text_field, random,
+  new_searcher_with_reader, new_text_field, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
-use rand_chacha::rand_core::Rng;
+use rand::{Rng, RngExt};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -126,12 +129,38 @@ fn test() -> Result<()> {
 
   Ok(())
 }
-fn get_analyzer<R>(_random: &mut R) -> WhitespaceAnalyzer
+
+struct FuzzyTermOnShortTermsAnalyzer {
+  stored_value: AnalyzerStoredValue,
+  seed: u64,
+}
+
+impl Analyzer for FuzzyTermOnShortTermsAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    let tokenizer = MockTokenizer::with_default_max_token_length(
+      random_from_seed(self.seed),
+      SIMPLE.clone(),
+      true,
+    );
+    Ok(TokenStreamComponents::new(
+      Box::new(tokenizer) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+fn get_analyzer<R>(random: &mut R) -> Box<dyn Analyzer>
 where
   R: Rng + ?Sized,
 {
-  // TODO IMPORTANT MockTokenizer未实现
-  WhitespaceAnalyzer::new()
+  Box::new(FuzzyTermOnShortTermsAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+    seed: random.random(),
+  })
 }
 
 fn count_hits<A>(

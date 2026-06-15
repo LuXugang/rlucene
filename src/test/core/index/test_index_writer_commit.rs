@@ -206,6 +206,7 @@ fn test_commit_on_close_abort() -> Result<()> {
 
 #[test]
 fn test_commit_on_close_disk_usage() -> Result<()> {
+  // TODO MockDirectoryWrapper未实现
   Ok(())
 }
 #[test]
@@ -268,7 +269,7 @@ fn test_commit_on_close_force_merge() -> Result<()> {
 
   Ok(())
 }
-// TODO IMPORTANT 这个测试为啥这么慢
+#[test]
 fn test_commit_thread_safety() -> Result<()> {
   const NUM_THREADS: usize = 5;
   const MAX_ITERATIONS: usize = 10;

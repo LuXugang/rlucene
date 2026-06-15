@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
+use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::document::Document;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
-use crate::core::document::fields::Fields;
+use crate::core::document::fields::{FieldTokenStreamEnum, Fields};
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
@@ -27,11 +30,13 @@ use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValu
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
+use crate::core::document::text_field::{TYPE_NOT_STORED, TextField};
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_options::IndexOptions::DocsAndFreqs;
 use crate::core::index::index_reader::IndexReader;
@@ -51,9 +56,14 @@ use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::similarities_impl::similarities::{
+  BoxSimScorer, Similarity, SimilarityEnum,
+};
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
 use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
@@ -61,8 +71,10 @@ use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
+use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -70,6 +82,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   at_least, at_least_usize, create_temp_dir, get_only_leaf_reader, new_bytes_ref_from_string,
@@ -78,9 +91,10 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   new_text_field, random, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
-use rand::prelude::StdRng;
+use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
@@ -2628,9 +2642,321 @@ fn test_illegal_change_sort() -> Result<()> {
 
   Ok(())
 }
+
+struct NormsSimilarity {
+  in_: SimilarityEnum,
+}
+
+impl NormsSimilarity {
+  fn new(in_: SimilarityEnum) -> Self {
+    Self { in_ }
+  }
+}
+
+impl Display for NormsSimilarity {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "NormsSimilarity({})", self.in_)
+  }
+}
+
+impl Similarity for NormsSimilarity {
+  fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
+    if state.get_name() == "norms" {
+      Ok(state.get_length() as i64)
+    } else {
+      self.in_.compute_norm(state)
+    }
+  }
+
+  type SimScorer = BoxSimScorer;
+
+  fn scorer(
+    &self,
+    boost: f32,
+    collection_stats: &CollectionStatistics,
+    term_stats: &[TermStatistics],
+  ) -> Result<Self::SimScorer> {
+    Ok(Box::new(self.in_.scorer(
+      boost,
+      collection_stats,
+      term_stats,
+    )?))
+  }
+}
+
+struct PositionsTokenStream {
+  attrs: Attributes,
+  pos: i32,
+  off: i32,
+}
+
+impl PositionsTokenStream {
+  fn new() -> Self {
+    Self {
+      attrs: Attributes::default(),
+      pos: 0,
+      off: 0,
+    }
+  }
+
+  fn with_id(id: i32) -> Self {
+    let mut stream = Self::new();
+    stream.set_id(id);
+    stream
+  }
+
+  fn set_id(&mut self, id: i32) {
+    self.pos = id / 10 + 1;
+    self.off = 0;
+  }
+}
+
+impl TokenStream for PositionsTokenStream {
+  fn increment_token(&mut self) -> Result<bool> {
+    if self.pos == 0 {
+      return Ok(false);
+    }
+
+    self.attrs.clear_attributes();
+    self.attrs.append_str(Some("#all#"))?;
+    self
+      .attrs
+      .set_payload(Some(BytesRef::from_string(&self.pos.to_string())))?;
+    self.attrs.set_offset(self.off, self.off)?;
+    self.pos -= 1;
+    self.off += 1;
+    Ok(true)
+  }
+
+  fn end(&mut self) -> Result<()> {
+    self.default_end()
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    &self.attrs
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    &mut self.attrs
+  }
+}
+
+struct TestRandom2Analyzer {
+  random: Mutex<StdRng>,
+  stored_value: AnalyzerStoredValue,
+}
+
+impl TestRandom2Analyzer {
+  fn new(seed: u64) -> Self {
+    Self {
+      random: Mutex::new(StdRng::seed_from_u64(seed)),
+      stored_value: AnalyzerStoredValue::new(),
+    }
+  }
+
+  fn next_random(&self) -> StdRng {
+    StdRng::seed_from_u64(self.random.lock().expect("random mutex poisoned").random())
+  }
+}
+
+impl Analyzer for TestRandom2Analyzer {
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
+    let tokenizer: Box<dyn TokenStream + Send + Sync> =
+      Box::new(MockTokenizer::new(self.next_random()));
+    Ok(TokenStreamComponents::new(tokenizer, None))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
 #[test]
 fn test_random2() -> Result<()> {
-  //TODO  PositionsTokenStream 未实现
+  let mut random = random();
+  let num_docs = at_least(&mut random, 100);
+
+  let mut positions_type = FieldType::from_ref(&*TYPE_NOT_STORED)?;
+  positions_type.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
+  positions_type.freeze();
+
+  let mut term_vectors_type = FieldType::from_ref(&*TYPE_NOT_STORED)?;
+  term_vectors_type.set_store_term_vectors(true)?;
+  term_vectors_type.freeze();
+
+  let mut docs: Vec<i32> = Vec::new();
+  for i in 0..num_docs {
+    docs.push(i * 10);
+  }
+
+  let seed = random.random::<u64>();
+  let analyzer_seed = random.random::<u64>();
+
+  let dir1 = new_fs_directory(&mut random, create_temp_dir()?)?;
+
+  let mut random1 = StdRng::seed_from_u64(seed);
+  let mut iwc1 = new_index_writer_config_with_analyzer(
+    &mut random1,
+    Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
+  );
+  iwc1.set_similarity(SimilarityEnum::custom(NormsSimilarity::new(
+    get_default_similarity(),
+  )));
+  iwc1.set_merge_policy(new_log_merge_policy(&mut random1)?);
+  let w1 = RandomIndexWriter::with_config(&mut random1, dir1.clone(), iwc1);
+  #[allow(clippy::explicit_counter_loop)]
+  for id in &docs {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
+    doc.add(StringField::from_string("docs", "#all#", Store::No)?);
+    doc.add(Field::from_token_stream(
+      "positions",
+      FieldTokenStreamEnum::custom(PositionsTokenStream::with_id(*id)),
+      positions_type.clone(),
+    )?);
+    doc.add(NumericDocValuesField::new("numeric", *id as i64));
+    let value = (0..*id)
+      .map(|_| id.to_string())
+      .collect::<Vec<_>>()
+      .join(" ");
+    doc.add(TextField::from_string("norms", value, Store::No)?);
+    doc.add(BinaryDocValuesField::new(
+      "binary",
+      BytesRef::from_string(&id.to_string()),
+    ));
+    doc.add(SortedDocValuesField::new(
+      "sorted",
+      BytesRef::from_string(&id.to_string()),
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "multi_valued_string",
+      BytesRef::from_string(&id.to_string()),
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "multi_valued_string",
+      BytesRef::from_string(&(*id + 1).to_string()),
+    ));
+    doc.add(SortedNumericDocValuesField::new(
+      "multi_valued_numeric",
+      *id as i64,
+    ));
+    doc.add(SortedNumericDocValuesField::new(
+      "multi_valued_numeric",
+      (*id + 1) as i64,
+    ));
+    doc.add(Field::new(
+      "term_vectors",
+      id.to_string(),
+      term_vectors_type.clone(),
+    ));
+    let mut bytes = vec![0u8; 4];
+    NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
+    doc.add(BinaryPoint::new("points", vec![bytes])?);
+    w1.add_document(doc)?;
+  }
+
+  let dir2 = new_fs_directory(&mut random, create_temp_dir()?)?;
+
+  let mut random2 = StdRng::seed_from_u64(seed);
+  let mut iwc2 = new_index_writer_config_with_analyzer(
+    &mut random2,
+    Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
+  );
+  iwc2.set_similarity(SimilarityEnum::custom(NormsSimilarity::new(
+    get_default_similarity(),
+  )));
+
+  let sort = Arc::new(Sort::with_fields(vec![SortField::new(
+    Some("numeric"),
+    SortFieldType::Int,
+  )?])?);
+  iwc2.set_index_sort(sort.clone())?;
+
+  docs.shuffle(&mut random);
+  let w2 = RandomIndexWriter::with_config(&mut random2, dir2.clone(), iwc2);
+  let mut count = 0;
+  let commit_at_count = TestUtil::next_int(&mut random, 1, num_docs - 1);
+  #[allow(clippy::explicit_counter_loop)]
+  for id in &docs {
+    if count == commit_at_count {
+      w2.commit()?;
+    }
+    count += 1;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
+    doc.add(StringField::from_string("docs", "#all#", Store::No)?);
+    doc.add(Field::from_token_stream(
+      "positions",
+      FieldTokenStreamEnum::custom(PositionsTokenStream::with_id(*id)),
+      positions_type.clone(),
+    )?);
+    doc.add(NumericDocValuesField::new("numeric", *id as i64));
+    let value = (0..*id)
+      .map(|_| id.to_string())
+      .collect::<Vec<_>>()
+      .join(" ");
+    doc.add(TextField::from_string("norms", value, Store::No)?);
+    doc.add(BinaryDocValuesField::new(
+      "binary",
+      BytesRef::from_string(&id.to_string()),
+    ));
+    doc.add(SortedDocValuesField::new(
+      "sorted",
+      BytesRef::from_string(&id.to_string()),
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "multi_valued_string",
+      BytesRef::from_string(&id.to_string()),
+    ));
+    doc.add(SortedSetDocValuesField::new(
+      "multi_valued_string",
+      BytesRef::from_string(&(*id + 1).to_string()),
+    ));
+    doc.add(SortedNumericDocValuesField::new(
+      "multi_valued_numeric",
+      *id as i64,
+    ));
+    doc.add(SortedNumericDocValuesField::new(
+      "multi_valued_numeric",
+      (*id + 1) as i64,
+    ));
+    doc.add(Field::new(
+      "term_vectors",
+      id.to_string(),
+      term_vectors_type.clone(),
+    ));
+    let mut bytes = vec![0u8; 4];
+    NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
+    doc.add(BinaryPoint::new("points", vec![bytes])?);
+    w2.add_document(doc)?;
+  }
+  w2.force_merge(1)?;
+
+  let r1 = w1.get_reader()?;
+  let r2 = w2.get_reader()?;
+  let leaf_reader = get_only_leaf_reader(&r2)?;
+  assert!(
+    leaf_reader
+      .get_metadata()?
+      .get_sort()
+      .as_ref()
+      .map(|actual_sort| actual_sort.as_ref())
+      == Some(sort.as_ref())
+  );
+  assert_eq!(r1.max_doc()?, r2.max_doc()?);
+  assert_eq!(r1.num_docs()?, r2.num_docs()?);
+  let mut stored_fields1 = r1.stored_fields()?;
+  let mut stored_fields2 = r2.stored_fields()?;
+  for doc_id in 0..r1.max_doc()? {
+    let doc1 = stored_fields1.document(doc_id)?;
+    let doc2 = stored_fields2.document(doc_id)?;
+    assert_eq!(doc1.get("id")?, doc2.get("id")?);
+  }
+  w1.close()?;
+  w2.close()?;
+  r1.close()?;
+  r2.close()?;
   Ok(())
 }
 
@@ -3716,7 +4042,6 @@ fn test_block_contains_parent_field() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT 测试未通过 parent field 相关功能未实现
 fn test_index_sort_with_blocks() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

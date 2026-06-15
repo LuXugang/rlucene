@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::cell::RefCell;
-use std::sync::Arc;
-
 use std::sync::LazyLock;
+use std::{fmt, sync::Arc};
 
 /// Debugging API for Lucene components such as
 /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter)
@@ -31,6 +29,23 @@ pub trait InfoStream: Send + Sync {
 
   /// Closes the stream.
   fn close(&self);
+}
+
+impl<T> InfoStream for Arc<T>
+where
+  T: InfoStream + ?Sized,
+{
+  fn message(&self, component: &str, message: &str) {
+    self.as_ref().message(component, message)
+  }
+
+  fn enabled(&self, component: &str) -> bool {
+    self.as_ref().enabled(component)
+  }
+
+  fn close(&self) {
+    self.as_ref().close()
+  }
 }
 
 /// A global, thread-safe reference to a default `InfoStream`,
@@ -68,11 +83,18 @@ pub fn get_default_info_stream() -> Arc<InfoStreamEnum> {
 pub fn set_default(_info_stream: InfoStreamEnum) {
   todo!()
 }
-#[derive(Clone, Debug)]
 pub enum InfoStreamEnum {
   NoOutput(NoOutput),
+  Custom(Box<dyn InfoStream>),
 }
-// for std::mem::take
+impl fmt::Debug for InfoStreamEnum {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      InfoStreamEnum::NoOutput(output) => f.debug_tuple("NoOutput").field(output).finish(),
+      InfoStreamEnum::Custom(_) => f.write_str("CustomInfoStream"),
+    }
+  }
+}
 impl Default for InfoStreamEnum {
   fn default() -> Self {
     InfoStreamEnum::NoOutput(NoOutput)
@@ -82,39 +104,22 @@ impl InfoStream for InfoStreamEnum {
   fn message(&self, component: &str, message: &str) {
     match self {
       InfoStreamEnum::NoOutput(output) => output.message(component, message),
+      InfoStreamEnum::Custom(output) => output.message(component, message),
     }
   }
 
   fn enabled(&self, component: &str) -> bool {
     match self {
       InfoStreamEnum::NoOutput(output) => output.enabled(component),
+      InfoStreamEnum::Custom(output) => output.enabled(component),
     }
   }
 
   fn close(&self) {
     match self {
       InfoStreamEnum::NoOutput(output) => output.close(),
+      InfoStreamEnum::Custom(output) => output.close(),
     }
   }
 }
-/// for multi-threaded scenarios
 pub type InfoStreamMT = Arc<InfoStreamEnum>;
-/// for single-threaded scenarios
-pub type InfoStreamST = RefCell<InfoStreamEnum>;
-#[cfg(test)]
-mod tests {
-  use crate::core::util::error::lucene_error::Result;
-
-  #[allow(dead_code)] // for quick search
-  pub struct TestInfoStream;
-  #[test]
-  fn test_test_points_off() -> Result<()> {
-    // TODO : IndexWriter not implement
-    Ok(())
-  }
-  #[test]
-  fn test_test_pointson() -> Result<()> {
-    // TODO : IndexWriter not implement
-    Ok(())
-  }
-}

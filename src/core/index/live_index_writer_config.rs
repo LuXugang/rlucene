@@ -115,6 +115,14 @@ pub trait LiveIndexWriterConfig: Display {
     self.get_base_mut().flush_policy = Arc::new(v);
     self
   }
+
+  fn set_info_stream<T>(&mut self, info_stream: T) -> &mut Self
+  where
+    T: Into<InfoStreamMT>,
+  {
+    self.get_base_mut().info_stream = info_stream.into();
+    self
+  }
 }
 
 pub struct LiveIndexWriterConfigBase {

@@ -103,6 +103,7 @@ pub(crate) mod test_per_thread_pk_lookup;
 mod test_phrase_prefix_query;
 mod test_phrase_query;
 pub(crate) mod test_point_queries;
+pub mod test_position_increment;
 mod test_positive_scores_only_collector;
 mod test_prefix_in_boolean_query;
 mod test_prefix_query;
