@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
+use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
@@ -33,6 +34,14 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+/// Holds all configuration that is used to create an `IndexWriter`.
+///
+/// Once an `IndexWriter` has been created with this object, changes to this
+/// object will not affect that writer instance. For live changes, use the
+/// [`LiveIndexWriterConfig`] returned from the writer configuration API.
+///
+/// All setter methods return [`IndexWriterConfig`] to allow settings to be
+/// chained conveniently.
 pub struct IndexWriterConfig {
   pub(crate) base: LiveIndexWriterConfigBase,
 }
@@ -43,11 +52,22 @@ impl Default for IndexWriterConfig {
 }
 
 impl IndexWriterConfig {
+  /// Creates a new config using the default analyzer.
+  ///
+  /// By default, [`TieredMergePolicy`](crate::core::index::tiered_merge_policy::TieredMergePolicy)
+  /// is used for merging. This merge policy is free to select non-contiguous
+  /// merges, which means doc IDs may not remain monotonic over time. If this is
+  /// a problem, switch to a log-style merge policy.
   pub fn new() -> Self {
-    Self {
-      base: LiveIndexWriterConfigBase::new(),
-    }
+    Self::with_analyzer(StandardAnalyzer::new())
   }
+
+  /// Creates a new config with the provided analyzer.
+  ///
+  /// By default, [`TieredMergePolicy`](crate::core::index::tiered_merge_policy::TieredMergePolicy)
+  /// is used for merging. This merge policy is free to select non-contiguous
+  /// merges, which means doc IDs may not remain monotonic over time. If this is
+  /// a problem, switch to a log-style merge policy.
   pub fn with_analyzer<T>(analyzer: T) -> Self
   where
     T: Into<AnalyzerEnum>,
@@ -56,10 +76,25 @@ impl IndexWriterConfig {
       base: LiveIndexWriterConfigBase::with_analyzer(analyzer),
     }
   }
+
+  /// Sets if calls to `IndexWriter::close` should first commit before closing.
+  ///
+  /// Use `true` to match the behavior of Lucene 4.x.
   pub fn set_commit_on_close(&mut self, commit_on_close: bool) -> &mut Self {
     self.base.commit_on_close = commit_on_close;
     self
   }
+
+  /// Expert: sets the amount of time to wait for full-flush merges during
+  /// commit or getting a reader from the writer.
+  ///
+  /// If this time is reached, commit proceeds based on segments merged up to
+  /// that point. The merges are not aborted and will still run to completion
+  /// independent of the commit or get-reader call, like natural segment merges.
+  ///
+  /// Set to `0` to disable merging on full flush. If a serial merge scheduler is
+  /// used and a non-zero timeout is configured, full-flush merges always wait
+  /// for the merge to finish without honoring the configured timeout.
   pub fn set_max_full_flush_merge_wait_millis(
     &mut self,
     max_full_flush_merge_wait_millis: i64,
@@ -68,6 +103,10 @@ impl IndexWriterConfig {
     self
   }
 
+  /// Expert: sets the [`SimilarityEnum`] implementation used by this
+  /// `IndexWriter`.
+  ///
+  /// Only takes effect when `IndexWriter` is first created.
   pub fn set_similarity<T>(&mut self, similarity: T)
   where
     T: Into<SimilarityEnum>,
@@ -82,6 +121,18 @@ impl IndexWriterConfig {
     self.base.open_mode = open_mode;
     self
   }
+
+  /// Expert: sets the compatibility version to use for this index.
+  ///
+  /// If the index is created, it will use the given major version for
+  /// compatibility. It is sometimes useful to set the previous major version for
+  /// compatibility because adding indexes only accepts indexes written with the
+  /// same major version as the current index. If the index already exists, this
+  /// value is ignored. The default value is the major version of the latest
+  /// version.
+  ///
+  /// NOTE: Changing the creation version reduces backward compatibility
+  /// guarantees.
   pub fn set_index_created_version_major(
     &mut self,
     index_created_version_major: i32,
@@ -105,6 +156,19 @@ impl IndexWriterConfig {
     Ok(self)
   }
 
+  /// Expert: allows an optional [`IndexDeletionPolicyEnum`] implementation to
+  /// be specified.
+  ///
+  /// This controls when prior commits are deleted from the index. The default
+  /// policy is keep-only-last-commit, which removes all prior commits as soon as
+  /// a new commit is done. A custom policy can keep previous point-in-time
+  /// commits alive for some time, allowing readers to refresh to the new commit
+  /// without having the old commit deleted underneath them.
+  ///
+  /// This is necessary on filesystems that do not support delete-on-last-close
+  /// semantics, which point-in-time search normally relies on.
+  ///
+  /// Only takes effect when `IndexWriter` is first created.
   pub fn set_index_deletion_policy<T>(&mut self, deletion_policy: T) -> &mut Self
   where
     T: Into<IndexDeletionPolicyEnum>,
@@ -113,6 +177,7 @@ impl IndexWriterConfig {
     self
   }
 
+  /// Sets the [`Sort`] order to use for all flushed and merged segments.
   pub fn set_index_sort<T>(&mut self, sort: T) -> Result<&mut Self>
   where
     T: Into<Arc<Sort>>,
@@ -137,6 +202,9 @@ impl IndexWriterConfig {
     Ok(self)
   }
 
+  /// Expert: sets the merge scheduler used by this writer.
+  ///
+  /// Only takes effect when `IndexWriter` is first created.
   pub fn set_merge_scheduler<T>(&mut self, merge_scheduler: T) -> &mut Self
   where
     T: Into<MergeSchedulerEnum>,
@@ -145,6 +213,26 @@ impl IndexWriterConfig {
     self.base.merge_scheduler = v;
     self
   }
+
+  /// Sets the soft deletes field.
+  ///
+  /// A soft delete field is a doc-values field that marks a document as
+  /// soft-deleted if the document has at least one value in that field. A
+  /// soft-deleted document is treated as if it has been hard-deleted through the
+  /// `IndexWriter` API. Merges reclaim soft-deleted as well as hard-deleted
+  /// documents, and index readers obtained from the writer reflect all deleted
+  /// documents in their live docs.
+  ///
+  /// Soft deletes allow documents to be retained across merges if the merge
+  /// policy modifies the live docs of a merge reader.
+  ///
+  /// There is currently no API support to undelete a soft-deleted document; it
+  /// must be re-indexed.
+  ///
+  /// The default is `None`, which disables soft deletes. If soft deletes are
+  /// enabled, documents can still be hard-deleted. Hard-deleted documents are
+  /// not considered soft-deleted even if they have a value in the soft deletes
+  /// field.
   pub fn set_soft_deletes_field<T>(&mut self, soft_deletes_field: T) -> &mut Self
   where
     T: Into<String>,
@@ -154,6 +242,18 @@ impl IndexWriterConfig {
     self
   }
 
+  /// Sets the parent document field.
+  ///
+  /// If this optional property is set, `IndexWriter` adds an internal field to
+  /// every root document added to the index writer. A document is considered a
+  /// parent document if it is the last document in a document block indexed via
+  /// block document APIs, and individual documents added via single-document
+  /// methods are also considered parent documents.
+  ///
+  /// This property is optional for indexes that do not use document blocks in
+  /// combination with index sorting. In order to maintain the API guarantee that
+  /// document order within a block is not altered by `IndexWriter`, a marker for
+  /// parent documents is required.
   pub fn set_parent_field<T>(&mut self, parent_field: T) -> &mut Self
   where
     T: Into<String>,
@@ -163,6 +263,13 @@ impl IndexWriterConfig {
     self
   }
 
+  /// Sets whether `IndexWriter` should pool readers without requiring a
+  /// near-real-time reader to have been opened from the writer.
+  ///
+  /// If set to `false`, `IndexWriter` will still pool readers once a reader is
+  /// opened from the writer.
+  ///
+  /// Only takes effect when `IndexWriter` is first created.
   pub fn set_reader_pooling(&mut self, reader_pooling: bool) -> &mut Self {
     self.base.reader_pooling = reader_pooling;
     self
