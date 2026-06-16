@@ -22,6 +22,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -45,7 +46,7 @@ where
   parent: Option<Arc<AtomicBool>>,
   confined: bool,
   thread: ThreadId,
-  read_advice: ReadAdvice,
+  read_advice: Mutex<ReadAdvice>,
   handle_id: usize,
 }
 
@@ -70,7 +71,7 @@ where
       parent,
       confined,
       thread: thread::current().id(),
-      read_advice,
+      read_advice: Mutex::new(read_advice),
       handle_id: NEXT_HANDLE_ID.fetch_add(1, Ordering::SeqCst),
     }
   }
@@ -137,7 +138,7 @@ where
       self.name.clone(),
       self.in_.try_clone()?,
       Some(self.original_closed_state()),
-      self.read_advice.clone(),
+      self.read_advice.lock().clone(),
       self.confined,
     ))
   }
@@ -341,7 +342,7 @@ where
       slice_description,
       self.in_.slice(slice_description, offset, length)?,
       Some(self.original_closed_state()),
-      self.read_advice.clone(),
+      self.read_advice.lock().clone(),
       self.confined,
     ))
   }
@@ -353,7 +354,7 @@ where
     length: usize,
     read_advice: &ReadAdvice,
   ) -> Result<Self::IndexInput> {
-    if self.read_advice != ReadAdvice::Normal {
+    if *self.read_advice.lock() != ReadAdvice::Normal {
       return Err(LuceneError::illegal_state(
         "slice() may only be called with a custom read advice on inputs that have been opened with ReadAdvice::Normal",
       ));
@@ -389,10 +390,10 @@ where
     self.in_.prefetch(pos, len)
   }
 
-  fn update_read_advice(&mut self, read_advice: ReadAdvice) -> Result<()> {
+  fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
     self.ensure_open()?;
     self.ensure_accessible()?;
-    self.read_advice = read_advice.clone();
+    *self.read_advice.lock() = read_advice.clone();
     self.in_.update_read_advice(read_advice)
   }
 }

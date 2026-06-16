@@ -44,6 +44,6 @@ pub trait FSLockFactory: LockFactory {
   fn obtain_fs_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock>;
 }
 
-pub(crate) fn get_default() -> impl FSLockFactory {
+pub(crate) fn get_default() -> NativeFSLockFactory {
   NativeFSLockFactory::new()
 }

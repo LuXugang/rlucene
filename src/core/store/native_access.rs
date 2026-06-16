@@ -14,20 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::Display;
-use std::path::Path;
+#[cfg(unix)]
+use std::io;
 
-use crate::core::store::IOContext;
-use crate::core::store::buffered_index_input::BufferedIndexInput;
-use crate::core::store::index_input::{IndexInput, IndexInputEnum2};
-use crate::core::store::memory_segment_index_input::MemorySegmentIndexInput;
-use crate::core::store::nio_fs_directory::NIOFSIndexInput;
-use crate::core::util::error::lucene_error::Result;
+#[cfg(unix)]
+use memmap2::{Advice, Mmap};
 
-pub type BuiltInFSIndexInput =
-  IndexInputEnum2<MemorySegmentIndexInput, BufferedIndexInput<NIOFSIndexInput>>;
+#[cfg(unix)]
+use crate::core::store::ReadAdvice;
 
-pub trait FSDirectoryBase: Display {
-  type Output: IndexInput<IndexInput = Self::Output>;
-  fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output>;
+#[cfg(unix)]
+pub trait NativeAccess {
+  fn map_read_advice(&self, read_advice: &ReadAdvice) -> Option<Advice>;
+
+  fn madvise(&self, segment: &Mmap, read_advice: &ReadAdvice) -> io::Result<()>;
+
+  fn madvise_will_need(&self, segment: &Mmap) -> io::Result<()>;
+
+  fn get_page_size(&self) -> usize;
 }

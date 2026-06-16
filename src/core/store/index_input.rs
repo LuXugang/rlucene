@@ -138,7 +138,7 @@ pub trait IndexInput: DataInput + TryClone {
     Ok(())
   }
 
-  fn update_read_advice(&mut self, _read_advice: ReadAdvice) -> Result<()> {
+  fn update_read_advice(&self, _read_advice: ReadAdvice) -> Result<()> {
     Ok(())
   }
 
@@ -455,7 +455,7 @@ impl IndexInput for IndexInputEnum {
     }
   }
 
-  fn update_read_advice(&mut self, read_advice: ReadAdvice) -> Result<()> {
+  fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
     match self {
       IndexInputEnum::Fs(inner) => inner.update_read_advice(read_advice),
       IndexInputEnum::Custom(inner) => inner.update_read_advice(read_advice),
@@ -755,7 +755,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn update_read_advice(&mut self, read_advice: ReadAdvice) -> Result<()> {
+            fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.update_read_advice(read_advice), )+
                 }
@@ -925,8 +925,8 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn update_read_advice(&mut self, _read_advice: ReadAdvice) -> Result<()> {
-    Err(LuceneError::unsupported_operation(""))
+  fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
+    self.as_ref().update_read_advice(read_advice)
   }
 
   fn slice_dyn(

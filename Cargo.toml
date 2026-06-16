@@ -14,7 +14,9 @@ derive_getters = { path = "libs/derive_getters" }
 flate2 = { default-features = false, features = ["rust_backend"], version = "1.1.9" }
 fs2 = "0.4.3"
 linked-hash-map = "0.5.6"
+libc = "0.2.186"
 log = "0.4.30"
+memmap2 = "0.9.10"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 os_info = "3.15.0"

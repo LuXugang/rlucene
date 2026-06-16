@@ -306,6 +306,23 @@ where
   {
     FlatVectorsReader::search_u8(self, field, target, knn_collector, accept_docs)
   }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    self
+      .vector_data
+      .update_read_advice(ReadAdvice::Sequential)?;
+    Ok(None)
+  }
+
+  fn finish_merge(&self) -> Result<()> {
+    self
+      .vector_data
+      .update_read_advice(ReadAdvice::Sequential)?;
+    Ok(())
+  }
 }
 
 impl<I, F> Accountable for Lucene99FlatVectorsReader<I, F>

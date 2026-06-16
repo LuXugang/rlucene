@@ -60,7 +60,7 @@ where
   /// Used to generate temp file names in
   /// [`createTempOutput`](Directory::create_temp_output).
   next_temp_file_counter: AtomicU64,
-  sub_fs_directory: T,
+  pub(crate) sub_fs_directory: T,
   base: BaseDirectoryBase<D>,
   id: Identity,
 }
