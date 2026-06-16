@@ -4041,7 +4041,7 @@ fn test_block_contains_parent_field() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-
+#[test]
 fn test_index_sort_with_blocks() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -4158,6 +4158,166 @@ fn test_index_sort_with_blocks() -> Result<()> {
 
 #[test]
 fn test_mix_random_documents_with_blocks() -> Result<()> {
-  // TODO IMPORTANT 测试未通过 parent field 相关功能未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let parent_field = "parent";
+  let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
+  iwc.set_index_sort(index_sort)?;
+  iwc.set_parent_field(parent_field);
+
+  let random_index_writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+  let num_docs = random.random_range(100..1000);
+  for i in 0..num_docs {
+    if rarely(&mut random) {
+      random_index_writer.delete_documents_with_terms(vec![Term::from_text(
+        "id",
+        random.random_range(0..=i).to_string(),
+      )])?;
+    }
+
+    let mut docs = Vec::new();
+    let case = random.random_range(0..100) % 5;
+    if case >= 4 {
+      let mut child3 = Document::new();
+      child3.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+      child3.add(NumericDocValuesField::new("type", 2));
+      child3.add(NumericDocValuesField::new("child_ord", 3));
+      child3.add(NumericDocValuesField::new(
+        "foo",
+        random.random::<i32>() as i64,
+      ));
+      docs.push(child3);
+    }
+    if case >= 3 {
+      let mut child2 = Document::new();
+      child2.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+      child2.add(NumericDocValuesField::new("type", 2));
+      child2.add(NumericDocValuesField::new("child_ord", 2));
+      child2.add(NumericDocValuesField::new(
+        "foo",
+        random.random::<i32>() as i64,
+      ));
+      docs.push(child2);
+    }
+    if case >= 2 {
+      let mut child1 = Document::new();
+      child1.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+      child1.add(NumericDocValuesField::new("type", 2));
+      child1.add(NumericDocValuesField::new("child_ord", 1));
+      child1.add(NumericDocValuesField::new(
+        "foo",
+        random.random::<i32>() as i64,
+      ));
+      docs.push(child1);
+    }
+    if case >= 1 {
+      let mut root = Document::new();
+      root.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+      root.add(NumericDocValuesField::new("type", 1));
+      root.add(NumericDocValuesField::new(
+        "num_children",
+        docs.len() as i64,
+      ));
+      root.add(NumericDocValuesField::new(
+        "foo",
+        random.random::<i32>() as i64,
+      ));
+      docs.push(root);
+      random_index_writer.w.add_documents(docs)?;
+    } else {
+      let mut single = Document::new();
+      single.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+      single.add(NumericDocValuesField::new("type", 0));
+      single.add(NumericDocValuesField::new(
+        "foo",
+        random.random::<i32>() as i64,
+      ));
+      random_index_writer.add_document(single)?;
+    }
+
+    if rarely(&mut random) {
+      random_index_writer.force_merge(1)?;
+    }
+    random_index_writer.commit()?;
+  }
+
+  random_index_writer.close()?;
+  let reader = get_context(directory_reader::open(dir.clone())?)?;
+  for ctx in reader.leaves()? {
+    let leaf = ctx.reader();
+    let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();
+    let mut type_values = leaf.get_numeric_doc_values("type")?.unwrap();
+    let mut child_ord = leaf.get_numeric_doc_values("child_ord")?;
+    let mut num_children = leaf.get_numeric_doc_values("num_children")?;
+    let live_docs = leaf.get_live_docs()?;
+    let mut stored_fields = leaf.stored_fields()?;
+
+    let mut num_current_children = 0;
+    let mut total_pending_children = 0_i64;
+    let mut child_id: Option<String> = None;
+    for i in 0..leaf.max_doc()? {
+      if let Some(live_docs) = live_docs.as_ref()
+        && !live_docs.get(i as usize)?
+      {
+        continue;
+      }
+
+      assert!(type_values.advance_exact(i)?);
+      let type_value = type_values.long_value()? as i32;
+      match type_value {
+        2 => {
+          assert!(!parent_disi.advance_exact(i)?);
+          let child_ord = child_ord.as_mut().unwrap();
+          assert!(child_ord.advance_exact(i)?);
+          if num_current_children == 0 {
+            let doc = stored_fields.document(i)?;
+            child_id = Some(doc.get("id")?.unwrap().into_owned());
+            total_pending_children = child_ord.long_value()? - 1;
+          } else {
+            assert!(child_id.is_some());
+            assert_eq!(total_pending_children, child_ord.long_value()?);
+            total_pending_children -= 1;
+            let doc = stored_fields.document(i)?;
+            assert_eq!(child_id.as_ref().unwrap(), doc.get("id")?.unwrap().as_ref());
+          }
+          num_current_children += 1;
+        },
+        1 => {
+          assert!(parent_disi.advance_exact(i)?);
+          assert_eq!(-1_i64, parent_disi.long_value()?);
+          if let Some(child_ord) = child_ord.as_mut() {
+            assert!(!child_ord.advance_exact(i)?);
+          }
+          let num_children = num_children.as_mut().unwrap();
+          assert!(num_children.advance_exact(i)?);
+          assert_eq!(0_i64, total_pending_children);
+          assert_eq!(num_current_children as i64, num_children.long_value()?);
+          if num_current_children > 0 {
+            let doc = stored_fields.document(i)?;
+            assert_eq!(child_id.as_ref().unwrap(), doc.get("id")?.unwrap().as_ref());
+          } else {
+            assert!(child_id.is_none());
+          }
+          num_current_children = 0;
+          child_id = None;
+        },
+        0 => {
+          assert!(parent_disi.advance_exact(i)?);
+          assert_eq!(-1_i64, parent_disi.long_value()?);
+          if let Some(child_ord) = child_ord.as_mut() {
+            assert!(!child_ord.advance_exact(i)?);
+          }
+          if let Some(num_children) = num_children.as_mut() {
+            assert!(!num_children.advance_exact(i)?);
+          }
+        },
+        _ => panic!("unexpected type value {type_value}"),
+      }
+    }
+  }
+
   Ok(())
 }

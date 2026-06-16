@@ -56,7 +56,6 @@ use crate::core::util::{LATEST, LUCENE_10_0_0, StringHelper, TryIntoInt};
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::iter::{Chain, Once, once};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
@@ -349,45 +348,35 @@ where
     let mut docs_iter = docs.into_iter().peekable();
     let result = (|| -> Result<i64> {
       while let Some(doc) = docs_iter.next() {
-        match &self.parent_field {
-          Some(parent) => {
-            let doc_wrapper = DocWrapper::new(doc, parent.clone());
-            self.reserve_one_doc()?;
-            num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-            self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-            self.indexing_chain.process_document(
-              self.state.num_docs_in_ram.load(SeqCst) - 1,
-              doc_wrapper,
-              &mut self.segment_info,
-              &mut self.field_infos,
-              index_writer_config,
-              &self.aborting_exception,
-            )?;
-          },
-          None => {
-            let has_next_doc = docs_iter.peek().is_some();
-            if self.segment_info.index_sort.is_some()
-              && has_next_doc
-              && self.index_major_version_created >= LUCENE_10_0_0.major
-            {
-              return Err(LuceneError::illegal_argument(
-                "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
-              ));
-            } else {
-              self.reserve_one_doc()?;
-              num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-              self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-              self.indexing_chain.process_document(
-                self.state.num_docs_in_ram.load(SeqCst) - 1,
-                doc,
-                &mut self.segment_info,
-                &mut self.field_infos,
-                index_writer_config,
-                &self.aborting_exception,
-              )?;
-            }
-          },
+        let has_next_doc = docs_iter.peek().is_some();
+        let mut doc_fields: Vec<Fields> = doc.into_iter().collect();
+        if let Some(parent) = &self.parent_field {
+          if !has_next_doc {
+            doc_fields.insert(
+              0,
+              ReservedField::new(NumericDocValuesField::new(parent, -1)).into(),
+            );
+          }
+        } else if self.segment_info.index_sort.is_some()
+          && has_next_doc
+          && self.index_major_version_created >= LUCENE_10_0_0.major
+        {
+          return Err(LuceneError::illegal_argument(
+            "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
+          ));
         }
+
+        self.reserve_one_doc()?;
+        num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
+        self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
+        self.indexing_chain.process_document(
+          self.state.num_docs_in_ram.load(SeqCst) - 1,
+          doc_fields,
+          &mut self.segment_info,
+          &mut self.field_infos,
+          index_writer_config,
+          &self.aborting_exception,
+        )?;
       }
 
       let num_docs = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
@@ -1066,30 +1055,5 @@ where
 {
   fn accept(&mut self, input: HashSet<String>) -> Result<()> {
     self.flush_notifications.delete_unused_files(input)
-  }
-}
-
-pub(crate) struct DocWrapper<B> {
-  doc: B,
-  parent_field: String,
-}
-impl<B> DocWrapper<B>
-where
-  B: IntoIterator<Item = Fields>,
-{
-  pub(crate) fn new(doc: B, parent_field: String) -> Self {
-    DocWrapper { doc, parent_field }
-  }
-}
-impl<B> IntoIterator for DocWrapper<B>
-where
-  B: IntoIterator<Item = Fields>,
-{
-  type Item = Fields;
-  type IntoIter = Chain<Once<Fields>, B::IntoIter>;
-
-  fn into_iter(self) -> Self::IntoIter {
-    let parent_field = ReservedField::new(NumericDocValuesField::new(&self.parent_field, -1));
-    once(parent_field.into()).chain(self.doc)
   }
 }
