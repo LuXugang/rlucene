@@ -125,10 +125,6 @@ impl IndexReader for DummyIndexReader {
 impl LeafReader for DummyIndexReader {
   type CacheHelper = DummyCacheHelper;
 
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    dummy_unreachable!()
-  }
-
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     dummy_unreachable!()
   }

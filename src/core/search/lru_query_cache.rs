@@ -777,7 +777,7 @@ where
       return self.in_.scorer_supplier(context, searcher);
     }
     let reader = context.reader();
-    let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
+    let Some(cache_helper) = reader.get_core_cache_helper()? else {
       return self.in_.scorer_supplier(context, searcher);
     };
     let cached = {
@@ -786,7 +786,7 @@ where
       };
       self
         .lru_cache
-        .get(self.get_query().as_ref(), cache_helper, &inner_read)
+        .get(self.get_query().as_ref(), &cache_helper, &inner_read)
     };
     match cached {
       None => {
@@ -796,13 +796,12 @@ where
             self.lru_cache.put_if_absent(
               query,
               CacheAndCountEnum::Empty(CacheAndCount::empty()),
-              cache_helper,
+              &cache_helper,
             );
             return Ok(None);
           };
           let cost = supplier.cost(context, searcher)?;
           let max_doc = reader.max_doc()?;
-          debug_assert!(reader.get_core_cache_helper()?.is_some());
           let ss = ScorerSupplierImpl1::new(
             cost,
             self.lru_cache.skip_cache_factor,
@@ -810,7 +809,7 @@ where
             max_doc,
             self.lru_cache.clone(),
             query,
-            reader.get_core_cache_helper()?.unwrap(),
+            cache_helper,
           )?;
           let s = Box::new(ss);
           return Ok(Some(s));
@@ -851,7 +850,7 @@ where
       return self.in_.count(context);
     }
 
-    let Some(cache_helper) = reader.get_core_cache_helper_ref()? else {
+    let Some(cache_helper) = reader.get_core_cache_helper()? else {
       return self.in_.count(context);
     };
 
@@ -862,7 +861,7 @@ where
     let query = self.get_query();
     let cached = self
       .lru_cache
-      .get(query.as_ref(), cache_helper, &inner_read);
+      .get(query.as_ref(), &cache_helper, &inner_read);
 
     if let Some(cached) = cached {
       return cached.count().try_convert();

@@ -595,10 +595,6 @@ macro_rules! either_codec_reader {
         {
             type CacheHelper = DummyCacheHelper;
 
-            fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-                Ok(None)
-            }
-
             fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
                 Ok(None)
             }

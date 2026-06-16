@@ -199,10 +199,6 @@ where
 {
   type CacheHelper = CR::CacheHelper;
 
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    self.in_.get_core_cache_helper_ref()
-  }
-
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     self.in_.get_core_cache_helper()
   }

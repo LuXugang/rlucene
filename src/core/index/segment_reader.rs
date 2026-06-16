@@ -453,10 +453,6 @@ where
 {
   type CacheHelper = SegmentCoreReadersCacheHelperImpl;
 
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    Ok(Option::from(self.core.get_cache_helper_ref()))
-  }
-
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     Ok(Option::from(self.core.get_cache_helper()))
   }

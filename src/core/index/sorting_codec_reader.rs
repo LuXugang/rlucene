@@ -156,10 +156,6 @@ where
 {
   type CacheHelper = DummyCacheHelper;
 
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    Ok(None)
-  }
-
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     Ok(None)
   }
@@ -1600,10 +1596,6 @@ where
 {
   type CacheHelper = DummyCacheHelper;
 
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    Ok(None)
-  }
-
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     Ok(None)
   }
@@ -1891,13 +1883,6 @@ where
   DM: Clone + DocMap,
 {
   type CacheHelper = DummyCacheHelper;
-
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => reader.get_core_cache_helper_ref(),
-      SortingCodecReaderEnum::Sorting(reader) => reader.get_core_cache_helper_ref(),
-    }
-  }
 
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     match self {

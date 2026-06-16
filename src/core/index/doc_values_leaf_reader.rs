@@ -106,10 +106,6 @@ impl IndexReader for DocValuesLeafReader {
 impl LeafReader for DocValuesLeafReader {
   type CacheHelper = DummyCacheHelper;
 
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     Err(LuceneError::unsupported_operation(""))
   }

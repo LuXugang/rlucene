@@ -572,10 +572,6 @@ where
 {
   type CacheHelper = LR::CacheHelper;
 
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    self.reader.get_core_cache_helper_ref()
-  }
-
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     self.reader.get_core_cache_helper()
   }
@@ -813,10 +809,6 @@ where
   CR::ReaderCacheHelper: Clone,
 {
   type CacheHelper = CR::CacheHelper;
-
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    LeafReader::get_core_cache_helper_ref(&self.base.reader)
-  }
 
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     LeafReader::get_core_cache_helper(&self.base.reader)

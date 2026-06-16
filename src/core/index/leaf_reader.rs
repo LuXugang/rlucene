@@ -44,9 +44,39 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
+/// Provides an interface for accessing an index leaf.
+///
+/// Search of an index is done entirely through this abstract interface, so that
+/// any implementation is searchable. Index readers implemented by this trait do
+/// not consist of several sub-readers; they are atomic. They support retrieval
+/// of stored fields, doc values, terms, and postings.
+///
+/// For efficiency, this API often refers to documents via document numbers:
+/// non-negative integers that each name a unique document in the index. These
+/// document numbers are ephemeral and may change as documents are added to and
+/// deleted from an index. Clients should not rely on a document having the same
+/// number between sessions.
+///
+/// NOTE: [`IndexReader`] instances are completely thread safe, meaning multiple
+/// threads can call any of their methods concurrently. If your application
+/// requires external synchronization, do not synchronize on the reader instance;
+/// use your own non-Lucene objects instead.
 pub trait LeafReader: IndexReader {
   type CacheHelper: CacheHelper;
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>>;
+
+  /// Optional method: return a [`CacheHelper`] that can be used to cache based
+  /// on the content of this leaf regardless of deletions.
+  ///
+  /// Two readers that have the same data but different sets of deleted
+  /// documents or doc values updates may be considered equal. Consider using
+  /// [`IndexReader::get_reader_cache_helper`] if deletions or doc values updates
+  /// need to be taken into account.
+  ///
+  /// A return value of `None` indicates that this reader is not suited for
+  /// caching, which is typically the case for short-lived wrappers that alter
+  /// the content of the wrapped leaf reader.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>>;
 
   fn doc_freq(&self, term: &Term) -> Result<i32>
@@ -113,6 +143,7 @@ pub trait LeafReader: IndexReader {
   }
 
   type Terms: Terms;
+  /// Returns the [`Terms`] index for this field, or `None` if it has none.
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>>;
   /// Returns [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum) for the specified term.
   /// This will return `None` if either the field or term does not exist.
@@ -153,35 +184,99 @@ pub trait LeafReader: IndexReader {
   }
 
   type NumericDocValues: NumericDocValues;
+  /// Returns [`NumericDocValues`] for this field, or `None` if no numeric doc
+  /// values were indexed for this field.
+  ///
+  /// The returned instance should only be used by a single thread.
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>>;
 
   type BinaryDocValues: BinaryDocValues;
+  /// Returns [`BinaryDocValues`] for this field, or `None` if no binary doc
+  /// values were indexed for this field.
+  ///
+  /// The returned instance should only be used by a single thread.
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>>;
 
   type SortedDocValues: SortedDocValues;
+  /// Returns [`SortedDocValues`] for this field, or `None` if no
+  /// [`SortedDocValues`] were indexed for this field.
+  ///
+  /// The returned instance should only be used by a single thread.
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>>;
 
   type SortedNumericDocValues: SortedNumericDocValues;
+  /// Returns [`SortedNumericDocValues`] for this field, or `None` if no
+  /// [`SortedNumericDocValues`] were indexed for this field.
+  ///
+  /// The returned instance should only be used by a single thread.
   fn get_sorted_numeric_doc_values(
     &self,
     field: &str,
   ) -> Result<Option<Self::SortedNumericDocValues>>;
 
   type SortedSetDocValues: SortedSetDocValues;
+  /// Returns [`SortedSetDocValues`] for this field, or `None` if no
+  /// [`SortedSetDocValues`] were indexed for this field.
+  ///
+  /// The returned instance should only be used by a single thread.
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>>;
 
   type NormNumericDocValues: NumericDocValues;
+  /// Returns [`NumericDocValues`] representing norms for this field, or `None`
+  /// if no [`NumericDocValues`] were indexed.
+  ///
+  /// The returned instance should only be used by a single thread.
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>>;
 
   type DocValuesSkipper: DocValuesSkipper;
+  /// Returns a [`DocValuesSkipper`] allowing skipping ranges of doc IDs that
+  /// are not of interest, or `None` if a skip index was not indexed.
+  ///
+  /// The returned instance should be confined to the thread that created it.
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>>;
 
   type FloatVectorValues: FloatVectorValues;
+  /// Returns [`FloatVectorValues`] for this field, or `None` if no
+  /// [`FloatVectorValues`] were indexed.
+  ///
+  /// The returned instance should only be used by a single thread.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>>;
 
   type ByteVectorValues: ByteVectorValues;
+  /// Returns [`ByteVectorValues`] for this field, or `None` if no
+  /// [`ByteVectorValues`] were indexed.
+  ///
+  /// The returned instance should only be used by a single thread.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>>;
 
+  /// Returns the k nearest neighbor documents as determined by comparison of
+  /// their vector values for this field to the given vector, by the field's
+  /// similarity function.
+  ///
+  /// The score of each document is derived from the vector similarity in a way
+  /// that ensures scores are positive and that a larger score corresponds to a
+  /// higher ranking.
+  ///
+  /// The search is allowed to be approximate, meaning the results are not
+  /// guaranteed to be the true k closest neighbors. For large values of k, for
+  /// example when k is close to the total number of documents, the search may
+  /// also retrieve fewer than k documents.
+  ///
+  /// The returned [`TopDocs`] will contain a [`ScoreDoc`] for each nearest
+  /// neighbor, sorted in order of similarity to the query vector with decreasing
+  /// scores. The total hits contain the number of documents visited during the
+  /// search. If the search stopped early because it hit `visited_limit`, that is
+  /// indicated through the total hits relation.
+  ///
+  /// `accept_docs` represents the allowed documents to match, or `None` if they
+  /// are all allowed to match. `visited_limit` is the maximum number of nodes
+  /// that the search is allowed to visit.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn search_nearest_vectors_f32_with_limit(
     &self,
     field: &str,
@@ -213,6 +308,31 @@ pub trait LeafReader: IndexReader {
     self.search_nearest_vectors_f32(field, target, &mut collector, accept_docs)?;
     collector.top_docs()
   }
+
+  /// Returns the k nearest neighbor documents as determined by comparison of
+  /// their vector values for this field to the given vector, by the field's
+  /// similarity function.
+  ///
+  /// The score of each document is derived from the vector similarity in a way
+  /// that ensures scores are positive and that a larger score corresponds to a
+  /// higher ranking.
+  ///
+  /// The search is allowed to be approximate, meaning the results are not
+  /// guaranteed to be the true k closest neighbors. For large values of k, for
+  /// example when k is close to the total number of documents, the search may
+  /// also retrieve fewer than k documents.
+  ///
+  /// The returned [`TopDocs`] will contain a [`ScoreDoc`] for each nearest
+  /// neighbor, sorted in order of similarity to the query vector with decreasing
+  /// scores. The total hits contain the number of documents visited during the
+  /// search. If the search stopped early because it hit `visited_limit`, that is
+  /// indicated through the total hits relation.
+  ///
+  /// `accept_docs` represents the allowed documents to match, or `None` if they
+  /// are all allowed to match. `visited_limit` is the maximum number of nodes
+  /// that the search is allowed to visit.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn search_nearest_vectors_u8_with_limit(
     &self,
     field: &str,
@@ -245,6 +365,25 @@ pub trait LeafReader: IndexReader {
     collector.top_docs()
   }
 
+  /// Finds nearest neighbor documents by comparing their vector values for this
+  /// field to the given vector, by the field's similarity function.
+  ///
+  /// The score of each document is derived from the vector similarity in a way
+  /// that ensures scores are positive and that a larger score corresponds to a
+  /// higher ranking.
+  ///
+  /// The search is allowed to be approximate, meaning the results are not
+  /// guaranteed to be the true k closest neighbors. For large values of k, for
+  /// example when k is close to the total number of documents, the search may
+  /// also retrieve fewer than k documents.
+  ///
+  /// Results are gathered by `knn_collector`. `accept_docs` represents the
+  /// allowed documents to match, or `None` if they are all allowed to match.
+  ///
+  /// The behavior is undefined if the given field does not have KNN vectors
+  /// enabled on its [`FieldInfo`](crate::core::index::field_info::FieldInfo).
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn search_nearest_vectors_f32<B, K>(
     &self,
     field: &str,
@@ -256,6 +395,25 @@ pub trait LeafReader: IndexReader {
     B: Bits,
     K: KnnCollector;
 
+  /// Finds nearest neighbor documents by comparing their vector values for this
+  /// field to the given vector, by the field's similarity function.
+  ///
+  /// The score of each document is derived from the vector similarity in a way
+  /// that ensures scores are positive and that a larger score corresponds to a
+  /// higher ranking.
+  ///
+  /// The search is allowed to be approximate, meaning the results are not
+  /// guaranteed to be the true k closest neighbors. For large values of k, for
+  /// example when k is close to the total number of documents, the search may
+  /// also retrieve fewer than k documents.
+  ///
+  /// Results are gathered by `knn_collector`. `accept_docs` represents the
+  /// allowed documents to match, or `None` if they are all allowed to match.
+  ///
+  /// The behavior is undefined if the given field does not have KNN vectors
+  /// enabled on its [`FieldInfo`](crate::core::index::field_info::FieldInfo).
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn search_nearest_vectors_u8<B, K>(
     &self,
     field: &str,
@@ -267,18 +425,42 @@ pub trait LeafReader: IndexReader {
     B: Bits,
     K: KnnCollector;
 
+  /// Gets the [`FieldInfos`] describing all fields in this reader.
+  ///
+  /// Implementations should cache the [`FieldInfos`] instance returned by this
+  /// method such that subsequent calls return the same instance.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn get_field_infos(&self) -> Result<Arc<FieldInfos>>;
 
   type Bits: Bits;
+  /// Returns the [`Bits`] representing live, not deleted, docs.
+  ///
+  /// A set bit indicates that the doc ID has not been deleted. If this method
+  /// returns `None`, there are no deleted documents and all documents are live.
+  ///
+  /// The returned instance has been safely published for use by multiple
+  /// threads without additional synchronization.
   fn get_live_docs(&self) -> Result<Option<Self::Bits>>;
 
   type PointValues: PointValues;
+  /// Returns the [`PointValues`] used for numeric or spatial searches for the
+  /// given field, or `None` if there are no point fields.
   fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>>;
 
+  /// Checks consistency of this reader.
+  ///
+  /// Note that this may be costly in terms of I/O, for example it may involve
+  /// computing a checksum value against large data files.
+  ///
+  /// Internal: this API follows the original Lucene internal status.
   fn check_integrity(&self) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 
+  /// Returns metadata about this leaf.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn get_metadata(&self) -> Result<&LeafMetaData>;
 }
 pub(crate) fn get_context<LR>(leaf_reader: LR) -> Result<LeafReaderContext<LR>>
@@ -340,10 +522,6 @@ where
   LR: LeafReader,
 {
   type CacheHelper = LR::CacheHelper;
-
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    (**self).get_core_cache_helper_ref()
-  }
 
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     (**self).get_core_cache_helper()
@@ -523,10 +701,6 @@ where
   LR: LeafReader,
 {
   type CacheHelper = LR::CacheHelper;
-
-  fn get_core_cache_helper_ref(&self) -> Result<Option<&Self::CacheHelper>> {
-    (**self).get_core_cache_helper_ref()
-  }
 
   fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
     (**self).get_core_cache_helper()
