@@ -14,25 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod base_shape_encoding_test_case;
-pub(crate) mod base_spatial_test_case;
-mod test_binary_document;
-pub mod test_date_tools;
-mod test_doc_values_long_hash_set;
-mod test_document;
-mod test_double_range;
-mod test_field;
-mod test_field_type;
-mod test_float_range;
-mod test_inet_address_point;
-mod test_int_range;
-mod test_keyword_field;
-mod test_lat_lon_doc_values_field;
-mod test_lat_lon_point;
-mod test_lat_lon_point_distance_feature_query;
-mod test_lat_lon_point_distance_sort;
-mod test_lat_lon_shape_encoding;
-mod test_long_range;
-mod test_per_field_consistency;
-mod test_sorted_set_doc_values_set_query;
-mod test_xy_shape_encoding;
+pub struct GraphTokenStreamFiniteStrings;

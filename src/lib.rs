@@ -34,6 +34,7 @@ pub mod analysis;
 pub mod core;
 pub mod migration_notes;
 pub mod queries;
+pub mod queryparser;
 pub mod sandbox;
 #[cfg(test)]
 pub mod test;

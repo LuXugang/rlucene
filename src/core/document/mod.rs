@@ -18,6 +18,7 @@ pub mod binary_doc_values_field;
 pub mod binary_point;
 pub mod binary_range_doc_values;
 pub mod binary_range_field_range_query;
+pub mod date_tools;
 pub mod doc_values_long_hash_set;
 #[allow(clippy::module_inception)]
 pub mod document;
