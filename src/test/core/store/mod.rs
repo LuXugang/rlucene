@@ -29,6 +29,7 @@ mod test_checksum_index_input;
 mod test_index_output_alignment;
 mod test_input_stream_data_input;
 mod test_lock_factory;
+mod test_mmap_directory;
 mod test_native_fs_lock_factory;
 mod test_nio_fs_directory;
 mod test_output_stream_index_output;
