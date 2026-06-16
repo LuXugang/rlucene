@@ -52,20 +52,22 @@ pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
   type Directory: Directory<IndexInput = Self::Output> + Send + Sync + 'static;
   type Output: IndexInput + RandomAccessInput + Send + Sync + 'static;
-  fn get_directory(&self, path: PathBuf) -> Result<Self::Directory>;
+  fn get_directory<R>(&self, path: PathBuf, random: &mut R) -> Result<Self::Directory>
+  where
+    R: Rng + ?Sized;
 
   fn test_copy_from<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     let mut temp_dir = Builder::new().prefix("testCopy").tempdir()?;
-    let source = self.get_directory(temp_dir.keep())?;
+    let source = self.get_directory(temp_dir.keep(), random)?;
     let dest = new_directory(random)?;
     Self::run_copy_from(&source, &dest, random)?;
 
     let source = new_directory(random)?;
     temp_dir = Builder::new().prefix("testCopyDestination").tempdir()?;
-    let dest = self.get_directory(temp_dir.keep())?;
+    let dest = self.get_directory(temp_dir.keep(), random)?;
     Self::run_copy_from(&source, &dest, random)?;
     Ok(())
   }
@@ -100,7 +102,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testRename").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let num_bytes = random.random_range(0..20000);
     let mut bytes = vec![0u8; num_bytes];
     let io_context = new_io_context(random)?;
@@ -124,9 +126,12 @@ pub trait BaseDirectoryTestCase {
     Ok(())
   }
 
-  fn test_delete_file(&self) -> Result<()> {
+  fn test_delete_file<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_dir = Builder::new().prefix("testDeleteFile").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
 
     let file = "foo.txt";
     let io_context = IOContext::default_io_context()?;
@@ -158,7 +163,7 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new().prefix("testByte").tempdir()?;
     let io_context = new_io_context(random)?;
 
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
 
     {
       let mut output = dir.create_output("byte", &io_context)?;
@@ -178,7 +183,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testShort").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -199,7 +204,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testInt").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -220,7 +225,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testLong").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -243,7 +248,7 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new()
       .prefix("testAlignedLittleEndianLongs")
       .tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -273,7 +278,7 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new()
       .prefix("testUnalignedLittleEndianLongs")
       .tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -303,7 +308,7 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new()
       .prefix("testLittleEndianLongsUnderflow")
       .tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     let offset = random.random_range(0..8);
@@ -332,7 +337,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testAlignedInts").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -358,7 +363,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testUnalignedInts").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let padding = random.random_range(1..=3);
     let io_context = new_io_context(random)?;
 
@@ -391,7 +396,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testIntsUnderflow").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     let offset = random.random_range(0..4);
@@ -418,9 +423,12 @@ pub trait BaseDirectoryTestCase {
     Ok(())
   }
 
-  fn test_aligned_floats(&self) -> Result<()> {
+  fn test_aligned_floats<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_dir = Builder::new().prefix("testAlignedFloats").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = IOContext::default_io_context()?;
     {
       let mut out = dir.create_output("Floats", &io_context)?;
@@ -448,7 +456,7 @@ pub trait BaseDirectoryTestCase {
     let io_context = new_io_context(random)?;
 
     let temp_dir = Builder::new().prefix("testUnalignedFloats").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
 
     {
       let mut output = dir.create_output("Floats", &io_context)?;
@@ -478,7 +486,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testFloatsUnderflow").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     let offset = random.random_range(0..4);
@@ -504,7 +512,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testString").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -525,7 +533,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testVInt").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -546,7 +554,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testVLong").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -589,7 +597,7 @@ pub trait BaseDirectoryTestCase {
     }
 
     let temp_dir = Builder::new().prefix("testZInt").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -638,7 +646,7 @@ pub trait BaseDirectoryTestCase {
     }
 
     let temp_dir = Builder::new().prefix("testZLong").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
 
     {
       let mut output = dir.create_output("zlong", &io_context)?;
@@ -662,7 +670,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testSetOfStrings").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -716,7 +724,7 @@ pub trait BaseDirectoryTestCase {
     map.insert("test2".to_string(), "value2".to_string());
 
     let temp_dir = Builder::new().prefix("testMapOfStrings").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -775,7 +783,7 @@ pub trait BaseDirectoryTestCase {
     let expected_checksum = hasher.finalize();
 
     let temp_dir = Builder::new().prefix("testChecksum").tempdir()?;
-    let dir = self.get_directory(temp_dir.keep())?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = new_io_context(random)?;
 
     {
@@ -805,7 +813,7 @@ pub trait BaseDirectoryTestCase {
   {
     let temp_dir = Builder::new().prefix("testThreadSafety").tempdir()?;
     let dir = Arc::new(Mutex::new(
-      self.get_directory(temp_dir.path().to_path_buf())?,
+      self.get_directory(temp_dir.path().to_path_buf(), random)?,
     ));
 
     let stop = Arc::new(AtomicBool::new(false));
@@ -914,7 +922,7 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new()
       .prefix("testFileExistsInListAfterCreated")
       .tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let name = "file";
     let io_context = new_io_context(random)?;
@@ -944,7 +952,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testSeekToEOFThenBack").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let buffer_length = 1024;
     let total_length = 3 * buffer_length;
@@ -975,7 +983,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testIllegalEOF").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let buffer = vec![0u8; 1024];
@@ -996,7 +1004,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testSeekPastEOF").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let len = random.random_range(0..2048);
@@ -1032,7 +1040,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testSliceOutOfBounds").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let len = random.random_range(8..2048);
@@ -1069,7 +1077,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testCopyBytes").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let bytes_len = TestUtil::next_usize(random, 1, 77777);
@@ -1157,8 +1165,8 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new()
       .prefix("testCopyBytesWithThreads")
       .tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
-    let dir_new = Arc::new(self.get_directory(temp_dir.path().to_path_buf())?);
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
+    let dir_new = Arc::new(self.get_directory(temp_dir.path().to_path_buf(), random)?);
     let io_context = IOContext::default_io_context()?;
     let header_len = 3;
     let data_len = random.random_range(header_len + 1..10000);
@@ -1203,7 +1211,7 @@ pub trait BaseDirectoryTestCase {
       }
     }
 
-    let new_dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let new_dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     for i in 0..threads {
       let io_context = IOContext::default_io_context()?;
       let file_name = format!("copy{}", i);
@@ -1231,7 +1239,7 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new().prefix("nocreate").tempdir()?;
     let path = temp_dir.path().to_path_buf();
 
-    let fsdir = self.get_directory(path.clone())?;
+    let fsdir = self.get_directory(path.clone(), random)?;
 
     // Ensure the directory is an FSDirectory implementation.
     if !fsdir.is_fs_directory() {
@@ -1269,7 +1277,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testLongs").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let num = TestUtil::next_usize(random, 50, 3000);
@@ -1338,7 +1346,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testInts").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let num = TestUtil::next_usize(random, 50, 3000);
@@ -1405,7 +1413,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testShorts").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let num = TestUtil::next_usize(random, 50, 3000);
@@ -1474,7 +1482,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testBytes").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let num = if is_night_mode() {
       TestUtil::next_usize(random, 1000, 3000)
@@ -1571,7 +1579,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("sliceOfSlice").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let num = if is_night_mode() {
       TestUtil::next_usize(random, 250, 2500)
@@ -1647,7 +1655,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("largeWrites").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let mut output = dir.create_output("testBufferStart.txt", &io_context)?;
@@ -1669,7 +1677,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
     let output = dir.create_output("camelCase.txt", &io_context)?;
@@ -1702,7 +1710,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let mut names = Vec::new();
     let iters = at_least(random, 50);
@@ -1732,9 +1740,12 @@ pub trait BaseDirectoryTestCase {
   /// This test ensures that attempting to create an output for an existing
   /// file results in an error, and after deleting the file, it can be
   /// created again.
-  fn test_create_output_for_existing_file(&self) -> Result<()> {
+  fn test_create_output_for_existing_file<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_dir = Builder::new().tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = IOContext::default_io_context()?;
     let name = "file";
 
@@ -1758,9 +1769,12 @@ pub trait BaseDirectoryTestCase {
     Ok(())
   }
 
-  fn test_seek_to_end_of_file(&self) -> Result<()> {
+  fn test_seek_to_end_of_file<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_dir = Builder::new().tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = IOContext::default_io_context()?;
     {
       let mut out = dir.create_output("a", &io_context)?;
@@ -1780,9 +1794,12 @@ pub trait BaseDirectoryTestCase {
 
     Ok(())
   }
-  fn test_seek_beyond_end_of_file(&self) -> Result<()> {
+  fn test_seek_beyond_end_of_file<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_dir = Builder::new().tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = IOContext::default_io_context()?;
     // Write a file with 1024 bytes
     {
@@ -1812,7 +1829,7 @@ pub trait BaseDirectoryTestCase {
     // TODO: does not implement "VirusCheckingFS" yet, so this test is not
     // applicable let temp_dir =
     // Builder::new().prefix("virusChecker").tempdir()?;
-    // let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    // let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     //
     // // This test applies only to FSDirectory
     // if !dir.is_fs_directory() {
@@ -1877,7 +1894,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("test_list_all_is_sorted").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let count = at_least_usize(random, 20);
     let mut names = HashSet::new();
@@ -1916,10 +1933,13 @@ pub trait BaseDirectoryTestCase {
 
     Ok(())
   }
-  fn test_data_types(&self) -> Result<()> {
+  fn test_data_types<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let mut values: [i64; 4] = [43, 12345, 123456, 1234567890];
     let temp_dir = Builder::new().prefix("test_data_types").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = IOContext::default_io_context()?;
     {
       let mut out = dir.create_output("test", &io_context)?;
@@ -1950,7 +1970,7 @@ pub trait BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let temp_dir = Builder::new().prefix("testGroupVIntOverflow").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let size = 32;
     let mut values = vec![0i64; size];
@@ -1998,8 +2018,8 @@ pub trait BaseDirectoryTestCase {
   {
     let temp_dir1 = Builder::new().prefix("testGroupVInt1").tempdir()?;
     let temp_dir2 = Builder::new().prefix("testGroupVInt2").tempdir()?;
-    let dir1 = self.get_directory(temp_dir1.path().to_path_buf())?;
-    let dir2 = self.get_directory(temp_dir2.path().to_path_buf())?;
+    let dir1 = self.get_directory(temp_dir1.path().to_path_buf(), random)?;
+    let dir2 = self.get_directory(temp_dir2.path().to_path_buf(), random)?;
 
     // Test fallback to default implementation of readGroupVInt
     Self::do_test_group_vint(&dir1, &dir2, random, 5, 1, 6, 8)?;
@@ -2081,7 +2101,7 @@ pub trait BaseDirectoryTestCase {
   {
     let start_offset = 0;
     let temp_dir = Builder::new().prefix("test_prefetch").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let total_length = start_offset + random.random_range(16384..=65536);
     // let mut arr = vec![0u8; total_length];
@@ -2145,7 +2165,7 @@ pub trait BaseDirectoryTestCase {
   {
     let start_offset = random.random_range(1..1024);
     let temp_dir = Builder::new().prefix("test_prefetch").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let total_length = start_offset + random.random_range(16384..=65536);
     // let mut arr = vec![0u8; total_length];

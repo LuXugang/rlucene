@@ -46,7 +46,10 @@ impl BaseDirectoryTestCase for TestMMapDirectory {
   type Directory = FSDirectory<NativeFSLockFactory, MMapDirectory>;
   type Output = MemorySegmentIndexInput;
 
-  fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
+  fn get_directory<R>(&self, path: PathBuf, _random: &mut R) -> Result<Self::Directory>
+  where
+    R: Rng + ?Sized,
+  {
     let mut dir = MMapDirectory::new(path)?;
     let preload_random = Arc::clone(&self.preload_random);
     dir.set_preload(MMapPreload::custom(move |_file, _context| {
@@ -65,7 +68,7 @@ impl TestMMapDirectory {
     let n_ints = 8 * 1024 * 1024;
     let io_context = IOContext::default_io_context()?;
     let temp_dir = Builder::new().prefix("testAceWithThreads").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     {
       let mut out = dir.create_output("test", &io_context)?;
@@ -187,7 +190,7 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_delete_file() -> Result<()> {
-    run_case(|case, _random| case.test_delete_file())
+    run_case(|case, random| case.test_delete_file(random))
   }
 
   #[test]
@@ -242,7 +245,7 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_aligned_floats() -> Result<()> {
-    run_case(|case, _random| case.test_aligned_floats())
+    run_case(|case, random| case.test_aligned_floats(random))
   }
 
   #[test]
@@ -386,17 +389,17 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_create_output_for_existing_file() -> Result<()> {
-    run_case(|case, _random| case.test_create_output_for_existing_file())
+    run_case(|case, random| case.test_create_output_for_existing_file(random))
   }
 
   #[test]
   fn test_seek_to_end_of_file() -> Result<()> {
-    run_case(|case, _random| case.test_seek_to_end_of_file())
+    run_case(|case, random| case.test_seek_to_end_of_file(random))
   }
 
   #[test]
   fn test_seek_beyond_end_of_file() -> Result<()> {
-    run_case(|case, _random| case.test_seek_beyond_end_of_file())
+    run_case(|case, random| case.test_seek_beyond_end_of_file(random))
   }
 
   #[test]
@@ -411,7 +414,7 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_data_types() -> Result<()> {
-    run_case(|case, _random| case.test_data_types())
+    run_case(|case, random| case.test_data_types(random))
   }
 
   #[test]

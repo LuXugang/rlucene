@@ -21,6 +21,7 @@ use std::hint::black_box;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(unix)]
 use crate::core::store::native_access::NativeAccess;
@@ -48,6 +49,9 @@ pub struct MemorySegmentIndexInput {
   chunk_size_power: u32,
   chunk_size_mask: usize,
   cur_position: usize,
+  closed: Arc<AtomicBool>,
+  close_parents: Arc<Vec<Arc<AtomicBool>>>,
+  close_children_on_clone: bool,
   #[cfg(unix)]
   native_access: PosixNativeAccess,
 }
@@ -128,13 +132,19 @@ impl MemorySegmentIndexInput {
       chunk_size_power,
       chunk_size_mask: chunk_size - 1,
       cur_position: 0,
+      closed: Arc::new(AtomicBool::new(false)),
+      close_parents: Arc::new(Vec::new()),
+      close_children_on_clone: true,
       #[cfg(unix)]
       native_access: PosixNativeAccess,
     })
   }
 
   fn with_slice(&self, resource_desc: String, offset: usize, length: usize) -> Result<Self> {
+    self.ensure_open()?;
     CoreHelper::check_from_index_size(offset, length, self.length)?;
+    let mut close_parents = self.close_parents.as_ref().clone();
+    close_parents.push(self.closed.clone());
     Ok(Self {
       resource_desc,
       segments: self.segments.clone(),
@@ -143,12 +153,41 @@ impl MemorySegmentIndexInput {
       chunk_size_power: self.chunk_size_power,
       chunk_size_mask: self.chunk_size_mask,
       cur_position: 0,
+      closed: Arc::new(AtomicBool::new(false)),
+      close_parents: Arc::new(close_parents),
+      close_children_on_clone: true,
       #[cfg(unix)]
       native_access: self.native_access,
     })
   }
 
+  fn ensure_open(&self) -> Result<()> {
+    if self.closed.load(Ordering::SeqCst)
+      || self
+        .close_parents
+        .iter()
+        .any(|closed| closed.load(Ordering::SeqCst))
+    {
+      return Err(LuceneError::already_closed(format!(
+        "IndexInput already closed: {}",
+        self.resource_desc
+      )));
+    }
+    Ok(())
+  }
+
+  #[cfg(test)]
+  pub(crate) fn uses_single_mmap_segment_for_tests(&self) -> bool {
+    if self.length == 0 {
+      return true;
+    }
+    let start_segment = self.offset >> self.chunk_size_power;
+    let end_segment = (self.offset + self.length - 1) >> self.chunk_size_power;
+    start_segment == end_segment
+  }
+
   fn read_byte_at(&self, pos: usize) -> Result<u8> {
+    self.ensure_open()?;
     self.read_buffer(pos, BitUtil::BYTE_BYTES, |bytes| bytes[0])
   }
 
@@ -258,18 +297,21 @@ impl MemorySegmentIndexInput {
 
 impl DataInput for MemorySegmentIndexInput {
   fn read_byte(&mut self) -> Result<u8> {
+    self.ensure_open()?;
     let value = self.read_byte_at(self.cur_position)?;
     self.cur_position += 1;
     Ok(value)
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
     self.read_bytes_at(self.cur_position, b, offset, len)?;
     self.cur_position += len;
     Ok(())
   }
 
   fn read_short(&mut self) -> Result<i16> {
+    self.ensure_open()?;
     let value = self.read_buffer(self.cur_position, BitUtil::SHORT_BYTES, |bytes| {
       i16::from_le_bytes(bytes.try_into().unwrap())
     })?;
@@ -278,6 +320,7 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_int(&mut self) -> Result<i32> {
+    self.ensure_open()?;
     let value = self.read_buffer(self.cur_position, BitUtil::INT_BYTES, |bytes| {
       i32::from_le_bytes(bytes.try_into().unwrap())
     })?;
@@ -286,10 +329,12 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    self.ensure_open()?;
     GroupVIntUtil::read_group_vint_i32(self, dst, offset)
   }
 
   fn read_long(&mut self) -> Result<i64> {
+    self.ensure_open()?;
     let value = self.read_buffer(self.cur_position, BitUtil::LONG_BYTES, |bytes| {
       i64::from_le_bytes(bytes.try_into().unwrap())
     })?;
@@ -298,6 +343,7 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
     CoreHelper::check_from_index_size(offset, len, dst.len())?;
     let byte_len = len
       .checked_mul(BitUtil::LONG_BYTES)
@@ -315,6 +361,7 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
     CoreHelper::check_from_index_size(offset, len, dst.len())?;
     let byte_len = len
       .checked_mul(BitUtil::INT_BYTES)
@@ -332,6 +379,7 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
     CoreHelper::check_from_index_size(offset, len, dst.len())?;
     let byte_len = len
       .checked_mul(BitUtil::FLOAT_BYTES)
@@ -371,13 +419,23 @@ impl Display for MemorySegmentIndexInput {
   }
 }
 
-impl Closeable for MemorySegmentIndexInput {}
+impl Closeable for MemorySegmentIndexInput {
+  fn close(&mut self) -> Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    Ok(())
+  }
+}
 
 impl TryClone for MemorySegmentIndexInput {
   fn try_clone(&self) -> Result<Self>
   where
     Self: Sized,
   {
+    self.ensure_open()?;
+    let mut close_parents = self.close_parents.as_ref().clone();
+    if self.close_children_on_clone {
+      close_parents.push(self.closed.clone());
+    }
     Ok(Self {
       resource_desc: self.resource_desc.clone(),
       segments: self.segments.clone(),
@@ -386,6 +444,9 @@ impl TryClone for MemorySegmentIndexInput {
       chunk_size_power: self.chunk_size_power,
       chunk_size_mask: self.chunk_size_mask,
       cur_position: self.cur_position,
+      closed: Arc::new(AtomicBool::new(false)),
+      close_parents: Arc::new(close_parents),
+      close_children_on_clone: false,
       #[cfg(unix)]
       native_access: self.native_access,
     })
@@ -396,10 +457,12 @@ impl IndexInput for MemorySegmentIndexInput {
   type IndexInput = MemorySegmentIndexInput;
 
   fn get_file_pointer(&self) -> Result<usize> {
+    self.ensure_open()?;
     Ok(self.cur_position)
   }
 
   fn seek(&mut self, pos: usize) -> Result<()> {
+    self.ensure_open()?;
     if pos > self.length {
       return Err(LuceneError::eof(format!(
         "read past EOF: pos={} vs length={}: {}",
@@ -456,6 +519,7 @@ impl IndexInput for MemorySegmentIndexInput {
   type RandomAccessSlice = MemorySegmentIndexInput;
 
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    self.ensure_open()?;
     self.with_slice(
       get_full_slice_description("random_access_slice"),
       offset,
@@ -464,6 +528,7 @@ impl IndexInput for MemorySegmentIndexInput {
   }
 
   fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
+    self.ensure_open()?;
     #[cfg(unix)]
     {
       if let Some(advice) = self.native_access.map_read_advice(&read_advice) {
@@ -486,32 +551,38 @@ impl RandomAccessInput for MemorySegmentIndexInput {
   }
 
   fn read_byte(&mut self, pos: usize) -> Result<u8> {
+    self.ensure_open()?;
     self.read_byte_at(pos)
   }
 
   fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
     self.read_bytes_at(pos, buf, offset, len)
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {
+    self.ensure_open()?;
     self.read_buffer(pos, BitUtil::SHORT_BYTES, |bytes| {
       i16::from_le_bytes(bytes.try_into().unwrap())
     })
   }
 
   fn read_int(&mut self, pos: usize) -> Result<i32> {
+    self.ensure_open()?;
     self.read_buffer(pos, BitUtil::INT_BYTES, |bytes| {
       i32::from_le_bytes(bytes.try_into().unwrap())
     })
   }
 
   fn read_long(&mut self, pos: usize) -> Result<i64> {
+    self.ensure_open()?;
     self.read_buffer(pos, BitUtil::LONG_BYTES, |bytes| {
       i64::from_le_bytes(bytes.try_into().unwrap())
     })
   }
 
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
     // TODO IMPORTANT is_loaded not supported ,should we use mincore
     #[cfg(unix)]
     {

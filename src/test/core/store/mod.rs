@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod base_chunked_directory_test_case;
 pub mod base_data_output_test_case;
 pub mod base_directory_test_case;
 pub mod base_directory_wrapper;
@@ -30,6 +31,7 @@ mod test_index_output_alignment;
 mod test_input_stream_data_input;
 mod test_lock_factory;
 mod test_mmap_directory;
+pub mod test_multi_mmap;
 mod test_native_fs_lock_factory;
 mod test_nio_fs_directory;
 mod test_output_stream_index_output;

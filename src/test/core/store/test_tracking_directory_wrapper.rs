@@ -17,6 +17,8 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use rand::Rng;
+
 use crate::core::store::directory::Directory;
 use crate::core::store::nio_fs_directory::{NIOFSDirectory, NIOFSIndexInput};
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
@@ -34,7 +36,10 @@ impl BaseDirectoryTestCase for TestTrackingDirectoryWrapper {
   type Directory = TrackingDirectoryWrapper<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>;
   type Output = BufferedIndexInput<NIOFSIndexInput>;
 
-  fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
+  fn get_directory<R>(&self, path: PathBuf, _random: &mut R) -> Result<Self::Directory>
+  where
+    R: Rng + ?Sized,
+  {
     let dir = NIOFSDirectory::new(path)?;
     Ok(TrackingDirectoryWrapper::new(dir))
   }
@@ -58,7 +63,7 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_delete_file() -> Result<()> {
-    run_case(|case, _random| case.test_delete_file())
+    run_case(|case, random| case.test_delete_file(random))
   }
 
   #[test]
@@ -113,7 +118,7 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_aligned_floats() -> Result<()> {
-    run_case(|case, _random| case.test_aligned_floats())
+    run_case(|case, random| case.test_aligned_floats(random))
   }
 
   #[test]
@@ -257,17 +262,17 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_create_output_for_existing_file() -> Result<()> {
-    run_case(|case, _random| case.test_create_output_for_existing_file())
+    run_case(|case, random| case.test_create_output_for_existing_file(random))
   }
 
   #[test]
   fn test_seek_to_end_of_file() -> Result<()> {
-    run_case(|case, _random| case.test_seek_to_end_of_file())
+    run_case(|case, random| case.test_seek_to_end_of_file(random))
   }
 
   #[test]
   fn test_seek_beyond_end_of_file() -> Result<()> {
-    run_case(|case, _random| case.test_seek_beyond_end_of_file())
+    run_case(|case, random| case.test_seek_beyond_end_of_file(random))
   }
 
   #[test]
@@ -282,7 +287,7 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_data_types() -> Result<()> {
-    run_case(|case, _random| case.test_data_types())
+    run_case(|case, random| case.test_data_types(random))
   }
 
   #[test]
