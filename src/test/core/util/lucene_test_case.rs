@@ -79,6 +79,7 @@ pub mod lucene_test_case_util {
   use crate::core::index::leaf_reader_context::LeafReaderContext;
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::tiered_merge_policy::TieredMergePolicy;
+  use crate::core::store::fs_directory_base::FSDirectoryBaseEnum;
   use crate::core::store::lock_factory::LockFactoryEnum;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
   use std::sync::Arc;
@@ -944,4 +945,5 @@ pub mod lucene_test_case_util {
     let temp_dir = TempDir::with_prefix(name)?;
     Ok(temp_dir)
   }
+  pub type FSDirectories = FSDirectory<LockFactoryEnum, FSDirectoryBaseEnum>;
 }
