@@ -1717,28 +1717,19 @@ where
 }
 #[derive(Default)]
 pub struct SubReaderWrapperImpl;
-impl SubReaderWrapper for SubReaderWrapperImpl {
-  type LeafReader1<LR>
-    = Self::LeafReader2<LR>
-  where
-    LR: LeafReader;
+impl<LR> SubReaderWrapper<LR> for SubReaderWrapperImpl
+where
+  LR: LeafReader,
+{
+  type LeafReader1 = Self::LeafReader2;
 
-  fn wrap_readers<LR>(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1<LR>>>
-  where
-    LR: LeafReader,
-  {
+  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
     self.default_wrap_readers(readers)
   }
 
-  type LeafReader2<LR>
-    = NoIndexLeafReader<LR>
-  where
-    LR: LeafReader;
+  type LeafReader2 = NoIndexLeafReader<LR>;
 
-  fn wrap<LR>(&self, reader: LR) -> Result<Self::LeafReader2<LR>>
-  where
-    LR: LeafReader,
-  {
+  fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
     Ok(NoIndexLeafReader::new(reader))
   }
 }

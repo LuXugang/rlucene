@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::directory_reader::DirectoryReader;
+use crate::core::index::index_reader::{CacheHelper, CacheKey};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::Result;
 
@@ -37,21 +38,17 @@ pub trait FilterDirectoryReader: DirectoryReader {
 }
 
 /// Wraps sub readers.
-pub trait SubReaderWrapper {
-  type LeafReader1<LR>: LeafReader
-  where
-    LR: LeafReader;
+pub trait SubReaderWrapper<LR>
+where
+  LR: LeafReader,
+{
+  type LeafReader1: LeafReader;
   /// Wraps a list of `LeafReader`s.
   ///
   /// Returns an array of wrapped `LeafReader`s. The returned array might contain fewer elements
   /// compared to the given reader list if an entire reader is filtered out.
-  fn wrap_readers<LR>(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1<LR>>>
-  where
-    LR: LeafReader;
-  fn default_wrap_readers<LR>(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader2<LR>>>
-  where
-    LR: LeafReader,
-  {
+  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>>;
+  fn default_wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader2>> {
     let mut wrapped = Vec::with_capacity(readers.len());
     for reader in readers {
       let wrapped_reader = self.wrap(reader)?;
@@ -60,15 +57,40 @@ pub trait SubReaderWrapper {
     Ok(wrapped)
   }
 
-  type LeafReader2<LR>: LeafReader
-  where
-    LR: LeafReader;
+  type LeafReader2: LeafReader;
   /// Wrap one of the parent `DirectoryReader`'s sub readers.
   ///
   /// * `reader` - the sub reader to wrap
   ///
   /// Returns a wrapped/filtered `LeafReader`.
-  fn wrap<LR>(&self, reader: LR) -> Result<Self::LeafReader2<LR>>
-  where
-    LR: LeafReader;
+  fn wrap(&self, reader: LR) -> Result<Self::LeafReader2>;
+}
+#[derive(Clone)]
+pub struct DelegatingCacheHelper<CH>
+where
+  CH: CacheHelper + Clone,
+{
+  _delegate: CH,
+  cache_key: CacheKey,
+}
+
+impl<CH> DelegatingCacheHelper<CH>
+where
+  CH: CacheHelper + Clone,
+{
+  pub(crate) fn new(delegate: CH) -> Self {
+    Self {
+      _delegate: delegate,
+      cache_key: CacheKey::new(),
+    }
+  }
+}
+
+impl<CH> CacheHelper for DelegatingCacheHelper<CH>
+where
+  CH: CacheHelper + Clone,
+{
+  fn get_key(&self) -> CacheKey {
+    self.cache_key.clone()
+  }
 }

@@ -394,7 +394,7 @@ pub(crate) fn count_soft_deletes(
 /// # Returns
 ///
 /// The number of bits changed by this function.
-fn apply_soft_deletes(
+pub(crate) fn apply_soft_deletes(
   iterator: &mut impl DocIdSetIterator,
   bits: &mut FixedBitSet,
   has_value: bool,
