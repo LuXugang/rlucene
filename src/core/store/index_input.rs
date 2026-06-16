@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::store::nio_fs_index_input::NIOFSIndexInput;
+use crate::core::store::nio_fs_directory::NIOFSIndexInput;
 use crate::core::store::random_access_input::{
   BoxRandomAccessInput, RandomAccessInput, RandomAccessInputEnum2, RandomAccessInputEnum3,
 };

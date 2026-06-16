@@ -18,8 +18,7 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 
 use crate::core::store::directory::Directory;
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::nio_fs_index_input::NIOFSIndexInput;
+use crate::core::store::nio_fs_directory::{NIOFSDirectory, NIOFSIndexInput};
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::store::{BufferedIndexInput, FSDirectory, NativeFSLockFactory};
 use crate::core::util::error::lucene_error::Result;

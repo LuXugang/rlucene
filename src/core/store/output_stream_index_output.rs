@@ -152,7 +152,7 @@ impl<W: Write> XBufferedOutputStream<W> {
     self.checksum
   }
 
-  //TODO: If frequent checksum calculations become a bottleneck, we might
+  //TODO IMPORTANT : If frequent checksum calculations become a bottleneck, we might
   // consider caching a batch of data and then calculating the checksum.
   fn update_checksum(&mut self, buf: &[u8]) {
     self.hasher.update(buf);

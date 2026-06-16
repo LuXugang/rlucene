@@ -14,15 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
-use std::fs::File;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::Ordering::SeqCst;
-use std::sync::atomic::{AtomicU32, AtomicU64};
-use std::{fs, io};
-
 use crate::core::index::index_reader::Identity;
 use crate::core::store::base_directory::{BaseDirectory, BaseDirectoryBase};
 use crate::core::store::directory::{Directory, get_temp_file_name};
@@ -33,6 +24,14 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, IOUtils};
 use parking_lot::Mutex;
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::Ordering::SeqCst;
+use std::sync::atomic::{AtomicU32, AtomicU64};
+use std::{fs, io};
 
 /// Base trait for `Directory` implementations that store index files in the
 /// file system. There are currently two core implementations:
