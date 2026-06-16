@@ -43,25 +43,43 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
 
+/// Holds common state used during segment merging.
+///
+/// @lucene.experimental
 pub struct MergeState<'a, D, CR>
 where
   D: Directory,
   CR: CodecReader,
 {
+  /// [SegmentInfo] of the newly merged segment.
   pub(crate) segment_info: &'a mut SegmentInfo<D>,
+  /// Maps document IDs from old segments to document IDs in the new segment
   pub(crate) doc_maps: Vec<Rc<MergeStateDocMap<CR>>>,
+  /// [FieldInfos] of the newly merged segment.
   pub(crate) merge_field_infos: Arc<FieldInfos>,
+  /// Stored field producers being merged
   pub(crate) stored_fields_readers: Vec<Option<CRStoredFieldsReader<CR>>>,
+  /// Term vector producers being merged
   pub(crate) term_vectors_readers: Vec<Option<CRTermVectorsReader<CR>>>,
+  /// Norms producers being merged
   pub(crate) norms_producers: Vec<Option<CRNormsProducer<CR>>>,
+  /// DocValues producers being merged
   pub(crate) doc_values_producers: Vec<Option<CRDocValuesProducer<CR>>>,
+  /// Postings to merge
   pub(crate) fields_producers: Vec<Option<CRFieldsProducer<CR>>>,
+  /// Point readers to merge
   pub(crate) points_readers: Vec<Option<CRPointsReader<CR>>>,
+  /// Vector readers to merge
   pub(crate) knn_vectors_readers: Vec<Option<CRKnnVectorReader<CR>>>,
+  /// FieldInfos being merged
   pub(crate) field_infos: Vec<Arc<FieldInfos>>,
+  /// Live docs for each reader
   pub(crate) live_docs: Vec<Option<CRBits<CR>>>,
+  /// Indicates if the index needs to be sorted
   pub(crate) needs_index_sort: bool,
+  /// Max docs per reader
   pub(crate) max_docs: Vec<i32>,
+  /// [InfoStream] for debugging messages.
   pub(crate) info_stream: Arc<InfoStreamEnum>,
 }
 impl<'a, D, CR> MergeState<'a, D, CR>
@@ -69,6 +87,7 @@ where
   D: Directory,
   CR: CodecReader,
 {
+  /// Sole constructor.
   pub(crate) fn new(
     readers: &'a [CR],
     segment_info: &'a mut SegmentInfo<D>,

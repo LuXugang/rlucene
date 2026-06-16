@@ -24,10 +24,32 @@ use strum_macros::{Display, EnumCount, FromRepr};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, FromRepr, EnumCount, Display)]
 #[repr(u8)]
+/// Vector similarity function; used in search to return top K most
+/// similar vectors to a target vector. This is a label describing the
+/// method used during indexing and searching of the vectors in order
+/// to determine the nearest neighbors.
 pub enum VectorSimilarityFunction {
+  /// Euclidean distance
   Euclidean,
+  /// Dot product. NOTE: this similarity is intended as an optimized
+  /// way to perform cosine similarity. In order to use it, all vectors
+  /// must be normalized, including both document and query vectors.
+  /// Using dot product with vectors that are not normalized can result
+  /// in errors or poor search results. Floating point vectors must be
+  /// normalized to be of unit length, while byte vectors should simply
+  /// all have the same norm.
   DotProduct,
+  /// Cosine similarity. NOTE: the preferred way to perform cosine
+  /// similarity is to normalize all vectors to unit length, and
+  /// instead use [VectorSimilarityFunction::DotProduct]. You should
+  /// only use this function if you need to preserve the original
+  /// vectors and cannot normalize them in advance. The similarity
+  /// score is normalised to assure it is positive.
   Cosine,
+  /// Maximum inner product. This is like
+  /// [VectorSimilarityFunction::DotProduct], but does not require
+  /// normalization of the inputs. Should be used when the embedding
+  /// vectors store useful information within the vector magnitude.
   MaximumInnerProduct,
 }
 impl VectorSimilarityFunction {
@@ -52,6 +74,9 @@ impl Default for VectorSimilarityFunction {
   }
 }
 impl VectorSimilarityFunction {
+  /// Calculates a similarity score between the two vectors with a
+  /// specified function. Higher similarity scores correspond to
+  /// closer vectors.
   pub fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32> {
     match self {
       VectorSimilarityFunction::Euclidean => {
@@ -73,6 +98,9 @@ impl VectorSimilarityFunction {
     }
   }
 
+  /// Calculates a similarity score between the two vectors with a
+  /// specified function. Higher similarity scores correspond to
+  /// closer vectors. Each (signed) byte represents a vector dimension.
   pub fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32> {
     match self {
       VectorSimilarityFunction::Euclidean => {

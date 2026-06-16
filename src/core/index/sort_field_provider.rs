@@ -22,12 +22,16 @@ use crate::core::search::sorted_set_sort_field::SetProvider;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
+/// Reads/Writes a named [SortField] from a segment info file, used
+/// to record index sorts.
 pub trait SortFieldProvider {
+  /// Reads a [SortField] from serialized bytes.
   fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum>;
   /// Writes a SortField to a DataOutput
   /// This is used to record index sort information in segment headers
   fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()>;
 }
+/// Writes a [SortField] to a [DataOutput].
 pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
   if let Some(index_sort) = sf.get_index_sorter()? {
     let provider = for_name(index_sort.get_provider_name());
@@ -39,6 +43,7 @@ pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
   }
   Ok(())
 }
+/// Looks up a [SortFieldProvider] by name.
 pub fn for_name(name: &str) -> SortFieldProviderEnum {
   match name {
     NumericProvider::NAME => SortFieldProviderEnum::SortedNumericProvider(NumericProvider),

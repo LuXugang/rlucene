@@ -17,8 +17,15 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 
+/// Common util methods for dealing with [IndexReader]s and
+/// [IndexReaderContext]s.
+///
+/// @lucene.internal
 pub struct ReaderUtil;
 impl ReaderUtil {
+  /// Walks up the reader tree and returns the given context's top
+  /// level reader context, or in other words the reader tree's root
+  /// context.
   pub fn get_top_level_context<LR>(leaf_reader: &LeafReaderContext<LR>) -> &TopParentMeta
   where
     LR: LeafReader,

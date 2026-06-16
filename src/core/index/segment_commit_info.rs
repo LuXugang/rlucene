@@ -26,6 +26,9 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
+/// Embeds a [read-only] [SegmentInfo] and adds per-commit fields.
+///
+/// @lucene.experimental
 pub struct SegmentCommitInfo<D>
 where
   D: Directory,
@@ -134,11 +137,13 @@ where
     }
   }
   /// Returns a reference to the FieldInfos file names.
+  /// Returns the [FieldInfos] file names.
   pub fn get_field_infos_files(&self) -> &HashSet<String> {
     &self.field_infos_files
   }
 
   /// Sets the FieldInfos file names.
+  /// Sets the [FieldInfos] file names.
   pub fn set_field_infos_files(&mut self, field_infos_files: HashSet<String>) {
     self.field_infos_files.clear();
     for file in field_infos_files {

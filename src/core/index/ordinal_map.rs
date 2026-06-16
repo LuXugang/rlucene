@@ -114,6 +114,14 @@ impl OrdinalMap {
   }
 }
 
+/// Maps per-segment ordinals to/from global ordinal space, using a
+/// compact packed-ints representation.
+///
+/// **NOTE**: this is a costly operation, as it must merge sort all
+/// terms, and may require non-trivial RAM once done. It's better to
+/// operate in segment-private ordinal space instead when possible.
+///
+/// @lucene.internal
 pub struct OrdinalMap {
   /// Cache key of whoever asked for this awful thing
   owner: Option<CacheKey>,

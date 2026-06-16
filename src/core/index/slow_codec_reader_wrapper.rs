@@ -43,8 +43,15 @@ use crate::core::util::iterator::{VecIter, VecIteratorExt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+/// Wraps arbitrary readers for merging. Note that this can cause slow
+/// and memory-intensive merges. Consider using [FilterCodecReader]
+/// instead.
 pub struct SlowCodecReaderWrapper;
 impl SlowCodecReaderWrapper {
+  /// Returns a [CodecReader] view of reader.
+  ///
+  /// If `reader` is already a [CodecReader], it is returned directly.
+  /// Otherwise, a (slow) view is returned.
   pub(crate) fn wrap_leaf_reader<LR>(reader: LR) -> CodecReaderImpl<LR>
   where
     LR: LeafReader,

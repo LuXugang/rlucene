@@ -747,11 +747,13 @@ fn test_fail_after_merge_committed() -> Result<()> {
 
 #[test]
 fn test_stress_update_same_document_with_merge_on_get_reader() -> Result<()> {
+  // TODO SoftDeletesDirectoryReaderWrapper未实现
   Ok(())
 }
 
 #[test]
 fn test_stress_update_same_document_with_merge_on_commit() -> Result<()> {
+  // TODO SoftDeletesDirectoryReaderWrapper未实现
   Ok(())
 }
 

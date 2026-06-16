@@ -30,7 +30,16 @@ use crate::test::core::index::base_merge_policy_test_case::SerialMergeSchedulerI
 use crate::test::core::index::test_index_writer_merging::MyMergeScheduler;
 use parking_lot::MutexGuard;
 
+/// Expert: [IndexWriter] uses an instance implementing this
+/// trait to execute the merges selected by a [MergePolicy].
+/// The default MergeScheduler is [SerialMergeScheduler].
+///
+/// @lucene.experimental
 pub trait MergeScheduler: CloseableRef {
+  /// Run the merges provided by [MergeSource::get_next_merge()].
+  ///
+  /// * `merge_source` - the [IndexWriter] to obtain the merges from.
+  /// * `trigger` - the [MergeTrigger] that caused this merge to happen
   fn merge<MS, D>(
     &self,
     merge_source: &MS,
@@ -43,10 +52,13 @@ pub trait MergeScheduler: CloseableRef {
   type Directory<D>: Directory
   where
     D: Directory;
+  /// Wraps the incoming [Directory] so that we can
+  /// merge-throttle it using [RateLimitedIndexOutput].
   fn wrap_for_merge<D>(&self, _in_: D) -> Result<Self::Directory<D>>
   where
     D: Directory;
 
+  /// [IndexWriter] calls this on init.
   fn initialize<D>(&mut self, _directory: &D) -> Result<()>
   where
     D: Directory,
