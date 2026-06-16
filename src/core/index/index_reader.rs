@@ -26,18 +26,84 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
+/// Provides an interface for accessing a point-in-time view of an index.
+///
+/// Any changes made to the index via an
+/// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) will not be
+/// visible until a new [`IndexReader`] is opened. If the
+/// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is
+/// in-process, it is best to obtain an [`IndexReader`] with
+/// [`directory_reader::open_from_writer`](crate::core::index::directory_reader::open_from_writer).
+/// When reopening is needed in order to see changes to the index, it is best to
+/// use [`directory_reader::open_if_changed`](crate::core::index::directory_reader::open_if_changed),
+/// since the new reader will share resources with the previous one when
+/// possible. Searching an index is done entirely through this abstract
+/// interface, so that any implementation is searchable.
+///
+/// There are two different types of index readers:
+///
+/// - [`LeafReader`]: atomic readers that do not consist of several sub-readers.
+///   They support retrieval of stored fields, doc values, terms, and postings.
+/// - [`CompositeReader`]: instances, such as
+///   [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader),
+///   can only be used to get stored fields from the underlying
+///   [`LeafReader`]s. It is not possible to directly retrieve postings from a
+///   composite reader; to do that, get the sub-readers via
+///   [`CompositeReader::get_sequential_sub_readers`].
+///
+/// [`IndexReader`] instances for indexes on disk are usually constructed with a
+/// call to one of the `DirectoryReader::open` methods, for example
+/// [`directory_reader::open`](crate::core::index::directory_reader::open).
+/// [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)
+/// implements the [`CompositeReader`] interface, so it is not possible to
+/// directly get postings from it.
+///
+/// For efficiency, this API often refers to documents via document numbers:
+/// non-negative integers that each name a unique document in the index. These
+/// document numbers are ephemeral and may change as documents are added to and
+/// deleted from an index. Clients should not rely on a document having the same
+/// number between sessions.
+///
+/// NOTE: [`IndexReader`] instances are completely thread safe, meaning multiple
+/// threads can call any of their methods concurrently. If your application
+/// requires external synchronization, do not synchronize on the reader instance;
+/// use your own non-Lucene objects instead.
 pub trait IndexReader: Display {
   type TermVectors: TermVectors;
+
+  /// Returns a [`TermVectors`] reader for the term vectors of this index.
+  ///
+  /// This call never returns `None`, even if no term vectors were indexed. The
+  /// returned instance should only be used by a single thread.
   fn term_vectors(&self) -> Result<Self::TermVectors>;
 
+  /// Returns one greater than the largest possible document number.
+  ///
+  /// This may be used, for example, to determine how big to allocate an array
+  /// that will have an element for every document number in an index.
   fn max_doc(&self) -> Result<i32>;
 
+  /// Returns the number of documents in this index.
+  ///
+  /// NOTE: This operation may run in `O(max_doc)`. Implementations that cannot
+  /// return this number in constant time should cache it.
   fn num_docs(&self) -> Result<i32>;
 
+  /// Returns the number of deleted documents.
+  ///
+  /// NOTE: This operation may run in `O(max_doc)`.
   fn num_deleted_docs(&self) -> Result<i32> {
     Ok(self.max_doc()? - self.num_docs()?)
   }
 
+  /// Expert: increments the ref count of this [`IndexReader`] instance.
+  ///
+  /// Ref counts are used to determine when a reader can be closed safely, as
+  /// soon as there are no more references. Be sure to always call a
+  /// corresponding [`Self::dec_ref`], otherwise the reader may never be closed.
+  /// [`Self::close`] simply calls [`Self::dec_ref`], which means the reader will
+  /// not really be closed until [`Self::dec_ref`] has been called for all
+  /// outstanding references.
   fn inc_ref(&self) -> Result<()> {
     if !self.try_inc_ref() {
       self.ensure_open()?;
@@ -45,6 +111,10 @@ pub trait IndexReader: Display {
     Ok(())
   }
 
+  /// Expert: decreases the ref count of this [`IndexReader`] instance.
+  ///
+  /// If the ref count drops to `0`, then this reader is closed. If an error is
+  /// hit, the ref count is unchanged.
   fn dec_ref(&self) -> Result<()> {
     // only check ref_count here (don't call ensure_open()),
     // so we can still close the reader if it was made invalid by a child.
@@ -71,6 +141,8 @@ pub trait IndexReader: Display {
     Ok(())
   }
 
+  /// Returns an error if this [`IndexReader`] or any of its child readers is
+  /// closed; otherwise returns `Ok(())`.
   fn ensure_open(&self) -> Result<()> {
     let base = self.index_base();
     if base.ref_count.load(Ordering::Acquire) <= 0 {
@@ -92,11 +164,23 @@ pub trait IndexReader: Display {
   }
 
   type StoredFields: StoredFields;
+  /// Returns a [`StoredFields`] reader for the stored fields of this index.
+  ///
+  /// This call never returns `None`, even if no stored fields were indexed. The
+  /// returned instance should only be used by a single thread.
   fn stored_fields(&self) -> Result<Self::StoredFields>;
 
+  /// Returns `true` if any documents have been deleted.
+  ///
+  /// Implementers should consider overriding this method if [`Self::max_doc`] or
+  /// [`Self::num_docs`] are not constant-time operations.
   fn has_deletions(&self) -> Result<bool> {
     Ok(self.num_deleted_docs()? > 0)
   }
+
+  /// Closes files associated with this index.
+  ///
+  /// No other methods should be called after this has been called.
   fn close(&self) -> Result<()> {
     let base = self.index_base();
     if !base.closed.load(Ordering::Acquire) {
@@ -106,17 +190,24 @@ pub trait IndexReader: Display {
     Ok(())
   }
 
+  /// Implements close.
   fn do_close(&self) -> Result<()> {
     Ok(())
   }
 
-  /// Optional method: Return a [`CacheHelper`] that can be used to cache based on the content of
-  /// this reader. Two readers that have different data or different sets of deleted documents will
-  /// be considered different.
+  /// Cache helper type returned by [`Self::get_reader_cache_helper`].
+  type ReaderCacheHelper: CacheHelper;
+
+  /// Optional method: returns a [`CacheHelper`] that can be used to cache based
+  /// on the content of this reader.
+  ///
+  /// Two readers that have different data or different sets of deleted
+  /// documents will be considered different.
   ///
   /// A return value of `None` indicates that this reader is not suited for caching, which
   /// is typically the case for short-lived wrappers that alter the content of the wrapped reader.
-  type ReaderCacheHelper: CacheHelper;
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>>;
 
   /// Returns the number of documents containing the `term`.
@@ -154,6 +245,17 @@ pub trait IndexReader: Display {
 
   fn index_base(&self) -> &IndexReaderBase;
 
+  /// Expert: increments the ref count only if this [`IndexReader`] has not been
+  /// closed yet.
+  ///
+  /// Returns `true` if the ref count was successfully incremented, otherwise
+  /// `false`. If this method returns `false`, the reader is either already
+  /// closed or is currently being closed, and should not be used by an
+  /// application.
+  ///
+  /// Ref counts are used to determine when a reader can be closed safely. Be
+  /// sure to always call a corresponding [`Self::dec_ref`] when this method
+  /// returns `true`.
   fn try_inc_ref(&self) -> bool {
     let base = self.index_base();
     loop {
@@ -172,6 +274,7 @@ pub trait IndexReader: Display {
     }
   }
 
+  /// Expert: returns the current ref count for this reader.
   fn get_ref_count(&self) -> i32 {
     let base = self.index_base();
     base.ref_count.load(Ordering::Acquire)
@@ -193,7 +296,17 @@ impl IndexReaderBase {
   }
 }
 
+/// Utility hooks for building caches based on data contained in an index.
+///
+/// For example, a query-count cache can use a reader cache key to store the
+/// number of documents that match a query per reader.
+///
+/// Experimental: this API follows the original Lucene experimental status.
 pub trait CacheHelper {
+  /// Gets a key that the resource can be cached on.
+  ///
+  /// The returned key can be compared by identity: equality is implemented as
+  /// identity equality and hashing is implemented from the identity hash.
   fn get_key(&self) -> CacheKey;
 }
 pub enum CacheHelperEnum2<A, B> {
@@ -213,6 +326,7 @@ where
   }
 }
 
+/// A cache key identifying a resource that is being cached on.
 pub type CacheKey = Identity;
 
 pub type IRTermVectors<LR, CR> =
