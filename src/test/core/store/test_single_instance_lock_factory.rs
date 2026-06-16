@@ -28,13 +28,12 @@ struct TestSingleInstanceLockFactory;
 impl BaseLockFactoryTestCase for TestSingleInstanceLockFactory {
   type Directory = FSDirectory<SingleInstanceLockFactory, NIOFSDirectory>;
 
-  fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
+  fn get_directory<R>(&self, _random: &mut R, path: PathBuf) -> Result<Self::Directory>
+  where
+    R: rand::Rng + ?Sized,
+  {
     // TODO IMPORTANT 应该使用带参数的newFSDirectory
-    FSDirectory::with_lock_factory(
-      path,
-      SingleInstanceLockFactory::new(),
-      NIOFSDirectory::new(),
-    )
+    NIOFSDirectory::with_lock_factory(path, SingleInstanceLockFactory::new())
   }
 }
 
@@ -56,22 +55,22 @@ mod base_lock_factory_test_case_tests {
 
   #[test]
   fn test_basics() -> Result<()> {
-    run_case(|case, _random| case.test_basics())
+    run_case(|case, random| case.test_basics(random))
   }
 
   #[test]
   fn test_double_close() -> Result<()> {
-    run_case(|case, _random| case.test_double_close())
+    run_case(|case, random| case.test_double_close(random))
   }
 
   #[test]
   fn test_valid_after_acquire() -> Result<()> {
-    run_case(|case, _random| case.test_valid_after_acquire())
+    run_case(|case, random| case.test_valid_after_acquire(random))
   }
 
   #[test]
   fn test_invalid_after_close() -> Result<()> {
-    run_case(|case, _random| case.test_invalid_after_close())
+    run_case(|case, random| case.test_invalid_after_close(random))
   }
 
   #[test]

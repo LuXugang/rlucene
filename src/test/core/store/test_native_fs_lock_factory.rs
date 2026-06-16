@@ -27,9 +27,12 @@ struct TestNativeFSLockFactory;
 impl BaseLockFactoryTestCase for TestNativeFSLockFactory {
   type Directory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 
-  fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
+  fn get_directory<R>(&self, _random: &mut R, path: PathBuf) -> Result<Self::Directory>
+  where
+    R: rand::Rng + ?Sized,
+  {
     // TODO IMPORTANT 应该使用带参数的newFSDirectory
-    FSDirectory::new(path, NIOFSDirectory::new())
+    NIOFSDirectory::new(path)
   }
 }
 
@@ -40,18 +43,19 @@ mod native_fs_lock_factory_tests {
   use crate::core::util::close::{Closeable, CloseableRef};
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::create_temp_dir;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{create_temp_dir, random};
   use std::fs::{self, File};
 
   /** Verify NativeFSLockFactory works correctly if the lock file exists */
   #[test]
   fn test_lock_file_exists() -> Result<()> {
     let case = TestNativeFSLockFactory;
+    let mut random = random();
     let temp_dir = create_temp_dir()?;
     let lock_file = temp_dir.path().join("test.lock");
     File::create(lock_file)?;
 
-    let dir = case.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = case.get_directory(&mut random, temp_dir.path().to_path_buf())?;
     let l = dir.obtain_lock("test.lock")?;
     l.close()?;
     Ok(())
@@ -61,8 +65,9 @@ mod native_fs_lock_factory_tests {
   #[test]
   fn test_invalidate_lock() -> Result<()> {
     let case = TestNativeFSLockFactory;
+    let mut random = random();
     let temp_dir = create_temp_dir()?;
-    let dir = case.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = case.get_directory(&mut random, temp_dir.path().to_path_buf())?;
     let lock = dir.obtain_lock("test.lock")?;
     lock.ensure_valid()?;
 
@@ -79,8 +84,9 @@ mod native_fs_lock_factory_tests {
   #[test]
   fn test_invalidate_channel() -> Result<()> {
     let case = TestNativeFSLockFactory;
+    let mut random = random();
     let temp_dir = create_temp_dir()?;
-    let dir = case.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = case.get_directory(&mut random, temp_dir.path().to_path_buf())?;
     let lock = dir.obtain_lock("test.lock")?;
     lock.ensure_valid()?;
 
@@ -96,8 +102,9 @@ mod native_fs_lock_factory_tests {
   #[test]
   fn test_delete_lock_file() -> Result<()> {
     let case = TestNativeFSLockFactory;
+    let mut random = random();
     let temp_dir = create_temp_dir()?;
-    let dir = case.get_directory(temp_dir.path().to_path_buf())?;
+    let dir = case.get_directory(&mut random, temp_dir.path().to_path_buf())?;
     let lock = dir.obtain_lock("test.lock")?;
     lock.ensure_valid()?;
 
@@ -115,10 +122,11 @@ mod native_fs_lock_factory_tests {
   #[test]
   fn test_bad_permissions() -> Result<()> {
     let case = TestNativeFSLockFactory;
+    let mut random = random();
     // create a directory that will fail while creating test.lock
     let tmp_dir = create_temp_dir()?;
     let index_dir = tmp_dir.path().join("indexDir");
-    let dir = case.get_directory(index_dir)?;
+    let dir = case.get_directory(&mut random, index_dir)?;
     let mut permissions = fs::metadata(&dir.directory)?.permissions();
     permissions.set_readonly(true);
     fs::set_permissions(&dir.directory, permissions)?;
@@ -142,25 +150,29 @@ mod base_lock_factory_test_case_tests {
   #[test]
   fn test_basics() -> Result<()> {
     let case = TestNativeFSLockFactory;
-    case.test_basics()
+    let mut random = random();
+    case.test_basics(&mut random)
   }
 
   #[test]
   fn test_double_close() -> Result<()> {
     let case = TestNativeFSLockFactory;
-    case.test_double_close()
+    let mut random = random();
+    case.test_double_close(&mut random)
   }
 
   #[test]
   fn test_valid_after_acquire() -> Result<()> {
     let case = TestNativeFSLockFactory;
-    case.test_valid_after_acquire()
+    let mut random = random();
+    case.test_valid_after_acquire(&mut random)
   }
 
   #[test]
   fn test_invalid_after_close() -> Result<()> {
     let case = TestNativeFSLockFactory;
-    case.test_invalid_after_close()
+    let mut random = random();
+    case.test_invalid_after_close(&mut random)
   }
 
   #[test]

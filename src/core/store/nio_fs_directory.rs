@@ -17,11 +17,16 @@
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use crate::core::store::fs_directory::FSDirectory;
 use crate::core::store::fs_directory_base::FSDirectoryBase;
 use crate::core::store::index_input::get_full_slice_description;
-use crate::core::store::{BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase, IOContext};
+use crate::core::store::lock_factory::LockFactory;
+use crate::core::store::native_fs_lock_factory::NativeFSLockFactory;
+use crate::core::store::{
+  BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase, IOContext, fs_lock_factory,
+};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ReadableCursorExt, TryIntoInt};
 
@@ -39,13 +44,28 @@ pub struct NIOFSDirectory;
 
 impl Default for NIOFSDirectory {
   fn default() -> Self {
-    Self::new()
+    Self
   }
 }
 
 impl NIOFSDirectory {
-  pub fn new() -> Self {
-    Self
+  /// Creates a new NIOFS-backed [`FSDirectory`] for the named location using
+  /// the default lock factory.
+  ///
+  /// The directory is created at the named location if it does not yet exist.
+  pub fn new(directory: PathBuf) -> Result<FSDirectory<NativeFSLockFactory, Self>> {
+    Self::with_lock_factory(directory, fs_lock_factory::get_default())
+  }
+
+  /// Creates a new NIOFS-backed [`FSDirectory`] for the named location using
+  /// the provided lock factory.
+  ///
+  /// The directory is created at the named location if it does not yet exist.
+  pub fn with_lock_factory<D>(directory: PathBuf, lock_factory: D) -> Result<FSDirectory<D, Self>>
+  where
+    D: LockFactory,
+  {
+    FSDirectory::with_lock_factory(directory, lock_factory, Self)
   }
 }
 

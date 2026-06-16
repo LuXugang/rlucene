@@ -340,8 +340,7 @@ pub mod lucene_test_case_util {
     R: Rng + ?Sized,
   {
     let temp_dir = TempDir::new()?;
-    let sub_directory = NIOFSDirectory::new();
-    FSDirectory::new(temp_dir.keep(), sub_directory)
+    NIOFSDirectory::new(temp_dir.keep())
   }
   pub(crate) fn new_directory_with_lock_factory<R, T>(
     _random: &mut R,
@@ -352,17 +351,14 @@ pub mod lucene_test_case_util {
     T: Into<LockFactoryEnum>,
   {
     let temp_dir = TempDir::new()?;
-    let sub_directory = NIOFSDirectory::new();
-    FSDirectory::with_lock_factory(temp_dir.keep(), lock_factory.into(), sub_directory)
+    NIOFSDirectory::with_lock_factory(temp_dir.keep(), lock_factory.into())
   }
 
   pub(crate) fn new_fs_directory<R>(_random: &mut R, temp_dir: TempDir) -> Result<Arc<DirEnum>>
   where
     R: Rng + ?Sized,
   {
-    // TODO 这里简单返回FSDirectory
-    let sub_directory = NIOFSDirectory::new();
-    Ok(Arc::new(FSDirectory::new(temp_dir.keep(), sub_directory)?))
+    Ok(Arc::new(NIOFSDirectory::new(temp_dir.keep())?))
   }
 
   pub(crate) fn new_string_field<S1, S2, R>(

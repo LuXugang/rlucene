@@ -78,7 +78,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{DataOutput, FSDirectory, IOContext, SimpleFSLockFactory};
+use crate::core::store::{DataOutput, IOContext, SimpleFSLockFactory};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
@@ -1619,10 +1619,9 @@ fn test_whether_delete_all_deletes_write_lock() -> Result<()> {
   // NativeFSLockFactory somehow "knows" a lock is held against write.lock
   // even if you remove that file:
   let temp_dir = create_temp_dir()?;
-  let dir = Arc::new(FSDirectory::with_lock_factory(
+  let dir = Arc::new(NIOFSDirectory::with_lock_factory(
     temp_dir.keep(),
     SimpleFSLockFactory::new(),
-    NIOFSDirectory::new(),
   )?);
   let w1 = RandomIndexWriter::new(&mut random, dir.clone());
   w1.delete_all()?;

@@ -30,8 +30,7 @@ impl BaseDirectoryTestCase for TestNIOFSDirectory {
   type Output = BufferedIndexInput<NIOFSIndexInput>;
 
   fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
-    let sub_directory = NIOFSDirectory::new();
-    FSDirectory::new(path, sub_directory)
+    NIOFSDirectory::new(path)
   }
 }
 

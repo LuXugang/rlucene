@@ -51,12 +51,17 @@ where
 
   /// Implementations return the directory to test; an FS-based directory should point to
   /// the specified path, else it can ignore it.
-  fn get_directory(&self, path: PathBuf) -> Result<Self::Directory>;
+  fn get_directory<R>(&self, random: &mut R, path: PathBuf) -> Result<Self::Directory>
+  where
+    R: Rng + ?Sized;
 
   /// Test obtaining and releasing locks, checking validity
-  fn test_basics(&self) -> Result<()> {
+  fn test_basics<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_path = create_temp_dir()?;
-    let dir = self.get_directory(temp_path.path().to_path_buf())?;
+    let dir = self.get_directory(random, temp_path.path().to_path_buf())?;
 
     let mut l = dir.obtain_lock("commit")?;
     // shouldn't be able to get the lock twice
@@ -73,9 +78,12 @@ where
   }
 
   /// Test closing locks twice
-  fn test_double_close(&self) -> Result<()> {
+  fn test_double_close<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_path = create_temp_dir()?;
-    let dir = self.get_directory(temp_path.path().to_path_buf())?;
+    let dir = self.get_directory(random, temp_path.path().to_path_buf())?;
 
     let l = dir.obtain_lock("commit")?;
     l.close()?;
@@ -85,9 +93,12 @@ where
   }
 
   /// Test ensureValid returns true after acquire
-  fn test_valid_after_acquire(&self) -> Result<()> {
+  fn test_valid_after_acquire<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_path = create_temp_dir()?;
-    let dir = self.get_directory(temp_path.path().to_path_buf())?;
+    let dir = self.get_directory(random, temp_path.path().to_path_buf())?;
     let l = dir.obtain_lock("commit")?;
     l.ensure_valid()?; // no exception
     l.close()?;
@@ -95,9 +106,12 @@ where
   }
 
   /// Test ensureValid returns error after close
-  fn test_invalid_after_close(&self) -> Result<()> {
+  fn test_invalid_after_close<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_path = create_temp_dir()?;
-    let dir = self.get_directory(temp_path.path().to_path_buf())?;
+    let dir = self.get_directory(random, temp_path.path().to_path_buf())?;
 
     let l = dir.obtain_lock("commit")?;
     l.close()?;
@@ -114,7 +128,7 @@ where
     R: Rng + ?Sized,
   {
     let temp_path = create_temp_dir()?;
-    let directory = Arc::new(self.get_directory(temp_path.path().to_path_buf())?);
+    let directory = Arc::new(self.get_directory(random, temp_path.path().to_path_buf())?);
     let running = Arc::new(AtomicBool::new(true));
     let atomic_counter = Arc::new(AtomicI32::new(0));
     let asserting_lock = Arc::new(Mutex::new(()));
@@ -165,7 +179,7 @@ where
     R: Rng + ?Sized,
   {
     let temp_path = create_temp_dir()?;
-    let dir = Arc::new(self.get_directory(temp_path.path().to_path_buf())?);
+    let dir = Arc::new(self.get_directory(random, temp_path.path().to_path_buf())?);
     let field_to_type = Arc::new(Mutex::new(HashMap::new()));
 
     // First create a 1 doc index:

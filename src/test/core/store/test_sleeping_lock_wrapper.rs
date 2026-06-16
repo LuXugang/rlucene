@@ -21,7 +21,6 @@ use crate::core::store::sleeping_lock_wrapper::SleepingLockWrapper;
 use crate::core::store::{FSDirectory, NativeFSLockFactory};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::RngExt;
 use std::path::PathBuf;
 
@@ -35,29 +34,27 @@ impl BaseLockFactoryTestCase for TestSleepingLockWrapper {
     SleepingLockWrapper<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
   >;
 
-  fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
-    let mut random = random();
+  fn get_directory<R>(&self, random: &mut R, path: PathBuf) -> Result<Self::Directory>
+  where
+    R: rand::Rng + ?Sized,
+  {
+    // TODO IMPORTANT 应该使用带参数的newFSDirectory
     let lock_wait_timeout = random.random_range(20..=100);
     let poll_interval = random.random_range(2..=10);
-    // TODO IMPORTANT 应该使用带参数的newFSDirectory
     let which = random.random_range(0..3);
     match which {
       0 => Ok(DirectoryEnum2::A(SleepingLockWrapper::with_poll_interval(
-        FSDirectory::with_lock_factory(
-          path,
-          SingleInstanceLockFactory::new(),
-          NIOFSDirectory::new(),
-        )?,
+        NIOFSDirectory::with_lock_factory(path, SingleInstanceLockFactory::new())?,
         lock_wait_timeout,
         poll_interval,
       )?)),
       1 => Ok(DirectoryEnum2::B(SleepingLockWrapper::with_poll_interval(
-        FSDirectory::new(path, NIOFSDirectory::new())?,
+        NIOFSDirectory::new(path)?,
         lock_wait_timeout,
         poll_interval,
       )?)),
       _ => Ok(DirectoryEnum2::B(SleepingLockWrapper::with_poll_interval(
-        FSDirectory::new(path, NIOFSDirectory::new())?,
+        NIOFSDirectory::new(path)?,
         lock_wait_timeout,
         poll_interval,
       )?)),
@@ -74,25 +71,29 @@ mod base_lock_factory_test_case_tests {
   #[test]
   fn test_basics() -> Result<()> {
     let case = TestSleepingLockWrapper;
-    case.test_basics()
+    let mut random = random();
+    case.test_basics(&mut random)
   }
 
   #[test]
   fn test_double_close() -> Result<()> {
     let case = TestSleepingLockWrapper;
-    case.test_double_close()
+    let mut random = random();
+    case.test_double_close(&mut random)
   }
 
   #[test]
   fn test_valid_after_acquire() -> Result<()> {
     let case = TestSleepingLockWrapper;
-    case.test_valid_after_acquire()
+    let mut random = random();
+    case.test_valid_after_acquire(&mut random)
   }
 
   #[test]
   fn test_invalid_after_close() -> Result<()> {
     let case = TestSleepingLockWrapper;
-    case.test_invalid_after_close()
+    let mut random = random();
+    case.test_invalid_after_close(&mut random)
   }
 
   #[test]

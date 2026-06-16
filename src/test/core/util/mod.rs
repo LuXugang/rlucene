@@ -102,10 +102,7 @@ pub type DefaultIndexSearchLR = DefaultIndexSearcher<LeafReaderContext<DefaultLR
 pub type DummyCR = StandardDirectoryReaderType<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>;
 pub(crate) fn dummy_directory() -> Result<Arc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>> {
   let temp_dir = TempDir::new()?;
-  Ok(Arc::new(FSDirectory::new(
-    temp_dir.keep(),
-    NIOFSDirectory::new(),
-  )?))
+  Ok(Arc::new(NIOFSDirectory::new(temp_dir.keep())?))
 }
 pub(crate) fn dummy_index_searcher(
   dir: Arc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,

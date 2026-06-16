@@ -35,8 +35,7 @@ impl BaseDirectoryTestCase for TestTrackingDirectoryWrapper {
   type Output = BufferedIndexInput<NIOFSIndexInput>;
 
   fn get_directory(&self, path: PathBuf) -> Result<Self::Directory> {
-    let sub_directory = NIOFSDirectory::new();
-    let dir = FSDirectory::new(path, sub_directory)?;
+    let dir = NIOFSDirectory::new(path)?;
     Ok(TrackingDirectoryWrapper::new(dir))
   }
 }
