@@ -27,7 +27,6 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::store::byte_buffers_data_input::{
   ByteBuffersDataInput, ByteBuffersDataInputBlock,
 };
-use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::StringHelper;
 use crate::core::util::access::WritableVec;

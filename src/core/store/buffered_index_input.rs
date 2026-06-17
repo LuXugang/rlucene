@@ -699,8 +699,8 @@ where
     Ok(())
   }
 
-  fn length(&self) -> usize {
-    self.sub_index_input.length()
+  fn length(&self) -> Result<usize> {
+    Ok(self.sub_index_input.length())
   }
 
   fn slice(
@@ -725,8 +725,8 @@ impl<T> RandomAccessInput for BufferedIndexInput<T>
 where
   T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-  fn length(&self) -> usize {
-    self.sub_index_input.length()
+  fn length(&self) -> Result<usize> {
+    Ok(self.sub_index_input.length())
   }
 
   fn read_byte(&mut self, pos: usize) -> Result<u8> {

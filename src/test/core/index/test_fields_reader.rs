@@ -236,6 +236,6 @@ where
   }
 
   fn length(&self) -> usize {
-    self.delegate.length()
+    self.delegate.length().expect("input length")
   }
 }

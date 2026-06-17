@@ -382,7 +382,7 @@ where
     self.in_.seek(pos)
   }
 
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     self.in_.length()
   }
 

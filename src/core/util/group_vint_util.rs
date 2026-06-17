@@ -277,10 +277,10 @@ impl GroupVIntUtil {
   }
   /// Converts an i64 value to an i32, ensuring it fits within the valid
   /// range. Returns an error if the value is not within 0 to 0xFFFFFFFF.
-  fn get_int(value: i64) -> Result<i32> {
-    if value > 0xFFFFFFFF {
+  fn to_int(value: i64) -> Result<i32> {
+    if (value as u64) > 0xFFFF_FFFF_u64 {
       Err(LuceneError::number_overflow(format!(
-        "value: {value} is too large to be converted to i32"
+        "value: {value} is out of range to be converted to i32"
       )))
     } else {
       Ok(value as i32)
@@ -300,10 +300,10 @@ impl GroupVIntUtil {
     // encode each group
     while (limit as usize - read_pos) >= 4 {
       let mut write_pos: usize = 0;
-      let n1_minus1 = Self::num_bytes(Self::get_int(values[read_pos])?);
-      let n2_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 1])?);
-      let n3_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 2])?);
-      let n4_minus1 = Self::num_bytes(Self::get_int(values[read_pos + 3])?);
+      let n1_minus1 = Self::num_bytes(Self::to_int(values[read_pos])?);
+      let n2_minus1 = Self::num_bytes(Self::to_int(values[read_pos + 1])?);
+      let n3_minus1 = Self::num_bytes(Self::to_int(values[read_pos + 2])?);
+      let n4_minus1 = Self::num_bytes(Self::to_int(values[read_pos + 3])?);
 
       let flag =
         ((n1_minus1 - 1) << 6) | ((n2_minus1 - 1) << 4) | ((n3_minus1 - 1) << 2) | (n4_minus1 - 1);
@@ -348,7 +348,7 @@ impl GroupVIntUtil {
 
     // tail vints
     while read_pos < limit as usize {
-      data_output.write_vint(Self::get_int(values[read_pos])?)?;
+      data_output.write_vint(Self::to_int(values[read_pos])?)?;
       read_pos += 1;
     }
 

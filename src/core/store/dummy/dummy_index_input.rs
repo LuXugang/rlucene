@@ -68,7 +68,7 @@ impl IndexInput for DummyIndexInput {
     dummy_unreachable!()
   }
 
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     dummy_unreachable!()
   }
 
@@ -92,7 +92,7 @@ impl IndexInput for DummyIndexInput {
   }
 }
 impl RandomAccessInput for DummyIndexInput {
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     dummy_unreachable!()
   }
 

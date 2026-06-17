@@ -152,8 +152,8 @@ fn do_test_impact_serialization(impacts: &[Impact]) -> Result<()> {
     write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
   }
   let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
-  let len = input.length();
-  let mut buffer = vec![0u8; len as usize];
+  let len = input.length()?;
+  let mut buffer = vec![0u8; len];
   input.read_bytes(&mut buffer, 0, len)?;
 
   let mut data_in = ByteArrayDataInput::with_bytes(buffer.as_slice());

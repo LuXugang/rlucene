@@ -23,7 +23,6 @@ use crate::core::codecs::compression::compressor::Compressor;
 use crate::core::codecs::compression::decompressor::Decompressor;
 use crate::core::index::BytesRef;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
-use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};

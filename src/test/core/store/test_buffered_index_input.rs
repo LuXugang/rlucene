@@ -161,12 +161,12 @@ fn test_eof() -> Result<()> {
   let mut buffer = vec![];
 
   // Verify we can read all bytes in one go
-  let mut length = IndexInput::length(&input);
+  let mut length = IndexInput::length(&input)?;
   check_read_bytes(&mut input, length, 0, &mut buffer)?;
 
   // Attempt to read more than the available bytes for small and large
   // overflows
-  length = IndexInput::length(&input);
+  length = IndexInput::length(&input)?;
   let pos = length - 10;
   input.seek(pos)?;
 

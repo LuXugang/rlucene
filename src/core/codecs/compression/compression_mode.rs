@@ -31,7 +31,6 @@ use crate::core::index::sorting_stored_fields_consumer::{
   CompressorImpl, DecompressorImpl, NoCompression,
 };
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
-use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::compress::lz4::{
   FastCompressionHashTable, HashTableEnum, HighCompressionHashTable, LZ4,

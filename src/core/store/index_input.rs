@@ -81,7 +81,7 @@ pub trait IndexInput: DataInput + TryClone {
     Ok(())
   }
   /// The number of bytes in the file.
-  fn length(&self) -> usize;
+  fn length(&self) -> Result<usize>;
 
   /// Creates a slice of this index input, with the given description, offset,
   /// and length. The slice is positioned at the beginning.
@@ -388,7 +388,7 @@ impl IndexInput for IndexInputEnum {
     }
   }
 
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     match self {
       IndexInputEnum::Fs(inner) => IndexInput::length(inner),
       IndexInputEnum::Custom(inner) => inner.length(),
@@ -703,7 +703,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn length(&self) -> usize {
+            fn length(&self) -> Result<usize> {
                 match self {
                     $( Self::$Variant(inner) => inner.length(), )+
                 }
@@ -890,7 +890,7 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     (**self).length()
   }
 

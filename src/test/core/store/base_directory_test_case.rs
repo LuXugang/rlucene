@@ -37,6 +37,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataOutput, IOContext, ReadAdvice, write_group_vints_i64};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::clone::TryClone as OtherClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::packed::PackedInts;
@@ -118,7 +119,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut input = dir.open_input("foobaz", &io_context)?;
       DataInput::read_bytes(&mut input, &mut bytes2, 0, num_bytes)?;
-      assert_eq!(IndexInput::length(&input), num_bytes);
+      assert_eq!(IndexInput::length(&input)?, num_bytes);
     }
 
     assert_eq!(bytes, bytes2);
@@ -172,7 +173,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("byte", &io_context)?;
-      assert_eq!(1, IndexInput::length(&input));
+      assert_eq!(1, IndexInput::length(&input)?);
       assert_eq!(128u8, DataInput::read_byte(&mut input)?);
     }
 
@@ -193,7 +194,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("short", &io_context)?;
-      assert_eq!(2, IndexInput::length(&input));
+      assert_eq!(2, IndexInput::length(&input)?);
       assert_eq!(-20i16, DataInput::read_short(&mut input)?);
     }
 
@@ -214,7 +215,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("int", &io_context)?;
-      assert_eq!(4, IndexInput::length(&input));
+      assert_eq!(4, IndexInput::length(&input)?);
       assert_eq!(-500, DataInput::read_int(&mut input)?);
     }
 
@@ -235,7 +236,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("long", &io_context)?;
-      assert_eq!(8, IndexInput::length(&input));
+      assert_eq!(8, IndexInput::length(&input)?);
       assert_eq!(-5000, DataInput::read_long(&mut input)?);
     }
 
@@ -260,7 +261,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("littleEndianLongs", &io_context)?;
-      assert_eq!(24, IndexInput::length(&input));
+      assert_eq!(24, IndexInput::length(&input)?);
 
       let mut l = vec![0; 4];
       input.read_longs(&mut l, 1, 3)?;
@@ -291,7 +292,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("littleEndianLongs", &io_context)?;
-      assert_eq!(25, IndexInput::length(&input));
+      assert_eq!(25, IndexInput::length(&input)?);
       assert_eq!(2u8, DataInput::read_byte(&mut input)?);
       let mut longs = vec![0; 4];
       input.read_longs(&mut longs, 1, 3)?;
@@ -349,7 +350,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("Ints", &io_context)?;
-      assert_eq!(12, IndexInput::length(&input));
+      assert_eq!(12, IndexInput::length(&input)?);
       let mut ints = vec![0; 4];
       input.read_ints(&mut ints, 1, 3)?;
       assert_eq!(vec![0, 3, i32::MAX, -3], ints);
@@ -379,7 +380,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("Ints", &io_context)?;
-      assert_eq!(12 + padding, IndexInput::length(&input));
+      assert_eq!(12 + padding, IndexInput::length(&input)?);
       for _ in 0..padding {
         assert_eq!(2u8, DataInput::read_byte(&mut input)?);
       }
@@ -439,7 +440,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("Floats", &io_context)?;
-      assert_eq!(12, IndexInput::length(&input));
+      assert_eq!(12, IndexInput::length(&input)?);
       let mut floats = vec![0.0f32; 4];
       input.read_floats(&mut floats, 1, 3)?;
       assert_eq!(vec![0.0, 3.0, f32::MAX, -3.0], floats);
@@ -469,7 +470,7 @@ pub trait BaseDirectoryTestCase {
     }
 
     let mut input = dir.open_input("Floats", &io_context)?;
-    assert_eq!(12 + padding, IndexInput::length(&input));
+    assert_eq!(12 + padding, IndexInput::length(&input)?);
     for _ in 0..padding {
       assert_eq!(2u8, DataInput::read_byte(&mut input)?);
     }
@@ -523,7 +524,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut input = dir.open_input("string", &io_context)?;
       assert_eq!("hello!", input.read_string()?);
-      assert_eq!(7, IndexInput::length(&input));
+      assert_eq!(7, IndexInput::length(&input)?);
     }
 
     Ok(())
@@ -543,7 +544,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("vint", &io_context)?;
-      assert_eq!(2, IndexInput::length(&input));
+      assert_eq!(2, IndexInput::length(&input)?);
       assert_eq!(500, input.read_vint()?);
     }
 
@@ -564,7 +565,7 @@ pub trait BaseDirectoryTestCase {
 
     {
       let mut input = dir.open_input("vlong", &io_context)?;
-      assert_eq!(9, IndexInput::length(&input));
+      assert_eq!(9, IndexInput::length(&input)?);
       assert_eq!(i64::MAX, input.read_vlong()?);
     }
 
@@ -612,7 +613,7 @@ pub trait BaseDirectoryTestCase {
       for &i in &ints {
         assert_eq!(i, input.read_zint()?);
       }
-      assert_eq!(IndexInput::length(&input), input.get_file_pointer()?);
+      assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
     }
 
     Ok(())
@@ -660,7 +661,7 @@ pub trait BaseDirectoryTestCase {
       for &l in &longs {
         assert_eq!(l, input.read_zlong()?);
       }
-      assert_eq!(IndexInput::length(&input), input.get_file_pointer()?);
+      assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
     }
 
     Ok(())
@@ -709,7 +710,7 @@ pub trait BaseDirectoryTestCase {
           .collect::<HashSet<_>>()
       );
 
-      assert_eq!(IndexInput::length(&input), input.get_file_pointer()?);
+      assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
     }
 
     Ok(())
@@ -763,7 +764,7 @@ pub trait BaseDirectoryTestCase {
       let mut map3_clone = map3.clone();
       map3_clone.insert("bogus1".to_string(), "bogus2".to_string()); // This will not affect the original `map3`
 
-      assert_eq!(IndexInput::length(&input), input.get_file_pointer()?);
+      assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
     }
 
     Ok(())
@@ -1165,26 +1166,24 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new()
       .prefix("testCopyBytesWithThreads")
       .tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
-    let dir_new = Arc::new(self.get_directory(temp_dir.path().to_path_buf(), random)?);
+    let dir = Arc::new(self.get_directory(temp_dir.path().to_path_buf(), random)?);
     let io_context = IOContext::default_io_context()?;
-    let header_len = 3;
+    let header_len = 100;
     let data_len = random.random_range(header_len + 1..10000);
     let mut data = vec![0u8; data_len];
     random.fill_bytes(&mut data);
     let data_clone = data.clone();
 
-    {
-      let mut output = dir.create_output("data", &io_context)?;
-      output.write_bytes_with_len(&data, data_len)?;
-    }
+    let mut output = dir.create_output("data", &io_context)?;
+    output.write_bytes_with_len(&data, data_len)?;
+    output.close()?;
 
     let mut input = dir.open_input("data", &io_context)?;
 
-    {
-      let mut output_header = dir.create_output("header", &io_context)?;
-      output_header.copy_bytes(&mut input, header_len)?;
-    }
+    let mut output_header = dir.create_output("header", &io_context)?;
+    // Copy our header.
+    output_header.copy_bytes(&mut input, header_len)?;
+    output_header.close()?;
 
     let threads = 10;
     {
@@ -1192,31 +1191,32 @@ pub trait BaseDirectoryTestCase {
       let mut handles = vec![];
 
       for i in 0..threads {
-        let dir_clone = Arc::clone(&dir_new);
+        let dir_clone = Arc::clone(&dir);
         let mut src = input.try_clone()?;
         let barrier_clone = Arc::clone(&barrier);
         let io_context = IOContext::default_io_context()?;
-        let handle = thread::spawn(move || {
+        let handle = thread::spawn(move || -> Result<()> {
           barrier_clone.wait();
           let file_name = format!("copy{}", i);
-          let mut dst = dir_clone.create_output(&file_name, &io_context).unwrap();
-          let src_length = IndexInput::length(&src);
-          let _ = dst.copy_bytes(&mut src, src_length - header_len);
+          let mut dst = dir_clone.create_output(&file_name, &io_context)?;
+          let src_length = IndexInput::length(&src).expect("source length");
+          dst.copy_bytes(&mut src, src_length - header_len)?;
+          dst.close()?;
+          Ok(())
         });
         handles.push(handle);
       }
 
       for handle in handles {
-        handle.join().unwrap();
+        handle.join().unwrap()?;
       }
     }
 
-    let new_dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     for i in 0..threads {
       let io_context = IOContext::default_io_context()?;
       let file_name = format!("copy{}", i);
       let mut data_copy = vec![0u8; data_len];
-      let mut input_copy = new_dir.open_input(&file_name, &io_context)?;
+      let mut input_copy = dir.open_input(&file_name, &io_context)?;
 
       data_copy.copy_from(&data_clone[..header_len], 0);
 
@@ -1229,6 +1229,7 @@ pub trait BaseDirectoryTestCase {
 
       assert_eq!(data_clone, data_copy, "Data mismatch in copy{}", i);
     }
+    input.close()?;
 
     Ok(())
   }
@@ -1293,10 +1294,10 @@ pub trait BaseDirectoryTestCase {
     // Slice
     {
       let mut input = dir.open_input("longs", &io_context)?;
-      let length = IndexInput::length(&input);
+      let length = IndexInput::length(&input)?;
       {
         let mut slice = input.random_access_slice(0, length)?;
-        assert_eq!(length, RandomAccessInput::length(&slice));
+        assert_eq!(length, RandomAccessInput::length(&slice)?);
         for (i, &expected) in longs.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_long(&mut slice, i * 8)?);
         }
@@ -1306,7 +1307,7 @@ pub trait BaseDirectoryTestCase {
       for i in 1..longs.len() {
         let offset = i * 8;
         let mut subslice = input.random_access_slice(offset, length - offset)?;
-        assert_eq!(length - offset, RandomAccessInput::length(&subslice));
+        assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
         for (j, &expected) in longs.iter().skip(i).enumerate() {
           assert_eq!(
             expected,
@@ -1323,16 +1324,14 @@ pub trait BaseDirectoryTestCase {
           let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
           o.write_bytes_with_len(&junk, junk.len())?;
           input.seek(0)?;
-          let length = IndexInput::length(&input);
+          let length = IndexInput::length(&input)?;
           o.copy_bytes(&mut input, length)?;
         }
 
         let padded = dir.open_input(&name, &io_context)?;
-        let mut whole = padded.random_access_slice(i, IndexInput::length(&padded) - i)?;
-        assert_eq!(
-          IndexInput::length(&padded) - i,
-          RandomAccessInput::length(&whole)
-        );
+        let padded_length = IndexInput::length(&padded)?;
+        let mut whole = padded.random_access_slice(i, padded_length - i)?;
+        assert_eq!(padded_length - i, RandomAccessInput::length(&whole)?);
         for (j, &expected) in longs.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_long(&mut whole, j * 8)?);
         }
@@ -1362,10 +1361,10 @@ pub trait BaseDirectoryTestCase {
     // Slice
     {
       let mut input = dir.open_input("ints", &io_context)?;
-      let length = IndexInput::length(&input);
+      let length = IndexInput::length(&input)?;
       {
         let mut slice = input.random_access_slice(0, length)?;
-        assert_eq!(length, RandomAccessInput::length(&slice));
+        assert_eq!(length, RandomAccessInput::length(&slice)?);
         for (i, &expected) in ints.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_int(&mut slice, i * 4)?);
         }
@@ -1375,7 +1374,7 @@ pub trait BaseDirectoryTestCase {
       for i in 1..ints.len() {
         let offset = i * 4;
         let mut subslice = input.random_access_slice(offset, length - offset)?;
-        assert_eq!(length - offset, RandomAccessInput::length(&subslice));
+        assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
         for (j, &expected) in ints.iter().skip(i).enumerate() {
           assert_eq!(expected, RandomAccessInput::read_int(&mut subslice, j * 4)?);
         }
@@ -1389,16 +1388,14 @@ pub trait BaseDirectoryTestCase {
           let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
           o.write_bytes_with_len(&junk, junk.len())?;
           input.seek(0)?;
-          let length = IndexInput::length(&input);
+          let length = IndexInput::length(&input)?;
           o.copy_bytes(&mut input, length)?;
         }
 
         let padded = dir.open_input(&name, &io_context)?;
-        let mut whole = padded.random_access_slice(i, IndexInput::length(&padded) - i)?;
-        assert_eq!(
-          IndexInput::length(&padded) - i,
-          RandomAccessInput::length(&whole)
-        );
+        let padded_length = IndexInput::length(&padded)?;
+        let mut whole = padded.random_access_slice(i, padded_length - i)?;
+        assert_eq!(padded_length - i, RandomAccessInput::length(&whole)?);
         for (j, &expected) in ints.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_int(&mut whole, j * 4)?);
         }
@@ -1429,10 +1426,10 @@ pub trait BaseDirectoryTestCase {
     // Slice
     {
       let mut input = dir.open_input("shorts", &io_context)?;
-      let length = IndexInput::length(&input);
+      let length = IndexInput::length(&input)?;
       {
         let mut slice = input.random_access_slice(0, length)?;
-        assert_eq!(length, RandomAccessInput::length(&slice));
+        assert_eq!(length, RandomAccessInput::length(&slice)?);
         for (i, &expected) in shorts.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_short(&mut slice, i * 2)?);
         }
@@ -1442,7 +1439,7 @@ pub trait BaseDirectoryTestCase {
       for i in 1..shorts.len() {
         let offset = i * 2;
         let mut subslice = input.random_access_slice(offset, length - offset)?;
-        assert_eq!(length - offset, RandomAccessInput::length(&subslice));
+        assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
         for (j, &expected) in shorts.iter().skip(i).enumerate() {
           assert_eq!(
             expected,
@@ -1459,16 +1456,14 @@ pub trait BaseDirectoryTestCase {
           let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
           o.write_bytes_with_len(&junk, junk.len())?;
           input.seek(0)?;
-          let length = IndexInput::length(&input);
+          let length = IndexInput::length(&input)?;
           o.copy_bytes(&mut input, length)?;
         }
 
         let padded = dir.open_input(&name, &io_context)?;
-        let mut whole = padded.random_access_slice(i, IndexInput::length(&padded) - i)?;
-        assert_eq!(
-          IndexInput::length(&padded) - i,
-          RandomAccessInput::length(&whole)
-        );
+        let padded_length = IndexInput::length(&padded)?;
+        let mut whole = padded.random_access_slice(i, padded_length - i)?;
+        assert_eq!(padded_length - i, RandomAccessInput::length(&whole)?);
         for (j, &expected) in shorts.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_short(&mut whole, j * 2)?);
         }
@@ -1503,18 +1498,18 @@ pub trait BaseDirectoryTestCase {
     // Slice
 
     let mut input = dir.open_input("bytes", &io_context)?;
-    let length = IndexInput::length(&input);
+    let length = IndexInput::length(&input)?;
     {
       let mut slice = input.random_access_slice(0, length)?;
-      assert_eq!(length, RandomAccessInput::length(&slice));
+      assert_eq!(length, RandomAccessInput::length(&slice)?);
       Self::assert_bytes(&mut slice, &bytes, 0, random)?;
     }
 
     // Subslices
-    let length = IndexInput::length(&input);
+    let length = IndexInput::length(&input)?;
     for offset in 1..bytes.len() {
       let mut subslice = input.random_access_slice(offset, length - offset)?;
-      assert_eq!(length - offset, RandomAccessInput::length(&subslice));
+      assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
       Self::assert_bytes(&mut subslice, &bytes, offset, random)?;
     }
 
@@ -1526,15 +1521,15 @@ pub trait BaseDirectoryTestCase {
           let mut output = dir.create_output(&name, &io_context)?;
           let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
           output.write_bytes_with_len(&junk, junk.len())?;
-          let length = IndexInput::length(&input);
+          let length = IndexInput::length(&input)?;
           input.seek(0)?;
           output.copy_bytes(&mut input, length)?;
         }
 
         let padded = dir.open_input(&name, &io_context)?;
-        let length = IndexInput::length(&padded);
+        let length = IndexInput::length(&padded)?;
         let mut whole = padded.random_access_slice(i, length - i)?;
-        assert_eq!(length - i, RandomAccessInput::length(&whole));
+        assert_eq!(length - i, RandomAccessInput::length(&whole)?);
         Self::assert_bytes(&mut whole, &bytes, 0, random)?;
       }
     }
@@ -1601,20 +1596,22 @@ pub trait BaseDirectoryTestCase {
     let mut input = dir.open_input("bytes", &io_context)?;
 
     // Seek to a random spot to ensure it doesn't affect slicing
-    input.seek(TestUtil::next_usize(random, 0, IndexInput::length(&input)))?;
+    input.seek(TestUtil::next_usize(random, 0, IndexInput::length(&input)?))?;
 
     for i in (0..num).step_by(16) {
       let mut slice1 = input.slice("slice1", i, num - i)?;
       assert_eq!(0, slice1.get_file_pointer()?);
-      assert_eq!((num - i), IndexInput::length(&slice1));
+      let slice1_length = IndexInput::length(&slice1)?;
+      assert_eq!((num - i), slice1_length);
 
       // seek to a random spot shouldn't impact slicing.
-      slice1.seek(TestUtil::next_usize(random, 0, IndexInput::length(&slice1)))?;
+      slice1.seek(TestUtil::next_usize(random, 0, slice1_length))?;
 
-      for j in (0..IndexInput::length(&slice1)).step_by(16) {
+      for j in (0..slice1_length).step_by(16) {
         let mut slice2 = slice1.slice("slice2", j, (num - i) - j)?;
         assert_eq!(0, slice2.get_file_pointer()?);
-        assert_eq!((num - i) - j, IndexInput::length(&slice2));
+        let slice2_length = IndexInput::length(&slice2)?;
+        assert_eq!((num - i) - j, slice2_length);
 
         let mut data = vec![0u8; num];
         data.copy_from(&bytes[..i + j], 0);
@@ -1625,7 +1622,7 @@ pub trait BaseDirectoryTestCase {
         } else {
           // Seek to a random spot in between, read some, seek back,
           // and read the rest
-          let seek = TestUtil::next_usize(random, 0, IndexInput::length(&slice2));
+          let seek = TestUtil::next_usize(random, 0, slice2_length);
           slice2.seek(seek)?;
           DataInput::read_bytes(
             &mut slice2,
@@ -1989,10 +1986,9 @@ pub trait BaseDirectoryTestCase {
     let values_len = values.len();
     let limit = random.random_range(1..size);
     let io_context = IOContext::default_io_context()?;
-    {
-      let mut out = dir.create_output("test", &io_context)?;
-      write_group_vints_i64(&mut out, &mut values[..values_len], limit as i32)?;
-    }
+    let mut out = dir.create_output("test", &io_context)?;
+    write_group_vints_i64(&mut out, &mut values[..values_len], limit as i32)?;
+    out.close()?;
     {
       let mut input = dir.open_input("test", &io_context)?;
       GroupVIntUtil::read_group_vints_i64(&mut input, &mut restore, limit)?;
@@ -2002,13 +1998,8 @@ pub trait BaseDirectoryTestCase {
     }
 
     values[0] = (0xFFFFFFFF_u64 + 1) as i64;
-    {
-      let file_path = temp_dir.keep();
-      std::fs::remove_file(file_path.join("test"))?;
-      let mut out = dir.create_output("test", &io_context)?;
-      let result = write_group_vints_i64(&mut out, &mut values[..values_len], 4);
-      assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
-    }
+    let result = write_group_vints_i64(&mut out, &mut values[..values_len], 4);
+    assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
 
     Ok(())
   }
@@ -2134,15 +2125,16 @@ pub trait BaseDirectoryTestCase {
 
     // Read advice updated at start
     input.update_read_advice(read_advices[random.random_range(0..read_advices.len())])?;
+    let input_length = IndexInput::length(&input)?;
     for _ in 0..total_length {
-      let offset = TestUtil::next_usize(random, 0, IndexInput::length(&input) - 1);
+      let offset = TestUtil::next_usize(random, 0, input_length - 1);
       input.seek(offset)?;
       assert_eq!(arr[offset], DataInput::read_byte(&mut input)?);
     }
 
     // Updating readAdvice in the middle
     for _ in 0..10_000 {
-      let offset = TestUtil::next_usize(random, 0, IndexInput::length(&input) - 1);
+      let offset = TestUtil::next_usize(random, 0, input_length - 1);
       input.seek(offset)?;
       assert_eq!(arr[offset], DataInput::read_byte(&mut input)?);
       if random.random_bool(0.5) {
@@ -2179,10 +2171,11 @@ pub trait BaseDirectoryTestCase {
     };
 
     for _ in 0..10_000 {
-      let offset = random.random_range(0..(IndexInput::length(&input) - 1));
+      let input_length = IndexInput::length(&input)?;
+      let offset = random.random_range(0..(input_length - 1));
 
       if random.random_bool(0.5) {
-        let prefetch_length = random.random_range(1..=(IndexInput::length(&input) - offset));
+        let prefetch_length = random.random_range(1..=(input_length - offset));
         IndexInput::prefetch(&mut input, offset, prefetch_length)?;
       }
 
@@ -2195,7 +2188,7 @@ pub trait BaseDirectoryTestCase {
           assert_eq!(arr[start_offset + offset], read_byte);
         },
         1 => {
-          if (IndexInput::length(&input) - offset) >= 8 {
+          if (input_length - offset) >= 8 {
             let expected = i64::from_le_bytes(
               arr[start_offset + offset..start_offset + offset + 8]
                 .try_into()
@@ -2206,8 +2199,7 @@ pub trait BaseDirectoryTestCase {
           }
         },
         _ => {
-          let read_length =
-            random.random_range(1..=temp.len().min(IndexInput::length(&input) - offset));
+          let read_length = random.random_range(1..=temp.len().min(input_length - offset));
           DataInput::read_bytes(&mut input, &mut temp[..read_length], 0, read_length)?;
           assert_eq!(
             &arr[start_offset + offset..start_offset + offset + read_length],

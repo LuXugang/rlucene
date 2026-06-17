@@ -36,7 +36,6 @@ use crate::core::index::stored_fields_consumer::StoredFieldsConsumerBase;
 use crate::core::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::directory::Directory;
-use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, DataOutput, IOContext};
 use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;

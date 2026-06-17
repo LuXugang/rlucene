@@ -213,7 +213,7 @@ pub trait Directory: Display + Closeable + HasIdentity {
     let result = (|| -> Result<()> {
       let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
       let mut os = self.create_output(dest, context)?;
-      let length = IndexInput::length(&is);
+      let length = IndexInput::length(&is)?;
       os.copy_bytes(&mut is, length)?;
       Ok(())
     })();

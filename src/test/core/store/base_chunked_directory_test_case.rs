@@ -436,15 +436,15 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     }
 
     let mut input = dir.open_input("bytesCrossBoundary", &new_io_context(random)?)?;
-    let input_len = IndexInput::length(&input);
+    let input_len = IndexInput::length(&input)?;
     let mut slice = input.random_access_slice(0, input_len)?;
-    assert_eq!(input_len, RandomAccessInput::length(&slice));
+    assert_eq!(input_len, RandomAccessInput::length(&slice)?);
     Self::assert_bytes(&mut slice, &bytes, 0, random)?;
 
     // subslices
     for offset in 1..bytes.len() {
       let mut subslice = input.random_access_slice(offset, input_len - offset)?;
-      assert_eq!(input_len - offset, RandomAccessInput::length(&subslice));
+      assert_eq!(input_len - offset, RandomAccessInput::length(&subslice)?);
       Self::assert_bytes(&mut subslice, &bytes, offset, random)?;
     }
 
@@ -461,9 +461,9 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
         Closeable::close(&mut out)?;
       }
       let padded = dir.open_input(&name, &new_io_context(random)?)?;
-      let padded_len = IndexInput::length(&padded);
+      let padded_len = IndexInput::length(&padded)?;
       let mut whole = padded.random_access_slice(i, padded_len - i)?;
-      assert_eq!(padded_len - i, RandomAccessInput::length(&whole));
+      assert_eq!(padded_len - i, RandomAccessInput::length(&whole)?);
       Self::assert_bytes(&mut whole, &bytes, 0, random)?;
     }
 
@@ -486,7 +486,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     }
 
     let mut input = dir.open_input("littleEndianLongs", &new_io_context(random)?)?;
-    assert_eq!(25, IndexInput::length(&input));
+    assert_eq!(25, IndexInput::length(&input)?);
     assert_eq!(2_u8, DataInput::read_byte(&mut input)?);
     let mut l = vec![0_i64; 4];
     input.read_longs(&mut l, 1, 3)?;
@@ -510,7 +510,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     }
 
     let mut input = dir.open_input("Floats", &new_io_context(random)?)?;
-    assert_eq!(13, IndexInput::length(&input));
+    assert_eq!(13, IndexInput::length(&input)?);
     assert_eq!(2_u8, DataInput::read_byte(&mut input)?);
     let mut ff = vec![0.0_f32; 4];
     input.read_floats(&mut ff, 1, 3)?;

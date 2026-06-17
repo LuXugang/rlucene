@@ -23,7 +23,7 @@ use std::fmt::Display;
 /// `IndexInput`, it is only intended for use by a single thread.
 pub trait RandomAccessInput {
   /// The number of bytes in the file.
-  fn length(&self) -> usize;
+  fn length(&self) -> Result<usize>;
   /// Reads a byte at the given position in the file
   fn read_byte(&mut self, pos: usize) -> Result<u8>;
   /// Reads a specified number of bytes starting at a given position into an
@@ -64,7 +64,7 @@ impl<I> RandomAccessInput for RandomAccessInputWrapper<I>
 where
   I: IndexInput,
 {
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     self.slice.length()
   }
 
@@ -119,7 +119,7 @@ macro_rules! either_random_access_input {
         where
             $( $T: RandomAccessInput ),+
         {
-            fn length(&self) -> usize{
+            fn length(&self) -> Result<usize>{
                 match self {
                     $( Self::$Variant(inner) => inner.length(), )+
                 }
@@ -172,7 +172,7 @@ macro_rules! either_random_access_input {
 either_random_access_input!(pub RandomAccessInputEnum2 { A: A, B: B });
 either_random_access_input!(pub RandomAccessInputEnum3 { A: A, B: B, C: C });
 impl<T: ?Sized + RandomAccessInput> RandomAccessInput for Box<T> {
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     (**self).length()
   }
 

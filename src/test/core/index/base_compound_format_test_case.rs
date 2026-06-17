@@ -649,12 +649,12 @@ pub trait BaseCompoundFormatTestCase {
     let dir = new_directory_shared(random)?;
     let cr = create_large_cfs(random, dir.clone())?;
     let mut is = cr.open_input("_123.f2", &new_io_context(random)?)?;
-    is.seek(IndexInput::length(&is) - 10)?;
+    is.seek(IndexInput::length(&is)? - 10)?;
     let mut b = vec![0u8; 100];
     DataInput::read_bytes(&mut is, b.as_mut_slice(), 0, 10)?;
     let result = DataInput::read_byte(&mut is);
     assert!(matches!(result, Err(LuceneError::Eof(_))));
-    is.seek(IndexInput::length(&is) - 10)?;
+    is.seek(IndexInput::length(&is)? - 10)?;
     let result = DataInput::read_bytes(&mut is, &mut b, 0, 50);
     assert!(matches!(result, Err(LuceneError::Eof(_))));
     Ok(())
@@ -854,7 +854,7 @@ fn assert_same_streams(
   expected: &mut impl IndexInput,
   test: &mut impl IndexInput,
 ) -> Result<()> {
-  assert_eq!(expected.length(), test.length(), "{} length", msg);
+  assert_eq!(expected.length()?, test.length()?, "{} length", msg);
   assert_eq!(
     expected.get_file_pointer()?,
     test.get_file_pointer()?,
@@ -863,10 +863,10 @@ fn assert_same_streams(
   );
 
   let mut expected_buffer = vec![0u8; 512];
-  let expected_len = expected.length();
+  let expected_len = expected.length()?;
   let mut test_buffer = vec![0u8; expected_len];
 
-  let mut remainder = expected.length() - expected.get_file_pointer()?;
+  let mut remainder = expected.length()? - expected.get_file_pointer()?;
   while remainder > 0 {
     let read_len = remainder.min(expected_buffer.len()) as usize;
     expected.read_bytes(&mut expected_buffer[..read_len], 0, read_len)?;
@@ -882,7 +882,7 @@ fn assert_same_streams_seek_with_seek(
   actual: &mut impl IndexInput,
   seek_to: usize,
 ) -> Result<()> {
-  if seek_to < expected.length() {
+  if seek_to < expected.length()? {
     expected.seek(seek_to)?;
     actual.seek(seek_to)?;
     assert_same_streams(msg, expected, actual)?;
@@ -899,24 +899,26 @@ fn assert_same_seek_behavior(
   let point = 0;
   assert_same_streams_seek_with_seek(msg, expected, actual, point)?;
 
+  let length = expected.length()?;
+
   // Seek to middle
-  let point = expected.length() / 2;
+  let point = length / 2;
   assert_same_streams_seek_with_seek(msg, expected, actual, point)?;
 
   // Seek to end - 2
-  let point = expected.length() - 2;
+  let point = length - 2;
   assert_same_streams_seek_with_seek(msg, expected, actual, point)?;
 
   // Seek to end - 1
-  let point = expected.length() - 1;
+  let point = length - 1;
   assert_same_streams_seek_with_seek(msg, expected, actual, point)?;
 
   // Seek to the end
-  let point = expected.length();
+  let point = length;
   assert_same_streams_seek_with_seek(msg, expected, actual, point)?;
 
   // Seek past the end
-  let point = expected.length() + 1;
+  let point = length + 1;
   assert_same_streams_seek_with_seek(msg, expected, actual, point)?;
 
   Ok(())

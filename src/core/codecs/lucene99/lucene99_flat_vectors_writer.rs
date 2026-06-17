@@ -452,7 +452,7 @@ where
         let mut vector_data_input = segment_write_state
           .directory
           .open_input(&temp_vector_name, &random_context)?;
-        let copy_len = vector_data_input.length() - CodecUtil::footer_length();
+        let copy_len = vector_data_input.length()? - CodecUtil::footer_length();
         self
           .vector_data
           .copy_bytes(&mut vector_data_input, copy_len)?;

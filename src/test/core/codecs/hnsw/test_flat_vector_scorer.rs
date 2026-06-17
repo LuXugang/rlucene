@@ -227,7 +227,7 @@ fn byte_vector_values(
   Ok(DenseOffHeapByteVectorValues::new(
     dims,
     size,
-    input.slice("byte_values", 0, input.length())?,
+    input.slice("byte_values", 0, input.length()?)?,
     dims,
     scorer,
     similarity_function,
@@ -244,7 +244,7 @@ fn float_vector_values(
   DenseOffHeapFloatVectorValues::new(
     dims,
     size,
-    input.slice("float_values", 0, input.length())?,
+    input.slice("float_values", 0, input.length()?)?,
     dims * BitUtil::FLOAT_BYTES,
     scorer,
     similarity_function,

@@ -655,8 +655,8 @@ impl IndexInput for MemorySegmentIndexInput {
     Ok(())
   }
 
-  fn length(&self) -> usize {
-    self.length
+  fn length(&self) -> Result<usize> {
+    Ok(self.length)
   }
 
   fn slice(
@@ -719,8 +719,8 @@ impl IndexInput for MemorySegmentIndexInput {
 }
 
 impl RandomAccessInput for MemorySegmentIndexInput {
-  fn length(&self) -> usize {
-    self.length
+  fn length(&self) -> Result<usize> {
+    Ok(self.length)
   }
 
   fn read_byte(&mut self, pos: usize) -> Result<u8> {

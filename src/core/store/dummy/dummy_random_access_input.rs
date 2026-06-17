@@ -19,7 +19,7 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyRandomAccessInput;
 impl RandomAccessInput for DummyRandomAccessInput {
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     dummy_unreachable!()
   }
 

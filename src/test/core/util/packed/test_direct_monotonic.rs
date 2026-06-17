@@ -196,7 +196,7 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
     let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
     let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
     let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
-    assert_eq!(meta_in.length(), meta_in.get_file_pointer()?);
+    assert_eq!(meta_in.length()?, meta_in.get_file_pointer()?);
     meta_in.seek(0)?;
     let slice = data_in.random_access_slice(0, data_length)?;
     let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;

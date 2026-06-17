@@ -32,7 +32,6 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::{fs, io};
-use std::ops::Index;
 
 /// Base trait for `Directory` implementations that store index files in the
 /// file system. There are currently two core implementations:
@@ -461,7 +460,11 @@ where
     Ok(())
   }
 }
-impl<D, T> Drop for FSDirectory<D, T> where D: LockFactory, T: FSDirectoryBase {
+impl<D, T> Drop for FSDirectory<D, T>
+where
+  D: LockFactory,
+  T: FSDirectoryBase,
+{
   fn drop(&mut self) {
     let _ = self.close();
   }

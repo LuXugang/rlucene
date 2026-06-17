@@ -159,7 +159,7 @@ where
     ChecksumIndexInput::seek(self, pos)
   }
 
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     IndexInput::length(&self.base)
   }
 

@@ -23,7 +23,7 @@ use crate::core::store::byte_buffers_data_input::{
 };
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// An [`IndexInput`] implementing [`RandomAccessInput`]
 /// and backed by a [`ByteBuffersDataInput`].
@@ -31,8 +31,9 @@ pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<&'a [u8]>;
 pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
 
 pub struct ByteBuffersIndexInput<B: ByteBuffersDataInputBlock> {
-  data_input: ByteBuffersDataInput<B>,
+  in_: ByteBuffersDataInput<B>,
   resource_description: String,
+  closed: bool,
 }
 impl<B> ByteBuffersIndexInput<B>
 where
@@ -40,15 +41,29 @@ where
 {
   pub fn new(data_input: ByteBuffersDataInput<B>, resource_description: &str) -> Self {
     Self {
-      data_input,
+      in_: data_input,
       resource_description: resource_description.to_string(),
+      closed: false,
+    }
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    if self.closed {
+      Err(LuceneError::already_closed("Already closed."))
+    } else {
+      Ok(())
     }
   }
 }
 
-impl<B> crate::core::util::close::Closeable for ByteBuffersIndexInput<B> where
-  B: ByteBuffersDataInputBlock
+impl<B> crate::core::util::close::Closeable for ByteBuffersIndexInput<B>
+where
+  B: ByteBuffersDataInputBlock,
 {
+  fn close(&mut self) -> Result<()> {
+    self.closed = true;
+    Ok(())
+  }
 }
 
 impl<B> DataInput for ByteBuffersIndexInput<B>
@@ -56,11 +71,13 @@ where
   B: ByteBuffersDataInputBlock + Clone,
 {
   fn read_byte(&mut self) -> Result<u8> {
-    DataInput::read_byte(&mut self.data_input)
+    self.ensure_open()?;
+    DataInput::read_byte(&mut self.in_)
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    DataInput::read_bytes(&mut self.data_input, b, offset, len)
+    self.ensure_open()?;
+    DataInput::read_bytes(&mut self.in_, b, offset, len)
   }
 
   fn read_bytes_with_buffer(
@@ -70,65 +87,78 @@ where
     len: usize,
     _use_buffer: bool,
   ) -> Result<()> {
-    self
-      .data_input
-      .read_bytes_with_buffer(b, offset, len, false)
+    self.ensure_open()?;
+    self.in_.read_bytes_with_buffer(b, offset, len, false)
   }
 
   fn read_short(&mut self) -> Result<i16> {
-    DataInput::read_short(&mut self.data_input)
+    self.ensure_open()?;
+    DataInput::read_short(&mut self.in_)
   }
 
   fn read_int(&mut self) -> Result<i32> {
-    DataInput::read_int(&mut self.data_input)
+    self.ensure_open()?;
+    DataInput::read_int(&mut self.in_)
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-    self.data_input.read_group_vint(dst, offset)
+    self.ensure_open()?;
+    self.in_.read_group_vint(dst, offset)
   }
 
   fn read_vint(&mut self) -> Result<i32> {
-    DataInput::read_vint(&mut self.data_input)
+    self.ensure_open()?;
+    DataInput::read_vint(&mut self.in_)
   }
 
   fn read_zint(&mut self) -> Result<i32> {
-    DataInput::read_zint(&mut self.data_input)
+    self.ensure_open()?;
+    DataInput::read_zint(&mut self.in_)
   }
 
   fn read_long(&mut self) -> Result<i64> {
-    DataInput::read_long(&mut self.data_input)
+    self.ensure_open()?;
+    DataInput::read_long(&mut self.in_)
   }
 
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
-    self.data_input.read_longs(dst, offset, len)
+    self.ensure_open()?;
+    self.in_.read_longs(dst, offset, len)
   }
 
   fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
-    self.data_input.read_floats(dst, offset, len)
+    self.ensure_open()?;
+    self.in_.read_floats(dst, offset, len)
   }
 
   fn read_vlong(&mut self) -> Result<i64> {
-    self.data_input.read_vlong()
+    self.ensure_open()?;
+    self.in_.read_vlong()
   }
 
   fn read_zlong(&mut self) -> Result<i64> {
-    self.data_input.read_zlong()
+    self.ensure_open()?;
+    self.in_.read_zlong()
   }
 
   fn read_string(&mut self) -> Result<String> {
-    self.data_input.read_string()
+    self.ensure_open()?;
+    self.in_.read_string()
   }
 
   fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
-    self.data_input.read_map_of_strings()
+    self.ensure_open()?;
+    self.in_.read_map_of_strings()
   }
 
   fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
-    self.data_input.read_set_of_strings()
+    self.ensure_open()?;
+    self.in_.read_set_of_strings()
   }
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-    DataInput::skip_bytes(&mut self.data_input, num_bytes)
+    self.ensure_open()?;
+    DataInput::skip_bytes(&mut self.in_, num_bytes)
   }
 
   fn is_index_input(&self) -> bool {
@@ -149,27 +179,38 @@ impl<B> RandomAccessInput for ByteBuffersIndexInput<B>
 where
   B: ByteBuffersDataInputBlock,
 {
-  fn length(&self) -> usize {
-    RandomAccessInput::length(&self.data_input)
+  fn length(&self) -> Result<usize> {
+    self.ensure_open()?;
+    RandomAccessInput::length(&self.in_)
   }
 
   fn read_byte(&mut self, pos: usize) -> Result<u8> {
-    RandomAccessInput::read_byte(&mut self.data_input, pos)
+    self.ensure_open()?;
+    RandomAccessInput::read_byte(&mut self.in_, pos)
+  }
+
+  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
+    RandomAccessInput::read_bytes(&mut self.in_, pos, buf, offset, len)
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {
-    RandomAccessInput::read_short(&mut self.data_input, pos)
+    self.ensure_open()?;
+    RandomAccessInput::read_short(&mut self.in_, pos)
   }
 
   fn read_int(&mut self, pos: usize) -> Result<i32> {
-    RandomAccessInput::read_int(&mut self.data_input, pos)
+    self.ensure_open()?;
+    RandomAccessInput::read_int(&mut self.in_, pos)
   }
 
   fn read_long(&mut self, pos: usize) -> Result<i64> {
-    RandomAccessInput::read_long(&mut self.data_input, pos)
+    self.ensure_open()?;
+    RandomAccessInput::read_long(&mut self.in_, pos)
   }
 
   fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+    self.ensure_open()?;
     Ok(())
   }
 }
@@ -191,11 +232,11 @@ where
   where
     Self: Sized,
   {
-    let slice = self.data_input.slice(0, self.data_input.length())?;
-    Ok(ByteBuffersIndexInput::new(
-      slice,
-      format!("(clone of) {self}").as_str(),
-    ))
+    self.ensure_open()?;
+    let slice = self.in_.slice(0, self.in_.length())?;
+    let mut cloned = ByteBuffersIndexInput::new(slice, format!("(clone of) {self}").as_str());
+    cloned.seek(self.get_file_pointer()?)?;
+    Ok(cloned)
   }
 }
 
@@ -206,15 +247,18 @@ where
   type IndexInput = ByteBuffersIndexInput<B>;
 
   fn get_file_pointer(&self) -> Result<usize> {
-    self.data_input.position()
+    self.ensure_open()?;
+    self.in_.position()
   }
 
   fn seek(&mut self, pos: usize) -> Result<()> {
-    self.data_input.seek(pos)
+    self.ensure_open()?;
+    self.in_.seek(pos)
   }
 
-  fn length(&self) -> usize {
-    self.data_input.length()
+  fn length(&self) -> Result<usize> {
+    self.ensure_open()?;
+    Ok(self.in_.length())
   }
 
   fn slice(
@@ -223,8 +267,9 @@ where
     offset: usize,
     length: usize,
   ) -> Result<Self::IndexInput> {
+    self.ensure_open()?;
     Ok(ByteBuffersIndexInput::new(
-      self.data_input.slice(offset, length)?,
+      self.in_.slice(offset, length)?,
       slice_description,
     ))
   }
@@ -232,6 +277,7 @@ where
   type RandomAccessSlice = ByteBuffersIndexInput<B>;
 
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    self.ensure_open()?;
     self.slice("", offset, length)
   }
 }

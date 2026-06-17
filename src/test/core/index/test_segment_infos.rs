@@ -444,7 +444,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
           let mut input = directory.open_input(&file, &io_context)?;
           let mut output = corrupt_dir.create_output(&file, &io_context)?;
 
-          let mut input_length = IndexInput::length(&input);
+          let mut input_length = IndexInput::length(&input)?;
           let corrupt_index = TestUtil::next_usize(&mut random, 0, input_length - 1);
           output.copy_bytes(&mut input, corrupt_index)?;
 
@@ -452,7 +452,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
           let value = random.random_range(0x01..=0xff);
           let corrupt_byte = byte.wrapping_add(value);
           output.write_byte(corrupt_byte)?;
-          input_length = IndexInput::length(&input);
+          input_length = IndexInput::length(&input)?;
           let file_pointer = input.get_file_pointer()?;
           output.copy_bytes(&mut input, input_length - file_pointer)?;
         }

@@ -492,7 +492,7 @@ where
           .random_access_slice(entry.values_offset, entry.values_length)?;
         // Prefetch the first page of data. Following pages are expected
         // to get prefetched through read-ahead.
-        if slice.length() > 0 {
+        if slice.length()? > 0 {
           slice.prefetch(0, 1)?
         }
         if entry.block_shift >= 0 {
@@ -551,7 +551,7 @@ where
           .random_access_slice(entry.values_offset, entry.values_length)?;
         // Prefetch the first page of data. Following pages are expected
         // to get prefetched through read-ahead.
-        if slice.length() > 0 {
+        if slice.length()? > 0 {
           slice.prefetch(0, 1)?
         }
         if entry.block_shift >= 0 {
@@ -612,7 +612,7 @@ where
       let mut slice = self
         .data
         .random_access_slice(entry.values_offset, entry.values_length)?;
-      if slice.length() > 0 {
+      if slice.length()? > 0 {
         slice.prefetch(0, 1)?
       }
       if entry.block_shift >= 0 {
@@ -672,7 +672,7 @@ where
       let mut slice = self
         .data
         .random_access_slice(ords_entry.values_offset, ords_entry.values_length)?;
-      if slice.length() > 0 {
+      if slice.length()? > 0 {
         slice.prefetch(0, 1)?;
       }
 
@@ -727,7 +727,7 @@ where
       .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
     // Prefetch the first page of data. Following pages are expected to get
     // prefetched through read-ahead.
-    if addresses_input.length() > 0 {
+    if addresses_input.length()? > 0 {
       addresses_input.prefetch(0, 1)?;
     }
 
@@ -794,7 +794,7 @@ where
       .random_access_slice(entry.data_offset, entry.data_length)?;
     // Prefetch the first page of data. Following pages are expected
     // to get prefetched through read-ahead.
-    if bytes_slice.length() > 0 {
+    if bytes_slice.length()? > 0 {
       bytes_slice.prefetch(0, 1)?;
     }
     if entry.docs_with_field_offset == -1 {
@@ -814,7 +814,7 @@ where
         // Prefetch the first page of data. Following pages are
         // expected to get prefetched through
         // read-ahead.
-        if addresses_data.length() > 0 {
+        if addresses_data.length()? > 0 {
           addresses_data.prefetch(0, 1)?;
         }
         let Some(ref meta) = entry.addresses_meta else {
@@ -856,7 +856,7 @@ where
         let mut addresses_data = self
           .data
           .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
-        if addresses_data.length() > 0 {
+        if addresses_data.length()? > 0 {
           addresses_data.prefetch(0, 1)?;
         }
         let Some(ref meta) = entry.addresses_meta else {
@@ -933,7 +933,7 @@ where
       let mut addresses_input = self
         .data
         .random_access_slice(ords_entry.addresses_offset, ords_entry.addresses_length)?;
-      if addresses_input.length() > 0 {
+      if addresses_input.length()? > 0 {
         addresses_input.prefetch(0, 1)?;
       }
       let Some(ref meta) = ords_entry.addresses_meta else {
@@ -945,7 +945,7 @@ where
       let mut slice = self
         .data
         .random_access_slice(ords_entry.base.values_offset, ords_entry.base.values_length)?;
-      if slice.length() > 0 {
+      if slice.length()? > 0 {
         slice.prefetch(0, 1)?;
       }
       let values = DirectReader::get_instance(slice, ords_entry.base.bits_per_value as i32)?;
@@ -1004,7 +1004,7 @@ where
       entry.length as usize,
     )?;
 
-    if input.length() > 0 {
+    if input.length()? > 0 {
       input.prefetch(0, 1)?;
     }
     Ok(Some(DocValuesSkipperImpl::new(input, entry.clone())))
@@ -1406,9 +1406,9 @@ where
     } else {
       let mut slice = data.random_access_slice(
         entry.value_jump_table_offset as usize,
-        data.length() - entry.value_jump_table_offset as usize,
+        data.length()? - entry.value_jump_table_offset as usize,
       )?;
-      if slice.length() > 0 {
+      if slice.length()? > 0 {
         slice.prefetch(0, 1)?;
       }
       Some(slice)

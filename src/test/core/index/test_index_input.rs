@@ -130,7 +130,7 @@ where
   I: IndexInput,
   R: Rng + ?Sized,
 {
-  let len = input.length();
+  let len = input.length()?;
 
   let iterations = if is_night_mode() { 1_000 } else { 10 };
 
@@ -316,8 +316,8 @@ impl IndexInput for InterceptingIndexInput {
     Ok(())
   }
 
-  fn length(&self) -> usize {
-    self.len
+  fn length(&self) -> Result<usize> {
+    Ok(self.len)
   }
 
   type RandomAccessSlice = DummyIndexInput;

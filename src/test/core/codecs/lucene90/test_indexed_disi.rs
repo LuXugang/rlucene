@@ -197,7 +197,7 @@ where
   R: Rng + ?Sized,
 {
   let mut block_data = create_block_slice(full_input, "blocks", 0, length, jump_table_entry_count)?;
-  block_data.seek(random.random_range(0..block_data.length()))?;
+  block_data.seek(random.random_range(0..block_data.length()?))?;
   let jump_table = create_jump_table(full_input, 0, length, jump_table_entry_count)?;
   let mut disi: IndexedDISI<I, Owned> = IndexedDISI::from_components(
     block_data,

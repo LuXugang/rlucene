@@ -118,7 +118,7 @@ impl Lucene90CompoundFormat {
       CodecUtil::verify_and_copy_index_header(&mut file_input, data, si.get_id())?;
       // copy all bytes except the footer
       let num_bytes_to_copy =
-        file_input.length() - CodecUtil::footer_length() - file_input.get_file_pointer()?;
+        file_input.length()? - CodecUtil::footer_length() - file_input.get_file_pointer()?;
       data.copy_bytes(&mut file_input, num_bytes_to_copy)?;
       // verify footer (checksum) matches for the incoming file we are
       // copying

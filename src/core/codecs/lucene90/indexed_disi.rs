@@ -204,7 +204,7 @@ where
     }
 
     block_slice.with_mut(|index_input| {
-      if index_input.length() > 0 {
+      if index_input.length()? > 0 {
         index_input.prefetch(0, 1)?;
       }
       Ok::<(), LuceneError>(())
@@ -212,7 +212,7 @@ where
 
     if let Some(jump_table_rc) = &mut jump_table {
       jump_table_rc.with_mut(|jump_table| {
-        if jump_table.length() > 0 {
+        if jump_table.length()? > 0 {
           jump_table.prefetch(0, 1)?;
         }
         Ok::<(), LuceneError>(())

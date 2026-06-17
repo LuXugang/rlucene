@@ -205,6 +205,10 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
       ))
     })
   }
+
+  pub fn length(&self) -> usize {
+    self.length
+  }
 }
 impl<B> ByteBuffersDataInput<B>
 where
@@ -355,13 +359,13 @@ where
 
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
     self.do_read_longs(self.pos, len, &mut dst[offset..(offset + len)])?;
-    self.pos += len;
+    self.pos += len * BitUtil::LONG_BYTES;
     Ok(())
   }
 
   fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
     self.do_read_floats(self.pos, len, &mut dst[offset..(offset + len)])?;
-    self.pos += len;
+    self.pos += len * BitUtil::FLOAT_BYTES;
     Ok(())
   }
 
@@ -383,8 +387,8 @@ impl<B> RandomAccessInput for ByteBuffersDataInput<B>
 where
   B: ByteBuffersDataInputBlock,
 {
-  fn length(&self) -> usize {
-    self.length
+  fn length(&self) -> Result<usize> {
+    Ok(self.length)
   }
 
   fn read_byte(&mut self, pos: usize) -> Result<u8> {

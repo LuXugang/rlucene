@@ -180,11 +180,12 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
   pub fn init(&mut self, skip_pointer: usize, df: i32) -> Result<()> {
     self.skip_pointer[0] = skip_pointer;
     self.doc_count = df;
+    let skip_stream_length = self.skip_stream[0].as_ref().unwrap().length()?;
     debug_assert!(
-      skip_pointer <= self.skip_stream[0].as_ref().unwrap().length(),
+      skip_pointer <= skip_stream_length,
       "invalid skip pointer: {}, length={}",
       skip_pointer,
-      self.skip_stream[0].as_ref().unwrap().length()
+      skip_stream_length
     );
     self.skip_doc.fill(0);
     self.num_skipped.fill(0);

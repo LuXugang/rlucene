@@ -72,7 +72,7 @@ fn test_data_input_output() -> Result<()> {
     let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let mut clone_input = input.try_clone()?;
 
-    let len = input.length() as usize;
+    let len = input.length()?;
     paged_bytes.copy_with_input(&mut input, len)?;
     let reader = paged_bytes.freeze(random.random_bool(0.5))?;
 

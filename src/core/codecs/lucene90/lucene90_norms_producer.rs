@@ -241,7 +241,7 @@ where
       .random_access_slice(entry.norms_offset.try_convert()?, length)?;
     // Prefetch the first page of data. Following pages are expected to get
     // prefetched through read-ahead.
-    if slice.length() > 0 {
+    if slice.length()? > 0 {
       slice.prefetch(0, 1)?;
     }
 
@@ -446,7 +446,7 @@ where
     Ok(())
   }
 
-  fn length(&self) -> usize {
+  fn length(&self) -> Result<usize> {
     self.inf.lock().length()
   }
 

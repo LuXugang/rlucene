@@ -325,11 +325,11 @@ impl CodecUtil {
     data_out: &mut impl DataOutput,
     expected_id: &[u8; StringHelper::ID_LENGTH],
   ) -> Result<()> {
-    if data_in.length() < (Self::footer_length() + Self::header_length("")) {
+    let length = data_in.length()?;
+    if length < (Self::footer_length() + Self::header_length("")) {
       return Err(LuceneError::corrupt_index(format!(
         "compound sub-files must have a valid codec header and footer: file is too small ({} bytes): (resource={})",
-        data_in.length(),
-        data_in
+        length, data_in
       )));
     }
     let actual_header = Self::read_be_int(data_in)?;
@@ -387,18 +387,19 @@ impl CodecUtil {
   /// # Errors
   /// - `CorruptIndexError`: If the file does not have a valid footer.
   pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
-    if data_input.length() < Self::footer_length() {
+    let length = data_input.length()?;
+    if length < Self::footer_length() {
       return Err(LuceneError::corrupt_index(format!(
         "misplaced codec footer (file truncated?): length={} but footerLength=={} (resource={})",
-        data_input.length(),
+        length,
         Self::footer_length(),
         data_input
       )));
     }
     let footer_len = Self::footer_length();
-    data_input.seek(data_input.length() - footer_len)?;
+    data_input.seek(length - footer_len)?;
     Self::validate_footer(data_input)?;
-    data_input.seek(data_input.length() - footer_len)?;
+    data_input.seek(length - footer_len)?;
     let mut bytes: Vec<u8> = vec![0u8; Self::footer_length()];
     data_input.read_bytes(&mut bytes, 0, Self::footer_length())?;
     Ok(bytes)
@@ -528,7 +529,7 @@ impl CodecUtil {
       // the main error and the prior error gets suppressed.
       // Otherwise, we return the prior error with a suppressed
       // error that notifies the user that checksums matched.
-      let remaining = checksum_in.length() - checksum_in.get_file_pointer()?;
+      let remaining = checksum_in.length()? - checksum_in.get_file_pointer()?;
       if remaining < Self::footer_length() {
         // corruption caused us to read into the checksum footer already: we
         // can't proceed
@@ -579,15 +580,16 @@ impl CodecUtil {
   /// # Errors
   /// - `IoError`: If the footer is invalid.
   pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64> {
-    if input.length() < Self::footer_length() {
+    let length = input.length()?;
+    if length < Self::footer_length() {
       return Err(LuceneError::corrupt_index(format!(
         "misplaced codec footer (file truncated?): length={} but footerLength=={} (resource={})",
-        input.length(),
+        length,
         Self::footer_length(),
         input
       )));
     }
-    input.seek(input.length() - Self::footer_length())?;
+    input.seek(length - Self::footer_length())?;
     Self::validate_footer(input)?;
     Self::read_crc(input)
   }
@@ -609,21 +611,18 @@ impl CodecUtil {
         "expectedLength cannot be less than the footer length".to_string(),
       ));
     }
-    match input.length().cmp(&expected_length) {
+    let length = input.length()?;
+    match length.cmp(&expected_length) {
       Ordering::Less => {
         return Err(LuceneError::corrupt_index(format!(
           "truncated file: length={} but expected_length={} (resource={})",
-          input.length(),
-          expected_length,
-          input
+          length, expected_length, input
         )));
       },
       Ordering::Greater => {
         return Err(LuceneError::corrupt_index(format!(
           "file too long: length={} but expected_length={} (resource={})",
-          input.length(),
-          expected_length,
-          input
+          length, expected_length, input
         )));
       },
       Ordering::Equal => {},
@@ -632,7 +631,7 @@ impl CodecUtil {
   }
 
   fn validate_footer(input: &mut impl IndexInput) -> Result<()> {
-    let remaining = input.length() - input.get_file_pointer()?;
+    let remaining = input.length()? - input.get_file_pointer()?;
     let expected = Self::footer_length();
     match remaining.cmp(&(expected)) {
       Ordering::Less => {
@@ -685,15 +684,15 @@ impl CodecUtil {
     clone.seek(0)?;
     let mut checksum_in = BufferedChecksumIndexInput::new(clone);
     debug_assert_eq!(checksum_in.get_file_pointer()?, 0);
-    if checksum_in.length() < Self::footer_length() {
+    let checksum_len = checksum_in.length()?;
+    if checksum_len < Self::footer_length() {
       return Err(LuceneError::corrupt_index(format!(
         "misplaced codec footer (file truncated?): length={} but footerLength=={} (resource={})",
-        checksum_in.length(),
+        checksum_len,
         Self::footer_length(),
         input
       )));
     }
-    let checksum_len = checksum_in.length();
     let v = checksum_len
       .checked_sub(Self::footer_length())
       .ok_or_else(|| {

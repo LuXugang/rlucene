@@ -246,7 +246,7 @@ fn test_write_very_long_suffix() -> Result<()> {
   let mut input = ByteBuffersIndexInput::new(output.delegate_mut()?.get_data_input_ref()?, "temp");
   CodecUtil::check_index_header(&mut input, "foobar", 5, 5, &id, &just_long_enough)?;
 
-  assert_eq!(input.get_file_pointer()?, input.length());
+  assert_eq!(input.get_file_pointer()?, input.length()?);
   assert_eq!(
     input.get_file_pointer()?,
     CodecUtil::index_header_length("foobar", &just_long_enough)

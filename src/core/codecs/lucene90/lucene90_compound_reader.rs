@@ -96,7 +96,7 @@ where
     let _ = CodecUtil::retrieve_checksum(&mut handle)?;
     // We also validate length, because e.g. if you strip 16 bytes off the
     // .cfs we otherwise would not detect it:
-    let length = IndexInput::length(&handle);
+    let length = IndexInput::length(&handle)?;
     if length != expected_length {
       return Err(LuceneError::corrupt_index(format!(
         "length should be {expected_length} bytes, but is {length} instead (resource={handle})"

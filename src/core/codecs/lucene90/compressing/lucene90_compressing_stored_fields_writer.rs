@@ -40,7 +40,6 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{
   ByteBuffersDataOutput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
 };

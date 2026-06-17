@@ -34,6 +34,7 @@ where
 {
   os: XBufferedOutputStream<W>,
   bytes_written: usize,
+  flushed_on_close: bool,
   name: String,
   resource_description: String,
 }
@@ -67,6 +68,7 @@ where
     Ok(Self {
       os,
       bytes_written: 0,
+      flushed_on_close: false,
       name: name.to_string(),
       resource_description: resource_description.to_string(),
     })
@@ -113,7 +115,18 @@ where
   }
 }
 
-impl<W: Write> Closeable for OutputStreamIndexOutput<W> where W: Write {}
+impl<W: Write> Closeable for OutputStreamIndexOutput<W>
+where
+  W: Write,
+{
+  fn close(&mut self) -> Result<()> {
+    if !self.flushed_on_close {
+      self.flushed_on_close = true;
+      self.os.flush()?;
+    }
+    Ok(())
+  }
+}
 
 impl<W: Write> IndexOutput for OutputStreamIndexOutput<W>
 where
@@ -150,6 +163,11 @@ impl<W: Write> XBufferedOutputStream<W> {
 
   pub fn checksum(&self) -> u32 {
     self.checksum
+  }
+
+  pub fn flush(&mut self) -> Result<()> {
+    self.inner.flush()?;
+    Ok(())
   }
 
   //TODO IMPORTANT : If frequent checksum calculations become a bottleneck, we might

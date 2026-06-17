@@ -319,10 +319,8 @@ where
     IndexInput::skip_bytes(&mut self.in_, num_bytes)
   }
 
-  fn length(&self) -> usize {
-    self
-      .ensure_open()
-      .expect("Abusing closed MockIndexInputWrapper");
+  fn length(&self) -> Result<usize> {
+    self.ensure_open()?;
     self.in_.length()
   }
 
