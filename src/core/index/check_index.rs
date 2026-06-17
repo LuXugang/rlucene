@@ -14,10 +14,78 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::composite_reader::get_context;
+use crate::core::index::directory_reader;
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::point_values::PointValues;
+use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::io::Write;
+use std::sync::Arc;
 
 pub struct CheckIndex;
+
+#[derive(Clone, Debug, Default)]
+pub struct Status {
+  pub segment_infos: Vec<SegmentInfoStatus>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct SegmentInfoStatus {
+  pub points_status: PointsStatus,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct PointsStatus {
+  pub total_value_points: usize,
+  pub total_value_fields: usize,
+}
+
+impl CheckIndex {
+  pub fn check_index<D, W>(
+    directory: Arc<D>,
+    level: i32,
+    _cross_check_term_vectors: bool,
+    _fail_fast: bool,
+    output: &mut W,
+  ) -> Result<Status>
+  where
+    D: Directory,
+    W: Write,
+  {
+    Level::check_if_level_in_bounds(level)?;
+
+    let reader = directory_reader::open(directory)?;
+    let context = get_context(&reader)?;
+    let mut status = Status::default();
+
+    for leaf in context.leaves()? {
+      let reader = leaf.reader();
+      let field_infos = reader.get_field_infos()?;
+      let mut segment_status = SegmentInfoStatus::default();
+
+      if field_infos.has_point_values() {
+        writeln!(output, "test: points...")?;
+      }
+
+      for field_info in field_infos.iter() {
+        if field_info.get_point_dimension_count() == 0 {
+          continue;
+        }
+        if let Some(points) = reader.get_point_values(&field_info.name)? {
+          segment_status.points_status.total_value_points += points.size()?;
+          segment_status.points_status.total_value_fields += 1;
+        }
+      }
+
+      status.segment_infos.push(segment_status);
+    }
+
+    Ok(status)
+  }
+}
 
 pub struct Level;
 

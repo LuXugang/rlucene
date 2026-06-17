@@ -575,20 +575,26 @@ fn test_after_close() -> Result<()> {
 #[ignore = "nightly"]
 #[test]
 fn test_during_add_indexes() -> Result<()> {
+  use crate::core::store::directory::DirectoryEnum2;
+
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random);
   iwc
     .set_max_full_flush_merge_wait_millis(0)
     .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
-  let writer = Arc::new(IndexWriter::new(dir1.clone(), iwc)?);
+  let writer_dir = Arc::new(DirectoryEnum2::A(dir1.clone()));
+  let writer = Arc::new(IndexWriter::new(writer_dir, iwc)?);
 
   create_index_no_close(false, "test", writer.as_ref())?;
   writer.commit()?;
 
   let mut dirs = Vec::new();
   for _ in 0..10 {
-    dirs.push(TestUtil::ram_copy_of(&mut random, dir1.as_ref())?);
+    dirs.push(Arc::new(DirectoryEnum2::B(TestUtil::ram_copy_of(
+      &mut random,
+      dir1.as_ref(),
+    )?)));
   }
 
   let mut r = directory_reader::open_from_writer(writer.as_ref())?;

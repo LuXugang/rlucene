@@ -36,6 +36,7 @@ use crate::core::search::phrase_query::Builder as PhraseQueryBuilder;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -49,6 +50,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 };
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestMultiPhraseQuery;
@@ -538,8 +540,7 @@ fn test_empty_to_string() -> Result<()> {
 #[test]
 fn test_zero_pos_incr() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANT ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let tokens = vec![
     make_token("a", 1)?,

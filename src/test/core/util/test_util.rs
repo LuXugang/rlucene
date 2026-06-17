@@ -30,11 +30,12 @@ use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::IOContext;
-use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::directory::Directory;
+use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
 
 pub struct TestUtil;
 const BLOCK_STARTS: &[u32] = &[
@@ -309,13 +310,15 @@ impl TestUtil {
     }
     sb
   }
-  pub fn ram_copy_of<R, D>(random: &mut R, dir: &D) -> Result<Arc<DirEnum>>
+  pub fn ram_copy_of<R, D>(
+    _random: &mut R,
+    dir: &D,
+  ) -> Result<Arc<ByteBuffersDirectory<SingleInstanceLockFactory>>>
   where
     D: Directory,
     R: Rng + ?Sized,
   {
-    // TODO ByteBuffersDirectory 未实现
-    let ram = new_directory_shared(random)?;
+    let ram = Arc::new(ByteBuffersDirectory::new());
     for file in dir.list_all()? {
       if file.starts_with(IndexFileNames::SEGMENTS) || CODEC_FILE_PATTERN.is_match(&file) {
         ram.copy_from(dir, &file, &file, &IOContext::default_io_context()?)?;

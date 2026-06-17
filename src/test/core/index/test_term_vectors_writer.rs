@@ -35,6 +35,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::store::directory::DirectoryEnum2;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -46,6 +47,7 @@ use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[allow(dead_code)]
 struct TestTermVectorsWriter;
@@ -578,9 +580,13 @@ fn test_term_vector_corruption() -> Result<()> {
     iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     iwc.set_merge_policy(LogMergePolicy::log_doc());
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let writer_dir = Arc::new(DirectoryEnum2::A(dir.clone()));
+    let writer = IndexWriter::new(writer_dir, iwc)?;
 
-    let index_dirs = vec![TestUtil::ram_copy_of(&mut random, dir.as_ref())?];
+    let index_dirs = vec![Arc::new(DirectoryEnum2::B(TestUtil::ram_copy_of(
+      &mut random,
+      dir.as_ref(),
+    )?))];
     writer.add_indexes_from_dir(&index_dirs)?;
     writer.force_merge(1)?;
     writer.close()?;

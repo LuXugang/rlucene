@@ -22,12 +22,12 @@ use rand::Rng;
 use crate::core::store::directory::Directory;
 use crate::core::store::nio_fs_directory::{NIOFSDirectory, NIOFSIndexInput};
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-use crate::core::store::{BufferedIndexInput, FSDirectory, NativeFSLockFactory};
+use crate::core::store::{
+  BufferedIndexInput, ByteBuffersDirectory, FSDirectory, NativeFSLockFactory,
+};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory, new_io_context, random,
-};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::{new_io_context, random};
 
 #[allow(dead_code)] // for quick search
 pub struct TestTrackingDirectoryWrapper;
@@ -337,8 +337,8 @@ where
 
 #[test]
 fn test_track_empty() -> Result<()> {
-  let mut random = random();
-  let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
+  let _random = random();
+  let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   assert_eq!(
     dir.get_created_files().lock().created_filenames,
     HashSet::new()
@@ -349,7 +349,7 @@ fn test_track_empty() -> Result<()> {
 #[test]
 fn test_track_create() -> Result<()> {
   let mut random = random();
-  let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
+  let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   dir.create_output("foo", &new_io_context(&mut random)?)?;
   assert_eq!(
     dir.get_created_files().lock().created_filenames,
@@ -361,7 +361,7 @@ fn test_track_create() -> Result<()> {
 #[test]
 fn test_track_delete() -> Result<()> {
   let mut random = random();
-  let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
+  let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   dir.create_output("foo", &new_io_context(&mut random)?)?;
   assert_eq!(
     dir.get_created_files().lock().created_filenames,
@@ -378,7 +378,7 @@ fn test_track_delete() -> Result<()> {
 #[test]
 fn test_track_rename() -> Result<()> {
   let mut random = random();
-  let dir = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
+  let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   dir.create_output("foo", &new_io_context(&mut random)?)?;
   assert_eq!(
     dir.get_created_files().lock().created_filenames,
@@ -395,8 +395,8 @@ fn test_track_rename() -> Result<()> {
 #[test]
 fn test_track_copy_from() -> Result<()> {
   let mut random = random();
-  let source = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
-  let dest = TrackingDirectoryWrapper::new(new_directory(&mut random)?);
+  let source = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
+  let dest = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
 
   source.create_output("foo", &new_io_context(&mut random)?)?;
   assert_eq!(

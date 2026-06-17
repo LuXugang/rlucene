@@ -17,12 +17,12 @@
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
+use crate::core::store::{
+  ByteBuffersDirectory, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
+};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 
@@ -42,8 +42,7 @@ fn test_encode_decode() -> Result<()> {
     }
   }
 
-  // TODO:: 这里要换成ByteBuffersDirectory
-  let dir = new_directory_shared(&mut random)?;
+  let dir = ByteBuffersDirectory::new();
   let end_pointer;
 
   {

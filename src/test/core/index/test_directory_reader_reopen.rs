@@ -43,6 +43,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{directory_reader, field_infos, multi_bits, multi_terms};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -681,8 +682,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
 #[test]
 fn test_npe_after_invalid_reindex1() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANT ByteBuffersDirectory 未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
@@ -743,8 +743,7 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
 #[test]
 fn test_npe_after_invalid_reindex2() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANT ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
@@ -817,8 +816,7 @@ fn test_nrt_mupdates2() -> Result<()> {
 #[test]
 fn test_delete_index_files_while_reader_still_open() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANT ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
   let analyzer = MockAnalyzer::new(&mut random);
   let mut w = IndexWriter::new(
     dir.clone(),

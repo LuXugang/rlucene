@@ -36,7 +36,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
@@ -294,10 +294,14 @@ fn test_no_merge_after_copy() -> Result<()> {
   conf.set_open_mode(OpenMode::Append);
   conf.set_max_buffered_docs(10);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
-  let writer = new_writer(dir.clone(), conf)?;
+  let writer_dir = Arc::new(DirectoryEnum2::A(dir.clone()));
+  let writer = new_writer(writer_dir, conf)?;
   // TODO MockDirectoryWrapper 未实现
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
-  writer.add_indexes_from_dir(&[aux.clone(), aux_copy])?;
+  writer.add_indexes_from_dir(&[
+    Arc::new(DirectoryEnum2::A(aux.clone())),
+    Arc::new(DirectoryEnum2::B(aux_copy)),
+  ])?;
   assert_eq!(1060, writer.get_doc_stats()?.max_doc);
   assert_eq!(1000, writer.max_doc(0));
   writer.close()?;
@@ -339,14 +343,18 @@ fn test_merge_after_copy() -> Result<()> {
   conf.set_open_mode(OpenMode::Append);
   conf.set_max_buffered_docs(4);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
-  let writer = new_writer(dir.clone(), conf)?;
+  let writer_dir = Arc::new(DirectoryEnum2::A(dir.clone()));
+  let writer = new_writer(writer_dir, conf)?;
 
   if cfg!(feature = "test_log_verbose") {
     println!("\nTEST: now addIndexes");
   }
   // TODO MockDirectoryWrapper 未实现
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
-  writer.add_indexes_from_dir(&[aux.clone(), aux_copy])?;
+  writer.add_indexes_from_dir(&[
+    Arc::new(DirectoryEnum2::A(aux.clone())),
+    Arc::new(DirectoryEnum2::B(aux_copy)),
+  ])?;
   assert_eq!(1020, writer.get_doc_stats()?.max_doc);
   assert_eq!(1000, writer.max_doc(0));
   writer.close()?;

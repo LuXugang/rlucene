@@ -38,12 +38,45 @@ impl BaseLockFactoryTestCase for TestSingleInstanceLockFactory {
 }
 
 mod single_instance_lock_factory_tests {
-  use crate::core::util::error::lucene_error::Result;
+  use std::sync::Arc;
+
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::index_writer_config::OpenMode;
+  use crate::core::store::ByteBuffersDirectory;
+  use crate::core::store::base_directory::BaseDirectory;
+  use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+  use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+    new_index_writer_config_with_analyzer, random,
+  };
+
+  fn assert_single_instance_lock_factory(_: &SingleInstanceLockFactory) {}
 
   // Verify: basic locking on single instance lock factory (can't create two IndexWriters)
   #[test]
   fn test_default_lock_factory() -> Result<()> {
-    // TODO IMPORTANT ByteBuffersDirectory未实现
+    let mut random = random();
+    let dir = ByteBuffersDirectory::new();
+
+    assert_single_instance_lock_factory(&dir.get_lock_factory().lock_factory);
+
+    let dir = Arc::new(dir);
+
+    let analyzer = MockAnalyzer::new(&mut random);
+    let config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    // Create a 2nd IndexWriter. This should fail.
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    config.set_open_mode(OpenMode::Append);
+    assert!(matches!(
+      IndexWriter::new(dir, config),
+      Err(LuceneError::LockObtainFailed(_))
+    ));
+
+    writer.close()?;
     Ok(())
   }
 }

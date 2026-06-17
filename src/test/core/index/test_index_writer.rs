@@ -75,9 +75,9 @@ use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::phrase_query::Builder as PhraseQueryBuilder;
 use crate::core::search::term_query::TermQuery;
-use crate::core::store::IndexOutput;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::{ByteBuffersDirectory, IndexOutput};
 use crate::core::store::{DataOutput, IOContext, SimpleFSLockFactory};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::automation::automata::Automata;
@@ -1535,7 +1535,7 @@ fn test_wicked_long_term() -> Result<()> {
 fn test_delete_all_nrt_leftover_files() -> Result<()> {
   let mut random = random();
 
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let mock = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
@@ -1569,7 +1569,7 @@ fn test_delete_all_nrt_leftover_files() -> Result<()> {
 fn test_nrt_reader_version() -> Result<()> {
   let mut random = random();
 
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let mock = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, mock);

@@ -41,7 +41,7 @@ struct TestLockFactory;
 fn test_custom_lock_factory() -> Result<()> {
   let mut random = lucene_test_case_util::random();
   let lf = MockLockFactory::new();
-  // TODO IMPORTANT MockDirectoryWrapper/ByteBuffersDirectory 未实现
+  // TODO IMPORTANT MockDirectoryWrapper 未实现
   let dir = lucene_test_case_util::new_directory_with_lock_factory(
     &mut random,
     LockFactoryEnum::Custom(Box::new(lf.clone())),
@@ -71,7 +71,7 @@ fn test_custom_lock_factory() -> Result<()> {
 #[test]
 fn test_directory_no_locking() -> Result<()> {
   let mut random = lucene_test_case_util::random();
-  // TODO IMPORTANT MockDirectoryWrapper/ByteBuffersDirectory 未实现
+  // TODO IMPORTANT MockDirectoryWrapper 未实现
   let dir = lucene_test_case_util::new_directory_with_lock_factory(&mut random, NoLockFactory)?;
   let dir = Arc::new(dir);
 

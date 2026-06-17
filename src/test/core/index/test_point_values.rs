@@ -21,6 +21,7 @@ use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
+use crate::core::index::check_index::{CheckIndex, Level};
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -36,6 +37,7 @@ use crate::core::index::point_values::{
   get_max_packed_value, get_min_packed_value, size,
 };
 use crate::core::index::term::Term;
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
@@ -52,6 +54,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::util::TryIntoInt;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use std::sync::Arc;
 use std::vec;
 
 #[allow(dead_code)] // for quick search
@@ -780,7 +783,35 @@ fn test_sparse_points() -> Result<()> {
 }
 #[test]
 fn test_check_index_includes_points() -> Result<()> {
-  // TODO check_index未实现
+  let dir = Arc::new(ByteBuffersDirectory::new());
+  let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int1", vec![17])?);
+  w.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(IntPoint::new("int1", vec![44])?);
+  doc.add(IntPoint::new("int2", vec![-17])?);
+  w.add_document(doc)?;
+  w.close()?;
+
+  let mut output = Vec::new();
+  let status = CheckIndex::check_index(
+    dir,
+    Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS,
+    true,
+    true,
+    &mut output,
+  )?;
+  assert_eq!(1, status.segment_infos.len());
+  let seg_status = &status.segment_infos[0];
+  // total 3 point values were indexed:
+  assert_eq!(3, seg_status.points_status.total_value_points);
+  // ... across 2 fields:
+  assert_eq!(2, seg_status.points_status.total_value_fields);
+
+  // Make sure CheckIndex in fact declares that it is testing points!
+  assert!(String::from_utf8(output)?.contains("test: points..."));
   Ok(())
 }
 #[test]
@@ -797,9 +828,7 @@ fn test_merged_stats_empty_reader() -> Result<()> {
 
 #[test]
 fn test_merged_stats_one_segment_without_points() -> Result<()> {
-  let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
   let mut iwc = IndexWriterConfig::new();
   iwc.set_merge_policy(NoMergePolicy::default());
 
@@ -836,8 +865,7 @@ fn test_merged_stats_one_segment_without_points() -> Result<()> {
 fn test_merged_stats_all_points_deleted() -> Result<()> {
   let mut random = random();
 
-  // TODO ByteBuffersDirectory 未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let iwc = IndexWriterConfig::new();
   let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -904,8 +932,7 @@ where
   let num_dims = TestUtil::next_int(random, 1, 8);
   let num_bytes_per_dim = TestUtil::next_int(random, 1, 16);
 
-  // TODO ByteBuffersDirectory 未实现
-  let dir = new_directory_shared(random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let iwc = IndexWriterConfig::new();
   let w = IndexWriter::new(dir.clone(), iwc)?;

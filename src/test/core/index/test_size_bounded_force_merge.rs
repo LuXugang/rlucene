@@ -27,12 +27,14 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, random,
+  new_index_writer_config, random,
 };
 use rand::Rng;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 pub struct TestSizeBoundedForceMerge;
@@ -73,8 +75,7 @@ where
 #[test]
 fn test_byte_size_limit() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   let conf = new_writer_config(&mut random);
   let num_segments = 15;
@@ -117,8 +118,7 @@ fn test_byte_size_limit() -> Result<()> {
 #[test]
 fn test_num_docs_limit() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -150,8 +150,7 @@ fn test_num_docs_limit() -> Result<()> {
 #[test]
 fn test_last_segment_too_large() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -180,8 +179,7 @@ fn test_last_segment_too_large() -> Result<()> {
 #[test]
 fn test_first_segment_too_large() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -210,8 +208,7 @@ fn test_first_segment_too_large() -> Result<()> {
 #[test]
 fn test_all_segments_small() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -240,8 +237,7 @@ fn test_all_segments_small() -> Result<()> {
 #[test]
 fn test_all_segments_large() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -269,8 +265,7 @@ fn test_all_segments_large() -> Result<()> {
 #[test]
 fn test_one_large_one_small() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -299,8 +294,7 @@ fn test_one_large_one_small() -> Result<()> {
 #[test]
 fn test_merge_factor() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -333,8 +327,7 @@ fn test_merge_factor() -> Result<()> {
 #[test]
 fn test_single_mergeable_segment() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -364,8 +357,7 @@ fn test_single_mergeable_segment() -> Result<()> {
 #[test]
 fn test_single_non_mergeable_segment() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);
@@ -391,8 +383,7 @@ fn test_single_non_mergeable_segment() -> Result<()> {
 #[test]
 fn test_single_mergeable_too_large_segment() -> Result<()> {
   let mut random = random();
-  // TODO ByteBuffersDirectory未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
     let conf = new_writer_config(&mut random);

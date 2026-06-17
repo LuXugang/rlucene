@@ -22,17 +22,15 @@ use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesBase, Pe
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_info::SegmentInfo;
 
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 use crate::core::index::pending_soft_deletes;
-use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use rand::RngExt;
 use rand::prelude::StdRng;
 use std::collections::HashMap;
@@ -91,8 +89,7 @@ pub(crate) trait TestPendingDeletesBase {
   where
     R: rand::Rng,
   {
-    // TODO: ByteBuffersDirectory 没有实现
-    let dir = new_directory_shared(random)?;
+    let dir = Arc::new(ByteBuffersDirectory::new());
     let si = SegmentInfo::new(
       dir.clone(),
       Some((*LATEST).clone()),
@@ -139,10 +136,7 @@ pub(crate) trait TestPendingDeletesBase {
   where
     R: rand::Rng,
   {
-    // TODO: ByteBuffersDirectory 没有实现
-    let dir = new_directory_shared(random)?;
-    let lock = dir.obtain_lock("writer_lock")?;
-    let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
+    let dir = Arc::new(ByteBuffersDirectory::new());
     let si = SegmentInfo::new(
       dir.clone(),
       Some((*LATEST).clone()),
@@ -161,9 +155,8 @@ pub(crate) trait TestPendingDeletesBase {
 
     let meta = (&commit_info).into();
     let mut deletes = self.new_pending_deletes(&meta)?;
-    assert!(!deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
-    // contain "writer_lock"
-    assert_eq!(dir.list_all()?.len(), 1);
+    assert!(!deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+    assert_eq!(dir.list_all()?.len(), 0);
 
     let second_doc_deletes: bool = random.random_bool(0.5);
     deletes.delete(5, &commit_info)?;
@@ -178,9 +171,8 @@ pub(crate) trait TestPendingDeletesBase {
     let expected_pending = if second_doc_deletes { 2 } else { 1 };
     assert_eq!(deletes.num_pending_deletes(), expected_pending);
 
-    assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
-    // contain "writer_lock"
-    assert_eq!(dir.list_all()?.len(), 2);
+    assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+    assert_eq!(dir.list_all()?.len(), 1);
 
     let codec = &*LATEST_CODEC;
     let live_docs = codec.live_docs_format().read_live_docs(
@@ -203,9 +195,8 @@ pub(crate) trait TestPendingDeletesBase {
     assert_eq!(commit_info.get_del_gen(), 1);
 
     deletes.delete(0, &commit_info)?;
-    assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
-    // contain "writer_lock"
-    assert_eq!(dir.list_all()?.len(), 3);
+    assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
+    assert_eq!(dir.list_all()?.len(), 2);
 
     let live_docs = codec.live_docs_format().read_live_docs(
       dir.as_ref(),
@@ -234,8 +225,7 @@ pub(crate) trait TestPendingDeletesBase {
   where
     R: rand::Rng,
   {
-    // TODO: ByteBuffersDirectory 没有实现
-    let dir = new_directory_shared(random)?;
+    let dir = Arc::new(ByteBuffersDirectory::new());
     let si = SegmentInfo::new(
       dir.clone(),
       Some((*LATEST).clone()),
@@ -263,13 +253,11 @@ pub(crate) trait TestPendingDeletesBase {
     )?;
     let meta = (&commit_info).into();
     let mut deletes = self.new_pending_deletes(&meta)?;
-    let lock = dir.obtain_lock("write_lock")?;
-    let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(dir.clone(), lock));
 
     for i in 0..3 {
       assert!(deletes.delete(i, &commit_info)?);
       if random.random_bool(0.5) {
-        assert!(deletes.write_live_docs(lock_dir.clone(), &mut commit_info)?);
+        assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
       }
 
       let (dv_gen, field) = match deletes {

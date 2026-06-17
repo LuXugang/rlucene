@@ -18,18 +18,18 @@ use crate::core::document::document::Document;
 use crate::core::document::field::FieldBase;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::base_doc_values_format_test_case::BaseDocValuesFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer,
-};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_index_writer_config_with_analyzer;
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::IndexedRandom;
+use std::sync::Arc;
 
 pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   fn dir_size<D>(&self, directory: &D) -> Result<usize>
@@ -47,8 +47,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO ByteBuffersDirectory 未实现
-    let dir = new_directory_shared(random)?;
+    let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer);
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
@@ -88,8 +87,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO ByteBuffersDirectory 未实现
-    let dir = new_directory_shared(random)?;
+    let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer);
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
@@ -123,8 +121,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO ByteBuffersDirectory 未实现
-    let dir = new_directory_shared(random)?;
+    let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer);
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;

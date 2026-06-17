@@ -22,10 +22,10 @@ use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::pfor_util::PForUtil;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{ByteBuffersDirectory, IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{new_directory, random};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use crate::test::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestPForUtil;
@@ -36,8 +36,7 @@ fn test_encode_decode() -> Result<()> {
   let iterations = random.random_range(50..1000);
   let values = create_test_data(iterations, 31, &mut random);
 
-  // TODO: ByteBuffersDirectory not implement
-  let dir = new_directory(&mut random)?;
+  let dir = ByteBuffersDirectory::new();
   let end_pointer = encode_test_data(iterations, &values, &dir)?;
 
   let input = dir.open_input("test.bin", &IOContext::read_once_io_context()?)?;
