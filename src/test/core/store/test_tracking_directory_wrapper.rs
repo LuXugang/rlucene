@@ -203,7 +203,7 @@ mod base_directory_test_case_tests {
 
   #[test]
   fn test_no_dir() -> Result<()> {
-    Ok(())
+    run_case(|case, random| case.test_no_dir(random))
   }
 
   #[test]

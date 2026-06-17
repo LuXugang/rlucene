@@ -27,7 +27,7 @@ use rand::Rng;
 use rand::RngExt;
 use tempfile::Builder;
 
-use crate::core::index::IndexFileNames;
+use crate::core::index::{IndexFileNames, directory_reader};
 use crate::core::store::DataInput;
 use crate::core::store::IndexInput;
 use crate::core::store::IndexOutput;
@@ -1069,9 +1069,22 @@ pub trait BaseDirectoryTestCase {
     Ok(())
   }
 
-  fn test_no_dir(&self) -> Result<()> {
-    // TODO
-    unimplemented!("DirectoryReader not implement")
+  fn test_no_dir<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let temp_dir = Builder::new().prefix("doesnotexist").tempdir()?;
+    let path = temp_dir.path().to_path_buf();
+    temp_dir.close()?;
+    let dir = Arc::new(self.get_directory(path, random)?);
+    match directory_reader::open(dir) {
+      Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
+      Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
+      Err(LuceneError::IoWithPath { source, .. }) | Err(LuceneError::Io { source, .. })
+        if source.kind() == ErrorKind::NotFound => {},
+      Err(err) => return Err(err),
+    }
+    Ok(())
   }
   fn test_copy_bytes<R>(&self, random: &mut R) -> Result<()>
   where

@@ -14,93 +14,76 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use rand::{Rng, RngExt};
+use rand::Rng;
+use rand::prelude::StdRng;
 
-use crate::core::document::document::Document;
-use crate::core::document::field::Store;
-use crate::core::index::index_writer::IndexWriter;
-use crate::core::index::index_writer_config::OpenMode;
-use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::store::byte_buffers_data_output::ByteBuffersDataOutput;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::store::{
-  BBOutputToInput, BYTE_BUFFERS_DATA_OUTPUT, ByteBuffersDirectory, ByteBuffersIndexInputOwned,
-  OUTPUT_AS_BYTE_ARRAY, OUTPUT_AS_MANY_BUFFERS, OUTPUT_AS_ONE_BUFFER,
+  BBOutputSupplier, ByteBuffersDirectory, ByteBuffersIndexInputOwned, OUTPUT_AS_MANY_BUFFERS,
 };
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::core::util::english::English;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_index_writer_config, new_string_field, random,
-};
+use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::test_util::TestUtil;
 
+/// Tests [`ByteBuffersDirectory`]'s chunking.
 #[allow(dead_code)] // for quick search
-pub struct TestByteBuffersDirectory {
-  output_to_input: BBOutputToInput,
-  name: &'static str,
-}
+struct TestMultiByteBuffersDirectory;
 
-impl BaseDirectoryTestCase for TestByteBuffersDirectory {
+impl BaseDirectoryTestCase for TestMultiByteBuffersDirectory {
   type Directory = ByteBuffersDirectory<SingleInstanceLockFactory>;
   type Output = ByteBuffersIndexInputOwned;
 
-  fn get_directory<R>(&self, _path: PathBuf, _random: &mut R) -> Result<Self::Directory>
+  fn get_directory<R>(&self, path: PathBuf, random: &mut R) -> Result<Self::Directory>
   where
     R: Rng + ?Sized,
   {
+    let max_chunk_size = 1usize << TestUtil::next_int(random, 10, 20) as usize;
+    self.get_directory_with_max_chunk_size(path, max_chunk_size)
+  }
+}
+
+impl BaseChunkedDirectoryTestCase for TestMultiByteBuffersDirectory {
+  fn get_directory_with_max_chunk_size(
+    &self,
+    _path: PathBuf,
+    max_chunk_size: usize,
+  ) -> Result<Self::Directory> {
+    // Round down huge values (above 20) to keep RAM usage low in tests
+    // (especially in nightly).
+    let bits_per_block = 20.min(ByteBuffersDataOutput::LIMIT_MIN_BITS_PER_BLOCK.max(
+      BitUtil::next_highest_power_of_two_with_i32(max_chunk_size as i32).trailing_zeros() as i32,
+    ));
+    let output_supplier = BBOutputSupplier::custom(move || {
+      ByteBuffersDataOutput::with_reuse(bits_per_block, bits_per_block, false)
+        .expect("valid bits per block")
+    });
     Ok(ByteBuffersDirectory::with_output_strategy(
       SingleInstanceLockFactory::new(),
-      BYTE_BUFFERS_DATA_OUTPUT,
-      self.output_to_input.clone(),
+      output_supplier,
+      OUTPUT_AS_MANY_BUFFERS,
     ))
   }
 }
 
-impl TestByteBuffersDirectory {
-  fn test_build_index<R>(&self, random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    let dir = Arc::new(self.get_directory(PathBuf::new(), random)?);
-    let mut config = new_index_writer_config(random);
-    config.set_open_mode(OpenMode::Create);
-    let writer = IndexWriter::new(dir, config)?;
-
-    let docs = random.random_range(0..=10);
-    let mut field_to_type = HashMap::new();
-    for i in (1..=docs).rev() {
-      let mut doc = Document::new();
-      doc.add(new_string_field(
-        random,
-        "content",
-        English::int_to_english(i).trim(),
-        Store::Yes,
-        &mut field_to_type,
-      )?);
-      writer.add_document(doc)?;
-    }
-
-    writer.commit()?;
-    assert_eq!(docs, writer.get_doc_stats()?.num_docs);
-    writer.close()?;
-
-    Ok(())
-  }
-}
-
-#[test]
-fn test_build_index() -> Result<()> {
-  run_case(|case, random| case.test_build_index(random))
+fn run_case<F>(f: F) -> Result<()>
+where
+  F: FnOnce(&TestMultiByteBuffersDirectory, &mut StdRng) -> Result<()>,
+{
+  let mut random = random();
+  let case = TestMultiByteBuffersDirectory;
+  f(&case, &mut random)
 }
 
 mod base_directory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
-  use crate::test::core::store::test_byte_buffers_directory::run_case;
+  use crate::test::core::store::test_multi_byte_buffers_directory::run_case;
 
   #[test]
   fn test_copy_from() -> Result<()> {
@@ -378,24 +361,84 @@ mod base_directory_test_case_tests {
   }
 }
 
-fn run_case<F>(f: F) -> Result<()>
-where
-  F: Fn(&TestByteBuffersDirectory, &mut rand::prelude::StdRng) -> Result<()>,
-{
-  let cases = [
-    (OUTPUT_AS_MANY_BUFFERS, "many buffers (heap)"),
-    (OUTPUT_AS_ONE_BUFFER, "one buffer (heap)"),
-    (OUTPUT_AS_BYTE_ARRAY, "byte array (heap)"),
-  ];
+mod base_chunked_directory_test_case_tests {
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
+  use crate::test::core::store::test_multi_byte_buffers_directory::run_case;
 
-  let mut random = random();
-  for (output_to_input, name) in cases {
-    let case = TestByteBuffersDirectory {
-      output_to_input,
-      name,
-    };
-    f(&case, &mut random)?;
+  #[test]
+  fn test_group_vint_multi_blocks() -> Result<()> {
+    run_case(|case, random| {
+      BaseChunkedDirectoryTestCase::test_group_vint_multi_blocks(case, random)
+    })
   }
 
-  Ok(())
+  #[test]
+  fn test_clone_close() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_clone_close)
+  }
+
+  #[test]
+  fn test_clone_slice_close() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_clone_slice_close)
+  }
+
+  #[test]
+  fn test_seek_zero() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_seek_zero)
+  }
+
+  #[test]
+  fn test_seek_slice_zero() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_seek_slice_zero)
+  }
+
+  #[test]
+  fn test_seek_end() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_seek_end)
+  }
+
+  #[test]
+  fn test_seek_slice_end() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_seek_slice_end)
+  }
+
+  #[test]
+  fn test_seeking() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_seeking)
+  }
+
+  #[test]
+  fn test_sliced_seeking() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_sliced_seeking)
+  }
+
+  #[test]
+  fn test_slice_of_slice() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_slice_of_slice)
+  }
+
+  #[test]
+  fn test_random_chunk_sizes() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_random_chunk_sizes)
+  }
+
+  #[test]
+  fn test_bytes_cross_boundary() -> Result<()> {
+    run_case(BaseChunkedDirectoryTestCase::test_bytes_cross_boundary)
+  }
+
+  #[test]
+  fn test_little_endian_longs_cross_boundary() -> Result<()> {
+    run_case(|case, random| {
+      BaseChunkedDirectoryTestCase::test_little_endian_longs_cross_boundary(case, random)
+    })
+  }
+
+  #[test]
+  fn test_little_endian_floats_cross_boundary() -> Result<()> {
+    run_case(|case, random| {
+      BaseChunkedDirectoryTestCase::test_little_endian_floats_cross_boundary(case, random)
+    })
+  }
 }

@@ -32,6 +32,7 @@ mod test_index_output_alignment;
 mod test_input_stream_data_input;
 mod test_lock_factory;
 mod test_mmap_directory;
+mod test_multi_byte_buffers_directory;
 pub mod test_multi_mmap;
 mod test_native_fs_lock_factory;
 mod test_nio_fs_directory;
