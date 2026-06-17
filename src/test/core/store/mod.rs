@@ -26,6 +26,7 @@ mod test_buffered_index_input;
 mod test_byte_array_data_input;
 mod test_byte_buffers_data_input;
 mod test_byte_buffers_data_output;
+mod test_byte_buffers_directory;
 mod test_checksum_index_input;
 mod test_index_output_alignment;
 mod test_input_stream_data_input;

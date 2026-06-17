@@ -615,8 +615,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     let shift = Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT;
     meta.write_int(Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT)?;
 
-    let mut address_buffer = ByteBuffersDataOutput::new();
-    let mut address_output = ByteBuffersIndexOutput::new(&mut address_buffer, "temp", "temp");
+    let mut address_output =
+      ByteBuffersIndexOutput::new(ByteBuffersDataOutput::new(), "temp", "temp");
     let num_blocks = (size + block_mask) >> shift;
     let mut writer = DirectMonotonicWriter::get_instance(
       meta,
@@ -703,13 +703,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       }
 
       writer.finish()?;
+      drop(writer);
       meta.write_int(max_length as i32)?;
       // Write one more int for storing max block length.
       meta.write_int(max_block_length)?;
       meta.write_long(start as i64)?;
       meta.write_long((data.get_file_pointer() - start) as i64)?;
       start = data.get_file_pointer();
-      address_buffer.copy_to(data)?;
+      address_output.delegate()?.copy_to(data)?;
       meta.write_long(start as i64)?;
       meta.write_long((data.get_file_pointer() - start) as i64)?;
     }
@@ -765,11 +766,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       + ((size + Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
         >> Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_SHIFT);
 
-    let mut address_buffer = ByteBuffersDataOutput::new();
     let mut writer;
 
     {
-      let mut address_output = ByteBuffersIndexOutput::new(&mut address_buffer, "temp", "temp");
+      let mut address_output =
+        ByteBuffersIndexOutput::new(ByteBuffersDataOutput::new(), "temp", "temp");
       writer = DirectMonotonicWriter::get_instance(
         &mut self.meta,
         &mut address_output,
@@ -808,6 +809,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
       writer.add(offset)?;
       writer.finish()?;
+      drop(writer);
 
       self.meta.write_long(start as i64)?;
       self
@@ -815,7 +817,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         .write_long((self.data.get_file_pointer() - start) as i64)?;
 
       let start = self.data.get_file_pointer();
-      address_buffer.copy_to(&mut self.data)?;
+      address_output.delegate()?.copy_to(&mut self.data)?;
       self.meta.write_long(start as i64)?;
       self
         .meta

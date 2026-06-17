@@ -223,6 +223,12 @@ where
   pub fn slice_buffer_list(blocks: &[Cursor<B>], offset: usize, length: usize) -> Vec<Cursor<B>> {
     debug_assert!(!blocks.is_empty(), "blocks cannot be empty");
 
+    if blocks.len() == 1 {
+      let mut new_cursor = Cursor::new(blocks[0].get_ref().clone());
+      new_cursor.set_position(blocks[0].position() + offset as u64);
+      return vec![new_cursor];
+    }
+
     let abs_start = blocks[0].position() + offset as u64;
     let abs_end = abs_start + length as u64;
 

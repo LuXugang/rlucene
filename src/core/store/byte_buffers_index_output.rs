@@ -22,123 +22,227 @@ use crc32fast::Hasher;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, IndexOutput};
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+
+pub trait ByteBuffersIndexOutputOnClose: Send + Sync {
+  fn on_close(&mut self, output: ByteBuffersDataOutput) -> Result<()>;
+}
+
+impl<F> ByteBuffersIndexOutputOnClose for F
+where
+  F: FnMut(ByteBuffersDataOutput) -> Result<()> + Send + Sync,
+{
+  fn on_close(&mut self, output: ByteBuffersDataOutput) -> Result<()> {
+    self(output)
+  }
+}
+
+pub struct NoopByteBuffersIndexOutputOnClose;
+
+impl ByteBuffersIndexOutputOnClose for NoopByteBuffersIndexOutputOnClose {
+  fn on_close(&mut self, _output: ByteBuffersDataOutput) -> Result<()> {
+    Ok(())
+  }
+}
 
 /// An [`IndexOutput`] writing to a [`ByteBuffersDataOutput`]
-pub struct ByteBuffersIndexOutput<'a> {
+pub struct ByteBuffersIndexOutput<C = NoopByteBuffersIndexOutputOnClose>
+where
+  C: ByteBuffersIndexOutputOnClose,
+{
   last_checksum_position: usize,
   last_checksum: u64,
-  delegate: &'a mut ByteBuffersDataOutput,
+  delegate: ByteBuffersDataOutput,
+  on_close: C,
   name: String,
   resource_description: String,
   checksum: Hasher,
+  closed: bool,
 }
-impl<'a> ByteBuffersIndexOutput<'a> {
+
+impl ByteBuffersIndexOutput<NoopByteBuffersIndexOutputOnClose> {
   pub fn with_checksum(
-    name: &str,
+    delegate: ByteBuffersDataOutput,
     resource_description: &str,
-    delegate: &'a mut ByteBuffersDataOutput,
+    name: &str,
     checksum: Hasher,
   ) -> Self {
     Self {
       last_checksum_position: 0,
       last_checksum: 0,
       delegate,
+      on_close: NoopByteBuffersIndexOutputOnClose,
       name: name.to_string(),
       resource_description: resource_description.to_string(),
       checksum,
+      closed: false,
     }
   }
-  pub fn new(
-    delegate: &'a mut ByteBuffersDataOutput,
-    name: &str,
-    resource_description: &str,
-  ) -> Self {
-    Self::with_checksum(name, resource_description, delegate, Hasher::new())
-  }
-  pub fn get_array_copy(&self) -> Vec<u8> {
-    self.delegate.get_array_copy()
+
+  pub fn new(delegate: ByteBuffersDataOutput, resource_description: &str, name: &str) -> Self {
+    Self::with_checksum(delegate, resource_description, name, Hasher::new())
   }
 }
 
-impl DataOutput for ByteBuffersIndexOutput<'_> {
+impl<C> ByteBuffersIndexOutput<C>
+where
+  C: ByteBuffersIndexOutputOnClose,
+{
+  pub fn with_checksum_and_on_close(
+    delegate: ByteBuffersDataOutput,
+    resource_description: &str,
+    name: &str,
+    checksum: Hasher,
+    on_close: C,
+  ) -> Self
+  where
+    C: 'static,
+  {
+    Self {
+      last_checksum_position: 0,
+      last_checksum: 0,
+      delegate,
+      on_close,
+      name: name.to_string(),
+      resource_description: resource_description.to_string(),
+      checksum,
+      closed: false,
+    }
+  }
+
+  pub fn get_array_copy(&self) -> Vec<u8> {
+    if self.closed {
+      Vec::new()
+    } else {
+      self.delegate.get_array_copy()
+    }
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    if self.closed {
+      Err(LuceneError::already_closed("Already closed."))
+    } else {
+      Ok(())
+    }
+  }
+
+  pub fn delegate(&self) -> Result<&ByteBuffersDataOutput> {
+    self.ensure_open()?;
+    Ok(&self.delegate)
+  }
+
+  pub fn delegate_mut(&mut self) -> Result<&mut ByteBuffersDataOutput> {
+    self.ensure_open()?;
+    Ok(&mut self.delegate)
+  }
+}
+
+impl<C> DataOutput for ByteBuffersIndexOutput<C>
+where
+  C: ByteBuffersIndexOutputOnClose,
+{
   fn write_byte(&mut self, b: u8) -> Result<()> {
-    self.delegate.write_byte(b)
+    self.delegate_mut()?.write_byte(b)
   }
 
   fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
-    self.delegate.write_bytes_with_len(b, len)
+    self.delegate_mut()?.write_bytes_with_len(b, len)
   }
 
   fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
-    self.delegate.write_bytes_range(b, offset, length)
+    self.delegate_mut()?.write_bytes_range(b, offset, length)
   }
 
   fn write_int(&mut self, i: i32) -> Result<()> {
-    self.delegate.write_int(i)
+    self.delegate_mut()?.write_int(i)
   }
 
   fn write_short(&mut self, i: i16) -> Result<()> {
-    self.delegate.write_short(i)
+    self.delegate_mut()?.write_short(i)
   }
 
   fn write_long(&mut self, i: i64) -> Result<()> {
-    self.delegate.write_long(i)
+    self.delegate_mut()?.write_long(i)
   }
 
   fn write_string(&mut self, s: &str) -> Result<()> {
-    self.delegate.write_string(s)
+    self.delegate_mut()?.write_string(s)
   }
 
   fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
-    self.delegate.copy_bytes(input, num_bytes)
+    self.delegate_mut()?.copy_bytes(input, num_bytes)
   }
 
   fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
-    self.delegate.write_map_of_strings(map)
+    self.delegate_mut()?.write_map_of_strings(map)
   }
 }
 
-impl Display for ByteBuffersIndexOutput<'_> {
+impl<C> Display for ByteBuffersIndexOutput<C>
+where
+  C: ByteBuffersIndexOutputOnClose,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.resource_description)
   }
 }
 
-impl Closeable for ByteBuffersIndexOutput<'_> {
+impl<C> Closeable for ByteBuffersIndexOutput<C>
+where
+  C: ByteBuffersIndexOutputOnClose,
+{
   fn close(&mut self) -> Result<()> {
-    todo!()
+    if !self.closed {
+      self.closed = true;
+      let delegate = std::mem::take(&mut self.delegate);
+      self.on_close.on_close(delegate)?;
+    }
+    Ok(())
+  }
+}
+impl<C> Drop for ByteBuffersIndexOutput<C>
+where
+  C: ByteBuffersIndexOutputOnClose,
+{
+  fn drop(&mut self) {
+    let _ = self.close();
   }
 }
 
-impl IndexOutput for ByteBuffersIndexOutput<'_> {
+impl<C> IndexOutput for ByteBuffersIndexOutput<C>
+where
+  C: ByteBuffersIndexOutputOnClose,
+{
   fn get_file_pointer(&self) -> usize {
-    self.delegate.size()
+    self.delegate().expect("Already closed.").size()
   }
 
   fn get_checksum(&mut self) -> u64 {
-    if self.last_checksum_position != self.delegate.size() {
-      self.last_checksum_position = self.delegate.size();
+    let delegate_size = self.delegate().expect("Already closed.").size();
+    if self.last_checksum_position != delegate_size {
+      self.last_checksum_position = delegate_size;
       self.checksum.reset();
-      let (length, mut data) = self.delegate.to_buffer_list_ref();
-      if let Some(last_block) = data.pop() {
-        //  block length was limited by
-        // ByteBuffersDataOutput::LIMIT_MAX_BITS_PER_BLOCK
-        debug_assert!(last_block.get_ref().len() <= u32::MAX as usize);
-        let mut last_block_len = length;
-        for block in data {
-          //Each block has the same data length except for the last
-          // block. Therefore, we need to use
-          // last_block_len to get the data length
-          // of the last block.
-          last_block_len -= block.get_ref().len();
-          self.checksum.update(block.get_ref());
+      let mut checksum = self.checksum.clone();
+      self.last_checksum = {
+        let delegate = self.delegate().expect("Already closed.");
+        let (length, mut data) = delegate.to_buffer_list_ref();
+        if let Some(last_block) = data.pop() {
+          //  block length was limited by
+          // ByteBuffersDataOutput::LIMIT_MAX_BITS_PER_BLOCK
+          debug_assert!(last_block.get_ref().len() <= u32::MAX as usize);
+          let mut last_block_len = length;
+          for block in data {
+            //Each block has the same data length except for the last
+            // block. Therefore, we need to use
+            // last_block_len to get the data length
+            // of the last block.
+            last_block_len -= block.get_ref().len();
+            checksum.update(block.get_ref());
+          }
+          checksum.update(&last_block.get_ref()[0..last_block_len]);
         }
-        self
-          .checksum
-          .update(&last_block.get_ref()[0..last_block_len]);
-      }
-      self.last_checksum = self.checksum.clone().finalize() as u64;
+        checksum.finalize() as u64
+      };
     }
     self.last_checksum
   }

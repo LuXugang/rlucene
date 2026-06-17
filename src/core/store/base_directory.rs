@@ -61,11 +61,14 @@ where
   pub fn new(lock_factory: LF) -> Self {
     Self {
       lock_factory,
-      is_open: AtomicBool::new(false),
+      is_open: AtomicBool::new(true),
     }
   }
   pub fn obtain_lock(&self, dir: &Path, name: &str) -> Result<LF::Lock> {
     self.lock_factory.obtain_lock(dir, name)
+  }
+  pub fn close(&self) {
+    self.is_open.store(false, SeqCst);
   }
   pub fn ensure_open(&self) -> Result<()> {
     if !self.is_open.load(SeqCst) {

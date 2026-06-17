@@ -72,6 +72,7 @@ pub use buffered_index_input_base::*;
 pub use byte_array_data_input::*;
 pub use byte_array_data_output::*;
 pub use byte_buffers_data_output::*;
+pub use byte_buffers_directory::*;
 pub use byte_buffers_index_input::*;
 pub use byte_buffers_index_output::*;
 pub use checksum::*;

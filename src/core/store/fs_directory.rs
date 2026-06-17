@@ -32,6 +32,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::{fs, io};
+use std::ops::Index;
 
 /// Base trait for `Directory` implementations that store index files in the
 /// file system. There are currently two core implementations:
@@ -454,8 +455,15 @@ where
   T: FSDirectoryBase,
 {
   fn close(&mut self) -> Result<()> {
-    // TODO
+    self.base.close();
+    let mut pending_deletes = self.pending_deletes.lock();
+    Self::delete_pending_files(&self.directory, &mut pending_deletes)?;
     Ok(())
+  }
+}
+impl<D, T> Drop for FSDirectory<D, T> where D: LockFactory, T: FSDirectoryBase {
+  fn drop(&mut self) {
+    let _ = self.close();
   }
 }
 
@@ -486,22 +494,7 @@ where
     &self.base
   }
 }
-impl<D, T> Drop for FSDirectory<D, T>
-where
-  D: LockFactory,
-  T: FSDirectoryBase,
-{
-  fn drop(&mut self) {
-    let mut pending_deletes = self.pending_deletes.lock();
-    if let Err(e) = Self::maybe_delete_pending_files(
-      &self.directory,
-      &mut pending_deletes,
-      &self.ops_since_last_delete,
-    ) {
-      eprintln!("Error while deleting pending files during drop, ignoring: {e:?}");
-    }
-  }
-}
+
 /// The maximum chunk size is 8192 bytes in the original Java implementation
 /// because:
 /// - On certain platforms, Java's FileChannel or native I/O layers allocate a
