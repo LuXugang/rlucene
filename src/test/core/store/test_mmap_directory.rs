@@ -331,6 +331,7 @@ mod base_directory_test_case_tests {
     run_case(|case, random| case.test_seek_past_eof(random))
   }
 
+  #[test]
   fn test_slice_out_of_bounds() -> Result<()> {
     run_case(|case, random| case.test_slice_out_of_bounds(random))
   }

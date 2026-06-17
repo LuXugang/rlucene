@@ -451,13 +451,15 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     // with padding
     for i in 1..7 {
       let name = format!("bytes-{i}");
-      let mut out = dir.create_output(&name, &new_io_context(random)?)?;
-      let mut junk = vec![0_u8; i];
-      random.fill(&mut junk[..]);
-      out.write_bytes_with_len(&junk, junk.len())?;
-      input.seek(0)?;
-      out.copy_bytes(&mut input, input_len)?;
-      Closeable::close(&mut out)?;
+      {
+        let mut out = dir.create_output(&name, &new_io_context(random)?)?;
+        let mut junk = vec![0_u8; i];
+        random.fill(&mut junk[..]);
+        out.write_bytes_with_len(&junk, junk.len())?;
+        input.seek(0)?;
+        out.copy_bytes(&mut input, input_len)?;
+        Closeable::close(&mut out)?;
+      }
       let padded = dir.open_input(&name, &new_io_context(random)?)?;
       let padded_len = IndexInput::length(&padded);
       let mut whole = padded.random_access_slice(i, padded_len - i)?;

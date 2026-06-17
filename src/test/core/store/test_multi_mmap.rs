@@ -91,7 +91,7 @@ mod test_multi_mmap_tests {
     run_case(|case, random| case.test_clone_slice_safety(random))
   }
 
-  // TODO
+  #[test]
   fn test_implementations() -> Result<()> {
     run_case(|case, random| case.test_implementations(random))
   }
@@ -247,7 +247,7 @@ mod base_directory_test_case_tests {
     run_case(|case, random| case.test_seek_past_eof(random))
   }
 
-  // TODO
+  #[test]
   fn test_slice_out_of_bounds() -> Result<()> {
     run_case(|case, random| case.test_slice_out_of_bounds(random))
   }
@@ -440,7 +440,7 @@ mod base_chunked_directory_test_case_tests {
     run_case(BaseChunkedDirectoryTestCase::test_random_chunk_sizes)
   }
 
-  // TODO
+  #[test]
   fn test_bytes_cross_boundary() -> Result<()> {
     run_case(BaseChunkedDirectoryTestCase::test_bytes_cross_boundary)
   }
