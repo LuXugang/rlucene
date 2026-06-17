@@ -43,17 +43,21 @@ use crate::core::util::{CoreHelper, TryIntoInt};
 
 pub struct MemorySegmentIndexInput {
   resource_desc: String,
-  segments: Arc<Vec<Mmap>>,
+  shared: Arc<MemorySegmentIndexInputShared>,
   offset: usize,
   length: usize,
   chunk_size_power: u32,
   chunk_size_mask: usize,
   cur_position: usize,
-  closed: Arc<AtomicBool>,
-  close_parents: Arc<Vec<Arc<AtomicBool>>>,
-  close_children_on_clone: bool,
+  closed: bool,
+  owns_shared: bool,
   #[cfg(unix)]
   native_access: PosixNativeAccess,
+}
+
+struct MemorySegmentIndexInputShared {
+  segments: Vec<Mmap>,
+  closed: AtomicBool,
 }
 
 impl MemorySegmentIndexInput {
@@ -126,15 +130,17 @@ impl MemorySegmentIndexInput {
 
     Ok(Self {
       resource_desc,
-      segments: Arc::new(segments),
+      shared: Arc::new(MemorySegmentIndexInputShared {
+        segments,
+        closed: AtomicBool::new(false),
+      }),
       offset: 0,
       length,
       chunk_size_power,
       chunk_size_mask: chunk_size - 1,
       cur_position: 0,
-      closed: Arc::new(AtomicBool::new(false)),
-      close_parents: Arc::new(Vec::new()),
-      close_children_on_clone: true,
+      closed: false,
+      owns_shared: true,
       #[cfg(unix)]
       native_access: PosixNativeAccess,
     })
@@ -143,47 +149,29 @@ impl MemorySegmentIndexInput {
   fn with_slice(&self, resource_desc: String, offset: usize, length: usize) -> Result<Self> {
     self.ensure_open()?;
     CoreHelper::check_from_index_size(offset, length, self.length)?;
-    let mut close_parents = self.close_parents.as_ref().clone();
-    close_parents.push(self.closed.clone());
     Ok(Self {
       resource_desc,
-      segments: self.segments.clone(),
+      shared: self.shared.clone(),
       offset: self.offset + offset,
       length,
       chunk_size_power: self.chunk_size_power,
       chunk_size_mask: self.chunk_size_mask,
       cur_position: 0,
-      closed: Arc::new(AtomicBool::new(false)),
-      close_parents: Arc::new(close_parents),
-      close_children_on_clone: true,
+      closed: false,
+      owns_shared: false,
       #[cfg(unix)]
       native_access: self.native_access,
     })
   }
 
   fn ensure_open(&self) -> Result<()> {
-    if self.closed.load(Ordering::SeqCst)
-      || self
-        .close_parents
-        .iter()
-        .any(|closed| closed.load(Ordering::SeqCst))
-    {
+    if self.closed || self.shared.closed.load(Ordering::SeqCst) {
       return Err(LuceneError::already_closed(format!(
-        "IndexInput already closed: {}",
+        "Already closed: {}",
         self.resource_desc
       )));
     }
     Ok(())
-  }
-
-  #[cfg(test)]
-  pub(crate) fn uses_single_mmap_segment_for_tests(&self) -> bool {
-    if self.length == 0 {
-      return true;
-    }
-    let start_segment = self.offset >> self.chunk_size_power;
-    let end_segment = (self.offset + self.length - 1) >> self.chunk_size_power;
-    start_segment == end_segment
   }
 
   fn read_byte_at(&self, pos: usize) -> Result<u8> {
@@ -209,6 +197,7 @@ impl MemorySegmentIndexInput {
     let segment_index = global_pos >> self.chunk_size_power;
     let segment_offset = global_pos & self.chunk_size_mask;
     let segment = self
+      .shared
       .segments
       .get(segment_index)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
@@ -240,7 +229,7 @@ impl MemorySegmentIndexInput {
       let global_pos = self.offset + input_pos;
       let segment_index = global_pos >> self.chunk_size_power;
       let segment_offset = global_pos & self.chunk_size_mask;
-      let segment = &self.segments[segment_index];
+      let segment = &self.shared.segments[segment_index];
       let to_copy = remaining.min(segment.len() - segment_offset);
       b[output_pos..output_pos + to_copy]
         .copy_from_slice(&segment[segment_offset..segment_offset + to_copy]);
@@ -278,7 +267,7 @@ impl MemorySegmentIndexInput {
       let global_pos = self.offset + input_pos;
       let segment_index = global_pos >> self.chunk_size_power;
       let segment_offset = global_pos & self.chunk_size_mask;
-      let segment = &self.segments[segment_index];
+      let segment = &self.shared.segments[segment_index];
       let to_advise = remaining.min(segment.len() - segment_offset);
       advice(segment, segment_offset, to_advise).map_err(LuceneError::io)?;
       remaining -= to_advise;
@@ -421,7 +410,13 @@ impl Display for MemorySegmentIndexInput {
 
 impl Closeable for MemorySegmentIndexInput {
   fn close(&mut self) -> Result<()> {
-    self.closed.store(true, Ordering::SeqCst);
+    if self.closed {
+      return Ok(());
+    }
+    self.closed = true;
+    if self.owns_shared {
+      self.shared.closed.store(true, Ordering::SeqCst);
+    }
     Ok(())
   }
 }
@@ -432,27 +427,26 @@ impl TryClone for MemorySegmentIndexInput {
     Self: Sized,
   {
     self.ensure_open()?;
-    let mut close_parents = self.close_parents.as_ref().clone();
-    if self.close_children_on_clone {
-      close_parents.push(self.closed.clone());
-    }
     Ok(Self {
       resource_desc: self.resource_desc.clone(),
-      segments: self.segments.clone(),
+      shared: self.shared.clone(),
       offset: self.offset,
       length: self.length,
       chunk_size_power: self.chunk_size_power,
       chunk_size_mask: self.chunk_size_mask,
       cur_position: self.cur_position,
-      closed: Arc::new(AtomicBool::new(false)),
-      close_parents: Arc::new(close_parents),
-      close_children_on_clone: false,
+      closed: false,
+      owns_shared: false,
       #[cfg(unix)]
       native_access: self.native_access,
     })
   }
 }
-
+impl Drop for MemorySegmentIndexInput {
+  fn drop(&mut self) {
+    let _ = self.close();
+  }
+}
 impl IndexInput for MemorySegmentIndexInput {
   type IndexInput = MemorySegmentIndexInput;
 

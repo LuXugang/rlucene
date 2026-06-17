@@ -31,7 +31,7 @@ use crate::core::store::{
   DataInput, DataOutput, FSDirectory, IOContext, IndexInput, NativeFSLockFactory, ReadAdvice,
 };
 use crate::core::util::clone::TryClone;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
   is_night_mode, random, random_multiplier,
@@ -84,17 +84,25 @@ impl TestMMapDirectory {
       let mut accum = vec![0u8; n_ints * size_of::<i32>()];
       let shotgun = Arc::new(Barrier::new(2));
       let shotgun_clone = Arc::clone(&shotgun);
-      let t1 = thread::spawn(move || {
+      let t1 = thread::spawn(move || -> Result<()> {
         shotgun_clone.wait();
         for _ in 0..10 {
-          clone.seek(0).unwrap();
-          let accum_len = accum.len();
-          DataInput::read_bytes(&mut clone, &mut accum, 0, accum_len).unwrap();
+          let read_result = (|| -> Result<()> {
+            clone.seek(0)?;
+            let accum_len = accum.len();
+            DataInput::read_bytes(&mut clone, &mut accum, 0, accum_len)
+          })();
+          match read_result {
+            Ok(()) => {},
+            Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
+            Err(err) => return Err(err),
+          }
         }
+        Ok(())
       });
       shotgun.wait();
       drop(input);
-      t1.join().unwrap();
+      t1.join().unwrap()?;
     }
 
     Ok(())
