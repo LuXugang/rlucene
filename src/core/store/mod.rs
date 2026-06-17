@@ -33,6 +33,7 @@ pub mod data_input;
 pub mod data_output;
 pub mod directory;
 pub mod dummy;
+pub mod file_switch_directory;
 pub mod filter_directory;
 pub mod flush_info;
 pub mod fs_directory;

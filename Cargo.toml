@@ -36,9 +36,6 @@ num-integer = "0.1.46"
 rand_xoshiro = "0.8.1"
 tempfile = "3.27.0"
 
-[profile.dev]
-overflow-checks = false
-
 [features]
 default = []
 test_log_verbose = []
@@ -51,3 +48,8 @@ members = [
     "libs/derive_getters",
     "xtask",
 ]
+
+[profile.dev]
+overflow-checks = false
+[profile.test]
+debug = 1

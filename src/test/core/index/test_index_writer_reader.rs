@@ -369,7 +369,11 @@ fn test_add_indexes2() -> Result<()> {
   Ok(())
 }
 
-fn create_index_no_close<D>(multi_segment: bool, index_name: &str, w: &IndexWriter<D>) -> Result<()>
+pub(crate) fn create_index_no_close<D>(
+  multi_segment: bool,
+  index_name: &str,
+  w: &IndexWriter<D>,
+) -> Result<()>
 where
   D: Directory,
 {

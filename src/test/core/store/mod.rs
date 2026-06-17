@@ -28,6 +28,7 @@ mod test_byte_buffers_data_input;
 mod test_byte_buffers_data_output;
 mod test_byte_buffers_directory;
 mod test_checksum_index_input;
+mod test_file_switch_directory;
 mod test_index_output_alignment;
 mod test_input_stream_data_input;
 mod test_lock_factory;

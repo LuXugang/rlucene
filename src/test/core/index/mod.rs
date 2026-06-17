@@ -96,7 +96,7 @@ mod test_index_writer_lock_release;
 mod test_index_writer_max_docs;
 pub mod test_index_writer_merge_policy;
 pub(crate) mod test_index_writer_merging;
-mod test_index_writer_reader;
+pub(crate) mod test_index_writer_reader;
 mod test_index_writer_threads_to_segments;
 mod test_index_writer_unicode;
 mod test_index_writer_with_threads;

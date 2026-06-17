@@ -679,6 +679,59 @@ macro_rules! either_index_input {
             }
         }
 
+        impl<$( $T ),+> RandomAccessInput for $name<$( $T ),+>
+        where
+            $( $T: IndexInput + RandomAccessInput ),+
+        {
+            fn length(&self) -> Result<usize> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::length(inner), )+
+                }
+            }
+
+            fn read_byte(&mut self, pos: usize) -> Result<u8> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::read_byte(inner, pos), )+
+                }
+            }
+
+            fn read_bytes(
+                &mut self,
+                pos: usize,
+                buf: &mut [u8],
+                offset: usize,
+                len: usize,
+            ) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::read_bytes(inner, pos, buf, offset, len), )+
+                }
+            }
+
+            fn read_short(&mut self, pos: usize) -> Result<i16> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::read_short(inner, pos), )+
+                }
+            }
+
+            fn read_int(&mut self, pos: usize) -> Result<i32> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::read_int(inner, pos), )+
+                }
+            }
+
+            fn read_long(&mut self, pos: usize) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::read_long(inner, pos), )+
+                }
+            }
+
+            fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::prefetch(inner, pos, len), )+
+                }
+            }
+        }
+
         impl<$( $T ),+> IndexInput for $name<$( $T ),+>
         where
             $( $T: IndexInput ),+
