@@ -48,6 +48,7 @@ pub struct MemorySegmentIndexInput {
   length: usize,
   chunk_size_power: u32,
   chunk_size_mask: usize,
+  cur_segment_index: usize,
   cur_position: usize,
   closed: bool,
   owns_shared: bool,
@@ -138,6 +139,7 @@ impl MemorySegmentIndexInput {
       length,
       chunk_size_power,
       chunk_size_mask: chunk_size - 1,
+      cur_segment_index: 0,
       cur_position: 0,
       closed: false,
       owns_shared: true,
@@ -157,19 +159,67 @@ impl MemorySegmentIndexInput {
       },
     }
     self.ensure_open()?;
+    let slice_offset = self
+      .offset
+      .checked_add(offset)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    let (cur_segment_index, cur_position) = Self::cursor_for_global_position(
+      &self.shared.segments,
+      self.chunk_size_power,
+      self.chunk_size_mask,
+      slice_offset,
+    )?;
     Ok(Self {
       resource_desc: get_full_slice_description(slice_description),
       shared: self.shared.clone(),
-      offset: self.offset + offset,
+      offset: slice_offset,
       length,
       chunk_size_power: self.chunk_size_power,
       chunk_size_mask: self.chunk_size_mask,
-      cur_position: 0,
+      cur_segment_index,
+      cur_position,
       closed: false,
       owns_shared: false,
       #[cfg(unix)]
       native_access: self.native_access,
     })
+  }
+
+  fn cursor_for_global_position(
+    segments: &[Mmap],
+    chunk_size_power: u32,
+    chunk_size_mask: usize,
+    global_pos: usize,
+  ) -> Result<(usize, usize)> {
+    if segments.is_empty() {
+      if global_pos == 0 {
+        return Ok((0, 0));
+      }
+      return Err(LuceneError::illegal_state(format!(
+        "no mmap segment for position {global_pos}"
+      )));
+    }
+    let segment_index = global_pos >> chunk_size_power;
+    if segment_index < segments.len() {
+      let position = global_pos & chunk_size_mask;
+      if position <= segments[segment_index].len() {
+        return Ok((segment_index, position));
+      }
+      return Err(LuceneError::illegal_state(format!(
+        "position {position} is outside segment {segment_index} with length {}",
+        segments[segment_index].len()
+      )));
+    }
+    if segment_index == segments.len() && (global_pos & chunk_size_mask) == 0 {
+      // Java maps an extra 0-byte segment; Rust keeps the equivalent EOF cursor
+      // at the end of the last mapped segment.
+      let last_segment_index = segments.len() - 1;
+      return Ok((last_segment_index, segments[last_segment_index].len()));
+    }
+    Err(LuceneError::illegal_state(format!(
+      "segment index {segment_index} is outside {} segments for position {global_pos}",
+      segments.len()
+    )))
   }
 
   fn ensure_open(&self) -> Result<()> {
@@ -178,6 +228,81 @@ impl MemorySegmentIndexInput {
         "Already closed: {}",
         self.resource_desc
       )));
+    }
+    Ok(())
+  }
+
+  fn ensure_current_read(&self, len: usize) -> Result<()> {
+    let end = IndexInput::get_file_pointer(self)?
+      .checked_add(len)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    if end > self.length {
+      return Err(LuceneError::eof(format!("read past EOF: {self}")));
+    }
+    Ok(())
+  }
+
+  fn current_segment_slice(&self, len: usize) -> Result<Option<&[u8]>> {
+    self.ensure_current_read(len)?;
+    if len == 0 {
+      return Ok(Some(&[]));
+    }
+    let segment = self
+      .shared
+      .segments
+      .get(self.cur_segment_index)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    let Some(segment_end) = self.cur_position.checked_add(len) else {
+      return Ok(None);
+    };
+    if segment_end <= segment.len() {
+      Ok(Some(&segment[self.cur_position..segment_end]))
+    } else {
+      // cross segment
+      Ok(None)
+    }
+  }
+
+  fn read_current_buffer<R>(&mut self, len: usize, read: impl FnOnce(&[u8]) -> R) -> Result<R> {
+    if let Some(bytes) = self.current_segment_slice(len)? {
+      let value = read(bytes);
+      self.cur_position += len;
+      return Ok(value);
+    }
+
+    let mut bytes = vec![0u8; len];
+    self.read_bytes_boundary_current(&mut bytes, 0, len)?;
+    Ok(read(&bytes))
+  }
+
+  fn read_bytes_boundary_current(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.ensure_current_read(len)?;
+    let mut remaining = len;
+    let mut output_pos = offset;
+    while remaining > 0 {
+      let segment = self
+        .shared
+        .segments
+        .get(self.cur_segment_index)
+        .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+      if self.cur_position > segment.len() {
+        return Err(LuceneError::eof(format!("read past EOF: {self}")));
+      }
+      let cur_avail = segment.len() - self.cur_position;
+      if cur_avail == 0 {
+        self.cur_segment_index += 1;
+        if self.cur_segment_index >= self.shared.segments.len() {
+          return Err(LuceneError::eof(format!("read past EOF: {self}")));
+        }
+        self.cur_position = 0;
+        continue;
+      }
+      let to_copy = remaining.min(cur_avail);
+      b[output_pos..output_pos + to_copy]
+        .copy_from_slice(&segment[self.cur_position..self.cur_position + to_copy]);
+      self.cur_position += to_copy;
+      remaining -= to_copy;
+      output_pos += to_copy;
     }
     Ok(())
   }
@@ -295,64 +420,69 @@ impl MemorySegmentIndexInput {
 impl DataInput for MemorySegmentIndexInput {
   fn read_byte(&mut self) -> Result<u8> {
     self.ensure_open()?;
-    let value = self.read_byte_at(self.cur_position)?;
-    self.cur_position += 1;
-    Ok(value)
+    self.ensure_current_read(BitUtil::BYTE_BYTES)?;
+    if let Some(segment) = self.shared.segments.get(self.cur_segment_index)
+      && self.cur_position < segment.len()
+    {
+      let value = segment[self.cur_position];
+      self.cur_position += BitUtil::BYTE_BYTES;
+      return Ok(value);
+    }
+
+    let mut bytes = [0u8; BitUtil::BYTE_BYTES];
+    self.read_bytes_boundary_current(&mut bytes, 0, BitUtil::BYTE_BYTES)?;
+    Ok(bytes[0])
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.ensure_open()?;
-    self.read_bytes_at(self.cur_position, b, offset, len)?;
-    self.cur_position += len;
-    Ok(())
+    CoreHelper::check_from_index_size(offset, len, b.len())?;
+    if let Some(bytes) = self.current_segment_slice(len)? {
+      b[offset..offset + len].copy_from_slice(bytes);
+      self.cur_position += len;
+      return Ok(());
+    }
+    self.read_bytes_boundary_current(b, offset, len)
   }
 
   fn read_short(&mut self) -> Result<i16> {
     self.ensure_open()?;
-    let value = self.read_buffer(self.cur_position, BitUtil::SHORT_BYTES, |bytes| {
+    self.read_current_buffer(BitUtil::SHORT_BYTES, |bytes| {
       i16::from_le_bytes(bytes.try_into().unwrap())
-    })?;
-    self.cur_position += BitUtil::SHORT_BYTES;
-    Ok(value)
+    })
   }
 
   fn read_int(&mut self) -> Result<i32> {
     self.ensure_open()?;
-    let value = self.read_buffer(self.cur_position, BitUtil::INT_BYTES, |bytes| {
+    self.read_current_buffer(BitUtil::INT_BYTES, |bytes| {
       i32::from_le_bytes(bytes.try_into().unwrap())
-    })?;
-    self.cur_position += BitUtil::INT_BYTES;
-    Ok(value)
+    })
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
     self.ensure_open()?;
-    let global_pos = self.offset + self.cur_position;
-    let segment_index = global_pos >> self.chunk_size_power;
-    let segment_offset = global_pos & self.chunk_size_mask;
-    let remaining = self
+    let segment_remaining = self
       .shared
       .segments
-      .get(segment_index)
-      .map_or(0, |segment| segment.len().saturating_sub(segment_offset));
-    let len = GroupVIntUtil::read_group_vint_i32_with_reader(
-      self,
-      remaining as u64,
-      segment_offset,
-      dst,
-      offset,
-    )?;
+      .get(self.cur_segment_index)
+      .map_or(0, |segment| segment.len().saturating_sub(self.cur_position));
+    let remaining = segment_remaining.min(
+      self
+        .length
+        .saturating_sub(IndexInput::get_file_pointer(self)?),
+    );
+    let pos = self.cur_position;
+    let len =
+      GroupVIntUtil::read_group_vint_i32_with_reader(self, remaining as u64, pos, dst, offset)?;
     self.cur_position += len;
     Ok(())
   }
 
   fn read_long(&mut self) -> Result<i64> {
     self.ensure_open()?;
-    let value = self.read_buffer(self.cur_position, BitUtil::LONG_BYTES, |bytes| {
+    self.read_current_buffer(BitUtil::LONG_BYTES, |bytes| {
       i64::from_le_bytes(bytes.try_into().unwrap())
-    })?;
-    self.cur_position += BitUtil::LONG_BYTES;
-    Ok(value)
+    })
   }
 
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
@@ -361,7 +491,7 @@ impl DataInput for MemorySegmentIndexInput {
     let byte_len = len
       .checked_mul(BitUtil::LONG_BYTES)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
-    self.read_buffer(self.cur_position, byte_len, |bytes| {
+    self.read_current_buffer(byte_len, |bytes| {
       for (value, chunk) in dst[offset..offset + len]
         .iter_mut()
         .zip(bytes.chunks_exact(BitUtil::LONG_BYTES))
@@ -369,7 +499,6 @@ impl DataInput for MemorySegmentIndexInput {
         *value = i64::from_le_bytes(chunk.try_into().unwrap());
       }
     })?;
-    self.cur_position += byte_len;
     Ok(())
   }
 
@@ -379,7 +508,7 @@ impl DataInput for MemorySegmentIndexInput {
     let byte_len = len
       .checked_mul(BitUtil::INT_BYTES)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
-    self.read_buffer(self.cur_position, byte_len, |bytes| {
+    self.read_current_buffer(byte_len, |bytes| {
       for (value, chunk) in dst[offset..offset + len]
         .iter_mut()
         .zip(bytes.chunks_exact(BitUtil::INT_BYTES))
@@ -387,7 +516,6 @@ impl DataInput for MemorySegmentIndexInput {
         *value = i32::from_le_bytes(chunk.try_into().unwrap());
       }
     })?;
-    self.cur_position += byte_len;
     Ok(())
   }
 
@@ -397,7 +525,7 @@ impl DataInput for MemorySegmentIndexInput {
     let byte_len = len
       .checked_mul(BitUtil::FLOAT_BYTES)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
-    self.read_buffer(self.cur_position, byte_len, |bytes| {
+    self.read_current_buffer(byte_len, |bytes| {
       for (value, chunk) in dst[offset..offset + len]
         .iter_mut()
         .zip(bytes.chunks_exact(BitUtil::FLOAT_BYTES))
@@ -405,7 +533,6 @@ impl DataInput for MemorySegmentIndexInput {
         *value = f32::from_bits(u32::from_le_bytes(chunk.try_into().unwrap()));
       }
     })?;
-    self.cur_position += byte_len;
     Ok(())
   }
 
@@ -429,12 +556,10 @@ impl DataInput for MemorySegmentIndexInput {
 impl IntReader for MemorySegmentIndexInput {
   fn read(&mut self, pos: usize) -> Result<i32> {
     self.ensure_open()?;
-    let global_pos = self.offset + self.cur_position;
-    let segment_index = global_pos >> self.chunk_size_power;
     let segment = self
       .shared
       .segments
-      .get(segment_index)
+      .get(self.cur_segment_index)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
     let end = pos
       .checked_add(BitUtil::INT_BYTES)
@@ -478,6 +603,7 @@ impl TryClone for MemorySegmentIndexInput {
       length: self.length,
       chunk_size_power: self.chunk_size_power,
       chunk_size_mask: self.chunk_size_mask,
+      cur_segment_index: self.cur_segment_index,
       cur_position: self.cur_position,
       closed: false,
       owns_shared: false,
@@ -496,7 +622,14 @@ impl IndexInput for MemorySegmentIndexInput {
 
   fn get_file_pointer(&self) -> Result<usize> {
     self.ensure_open()?;
-    Ok(self.cur_position)
+    let global_pos = self
+      .cur_segment_index
+      .checked_shl(self.chunk_size_power)
+      .and_then(|segment_start| segment_start.checked_add(self.cur_position))
+      .ok_or_else(|| LuceneError::illegal_state(format!("file pointer overflow: {self}")))?;
+    global_pos
+      .checked_sub(self.offset)
+      .ok_or_else(|| LuceneError::illegal_state(format!("file pointer before offset: {self}")))
   }
 
   fn seek(&mut self, pos: usize) -> Result<()> {
@@ -507,7 +640,18 @@ impl IndexInput for MemorySegmentIndexInput {
         pos, self.length, self
       )));
     }
-    self.cur_position = pos;
+    let global_pos = self
+      .offset
+      .checked_add(pos)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    let (cur_segment_index, cur_position) = Self::cursor_for_global_position(
+      &self.shared.segments,
+      self.chunk_size_power,
+      self.chunk_size_mask,
+      global_pos,
+    )?;
+    self.cur_segment_index = cur_segment_index;
+    self.cur_position = cur_position;
     Ok(())
   }
 
