@@ -16,7 +16,11 @@
  */
 use std::env;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+use strum::EnumCount;
+use strum_macros::{EnumCount, FromRepr};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumCount, FromRepr)]
+#[repr(u8)]
 pub enum ReadAdvice {
   ///  Normal behavior. Data is expected to be read mostly sequentially. The
   /// system is expected to cache the hottest pages.
@@ -41,6 +45,10 @@ pub enum ReadAdvice {
 }
 
 impl ReadAdvice {
+  pub fn values() -> impl Iterator<Item = Self> {
+    (0..Self::COUNT).filter_map(|v| Self::from_repr(v as u8))
+  }
+
   pub fn from_str_custom(s: &str) -> Option<ReadAdvice> {
     match s.to_uppercase().as_str() {
       "NORMAL" => Some(ReadAdvice::Normal),

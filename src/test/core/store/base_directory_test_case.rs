@@ -34,7 +34,7 @@ use crate::core::store::IndexOutput;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::store::{DataOutput, IOContext, write_group_vints_i64};
+use crate::core::store::{DataOutput, IOContext, ReadAdvice, write_group_vints_i64};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -51,7 +51,7 @@ use crate::test::core::util::test_util::TestUtil;
 pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
   type Directory: Directory<IndexInput = Self::Output> + Send + Sync + 'static;
-  type Output: IndexInput + RandomAccessInput + Send + Sync + 'static;
+  type Output: IndexInput<IndexInput = Self::Output> + RandomAccessInput + Send + Sync + 'static;
   fn get_directory<R>(&self, path: PathBuf, random: &mut R) -> Result<Self::Directory>
   where
     R: Rng + ?Sized;
@@ -2099,7 +2099,63 @@ pub trait BaseDirectoryTestCase {
   where
     R: Rng + ?Sized,
   {
-    let start_offset = 0;
+    self.do_test_prefetch(0, random)
+  }
+
+  fn test_prefetch_on_slice<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    self.do_test_prefetch(TestUtil::next_usize(random, 1, 1024), random)
+  }
+
+  fn test_update_read_advice<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let temp_dir = Builder::new().prefix("testUpdateReadAdvice").tempdir()?;
+    let dir = self.get_directory(temp_dir.keep(), random)?;
+    let total_length = TestUtil::next_usize(random, 16384, 65536);
+    let mut arr = vec![0u8; total_length];
+    random.fill_bytes(&mut arr[..]);
+    let io_context = IOContext::default_io_context()?;
+    {
+      let mut out = dir.create_output("temp.bin", &io_context)?;
+      out.write_bytes_with_len(&arr, arr.len())?;
+    }
+
+    let orig = dir.open_input("temp.bin", &io_context)?;
+    let mut input = if random.random_bool(0.5) {
+      orig.try_clone()?
+    } else {
+      orig
+    };
+    let read_advices: Vec<ReadAdvice> = ReadAdvice::values().collect();
+
+    // Read advice updated at start
+    input.update_read_advice(read_advices[random.random_range(0..read_advices.len())])?;
+    for _ in 0..total_length {
+      let offset = TestUtil::next_usize(random, 0, IndexInput::length(&input) - 1);
+      input.seek(offset)?;
+      assert_eq!(arr[offset], DataInput::read_byte(&mut input)?);
+    }
+
+    // Updating readAdvice in the middle
+    for _ in 0..10_000 {
+      let offset = TestUtil::next_usize(random, 0, IndexInput::length(&input) - 1);
+      input.seek(offset)?;
+      assert_eq!(arr[offset], DataInput::read_byte(&mut input)?);
+      if random.random_bool(0.5) {
+        input.update_read_advice(read_advices[random.random_range(0..read_advices.len())])?;
+      }
+    }
+    Ok(())
+  }
+
+  fn do_test_prefetch<R>(&self, start_offset: usize, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     let temp_dir = Builder::new().prefix("test_prefetch").tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
@@ -2116,7 +2172,11 @@ pub trait BaseDirectoryTestCase {
     let mut temp = vec![0u8; 2048];
 
     let orig = dir.open_input("temp.bin", &io_context)?;
-    let mut input = orig.try_clone()?;
+    let mut input = if start_offset == 0 {
+      orig.try_clone()?
+    } else {
+      orig.slice("slice", start_offset, total_length - start_offset)?
+    };
 
     for _ in 0..10_000 {
       let offset = random.random_range(0..(IndexInput::length(&input) - 1));
@@ -2159,67 +2219,19 @@ pub trait BaseDirectoryTestCase {
     Ok(())
   }
 
-  fn test_prefetch_on_slice<R>(&self, random: &mut R) -> Result<()>
+  fn test_is_loaded<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let start_offset = random.random_range(1..1024);
-    let temp_dir = Builder::new().prefix("test_prefetch").tempdir()?;
-    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
+    let _ = random;
+    test_not_required_in_rust_lucene!();
+  }
 
-    let total_length = start_offset + random.random_range(16384..=65536);
-    // let mut arr = vec![0u8; total_length];
-    let mut arr = vec![0u8; total_length];
-    random.fill_bytes(&mut arr[..]);
-    let io_context = IOContext::default_io_context()?;
-    {
-      let mut out = dir.create_output("temp.bin", &io_context)?;
-      out.write_bytes_with_len(&arr, total_length)?;
-    }
-
-    let mut temp = vec![0u8; 2048];
-
-    let orig = dir.open_input("temp.bin", &io_context)?;
-    let mut input = orig.slice("slice", start_offset, total_length - start_offset)?;
-
-    for _ in 0..10_000 {
-      let offset = random.random_range(0..(IndexInput::length(&input) - 1));
-
-      if random.random_bool(0.5) {
-        let prefetch_length = random.random_range(1..=(IndexInput::length(&input) - offset));
-        IndexInput::prefetch(&mut input, offset, prefetch_length)?;
-      }
-
-      input.seek(offset)?;
-      assert_eq!(offset, input.get_file_pointer()?);
-
-      match random.random_range(3..100) {
-        0 => {
-          let read_byte = DataInput::read_byte(&mut input)?;
-          assert_eq!(arr[start_offset + offset], read_byte);
-        },
-        1 => {
-          if (IndexInput::length(&input) - offset) >= 8 {
-            let expected = i64::from_le_bytes(
-              arr[start_offset + offset..start_offset + offset + 8]
-                .try_into()
-                .unwrap(),
-            );
-            let read_long = DataInput::read_long(&mut input)?;
-            assert_eq!(expected, read_long);
-          }
-        },
-        _ => {
-          let read_length =
-            random.random_range(1..=temp.len().min(IndexInput::length(&input) - offset));
-          DataInput::read_bytes(&mut input, &mut temp[..read_length], 0, read_length)?;
-          assert_eq!(
-            &arr[start_offset + offset..start_offset + offset + read_length],
-            &temp[..read_length]
-          );
-        },
-      }
-    }
-    Ok(())
+  fn test_is_loaded_on_slice<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let _ = random;
+    test_not_required_in_rust_lucene!();
   }
 }

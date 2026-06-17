@@ -217,7 +217,7 @@ impl FSDirectoryBase for MMapDirectory {
     MemorySegmentIndexInput::new(
       format!("MemorySegmentIndexInput(path=\"{}\")", file_path.display()),
       &file_path,
-      context.get_read_advice().clone(),
+      *context.get_read_advice(),
       self.chunk_size_power,
       preload,
     )

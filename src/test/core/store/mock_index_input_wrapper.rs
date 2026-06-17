@@ -138,7 +138,7 @@ where
       self.name.clone(),
       self.in_.try_clone()?,
       Some(self.original_closed_state()),
-      self.read_advice.lock().clone(),
+      *self.read_advice.lock(),
       self.confined,
     ))
   }
@@ -342,7 +342,7 @@ where
       slice_description,
       self.in_.slice(slice_description, offset, length)?,
       Some(self.original_closed_state()),
-      self.read_advice.lock().clone(),
+      *self.read_advice.lock(),
       self.confined,
     ))
   }
@@ -371,7 +371,7 @@ where
         .in_
         .slice_with_read_advice(description, offset, length, read_advice)?,
       Some(self.original_closed_state()),
-      read_advice.clone(),
+      *read_advice,
       self.confined,
     ))
   }
@@ -393,7 +393,7 @@ where
   fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
     self.ensure_open()?;
     self.ensure_accessible()?;
-    *self.read_advice.lock() = read_advice.clone();
+    *self.read_advice.lock() = read_advice;
     self.in_.update_read_advice(read_advice)
   }
 }

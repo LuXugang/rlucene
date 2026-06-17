@@ -117,16 +117,19 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let mut two = slicer.slice("second int", 4, 4)?;
     Closeable::close(&mut one)?;
 
-    assert!(matches!(one.read_int(), Err(LuceneError::AlreadyClosed(_))));
+    assert!(matches!(
+      DataInput::read_int(&mut one),
+      Err(LuceneError::AlreadyClosed(_))
+    ));
     let values_len = values.len();
     assert!(matches!(
       GroupVIntUtil::read_group_vints_i64(&mut one, &mut values, values_len),
       Err(LuceneError::AlreadyClosed(_))
     ));
-    assert_eq!(2, two.read_int()?);
+    assert_eq!(2, DataInput::read_int(&mut two)?);
 
     let mut another = slicer.slice("first int", 0, 4)?;
-    assert_eq!(1, another.read_int()?);
+    assert_eq!(1, DataInput::read_int(&mut another)?);
     Closeable::close(&mut another)?;
     Closeable::close(&mut two)?;
     Ok(())

@@ -311,15 +311,18 @@ mod base_directory_test_case_tests {
   }
 
   #[test]
+  fn test_update_read_advice() -> Result<()> {
+    run_case(|case, random| case.test_update_read_advice(random))
+  }
+
+  #[test]
   fn test_is_loaded() -> Result<()> {
-    //  TODO
-    Ok(())
+    run_case(|case, random| case.test_is_loaded(random))
   }
 
   #[test]
   fn test_is_loaded_on_slice() -> Result<()> {
-    //  TODO
-    Ok(())
+    run_case(|case, random| case.test_is_loaded_on_slice(random))
   }
 }
 
