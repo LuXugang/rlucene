@@ -38,7 +38,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{CoreHelper, TryIntoInt};
 
 pub struct MemorySegmentIndexInput {
@@ -146,11 +146,19 @@ impl MemorySegmentIndexInput {
     })
   }
 
-  fn with_slice(&self, resource_desc: String, offset: usize, length: usize) -> Result<Self> {
+  fn with_slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
+    match offset.checked_add(length) {
+      Some(slice_end) if slice_end <= self.length => {},
+      _ => {
+        return Err(LuceneError::illegal_argument(format!(
+          "slice() {slice_description} out of bounds: offset={offset},length={length},fileLength={}: {}",
+          self.length, self
+        )));
+      },
+    }
     self.ensure_open()?;
-    CoreHelper::check_from_index_size(offset, length, self.length)?;
     Ok(Self {
-      resource_desc,
+      resource_desc: get_full_slice_description(slice_description),
       shared: self.shared.clone(),
       offset: self.offset + offset,
       length,
@@ -319,7 +327,23 @@ impl DataInput for MemorySegmentIndexInput {
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
     self.ensure_open()?;
-    GroupVIntUtil::read_group_vint_i32(self, dst, offset)
+    let global_pos = self.offset + self.cur_position;
+    let segment_index = global_pos >> self.chunk_size_power;
+    let segment_offset = global_pos & self.chunk_size_mask;
+    let remaining = self
+      .shared
+      .segments
+      .get(segment_index)
+      .map_or(0, |segment| segment.len().saturating_sub(segment_offset));
+    let len = GroupVIntUtil::read_group_vint_i32_with_reader(
+      self,
+      remaining as u64,
+      segment_offset,
+      dst,
+      offset,
+    )?;
+    self.cur_position += len;
+    Ok(())
   }
 
   fn read_long(&mut self) -> Result<i64> {
@@ -402,6 +426,26 @@ impl DataInput for MemorySegmentIndexInput {
   }
 }
 
+impl IntReader for MemorySegmentIndexInput {
+  fn read(&mut self, pos: usize) -> Result<i32> {
+    self.ensure_open()?;
+    let global_pos = self.offset + self.cur_position;
+    let segment_index = global_pos >> self.chunk_size_power;
+    let segment = self
+      .shared
+      .segments
+      .get(segment_index)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    let end = pos
+      .checked_add(BitUtil::INT_BYTES)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    let bytes = segment
+      .get(pos..end)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    Ok(i32::from_le_bytes(bytes.try_into().unwrap()))
+  }
+}
+
 impl Display for MemorySegmentIndexInput {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.resource_desc)
@@ -477,11 +521,7 @@ impl IndexInput for MemorySegmentIndexInput {
     offset: usize,
     length: usize,
   ) -> Result<Self::IndexInput> {
-    self.with_slice(
-      get_full_slice_description(slice_description),
-      offset,
-      length,
-    )
+    self.with_slice(slice_description, offset, length)
   }
 
   fn slice_with_read_advice(
@@ -513,12 +553,7 @@ impl IndexInput for MemorySegmentIndexInput {
   type RandomAccessSlice = MemorySegmentIndexInput;
 
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
-    self.ensure_open()?;
-    self.with_slice(
-      get_full_slice_description("random_access_slice"),
-      offset,
-      length,
-    )
+    self.with_slice("random_access_slice", offset, length)
   }
 
   fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {

@@ -27,7 +27,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{SliceCopyOps, TryIntoInt};
 pub type ByteBuffersDataInputRef<'a> = ByteBuffersDataInput<&'a [u8]>;
 pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<Vec<u8>>;
@@ -411,6 +411,15 @@ where
 
   fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
     Ok(())
+  }
+}
+
+impl<B> IntReader for ByteBuffersDataInput<B>
+where
+  B: ByteBuffersDataInputBlock,
+{
+  fn read(&mut self, pos: usize) -> Result<i32> {
+    RandomAccessInput::read_int(self, pos)
   }
 }
 

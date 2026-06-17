@@ -16,9 +16,14 @@
  */
 use crate::core::store::data_input::DataInput;
 use crate::core::store::data_output::DataOutput;
-use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+
+/// Provides an abstraction for reading `int` values, so that decoding logic can
+/// be reused in different [`DataInput`] implementations.
+pub trait IntReader {
+  fn read(&mut self, pos: usize) -> Result<i32>;
+}
 
 /// This struct contains utility methods and constants for group varint.
 pub struct GroupVIntUtil;
@@ -172,7 +177,7 @@ impl GroupVIntUtil {
   /// of positions that should be increased for the caller. It is a
   /// non-negative number less than `MAX_LENGTH_PER_GROUP`.
   pub fn read_group_vint_i64_with_reader(
-    data_input: &mut (impl DataInput + RandomAccessInput),
+    data_input: &mut (impl DataInput + IntReader),
     remaining: u64,
     mut pos: usize,
     dst: &mut [i64],
@@ -184,7 +189,8 @@ impl GroupVIntUtil {
     }
 
     let flag = DataInput::read_byte(data_input)? as usize;
-    let pos_start = pos + 1; // exclude the flag bytes, the position has updated via read_byte().
+    pos += 1; // exclude the flag bytes, the position has updated via read_byte().
+    let pos_start = pos;
 
     let n1_minus1 = flag >> 6;
     let n2_minus1 = (flag >> 4) & 0x03;
@@ -193,20 +199,19 @@ impl GroupVIntUtil {
     // This code path has fewer conditionals and tends to be significantly
     // faster in benchmarks
 
-    dst[offset] =
-      (RandomAccessInput::read_int(data_input, pos)? as u64 & Self::LONG_MASKS[n1_minus1]) as i64;
+    dst[offset] = (IntReader::read(data_input, pos)? as u64 & Self::LONG_MASKS[n1_minus1]) as i64;
     pos += 1 + n1_minus1;
 
     dst[offset + 1] =
-      (RandomAccessInput::read_int(data_input, pos)? as u64 & Self::LONG_MASKS[n2_minus1]) as i64;
+      (IntReader::read(data_input, pos)? as u64 & Self::LONG_MASKS[n2_minus1]) as i64;
     pos += 1 + n2_minus1;
 
     dst[offset + 2] =
-      (RandomAccessInput::read_int(data_input, pos)? as u64 & Self::LONG_MASKS[n3_minus1]) as i64;
+      (IntReader::read(data_input, pos)? as u64 & Self::LONG_MASKS[n3_minus1]) as i64;
     pos += 1 + n3_minus1;
 
     dst[offset + 3] =
-      (RandomAccessInput::read_int(data_input, pos)? as u64 & Self::LONG_MASKS[n4_minus1]) as i64;
+      (IntReader::read(data_input, pos)? as u64 & Self::LONG_MASKS[n4_minus1]) as i64;
     pos += 1 + n4_minus1;
     let result = pos - pos_start;
     Ok(result)
@@ -219,15 +224,15 @@ impl GroupVIntUtil {
   /// * `remaining` - The number of remaining bytes allowed to read for the
   ///   current block/segment.
   /// * `pos` - The start position to read from the reader.
-  /// * `dst` - The array to read `i64` values into.
-  /// * `offset` - The offset in the array to start storing `i64` values.
+  /// * `dst` - The array to read `i32` values into.
+  /// * `offset` - The offset in the array to start storing `i32` values.
   ///
   /// # Returns
   /// The number of bytes read excluding the flag. This indicates the number
   /// of positions that should be increased for the caller. It is a
   /// non-negative number less than `MAX_LENGTH_PER_GROUP`.
   pub fn read_group_vint_i32_with_reader(
-    data_input: &mut (impl DataInput + RandomAccessInput),
+    data_input: &mut (impl DataInput + IntReader),
     remaining: u64,
     mut pos: usize,
     dst: &mut [i32],
@@ -239,7 +244,8 @@ impl GroupVIntUtil {
     }
 
     let flag = DataInput::read_byte(data_input)? as usize;
-    let pos_start = pos + 1; // exclude the flag bytes, the position has updated via read_byte().
+    pos += 1; // exclude the flag bytes, the position has updated via read_byte().
+    let pos_start = pos;
 
     let n1_minus1 = flag >> 6;
     let n2_minus1 = (flag >> 4) & 0x03;
@@ -248,20 +254,19 @@ impl GroupVIntUtil {
     // This code path has fewer conditionals and tends to be significantly
     // faster in benchmarks
 
-    dst[offset] =
-      (RandomAccessInput::read_int(data_input, pos)? as u32 & Self::INT_MASKS[n1_minus1]) as i32;
+    dst[offset] = (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n1_minus1]) as i32;
     pos += 1 + n1_minus1;
 
     dst[offset + 1] =
-      (RandomAccessInput::read_int(data_input, pos)? as u32 & Self::INT_MASKS[n2_minus1]) as i32;
+      (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n2_minus1]) as i32;
     pos += 1 + n2_minus1;
 
     dst[offset + 2] =
-      (RandomAccessInput::read_int(data_input, pos)? as u32 & Self::INT_MASKS[n3_minus1]) as i32;
+      (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n3_minus1]) as i32;
     pos += 1 + n3_minus1;
 
     dst[offset + 3] =
-      (RandomAccessInput::read_int(data_input, pos)? as u32 & Self::INT_MASKS[n4_minus1]) as i32;
+      (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n4_minus1]) as i32;
     pos += 1 + n4_minus1;
     let result = pos - pos_start;
     Ok(result)

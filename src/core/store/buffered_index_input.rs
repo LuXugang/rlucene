@@ -24,7 +24,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{BufferedIndexInputBase, Context, DataInput, IOContext};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{ReadableCursorExt, SliceCopyOps, TryIntoInt};
 /// Base implementation struct for buffered [`IndexInput`].  */
 pub struct BufferedIndexInput<T>
@@ -598,17 +598,11 @@ where
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-    let remain = self
-      .buffer
-      .remain_between(self.buffer.position().try_convert()?, self.length);
+    let pos = self.buffer.position().try_convert()?;
+    let remain = self.buffer.remain_between(pos, self.length);
     debug_assert!(self.buffer.position() <= i64::MAX as u64);
-    let len = GroupVIntUtil::read_group_vint_i32_with_reader(
-      self,
-      remain as u64,
-      self.buffer.position().try_convert()?,
-      dst,
-      offset,
-    )?;
+    let len =
+      GroupVIntUtil::read_group_vint_i32_with_reader(self, remain as u64, pos, dst, offset)?;
     self.pos += len;
     Ok(())
   }
@@ -774,6 +768,15 @@ where
 
   fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
     Ok(())
+  }
+}
+
+impl<T> IntReader for BufferedIndexInput<T>
+where
+  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
+{
+  fn read(&mut self, pos: usize) -> Result<i32> {
+    RandomAccessInput::read_int(self, pos)
   }
 }
 
