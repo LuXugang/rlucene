@@ -28,22 +28,29 @@ use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::EmptyTermVectors;
+use crate::core::search::collector::Collector;
+use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn_collector::KnnCollector;
+use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
+use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::search::weight::Weight;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::error::lucene_error::LuceneError;
@@ -88,6 +95,48 @@ impl CheckHits {
         doc,
         exp
       );
+    }
+
+    Ok(())
+  }
+
+  /// Tests that a query matches the expected set of documents using a collector.
+  ///
+  /// Note that when using the collector API, documents will be collected if they "match"
+  /// regardless of what their score is.
+  ///
+  /// * `random` - a random instance
+  /// * `query` - the query to test
+  /// * `default_field_name` - used for displaying the query in assertion messages
+  /// * `searcher` - the searcher to test the query against
+  /// * `results` - a list of documentIds that must match the query
+  ///   See also: `check_hits`
+  pub fn check_hit_collector<IRC, R>(
+    random: &mut R,
+    query: Query,
+    default_field_name: &str,
+    searcher: &IndexSearcher<IRC>,
+    results: &[i32],
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    IRC: IndexReaderContext + Sync,
+    IRC::LeafReader: Clone,
+  {
+    QueryUtils::check_from_searcher(random, query.clone(), searcher)?;
+
+    let correct: BTreeSet<i32> = results.iter().copied().collect();
+    let query_string = query.to_string(default_field_name)?;
+
+    let manager = SetCollectorManager::new();
+    let actual = searcher.search_with_collector_manager(query.clone(), &manager)?;
+    assert_eq!(correct, actual, "Simple: {}", query_string);
+
+    for i in -1..2 {
+      let s = QueryUtils::wrap_underlying_reader(random, searcher, i)?;
+      let manager = SetCollectorManager::new();
+      let actual = s.search_with_collector_manager(query.clone(), &manager)?;
+      assert_eq!(correct, actual, "Wrap Reader {}: {}", i, query_string);
     }
 
     Ok(())
@@ -576,6 +625,95 @@ impl CheckHits {
     } else {
       Ok(true)
     }
+  }
+}
+
+struct SetCollectorManager;
+
+impl SetCollectorManager {
+  fn new() -> Self {
+    Self
+  }
+}
+
+impl CollectorManager for SetCollectorManager {
+  type C = SetCollector;
+  type T = BTreeSet<i32>;
+
+  fn new_collector(&self) -> Result<Self::C> {
+    Ok(SetCollector::new(BTreeSet::new()))
+  }
+
+  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+    let mut ids = BTreeSet::new();
+    for collector in collectors {
+      ids.extend(collector.bag);
+    }
+    Ok(ids)
+  }
+}
+
+/// Just collects document ids into a set.
+pub struct SetCollector {
+  bag: BTreeSet<i32>,
+  base: i32,
+}
+
+impl SetCollector {
+  fn new(bag: BTreeSet<i32>) -> Self {
+    Self { bag, base: 0 }
+  }
+}
+
+impl Collector for SetCollector {
+  type LeafCollector<'a, IRC>
+    = &'a mut Self
+  where
+    Self: 'a,
+    IRC: IndexReaderContext;
+
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    SimpleCollector::do_set_next_reader(self, context)?;
+    Ok(self)
+  }
+
+  fn score_mode(&self) -> ScoreMode {
+    ScoreMode::CompleteNoScores
+  }
+}
+
+impl LeafCollector for SetCollector {
+  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+    Ok(())
+  }
+
+  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+    self.bag.insert(doc + self.base);
+    Ok(())
+  }
+}
+
+impl SimpleCollector for SetCollector {
+  fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
+  where
+    LR: LeafReader,
+  {
+    self.base = context.doc_base as i32;
+    Ok(())
+  }
+}
+
+impl Display for SetCollector {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 pub static COMPUTED_FROM_PATTERN: LazyLock<Regex> =

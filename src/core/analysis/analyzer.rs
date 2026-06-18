@@ -29,6 +29,7 @@ use crate::impl_from_for_enum;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::sync::Arc;
 use thread_local::ThreadLocal;
 
 pub struct AnalyzerStoredValue {
@@ -202,6 +203,58 @@ pub trait Analyzer: Send + Sync {
 }
 pub const DEFAULT_OFFSET_GAP: i32 = 1;
 pub const DEFAULT_POSITION_INCREMENT_GAP: i32 = 0;
+impl<T> Analyzer for Arc<T>
+where
+  T: Analyzer + ?Sized,
+{
+  fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
+    (**self).create_components(field)
+  }
+
+  fn normalize_from_ts(
+    &self,
+    field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
+    (**self).normalize_from_ts(field_name, in_)
+  }
+
+  fn token_stream(
+    &self,
+    field_name: &str,
+    input: ReaderEnum,
+  ) -> Result<RefMut<'_, AnalyzerTokenStreams>> {
+    (**self).token_stream(field_name, input)
+  }
+
+  fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
+    (**self).normalize(field_name, text)
+  }
+
+  fn init_reader(&self, field_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    (**self).init_reader(field_name, reader)
+  }
+
+  fn init_reader_for_normalization(&self, field_name: &str, reader: ReaderEnum) -> ReaderEnum {
+    (**self).init_reader_for_normalization(field_name, reader)
+  }
+
+  fn attribute_factory(&self, field_name: &str) -> Attributes {
+    (**self).attribute_factory(field_name)
+  }
+
+  fn get_position_increment_gap(&self, field_name: &str) -> i32 {
+    (**self).get_position_increment_gap(field_name)
+  }
+
+  fn get_offset_gap(&self, field_name: &str) -> i32 {
+    (**self).get_offset_gap(field_name)
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    (**self).stored_value()
+  }
+}
 impl_from_for_enum!(
     AnalyzerEnum,
     WhitespaceAnalyzer=> Whitespace,

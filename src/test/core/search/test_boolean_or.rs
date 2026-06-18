@@ -58,7 +58,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
 #[allow(dead_code)]
-pub struct TestBooleanOr;
+struct TestBooleanOr;
 
 const FIELD_T: &str = "T";
 const FIELD_C: &str = "C";

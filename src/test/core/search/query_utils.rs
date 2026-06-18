@@ -88,6 +88,19 @@ impl QueryUtils {
     Ok(())
   }
 
+  pub fn wrap_underlying_reader<'a, R, IRC>(
+    _random: &mut R,
+    s: &'a IndexSearcher<IRC>,
+    _edge: i32,
+  ) -> Result<&'a IndexSearcher<IRC>>
+  where
+    R: Rng + ?Sized,
+    IRC: IndexReaderContext,
+  {
+    // TODO IMPORTANT
+    Ok(s)
+  }
+
   pub fn check_equal<Q>(q1: &Q, q2: &Q)
   where
     Q: Eq + Hash + PartialEq,
