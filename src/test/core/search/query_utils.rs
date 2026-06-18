@@ -85,7 +85,9 @@ impl QueryUtils {
     if wrap {
       // TODO IMPORTANT
     }
-    CheckHits::check_explanations(&q, "", s)?;
+    Self::check_explanations(&q, s)?;
+    // TODO IMPORTANT matches未实现
+    // CheckHits::check_matches(q, s)?;
     Ok(())
   }
 
@@ -117,8 +119,14 @@ impl QueryUtils {
     Q: Eq + Hash + PartialEq + std::fmt::Debug,
   {
     assert_ne!(q1, q2);
-
     assert_ne!(q2, q1);
+  }
+
+  pub fn check_explanations<IRC>(query: &Query, searcher: &IndexSearcher<IRC>) -> Result<()>
+  where
+    IRC: IndexReaderContext + Sync + 'static,
+  {
+    CheckHits::check_explanations_with_deep(query, "", searcher, true)
   }
 
   pub fn check_skip_to<IRC>(q: Query, s: &IndexSearcher<IRC>) -> Result<()>

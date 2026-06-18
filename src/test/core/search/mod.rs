@@ -127,6 +127,8 @@ mod test_segment_cacheables;
 pub(crate) mod test_similarity;
 mod test_similarity_provider;
 mod test_simple_explanations;
+mod test_simple_explanations_of_non_matches;
+pub mod test_simple_explanations_with_filler_docs;
 mod test_simple_search_equivalence;
 mod test_sloppy_phrase_query;
 mod test_sloppy_phrase_query2;

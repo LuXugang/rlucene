@@ -60,6 +60,19 @@ pub trait BaseExplanationTestCase {
     R: Rng + ?Sized,
     Q: IntoQuery,
   {
+    self.default_q_test(random, searcher, q, exp_doc_nrs)
+  }
+  fn default_q_test<R, Q>(
+    &self,
+    random: &mut R,
+    searcher: &DefaultIndexSearchCRShared,
+    q: Q,
+    exp_doc_nrs: &[i32],
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    Q: IntoQuery,
+  {
     let mut q = q.into_query();
     if random.random_bool(0.5) {
       let mut bq = BooleanQueryBuilder::new();
@@ -142,7 +155,7 @@ pub const FIELD: &str = "field";
 // same contents, but no field boost
 pub const ALTFIELD: &str = "alt";
 
-const DOC_FIELDS: [&str; 4] = [
+pub(crate) const DOC_FIELDS: [&str; 4] = [
   "w1 w2 w3 w4 w5",
   "w1 w3 w2 w3 zz",
   "w1 xx w2 yy w3",
@@ -180,7 +193,7 @@ where
     analyzer,
   })
 }
-fn create_doc(index: usize) -> Result<Document> {
+pub(crate) fn create_doc(index: usize) -> Result<Document> {
   let mut doc = Document::new();
   doc.add(StringField::from_string(KEY, index.to_string(), Store::No)?);
   doc.add(TextField::from_string(FIELD, DOC_FIELDS[index], Store::No)?);

@@ -58,6 +58,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::version::LATEST;
 use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::rarely;
+use crate::test::ulp_f32;
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
@@ -266,6 +267,17 @@ impl CheckHits {
       ExplanationAsserterManager::new(query.clone(), default_field_name, searcher, deep);
     searcher.search_with_collector_manager(query.clone(), &manager)
   }
+
+  /// Asserts that the result of calling [`Weight::matches`] for every document matching a query
+  /// returns a non-`None` [`Matches`](crate::core::search::matches::Matches).
+  pub fn check_matches<IRC>(query: Query, searcher: &IndexSearcher<IRC>) -> Result<()>
+  where
+    IRC: IndexReaderContext + Sync + 'static,
+  {
+    let manager = MatchesAsserterManager::new(query.clone(), searcher);
+    searcher.search_with_collector_manager(query, &manager)
+  }
+
   pub fn verify_explanation(
     q: &str,
     doc: i32,
@@ -362,8 +374,7 @@ impl CheckHits {
         }
 
         if sum_of {
-          // Java leniency
-          max_error += (dval as f64).to_bits() as f64 * f64::EPSILON * 2.0;
+          max_error += ulp_f32(dval) as f64 * 2.0;
         }
       }
 
@@ -374,8 +385,7 @@ impl CheckHits {
       } else if max_of {
         max
       } else if max_times_others {
-        let s = sum as f32;
-        max + x * (s - max)
+        (max as f64 + x as f64 * (sum - max as f64)) as f32
       } else {
         // computedOf
         value
@@ -681,6 +691,39 @@ where
   }
 }
 
+struct MatchesAsserterManager<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  query: Query,
+  searcher: &'a IndexSearcher<IRC>,
+}
+
+impl<'a, IRC> MatchesAsserterManager<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn new(query: Query, searcher: &'a IndexSearcher<IRC>) -> Self {
+    Self { query, searcher }
+  }
+}
+
+impl<'a, IRC> CollectorManager for MatchesAsserterManager<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  type C = MatchesAsserter<'a, IRC>;
+  type T = ();
+
+  fn new_collector(&self) -> Result<Self::C> {
+    MatchesAsserter::new(self.query.clone(), self.searcher)
+  }
+
+  fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
+    Ok(())
+  }
+}
+
 /// Asserts that the score explanation for every document matching a query corresponds with the
 /// true score.
 ///
@@ -780,6 +823,125 @@ where
 }
 
 impl<IRC> Display for ExplanationAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+/// Asserts that the [`Matches`](crate::core::search::matches::Matches) from a query is non-`None`
+/// whenever the document it is created for is a hit.
+///
+/// Also checks that the previous non-matching document has a `None`
+/// [`Matches`](crate::core::search::matches::Matches).
+struct MatchesAsserter<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  query: Query,
+  searcher: &'a IndexSearcher<IRC>,
+  query_string: String,
+  context_ord: usize,
+  last_checked_doc: i32,
+  // With intra-segment concurrency, we may start from a doc id that isn't -1. We need to make
+  // sure that we don't go outside of the bounds of the current slice, meaning -1 can't be
+  // reliably used to signal that we are collecting the first doc for a given segment partition.
+  collected_once: bool,
+}
+
+impl<'a, IRC> MatchesAsserter<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn new(query: Query, searcher: &'a IndexSearcher<IRC>) -> Result<Self> {
+    let query_string = query.to_string("")?;
+    Ok(Self {
+      query,
+      searcher,
+      query_string,
+      context_ord: 0,
+      last_checked_doc: -1,
+      collected_once: false,
+    })
+  }
+}
+
+impl<IRC> Collector for MatchesAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  type LeafCollector<'a, IRC1>
+    = &'a mut Self
+  where
+    Self: 'a,
+    IRC1: IndexReaderContext;
+
+  fn get_leaf_collector<'a, W, IRC1>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC1>>,
+    _weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC1>>
+  where
+    IRC1: IndexReaderContext,
+    W: Weight<IRC1> + ?Sized,
+  {
+    SimpleCollector::do_set_next_reader(self, context)?;
+    Ok(self)
+  }
+
+  fn score_mode(&self) -> ScoreMode {
+    ScoreMode::CompleteNoScores
+  }
+}
+
+impl<IRC> LeafCollector for MatchesAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+    let context = &self.searcher.get_leaf_contexts()?[self.context_ord];
+    let query = self.searcher.rewrite(self.query.clone())?;
+    let weight = self
+      .searcher
+      .create_weight(query, ScoreMode::CompleteNoScores, 1.0)?;
+    let matches = weight.matches(context, doc, self.searcher)?;
+    assert!(
+      matches.is_some(),
+      "Unexpected null Matches object in doc{} for query {}",
+      doc,
+      self.query_string
+    );
+    if self.collected_once && self.last_checked_doc != doc - 1 {
+      assert!(
+        weight.matches(context, doc - 1, self.searcher)?.is_none(),
+        "Unexpected non-null Matches object in non-matching doc{} for query {}",
+        doc,
+        self.query_string
+      );
+    }
+    self.collected_once = true;
+    self.last_checked_doc = doc;
+    Ok(())
+  }
+}
+
+impl<IRC> SimpleCollector for MatchesAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
+  where
+    LR: LeafReader,
+  {
+    self.context_ord = context.ord;
+    self.last_checked_doc = -1;
+    Ok(())
+  }
+}
+
+impl<IRC> Display for MatchesAsserter<'_, IRC>
 where
   IRC: IndexReaderContext,
 {
