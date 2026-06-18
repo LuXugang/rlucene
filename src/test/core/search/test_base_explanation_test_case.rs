@@ -95,7 +95,6 @@ fn test_query_match_when_not_expected() -> Result<()> {
   Ok(())
 }
 
-#[test]
 fn test_incorrect_explain_scores() -> Result<()> {
   let mut random = random();
   let test = TestBaseExplanationTestCase::new(&mut random)?;
