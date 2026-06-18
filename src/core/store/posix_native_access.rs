@@ -24,13 +24,33 @@ use memmap2::{Advice, Mmap};
 use crate::core::store::ReadAdvice;
 #[cfg(unix)]
 use crate::core::store::native_access::NativeAccess;
+#[cfg(unix)]
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+
+#[cfg(unix)]
+unsafe extern "C" {
+  fn getpagesize() -> libc::c_int;
+}
 
 #[cfg(unix)]
 #[derive(Clone, Copy)]
-pub struct PosixNativeAccess;
+pub struct PosixNativeAccess {
+  page_size: usize,
+}
 
 #[cfg(unix)]
 impl PosixNativeAccess {
+  pub fn new() -> Result<Self> {
+    let page_size = unsafe { getpagesize() };
+    if page_size <= 0 {
+      return Err(LuceneError::illegal_state(format!(
+        "getpagesize returned {page_size}"
+      )));
+    }
+    let page_size = page_size as usize;
+    Ok(Self { page_size })
+  }
+
   fn to_advice(read_advice: &ReadAdvice) -> Option<Advice> {
     match read_advice {
       ReadAdvice::Normal | ReadAdvice::RandomPreload => None,
@@ -58,11 +78,6 @@ impl NativeAccess for PosixNativeAccess {
   }
 
   fn get_page_size(&self) -> usize {
-    let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
-    if page_size <= 0 {
-      4096
-    } else {
-      page_size as usize
-    }
+    self.page_size
   }
 }

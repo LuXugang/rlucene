@@ -89,6 +89,8 @@ impl MemorySegmentIndexInput {
     }
 
     let chunk_size = 1usize << chunk_size_power;
+    #[cfg(unix)]
+    let native_access = PosixNativeAccess::new()?;
     let mut segments = Vec::new();
     let mut start_offset = 0usize;
     while start_offset < length {
@@ -103,7 +105,6 @@ impl MemorySegmentIndexInput {
 
       #[cfg(unix)]
       {
-        let native_access = PosixNativeAccess;
         if preload {
           native_access
             .madvise_will_need(&mmap)
@@ -144,7 +145,7 @@ impl MemorySegmentIndexInput {
       closed: false,
       owns_shared: true,
       #[cfg(unix)]
-      native_access: PosixNativeAccess,
+      native_access,
     })
   }
 
