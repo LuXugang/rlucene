@@ -53,7 +53,7 @@ impl MyIndexWriter {
 
 impl IndexWriterHooks for MyIndexWriter {
   fn do_before_merge(&self, merge: &MergeStat) -> Result<()> {
-    if merge.max_num_segments != -1
+    if merge.max_num_segments() != -1
       && (self.first.load(Ordering::SeqCst) || merge.segments.len() == 1)
     {
       self.first.store(false, Ordering::SeqCst);

@@ -56,9 +56,9 @@ use parking_lot::{Condvar, MappedMutexGuard, Mutex, MutexGuard};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::OnceLock;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
 
@@ -1191,15 +1191,29 @@ where
 #[derive(Clone)]
 pub struct MergeStat {
   pub(crate) id: Identity,
-  pub(crate) max_num_segments: i32,
-  pub(crate) info_id: Option<String>,
+  state: Arc<Mutex<MergeStatState>>,
   /// Segments to be merged.
   /// `SegmentInfo::name` and `SegmentInfo::id`.
   pub(crate) segments: Vec<String>,
-  /// `SegmentInfo::name`.
-  pub(crate) name: Option<String>,
   pub(crate) merge_gen: i64,
 }
+
+struct MergeStatState {
+  max_num_segments: i32,
+  info_id: Option<String>,
+  name: Option<String>,
+}
+
+impl MergeStatState {
+  fn new() -> Self {
+    Self {
+      max_num_segments: -1,
+      info_id: None,
+      name: None,
+    }
+  }
+}
+
 impl PartialEq for MergeStat {
   fn eq(&self, other: &Self) -> bool {
     self.id.eq(&other.id)
@@ -1213,6 +1227,36 @@ impl Hash for MergeStat {
     H: Hasher,
   {
     self.id.hash(state);
+  }
+}
+
+impl MergeStat {
+  pub(crate) fn max_num_segments(&self) -> i32 {
+    self.state.lock().max_num_segments
+  }
+
+  pub(crate) fn set_max_num_segments(&self, max_num_segments: i32) {
+    self.state.lock().max_num_segments = max_num_segments;
+  }
+
+  pub(crate) fn info_id(&self) -> Option<String> {
+    self.state.lock().info_id.clone()
+  }
+
+  pub(crate) fn name(&self) -> Option<String> {
+    self.state.lock().name.clone()
+  }
+
+  pub(crate) fn set_merge_info(&self, info_id: String, name: String) {
+    let mut state = self.state.lock();
+    state.info_id = Some(info_id);
+    state.name = Some(name);
+  }
+
+  pub(crate) fn clear_merge_info(&self) {
+    let mut state = self.state.lock();
+    state.info_id = None;
+    state.name = None;
   }
 }
 
@@ -1251,10 +1295,8 @@ where
       error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
-        max_num_segments: -1,
-        info_id: None,
+        state: Arc::new(Mutex::new(MergeStatState::new())),
         segments: v,
-        name: None,
         merge_gen: 0,
       },
       info: None,
@@ -1270,7 +1312,7 @@ where
   }
   /// Creates wrapping.
   pub(crate) fn from_other(one_merge: OneMerge<D, CR>) -> Self {
-    let mut one_merge = Self {
+    let one_merge = Self {
       merge_readers: Mutex::new(one_merge.merge_readers.into_inner()),
       total_max_doc: one_merge.total_max_doc,
       #[cfg(test)]
@@ -1287,8 +1329,8 @@ where
       info: one_merge.info,
       merge_completed: OnceLock::new(),
     };
-    one_merge.stat.max_num_segments = -1;
-    one_merge.stat.info_id = None;
+    one_merge.stat.set_max_num_segments(-1);
+    one_merge.stat.clear_merge_info();
     one_merge
   }
   /// Create a OneMerge directly from CodecReaders. Used to merge incoming readers in
@@ -1319,10 +1361,8 @@ where
       error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
-        max_num_segments: -1,
-        info_id: None,
+        state: Arc::new(Mutex::new(MergeStatState::new())),
         segments: Vec::new(),
-        name: None,
         merge_gen: 0,
       },
       info: None,
@@ -1358,17 +1398,24 @@ where
       s.push_str(&v.to_string_with_pending_del_count(0));
     }
 
-    if let Some(info_id) = &self.stat.info_id {
+    if let Some(info_id) = self.stat.info_id() {
       s.push_str(" into ");
-      let v = segments.index_of(info_id).ok_or_else(|| {
-        LuceneError::illegal_state("merge's segment could find from IndexWriter's SegmentInfos")
-      })?;
-      s.push_str(&v.info.name);
+      let name = match self.stat.name() {
+        Some(name) => name,
+        None => {
+          let v = segments.index_of(&info_id).ok_or_else(|| {
+            LuceneError::illegal_state("merge's segment could find from IndexWriter's SegmentInfos")
+          })?;
+          v.info.name.clone()
+        },
+      };
+      s.push_str(&name);
     }
 
-    if self.stat.max_num_segments != -1 {
+    let max_num_segments = self.stat.max_num_segments();
+    if max_num_segments != -1 {
       s.push_str(" [maxNumSegments=");
-      s.push_str(&self.stat.max_num_segments.to_string());
+      s.push_str(&max_num_segments.to_string());
       s.push(']');
     }
 
@@ -1383,7 +1430,7 @@ where
       self.total_max_doc,
       self.estimated_merge_bytes.load(Relaxed),
       self.is_external,
-      self.stat.max_num_segments,
+      self.stat.max_num_segments(),
     )
   }
   pub fn set_aborted(&self) -> Result<()> {
@@ -1452,8 +1499,9 @@ where
   type DocMap = DummyDocMap;
 
   fn set_merge_info(&mut self, info: SegmentCommitInfo<D>) {
-    self.stat.info_id = Some(info.info.get_id_key().to_string());
-    self.stat.name = Some(info.info.name.clone());
+    self
+      .stat
+      .set_merge_info(info.info.get_id_key().to_string(), info.info.name.clone());
     self.info = Some(info);
   }
 

@@ -2120,29 +2120,23 @@ where
         ..
       } = &mut *inner;
       for merge in pending_merges.iter_mut() {
-        merge.stat.max_num_segments = max_num_segments;
-        if let Some(info_id) = &merge.stat.info_id {
+        merge.stat.set_max_num_segments(max_num_segments);
+        if let Some(info_id) = merge.stat.info_id() {
           // this can be None since we register the merge under lock before we then do the actual
           // merge and
           // set the merge.info in _mergeInit
-          segments_to_merge.insert(info_id.clone(), Some(true));
+          segments_to_merge.insert(info_id, Some(true));
         }
       }
 
-      let new_running_merges: HashSet<MergeStat> = running_merges
-        .iter()
-        .map(|m| {
-          let mut m = m.clone();
-          m.max_num_segments = max_num_segments;
-          if let Some(ref id) = m.info_id {
-            // this can be None since we put the merge on runningMerges before we do the actual merge
-            // and set the merge.info in _mergeInit
-            segments_to_merge.insert(id.clone(), Some(true));
-          }
-          m
-        })
-        .collect();
-      inner.running_merges = new_running_merges;
+      for merge in running_merges.iter() {
+        merge.set_max_num_segments(max_num_segments);
+        if let Some(info_id) = merge.info_id() {
+          // this can be None since we put the merge on runningMerges before we do the actual merge
+          // and set the merge.info in _mergeInit
+          segments_to_merge.insert(info_id, Some(true));
+        }
+      }
     }
 
     self.maybe_merge_with_max_num_segments(
@@ -2163,7 +2157,7 @@ where
 
         if !inner.merge_exceptions.is_empty() {
           for merge in &inner.merge_exceptions {
-            if merge.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+            if merge.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS {
               return Err(LuceneError::illegal_state("background merge hit exception"));
             }
           }
@@ -2193,13 +2187,13 @@ where
   /// are max-num-segments merges.
   pub(crate) fn max_num_segments_merges_pending(&self, inner: &Inner<D>) -> bool {
     for merge in inner.pending_merges.iter() {
-      if merge.stat.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+      if merge.stat.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS {
         return true;
       }
     }
 
     for merge in inner.running_merges.iter() {
-      if merge.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
+      if merge.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS {
         return true;
       }
     }
@@ -2290,7 +2284,7 @@ where
 
       if let Some(ref mut spec) = spec_opt {
         for m in &mut spec.merges {
-          m.stat.max_num_segments = max_num_segments;
+          m.stat.set_max_num_segments(max_num_segments);
         }
       }
     } else {
@@ -4706,7 +4700,7 @@ where
         .message("IW", &format!("after commitMerge: {}", self.seg_string()?))?;
     }
 
-    if merge.stat.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS && !drop_segment {
+    if merge.stat.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS && !drop_segment {
       // cascade the forceMerge:
       inner
         .segments_to_merge
@@ -4756,13 +4750,13 @@ where
               .message("IW", "hit exception during merge")?;
           }
         } else if !merge.is_aborted()
-          && (merge.stat.max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS
+          && (merge.stat.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS
             || (!self.closed.load(SeqCst) && !self.closing.load(SeqCst)))
         {
           self.update_pending_merges(
             merge_policy,
             MergeTrigger::MergeFinished,
-            merge.stat.max_num_segments,
+            merge.stat.max_num_segments(),
             Some(&mut inner),
           )?;
         }
@@ -4815,7 +4809,9 @@ where
       }
 
       if inner.segments_to_merge.contains_key(info_id) {
-        merge.stat.max_num_segments = inner.merge_max_num_segments;
+        merge
+          .stat
+          .set_max_num_segments(inner.merge_max_num_segments);
       }
     }
     self.ensure_valid_merge(&merge, inner)?;
@@ -4902,8 +4898,8 @@ where
 
     debug_assert!(merge.register_done.load(Ordering::Acquire));
     debug_assert!(
-      merge.stat.max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS
-        || merge.stat.max_num_segments > 0
+      merge.stat.max_num_segments() == UNBOUNDED_MAX_MERGE_SEGMENTS
+        || merge.stat.max_num_segments() > 0
     );
 
     if let Some(t) = self.tragedy.get() {
@@ -4975,7 +4971,7 @@ where
     let mut details = HashMap::new();
     details.insert(
       "mergeMaxNumSegments".to_string(),
-      merge.stat.max_num_segments.to_string(),
+      merge.stat.max_num_segments().to_string(),
     );
     details.insert(
       "mergeFactor".to_string(),
