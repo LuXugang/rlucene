@@ -39,6 +39,11 @@ impl BaseDirectoryTestCase for TestNIOFSDirectory {
   }
 }
 
+#[test]
+fn test_handle_exception_in_constructor() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}
+
 mod base_directory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;

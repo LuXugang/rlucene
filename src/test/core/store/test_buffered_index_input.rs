@@ -219,6 +219,40 @@ fn test_backwards_byte_reads() -> Result<()> {
 }
 
 #[test]
+fn test_backwards_short_reads() -> Result<()> {
+  let mut random = random();
+  let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
+  let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
+  let mut input =
+    BufferedIndexInput::with_buffer_size(sub_index_input, &resource_description, BUFFER_SIZE)?;
+
+  let mut i = 2048;
+  while i > 0 {
+    let bb = [byten(i), byten(i + 1)];
+    let expected_value = i16::from_le_bytes(bb);
+    assert_eq!(
+      expected_value,
+      RandomAccessInput::read_short(&mut input, i)?
+    );
+    let v = random.random_range(1..17) as usize;
+    let next = i.saturating_sub(v);
+    if next == 0 {
+      break;
+    }
+    i = next;
+  }
+
+  let actual_read_count = input.get_sub_index_input().read_count;
+  assert!(
+    actual_read_count == 3 || actual_read_count == 4,
+    "Expected 3 or 4, got {}",
+    actual_read_count
+  );
+
+  Ok(())
+}
+
+#[test]
 fn test_backwards_int_reads() -> Result<()> {
   let mut random = random();
   let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);

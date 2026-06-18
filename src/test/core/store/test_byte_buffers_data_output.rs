@@ -131,6 +131,14 @@ fn test_illegal_bits_per_block_range() {
   assert!(o.is_err());
 }
 #[test]
+fn test_null_allocator() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}
+#[test]
+fn test_null_recycler() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}
+#[test]
 fn test_sanity() -> Result<()> {
   let mut random = random();
   let case = TestByteBuffersDataOutput;
