@@ -32,6 +32,7 @@ use crate::core::search::weight::Weight;
 use crate::core::util::CoreHelper;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_searcher_with_lr_wrap;
 use rand::{Rng, RngExt};
 use std::fmt::{Display, Formatter};
@@ -56,7 +57,7 @@ impl QueryUtils {
   pub fn check_from_searcher<T, IRC, R>(random: &mut R, q1: T, s: &IndexSearcher<IRC>) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync + 'static,
     IRC::LeafReader: Clone,
     T: Into<Query>,
   {
@@ -71,7 +72,7 @@ impl QueryUtils {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + Sync + 'static,
     IRC::LeafReader: Clone,
     T: Into<Query>,
   {
@@ -84,7 +85,7 @@ impl QueryUtils {
     if wrap {
       // TODO IMPORTANT
     }
-    // TODO
+    CheckHits::check_explanations(&q, "", s)?;
     Ok(())
   }
 

@@ -44,6 +44,9 @@ use std::sync::Arc;
 /// The assumption is that if all of the "primitive" queries work well, then anything that
 /// rewrites to a primitive will work well also.
 pub trait BaseExplanationTestCase {
+  fn initialize(&mut self) -> Result<()> {
+    Ok(())
+  }
   /// check the expDocNrs match and have scores that match the explanations. Query may be randomly
   /// wrapped in a BooleanQuery with a term that matches no documents.
   fn q_test<R, Q>(

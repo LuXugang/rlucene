@@ -76,7 +76,7 @@ impl CheckHits {
     results: &[i32],
   ) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync,
+    IRC: IndexReaderContext + Sync + 'static,
   {
     let d = q.to_string(default_field_name)?;
     let ignore: BTreeSet<i32> = results.iter().copied().collect();
@@ -120,7 +120,7 @@ impl CheckHits {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext + Sync,
+    IRC: IndexReaderContext + Sync + 'static,
     IRC::LeafReader: Clone,
   {
     QueryUtils::check_from_searcher(random, query.clone(), searcher)?;
@@ -162,7 +162,7 @@ impl CheckHits {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext + Sync,
+    IRC: IndexReaderContext + Sync + 'static,
     IRC::LeafReader: Clone,
   {
     let hits = searcher
@@ -243,15 +243,28 @@ impl CheckHits {
     Ok(())
   }
   pub fn check_explanations<IRC>(
-    _query: &Query,
-    _default_field_name: &str,
-    _searcher: &IndexSearcher<IRC>,
+    query: &Query,
+    default_field_name: &str,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync,
+    IRC: IndexReaderContext + Sync + 'static,
   {
-    // TODO IMPORTANT
-    Ok(())
+    Self::check_explanations_with_deep(query, default_field_name, searcher, false)
+  }
+
+  pub fn check_explanations_with_deep<IRC>(
+    query: &Query,
+    default_field_name: &str,
+    searcher: &IndexSearcher<IRC>,
+    deep: bool,
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext + Sync + 'static,
+  {
+    let manager =
+      ExplanationAsserterManager::new(query.clone(), default_field_name, searcher, deep);
+    searcher.search_with_collector_manager(query.clone(), &manager)
   }
   pub fn verify_explanation(
     q: &str,
@@ -625,6 +638,153 @@ impl CheckHits {
     } else {
       Ok(true)
     }
+  }
+}
+
+struct ExplanationAsserterManager<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  q: Query,
+  default_field_name: &'a str,
+  s: &'a IndexSearcher<IRC>,
+  deep: bool,
+}
+
+impl<'a, IRC> ExplanationAsserterManager<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn new(q: Query, default_field_name: &'a str, s: &'a IndexSearcher<IRC>, deep: bool) -> Self {
+    Self {
+      q,
+      default_field_name,
+      s,
+      deep,
+    }
+  }
+}
+
+impl<'a, IRC> CollectorManager for ExplanationAsserterManager<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  type C = ExplanationAsserter<'a, IRC>;
+  type T = ();
+
+  fn new_collector(&self) -> Result<Self::C> {
+    ExplanationAsserter::new(self.q.clone(), self.default_field_name, self.s, self.deep)
+  }
+
+  fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
+    Ok(())
+  }
+}
+
+/// Asserts that the score explanation for every document matching a query corresponds with the
+/// true score.
+///
+/// NOTE: this collector should only be used with the Query and Searcher specified when it is
+/// constructed.
+struct ExplanationAsserter<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  q: Query,
+  s: &'a IndexSearcher<IRC>,
+  d: String,
+  deep: bool,
+  base: i32,
+}
+
+impl<'a, IRC> ExplanationAsserter<'a, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  /// Constructs an instance which does shallow tests on the Explanation.
+  fn new(
+    q: Query,
+    default_field_name: &str,
+    s: &'a IndexSearcher<IRC>,
+    deep: bool,
+  ) -> Result<Self> {
+    let d = q.to_string(default_field_name)?;
+    Ok(Self {
+      q,
+      s,
+      d,
+      deep,
+      base: 0,
+    })
+  }
+}
+
+impl<IRC> Collector for ExplanationAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  type LeafCollector<'a, IRC1>
+    = &'a mut Self
+  where
+    Self: 'a,
+    IRC1: IndexReaderContext;
+
+  fn get_leaf_collector<'a, W, IRC1>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC1>>,
+    _weight: Option<&W>,
+  ) -> Result<Self::LeafCollector<'a, IRC1>>
+  where
+    IRC1: IndexReaderContext,
+    W: Weight<IRC1> + ?Sized,
+  {
+    SimpleCollector::do_set_next_reader(self, context)?;
+    Ok(self)
+  }
+
+  fn score_mode(&self) -> ScoreMode {
+    ScoreMode::Complete
+  }
+}
+
+impl<IRC> LeafCollector for ExplanationAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    let doc = doc + self.base;
+    let exp = self.s.explain(self.q.clone(), doc)?;
+    CheckHits::verify_explanation(&self.d, doc, scorer.score()?, self.deep, &exp)?;
+    assert!(
+      exp.is_match(),
+      "Explanation of [[{}]] for #{} does not indicate match: {}",
+      self.d,
+      doc,
+      exp
+    );
+    Ok(())
+  }
+}
+
+impl<IRC> SimpleCollector for ExplanationAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
+  where
+    LR: LeafReader,
+  {
+    self.base = context.doc_base as i32;
+    Ok(())
+  }
+}
+
+impl<IRC> Display for ExplanationAsserter<'_, IRC>
+where
+  IRC: IndexReaderContext,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
