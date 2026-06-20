@@ -14,15 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analysis;
-pub mod codecs;
-mod document;
-pub mod geo;
-pub mod index;
-pub mod internal;
-pub mod search;
-pub mod store;
-mod test_demo;
-mod test_search;
-mod test_search_for_duplicates;
-pub mod util;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
+
+/// Prints nothing. Just to make sure tests pass with and without enabled
+/// `InfoStream` without actually making noise.
+///
+/// This API is experimental.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct NullInfoStream;
+
+impl InfoStream for NullInfoStream {
+  fn message(&self, _component: &str, _message: &str) -> Result<()> {
+    Ok(())
+  }
+
+  fn is_enabled(&self, _component: &str) -> bool {
+    // To actually enable logging, we just ignore on message().
+    true
+  }
+
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl From<NullInfoStream> for InfoStreamEnum {
+  fn from(info_stream: NullInfoStream) -> Self {
+    InfoStreamEnum::Custom(Box::new(info_stream))
+  }
+}

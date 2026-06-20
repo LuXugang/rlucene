@@ -45,6 +45,7 @@ pub(crate) mod id_set_common;
 pub(crate) mod index_package_access;
 pub(crate) mod line_file_docs;
 pub(crate) mod lucene_test_case;
+pub(crate) mod null_info_stream;
 mod packed;
 
 mod test_array_util;

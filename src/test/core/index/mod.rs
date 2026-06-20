@@ -90,6 +90,7 @@ mod test_index_too_many_docs;
 pub(crate) mod test_index_writer;
 mod test_index_writer_commit;
 mod test_index_writer_delete;
+pub mod test_index_writer_exceptions;
 mod test_index_writer_force_merge;
 mod test_index_writer_from_reader;
 mod test_index_writer_lock_release;

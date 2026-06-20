@@ -5068,8 +5068,19 @@ where
     Ok(())
   }
 
+  // utility routines for tests
+  pub(crate) fn newest_segment(&self) -> Option<SegmentCommitInfo<D>> {
+    let inner = self.inner.lock();
+    let size = inner.segment_infos.size();
+    if size > 0 {
+      inner.segment_infos.info(size - 1).cloned()
+    } else {
+      None
+    }
+  }
+
   /// Returns a string description of all segments, for debugging.
-  fn seg_string(&self) -> Result<String> {
+  pub(crate) fn seg_string(&self) -> Result<String> {
     let inner = self.inner.lock();
     self.seg_string_from_infos(inner.segment_infos.iter())
   }
@@ -7127,6 +7138,8 @@ use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
+#[cfg(test)]
+use crate::test::core::internal::index_writer_access::IndexWriterAccess;
 
 /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
 /// it's well below the typical JVM's `ArrayUtil.MAX_ARRAY_LENGTH` and
@@ -7915,4 +7928,67 @@ impl DocModifier for DocModifierImpl2 {
 
     Ok(())
   }
+}
+#[cfg(test)]
+pub(crate) mod tests{
+  use super::*;
+
+  pub(crate) struct IndexWriterAccessImpl;
+
+impl IndexWriterAccess for IndexWriterAccessImpl {
+  fn seg_string<D>(&self, iw: &IndexWriter<D>) -> Result<String>
+  where
+      D: Directory,
+  {
+    iw.seg_string()
+  }
+
+  fn get_segment_count<D>(&self, iw: &IndexWriter<D>) -> usize
+  where
+      D: Directory,
+  {
+    iw.get_segment_count()
+  }
+
+  fn is_closed<D>(&self, iw: &IndexWriter<D>) -> bool
+  where
+      D: Directory,
+  {
+    iw.closed.load(Ordering::SeqCst)
+  }
+
+  fn get_reader<D>(
+    &self,
+    iw: &IndexWriter<D>,
+    apply_deletions: bool,
+    write_all_deletes: bool,
+  ) -> Result<StandardDirectoryReaderType<D>>
+  where
+      D: Directory,
+  {
+    iw.get_reader(apply_deletions, write_all_deletes)
+  }
+
+  fn get_doc_writer_thread_pool_size<D>(&self, iw: &IndexWriter<D>) -> usize
+  where
+      D: Directory,
+  {
+    iw.doc_writer.flush_control.per_thread_pool.size()
+  }
+
+  fn is_deleter_closed<D>(&self, iw: &IndexWriter<D>) -> Result<bool>
+  where
+      D: Directory,
+  {
+    iw.is_deleter_closed()
+  }
+
+  fn newest_segment<D>(&self, iw: &IndexWriter<D>) -> Option<SegmentCommitInfo<D>>
+  where
+      D: Directory,
+  {
+    iw.newest_segment()
+  }
+}
+
 }

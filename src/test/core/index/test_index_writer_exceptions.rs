@@ -14,15 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analysis;
-pub mod codecs;
-mod document;
-pub mod geo;
-pub mod index;
-pub mod internal;
-pub mod search;
-pub mod store;
-mod test_demo;
-mod test_search;
-mod test_search_for_duplicates;
-pub mod util;
+#[allow(dead_code)] // for quick search
+struct TestIndexWriterExceptions;
