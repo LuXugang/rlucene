@@ -33,6 +33,7 @@ mod test_lat_lon_point_distance_feature_query;
 mod test_lat_lon_point_distance_sort;
 mod test_lat_lon_shape_encoding;
 mod test_long_range;
+mod test_many_knn_docs;
 mod test_per_field_consistency;
 mod test_sorted_set_doc_values_set_query;
 mod test_xy_shape_encoding;
