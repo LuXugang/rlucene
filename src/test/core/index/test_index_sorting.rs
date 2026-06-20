@@ -2771,6 +2771,8 @@ impl Analyzer for TestRandom2Analyzer {
   }
 }
 
+crate::impl_analyzer_close!(TestRandom2Analyzer);
+
 #[test]
 fn test_random2() -> Result<()> {
   let mut random = random();

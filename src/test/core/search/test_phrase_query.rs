@@ -89,6 +89,8 @@ impl Analyzer for PhraseQueryAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(PhraseQueryAnalyzer);
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,

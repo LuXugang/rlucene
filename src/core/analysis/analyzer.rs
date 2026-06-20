@@ -23,6 +23,7 @@ use crate::core::analysis::token_stream::{
 };
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
@@ -65,12 +66,34 @@ impl AnalyzerStoredValue {
   pub fn reuse_strategy(&self) -> RefMut<'_, ReuseStrategyEnum> {
     self.get().borrow_mut()
   }
+
+  pub fn close(&mut self) -> Result<()> {
+    self.stored_value.clear();
+    Ok(())
+  }
 }
 
 impl Default for AnalyzerStoredValue {
   fn default() -> Self {
     Self::new()
   }
+}
+
+#[macro_export]
+macro_rules! impl_analyzer_close {
+  ($analyzer:ty) => {
+    impl $crate::core::util::close::Closeable for $analyzer {
+      fn close(&mut self) -> $crate::core::util::error::lucene_error::Result<()> {
+        self.stored_value.close()
+      }
+    }
+
+    impl Drop for $analyzer {
+      fn drop(&mut self) {
+        let _ = $crate::core::util::close::Closeable::close(self);
+      }
+    }
+  };
 }
 
 enum ReuseStrategyFactory {
@@ -89,7 +112,7 @@ impl ReuseStrategyFactory {
   }
 }
 
-pub trait Analyzer: Send + Sync {
+pub trait Analyzer: Closeable + Send + Sync {
   fn create_components(&self, field: &str) -> Result<TokenStreamComponents>;
   fn normalize_from_ts(
     &self,
@@ -203,6 +226,7 @@ pub trait Analyzer: Send + Sync {
 }
 pub const DEFAULT_OFFSET_GAP: i32 = 1;
 pub const DEFAULT_POSITION_INCREMENT_GAP: i32 = 0;
+
 impl<T> Analyzer for Arc<T>
 where
   T: Analyzer + ?Sized,
@@ -282,6 +306,23 @@ impl Default for AnalyzerEnum {
     StandardAnalyzer::default().into()
   }
 }
+
+impl Closeable for AnalyzerEnum {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.close(),
+      AnalyzerEnum::Standard(v) => v.close(),
+      AnalyzerEnum::Custom(v) => v.as_mut().close(),
+    }
+  }
+}
+
+impl Drop for AnalyzerEnum {
+  fn drop(&mut self) {
+    let _ = self.close();
+  }
+}
+
 impl Analyzer for AnalyzerEnum {
   fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
     match self {
@@ -376,6 +417,7 @@ pub enum ReuseStrategyEnum {
   Global(Box<GlobalReuseStrategy>),
   PerField(PerFieldReuseStrategy),
 }
+
 impl ReuseStrategy for ReuseStrategyEnum {
   fn get_reusable_components(
     &mut self,
@@ -451,6 +493,7 @@ impl ReuseStrategy for GlobalReuseStrategy {
     Ok(())
   }
 }
+
 pub struct PerFieldReuseStrategy {
   store_value: Option<HashMap<String, TokenStreamComponents>>,
 }

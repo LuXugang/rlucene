@@ -126,6 +126,8 @@ impl Analyzer for ThrowingAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(ThrowingAnalyzer);
+
 struct ThrowingTokenFilter<T>
 where
   T: TokenStream,

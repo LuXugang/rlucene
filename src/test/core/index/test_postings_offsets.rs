@@ -615,6 +615,8 @@ impl Analyzer for CrazyOffsetGapAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(CrazyOffsetGapAnalyzer);
+
 impl From<CrazyOffsetGapAnalyzer> for AnalyzerEnum {
   fn from(analyzer: CrazyOffsetGapAnalyzer) -> Self {
     AnalyzerEnum::Custom(Box::new(analyzer))

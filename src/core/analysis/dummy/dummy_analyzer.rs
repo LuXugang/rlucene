@@ -61,3 +61,5 @@ impl Analyzer for DummyAnalyzer {
     dummy_unreachable!()
   }
 }
+
+crate::impl_analyzer_close!(DummyAnalyzer);

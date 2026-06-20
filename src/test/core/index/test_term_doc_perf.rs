@@ -172,6 +172,8 @@ impl Analyzer for RepeatingAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(RepeatingAnalyzer);
+
 impl From<RepeatingAnalyzer> for AnalyzerEnum {
   fn from(analyzer: RepeatingAnalyzer) -> Self {
     AnalyzerEnum::Custom(Box::new(analyzer))

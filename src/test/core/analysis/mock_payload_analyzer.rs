@@ -61,6 +61,8 @@ impl Analyzer for MockPayloadAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(MockPayloadAnalyzer);
+
 impl From<MockPayloadAnalyzer> for AnalyzerEnum {
   fn from(analyzer: MockPayloadAnalyzer) -> Self {
     AnalyzerEnum::Custom(Box::new(analyzer))

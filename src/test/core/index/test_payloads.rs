@@ -519,6 +519,8 @@ impl Analyzer for PayloadAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(PayloadAnalyzer);
+
 impl From<PayloadAnalyzer> for AnalyzerEnum {
   fn from(analyzer: PayloadAnalyzer) -> Self {
     AnalyzerEnum::Custom(Box::new(analyzer))

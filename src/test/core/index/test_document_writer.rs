@@ -194,6 +194,8 @@ impl Analyzer for PositionIncrementGapAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(PositionIncrementGapAnalyzer);
+
 #[test]
 fn test_token_reuse() -> Result<()> {
   let mut random = random();
@@ -258,6 +260,8 @@ impl Analyzer for TokenReuseAnalyzer {
     &self.stored_value
   }
 }
+
+crate::impl_analyzer_close!(TokenReuseAnalyzer);
 
 struct TokenReuseFilter {
   token_filter_base: TokenFilterBase<MockTokenizer<StdRng>>,

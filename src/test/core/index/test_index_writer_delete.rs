@@ -692,7 +692,6 @@ fn test_delete_all_slowly() -> Result<()> {
 
   Ok(())
 }
-
 // TODO: memory calculation not implement 这个 测试未通过
 #[cfg(feature = "nightly")]
 #[ignore = "nightly"]
@@ -723,6 +722,7 @@ fn test_indexing_then_deleting() -> Result<()> {
       &self.stored_value
     }
   }
+  crate::impl_analyzer_close!(IndexingThenDeletingAnalyzer);
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

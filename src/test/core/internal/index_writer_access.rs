@@ -19,7 +19,6 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::atomic::Ordering;
 
 /// Access to [`IndexWriter`] internals exposed to the test framework.
 ///

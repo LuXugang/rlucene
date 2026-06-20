@@ -1919,6 +1919,8 @@ impl Analyzer for DontInvokeAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(DontInvokeAnalyzer);
+
 #[test]
 fn test_other_files() -> Result<()> {
   let mut random = random();
@@ -2024,6 +2026,8 @@ impl Analyzer for StopwordsPosIncHoleAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(StopwordsPosIncHoleAnalyzer);
+
 struct StopwordsPosIncHole2Analyzer {
   stored_value: AnalyzerStoredValue,
   seed: u64,
@@ -2045,6 +2049,8 @@ impl Analyzer for StopwordsPosIncHole2Analyzer {
     &self.stored_value
   }
 }
+
+crate::impl_analyzer_close!(StopwordsPosIncHole2Analyzer);
 
 #[test]
 fn test_commit_with_user_data_only() -> Result<()> {

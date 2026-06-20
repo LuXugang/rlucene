@@ -574,6 +574,8 @@ impl Analyzer for SingleCharAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(SingleCharAnalyzer);
+
 pub struct SingleCharTokenizer {
   buffer: [char; 1],
   done: bool,

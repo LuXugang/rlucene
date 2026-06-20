@@ -99,6 +99,9 @@ impl Analyzer for StandardAnalyzer {
     Ok(LowerCaseFilter::new(Box::new(in_)).into())
   }
 }
+
+crate::impl_analyzer_close!(StandardAnalyzer);
+
 impl StopWordAnalyzerBase for StandardAnalyzer {
   fn get_stop_words(&self) -> &CharArraySet {
     self.stop_words.as_ref()

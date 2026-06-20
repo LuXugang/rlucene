@@ -593,6 +593,8 @@ impl Analyzer for MyAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(MyAnalyzer);
+
 #[derive(Clone, Eq, PartialEq)]
 struct TestToken {
   text: String,

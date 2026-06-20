@@ -56,6 +56,9 @@ impl Analyzer for WhitespaceAnalyzer {
     &self.stored_value
   }
 }
+
+crate::impl_analyzer_close!(WhitespaceAnalyzer);
+
 pub type WhitespaceAnalyzerTS = CharTokenizer<WhitespaceTokenizer>;
 #[cfg(test)]
 mod tests {

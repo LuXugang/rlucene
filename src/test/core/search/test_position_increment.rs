@@ -184,6 +184,8 @@ impl Analyzer for PositionIncrementAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(PositionIncrementAnalyzer);
+
 struct PositionIncrementTokenizer {
   i: usize,
   tokenizer_base: TokenizerBase,

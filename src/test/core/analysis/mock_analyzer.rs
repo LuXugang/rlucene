@@ -167,6 +167,9 @@ impl Analyzer for MockAnalyzer {
     self.offset_gap.unwrap_or(DEFAULT_OFFSET_GAP)
   }
 }
+
+crate::impl_analyzer_close!(MockAnalyzer);
+
 pub struct MockFilterWrap<TS>
 where
   TS: TokenStream,

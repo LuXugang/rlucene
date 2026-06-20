@@ -153,6 +153,8 @@ impl Analyzer for FuzzyTermOnShortTermsAnalyzer {
   }
 }
 
+crate::impl_analyzer_close!(FuzzyTermOnShortTermsAnalyzer);
+
 fn get_analyzer<R>(random: &mut R) -> Box<dyn Analyzer>
 where
   R: Rng + ?Sized,
