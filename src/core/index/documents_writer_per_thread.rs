@@ -174,7 +174,7 @@ where
       Ordering::SeqCst,
     );
 
-    if self.info_stream.enabled("DWPT") {
+    if self.info_stream.is_enabled("DWPT") {
       self.info_stream.message("DWPT", "now abort")?;
     }
 
@@ -184,7 +184,7 @@ where
     })();
     self.pending_updates.clear();
 
-    if self.info_stream.enabled("DWPT") {
+    if self.info_stream.is_enabled("DWPT") {
       self.info_stream.message("DWPT", "done abort")?;
     }
     abort_result
@@ -225,7 +225,7 @@ where
       index_writer_config.get_index_sort(),
     )?;
 
-    if info_stream.enabled("DWPT") {
+    if info_stream.is_enabled("DWPT") {
       info_stream.message(
         "DWPT",
         &format!(
@@ -286,7 +286,7 @@ where
 
   pub(crate) fn test_point(&self, message: &str) -> Result<()> {
     if self.enable_test_points {
-      debug_assert!(self.info_stream.enabled("TP"));
+      debug_assert!(self.info_stream.is_enabled("TP"));
       self.info_stream.message("TP", message)?;
     }
     Ok(())
@@ -326,7 +326,7 @@ where
       "DWPT has hit aborting exception but is still indexing"
     );
 
-    if self.info_stream.enabled("DWPT") {
+    if self.info_stream.is_enabled("DWPT") {
       self.info_stream.message(
         "DWPT",
         &format!(
@@ -543,7 +543,7 @@ where
           }
 
           if self.state.aborted.load(Ordering::SeqCst) {
-            if self.info_stream.enabled("DWPT") {
+            if self.info_stream.is_enabled("DWPT") {
               self
                 .info_stream
                 .message("DWPT", "flush: skip because aborting is set")?;
@@ -553,7 +553,7 @@ where
 
           let t0 = std::time::Instant::now();
 
-          if self.info_stream.enabled("DWPT") {
+          if self.info_stream.is_enabled("DWPT") {
             self.info_stream.message(
               "DWPT",
               &format!(
@@ -607,7 +607,7 @@ where
             Some(StringHelper::random_id()),
           );
 
-          if self.info_stream.enabled("DWPT") {
+          if self.info_stream.is_enabled("DWPT") {
             self.info_stream.message(
               "DWPT",
               &format!(
@@ -679,7 +679,7 @@ where
             ))
           };
 
-          if self.info_stream.enabled("DWPT") {
+          if self.info_stream.is_enabled("DWPT") {
             let new_size_mb = segment_info_per_commit.size_in_bytes()? as f64 / 1024.0 / 1024.0;
             self.info_stream.message(
               "DWPT",
@@ -706,7 +706,7 @@ where
         };
         self.seal_flushed_segment(&mut fs, sort_map, flush_notifications, index_writer_config)?;
 
-        if self.info_stream.enabled("DWPT") {
+        if self.info_stream.is_enabled("DWPT") {
           self.info_stream.message(
             "DWPT",
             &format!("flush time {} ms", t0.elapsed().as_millis()),
@@ -844,7 +844,7 @@ where
           let del_count = flushed_segment.del_count;
           debug_assert!(del_count > 0);
 
-          if self.info_stream.enabled("DWPT") {
+          if self.info_stream.is_enabled("DWPT") {
             self.info_stream.message(
               "DWPT",
               &format!(
@@ -889,7 +889,7 @@ where
 
         Ok(())
       })();
-      if result.is_err() && self.info_stream.enabled("DWPT") {
+      if result.is_err() && self.info_stream.is_enabled("DWPT") {
         self.info_stream.message(
           "DWPT",
           &format!(

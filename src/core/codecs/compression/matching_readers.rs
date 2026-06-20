@@ -58,7 +58,7 @@ impl MatchingReaders {
       matching_readers[i] = true;
       matched_count += 1;
     }
-    if merge_state.info_stream.enabled("SM") {
+    if merge_state.info_stream.is_enabled("SM") {
       merge_state.info_stream.message(
         "SM",
         &format!("merge store matched_count={matched_count} vs {num_readers}"),

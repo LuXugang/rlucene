@@ -232,7 +232,7 @@ where
   }
   pub(crate) fn flush_one_dwpt(&self, writer: &IndexWriter<D>) -> Result<bool> {
     {
-      if self.info_stream.enabled("DW") {
+      if self.info_stream.is_enabled("DW") {
         self.info_stream.message("DW", "startFlushOneDWPT")?;
       }
     }
@@ -257,7 +257,7 @@ where
     L: LiveIndexWriterConfig,
   {
     let _guard = self.guard.lock();
-    if self.info_stream.enabled("DW") {
+    if self.info_stream.is_enabled("DW") {
       self.info_stream.message("DW", "lockAndAbortAll")?;
     }
     // Make sure we move all pending tickets into the flush queue:
@@ -298,7 +298,7 @@ where
         .flush_control
         .abort_pending_flushes(None, config, self)?;
       self.flush_control.wait_for_flush();
-      if self.info_stream.enabled("DW") {
+      if self.info_stream.is_enabled("DW") {
         self
           .info_stream
           .message("DW", "finished lockAndAbortAll success=true")?;
@@ -309,7 +309,7 @@ where
     match result {
       Ok(()) => Ok(finalizer),
       Err(e) => {
-        if self.info_stream.enabled("DW") {
+        if self.info_stream.is_enabled("DW") {
           self
             .info_stream
             .message("DW", "finished lockAndAbortAll success=false")?;
@@ -358,7 +358,7 @@ where
 
     let any = num_docs || deletions || tickets || pending_full;
 
-    if self.info_stream.enabled("DW") && any {
+    if self.info_stream.is_enabled("DW") && any {
       self.info_stream.message(
                 "DW",
                 &format!(
@@ -397,7 +397,7 @@ where
     let result = (|| -> Result<()> {
       self.flush_control.delete_queue.lock().clear();
 
-      if self.info_stream.enabled("DW") {
+      if self.info_stream.is_enabled("DW") {
         self.info_stream.message("DW", "abort")?;
       }
 
@@ -442,7 +442,7 @@ where
       );
     }
 
-    if self.info_stream.enabled("DW") {
+    if self.info_stream.is_enabled("DW") {
       self
         .info_stream
         .message("DW", &format!("done abort success={success}"))?;
@@ -764,7 +764,7 @@ where
   where
     L: LiveIndexWriterConfig,
   {
-    if self.info_stream.enabled("DW") {
+    if self.info_stream.is_enabled("DW") {
       self.info_stream.message("DW", "startFullFlush")?;
     }
     let (flushing_delete_queue, seq_no) = {
@@ -802,7 +802,7 @@ where
       self.flush_control.wait_for_flush();
       if !anything_flushed && flushing_delete_queue.any_changes(None) {
         {
-          if self.info_stream.enabled("DW") {
+          if self.info_stream.is_enabled("DW") {
             let v = thread::current();
             let name = v.name().unwrap_or("<unnamed>");
             self
@@ -838,7 +838,7 @@ where
   where
     L: LiveIndexWriterConfig,
   {
-    if self.info_stream.enabled("DW") {
+    if self.info_stream.is_enabled("DW") {
       let thread_name = thread::current().name().unwrap_or("<unnamed>").to_string();
       self.info_stream.message(
         "DW",
@@ -914,7 +914,7 @@ where
       .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
     {
-      if self.documents_writer.info_stream.enabled("DW") {
+      if self.documents_writer.info_stream.is_enabled("DW") {
         self
           .documents_writer
           .info_stream

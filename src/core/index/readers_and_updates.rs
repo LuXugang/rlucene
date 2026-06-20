@@ -428,7 +428,7 @@ where
         continue;
       }
 
-      if info_stream.enabled("BD") {
+      if info_stream.is_enabled("BD") {
         info_stream.message(
           "BD",
           &format!(
@@ -704,7 +704,7 @@ where
       swap_new_reader_with_latest_live_docs(&mut inner, info)?;
     }
 
-    if info_stream.enabled("BD") {
+    if info_stream.is_enabled("BD") {
       info_stream.message(
         "BD",
         &format!(

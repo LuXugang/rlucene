@@ -249,7 +249,7 @@ where
           self.needs_index_sort = true;
 
           let t1 = SystemTime::now();
-          if self.info_stream.enabled("SM") {
+          if self.info_stream.is_enabled("SM") {
             let elapsed = t1.duration_since(t0).unwrap().as_secs_f64() * 1000.0;
             self.info_stream.message(
               "SM",

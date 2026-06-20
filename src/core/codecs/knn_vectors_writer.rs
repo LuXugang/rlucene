@@ -126,7 +126,7 @@ pub trait KnnVectorsWriter: Accountable {
 
     for field_info in merge_state.merge_field_infos.iter() {
       if field_info.has_vector_values() {
-        if merge_state.info_stream.enabled("VV") {
+        if merge_state.info_stream.is_enabled("VV") {
           merge_state
             .info_stream
             .message("VV", &format!("merging {}", merge_state.segment_info))?;
@@ -134,7 +134,7 @@ pub trait KnnVectorsWriter: Accountable {
 
         self.merge_one_field(field_info, merge_state, segment_write_state)?;
 
-        if merge_state.info_stream.enabled("VV") {
+        if merge_state.info_stream.is_enabled("VV") {
           merge_state
             .info_stream
             .message("VV", &format!("merge done {}", merge_state.segment_info))?;

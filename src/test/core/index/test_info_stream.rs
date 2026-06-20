@@ -76,7 +76,7 @@ impl InfoStream for NoTestPointsInfoStream {
     Ok(())
   }
 
-  fn enabled(&self, component: &str) -> bool {
+  fn is_enabled(&self, component: &str) -> bool {
     assert_ne!("TP", component);
     true
   }
@@ -98,7 +98,7 @@ impl InfoStream for TestPointsInfoStream {
     Ok(())
   }
 
-  fn enabled(&self, _component: &str) -> bool {
+  fn is_enabled(&self, _component: &str) -> bool {
     true
   }
 }

@@ -411,7 +411,7 @@ pub trait MergePolicy: Display {
     MC: MergeContext<D>,
     D: Directory,
   {
-    merge_context.get_info_stream().enabled("MP")
+    merge_context.get_info_stream().is_enabled("MP")
   }
 }
 /// Asserts that the `delCount` for this [`SegmentCommitInfo`] is valid.

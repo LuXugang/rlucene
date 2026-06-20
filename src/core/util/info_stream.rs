@@ -27,7 +27,7 @@ pub trait InfoStream: Send + Sync {
   fn message(&self, component: &str, message: &str) -> Result<()>;
 
   /// Returns true if messages are enabled and should be posted to `message`.
-  fn enabled(&self, component: &str) -> bool;
+  fn is_enabled(&self, component: &str) -> bool;
 
   /// Closes the stream.
   fn close(&self) -> Result<()>;
@@ -41,8 +41,8 @@ where
     self.as_ref().message(component, message)
   }
 
-  fn enabled(&self, component: &str) -> bool {
-    self.as_ref().enabled(component)
+  fn is_enabled(&self, component: &str) -> bool {
+    self.as_ref().is_enabled(component)
   }
 
   fn close(&self) -> Result<()> {
@@ -68,7 +68,7 @@ impl InfoStream for NoOutput {
     Ok(())
   }
 
-  fn enabled(&self, _component: &str) -> bool {
+  fn is_enabled(&self, _component: &str) -> bool {
     false
   }
 
@@ -112,10 +112,10 @@ impl InfoStream for InfoStreamEnum {
     }
   }
 
-  fn enabled(&self, component: &str) -> bool {
+  fn is_enabled(&self, component: &str) -> bool {
     match self {
-      InfoStreamEnum::NoOutput(output) => output.enabled(component),
-      InfoStreamEnum::Custom(output) => output.enabled(component),
+      InfoStreamEnum::NoOutput(output) => output.is_enabled(component),
+      InfoStreamEnum::Custom(output) => output.is_enabled(component),
     }
   }
 

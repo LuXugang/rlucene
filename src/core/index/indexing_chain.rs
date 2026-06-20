@@ -349,7 +349,7 @@ where
     // write norms
     let t0 = Instant::now();
     self.write_norms(state, sort_map.as_ref(), segment_info, index_writer_config)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("{} ms to write norms", t0.elapsed().as_millis()),
@@ -359,7 +359,7 @@ where
     // write doc-values
     let t0 = Instant::now();
     self.write_doc_values(state, sort_map.as_ref(), segment_info, index_writer_config)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("{} ms to write docValues", t0.elapsed().as_millis()),
@@ -369,7 +369,7 @@ where
     // write points
     let t0 = Instant::now();
     self.write_points(state, sort_map.as_ref(), index_writer_config, segment_info)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("{} ms to write points", t0.elapsed().as_millis()),
@@ -380,7 +380,7 @@ where
     self
       .vector_values_consumer
       .flush(segment_info, sort_map.as_ref())?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("{} ms to write vectors", t0.elapsed().as_millis()),
@@ -393,7 +393,7 @@ where
     self
       .stored_fields_consumer
       .flush(state, sort_map.as_ref(), segment_info, state.directory)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("{} ms to finish stored fields", t0.elapsed().as_millis()),
@@ -455,7 +455,7 @@ where
       int_pool,
       byte_pool,
     )?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!(
@@ -476,7 +476,7 @@ where
       &state.field_infos,
       &IOContext::default_io_context()?,
     )?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("{} ms to write fieldInfos", t0.elapsed().as_millis()),
@@ -1704,7 +1704,7 @@ impl PerField {
         Ok(())
       })();
 
-      if result.is_err() && info_stream.enabled("DW") {
+      if result.is_err() && info_stream.is_enabled("DW") {
         info_stream.message(
           "DW",
           &format!("exception in invert_token_stream for {}", field_name),

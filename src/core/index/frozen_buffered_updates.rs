@@ -134,7 +134,7 @@ impl FrozenBufferedUpdates {
 
     // TODO: memory calculation not implement
     let bytes_used = 0;
-    if info_stream.enabled("BD") {
+    if info_stream.is_enabled("BD") {
       let private_segment_msg = match private_segment {
         Some(ref v) => {
           format!("; private segment {}", v)
@@ -265,7 +265,7 @@ impl FrozenBufferedUpdates {
       }
     }
 
-    if self.info_stream.enabled("BD") {
+    if self.info_stream.is_enabled("BD") {
       let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
       self.info_stream.message(
         "BD",
@@ -568,7 +568,7 @@ impl FrozenBufferedUpdates {
       }
     }
 
-    if self.info_stream.enabled("BD") {
+    if self.info_stream.is_enabled("BD") {
       let elapsed_ms = start.elapsed().as_secs_f64() * 1_000.0;
       self.info_stream.message(
         "BD",

@@ -93,7 +93,7 @@ impl BufferedUpdatesStream {
       .bytes_used
       .fetch_add(bytes_used as i64, Ordering::SeqCst);
     {
-      if self.info_stream.enabled("BD") {
+      if self.info_stream.is_enabled("BD") {
         let count = inner.updates.len();
         let used_mb = self.bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
         self.info_stream.message(
@@ -208,7 +208,7 @@ impl BufferedUpdatesStream {
       set
     };
 
-    if self.info_stream.enabled("BD") {
+    if self.info_stream.is_enabled("BD") {
       self.info_stream.message(
         "BD",
         &format!(
@@ -234,7 +234,7 @@ impl BufferedUpdatesStream {
     let packet_count = wait_for.len();
 
     if wait_for.is_empty() {
-      if self.info_stream.enabled("BD") {
+      if self.info_stream.is_enabled("BD") {
         self
           .info_stream
           .message("BD", "waitApply: no deletes to apply")?;
@@ -242,7 +242,7 @@ impl BufferedUpdatesStream {
       return Ok(());
     }
 
-    if self.info_stream.enabled("BD") {
+    if self.info_stream.is_enabled("BD") {
       self.info_stream.message(
         "BD",
         &format!("waitApply: {packet_count:?} packets: {wait_for:?}"),
@@ -269,7 +269,7 @@ impl BufferedUpdatesStream {
       writer.force_apply(packet)?;
     }
 
-    if self.info_stream.enabled("BD") {
+    if self.info_stream.is_enabled("BD") {
       let elapsed = start_ns.elapsed().as_secs_f64() * 1000.0;
       let bytes = self.bytes_used.load(Ordering::SeqCst);
       self.info_stream.message(
@@ -415,7 +415,7 @@ impl FinishedSegments {
       inner.completed_del_gen += 1;
     }
     {
-      if self.info_stream.enabled("BD") {
+      if self.info_stream.is_enabled("BD") {
         self.info_stream.message(
           "BD",
           &format!(

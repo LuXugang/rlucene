@@ -105,7 +105,7 @@ where
     let mut last_segment_infos: Option<SegmentInfos<D>> = None;
 
     let current_segments_file_opt = segment_infos.get_segments_file_name();
-    if info_stream.enabled("IFD") {
+    if info_stream.is_enabled("IFD") {
       info_stream.message(
                 "IFD",
                 &format!(
@@ -149,7 +149,7 @@ where
             // This is a commit (segments or segments_N), and
             // it's valid (<= the max gen).  Load it, then
             // incref all files it refers to:
-            if index_file_deleter.info_stream.enabled("IFD") {
+            if index_file_deleter.info_stream.is_enabled("IFD") {
               index_file_deleter
                 .info_stream
                 .message("IFD", &format!("init: load commit \"{file}\""))?;
@@ -193,7 +193,7 @@ where
           "unable to read current segments_N file {file},(resource={e})"
         ))
       })?;
-      if index_file_deleter.info_stream.enabled("IFD") {
+      if index_file_deleter.info_stream.is_enabled("IFD") {
         index_file_deleter.info_stream.message(
           "IFD",
           &format!(
@@ -246,7 +246,7 @@ where
           "file \"{file}\" has refCount=0, which should never happen on init",
         ));
       }
-      if index_file_deleter.info_stream.enabled("IFD") {
+      if index_file_deleter.info_stream.is_enabled("IFD") {
         index_file_deleter.info_stream.message(
           "IFD",
           &format!("init: removing unreferenced file \"{file}\""),
@@ -317,7 +317,7 @@ where
     // the now-deleted commits:
     let mut first_error = None;
     for mut commit in removed {
-      if self.info_stream.enabled("IFD") {
+      if self.info_stream.is_enabled("IFD") {
         self.info_stream.message(
           "IFD",
           &format!(
@@ -365,7 +365,7 @@ where
         && !self.file_deleter.exists(&file_name)
         && (is_codec_match || is_segments || is_pending_segments)
       {
-        if self.info_stream.enabled("IFD") {
+        if self.info_stream.is_enabled("IFD") {
           self.info_stream.message(
             "IFD",
             &format!("refresh: removing newly created unreferenced file \"{file_name}\""),
@@ -402,7 +402,7 @@ where
     P: IndexDeletionPolicy,
   {
     {
-      if self.info_stream.enabled("IFD") {
+      if self.info_stream.is_enabled("IFD") {
         self.info_stream.message("IFD", "now revisitPolicy")?;
       }
     }
@@ -441,7 +441,7 @@ where
     let t0 = std::time::Instant::now();
 
     {
-      if self.info_stream.enabled("IFD") {
+      if self.info_stream.is_enabled("IFD") {
         // TODO:
       }
     }
@@ -469,7 +469,7 @@ where
     }
 
     {
-      if self.info_stream.enabled("IFD") {
+      if self.info_stream.is_enabled("IFD") {
         let elapsed_ms = t0.elapsed().as_millis();
         self
           .info_stream
@@ -530,7 +530,7 @@ where
     match v {
       Ok(_) => {},
       Err(e) => {
-        if self.info_stream.enabled("IFD") {
+        if self.info_stream.is_enabled("IFD") {
           self
             .info_stream
             .message("IFD", &format!("Error closing IndexFileDeleter: {e}"))
@@ -689,7 +689,7 @@ impl Messenger for MessengerImpl {
     if msg_type == MsgType::Ref && !self.verbose_ref_counts {
       return Ok(());
     }
-    if self.info_stream.enabled("IFD") {
+    if self.info_stream.is_enabled("IFD") {
       self.info_stream.message("IFD", msg)?;
     }
     Ok(())
@@ -785,7 +785,7 @@ where
 
   let desired = 1 + max_segment_name;
   if infos.counter < desired {
-    if info_stream.enabled("IFD") {
+    if info_stream.is_enabled("IFD") {
       info_stream.message(
         "IFD",
         &format!(
@@ -802,7 +802,7 @@ where
 
     let next_del = info.get_next_write_del_gen();
     if next_del < gen_long + 1 {
-      if info_stream.enabled("IFD") {
+      if info_stream.is_enabled("IFD") {
         info_stream.message(
           "IFD",
           &format!(
@@ -818,7 +818,7 @@ where
 
     let next_fi = info.get_next_write_field_infos_gen();
     if next_fi < gen_long + 1 {
-      if info_stream.enabled("IFD") {
+      if info_stream.is_enabled("IFD") {
         info_stream.message(
           "IFD",
           &format!(
@@ -834,7 +834,7 @@ where
 
     let next_dv = info.get_next_write_doc_values_gen();
     if next_dv < gen_long + 1 {
-      if info_stream.enabled("IFD") {
+      if info_stream.is_enabled("IFD") {
         info_stream.message(
           "IFD",
           &format!(

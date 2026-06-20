@@ -452,7 +452,7 @@ where
           segment_infos.replace(old_infos);
           changed(&mut change_count, &mut segment_infos);
 
-          if info_stream.enabled("IW") {
+          if info_stream.is_enabled("IW") {
             info_stream.message(
               "IW",
               &format!(
@@ -599,7 +599,7 @@ where
       iw.message_state()?;
       Ok(iw)
     })();
-    if result.is_err() && info_stream.enabled("IW") {
+    if result.is_err() && info_stream.is_enabled("IW") {
       let msg = "init: hit exception on init; releasing write lock";
       info_stream.message("IW", msg)?;
     }
@@ -698,7 +698,7 @@ where
     }
     if self.should_close(true) {
       let result: Result<_> = (|| {
-        if self.info_stream.enabled("IW") {
+        if self.info_stream.is_enabled("IW") {
           self.info_stream.message("IW", "now flush at close")?;
         }
         self.flush_with_apply_merge_deletes(true, true)?;
@@ -985,7 +985,7 @@ where
       Ok(())
     };
     if res.is_err() {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "hit exception updating document")?;
@@ -1808,7 +1808,7 @@ where
             Ok(0)
           })();
           if !success {
-            if self.info_stream.enabled("IW") {
+            if self.info_stream.is_enabled("IW") {
               self
                 .info_stream
                 .message("IW", "hit exception creating compound file during merge")?;
@@ -1823,7 +1823,7 @@ where
               // This can happen if rollback is called while we were building
               // our CFS -- fall through to logic below to remove the non-CFS
               // merged files:
-              if self.info_stream.enabled("IW") {
+              if self.info_stream.is_enabled("IW") {
                 self.info_stream.message(
                   "IW",
                   "hit merge abort exception creating compound file during merge",
@@ -1845,7 +1845,7 @@ where
             // registered with IFD
             self.delete_new_files(files_to_remove.iter(), Some(&inner))?;
             if merge.is_aborted() {
-              if self.info_stream.enabled("IW") {
+              if self.info_stream.is_enabled("IW") {
                 self
                   .info_stream
                   .message("IW", "abort merge after building CFS")?;
@@ -2006,7 +2006,7 @@ where
     self.ensure_open()?;
     self.flush_with_apply_merge_deletes(true, true)?;
 
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("forceMergeDeletes: index now {}", self.seg_string()?),
@@ -2083,7 +2083,7 @@ where
       )));
     }
 
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("forceMerge: index now {}", self.seg_string()?),
@@ -2368,7 +2368,7 @@ where
   }
 
   fn rollback_internal_no_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()> {
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "rollback")?;
     }
 
@@ -2385,7 +2385,7 @@ where
         );
       }
 
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "rollback: done finish merges")?;
@@ -2424,7 +2424,7 @@ where
       // otherwise we might hide internal bugsf
       self.adjust_pending_num_docs(-((total_max_doc - rollback_max_doc) as i64));
 
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
           &format!(
@@ -2636,7 +2636,7 @@ where
     // Abort all pending & running merges:
     let mut pending_merges = std::mem::take(&mut inner.pending_merges);
     IOUtils::apply_to_all(pending_merges.make_contiguous(), |merge| {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
           &format!(
@@ -2656,7 +2656,7 @@ where
       .abort_pending_merges(self, inner)?;
 
     for merge_stat in &inner.running_merges {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
           &format!(
@@ -2671,7 +2671,7 @@ where
     // We wait here to make all merges stop. It should not take very long because they
     // periodically check if they are aborted.
     while !inner.running_merges.is_empty() || !inner.running_add_indexes_merges.is_empty() {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
           &format!(
@@ -2685,7 +2685,7 @@ where
     }
 
     self.pausing.notify_all();
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self
         .info_stream
         .message("IW", "all running merges have aborted")?;
@@ -2713,7 +2713,7 @@ where
       .merge(&self.merge_source, MergeTrigger::Closing, self)?;
     let inner = self.inner.lock();
     self.do_ensure_open(false)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "waitForMerges")?;
     }
     // while !inner.pending_merges.is_empty() || !inner.running_merges.is_empty() {
@@ -2723,7 +2723,7 @@ where
       inner.merging_segments.is_empty(),
       "mergingSegments should be empty here"
     );
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "waitForMerges done")?;
     }
 
@@ -2792,7 +2792,7 @@ where
       // Lock order IW -> BDS
       self.do_ensure_open(false)?;
 
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", &format!("publishFlushedSegment {}", new_segment))?;
@@ -2820,7 +2820,7 @@ where
         v
       };
 
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         let segs = self.seg_string_from_info(&new_segment)?;
         self.info_stream.message(
           "IW",
@@ -2939,7 +2939,7 @@ where
     let result: Result<i64> = (|| {
       let index_sort = self.config.get_index_sort();
 
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "flush at addIndexes(Directory...)")?;
@@ -2951,7 +2951,7 @@ where
       let index_created_version_major = self.get_index_major_version_created();
 
       for dir in dirs {
-        if self.info_stream.enabled("IW") {
+        if self.info_stream.is_enabled("IW") {
           self
             .info_stream
             .message("IW", &format!("addIndexes: process directory {}", dir))?;
@@ -2999,7 +2999,7 @@ where
             }
 
             let new_seg_name = self.new_segment_name(None);
-            if self.info_stream.enabled("IW") {
+            if self.info_stream.is_enabled("IW") {
               self.info_stream.message(
                 "IW",
                 &format!(
@@ -3298,7 +3298,7 @@ where
     merge.check_aborted()?;
 
     let mut num_docs = 0_i64;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self
         .info_stream
         .message("IW", "flush at addIndexes(CodecReader...)")?;
@@ -3587,7 +3587,7 @@ where
     commit_lock.start_commit_time = Instant::now();
 
     self.do_ensure_open(false)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "prepareCommit: flush")?;
       self.info_stream.message(
         "IW",
@@ -3685,7 +3685,7 @@ where
         }
         Ok(())
       })();
-      if body_res.is_err() && self.info_stream.enabled("IW") {
+      if body_res.is_err() && self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "hit exception during prepareCommit")?;
@@ -3858,7 +3858,7 @@ where
         let limit = (0.5 * ram_buffer_size_mb * 1024.0 * 1024.0) as i64;
 
         if ram_bytes_used > limit {
-          if self.info_stream.enabled("BD") {
+          if self.info_stream.is_enabled("BD") {
             self.info_stream.message(
               "BD",
               &format!(
@@ -3924,7 +3924,7 @@ where
             count += 1;
           }
 
-          if self.info_stream.enabled("BD") {
+          if self.info_stream.is_enabled("BD") {
             self.info_stream.message(
                             "BD",
                             &format!(
@@ -4010,7 +4010,7 @@ where
   }
 
   pub(crate) fn commit_internal(&self, merge_policy: &MergePolicyEnum) -> Result<i64> {
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "commit: start")?;
     }
 
@@ -4020,17 +4020,17 @@ where
       let commit_lock = &mut *self.commit_lock.lock();
       self.do_ensure_open(false)?;
 
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self.info_stream.message("IW", "commit: enter lock")?;
       }
 
       if commit_lock.pending_commit.is_none() {
-        if self.info_stream.enabled("IW") {
+        if self.info_stream.is_enabled("IW") {
           self.info_stream.message("IW", "commit: now prepare")?;
         }
         seq_no = self.prepare_commit_internal(Some(commit_lock))?;
       } else {
-        if self.info_stream.enabled("IW") {
+        if self.info_stream.is_enabled("IW") {
           self.info_stream.message("IW", "commit: already prepared")?;
         }
         seq_no = self.pending_seq_no.load(Ordering::SeqCst);
@@ -4065,7 +4065,7 @@ where
       match commit_lock.pending_commit.as_mut() {
         Some(pending) => {
           let mut body_res: Result<()> = (|| {
-            if self.info_stream.enabled("IW") {
+            if self.info_stream.is_enabled("IW") {
               self
                 .info_stream
                 .message("IW", "commit: pendingCommit != null")?;
@@ -4075,7 +4075,7 @@ where
             // we committed, if anything goes wrong after this, we are screwed and it's a tragedy:
             commit_completed = true;
 
-            if self.info_stream.enabled("IW") {
+            if self.info_stream.is_enabled("IW") {
               self.info_stream.message(
                 "IW",
                 &format!(
@@ -4123,7 +4123,7 @@ where
         },
         None => {
           debug_assert!(commit_lock.files_to_commit.is_none());
-          if self.info_stream.enabled("IW") {
+          if self.info_stream.is_enabled("IW") {
             self
               .info_stream
               .message("IW", "commit: pendingCommit == null; skip")?;
@@ -4135,7 +4135,7 @@ where
     })();
 
     if let Err(t) = try_res {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", &format!("hit exception during finishCommit: {}", t))?;
@@ -4146,7 +4146,7 @@ where
       return Err(t);
     }
 
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!(
@@ -4209,7 +4209,7 @@ where
     self.test_point("startDoFlush")?;
 
     let res: Result<bool> = (|| {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
           &format!("  start flush: applyAllDeletes={}", apply_all_deletes),
@@ -4264,7 +4264,7 @@ where
     }
 
     if res.is_err() {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "hit exception during flush")?;
@@ -4276,7 +4276,7 @@ where
 
   fn apply_all_deletes_and_updates(&self) -> Result<()> {
     self.flush_deletes_count.fetch_add(1, Ordering::AcqRel);
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
                 "IW",
                 &format!(
@@ -4606,7 +4606,7 @@ where
       || (merged_updates.is_some()
         && self.is_fully_deleted(merged_updates.as_ref().unwrap().as_ref(), sci, &inner)?);
 
-    if self.info_stream.enabled("IW")
+    if self.info_stream.is_enabled("IW")
       && all_deleted
       && let Some(ref info) = merge.info
     {
@@ -4694,7 +4694,7 @@ where
       checkpoint_result?;
     }
 
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self
         .info_stream
         .message("IW", &format!("after commitMerge: {}", self.seg_string()?))?;
@@ -4744,7 +4744,7 @@ where
         self.merge_finish(merge, Some(&mut inner));
 
         if !success {
-          if self.info_stream.enabled("IW") {
+          if self.info_stream.is_enabled("IW") {
             self
               .info_stream
               .message("IW", "hit exception during merge")?;
@@ -4823,7 +4823,7 @@ where
     // is running while the lock is held to avoid a race.
     // condition where two conflicting merges from different
     // threads, start
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       let mut builder = String::from("registerMerge merging= [");
       for id in &inner.merging_segments {
         builder.push_str(id);
@@ -4882,7 +4882,7 @@ where
       Ok(())
     })();
     if result.is_err() {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "hit exception in mergeInit")?;
@@ -4920,7 +4920,7 @@ where
       return Ok(());
     }
 
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!(
@@ -5162,7 +5162,7 @@ where
     // did to_sync's ownership move to pending_commit?
     // after pending_commit has to_sync's ownership, and error happens, we have to pass to to_sync_error
     let result: Result<()> = (|| {
-      if self.info_stream.enabled("IW") {
+      if self.info_stream.is_enabled("IW") {
         self.info_stream.message("IW", "startCommit(): start")?;
       }
 
@@ -5179,7 +5179,7 @@ where
         if self.pending_commit_change_count.load(Ordering::SeqCst)
           == self.last_commit_change_count.load(Ordering::SeqCst)
         {
-          if self.info_stream.enabled("IW") {
+          if self.info_stream.is_enabled("IW") {
             self
               .info_stream
               .message("IW", "  skip startCommit(): no changes pending")?;
@@ -5216,7 +5216,7 @@ where
             .as_mut()
             .unwrap()
             .prepare_commit(self.directory.as_ref())?;
-          if self.info_stream.enabled("IW") {
+          if self.info_stream.is_enabled("IW") {
             let file_name = IndexFileNames::file_name_from_generation(
               IndexFileNames::PENDING_SEGMENTS,
               "",
@@ -5258,7 +5258,7 @@ where
           return Err(e);
         }
 
-        if self.info_stream.enabled("IW") {
+        if self.info_stream.is_enabled("IW") {
           self
             .info_stream
             .message("IW", &format!("done all syncs: {:?}", files_to_sync_list))?;
@@ -5273,7 +5273,7 @@ where
         Err(mut t) => {
           let mut inner = self.inner.lock();
           if !pending_commit_set {
-            if self.info_stream.enabled("IW") {
+            if self.info_stream.is_enabled("IW") {
               self
                 .info_stream
                 .message("IW", "hit exception committing segments file")?;
@@ -5337,7 +5337,7 @@ where
     // ignore, because it means we asked the merge to abort:
     debug_assert!(!matches!(&tragedy, LuceneError::MergeAborted(_)));
 
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!("hit tragic {:?} inside {}", tragedy, location),
@@ -5374,7 +5374,7 @@ where
 
   fn test_point(&self, message: &str) -> Result<()> {
     if self.enable_test_points {
-      debug_assert!(self.info_stream.enabled("TP"));
+      debug_assert!(self.info_stream.is_enabled("TP"));
       self.info_stream.message("TP", message)?;
     }
     Ok(())
@@ -5388,7 +5388,7 @@ where
       && !self.buffered_updates_stream.any()
       && !self.reader_pool.any_doc_values_changes();
 
-    if self.info_stream.enabled("IW") && !is_current {
+    if self.info_stream.is_enabled("IW") && !is_current {
       self.info_stream.message(
         "IW",
         &format!(
@@ -5430,7 +5430,7 @@ where
           if let Some(buffered_updates) = buffered_updates
             && buffered_updates.any()
           {
-            if self.info_stream.enabled("IW") {
+            if self.info_stream.is_enabled("IW") {
               self.info_stream.message(
                 "IW",
                 &format!("flush: push buffered updates: {buffered_updates:?}"),
@@ -5440,7 +5440,7 @@ where
           }
         },
         Some(seg) => {
-          if self.info_stream.enabled("IW") {
+          if self.info_stream.is_enabled("IW") {
             self.info_stream.message(
               "IW",
               &format!(
@@ -5449,7 +5449,7 @@ where
               ),
             )?;
           }
-          if seg.segment_updates.is_some() && self.info_stream.enabled("DW") {
+          if seg.segment_updates.is_some() && self.info_stream.is_enabled("DW") {
             self.info_stream.message(
               "IW",
               &format!(
@@ -5485,7 +5485,7 @@ where
     };
     self.do_ensure_open(true)?;
     inner.deleter.inc_ref_from_segment(segment_infos, false)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!(
@@ -5510,7 +5510,7 @@ where
     };
     self.do_ensure_open(true)?;
     inner.deleter.dec_ref_from_segment(segment_infos)?;
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!(
@@ -5741,7 +5741,7 @@ where
           self.open_segment_states(v, &mut seen_segments, updates.del_gen(), &mut inner)?;
 
         if seg_states.is_empty() {
-          if self.info_stream.enabled("BD") {
+          if self.info_stream.is_enabled("BD") {
             self
               .info_stream
               .message("BD", "packet matches no segments")?;
@@ -5749,7 +5749,7 @@ where
           break;
         }
 
-        if self.info_stream.enabled("BD") {
+        if self.info_stream.is_enabled("BD") {
           self.info_stream.message(
             "BD",
             &format!(
@@ -5796,7 +5796,7 @@ where
       // deleted documents, on the segments we didn't already do in previous iterations:
       total_del_count += del_count;
 
-      if self.info_stream.enabled("BD") {
+      if self.info_stream.is_enabled("BD") {
         self.info_stream.message(
           "BD",
           &format!(
@@ -5837,7 +5837,7 @@ where
         drop(_inner)
       }
 
-      if self.info_stream.enabled("BD") {
+      if self.info_stream.is_enabled("BD") {
         self.info_stream.message(
           "BD",
           &format!(
@@ -5858,7 +5858,7 @@ where
       self.buffered_updates_stream.finished(updates)?;
     }
 
-    if self.info_stream.enabled("BD") {
+    if self.info_stream.is_enabled("BD") {
       let mut message = format!(
         "done apply del packet ({}) to {} segments; {} new deletes/updates; took {:.3} sec",
         self,
@@ -5889,7 +5889,7 @@ where
       if inner.segment_infos.contains(private_seg) {
         Ok(InfoFrom::Updates)
       } else {
-        if self.info_stream.enabled("BD") {
+        if self.info_stream.is_enabled("BD") {
           self.info_stream.message(
             "BD",
             "private segment already gone; skip processing updates",
@@ -5983,7 +5983,7 @@ where
     }
     res?;
 
-    if self.info_stream.enabled("BD") {
+    if self.info_stream.is_enabled("BD") {
       self.info_stream.message(
         "BD",
         &format!(
@@ -6162,7 +6162,7 @@ where
 
     let _t_start = Instant::now();
 
-    if self.info_stream.enabled("IW") {
+    if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "flush at getReader")?;
     }
 
@@ -6252,7 +6252,7 @@ where
             if max_full_flush_merge_wait_millis > 0 {
               // TODO IMPORTANT 段的合并未完成
             }
-            if self.info_stream.enabled("IW") {
+            if self.info_stream.is_enabled("IW") {
               // self.info_stream.message("IW", format!("return reader version={} reader={}", ));
             }
             r
@@ -6266,7 +6266,7 @@ where
           if let Some(ref s) = self.hooks {
             s.do_after_flush()?
           }
-        } else if self.info_stream.enabled("IW") {
+        } else if self.info_stream.is_enabled("IW") {
           self
             .info_stream
             .message("IW", "hit exception during NRT reader")?;
@@ -7294,7 +7294,7 @@ where
   }
 
   {
-    if info_stream.enabled("IW") {
+    if info_stream.is_enabled("IW") {
       info_stream.message("IW", "create compound file")?;
     }
   }
@@ -7685,7 +7685,7 @@ impl AddIndexesMergeSource {
   {
     let mut pending_add_indexes_merges = std::mem::take(&mut inner.pending_add_indexes_merges);
     IOUtils::apply_to_all(pending_add_indexes_merges.make_contiguous(), |merge| {
-      if writer.info_stream.enabled("IW") {
+      if writer.info_stream.is_enabled("IW") {
         writer
           .info_stream
           .message("IW", "now abort pending addIndexes merge")?;

@@ -97,7 +97,7 @@ pub trait FlushPolicy {
   }
 
   fn assert_message(&self, s: &str, info_stream: &InfoStreamEnum) -> Result<bool> {
-    if info_stream.enabled("FP") {
+    if info_stream.is_enabled("FP") {
       info_stream.message("FP", s)?;
     }
     Ok(true)

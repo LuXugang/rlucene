@@ -97,7 +97,7 @@ where
     Ok(())
   }
 
-  fn enabled(&self, _component: &str) -> bool {
+  fn is_enabled(&self, _component: &str) -> bool {
     true
   }
 

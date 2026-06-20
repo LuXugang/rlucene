@@ -409,7 +409,7 @@ where
     let flush = inner.flush_bytes;
     let stall = (active + flush) > limit && active < limit && !inner.closed;
 
-    if self.info_stream.enabled("DWFC") && stall != self.stall_control.any_stalled_threads() {
+    if self.info_stream.is_enabled("DWFC") && stall != self.stall_control.any_stalled_threads() {
       if stall {
         self.info_stream.message(
           "DW",
@@ -974,7 +974,7 @@ where
       if !next.state.is_flush_pending() && next.state.get_num_docs_in_ram() > 0 {
         let next_ram = next.state.get_last_committed_bytes_used();
 
-        if self.info_stream.enabled("FP") {
+        if self.info_stream.is_enabled("FP") {
           self.info_stream.message(
             "FP",
             &format!(
@@ -993,7 +993,7 @@ where
       }
     }
 
-    if self.info_stream.enabled("FP") {
+    if self.info_stream.is_enabled("FP") {
       self.info_stream.message(
         "FP",
         &format!("{} in-use non-flushing threads states", count),

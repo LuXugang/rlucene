@@ -114,7 +114,7 @@ where
     );
     merge_state.segment_info.min_version = min_version;
 
-    if merge_state.info_stream.enabled("SM")
+    if merge_state.info_stream.is_enabled("SM")
       && let Some(sort) = merge_state.segment_info.get_index_sort()
     {
       merge_state
@@ -263,7 +263,7 @@ where
   {
     let mut t0 = None;
 
-    if info_stream.enabled("SM") {
+    if info_stream.is_enabled("SM") {
       t0 = Some(Instant::now());
     }
 
@@ -296,7 +296,7 @@ where
   {
     let mut t0 = None;
 
-    if info_stream.enabled("SM") {
+    if info_stream.is_enabled("SM") {
       t0 = Some(Instant::now());
     }
 
