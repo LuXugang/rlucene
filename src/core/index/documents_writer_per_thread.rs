@@ -532,8 +532,8 @@ where
             let mut live_docs = FixedBitSet::new(self.state.num_docs_in_ram.load(SeqCst) as usize);
             live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst) as usize);
 
-            for doc_id in 0..self.num_deleted_doc_ids {
-              live_docs.clear_with_index(doc_id as usize);
+            for i in 0..self.num_deleted_doc_ids {
+              live_docs.clear_with_index(self.delete_doc_ids[i as usize] as usize);
             }
 
             flush_state.live_docs = Some(live_docs);
