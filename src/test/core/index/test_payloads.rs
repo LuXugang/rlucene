@@ -199,7 +199,7 @@ fn test_payload_field_bit() -> Result<()> {
   Ok(())
 }
 
-// #[test]
+#[test]
 fn test_payloads_encoding() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -368,12 +368,9 @@ where
   let br = tp
     .get_payload()?
     .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
-  assert_byte_array_equals_range(
-    payload_data.as_ref(),
-    br.bytes.as_slice(),
-    br.offset,
-    br.length,
-  );
+  let mut portion = vec![0; 1500];
+  portion.copy_from_slice(&payload_data[100..1600]);
+  assert_byte_array_equals_range(portion.as_ref(), br.bytes.as_slice(), br.offset, br.length);
   Ok(())
 }
 
@@ -402,7 +399,7 @@ fn generate_terms(field_name: &str, n: usize) -> Vec<Term> {
 
   for i in 0..n {
     let mut s = String::from("t");
-    let zeros = max_digits - (i as f64).log10() as i32;
+    let zeros = max_digits.wrapping_sub((i as f64).log10() as i32);
 
     for _ in 0..zeros {
       s.push('0');

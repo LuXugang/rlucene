@@ -54,7 +54,9 @@ where
     // The above bitwise operation is equivalent to looping over slots until
     // finding one that is free.
     let free_slots = !self.used_slots as u64;
-    let offset = (free_slots >> expected_slot).trailing_zeros() as usize;
+    let offset = free_slots
+      .wrapping_shr(expected_slot as u32)
+      .trailing_zeros() as usize;
     let destination_slot = expected_slot + offset;
 
     if destination_slot < i64::BITS as usize {
@@ -76,7 +78,8 @@ where
     // Look at indexes 0..63 first, which are sparsely populated.
     let mut next_slot = 0;
     while next_slot < i64::BITS as usize {
-      let next_used_slot = next_slot + (self.used_slots >> next_slot).trailing_zeros() as usize;
+      let next_used_slot =
+        next_slot + (self.used_slots as u64 >> next_slot).trailing_zeros() as usize;
       if next_used_slot >= i64::BITS as usize {
         break;
       }
