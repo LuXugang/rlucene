@@ -37,8 +37,8 @@ fn test() -> Result<()> {
     "eng",
     FieldTokenStreamEnum::custom(BugReproTokenStream::new()),
   )?);
-  riw.add_document(doc)?;
-  riw.close()?;
+  riw.add_document(&mut random, doc)?;
+  riw.close(&mut random)?;
   Ok(())
 }
 
@@ -54,9 +54,9 @@ fn test_more_docs() -> Result<()> {
       "eng",
       FieldTokenStreamEnum::custom(BugReproTokenStream::new()),
     )?);
-    riw.add_document(doc)?;
+    riw.add_document(&mut random, doc)?;
   }
-  riw.close()?;
+  riw.close(&mut random)?;
   Ok(())
 }
 

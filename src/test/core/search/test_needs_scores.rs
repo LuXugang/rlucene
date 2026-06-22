@@ -70,12 +70,12 @@ impl TestNeedsScores {
         format!("this is document {i}"),
         Store::No,
       )?);
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
-    let reader = iw.get_reader()?;
+    let reader = iw.get_reader(&mut random)?;
     let mut searcher = new_searcher_with_reader(reader)?;
     searcher.set_query_cache(None);
-    iw.close()?;
+    iw.close(&mut random)?;
     Ok(Self { dir, searcher })
   }
 }

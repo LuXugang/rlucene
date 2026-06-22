@@ -173,10 +173,10 @@ fn test_constructor_exceptions() -> Result<()> {
   ft2.set_store_term_vectors(true)?;
   doc.add(Field::from_string("name", "value", ft2)?);
 
-  let result = writer.add_document(doc);
+  let result = writer.add_document(&mut random, doc);
   assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -204,9 +204,9 @@ fn test_get_values_for_indexed_document() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(make_document_with_fields()?)?;
+  writer.add_document(&mut random, make_document_with_fields()?)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = IndexSearcher::from_cr(reader)?;
 
   // search for something that does exist
@@ -221,7 +221,7 @@ fn test_get_values_for_indexed_document() -> Result<()> {
 
   do_assert(&doc, true)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -253,9 +253,9 @@ fn test_position_increment_multi_fields() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(make_document_with_fields()?)?;
+  writer.add_document(&mut random, make_document_with_fields()?)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let query = PhraseQuery::from_terms(0, "indexed_not_tokenized", &["test1", "test2"])?;
@@ -267,7 +267,7 @@ fn test_position_increment_multi_fields() -> Result<()> {
   let doc = searcher.stored_fields()?.document(hits[0].doc)?;
   do_assert(&doc, true)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -365,21 +365,21 @@ fn test_field_set_value() -> Result<()> {
   doc.add(field2.clone());
 
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut random, doc.clone())?;
 
   field.set_string_value("id2")?;
   doc = Document::new();
   doc.add(field.clone());
   doc.add(field2.clone());
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut random, doc.clone())?;
 
   field.set_string_value("id3")?;
   doc = Document::new();
   doc.add(field.clone());
   doc.add(field2.clone());
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut random, doc.clone())?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = IndexSearcher::from_cr(reader)?;
 
   let query = TermQuery::new(Term::from_text("keyword", "test"));
@@ -410,7 +410,7 @@ fn test_field_set_value() -> Result<()> {
     }
   }
 
-  writer.close()?;
+  writer.close(&mut random)?;
 
   assert_eq!(7, result, "did not see all IDs");
   Ok(())
@@ -441,9 +441,9 @@ fn test_numeric_field_as_string() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
-  iw.add_document(doc.clone())?;
+  iw.add_document(&mut random, doc.clone())?;
 
-  let ir = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
   let sdoc = ir.stored_fields()?.document(0)?;
 
   assert_eq!("5", sdoc.get("int")?.unwrap().as_ref());
@@ -455,6 +455,6 @@ fn test_numeric_field_as_string() -> Result<()> {
     vec!["5", "4"]
   );
 
-  iw.close()?;
+  iw.close(&mut random)?;
   Ok(())
 }

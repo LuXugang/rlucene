@@ -53,10 +53,10 @@ fn test() -> Result<()> {
   while chars_indexed < chars_to_index {
     let doc = docs.next_doc()?;
     chars_indexed += doc.get("body")?.unwrap().len() as i32;
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
-  let r = Arc::new(w.get_reader()?);
-  w.close()?;
+  let r = Arc::new(w.get_reader(&mut random)?);
+  w.close(&mut random)?;
 
   let s = new_searcher_with_reader(r.clone())?;
   let terms = multi_terms::get_terms(&r, "body")?.unwrap();

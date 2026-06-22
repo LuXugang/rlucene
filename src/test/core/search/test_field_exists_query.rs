@@ -86,12 +86,12 @@ fn test_doc_values_rewrite_with_terms_present() -> Result<()> {
       if random.random_bool(0.5) { "yes" } else { "no" },
       Store::No,
     )?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  iw.commit()?;
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  iw.commit(&mut random)?;
+  let reader = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let query = FieldExistsQuery::new("f");
@@ -114,12 +114,12 @@ fn test_doc_values_rewrite_with_point_values_present() -> Result<()> {
     let mut doc = Document::new();
     doc.add(BinaryPoint::new("dim", [vec![0u8; 4], vec![0u8; 4]])?);
     doc.add(DoubleDocValuesField::new("dim", 2.0));
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  iw.commit()?;
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  iw.commit(&mut random)?;
+  let reader = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let query = FieldExistsQuery::new("dim");
@@ -142,7 +142,7 @@ fn test_doc_values_no_rewrite() -> Result<()> {
     let mut doc = Document::new();
     doc.add(DoubleDocValuesField::new("dim", 2.0));
     doc.add(BinaryPoint::new("dim", [vec![0u8; 4], vec![0u8; 4]])?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
   for _ in 0..num_docs {
@@ -153,12 +153,12 @@ fn test_doc_values_no_rewrite() -> Result<()> {
       if random.random_bool(0.5) { "yes" } else { "no" },
       Store::No,
     )?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  iw.commit()?;
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  iw.commit(&mut random)?;
+  let reader = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -185,12 +185,12 @@ fn test_doc_values_no_rewrite_with_doc_values() -> Result<()> {
     doc.add(NumericDocValuesField::new("dv1", 1));
     doc.add(SortedNumericDocValuesField::new("dv2", 1));
     doc.add(SortedNumericDocValuesField::new("dv2", 2));
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  iw.commit()?;
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  iw.commit(&mut random)?;
+  let reader = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -233,17 +233,17 @@ fn test_doc_values_random() -> Result<()> {
         Store::No,
       )?);
 
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
 
     // TODO delete by query 未实现
     // if rng.random_bool(0.5) {
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     assert_same_matches(
       &searcher,
@@ -288,17 +288,17 @@ fn test_doc_values_approximation() -> Result<()> {
         if random.random_bool(0.5) { "yes" } else { "no" },
         Store::No,
       )?);
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
     // TODO: delete-by-query not implement yet
     // if random.random_bool(0.5) {
     //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     let mut ref_builder = Builder::new();
     ref_builder
@@ -350,17 +350,17 @@ fn test_doc_values_score() -> Result<()> {
         if random.random_bool(0.5) { "yes" } else { "no" },
         Store::No,
       )?);
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
     // TODO: delete-by-query not implement yet
     // if random.random_bool(0.5) {
     //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     let boost = random.random::<f32>() * 10.0;
 
@@ -387,12 +387,12 @@ fn test_doc_values_missing_field() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
 
@@ -407,12 +407,12 @@ fn test_doc_values_all_docs_have_field() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("f", 1));
-  iw.add_document(doc)?;
-  iw.commit()?;
+  iw.add_document(&mut random, doc)?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
 
@@ -427,15 +427,15 @@ fn test_doc_values_field_exists_but_no_docs_have_field() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("f", 1));
-  iw.add_document(doc)?;
-  iw.commit()?;
+  iw.add_document(&mut random, doc)?;
+  iw.commit(&mut random)?;
 
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
 
@@ -447,7 +447,7 @@ fn test_doc_values_query_matches_count() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let config = new_index_writer_config(&mut random);
-  let mut w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
+  let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
   let random_num_docs = random.random_range(11..=100);
   let mut num_matching_docs = 0i32;
@@ -468,11 +468,11 @@ fn test_doc_values_query_matches_count() -> Result<()> {
       ));
       num_matching_docs += 1;
     }
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
-  w.force_merge(1)?;
+  w.force_merge(&mut random, 1)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   assert_same_count(&searcher, "long", num_matching_docs)?;
@@ -495,7 +495,7 @@ fn test_doc_values_query_matches_count() -> Result<()> {
   // let leaf = &searcher2.get_leaf_contexts()?[0];
   // assert_eq!(weight2.count(leaf)?, -1);
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -524,7 +524,7 @@ fn test_norms_random() -> Result<()> {
         Store::No,
       )?);
 
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
 
     // TODO: delete-by-query not implement yet
@@ -532,10 +532,10 @@ fn test_norms_random() -> Result<()> {
     //     iw.delete_documents(TermQuery::new(...));
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     assert_same_matches(
       &searcher,
@@ -570,17 +570,17 @@ fn test_norms_approximation() -> Result<()> {
         if random.random_bool(0.5) { "yes" } else { "no" },
         Store::No,
       )?);
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
     // TODO: delete-by-query not implement yet
     // if random.random_bool(0.5) {
     //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     let ref_query: Query = {
       let mut b = Builder::new();
@@ -629,7 +629,7 @@ fn test_norms_score() -> Result<()> {
         if random.random_bool(0.5) { "yes" } else { "no" },
         Store::No,
       )?);
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
 
     // TODO: delete-by-query not implemented yet
@@ -637,10 +637,10 @@ fn test_norms_score() -> Result<()> {
     //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     let boost = random.random::<f32>() * 10.0;
 
@@ -665,12 +665,12 @@ fn test_norms_missing_field() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
 
@@ -685,12 +685,12 @@ fn test_norms_all_docs_have_field() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("f", "value", Store::No)?);
-  iw.add_document(doc)?;
-  iw.commit()?;
+  iw.add_document(&mut random, doc)?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
 
@@ -705,15 +705,15 @@ fn test_norms_field_exists_but_no_docs_have_field() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("f", "value", Store::No)?);
-  iw.add_document(doc)?;
-  iw.commit()?;
+  iw.add_document(&mut random, doc)?;
+  iw.commit(&mut random)?;
 
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(1, searcher.count(FieldExistsQuery::new("f"))?);
 
@@ -723,7 +723,7 @@ fn test_norms_field_exists_but_no_docs_have_field() -> Result<()> {
 fn test_norms_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone());
 
   let random_num_docs = TestUtil::next_int(&mut random, 10, 100);
 
@@ -739,7 +739,7 @@ fn test_norms_query_matches_count() -> Result<()> {
     "always here",
     no_norms_field_type.clone(),
   ));
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   for _i in 1..random_num_docs {
     let mut doc = Document::new();
@@ -750,11 +750,11 @@ fn test_norms_query_matches_count() -> Result<()> {
       "some here",
       no_norms_field_type.clone(),
     ));
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
-  w.force_merge(1)?;
+  w.force_merge(&mut random, 1)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   assert_norms_count_with_shortcut(&searcher, "text", random_num_docs)?;
@@ -772,9 +772,9 @@ fn test_norms_query_matches_count() -> Result<()> {
   w.w
     .get_config_mut()
     .set_merge_policy(NoMergePolicy::default());
-  w.delete_documents_with_terms(vec![Term::from_text("text", "text")])?; // deletes all but the first doc
+  w.delete_documents_with_terms(&mut random, vec![Term::from_text("text", "text")])?; // deletes all but the first doc
 
-  let reader2 = Arc::new(w.get_reader()?);
+  let reader2 = Arc::new(w.get_reader(&mut random)?);
   let searcher2 = new_searcher_with_reader(reader2.clone())?;
   assert_norms_count_with_shortcut(&searcher2, "text", 1)?;
 
@@ -837,7 +837,7 @@ fn test_knn_vector_random() -> Result<()> {
         doc.add(StringField::from_string("has_value", "yes", Store::No)?);
       }
       doc.add(StringField::from_string("field", "value", Store::No)?);
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
 
     // TODO: 通过 Query 删除未实现
@@ -847,10 +847,10 @@ fn test_knn_vector_random() -> Result<()> {
     //   ])?;
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     assert_same_matches(
       &searcher,
@@ -878,12 +878,12 @@ fn test_knn_vector_missingfield() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
 
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(0, searcher.count(FieldExistsQuery::new("f"))?);
 
@@ -902,13 +902,13 @@ fn test_knn_vector_all_docs_have_field() -> Result<()> {
       "vector",
       random_vector(&mut random, 5),
     )?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let query = FieldExistsQuery::new("vector");
   let rewritten = query.clone().rewrite(&searcher)?;
@@ -937,20 +937,20 @@ fn test_delete_knn_vector() -> Result<()> {
       docs_with_vector.set(i);
     }
     doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
   if random.random_bool(0.5) {
     let num_deleted = random.random_range(1..=num_docs);
     for i in 0..num_deleted {
-      iw.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+      iw.delete_documents_with_terms(&mut random, vec![Term::from_text("id", i.to_string())])?;
       docs_with_vector.clear_with_index(i);
     }
   }
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let count = searcher.count(FieldExistsQuery::new("vector"))?;
   assert_eq!(docs_with_vector.cardinality() as i32, count);
@@ -981,12 +981,12 @@ fn test_knn_vector_conjunction() -> Result<()> {
       format!("value{}", i % 2),
       Store::No,
     )?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let occur = if random.random_bool(0.5) {
     Occur::Must
@@ -1018,15 +1018,15 @@ fn test_knn_vector_field_exists_but_no_docs_have_field() -> Result<()> {
     "vector",
     random_vector(&mut random, 3),
   )?);
-  iw.add_document(doc)?;
-  iw.commit()?;
+  iw.add_document(&mut random, doc)?;
+  iw.commit(&mut random)?;
 
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   assert_eq!(1, searcher.count(FieldExistsQuery::new("vector"))?);
 
@@ -1054,22 +1054,22 @@ fn test_delete_all_point_docs() -> Result<()> {
   doc.add(StringField::from_string("id", "0", Store::No)?);
   doc.add(LongPoint::new("long", vec![17])?);
   doc.add(NumericDocValuesField::new("long", 17));
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   // add another document before the flush, otherwise the segment only has the document that
   // we are going to delete and the merge simply ignores the segment without carrying over its
   // field infos
-  iw.add_document(Document::new())?;
+  iw.add_document(&mut random, Document::new())?;
 
   // make sure there are two segments or force merge will be a no-op
   iw.flush()?;
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  iw.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
-  iw.force_merge(1)?;
+  iw.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "0")])?;
+  iw.force_merge(&mut random, 1)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   assert!(!reader.has_deletions()?);
   let r = get_context(&reader)?;
   assert_eq!(1, r.leaves()?.len());
@@ -1093,22 +1093,22 @@ fn test_delete_all_term_docs() -> Result<()> {
     "str",
     BytesRef::from_bytes(b"foo".to_vec()),
   ));
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   // add another document before the flush, otherwise the segment only has the document that
   // we are going to delete and the merge simply ignores the segment without carrying over its
   // field infos
-  iw.add_document(Document::new())?;
+  iw.add_document(&mut random, Document::new())?;
 
   // make sure there are two segments or force merge will be a no-op
   iw.flush()?;
-  iw.add_document(Document::new())?;
-  iw.commit()?;
+  iw.add_document(&mut random, Document::new())?;
+  iw.commit(&mut random)?;
 
-  iw.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
-  iw.force_merge(1)?;
+  iw.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "0")])?;
+  iw.force_merge(&mut random, 1)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   assert!(!reader.has_deletions()?);
   let r = get_context(&reader)?;
   assert_eq!(1, r.leaves()?.len());

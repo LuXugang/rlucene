@@ -331,6 +331,7 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
     let latch = latch.clone();
     let done_latch = done_latch.clone();
     threads.push(thread::spawn(move || -> Result<()> {
+      let mut thread_random = crate::test::core::util::lucene_test_case::random();
       let mut id = (i as i32) * 1000;
       let value = 100;
       latch.wait();
@@ -346,7 +347,7 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
             Store::No,
           )?);
           doc.add(NumericDocValuesField::new("dv", value as i64));
-          modifier.add_document(doc)?;
+          modifier.add_document(&mut thread_random, doc)?;
         }
         Ok(())
       })();
@@ -381,7 +382,7 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
     }
   }
 
-  modifier.close()?;
+  modifier.close(&mut random)?;
 
   let reader = directory_reader::open(dir.clone())?;
   assert_eq!(0, reader.max_doc()?);
@@ -674,7 +675,7 @@ fn test_delete_all_slowly() -> Result<()> {
       Store::No,
       &mut field_types,
     )?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
   ids.shuffle(&mut random);
 
@@ -684,15 +685,18 @@ fn test_delete_all_slowly() -> Result<()> {
     let inc = std::cmp::min(left, random.random_range(1..21));
     let limit = upto + inc;
     while upto < limit {
-      w.delete_documents_with_terms(vec![Term::from_text("id", ids[upto].to_string())])?;
+      w.delete_documents_with_terms(
+        &mut random,
+        vec![Term::from_text("id", ids[upto].to_string())],
+      )?;
       upto += 1;
     }
-    let r = w.get_reader()?;
+    let r = w.get_reader(&mut random)?;
     assert_eq!((num_docs - upto) as i32, r.num_docs()?);
     r.close()?;
   }
 
-  w.close()?;
+  w.close(&mut random)?;
 
   Ok(())
 }

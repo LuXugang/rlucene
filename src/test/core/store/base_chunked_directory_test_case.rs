@@ -399,10 +399,10 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let mut doc = Document::new();
       doc.add(docid.clone());
       doc.add(junk.clone());
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut stored_fields = reader.stored_fields()?;
     let num_asserts = at_least(random, 100);

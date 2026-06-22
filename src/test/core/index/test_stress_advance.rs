@@ -75,15 +75,15 @@ fn test_stress_advance() -> Result<()> {
       let mut doc = Document::new();
       doc.add(f.clone());
       doc.add(id_field.clone());
-      w.add_document(doc)?;
+      w.add_document(&mut random, doc)?;
     }
 
-    w.force_merge(1)?;
+    w.force_merge(&mut random, 1)?;
 
     let mut a_doc_ids: Vec<i32> = Vec::new();
     let mut b_doc_ids: Vec<i32> = Vec::new();
 
-    let r = w.get_reader()?;
+    let r = w.get_reader(&mut random)?;
     let mut stored_fields = r.stored_fields()?;
     let max_doc = r.max_doc()?;
     for doc_id in 0..max_doc {
@@ -125,7 +125,7 @@ fn test_stress_advance() -> Result<()> {
     }
 
     r.close()?;
-    w.close()?;
+    w.close(&mut random)?;
   }
 
   Ok(())

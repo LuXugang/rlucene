@@ -67,10 +67,10 @@ fn test_missing_terms() -> Result<()> {
       field_name,
       BytesRef::from_string(&term.to_string()),
     ));
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let num_docs = searcher.get_index_reader().num_docs()?.try_convert()?;
@@ -167,16 +167,16 @@ fn test_duel_terms_query() -> Result<()> {
         term.field(),
         term.bytes().clone(),
       ));
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
     // TODO delete by query 未实现
     // if num_terms > 1 && random.random_bool(0.5) {
     //   iw.delete_documents_with_terms(vec![all_terms[0].clone()])?;
     // }
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     if searcher.get_top_reader_context().reader().num_docs()? == 0 {
       continue;
@@ -237,15 +237,15 @@ fn test_approximation() -> Result<()> {
         term.field(),
         term.bytes().clone(),
       ));
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
     if num_terms > 1 && random.random_bool(0.5) {
-      iw.delete_documents_with_terms(vec![all_terms[0].clone()])?;
+      iw.delete_documents_with_terms(&mut random, vec![all_terms[0].clone()])?;
     }
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     if searcher.get_top_reader_context().reader().num_docs()? == 0 {
       continue;

@@ -149,9 +149,9 @@ fn test_no_ords() -> Result<()> {
     &ft,
     &mut HashMap::new(),
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
-  let ir = get_only_leaf_reader(&iw.get_reader()?)?;
+  let ir = get_only_leaf_reader(&iw.get_reader(&mut random)?)?;
   let mut term_vectors = ir.term_vectors()?;
   let terms = term_vectors.get_field_terms(0, "foo")?;
   assert!(terms.is_some());
@@ -169,7 +169,7 @@ fn test_no_ords() -> Result<()> {
   let err = terms_enum.seek_exact_with_ord(0);
   assert!(matches!(err, Err(LuceneError::UnsupportedOperation(_))));
 
-  iw.close()?;
+  iw.close(&mut random)?;
   Ok(())
 }
 #[test]

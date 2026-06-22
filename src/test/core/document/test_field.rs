@@ -1728,9 +1728,9 @@ fn test_indexed_binary_field() -> Result<()> {
   assert_eq!(field.binary_value()?.as_ref().unwrap().as_ref(), &br);
 
   doc.add(field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   let query = TermQuery::new(Term::new("binary", br.clone()));
   let hits = searcher.search(query, 1)?;
@@ -1740,7 +1740,7 @@ fn test_indexed_binary_field() -> Result<()> {
     .document(hits.score_docs()[0].doc)?;
   let stored_field = stored_doc.get_field("binary").unwrap();
   assert_eq!(stored_field.binary_value()?.as_ref().unwrap().as_ref(), &br);
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -1778,9 +1778,9 @@ fn test_knn_vector_field() -> Result<()> {
 
   doc.add(byte_field);
   doc.add(float_field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let context = get_context(&reader)?;
   assert_eq!(1, context.leaves()?.len());
   let leaf = context.leaves()?[0].reader();
@@ -1803,7 +1803,7 @@ fn test_knn_vector_field() -> Result<()> {
   assert_eq!(NO_MORE_DOCS, float_iterator.next_doc()?);
   assert!(float_values.vector_value(1).is_err());
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 

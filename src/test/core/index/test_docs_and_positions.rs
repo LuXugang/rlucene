@@ -87,11 +87,11 @@ fn test_positions_simple() -> Result<()> {
       &custom_type,
       &mut field_types,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let num = at_least(&mut random, 13);
   for _ in 0..num {
@@ -215,11 +215,11 @@ fn test_random_positions() -> Result<()> {
     )?);
     positions_in_doc[i as usize] = positions;
 
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let num_outer = at_least(&mut random, 13);
 
@@ -322,11 +322,11 @@ fn test_random_docs() -> Result<()> {
       }
     }
     doc.add(Field::new(&field_name, builder, custom_type.clone()));
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let num = at_least(&mut random, 13);
   for i in 0..num {
@@ -438,11 +438,11 @@ fn test_large_number_of_positions() -> Result<()> {
       &custom_type,
       &mut field_types,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
   // now do searches
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let num_outer = at_least(&mut random, 13);
 
@@ -496,9 +496,9 @@ fn test_docs_enum_start() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let r = get_only_leaf_reader(&reader)?;
   let cr = SingleLeafCompositeReader::new(r.clone());
   let mut disi = TestUtil::docs_with_reader(
@@ -525,7 +525,7 @@ fn test_docs_enum_start() -> Result<()> {
   assert_eq!(-1, docid);
   assert_ne!(disi.next_doc()?, NO_MORE_DOCS);
 
-  writer.close()?;
+  writer.close(&mut random)?;
   r.close()?;
   Ok(())
 }
@@ -546,10 +546,10 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
     No,
     &mut field_types,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let r = get_only_leaf_reader(reader)?;
 

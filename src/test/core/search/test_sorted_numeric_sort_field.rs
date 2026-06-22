@@ -105,17 +105,17 @@ fn test_forward() -> Result<()> {
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   // doc2
   let mut doc = Document::new();
   doc.add(IntField::new("value", 3, Store::No)?);
   doc.add(IntField::new("value", 7, Store::No)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedNumericSortField::new(
@@ -149,15 +149,15 @@ fn test_reverse() -> Result<()> {
   doc.add(IntField::new("value", 3, Store::No)?);
   doc.add(IntField::new("value", 7, Store::No)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedNumericSortField::with_reverse(
@@ -191,20 +191,20 @@ fn test_missing_first() -> Result<()> {
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(IntField::new("value", 3, Store::No)?);
   doc.add(IntField::new("value", 7, Store::No)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "3", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -242,20 +242,20 @@ fn test_missing_last() -> Result<()> {
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(IntField::new("value", 3, Store::No)?);
   doc.add(IntField::new("value", 7, Store::No)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "3", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -294,16 +294,16 @@ fn test_singleton() -> Result<()> {
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   // doc2
   let mut doc = Document::new();
   doc.add(IntField::new("value", 3, Store::No)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedNumericSortField::new(
@@ -335,16 +335,16 @@ fn test_float() -> Result<()> {
   let mut doc = Document::new();
   doc.add(FloatField::new("value", -3f32, Store::No)?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(FloatField::new("value", -5f32, Store::No)?);
   doc.add(FloatField::new("value", 7f32, Store::No)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedNumericSortField::new(
@@ -377,16 +377,16 @@ fn test_double() -> Result<()> {
   let mut doc = Document::new();
   doc.add(DoubleField::new("value", -3f64, Store::Yes)?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(DoubleField::new("value", -5f64, Store::Yes)?);
   doc.add(DoubleField::new("value", 7f64, Store::Yes)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedNumericSortField::new(

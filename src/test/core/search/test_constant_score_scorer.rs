@@ -237,12 +237,12 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  writer.force_merge(1)?;
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  writer.force_merge(random, 1)?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
   let searcher = new_searcher_with_reader(reader)?;
   let weight = searcher.create_weight(ConstantScoreQuery::new(query), score_mode, 1.0)?;
 

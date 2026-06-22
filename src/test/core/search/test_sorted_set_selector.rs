@@ -58,7 +58,7 @@ fn test_max() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -72,10 +72,10 @@ fn test_max() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   // slow wrapper does not support random access ordinals (there is no need for that!)
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -121,7 +121,7 @@ fn test_max_reverse() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -135,10 +135,10 @@ fn test_max_reverse() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   // slow wrapper does not support random access ordinals (there is no need for that!)
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -176,7 +176,7 @@ fn test_max_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -194,7 +194,7 @@ fn test_max_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc3 = Document::new();
   doc3.add(SortedSetDocValuesField::new(
@@ -208,10 +208,10 @@ fn test_max_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc3)?;
+  writer.add_document(&mut random, doc3)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -256,7 +256,7 @@ fn test_max_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -274,7 +274,7 @@ fn test_max_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc3 = Document::new();
   doc3.add(SortedSetDocValuesField::new(
@@ -288,10 +288,10 @@ fn test_max_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc3)?;
+  writer.add_document(&mut random, doc3)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -339,7 +339,7 @@ fn test_max_singleton() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -353,10 +353,10 @@ fn test_max_singleton() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -399,7 +399,7 @@ fn test_middle_min() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   for v in ["a", "b", "c", "d"] {
@@ -415,10 +415,10 @@ fn test_middle_min() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -463,7 +463,7 @@ fn test_middle_min_reverse() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -477,10 +477,10 @@ fn test_middle_min_reverse() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -519,7 +519,7 @@ fn test_middle_min_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -533,7 +533,7 @@ fn test_middle_min_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc3 = Document::new();
   for v in ["a", "b", "c", "d"] {
@@ -549,10 +549,10 @@ fn test_middle_min_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc3)?;
+  writer.add_document(&mut random, doc3)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -596,7 +596,7 @@ fn test_middle_min_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -610,7 +610,7 @@ fn test_middle_min_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc3 = Document::new();
   for v in ["a", "b", "c", "d"] {
@@ -626,10 +626,10 @@ fn test_middle_min_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc3)?;
+  writer.add_document(&mut random, doc3)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -681,7 +681,7 @@ fn test_middle_min_singleton() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -695,10 +695,10 @@ fn test_middle_min_singleton() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -743,7 +743,7 @@ fn test_middle_max() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedSetDocValuesField::new(
@@ -757,10 +757,10 @@ fn test_middle_max() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -802,7 +802,7 @@ fn test_middle_max_reverse() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(d1)?;
+  writer.add_document(&mut random, d1)?;
 
   let mut d2 = Document::new();
   for v in ["a", "b", "c", "d"] {
@@ -818,10 +818,10 @@ fn test_middle_max_reverse() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(d2)?;
+  writer.add_document(&mut random, d2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
   let sort = Sort::with_fields(vec![SortedSetSortField::with_selector(
@@ -867,7 +867,7 @@ fn test_middle_max_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   for v in ["a", "b", "c", "d"] {
@@ -883,7 +883,7 @@ fn test_middle_max_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc3 = Document::new();
   doc3.add(SortedSetDocValuesField::new(
@@ -897,10 +897,10 @@ fn test_middle_max_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc3)?;
+  writer.add_document(&mut random, doc3)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -945,7 +945,7 @@ fn test_middle_max_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
   let mut doc2 = Document::new();
   for v in ["a", "b", "c", "d"] {
@@ -961,7 +961,7 @@ fn test_middle_max_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc3 = Document::new();
   doc3.add(SortedSetDocValuesField::new(
@@ -975,10 +975,10 @@ fn test_middle_max_missing_last() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc3)?;
+  writer.add_document(&mut random, doc3)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 
@@ -1026,7 +1026,7 @@ fn test_middle_max_singleton() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc1 = Document::new();
   doc1.add(SortedSetDocValuesField::new(
@@ -1040,10 +1040,10 @@ fn test_middle_max_singleton() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc1)?;
+  writer.add_document(&mut random, doc1)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
 

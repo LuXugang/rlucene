@@ -67,7 +67,7 @@ fn test_one_clause_rewrite_optimization() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let reader = directory_reader::open(dir)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -608,32 +608,32 @@ fn test_random() -> Result<()> {
   let mut doc = Document::new();
   let mut f = TextField::from_string("body", "a b c", No)?;
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   f.set_string_value("")?;
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   f.set_string_value("a b")?;
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   f.set_string_value("b c")?;
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   f.set_string_value("a")?;
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   f.set_string_value("c")?;
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let num_random_docs = at_least(&mut random, 3);
   for _ in 0..num_random_docs {
@@ -646,12 +646,12 @@ fn test_random() -> Result<()> {
     doc = Document::new();
     f.set_string_value(text)?;
     doc.add(f.clone());
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader1 = writer.get_reader()?;
-  let reader2 = writer.get_reader()?;
-  writer.close()?;
+  let reader1 = writer.get_reader(&mut random)?;
+  let reader2 = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher1 = IndexSearcher::from_cr(reader1)?;
   let mut searcher2 = IndexSearcher::from_cr(reader2)?;

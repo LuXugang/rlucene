@@ -76,11 +76,11 @@ fn test() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   let searcher = Arc::new(new_searcher_with_reader(reader)?);
 
   let failed = Arc::new(AtomicBool::new(false));

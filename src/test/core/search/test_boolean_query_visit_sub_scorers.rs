@@ -52,23 +52,29 @@ fn set_up<R: Rng + ?Sized>(
 
   let writer = RandomIndexWriter::with_config(random, dir, config);
 
-  writer.add_document(doc(
-    "lucene",
-    "lucene is a very popular search engine library",
-  )?)?;
+  writer.add_document(
+    random,
+    doc("lucene", "lucene is a very popular search engine library")?,
+  )?;
 
-  writer.add_document(doc(
-    "solr",
-    "solr is a very popular search server and is using lucene",
-  )?)?;
+  writer.add_document(
+    random,
+    doc(
+      "solr",
+      "solr is a very popular search server and is using lucene",
+    )?,
+  )?;
 
-  writer.add_document(doc(
-    "nutch",
-    "nutch is an internet search engine with web crawler and is using lucene and hadoop",
-  )?)?;
+  writer.add_document(
+    random,
+    doc(
+      "nutch",
+      "nutch is an internet search engine with web crawler and is using lucene and hadoop",
+    )?,
+  )?;
 
-  let reader = Arc::new(writer.get_reader()?);
-  writer.close()?;
+  let reader = Arc::new(writer.get_reader(random)?);
+  writer.close(random)?;
 
   let mut searcher: DefaultIndexSearchCRShared =
     new_searcher_with_wrap_assert(random, reader.clone(), true, false)?;

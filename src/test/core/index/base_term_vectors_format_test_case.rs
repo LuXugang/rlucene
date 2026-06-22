@@ -105,12 +105,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let doc = doc_factory.new_document(random, field_count, 20, options)?;
       for i in 0..num_docs {
         if i == doc_with_vectors {
-          writer.add_document(add_id(doc.to_document()?, "42")?)?;
+          writer.add_document(random, add_id(doc.to_document()?, "42")?)?;
         } else {
-          writer.add_document(empty_doc.clone())?;
+          writer.add_document(random, empty_doc.clone())?;
         }
       }
-      let reader = writer.get_reader()?;
+      let reader = writer.get_reader(random)?;
       let mut term_vectors = reader.term_vectors()?;
       let doc_with_vectors_id = doc_id(reader, "42")?;
       for _ in 0..10 {
@@ -126,7 +126,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         .get(doc_with_vectors_id)?
         .expect("term vectors should exist");
       assert_random_document_equals(random, &doc, fields)?;
-      writer.close()?;
+      writer.close(random)?;
     }
     Ok(())
   }
@@ -145,13 +145,13 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let field_count = TestUtil::next_int(_random, 1, 2) as usize;
       let max_term_count = at_least(_random, 2000) as usize;
       let doc = doc_factory.new_document(_random, field_count, max_term_count, options)?;
-      writer.add_document(doc.to_document()?)?;
-      let reader = writer.get_reader()?;
+      writer.add_document(_random, doc.to_document()?)?;
+      let reader = writer.get_reader(_random)?;
       let mut term_vectors = reader.term_vectors()?;
       let fields = term_vectors.get(0)?.expect("term vectors should exist");
       assert_random_document_equals(_random, &doc, fields)?;
       reader.close()?;
-      writer.close()?;
+      writer.close(_random)?;
     }
     Ok(())
   }
@@ -171,13 +171,13 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let writer = RandomIndexWriter::new(_random, dir);
       let doc_field_count = TestUtil::next_int(_random, 5, field_count as i32) as usize;
       let doc = doc_factory.new_document(_random, doc_field_count, 5, options)?;
-      writer.add_document(doc.to_document()?)?;
-      let reader = writer.get_reader()?;
+      writer.add_document(_random, doc.to_document()?)?;
+      let reader = writer.get_reader(_random)?;
       let mut term_vectors = reader.term_vectors()?;
       let fields = term_vectors.get(0)?.expect("term vectors should exist");
       assert_random_document_equals(_random, &doc, fields)?;
       reader.close()?;
-      writer.close()?;
+      writer.close(_random)?;
     }
     Ok(())
   }
@@ -197,14 +197,14 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         let writer = RandomIndexWriter::new(_random, dir);
         let doc1 = doc_factory.new_document(_random, num_fields, 20, options1)?;
         let doc2 = doc_factory.new_document(_random, num_fields, 20, options2)?;
-        writer.add_document(add_id(doc1.to_document()?, "1")?)?;
-        writer.add_document(add_id(doc2.to_document()?, "2")?)?;
+        writer.add_document(_random, add_id(doc1.to_document()?, "1")?)?;
+        writer.add_document(_random, add_id(doc2.to_document()?, "2")?)?;
 
-        let reader_for_doc1 = writer.get_reader()?;
+        let reader_for_doc1 = writer.get_reader(_random)?;
         let doc1_id = doc_id(reader_for_doc1, "1")?;
-        let reader_for_doc2 = writer.get_reader()?;
+        let reader_for_doc2 = writer.get_reader(_random)?;
         let doc2_id = doc_id(reader_for_doc2, "2")?;
-        let reader = writer.get_reader()?;
+        let reader = writer.get_reader(_random)?;
         let mut term_vectors = reader.term_vectors()?;
 
         let fields1 = term_vectors
@@ -216,7 +216,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
           .expect("term vectors should exist");
         assert_random_document_equals(_random, &doc2, fields2)?;
         reader.close()?;
-        writer.close()?;
+        writer.close(_random)?;
       }
     }
     Ok(())
@@ -238,12 +238,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(_random)?;
     let writer = RandomIndexWriter::new(_random, dir);
     for (i, doc) in docs.iter().enumerate() {
-      writer.add_document(add_id(doc.to_document()?, &i.to_string())?)?;
+      writer.add_document(_random, add_id(doc.to_document()?, &i.to_string())?)?;
     }
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(_random)?;
     let mut term_vectors = reader.term_vectors()?;
     for (i, doc) in docs.iter().enumerate() {
-      let reader_for_search = writer.get_reader()?;
+      let reader_for_search = writer.get_reader(_random)?;
       let doc_id = doc_id(reader_for_search, &i.to_string())?;
       let fields = term_vectors
         .get(doc_id)?
@@ -251,7 +251,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       assert_random_document_equals(_random, doc, fields)?;
     }
     reader.close()?;
-    writer.close()?;
+    writer.close(_random)?;
     Ok(())
   }
   fn do_test_merge<R>(&self, random: &mut R, sort: Option<Sort>, allow_deletes: bool) -> Result<()>
@@ -301,19 +301,19 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
             }
           }
         }
-        writer.add_document(doc)?;
+        writer.add_document(random, doc)?;
         live_doc_ids.push(id);
         if allow_deletes && random.random_range(0..100) < 20 {
           let delete_idx = random.random_range(0..live_doc_ids.len());
           let delete_id = live_doc_ids.remove(delete_idx);
-          writer.delete_documents_with_terms(vec![Term::from_text("id", delete_id)])?;
+          writer.delete_documents_with_terms(random, vec![Term::from_text("id", delete_id)])?;
         }
         if rarely(random) {
-          writer.commit()?;
-          let reader = writer.get_reader()?;
+          writer.commit(random)?;
+          let reader = writer.get_reader(random)?;
           let mut term_vectors = reader.term_vectors()?;
           for id in &live_doc_ids {
-            let reader_for_search = writer.get_reader()?;
+            let reader_for_search = writer.get_reader(random)?;
             let doc_id = doc_id(reader_for_search, id)?;
             let fields = term_vectors
               .get(doc_id)?
@@ -327,11 +327,11 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
           reader.close()?;
         }
         if rarely(random) {
-          writer.force_merge(1)?;
-          let reader = writer.get_reader()?;
+          writer.force_merge(random, 1)?;
+          let reader = writer.get_reader(random)?;
           let mut term_vectors = reader.term_vectors()?;
           for id in &live_doc_ids {
-            let reader_for_search = writer.get_reader()?;
+            let reader_for_search = writer.get_reader(random)?;
             let doc_id = doc_id(reader_for_search, id)?;
             let fields = term_vectors
               .get(doc_id)?
@@ -345,10 +345,10 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
           reader.close()?;
         }
       }
-      let reader = writer.get_reader()?;
+      let reader = writer.get_reader(random)?;
       let mut term_vectors = reader.term_vectors()?;
       for id in &live_doc_ids {
-        let reader_for_search = writer.get_reader()?;
+        let reader_for_search = writer.get_reader(random)?;
         let doc_id = doc_id(reader_for_search, id)?;
         let fields = term_vectors
           .get(doc_id)?
@@ -360,11 +360,11 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         )?;
       }
       reader.close()?;
-      writer.force_merge(1)?;
-      let reader = writer.get_reader()?;
+      writer.force_merge(random, 1)?;
+      let reader = writer.get_reader(random)?;
       let mut term_vectors = reader.term_vectors()?;
       for id in &live_doc_ids {
-        let reader_for_search = writer.get_reader()?;
+        let reader_for_search = writer.get_reader(random)?;
         let doc_id = doc_id(reader_for_search, id)?;
         let fields = term_vectors
           .get(doc_id)?
@@ -376,7 +376,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         )?;
       }
       reader.close()?;
-      writer.close()?;
+      writer.close(random)?;
     }
     Ok(())
   }

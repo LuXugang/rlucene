@@ -488,14 +488,14 @@ fn test_intra_slice_doc_id_order() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir);
-  w.add_document(Document::new())?;
-  w.add_document(Document::new())?;
-  w.commit()?;
-  w.add_document(Document::new())?;
-  w.add_document(Document::new())?;
-  w.commit()?;
-  let r = w.get_reader()?;
-  w.close()?;
+  w.add_document(&mut random, Document::new())?;
+  w.add_document(&mut random, Document::new())?;
+  w.commit(&mut random)?;
+  w.add_document(&mut random, Document::new())?;
+  w.add_document(&mut random, Document::new())?;
+  w.commit(&mut random)?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let s = IndexSearcher::from_cr(r)?;
   let slices = s.get_slices()?;
@@ -517,14 +517,14 @@ fn test_intra_slice_doc_id_order_with_partitions() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir);
-  w.add_document(Document::new())?;
-  w.add_document(Document::new())?;
-  w.commit()?;
-  w.add_document(Document::new())?;
-  w.add_document(Document::new())?;
-  w.commit()?;
-  let r = w.get_reader()?;
-  w.close()?;
+  w.add_document(&mut random, Document::new())?;
+  w.add_document(&mut random, Document::new())?;
+  w.commit(&mut random)?;
+  w.add_document(&mut random, Document::new())?;
+  w.add_document(&mut random, Document::new())?;
+  w.commit(&mut random)?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let context = get_context(r)?;
   let mut s = IndexSearcher::with_threads(context, 2)?;

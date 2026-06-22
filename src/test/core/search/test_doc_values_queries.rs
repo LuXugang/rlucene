@@ -107,12 +107,12 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
 
     doc.add(NumericDocValuesField::indexed_field("dv", value));
     doc.add(LongPoint::new("idx", vec![value])?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   for _ in 0..100 {
     let min = if random.random_bool(0.5) {
@@ -183,7 +183,7 @@ fn do_test_duel_point_range_numeric_range_query(
         doc.add(LongPoint::new("idx", vec![value])?);
       }
 
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
 
     // TODO delete by query 未实现
@@ -192,9 +192,9 @@ fn do_test_duel_point_range_numeric_range_query(
     //     iw.delete_documents(del_query)?;
     // }
 
-    let reader = iw.get_reader()?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     for _ in 0..100 {
       let min = if random.random_bool(0.5) {
@@ -286,7 +286,7 @@ fn do_test_duel_point_range_sorted_range_query(
         doc.add(LongPoint::new("idx", vec![value])?);
       }
 
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
 
     // TODO delete by query 未实现
@@ -295,9 +295,9 @@ fn do_test_duel_point_range_sorted_range_query(
     //     iw.ded(del_query)?;
     // }
 
-    let reader = iw.get_reader()?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     for _ in 0..100 {
       let mut min = if random.random_bool(0.5) {
@@ -433,12 +433,12 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
 
     doc.add(LongPoint::new("idx", vec![value])?);
 
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   for _ in 0..100 {
     let mut min = if random.random_bool(0.5) {
@@ -684,9 +684,9 @@ fn test_missing_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
-  iw.add_document(Document::new())?;
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, Document::new())?;
+  let reader = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let leaves = searcher.get_top_reader_context().leaves()?;
@@ -726,8 +726,8 @@ fn test_slow_range_query_rewrite() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  let reader = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   QueryUtils::check_equal(
@@ -762,14 +762,14 @@ fn test_sorted_numeric_npe() -> Result<()> {
     let mut doc = Document::default();
     let sortable = NumericUtils::double_to_sortable_long(v);
     doc.add(SortedNumericDocValuesField::new("dv", sortable));
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let lo = NumericUtils::double_to_sortable_long(8.701032080293731E-226_f64);
   let hi = NumericUtils::double_to_sortable_long(2.0801416404385346E-41_f64);
@@ -838,7 +838,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
       doc.add(SortedNumericDocValuesField::new("twolongs", number));
       doc.add(SortedNumericDocValuesField::new("twolongs", number * 2));
 
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
     // TODO delete by query 未实现
     // if num_numbers > 1 && random.random_bool(0.5) {
@@ -847,10 +847,10 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
     //     )?;
     // }
 
-    iw.commit()?;
-    let reader = iw.get_reader()?;
+    iw.commit(&mut random)?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     if searcher.get_top_reader_context().reader().num_docs()? == 0 {
       continue;

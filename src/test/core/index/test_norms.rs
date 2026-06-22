@@ -107,11 +107,11 @@ pub fn build_index(dir: Arc<DirEnum>) -> Result<()> {
 
     let field = TextField::from_string(BYTE_TEST_FIELD, value, Store::Yes)?;
     doc.add(field);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  writer.commit()?;
-  writer.close()?;
+  writer.commit(&mut random)?;
+  writer.close(&mut random)?;
   Ok(())
 }
 #[test]

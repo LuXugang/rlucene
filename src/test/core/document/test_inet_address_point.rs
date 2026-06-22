@@ -41,10 +41,10 @@ fn test_basics() -> Result<()> {
   let mut document = Document::new();
   let address = "1.2.3.4".parse::<IpAddr>().expect("valid IP literal");
   document.add(InetAddressPoint::new("field", address)?);
-  writer.add_document(document)?;
+  writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
@@ -95,7 +95,7 @@ fn test_basics() -> Result<()> {
   );
 
   searcher.get_index_reader().close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   dir.close()?;
   Ok(())
 }
@@ -111,10 +111,10 @@ fn test_basics_v6() -> Result<()> {
   let mut document = Document::new();
   let address = "fec0::f66d".parse::<IpAddr>().expect("valid IP literal");
   document.add(InetAddressPoint::new("field", address)?);
-  writer.add_document(document)?;
+  writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
@@ -134,7 +134,7 @@ fn test_basics_v6() -> Result<()> {
   );
 
   searcher.get_index_reader().close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   dir.close()?;
   Ok(())
 }

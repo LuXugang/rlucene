@@ -65,11 +65,11 @@ fn test_basic() -> Result<()> {
   doc.add(f);
 
   for _ in 0..100 {
-    w.add_document(doc.clone())?;
+    w.add_document(&mut random, doc.clone())?;
   }
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   assert!(get_term_postings_enum(&reader, "foo", &BytesRef::from_string("test"),)?.is_some());
 

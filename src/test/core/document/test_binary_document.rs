@@ -55,10 +55,10 @@ fn test_binary_field_in_index() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   // open a reader and fetch the document
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let doc_from_reader = reader.stored_fields()?.document(0)?;
   assert!(!doc_from_reader.get_fields().is_empty());
 
@@ -73,7 +73,7 @@ fn test_binary_field_in_index() -> Result<()> {
   assert!(string_fld_stored_test.is_some());
   assert_eq!(string_fld_stored_test.unwrap().as_ref(), binary_val_stored);
 
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }

@@ -742,14 +742,14 @@ fn test_primary_keys() -> Result<()> {
 
       let mut doc = Document::new();
       doc.add(id_field.clone());
-      w.add_document(doc)?;
+      w.add_document(&mut random, doc)?;
     }
 
     // turn writer into reader:
-    let r = w.get_reader()?;
-    let terms_reader = w.get_reader()?;
+    let r = w.get_reader(&mut random)?;
+    let terms_reader = w.get_reader(&mut random)?;
     let s = new_searcher_with_reader(r)?;
-    w.close()?;
+    w.close(&mut random)?;
 
     let mut all_ids_list: Vec<String> = all_ids.iter().cloned().collect();
     let mut sorted_all_ids_list = all_ids_list.clone();
@@ -880,12 +880,12 @@ fn test_random_term_lookup() -> Result<()> {
     field.set_string_value(term)?;
     let mut d = Document::new();
     d.add(field.clone());
-    writer.add_document(d)?;
+    writer.add_document(&mut random, d)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = IndexSearcher::from_cr(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let mut all_terms_list: Vec<String> = all_terms.iter().cloned().collect();
   all_terms_list.shuffle(&mut random);

@@ -47,13 +47,13 @@ fn test_indexing() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   iwc.set_index_deletion_policy(NoDeletionPolicy);
-  let mut w = RandomIndexWriter::with_config(&mut random, d.clone(), iwc);
+  let w = RandomIndexWriter::with_config(&mut random, d.clone(), iwc);
   w.w
     .get_config_mut()
     .set_max_buffered_docs(TestUtil::next_int(&mut random, 5, 30));
   let w = Arc::new(w);
 
-  w.commit()?;
+  w.commit(&mut random)?;
   let mut index_threads = Vec::new();
   let stop_iterations = at_least(&mut random, 100);
   let field_types = Arc::new(Mutex::new(HashMap::new()));
@@ -84,10 +84,10 @@ fn test_indexing() -> Result<()> {
               &mut field_types,
             )?);
           }
-          w.add_document(doc)?;
+          w.add_document(&mut random, doc)?;
 
           if doc_count % 13 == 0 {
-            w.commit()?;
+            w.commit(&mut random)?;
           }
           doc_count += 1;
         }
@@ -124,7 +124,7 @@ fn test_indexing() -> Result<()> {
   for t in index_threads {
     t.join().expect("thread panicked")?;
   }
-  w.close()?;
+  w.close(&mut random)?;
   d.close()?;
   Ok(())
 }

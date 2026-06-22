@@ -1103,16 +1103,16 @@ fn test_min_max_long() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(LongPoint::new("value", [i64::MIN])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   {
     let mut doc = Document::new();
     doc.add(LongPoint::new("value", [i64::MAX])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
@@ -1162,16 +1162,16 @@ fn test_basic_sorted_set() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(BinaryPoint::new("value", [to_utf8("abc")])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   {
     let mut doc = Document::new();
     doc.add(BinaryPoint::new("value", [to_utf8("def")])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
@@ -1254,7 +1254,7 @@ fn test_basic_sorted_set() -> Result<()> {
       to_utf8_padded("z", 3)?
     )?)?
   );
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -1269,16 +1269,16 @@ fn test_long_min_max_numeric() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(LongPoint::new("value", [i64::MIN])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   {
     let mut doc = Document::new();
     doc.add(LongPoint::new("value", [i64::MAX])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
@@ -1305,7 +1305,7 @@ fn test_long_min_max_numeric() -> Result<()> {
     )?)?
   );
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -1319,16 +1319,16 @@ fn test_long_min_max_sorted_set() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(LongPoint::new("value", [i64::MIN])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   {
     let mut doc = Document::new();
     doc.add(LongPoint::new("value", [i64::MAX])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
@@ -1355,7 +1355,7 @@ fn test_long_min_max_sorted_set() -> Result<()> {
     )?)?
   );
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -1370,16 +1370,16 @@ fn test_sorted_set_no_ords_match() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(BinaryPoint::new("value", [to_utf8("a")])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   {
     let mut doc = Document::new();
     doc.add(BinaryPoint::new("value", [to_utf8("z")])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
@@ -1391,7 +1391,7 @@ fn test_sorted_set_no_ords_match() -> Result<()> {
     )?)?
   );
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -1406,16 +1406,16 @@ fn test_numeric_no_values_match() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("value", 17));
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   {
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("value", 22));
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let searcher = IndexSearcher::from_cr(r)?;
 
   assert_eq!(
@@ -1423,7 +1423,7 @@ fn test_numeric_no_values_match() -> Result<()> {
     searcher.count(LongPoint::new_range_query("value", 17i64, 13i64)?)?
   );
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -1434,9 +1434,9 @@ fn test_no_docs() -> Result<()> {
   let iwc = new_index_writer_config(&mut random);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  w.add_document(Document::new())?;
+  w.add_document(&mut random, Document::new())?;
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r, false)?;
 
   assert_eq!(
@@ -1444,7 +1444,7 @@ fn test_no_docs() -> Result<()> {
     searcher.count(LongPoint::new_range_query("value", 17i64, 13i64)?)?
   );
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -1459,10 +1459,10 @@ fn test_wrong_num_dims() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(LongPoint::new("value", [i64::MIN])?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
 
   // no wrapping, else the exc might happen in executor thread:
   let searcher = IndexSearcher::from_cr(r)?;
@@ -1482,7 +1482,7 @@ fn test_wrong_num_dims() -> Result<()> {
       msg.to_string()
     );
   }
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -1705,14 +1705,14 @@ fn test_random_point_in_set_query() -> Result<()> {
     let mut doc = Document::new();
     doc.add(IntPoint::new("int", [x])?);
     *doc_value = x;
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   if random.random_bool(0.5) {
-    w.force_merge(1)?;
+    w.force_merge(&mut random, 1)?;
   }
-  let r = Arc::new(w.get_reader()?);
-  w.close()?;
+  let r = Arc::new(w.get_reader(&mut random)?);
+  w.close(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r.clone(), false)?;
 
   let num_threads = TestUtil::next_int(&mut random, 2, 5);
@@ -2713,11 +2713,11 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
   {
     let mut doc = Document::new();
     doc.add(IntPoint::new("point", &value)?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   let query = {
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(&mut random)?;
     let mut searcher = IndexSearcher::from_cr(reader)?;
     searcher.set_query_cache(None);
 
@@ -2737,18 +2737,18 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
     query
   };
   // when not all docs have a value, optimization should not apply
-  w.add_document(Document::new())?;
-  w.force_merge(1)?;
-  w.commit()?;
+  w.add_document(&mut random, Document::new())?;
+  w.force_merge(&mut random, 1)?;
+  w.commit(&mut random)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let mut searcher = IndexSearcher::from_cr(reader)?;
   searcher.set_query_cache(None);
 
   let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
   let _scorer = weight.scorer(&searcher.get_leaf_contexts()?[0], &searcher)?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -2781,7 +2781,7 @@ fn test_point_range_weight_count() -> Result<()> {
       // the doc may have at-most 1 point
       let mut doc = Document::new();
       doc.add(IntPoint::new("point", [points[i]])?);
-      w.add_document(doc)?;
+      w.add_document(&mut random, doc)?;
 
       for j in 0..num_queries {
         // calculate the number of points that lie within the query range
@@ -2792,10 +2792,10 @@ fn test_point_range_weight_count() -> Result<()> {
     }
   }
 
-  w.commit()?;
-  w.force_merge(1)?;
+  w.commit(&mut random)?;
+  w.force_merge(&mut random, 1)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = IndexSearcher::from_cr(reader)?;
 
   // we need at least 1 leaf in the segment
@@ -2808,7 +2808,7 @@ fn test_point_range_weight_count() -> Result<()> {
       assert_eq!(expected_count[i], weight.count(leaf)?);
     }
   }
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]

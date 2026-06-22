@@ -266,7 +266,7 @@ fn test_merge_factor_change() -> Result<()> {
     .set_max_buffered_docs(10)
     .set_merge_policy(MockMergePolicy::default())
     .set_merge_scheduler(SerialMergeScheduler::new());
-  let mut writer = IndexWriter::new(dir, config)?;
+  let writer = IndexWriter::new(dir, config)?;
   let mut field_types = HashMap::new();
 
   for _ in 0..250 {

@@ -62,8 +62,8 @@ fn test_empty_index() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let mut searcher = new_searcher_with_reader(ir)?;
 
   for sim in sims()? {
@@ -94,9 +94,9 @@ fn test_empty_field() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let mut searcher = new_searcher_with_reader(ir)?;
 
   for sim in sims()? {
@@ -126,9 +126,9 @@ fn test_empty_term() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let mut searcher = new_searcher_with_reader(ir)?;
 
   for sim in sims()? {
@@ -159,9 +159,9 @@ fn test_no_norms() -> Result<()> {
     &ft,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let mut searcher = new_searcher_with_reader(ir)?;
 
   for sim in sims()? {
@@ -190,7 +190,7 @@ fn test_no_field_skew() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   let mut query_builder = Builder::new();
   query_builder.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
@@ -200,7 +200,7 @@ fn test_no_field_skew() -> Result<()> {
   let sims = sims()?;
   let mut scores = Vec::new();
   {
-    let ir = iw.get_reader()?;
+    let ir = iw.get_reader(&mut random)?;
     let mut searcher = new_searcher_with_reader(ir)?;
     for sim in &sims {
       searcher.set_similarity(sim.clone());
@@ -210,11 +210,11 @@ fn test_no_field_skew() -> Result<()> {
 
   let num_extra_docs = random.random_range(1..=1000);
   for _ in 0..num_extra_docs {
-    iw.add_document(Document::new())?;
+    iw.add_document(&mut random, Document::new())?;
   }
 
   {
-    let ir = iw.get_reader()?;
+    let ir = iw.get_reader(&mut random)?;
     let mut searcher = new_searcher_with_reader(ir)?;
     for (i, sim) in sims.iter().enumerate() {
       searcher.set_similarity(sim.clone());
@@ -231,7 +231,7 @@ fn test_no_field_skew() -> Result<()> {
     }
   }
 
-  iw.close()?;
+  iw.close(&mut random)?;
   Ok(())
 }
 
@@ -253,9 +253,9 @@ fn test_omit_tf() -> Result<()> {
     &ft,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let mut searcher = new_searcher_with_reader(ir)?;
 
   for sim in sims()? {
@@ -286,9 +286,9 @@ fn test_omit_tf_and_norms() -> Result<()> {
     &ft,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let mut searcher = new_searcher_with_reader(ir)?;
 
   for sim in sims()? {

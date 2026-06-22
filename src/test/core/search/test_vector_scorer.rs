@@ -109,16 +109,16 @@ where
       format!("id{i}"),
       Store::Yes,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
   for _ in 0..5 {
     let mut doc = Document::new();
     doc.add(StringField::from_string("other", "value", Store::No)?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  writer.force_merge(1)?;
-  writer.close()?;
+  writer.force_merge(random, 1)?;
+  writer.close(random)?;
   Ok(index_store)
 }

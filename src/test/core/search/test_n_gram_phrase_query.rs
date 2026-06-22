@@ -34,7 +34,7 @@ where
 {
   let directory = new_directory_shared(random)?;
   let writer = RandomIndexWriter::new(random, directory.clone());
-  writer.close()?;
+  writer.close(random)?;
 
   let reader = directory_reader::open(directory.clone())?;
   let searcher = new_searcher_with_reader(reader)?;

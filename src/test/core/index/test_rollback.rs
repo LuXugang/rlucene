@@ -50,9 +50,9 @@ fn test_rollback_integrity_with_buffer_flush() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    rw.add_document(doc)?;
+    rw.add_document(&mut random, doc)?;
   }
-  rw.close()?;
+  rw.close(&mut random)?;
   drop(rw);
   // If buffer size is small enough to cause a flush, errors ensue...
   let mock = MockAnalyzer::new(&mut random);

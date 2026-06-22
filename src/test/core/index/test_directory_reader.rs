@@ -1197,9 +1197,9 @@ fn test_load_certain_fields() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  let r = writer.get_reader()?;
-  writer.close()?;
+  writer.add_document(&mut random, doc)?;
+  let r = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   let mut fields_to_load = HashSet::new();
   let mut stored_fields = r.stored_fields()?;
   assert_eq!(

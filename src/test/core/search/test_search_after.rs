@@ -187,15 +187,15 @@ where
       }
     }
 
-    iw.add_document(document)?;
+    iw.add_document(random, document)?;
 
     if random.random_range(0..50) == 17 {
-      iw.commit()?;
+      iw.commit(random)?;
     }
   }
 
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  let reader = iw.get_reader(random)?;
+  iw.close(random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   Ok((all_sort_fields, searcher))

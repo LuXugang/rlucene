@@ -203,10 +203,10 @@ fn test_basics() -> Result<()> {
   // add a doc with an single dimension
   let mut document = Document::new();
   document.add(HalfFloatPoint::new("field", [1.25f32])?);
-  writer.add_document(document)?;
+  writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
@@ -250,7 +250,7 @@ fn test_basics() -> Result<()> {
   );
 
   searcher.get_index_reader().close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   dir.close()?;
   Ok(())
 }
@@ -265,10 +265,10 @@ fn test_basics_multi_dims() -> Result<()> {
   // add a doc with two dimensions
   let mut document = Document::new();
   document.add(HalfFloatPoint::new("field", [1.25f32, -2f32])?);
-  writer.add_document(document)?;
+  writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
@@ -296,7 +296,7 @@ fn test_basics_multi_dims() -> Result<()> {
   );
 
   searcher.get_index_reader().close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   dir.close()?;
   Ok(())
 }

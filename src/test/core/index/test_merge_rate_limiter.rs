@@ -31,8 +31,8 @@ fn test_init_defaults() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone());
-  w.add_document(Document::new())?;
-  w.close()?;
+  w.add_document(&mut random, Document::new())?;
+  w.close(&mut random)?;
 
   let rate_limiter = MergeRateLimiter::new(OneMergeProgress::new());
   assert!(rate_limiter.get_mb_per_sec().is_infinite());

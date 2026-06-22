@@ -1062,7 +1062,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     let avg_gap = 100;
     let num_docs = at_least(random, 200);
     for _ in (0..=random.random_range(0..(avg_gap * 2 + 1))).rev() {
-      writer.add_document(Document::new())?;
+      writer.add_document(random, Document::new())?;
     }
 
     let max_num_values_per_doc = if random.random_bool(0.5) {
@@ -1100,19 +1100,19 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
         doc.add(StoredField::from_i64("values", doc_value)?);
       }
 
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
 
       for _ in (0..=TestUtil::next_int(random, 0, avg_gap * 2)).rev() {
-        writer.add_document(Document::new())?;
+        writer.add_document(random, Document::new())?;
       }
     }
 
     if random.random_bool(0.5) {
-      writer.force_merge(1)?;
+      writer.force_merge(random, 1)?;
     }
 
-    let index_reader = writer.get_reader()?;
-    writer.close()?;
+    let index_reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let context = get_context(&index_reader)?;
     for leaf in context.leaves()? {
@@ -1621,13 +1621,13 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
         "sdv",
         new_bytes_ref_from_string(random, &values[i as usize % doc_values])?,
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.commit()?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut sorted = leaf
@@ -1681,13 +1681,13 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
         "sdv",
         new_bytes_ref_from_string(random, &values[i as usize % values_count])?,
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.commit()?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let sorted = leaf
@@ -1717,12 +1717,12 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
         "foo",
         new_bytes_ref_from_string(random, &i.to_string())?,
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
-    writer.force_merge(1)?;
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    writer.force_merge(random, 1)?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut doc_values = leaf
@@ -1753,12 +1753,12 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
         "foo",
         new_bytes_ref_from_string(random, &i.to_string())?,
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
-    writer.force_merge(1)?;
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    writer.force_merge(random, 1)?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut doc_values = leaf
@@ -1815,10 +1815,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
         "field",
         new_bytes_ref_from_string(random, value)?,
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = directory_reader::open(directory)?;
     let leaf = get_only_leaf_reader(&reader)?;
@@ -1878,10 +1878,10 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
         "field",
         new_bytes_ref_from_string(random, &string_supplier(i))?,
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = directory_reader::open(directory)?;
     let leaf = get_only_leaf_reader(&reader)?;

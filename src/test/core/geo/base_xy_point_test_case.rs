@@ -162,16 +162,16 @@ pub trait BaseXYPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(
       1,
       searcher.count(self.new_rect_query("field", 18.0, 19.0, -66.0, -65.0)?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -196,16 +196,16 @@ pub trait BaseXYPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(
       1,
       searcher.count(self.new_distance_query("field", 18.0, -65.0, 20.0)?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -261,9 +261,9 @@ pub trait BaseXYPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(
       1,
@@ -277,7 +277,7 @@ pub trait BaseXYPointTestCase {
       )?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -291,9 +291,9 @@ pub trait BaseXYPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     let inner = XYPolygon::new(
       vec![18.5, 18.5, 18.7, 18.7, 18.5],
@@ -310,7 +310,7 @@ pub trait BaseXYPointTestCase {
       searcher.count(self.new_polygon_query("field", vec![outer])?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -324,9 +324,9 @@ pub trait BaseXYPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     let inner = XYPolygon::new(
       vec![18.2, 18.2, 18.4, 18.4, 18.2],
@@ -343,7 +343,7 @@ pub trait BaseXYPointTestCase {
       searcher.count(self.new_polygon_query("field", vec![outer])?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -357,9 +357,9 @@ pub trait BaseXYPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     let a = XYPolygon::new(
       vec![28.0, 28.0, 29.0, 29.0, 28.0],
@@ -376,7 +376,7 @@ pub trait BaseXYPointTestCase {
       searcher.count(self.new_polygon_query("field", vec![a, b])?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -535,16 +535,16 @@ pub trait BaseXYPointTestCase {
       xs[2 * id + 1] = self.next_x(random);
       ys[2 * id + 1] = self.next_y(random);
       self.add_point_to_doc(FIELD_NAME, &mut doc, xs[2 * id + 1], ys[2 * id + 1])?;
-      w.add_document(doc)?;
+      w.add_document(random, doc)?;
     }
 
     // TODO: share w/ verify; just need parallel array of the expected ids
     if random.random_bool(0.5) {
-      w.force_merge(1)?;
+      w.force_merge(random, 1)?;
     }
 
-    let r = w.get_reader()?;
-    w.close()?;
+    let r = w.get_reader(random)?;
+    w.close(random)?;
     let max_doc = r.max_doc()?;
     let s = new_searcher_with_reader(r)?;
 
@@ -1058,11 +1058,11 @@ pub trait BaseXYPointTestCase {
 
         let mut doc = Document::new();
         self.add_point_to_doc(FIELD_NAME, &mut doc, x, y)?;
-        w.add_document(doc)?;
+        w.add_document(random, doc)?;
       }
     }
 
-    let r = w.get_reader()?;
+    let r = w.get_reader(random)?;
     let s = new_searcher_with_reader(r)?;
 
     // Exact edge cases
@@ -1124,7 +1124,7 @@ pub trait BaseXYPointTestCase {
       );
     }
 
-    w.close()?;
+    w.close(random)?;
     Ok(())
   }
   /// Run a few iterations with just 10 docs, hopefully easy to debug.
@@ -1180,9 +1180,9 @@ pub trait BaseXYPointTestCase {
       self.add_point_to_doc("field", &mut doc, x, y)?;
       doc.add(StoredField::from_f32("x", x)?);
       doc.add(StoredField::from_f32("y", y)?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let max_doc = reader.max_doc()?;
 
     let mut stored_fields = reader.stored_fields()?;
@@ -1234,7 +1234,7 @@ pub trait BaseXYPointTestCase {
       }
     }
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
   fn test_equals<R>(&self, random: &mut R) -> Result<()>
@@ -1321,7 +1321,7 @@ pub trait BaseXYPointTestCase {
     for p in &pts {
       let mut doc = Document::new();
       self.add_point_to_doc("point", &mut doc, p[0] as f32, p[1] as f32)?;
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     // Add explicit multi-valued docs.
@@ -1334,7 +1334,7 @@ pub trait BaseXYPointTestCase {
         pts[i + 1][0] as f32,
         pts[i + 1][1] as f32,
       )?;
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     // Index random string documents.
@@ -1345,11 +1345,11 @@ pub trait BaseXYPointTestCase {
         i.to_string(),
         Store::No,
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let searcher = new_searcher_with_reader(reader)?;
     searcher.search(query, size)

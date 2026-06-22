@@ -233,7 +233,7 @@ fn test_updates_are_flushed() -> Result<()> {
   let mock = MockAnalyzer::with_automaton(&mut random, mock_analyzer::WHITESPACE.clone(), false);
   let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
   config.set_ram_buffer_size_mb(0.00000001);
-  let mut writer = IndexWriter::new(dir.clone(), config)?;
+  let writer = IndexWriter::new(dir.clone(), config)?;
 
   writer.add_document(doc(0)?)?; // val=1
   writer.add_document(doc(1)?)?; // val=2
@@ -1012,7 +1012,7 @@ fn test_sorted_index() -> Result<()> {
           iter, id, sort_value, value
         );
       }
-      w.add_document(doc)?;
+      w.add_document(&mut random, doc)?;
       docs.push(OneSortDoc::new(id, value, sort_value));
     } else {
       let id_to_update = random.random_range(0..docs.len());
@@ -1023,6 +1023,7 @@ fn test_sorted_index() -> Result<()> {
         );
       }
       w.update_numeric_doc_value(
+        &mut random,
         Term::from_text("id", id_to_update.to_string()),
         "number",
         value,
@@ -1035,7 +1036,10 @@ fn test_sorted_index() -> Result<()> {
       if cfg!(feature = "test_log_verbose") {
         println!("TEST: delete doc id={}", id_to_delete);
       }
-      w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+      w.delete_documents_with_terms(
+        &mut random,
+        vec![Term::from_text("id", id_to_delete.to_string())],
+      )?;
       if !docs[id_to_delete].deleted {
         docs[id_to_delete].deleted = true;
         deleted_count += 1;
@@ -1043,7 +1047,7 @@ fn test_sorted_index() -> Result<()> {
     }
 
     if random.random_range(0..refresh_chance) == 0 {
-      let r2 = w.get_reader()?;
+      let r2 = w.get_reader(&mut random)?;
       r = r2;
 
       if cfg!(feature = "test_log_verbose") {
@@ -1090,7 +1094,7 @@ fn test_sorted_index() -> Result<()> {
       assert_eq!(docs.len() as i32 - deleted_count, live_count);
     }
   }
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -2016,7 +2020,7 @@ fn test_tons_of_updates() -> Result<()> {
   let mut config = new_index_writer_config(&mut random);
   config.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
   config.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
-  let mut writer = IndexWriter::new(dir.clone(), config)?;
+  let writer = IndexWriter::new(dir.clone(), config)?;
 
   // test data: lots of documents (few hundred to few 10Ks) and lots of update terms
   let num_docs = if is_night_mode() {

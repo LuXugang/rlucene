@@ -47,14 +47,15 @@ fn test() -> Result<()> {
   let mut docs = LineFileDocs::new(&mut random)?;
 
   for i in 0..100 {
-    riw.add_document(docs.next_doc()?)?;
+    riw.add_document(&mut random, docs.next_doc()?)?;
 
     if random.random_range(0..7) == 0 {
-      riw.commit()?;
+      riw.commit(&mut random)?;
     }
 
     if random.random_range(0..20) == 0 {
-      riw.delete_documents_with_terms(vec![Term::from_text("docid", i.to_string())])?;
+      riw
+        .delete_documents_with_terms(&mut random, vec![Term::from_text("docid", i.to_string())])?;
     }
 
     if random.random_range(0..15) == 0 {
@@ -66,7 +67,7 @@ fn test() -> Result<()> {
     }
   }
 
-  riw.close()?;
+  riw.close(&mut random)?;
   check_footers(dir.clone())?;
 
   Ok(())

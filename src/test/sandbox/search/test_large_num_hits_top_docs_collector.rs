@@ -57,11 +57,11 @@ where
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
-    writer.add_document(Document::new())?;
+    writer.add_document(random, doc)?;
+    writer.add_document(random, Document::new())?;
   }
-  let reader = Arc::new(writer.get_reader()?);
-  writer.close()?;
+  let reader = Arc::new(writer.get_reader(random)?);
+  writer.close(random)?;
 
   let mut builder = BooleanQueryBuilder::new();
   builder.add(TermQuery::new(Term::from_text("field", "5")), Occur::Should)?;

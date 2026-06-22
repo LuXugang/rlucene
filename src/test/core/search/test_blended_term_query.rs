@@ -126,15 +126,15 @@ fn test_blended_scores() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("f", "a", Store::No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   for _ in 0..10 {
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "b", Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut builder = blended_term_query::Builder::new();
@@ -150,7 +150,7 @@ fn test_blended_scores() -> Result<()> {
     assert_eq!(top_docs.score_docs[0].score, score_doc.score);
   }
 
-  w.close()?;
+  w.close(&mut random)?;
 
   Ok(())
 }

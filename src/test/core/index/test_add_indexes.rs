@@ -850,19 +850,19 @@ fn test_locks_block() -> Result<()> {
 
   let src = new_directory_shared(&mut random)?;
   let w1 = RandomIndexWriter::new(&mut random, src.clone());
-  w1.add_document(Document::new())?;
-  w1.commit()?;
+  w1.add_document(&mut random, Document::new())?;
+  w1.commit(&mut random)?;
 
   let dest = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, a);
   let w2 = RandomIndexWriter::with_config(&mut random, dest.clone(), iwc);
 
-  let err = w2.add_indexes_from_dir(std::slice::from_ref(&src));
+  let err = w2.add_indexes_from_dir(&mut random, std::slice::from_ref(&src));
   assert!(matches!(err, Err(LuceneError::LockObtainFailed(_))));
 
-  w1.close()?;
-  w2.close()?;
+  w1.close(&mut random)?;
+  w2.close(&mut random)?;
   Ok(())
 }
 
@@ -878,12 +878,12 @@ fn test_illegal_index_sort_change1() -> Result<()> {
     SortFieldType::Int,
   )?])?)?;
   let w1 = RandomIndexWriter::with_config(&mut random, dir1.clone(), iwc1);
-  w1.add_document(Document::new())?;
-  w1.commit()?;
-  w1.add_document(Document::new())?;
-  w1.commit()?;
-  w1.force_merge(1)?;
-  w1.close()?;
+  w1.add_document(&mut random, Document::new())?;
+  w1.commit(&mut random)?;
+  w1.add_document(&mut random, Document::new())?;
+  w1.commit(&mut random)?;
+  w1.force_merge(&mut random, 1)?;
+  w1.close(&mut random)?;
   drop(w1);
 
   let dir2 = new_directory_shared(&mut random)?;
@@ -895,14 +895,14 @@ fn test_illegal_index_sort_change1() -> Result<()> {
   )?])?)?;
   let w2 = RandomIndexWriter::with_config(&mut random, dir2.clone(), iwc2);
 
-  let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir1));
+  let err = w2.add_indexes_from_dir(&mut random, std::slice::from_ref(&dir1));
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
   assert_eq!(
     "cannot change index sort from <int: \"foo\"> to <string: \"foo\">",
     err.unwrap_err().to_string()
   );
 
-  w2.close()?;
+  w2.close(&mut random)?;
   Ok(())
 }
 

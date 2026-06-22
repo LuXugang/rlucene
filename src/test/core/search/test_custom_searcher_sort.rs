@@ -71,10 +71,10 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, us
       Store::Yes,
     )?);
 
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
   let query = TermQuery::new(Term::from_text("content", "test")).into();
   Ok((reader, query, index_size))
 }

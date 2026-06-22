@@ -88,10 +88,10 @@ fn setup() -> Result<DefaultIndexSearchCR> {
   let num_docs = at_least(&mut random, 100);
   for _ in 0..num_docs {
     let doc = Document::new();
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let is = new_searcher_with_threads(&mut random, ir, true, true, false)?;
   Ok(is)
 }
@@ -189,10 +189,10 @@ fn test_shared_hitcount_collector() -> Result<()> {
   let num_docs = at_least(&mut random, 100);
   for _ in 0..num_docs {
     let doc = Document::new();
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
-  let ir = Arc::new(iw.get_reader()?);
-  iw.close()?;
+  let ir = Arc::new(iw.get_reader(&mut random)?);
+  iw.close(&mut random)?;
 
   let concurrent_searcher = new_searcher_with_threads(&mut random, ir.clone(), true, true, true)?;
   let single_threaded_searcher =
@@ -528,17 +528,17 @@ fn test_compute_scores_only_once() -> Result<()> {
   let relevance = NumericDocValuesField::new("relevance", 1);
   doc.add(relevance);
 
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut random, doc.clone())?;
 
   doc.remove_field("text");
   doc.add(StringField::from_string("text", "bar", Store::No)?);
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut random, doc.clone())?;
 
   doc.remove_field("text");
   doc.add(StringField::from_string("text", "baz", Store::No)?);
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut random, doc.clone())?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let foo = BoostQuery::new(TermQuery::new(Term::from_text("text", "foo")), 2.0)?;
@@ -566,7 +566,7 @@ fn test_compute_scores_only_once() -> Result<()> {
     searcher.search_with_collector_manager(query.clone(), &cm)?;
   }
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -581,21 +581,21 @@ fn test_populate_scores() -> Result<()> {
   doc.add(field.clone());
   let mut sort_field = NumericDocValuesField::new("sort", 0);
   doc.add(sort_field.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   field.set_string_value("")?;
   sort_field.set_long_value(3)?;
   let mut doc = Document::new();
   doc.add(field.clone());
   doc.add(sort_field.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   field.set_string_value("foo foo bar")?;
   sort_field.set_long_value(2)?;
   let mut doc = Document::new();
   doc.add(field.clone());
   doc.add(sort_field.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   w.flush()?;
 
@@ -604,17 +604,17 @@ fn test_populate_scores() -> Result<()> {
   let mut doc = Document::new();
   doc.add(field.clone());
   doc.add(sort_field.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   field.set_string_value("bar bar bar")?;
   sort_field.set_long_value(0)?;
   let mut doc = Document::new();
   doc.add(field);
   doc.add(sort_field);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   for query_text in ["foo", "bar"] {
@@ -812,11 +812,11 @@ fn test_random_min_competitive_score() -> Result<()> {
       doc.add(StringField::from_string("f", "C", Store::No)?);
     }
 
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let index_reader = Arc::new(w.get_reader()?);
-  w.close()?;
+  let index_reader = Arc::new(w.get_reader(&mut random)?);
+  w.close(&mut random)?;
 
   let mut builder = Builder::new();
   builder.add(TermQuery::new(Term::from_text("f", "A")), Occur::Must)?;

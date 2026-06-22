@@ -53,7 +53,7 @@ where
   )?);
 
   for _ in 0..5137 {
-    writer.add_document(doc.clone())?;
+    writer.add_document(random, doc.clone())?;
   }
 
   let mut doc = Document::new();
@@ -64,7 +64,7 @@ where
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -76,7 +76,7 @@ where
   )?);
 
   for _ in 5138..11377 {
-    writer.add_document(doc.clone())?;
+    writer.add_document(random, doc.clone())?;
   }
 
   let mut doc = Document::new();
@@ -87,12 +87,12 @@ where
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(searcher)
 }
 #[test]

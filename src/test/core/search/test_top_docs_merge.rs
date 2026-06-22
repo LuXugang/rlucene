@@ -250,11 +250,11 @@ fn test_sort(use_from: bool) -> Result<()> {
       random.random::<i32>()
     };
     doc.add(NumericDocValuesField::new("int", int_value as i64));
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let ctx = searcher.get_top_reader_context();

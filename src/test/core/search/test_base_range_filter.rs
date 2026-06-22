@@ -203,12 +203,12 @@ where
         "body",
         BytesRef::from_bytes(b"body".to_vec()),
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     if min_count == 1 && max_count == 1 {
-      let reader = writer.get_reader()?;
-      writer.close()?;
+      let reader = writer.get_reader(random)?;
+      writer.close(random)?;
       return Ok(reader);
     }
     // TODO IMPORTANT delete_all实现后 这里的 loop 需要调整

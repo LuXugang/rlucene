@@ -181,10 +181,10 @@ where
   let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
 
   for i in 0..DOC_FIELDS.len() {
-    writer.add_document(create_doc(i)?)?;
+    writer.add_document(random, create_doc(i)?)?;
   }
-  let reader = Arc::new(writer.get_reader()?);
-  writer.close()?;
+  let reader = Arc::new(writer.get_reader(random)?);
+  writer.close(random)?;
   let searcher = new_searcher_with_reader(reader.clone())?;
   Ok(BaseExplanationTestContext {
     searcher,

@@ -783,9 +783,9 @@ pub trait BaseVectorSimilarityQueryTestCase {
         Store::Yes,
       )?);
       doc.add(IntField::new(id_field, id as i32, Store::No)?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.close()?;
+    writer.close(random)?;
     Ok(index_store)
   }
 }

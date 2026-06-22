@@ -86,12 +86,12 @@ where
         &mut field_types,
       )?);
     }
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(random)?;
   Ok(searcher)
 }
 fn verify_nr_hits<IRC, R, T>(

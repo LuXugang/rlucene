@@ -92,15 +92,15 @@ impl TestIndexSearcher {
         "field2",
         BytesRef::from_string(field2_value),
       ));
-      iw.add_document(doc)?;
+      iw.add_document(random, doc)?;
 
       if random.random_bool(0.5) {
-        iw.commit()?;
+        iw.commit(random)?;
       }
     }
 
-    let reader = iw.get_reader()?;
-    iw.close()?;
+    let reader = iw.get_reader(random)?;
+    iw.close(random)?;
 
     Ok(Self { dir, reader })
   }
@@ -179,9 +179,9 @@ fn test_search_after_passed_max_doc() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone());
-  w.add_document(Document::new())?;
-  let r = w.get_reader()?;
-  w.close()?;
+  w.add_document(&mut random, Document::new())?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let max_doc = r.max_doc()?;
   let s = IndexSearcher::from_cr(r)?;
@@ -216,15 +216,15 @@ fn test_count() -> Result<()> {
     if random.random_range(0..100) == 0 {
       doc.add(StringField::from_string("delete", "yes", Store::No)?);
     }
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   for delete in [false, true] {
     if delete {
-      w.delete_documents_with_terms(vec![Term::from_text("delete", "yes")])?;
+      w.delete_documents_with_terms(&mut random, vec![Term::from_text("delete", "yes")])?;
     }
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(&mut random)?;
     let searcher = IndexSearcher::from_cr(reader)?;
 
     let mut boolean_query = Builder::new();
@@ -247,7 +247,7 @@ fn test_count() -> Result<()> {
     }
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -308,12 +308,12 @@ fn test_get_slices() -> Result<()> {
   let w = RandomIndexWriter::new(&mut random, dir.clone());
 
   for _ in 0..10 {
-    w.add_document(Document::new())?;
+    w.add_document(&mut random, Document::new())?;
     w.flush()?;
   }
 
-  let r = Arc::new(w.get_reader()?);
-  w.close()?;
+  let r = Arc::new(w.get_reader(&mut random)?);
+  w.close(&mut random)?;
 
   let context = get_context(r.clone())?;
   let leaves_len = context.leaves()?.len();

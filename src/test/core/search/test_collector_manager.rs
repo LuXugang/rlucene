@@ -45,9 +45,9 @@ fn test_collection() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(Document::new())?;
-  writer.commit()?;
-  let reader = Rc::new(writer.get_reader()?);
+  writer.add_document(&mut random, Document::new())?;
+  writer.commit(&mut random)?;
+  let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
   let leaves = ctx.leaves()?;
 

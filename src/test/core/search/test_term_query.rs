@@ -96,12 +96,12 @@ fn test_query_matches_count() -> Result<()> {
       doc.add(StringField::from_string("foo", "bar", Store::No)?);
       num_matching_docs += 1;
     }
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  writer.force_merge(1)?;
+  writer.force_merge(&mut random, 1)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let test_query: Query = TermQuery::new(Term::from_text("foo", "bar")).into();
@@ -111,7 +111,7 @@ fn test_query_matches_count() -> Result<()> {
   let leaves = searcher.reader_context.leaves()?;
   assert_eq!(num_matching_docs, weight.count(&leaves[0])?);
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -132,17 +132,17 @@ fn test_get_term_states() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
-  writer.add_document(doc)?;
-  writer.get_reader()?;
+  writer.add_document(&mut random, doc)?;
+  writer.get_reader(&mut random)?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "baz", Store::No)?);
-  writer.add_document(doc)?;
-  writer.get_reader()?;
+  writer.add_document(&mut random, doc)?;
+  writer.get_reader(&mut random)?;
 
-  writer.add_document(Document::new())?;
+  writer.add_document(&mut random, Document::new())?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let query_with_context = TermQuery::with_term_state(
@@ -151,7 +151,7 @@ fn test_get_term_states() -> Result<()> {
   );
   assert!(query_with_context.get_term_states().is_some());
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -166,10 +166,10 @@ fn test_with_different_score_modes() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
-  writer.add_document(doc)?;
-  writer.get_reader()?;
+  writer.add_document(&mut random, doc)?;
+  writer.get_reader(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   let existing_similarity = searcher.get_similarity().clone();
 
@@ -188,7 +188,7 @@ fn test_with_different_score_modes() -> Result<()> {
     );
   }
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 

@@ -261,8 +261,8 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       No,
       &mut field_types,
     )?);
-    iw.add_document(doc)?;
-    let ir = iw.get_reader()?;
+    iw.add_document(random, doc)?;
+    let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     assert_eq!(1, ar.get_field_infos()?.size());
     let terms = ar.terms("")?.unwrap();
@@ -284,8 +284,8 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let mut doc = Document::new();
     let mut field_types = HashMap::new();
     doc.add(new_string_field(random, "", "", No, &mut field_types)?);
-    iw.add_document(doc)?;
-    let ir = iw.get_reader()?;
+    iw.add_document(random, doc)?;
+    let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     assert_eq!(1, ar.get_field_infos()?.size());
     let terms = ar.terms("")?.unwrap();
@@ -313,9 +313,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       No,
       &mut field_types,
     )?);
-    iw.add_document(doc.clone())?;
-    iw.add_document(doc)?;
-    let ir = iw.get_reader()?;
+    iw.add_document(random, doc.clone())?;
+    iw.add_document(random, doc)?;
+    let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     let mut terms_enum = ar.terms("field")?.unwrap().iterator()?;
     assert!(terms_enum.seek_exact(&BytesRef::from_string("value"))?);
@@ -344,9 +344,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       No,
       &mut field_types,
     )?);
-    iw.add_document(doc.clone())?;
-    iw.add_document(doc)?;
-    let ir = iw.get_reader()?;
+    iw.add_document(random, doc.clone())?;
+    iw.add_document(random, doc)?;
+    let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     let mut terms_enum = ar.terms("field")?.unwrap().iterator()?;
     assert!(terms_enum.seek_exact(&BytesRef::from_string("value"))?);
@@ -598,10 +598,10 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       No,
       &mut field_types,
     )?);
-    w.add_document(doc)?;
-    w.commit()?;
+    w.add_document(random, doc)?;
+    w.commit(random)?;
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(random)?;
     let leaf = get_only_leaf_reader(reader)?;
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
@@ -654,9 +654,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     ft.set_index_options(IndexOptions::DocsAndFreqs)?;
     let mut doc = Document::new();
     doc.add(Field::from_string("foo", "bar bar", ft)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(random)?;
     let leaf = get_only_leaf_reader(reader)?;
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
@@ -719,9 +719,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut doc = Document::new();
     doc.add(TextField::from_string("foo", "bar bar", Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(random)?;
     let leaf = get_only_leaf_reader(reader)?;
 
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
@@ -887,9 +887,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
     let mut doc = Document::new();
     doc.add(Field::from_string("foo", "bar bar", ft)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(random)?;
     let leaf = get_only_leaf_reader(reader)?;
 
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
@@ -1102,9 +1102,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       "foo",
       FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token1, token2])),
     )?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(random)?;
     let leaf = get_only_leaf_reader(reader)?;
     // sugar method (FREQS)
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
@@ -1366,9 +1366,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token1, token2])),
       ft,
     )?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(random)?;
     let leaf = get_only_leaf_reader(reader)?;
 
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {

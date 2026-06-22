@@ -50,10 +50,10 @@ fn test_prefix_query() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let query = PrefixQuery::new(Term::from_text("category", "/Computers"))?;
@@ -72,7 +72,7 @@ fn test_prefix_query() -> Result<()> {
   let hits = searcher.search(query.clone(), 1000)?.score_docs;
   assert_eq!(3, hits.len(), "everything");
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -91,16 +91,16 @@ fn test_match_all() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let query = PrefixQuery::new(Term::from_text("field", ""))?;
   let top_docs = searcher.search(query, 1000)?;
   assert_eq!(1, top_docs.total_hits.value());
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -134,10 +134,10 @@ fn test_random_binary_prefix() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let iters = at_least(&mut random, 100);
@@ -159,6 +159,6 @@ fn test_random_binary_prefix() -> Result<()> {
     assert_eq!(count, searcher.count(q)?);
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }

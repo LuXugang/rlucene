@@ -59,20 +59,20 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
     &mut field_types,
   )?);
 
-  w.add_document(doc.clone())?;
-  w.commit()?;
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
+  w.commit(&mut random)?;
+  w.add_document(&mut random, doc.clone())?;
 
-  let r = w.get_reader()?;
-  w.close()?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
   drop(w);
 
   for name in dir.list_all()? {
     dir.delete_file(&name)?;
   }
   let w = RandomIndexWriter::new(&mut random, dir.clone());
-  w.add_document(doc)?;
-  w.close()?;
+  w.add_document(&mut random, doc)?;
+  w.close(&mut random)?;
   r.close()?;
   Ok(())
 }

@@ -45,19 +45,19 @@ fn test_early_termination() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
   let num_docs = at_least(&mut random, 100);
   for _ in 0..num_docs {
-    writer.add_document(Document::new())?;
+    writer.add_document(&mut random, Document::new())?;
     if rarely(&mut random) {
-      writer.commit()?;
+      writer.commit(&mut random)?;
     }
   }
-  let reader = Arc::new(writer.get_reader()?);
+  let reader = Arc::new(writer.get_reader(&mut random)?);
   let iter = at_least(&mut random, 5);
   for _ in 0..iter {
     let searcher = new_searcher_with_reader(reader.clone())?;
     searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &CollectorManagerImpl)?;
   }
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 #[derive(Default)]

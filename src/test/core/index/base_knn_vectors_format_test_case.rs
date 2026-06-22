@@ -1044,10 +1044,10 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
           field_doc_counts[field] += 1;
         }
       }
-      w.add_document(doc)?;
+      w.add_document(random, doc)?;
     }
 
-    let r = w.get_reader()?;
+    let r = w.get_reader(random)?;
     let r = get_context(r)?;
     for field in 0..num_fields as usize {
       let mut doc_count = 0i32;
@@ -1101,7 +1101,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       };
       assert!((field_totals[field] - checksum).abs() <= delta);
     }
-    w.close()?;
+    w.close(random)?;
     Ok(())
   }
   fn test_float_vector_scorer_iteration<R>(&self, random: &mut R) -> Result<()>
@@ -2422,14 +2422,14 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         field_doc_count += 1;
         field_sum_doc_ids += doc_id as i64;
       }
-      w.add_document(doc)?;
+      w.add_document(random, doc)?;
     }
 
     if random.random_bool(0.5) {
-      w.force_merge(1)?;
+      w.force_merge(random, 1)?;
     }
 
-    let reader = w.get_reader()?;
+    let reader = w.get_reader(random)?;
     let reader = get_context(reader)?;
     let mut checksum = 0f64;
     let mut doc_count = 0usize;
@@ -2534,7 +2534,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(field_sum_doc_ids, sum_doc_ids);
     assert_eq!(field_sum_doc_ids, sum_ord_to_doc_ids);
 
-    w.close()?;
+    w.close(random)?;
     Ok(())
   }
 

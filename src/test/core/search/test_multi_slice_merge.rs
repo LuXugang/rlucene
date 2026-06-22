@@ -59,15 +59,15 @@ where
       BytesRef::from_string(&(i % 2 == 0).to_string()),
     ));
 
-    iw1.add_document(doc)?;
+    iw1.add_document(random, doc)?;
 
     if random.random_bool(0.5) {
-      iw1.get_reader()?.close()?;
+      iw1.get_reader(random)?.close()?;
     }
   }
 
-  let reader1 = iw1.get_reader()?;
-  iw1.close()?;
+  let reader1 = iw1.get_reader(random)?;
+  iw1.close(random)?;
 
   let mut iwc2 = new_index_writer_config(random);
   iwc2.set_merge_policy(new_log_merge_policy(random)?);
@@ -87,15 +87,15 @@ where
       BytesRef::from_string(&(i % 2 == 0).to_string()),
     ));
 
-    iw2.add_document(doc)?;
+    iw2.add_document(random, doc)?;
 
     if random.random_bool(0.5) {
-      iw2.commit()?;
+      iw2.commit(random)?;
     }
   }
 
-  let reader2 = iw2.get_reader()?;
-  iw2.close()?;
+  let reader2 = iw2.get_reader(random)?;
+  iw2.close(random)?;
 
   Ok((reader1, reader2))
 }

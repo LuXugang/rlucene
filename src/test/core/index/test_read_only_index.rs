@@ -57,8 +57,8 @@ fn test_read_only_index() -> crate::core::util::error::lucene_error::Result<()> 
       Store::Yes,
       &mut field_to_type,
     )?);
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(&mut random, doc)?;
+    iwriter.close(&mut random)?;
   }
 
   do_test_read_only_index(directory, &text)

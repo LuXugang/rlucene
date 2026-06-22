@@ -131,7 +131,7 @@ fn test_updates_are_flushed() -> Result<()> {
   let mock = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
   let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
   config.set_ram_buffer_size_mb(0.00000001);
-  let mut writer = IndexWriter::new(dir.clone(), config)?;
+  let writer = IndexWriter::new(dir.clone(), config)?;
   writer.add_document(doc(&mut random, 0)?)?; // val=1
   writer.add_document(doc(&mut random, 1)?)?; // val=2
   writer.add_document(doc(&mut random, 3)?)?; // val=4
@@ -953,12 +953,13 @@ fn test_sorted_index() -> Result<()> {
       let sort_value = random.random_range(0..sort_value_range) as i64;
       doc.add(NumericDocValuesField::new("sort", sort_value));
 
-      w.add_document(doc)?;
+      w.add_document(&mut random, doc)?;
       docs.push(OneSortDoc::new(id, value, sort_value));
     } else {
       let id_to_update = random.random_range(0..docs.len());
 
       w.update_binary_doc_value(
+        &mut random,
         Term::from_text("id", id_to_update.to_string()),
         "number",
         value.clone(),
@@ -970,7 +971,10 @@ fn test_sorted_index() -> Result<()> {
     if random.random_range(0..delete_chance) == 0 {
       let id_to_delete = random.random_range(0..docs.len());
 
-      w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+      w.delete_documents_with_terms(
+        &mut random,
+        vec![Term::from_text("id", id_to_delete.to_string())],
+      )?;
 
       if !docs[id_to_delete].deleted {
         docs[id_to_delete].deleted = true;
@@ -979,7 +983,7 @@ fn test_sorted_index() -> Result<()> {
     }
 
     if random.random_range(0..refresh_chance) == 0 {
-      let r2 = w.get_reader()?;
+      let r2 = w.get_reader(&mut random)?;
       r = r2;
 
       let mut live_count = 0i32;
@@ -1023,7 +1027,7 @@ fn test_sorted_index() -> Result<()> {
       assert_eq!(docs.len() as i32 - deleted_count, live_count);
     }
   }
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -1656,7 +1660,7 @@ fn test_tons_of_updates() -> Result<()> {
   let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
   config.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
   config.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
-  let mut writer = IndexWriter::new(dir.clone(), config)?;
+  let writer = IndexWriter::new(dir.clone(), config)?;
   // test data: lots of documents (few 10Ks) and lots of update terms (few hundreds)
   let num_docs = at_least(&mut random, 20000);
   let num_binary_fields = at_least(&mut random, 5);

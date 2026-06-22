@@ -71,17 +71,17 @@ fn set_up() -> Result<DefaultIndexSearchCR> {
   )?;
   doc.add(field.clone());
   doc.add(field2.clone());
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   doc = Document::new();
   field.set_string_value("jumps over lazy brown dog")?;
   field2.set_string_value("jumps over lazy brown dog")?;
   doc.add(field);
   doc.add(field2);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  let reader = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_similarity(SimilarityEnum::custom(ExampleSimilarityProvider::new()));

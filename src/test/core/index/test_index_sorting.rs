@@ -2494,23 +2494,23 @@ where
       "bar",
       random.random_range(0..20) as i64,
     ));
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
   }
 
   if with_deletes {
     let mut i = random.random_range(0..5);
     while i < num_docs {
-      w.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
+      w.delete_documents_with_terms(random, vec![Term::from_text("id", i.to_string())])?;
       i += TestUtil::next_int(random, 1, 5);
     }
   }
 
   if random.random_bool(0.5) {
-    w.force_merge(1)?;
+    w.force_merge(random, 1)?;
   }
 
-  let reader = Arc::new(w.get_reader()?);
-  w.close()?;
+  let reader = Arc::new(w.get_reader(random)?);
+  w.close(random)?;
   drop(w);
 
   let dir2 = new_directory_shared(random)?;
@@ -2854,7 +2854,7 @@ fn test_random2() -> Result<()> {
     let mut bytes = vec![0u8; 4];
     NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
     doc.add(BinaryPoint::new("points", vec![bytes])?);
-    w1.add_document(doc)?;
+    w1.add_document(&mut random1, doc)?;
   }
 
   let dir2 = new_fs_directory(&mut random, create_temp_dir()?)?;
@@ -2881,7 +2881,7 @@ fn test_random2() -> Result<()> {
   #[allow(clippy::explicit_counter_loop)]
   for id in &docs {
     if count == commit_at_count {
-      w2.commit()?;
+      w2.commit(&mut random2)?;
     }
     count += 1;
 
@@ -2931,12 +2931,12 @@ fn test_random2() -> Result<()> {
     let mut bytes = vec![0u8; 4];
     NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
     doc.add(BinaryPoint::new("points", vec![bytes])?);
-    w2.add_document(doc)?;
+    w2.add_document(&mut random2, doc)?;
   }
-  w2.force_merge(1)?;
+  w2.force_merge(&mut random2, 1)?;
 
-  let r1 = w1.get_reader()?;
-  let r2 = w2.get_reader()?;
+  let r1 = w1.get_reader(&mut random2)?;
+  let r2 = w2.get_reader(&mut random2)?;
   let leaf_reader = get_only_leaf_reader(&r2)?;
   assert!(
     leaf_reader
@@ -2955,8 +2955,8 @@ fn test_random2() -> Result<()> {
     let doc2 = stored_fields2.document(doc_id)?;
     assert_eq!(doc1.get("id")?, doc2.get("id")?);
   }
-  w1.close()?;
-  w2.close()?;
+  w1.close(&mut random2)?;
+  w2.close(&mut random2)?;
   r1.close()?;
   r2.close()?;
   Ok(())
@@ -4174,10 +4174,9 @@ fn test_mix_random_documents_with_blocks() -> Result<()> {
   let num_docs = random.random_range(100..1000);
   for i in 0..num_docs {
     if rarely(&mut random) {
-      random_index_writer.delete_documents_with_terms(vec![Term::from_text(
-        "id",
-        random.random_range(0..=i).to_string(),
-      )])?;
+      let id_to_delete = random.random_range(0..=i).to_string();
+      random_index_writer
+        .delete_documents_with_terms(&mut random, vec![Term::from_text("id", id_to_delete)])?;
     }
 
     let mut docs = Vec::new();
@@ -4237,16 +4236,16 @@ fn test_mix_random_documents_with_blocks() -> Result<()> {
         "foo",
         random.random::<i32>() as i64,
       ));
-      random_index_writer.add_document(single)?;
+      random_index_writer.add_document(&mut random, single)?;
     }
 
     if rarely(&mut random) {
-      random_index_writer.force_merge(1)?;
+      random_index_writer.force_merge(&mut random, 1)?;
     }
-    random_index_writer.commit()?;
+    random_index_writer.commit(&mut random)?;
   }
 
-  random_index_writer.close()?;
+  random_index_writer.close(&mut random)?;
   let reader = get_context(directory_reader::open(dir.clone())?)?;
   for ctx in reader.leaves()? {
     let leaf = ctx.reader();

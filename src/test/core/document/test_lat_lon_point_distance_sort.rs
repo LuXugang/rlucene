@@ -61,13 +61,13 @@ fn test_distance_sort() -> Result<()> {
     40.759011,
     -73.9844722,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(LatLonDocValuesField::new(
     "location", 40.718266, -74.007819,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(LatLonDocValuesField::new(
@@ -75,11 +75,11 @@ fn test_distance_sort() -> Result<()> {
     40.7051157,
     -74.0088305,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let sort = Sort::with_fields(vec![LatLonDocValuesField::new_distance_sort(
     "location",
@@ -109,13 +109,13 @@ fn test_missing_last() -> Result<()> {
 
   // missing
   let doc = Document::new();
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(LatLonDocValuesField::new(
     "location", 40.718266, -74.007819,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(LatLonDocValuesField::new(
@@ -123,11 +123,11 @@ fn test_missing_last() -> Result<()> {
     40.7051157,
     -74.0088305,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let sort = Sort::with_fields(vec![LatLonDocValuesField::new_distance_sort(
     "location",
@@ -246,10 +246,10 @@ where
       doc.add(StoredField::from_f64("lon", lon)?);
     } // otherwise "missing"
 
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let max_doc = reader.max_doc()?;
   let mut stored_fields = reader.stored_fields()?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -337,6 +337,6 @@ where
     }
   }
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(())
 }

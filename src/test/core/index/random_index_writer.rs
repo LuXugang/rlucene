@@ -16,83 +16,64 @@
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::fields::Fields;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader::{self, DirectoryReader};
+use crate::core::index::index_writer::tests::INDEX_WRITER_ACCESS;
 use crate::core::index::index_writer::{
   DocStats, IndexCommitWrapper, IndexWriter, IndexWriterHooks, IndexWriterHooksEnum,
 };
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::query::Query;
+use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::new_index_writer_config_with_analyzer;
+use crate::test::core::internal::index_writer_access::IndexWriterAccess;
+use crate::test::core::util::lucene_test_case::{
+  maybe_change_live_index_writer_config, new_index_writer_config_with_analyzer, random,
+};
 use crate::test::core::util::null_info_stream::NullInfoStream;
+use crate::test::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-
+/// randomizes the indexing experience.
+/// EG it may swap in a different merge policy/scheduler;
+/// may commit periodically; may or may not forceMerge in the end,
+/// may flush by doc count instead of RAM, etc.
 pub struct RandomIndexWriter<D>
 where
   D: Directory,
 {
   pub(crate) w: IndexWriter<D>,
+  flush_state: Mutex<FlushState>,
+  get_reader_called: AtomicBool,
+  soft_deletes_ratio: f64,
+  do_random_force_merge: AtomicBool,
+  do_random_force_merge_assert: AtomicBool,
+}
+
+struct FlushState {
+  doc_count: i32,
+  flush_at: i32,
+  flush_at_factor: f64,
 }
 
 impl<D> RandomIndexWriter<D>
 where
   D: Directory,
 {
-  pub fn new<R>(r: &mut R, dir: Arc<D>) -> Self
-  where
-    R: Rng + ?Sized,
-    D: Directory,
-  {
-    let a = MockAnalyzer::new(r);
-    let config = new_index_writer_config_with_analyzer(r, a);
-    Self {
-      w: IndexWriter::new(dir, config).expect("should not fail"),
-    }
-  }
-  pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Self
-  where
-    R: Rng + ?Sized,
-    D: Directory,
-    T: Into<AnalyzerEnum>,
-  {
-    let config = new_index_writer_config_with_analyzer(r, analyzer);
-    Self::with_config(r, dir, config)
-  }
-  pub fn with_config<R>(_r: &mut R, dir: Arc<D>, config: IndexWriterConfig) -> Self
-  where
-    R: Rng + ?Sized,
-    D: Directory,
-  {
-    Self {
-      w: IndexWriter::new(dir, config).expect("should not fail"),
-    }
-  }
-  pub fn with_soft_deletes<R>(
-    _r: &mut R,
-    dir: Arc<D>,
-    config: IndexWriterConfig,
-    _use_soft_deletes: bool,
-  ) -> Self
-  where
-    R: Rng + ?Sized,
-    D: Directory,
-  {
-    Self {
-      w: IndexWriter::new(dir, config).expect("should not fail"),
-    }
-  }
   /// Returns an indexwriter that randomly mixes up thread scheduling (by yielding at test points).
   pub fn mock_index_writer<R>(
     dir: Arc<D>,
@@ -150,78 +131,592 @@ where
     }
   }
 
-  pub fn get_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
-    self.w.get_reader(true, false)
-  }
-  pub fn add_document<DF>(&self, doc: DF) -> Result<i64>
+  /// Creates a RandomIndexWriter with a random config: Uses MockAnalyzer.
+  pub fn new<R>(r: &mut R, dir: Arc<D>) -> Self
   where
-    DF: IntoIterator<Item = Fields>,
+    R: Rng + ?Sized,
+    D: Directory,
   {
-    self.w.add_document(doc)
-  }
-  pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64> {
-    self.w.delete_documents_with_terms(terms)
-  }
-  pub fn delete_documents_with_query(&self, terms: Vec<Query>) -> Result<i64> {
-    self.w.delete_documents_with_queries(terms)
-  }
-  pub fn delete_all(&self) -> Result<i64> {
-    self.w.delete_all()
+    let a = MockAnalyzer::new(r);
+    let config = new_index_writer_config_with_analyzer(r, a);
+    let use_soft_deletes = r.random();
+    Self::new_with_config(r, dir, config, true, use_soft_deletes)
   }
 
-  pub fn close(&self) -> Result<()> {
-    self.w.close()
-  }
-  pub fn flush(&self) -> Result<()> {
-    self.w.flush()
-  }
-  pub fn commit(&self) -> Result<i64> {
-    self.w.commit()
-  }
-  pub fn force_merge(&self, max_num_segments: i32) -> Result<()> {
-    self.w.force_merge(max_num_segments)
-  }
-  pub fn update_numeric_doc_value<T, F>(&self, term: T, field: F, value: i64) -> Result<i64>
+  /// Creates a RandomIndexWriter with a random config.
+  pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Self
   where
+    R: Rng + ?Sized,
+    D: Directory,
+    T: Into<AnalyzerEnum>,
+  {
+    let config = new_index_writer_config_with_analyzer(r, analyzer);
+    Self::with_config(r, dir, config)
+  }
+
+  /// Creates a RandomIndexWriter with the provided config.
+  pub fn with_config<R>(r: &mut R, dir: Arc<D>, config: IndexWriterConfig) -> Self
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    let use_soft_deletes = r.random();
+    Self::new_with_config(r, dir, config, false, use_soft_deletes)
+  }
+
+  /// Creates a RandomIndexWriter with the provided config.
+  pub fn with_soft_deletes<R>(
+    r: &mut R,
+    dir: Arc<D>,
+    config: IndexWriterConfig,
+    use_soft_deletes: bool,
+  ) -> Self
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    Self::new_with_config(r, dir, config, false, use_soft_deletes)
+  }
+
+  fn new_with_config<R>(
+    r: &mut R,
+    dir: Arc<D>,
+    mut c: IndexWriterConfig,
+    _close_analyzer: bool,
+    use_soft_deletes: bool,
+  ) -> Self
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    let soft_deletes_ratio = if use_soft_deletes {
+      c.set_soft_deletes_field("___soft_deletes");
+      1.0 + r.random_range(0..10) as f64
+    } else {
+      0.0
+    };
+
+    let w = Self::mock_index_writer(dir.clone(), c, r).expect("should not fail");
+    let flush_at = TestUtil::next_int(r, 10, 1000);
+    if cfg!(feature = "test_log_verbose") {
+      println!("RIW dir={}", dir);
+    }
+
+    // Make sure we sometimes test indices that don't get any forced merges.
+    let do_random_force_merge =
+      !matches!(w.get_config().get_merge_policy(), MergePolicyEnum::No(_)) && r.random();
+
+    Self {
+      w,
+      flush_state: Mutex::new(FlushState {
+        doc_count: 0,
+        flush_at,
+        flush_at_factor: 1.0,
+      }),
+      get_reader_called: AtomicBool::new(false),
+      soft_deletes_ratio,
+      do_random_force_merge: AtomicBool::new(do_random_force_merge),
+      do_random_force_merge_assert: AtomicBool::new(false),
+    }
+  }
+
+  /// Adds a Document.
+  ///
+  /// See [`IndexWriter::add_document`].
+  pub fn add_document<R, DF>(&self, r: &mut R, doc: DF) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    DF: IntoIterator<Item = Fields>,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    let doc: Vec<Fields> = doc.into_iter().collect();
+    let seq_no = if r.random_range(0..5) == 3 {
+      self.w.add_documents(vec![doc])
+    } else {
+      self.w.add_document(doc)
+    }?;
+
+    self.maybe_flush_or_commit(r)?;
+
+    Ok(seq_no)
+  }
+
+  fn maybe_flush_or_commit<R>(&self, r: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+
+    let (do_flush_or_commit, doc_count) = {
+      let mut state = self.flush_state.lock();
+      let do_flush_or_commit = state.doc_count == state.flush_at;
+      state.doc_count += 1;
+      (do_flush_or_commit, state.doc_count)
+    };
+
+    if do_flush_or_commit {
+      if r.random_bool(0.5) {
+        self.flush_all_buffers_sequentially(r)?;
+      } else if r.random_bool(0.5) {
+        if cfg!(feature = "test_log_verbose") {
+          println!(
+            "RIW.add/updateDocument: now doing a flush at docCount={}",
+            doc_count
+          );
+        }
+        self.w.flush()?;
+      } else {
+        if cfg!(feature = "test_log_verbose") {
+          println!(
+            "RIW.add/updateDocument: now doing a commit at docCount={}",
+            doc_count
+          );
+        }
+        self.w.commit()?;
+      }
+
+      let mut state = self.flush_state.lock();
+      let min = (state.flush_at_factor * 10.0) as i32;
+      let max = (state.flush_at_factor * 1000.0) as i32;
+      state.flush_at += TestUtil::next_int(r, min, max);
+      if state.flush_at_factor < 2e6 {
+        // gradually but exponentially increase time b/w flushes
+        state.flush_at_factor *= 1.05;
+      }
+    }
+
+    Ok(())
+  }
+
+  fn flush_all_buffers_sequentially<R>(&self, r: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let thread_pool_size = INDEX_WRITER_ACCESS.get_doc_writer_thread_pool_size(&self.w);
+    let num_flushes = std::cmp::min(1, r.random_range(0..=thread_pool_size));
+    self.flush_all_buffers_sequentially_with_count(num_flushes)
+  }
+
+  fn flush_all_buffers_sequentially_with_count(&self, num_flushes: usize) -> Result<()> {
+    if cfg!(feature = "test_log_verbose") {
+      let doc_count = self.flush_state.lock().doc_count;
+      println!(
+        "RIW.add/updateDocument: now flushing the largest writer at docCount={}",
+        doc_count
+      );
+    }
+    for _ in 0..num_flushes {
+      if !self.w.flush_next_buffer()? {
+        break; // stop once we didn't flush anything
+      }
+    }
+    Ok(())
+  }
+
+  pub fn add_documents<R, DI, DF>(&self, r: &mut R, docs: DI) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    DI: IntoIterator<Item = DF>,
+    DF: IntoIterator<Item = Fields>,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    let docs: Vec<Vec<Fields>> = docs
+      .into_iter()
+      .map(|doc| doc.into_iter().collect())
+      .collect();
+    let seq_no = self.w.add_documents(docs)?;
+    self.maybe_flush_or_commit(r)?;
+    Ok(seq_no)
+  }
+
+  pub fn update_documents_with_term<R, T, DI, DF>(
+    &self,
+    r: &mut R,
+    del_term: T,
+    docs: DI,
+  ) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    T: Into<Term>,
+    DI: IntoIterator<Item = DF>,
+    DF: IntoIterator<Item = Fields>,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    let del_term = del_term.into();
+    let docs: Vec<Vec<Fields>> = docs
+      .into_iter()
+      .map(|doc| doc.into_iter().collect())
+      .collect();
+    let seq_no = if self.use_soft_deletes(r) {
+      let soft_deletes_field = self
+        .w
+        .get_config()
+        .get_soft_deletes_field()
+        .expect("soft deletes field is not configured")
+        .clone();
+      self.w.soft_update_documents(
+        del_term,
+        docs,
+        vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+      )
+    } else if r.random_range(0..10) < 3 {
+      // 30% chance
+      self
+        .w
+        .update_documents_with_query(Some(Query::from(TermQuery::new(del_term))), docs)
+    } else {
+      self.w.update_documents_with_term(Some(del_term), docs)
+    }?;
+    self.maybe_flush_or_commit(r)?;
+    Ok(seq_no)
+  }
+
+  fn use_soft_deletes<R>(&self, r: &mut R) -> bool
+  where
+    R: Rng + ?Sized,
+  {
+    r.random::<f64>() < self.soft_deletes_ratio
+  }
+
+  /// Updates a document.
+  ///
+  /// See [`IndexWriter::update_document_with_term`].
+  pub fn update_document_with_term<R, T, DF>(&self, r: &mut R, del_term: T, doc: DF) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    T: Into<Term>,
+    DF: IntoIterator<Item = Fields>,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    let del_term = del_term.into();
+    let doc: Vec<Fields> = doc.into_iter().collect();
+    let seq_no = if self.use_soft_deletes(r) {
+      let soft_deletes_field = self
+        .w
+        .get_config()
+        .get_soft_deletes_field()
+        .expect("soft deletes field is not configured")
+        .clone();
+      if r.random_range(0..5) == 3 {
+        self.w.soft_update_documents(
+          del_term,
+          vec![doc],
+          vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+        )
+      } else {
+        self.w.soft_update_document(
+          del_term,
+          doc,
+          vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+        )
+      }
+    } else if r.random_range(0..5) == 3 {
+      self.w.update_documents_with_term(Some(del_term), vec![doc])
+    } else {
+      self.w.update_document_with_term(Some(del_term), doc)
+    }?;
+    self.maybe_flush_or_commit(r)?;
+
+    Ok(seq_no)
+  }
+
+  pub fn add_indexes_from_dir<R>(&self, r: &mut R, dirs: &[Arc<D>]) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.add_indexes_from_dir(dirs)
+  }
+
+  pub fn add_indexes_from_codec_readers<R, CR>(&self, r: &mut R, readers: Vec<CR>) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    CR: CodecReader + Clone,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.add_indexes_from_codec_readers(readers)
+  }
+
+  pub fn update_numeric_doc_value<R, T, F>(
+    &self,
+    r: &mut R,
+    term: T,
+    field: F,
+    value: i64,
+  ) -> Result<i64>
+  where
+    R: Rng + ?Sized,
     T: Into<Arc<Term>>,
     F: Into<String>,
   {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     self.w.update_numeric_doc_value(term, field, value)
   }
-  pub fn update_binary_doc_value<T, F>(
+
+  pub fn update_binary_doc_value<R, T, F>(
     &self,
+    r: &mut R,
     term: T,
     field: F,
     value: BytesRef<Vec<u8>>,
   ) -> Result<i64>
   where
+    R: Rng + ?Sized,
     T: Into<Arc<Term>>,
     F: Into<String>,
   {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     self.w.update_binary_doc_value(term, field, value)
   }
+
+  pub fn update_doc_values<R, T>(&self, r: &mut R, term: T, updates: Vec<Fields>) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    T: Into<Arc<Term>>,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.update_doc_values(term, updates)
+  }
+
+  pub fn delete_documents_with_terms<R>(&self, r: &mut R, terms: Vec<Term>) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.delete_documents_with_terms(terms)
+  }
+
+  pub fn delete_documents_with_query<R>(&self, r: &mut R, queries: Vec<Query>) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.delete_documents_with_queries(queries)
+  }
+
+  pub fn commit<R>(&self, r: &mut R) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    D: Sync,
+    Self: Sync,
+  {
+    let flush_concurrently = r.random_range(0..10) == 0;
+    self.commit_with_flush_concurrently(r, flush_concurrently)
+  }
+
+  pub fn commit_with_flush_concurrently<R>(
+    &self,
+    r: &mut R,
+    flush_concurrently: bool,
+  ) -> Result<i64>
+  where
+    R: Rng + ?Sized,
+    D: Sync,
+    Self: Sync,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    if flush_concurrently {
+      let thread_pool_size = INDEX_WRITER_ACCESS.get_doc_writer_thread_pool_size(&self.w);
+      let num_flushes = std::cmp::min(1, r.random_range(0..=thread_pool_size));
+      let mut commit_result = None;
+      let mut commit_error = None;
+      let flush_result = thread::scope(|scope| {
+        let thread = scope.spawn(|| self.flush_all_buffers_sequentially_with_count(num_flushes));
+        match self.w.commit() {
+          Ok(seq_no) => {
+            commit_result = Some(seq_no);
+          },
+          Err(err) => {
+            commit_error = Some(err);
+          },
+        }
+        thread.join()
+      });
+      if let Some(mut primary) = commit_error {
+        match flush_result {
+          Ok(Ok(())) => {},
+          Ok(Err(err)) => primary.add_suppressed(err),
+          Err(payload) => primary.add_suppressed(LuceneError::tragedy_from_panic(
+            "panic while flushing buffers",
+            payload.as_ref(),
+          )),
+        }
+        return Err(primary);
+      }
+      return Ok(commit_result.expect("commit result should be set"));
+    }
+    self.w.commit()
+  }
+
   pub fn get_doc_stats(&self) -> Result<DocStats> {
     self.w.get_doc_stats()
   }
 
-  pub fn set_do_random_force_merge(&mut self, _v: bool) {}
-  pub fn update_document_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
-  where
-    T: Into<Option<Term>>,
-    DF: IntoIterator<Item = Fields>,
-  {
-    self.w.update_document_with_term(del_term, docs)
+  pub fn delete_all(&self) -> Result<i64> {
+    self.w.delete_all()
   }
-  pub fn update_documents_with_term<T, DI, DF>(&self, del_term: T, docs: DI) -> Result<i64>
+
+  pub fn get_reader<R>(&self, r: &mut R) -> Result<StandardDirectoryReaderType<D>>
   where
-    T: Into<Option<Term>>,
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    R: Rng + ?Sized,
   {
-    self.w.update_documents_with_term(del_term, docs)
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.get_reader_with_options(r, true, false)
   }
-  pub fn add_indexes_from_dir(&self, dirs: &[Arc<D>]) -> Result<i64> {
-    self.w.add_indexes_from_dir(dirs)
+
+  pub fn force_merge_deletes_with_wait<R>(&self, r: &mut R, do_wait: bool) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.force_merge_deletes_with_wait(do_wait)
+  }
+
+  pub fn force_merge_deletes<R>(&self, r: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.force_merge_deletes()
+  }
+
+  pub fn set_do_random_force_merge(&self, v: bool) {
+    self.do_random_force_merge.store(v, Ordering::SeqCst);
+  }
+
+  pub fn set_do_random_force_merge_assert(&self, v: bool) {
+    self.do_random_force_merge_assert.store(v, Ordering::SeqCst);
+  }
+
+  fn do_random_force_merge<R>(&self, r: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    if self.do_random_force_merge.load(Ordering::SeqCst) {
+      let seg_count = INDEX_WRITER_ACCESS.get_segment_count(&self.w);
+      if r.random() || seg_count == 0 {
+        // full forceMerge
+        if cfg!(feature = "test_log_verbose") {
+          println!("RIW: doRandomForceMerge(1)");
+        }
+        self.w.force_merge(1)?;
+      } else if r.random() {
+        // partial forceMerge
+        let limit = TestUtil::next_int(r, 1, seg_count as i32);
+        if cfg!(feature = "test_log_verbose") {
+          println!("RIW: doRandomForceMerge({})", limit);
+        }
+        self.w.force_merge(limit)?;
+        if limit == 1
+          || !matches!(
+            self.w.get_config().get_merge_policy(),
+            MergePolicyEnum::Tiered(_)
+          )
+        {
+          assert!(
+            !self.do_random_force_merge_assert.load(Ordering::SeqCst)
+              || INDEX_WRITER_ACCESS.get_segment_count(&self.w) <= limit as usize,
+            "limit={} actual={}",
+            limit,
+            INDEX_WRITER_ACCESS.get_segment_count(&self.w)
+          );
+        }
+      } else {
+        if cfg!(feature = "test_log_verbose") {
+          println!("RIW: do random forceMergeDeletes()");
+        }
+        self.w.force_merge_deletes()?;
+      }
+    }
+    Ok(())
+  }
+
+  pub fn get_reader_with_options<R>(
+    &self,
+    r: &mut R,
+    apply_deletions: bool,
+    write_all_deletes: bool,
+  ) -> Result<StandardDirectoryReaderType<D>>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.get_reader_called.store(true, Ordering::SeqCst);
+    if r.random_range(0..20) == 2 {
+      self.do_random_force_merge(r)?;
+    }
+    if !apply_deletions || r.random() {
+      // if we have soft deletes we can't open from a directory
+      if cfg!(feature = "test_log_verbose") {
+        println!("RIW.getReader: use NRT reader");
+      }
+      if r.random_range(0..5) == 1 {
+        self.w.commit()?;
+      }
+      INDEX_WRITER_ACCESS.get_reader(&self.w, apply_deletions, write_all_deletes)
+    } else {
+      if cfg!(feature = "test_log_verbose") {
+        println!("RIW.getReader: open new reader");
+      }
+      self.w.commit()?;
+      // TODO SoftDeletesDirectoryReaderWrapper未实现
+      if r.random() && self.w.get_config().get_soft_deletes_field().is_none() {
+        directory_reader::open(self.w.get_directory())
+      } else {
+        INDEX_WRITER_ACCESS.get_reader(&self.w, apply_deletions, write_all_deletes)
+      }
+    }
+  }
+
+  pub fn close<R>(&self, r: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let pre_close_result = (|| {
+      if !INDEX_WRITER_ACCESS.is_closed(&self.w) {
+        maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+      }
+      // if someone isn't using getReader() API, we want to be sure to
+      // forceMerge since presumably they might open a reader on the dir.
+      if !self.get_reader_called.load(Ordering::SeqCst)
+        && r.random_range(0..8) == 2
+        && !INDEX_WRITER_ACCESS.is_closed(&self.w)
+      {
+        self.do_random_force_merge(r)?;
+        if !self.w.get_config().get_commit_on_close() {
+          // index may have changed, must commit the changes, or otherwise they are discarded by the
+          // call to close()
+          self.w.commit()?;
+        }
+      }
+      Ok(())
+    })();
+
+    let close_result = self.w.close();
+    pre_close_result.and(close_result)
+  }
+
+  /// Forces a forceMerge.
+  ///
+  /// NOTE: this should be avoided in tests unless absolutely necessary, as it will result in less
+  /// test coverage.
+  ///
+  /// See [`IndexWriter::force_merge`].
+  pub fn force_merge<R>(&self, r: &mut R, max_num_segments: i32) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
+    self.w.force_merge(max_num_segments)
+  }
+}
+impl<D> Drop for RandomIndexWriter<D>
+where
+  D: Directory,
+{
+  fn drop(&mut self) {
+    let mut r = random();
+    let _ = self.close(&mut r);
   }
 }
 
@@ -266,6 +761,16 @@ impl InfoStream for TestPointInfoStream {
 
   fn is_enabled(&self, component: &str) -> bool {
     component == TEST_POINT_COMPONENT || self.delegate.is_enabled(component)
+  }
+}
+
+impl<D> RandomIndexWriter<D>
+where
+  D: Directory,
+{
+  /// Writes all in-memory segments to the Directory.
+  pub fn flush(&self) -> Result<()> {
+    self.w.flush()
   }
 }
 

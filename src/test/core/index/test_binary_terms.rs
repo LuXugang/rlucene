@@ -65,10 +65,10 @@ fn test_binary() -> Result<()> {
       &mut field_types,
     )?);
 
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
-  let ir = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
   let is = new_searcher_with_reader(ir)?;
 
   for i in 0..256u16 {

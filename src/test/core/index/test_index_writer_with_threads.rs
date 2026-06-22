@@ -301,7 +301,7 @@ where
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "1", Store::No)?);
-  writer.update_document_with_term(Term::from_text("id", "1"), doc)?;
+  writer.update_document_with_term(random, Term::from_text("id", "1"), doc)?;
 
   let iters_per_thread = 100 + random.random_range(0..2000);
   thread::scope(|scope| -> Result<()> {
@@ -311,12 +311,13 @@ where
       let done = done.clone();
       let barrier = barrier.clone();
       handles.push(scope.spawn(move || -> Result<()> {
+        let mut thread_random = crate::test::core::util::lucene_test_case::random();
         barrier.wait();
         let result = (|| -> Result<()> {
           for _ in 0..iters_per_thread {
             let mut d = Document::new();
             d.add(StringField::from_string("id", "1", Store::No)?);
-            writer.update_document_with_term(Term::from_text("id", "1"), d)?;
+            writer.update_document_with_term(&mut thread_random, Term::from_text("id", "1"), d)?;
           }
           Ok(())
         })();
@@ -325,12 +326,12 @@ where
       }));
     }
 
-    let mut open = writer.get_reader()?;
+    let mut open = writer.get_reader(random)?;
     assert_eq!(1, open.num_docs()?);
     barrier.wait();
     while done.load(Ordering::SeqCst) < num_threads {
       if force_merge && random.random_bool(0.5) {
-        writer.force_merge(1)?;
+        writer.force_merge(random, 1)?;
       }
       if let Some(new_open) = directory_reader::open_if_changed(&open, &writer.w)? {
         open.close()?;
@@ -346,6 +347,6 @@ where
     Ok(())
   })?;
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(())
 }

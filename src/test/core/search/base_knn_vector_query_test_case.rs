@@ -634,9 +634,9 @@ pub trait BaseKnnVectorQueryTestCase {
         doc.add(self.get_knn_vector_field("field", self.random_vector(random, dimension))?);
         num_docs_with_vectors += 1;
       }
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.close()?;
+    writer.close(random)?;
 
     let reader = directory_reader::open(directory.into())?;
     let searcher = new_searcher_with_reader(reader)?;
@@ -991,7 +991,7 @@ pub trait BaseKnnVectorQueryTestCase {
         format!("id{i}"),
         Store::Yes,
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_bool(0.5) {
         for j in 0..TestUtil::next_usize(random, 1, 5) {
           let mut doc = Document::new();
@@ -1001,7 +1001,7 @@ pub trait BaseKnnVectorQueryTestCase {
             format!("id{j}"),
             Store::Yes,
           )?);
-          writer.add_document(doc)?;
+          writer.add_document(random, doc)?;
         }
       }
     }
@@ -1009,10 +1009,10 @@ pub trait BaseKnnVectorQueryTestCase {
     for _ in 0..5 {
       let mut doc = Document::new();
       doc.add(StringField::from_string("other", "value", Store::No)?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(index_store)
   }
 

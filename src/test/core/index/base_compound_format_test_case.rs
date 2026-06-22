@@ -171,14 +171,14 @@ pub trait BaseCompoundFormatTestCase {
       let mut doc = Document::new();
       doc.add(id_field.clone());
       doc.add(body_field.clone());
-      riw.add_document(doc)?;
+      riw.add_document(&mut random, doc)?;
 
       if random.random_range(0..7) == 0 {
-        riw.commit()?;
+        riw.commit(&mut random)?;
       }
     }
 
-    riw.close()?;
+    riw.close(&mut random)?;
 
     let infos = SegmentInfos::read_latest_commit(dir.clone())?;
 

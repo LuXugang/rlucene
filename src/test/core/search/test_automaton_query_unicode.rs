@@ -74,12 +74,12 @@ where
     doc.add(title_field.clone());
     doc.add(field.clone());
     doc.add(footer_field.clone());
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(random)?;
   Ok(searcher)
 }
 

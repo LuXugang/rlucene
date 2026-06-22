@@ -117,11 +117,11 @@ fn test() -> Result<()> {
     let value = add_value(&mut random, &mut expected);
     let mut doc = Document::new();
     doc.add(TextField::from_string("foo", value, Store::No)?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let mut foo_norms = MultiDocValues::get_norm_values(&reader, "foo")?
     .ok_or_else(|| LuceneError::illegal_state("norms missing for field foo"))?;

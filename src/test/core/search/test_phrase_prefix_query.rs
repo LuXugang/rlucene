@@ -88,14 +88,14 @@ fn test_phrase_prefix() -> Result<()> {
     &mut field_to_type,
   )?);
 
-  writer.add_document(doc1)?;
-  writer.add_document(doc2)?;
-  writer.add_document(doc3)?;
-  writer.add_document(doc4)?;
-  writer.add_document(doc5)?;
+  writer.add_document(&mut random, doc1)?;
+  writer.add_document(&mut random, doc2)?;
+  writer.add_document(&mut random, doc3)?;
+  writer.add_document(&mut random, doc4)?;
+  writer.add_document(&mut random, doc5)?;
 
-  let reader = Arc::new(writer.get_reader()?);
-  writer.close()?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader.clone())?;
 

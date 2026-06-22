@@ -1087,9 +1087,9 @@ fn test_point_validation() -> Result<()> {
   doc.add(IntRange::new("intRange", &[1], &[10])?);
   doc.add(NumericDocValuesField::new("intRange", 4i64));
 
-  writer.add_document(doc)?;
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  writer.add_document(&mut random, doc)?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher(reader, random.random_bool(0.5), random.random_bool(0.5))?;
 

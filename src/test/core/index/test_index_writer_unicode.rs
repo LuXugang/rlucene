@@ -326,14 +326,14 @@ fn test_term_utf16_sort_order() -> Result<()> {
 
     let mut doc = Document::new();
     doc.add(f.clone());
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
     if (1 + i) % 42 == 0 {
-      writer.commit()?;
+      writer.commit(&mut random)?;
     }
   }
 
-  let r = writer.get_reader()?;
+  let r = writer.get_reader(&mut random)?;
   let top_reader_context = get_context(&r)?;
   for ctx in top_reader_context.leaves()? {
     if let Some(terms) = ctx.reader().terms("f")? {
@@ -345,13 +345,13 @@ fn test_term_utf16_sort_order() -> Result<()> {
 
   r.close()?;
 
-  writer.force_merge(1)?;
+  writer.force_merge(&mut random, 1)?;
 
-  let r = writer.get_reader()?;
+  let r = writer.get_reader(&mut random)?;
   let terms = multi_terms::get_terms(&r, "f")?.expect("terms should exist");
   check_terms_order(&terms, &all_terms, true)?;
   r.close()?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }

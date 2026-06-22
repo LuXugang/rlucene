@@ -108,11 +108,11 @@ fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReaderType<DirEnum>)> {
         &mut field_types,
       )?);
     }
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   Ok((small, reader))
 }
 fn csrq(

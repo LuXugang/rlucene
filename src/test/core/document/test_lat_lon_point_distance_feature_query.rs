@@ -90,37 +90,37 @@ fn test_basics() -> Result<()> {
   doc_value.set_location_value(-7.0, -7.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   doc = Document::new();
   point.set_location_value(9.0, 9.0)?;
   doc_value.set_location_value(9.0, 9.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   doc = Document::new();
   point.set_location_value(8.0, 8.0)?;
   doc_value.set_location_value(8.0, 8.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   doc = Document::new();
   point.set_location_value(4.0, 4.0)?;
   doc_value.set_location_value(4.0, 4.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   doc = Document::new();
   point.set_location_value(-1.0, -1.0)?;
   doc_value.set_location_value(-1.0, -1.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let q = LatLonPoint::new_distance_feature_query("foo", 3f32, 10.0, 10.0, pivot_distance)?;
@@ -190,7 +190,7 @@ fn test_basics() -> Result<()> {
     top_hits.score_docs(),
   )?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -212,37 +212,37 @@ fn test_crosses_date_line() -> Result<()> {
   doc_value.set_location_value(0.0, -179.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   point.set_location_value(0.0, 176.0)?;
   doc_value.set_location_value(0.0, 176.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   point.set_location_value(0.0, -150.0)?;
   doc_value.set_location_value(0.0, -150.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   point.set_location_value(0.0, -140.0)?;
   doc_value.set_location_value(0.0, -140.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   point.set_location_value(0.0, 140.0)?;
   doc_value.set_location_value(1.0, 140.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let q = LatLonPoint::new_distance_feature_query("foo", 3f32, 0.0, 179.0, pivot_distance)?;
@@ -278,7 +278,7 @@ fn test_crosses_date_line() -> Result<()> {
     top_hits.score_docs(),
   )?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -310,18 +310,18 @@ fn test_missing_value() -> Result<()> {
   doc_value.set_location_value(3.0, 3.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  w.add_document(Document::new())?;
+  w.add_document(&mut random, Document::new())?;
 
   let mut doc = Document::new();
   point.set_location_value(7.0, 7.0)?;
   doc_value.set_location_value(7.0, 7.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let q = LatLonPoint::new_distance_feature_query("foo", 3f32, 10.0, 10.0, 5.0)?;
@@ -353,7 +353,7 @@ fn test_missing_value() -> Result<()> {
 
   CheckHits::check_explanations(&q, "", &searcher)?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -371,21 +371,21 @@ fn test_multi_valued() -> Result<()> {
     doc.add(LatLonPoint::new("foo", point[0], point[1])?);
     doc.add(LatLonDocValuesField::new("foo", point[0], point[1])?);
   }
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   for point in [[45.0, 0.0], [-45.0, 0.0], [-90.0, 0.0], [90.0, 0.0]] {
     doc.add(LatLonPoint::new("foo", point[0], point[1])?);
     doc.add(LatLonDocValuesField::new("foo", point[0], point[1])?);
   }
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   for point in [[0.0, 90.0], [0.0, -90.0], [0.0, 180.0], [0.0, -180.0]] {
     doc.add(LatLonPoint::new("foo", point[0], point[1])?);
     doc.add(LatLonDocValuesField::new("foo", point[0], point[1])?);
   }
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   {
@@ -393,16 +393,16 @@ fn test_multi_valued() -> Result<()> {
     doc.add(LatLonPoint::new("foo", point[0], point[1])?);
     doc.add(LatLonDocValuesField::new("foo", point[0], point[1])?);
   }
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   for point in [[45.0, 45.0], [-45.0, -45.0]] {
     doc.add(LatLonPoint::new("foo", point[0], point[1])?);
     doc.add(LatLonDocValuesField::new("foo", point[0], point[1])?);
   }
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut q = LatLonPoint::new_distance_feature_query("foo", 3f32, 0.0, 0.0, 200.0)?;
@@ -460,7 +460,7 @@ fn test_multi_valued() -> Result<()> {
     top_hits.score_docs(),
   )?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -526,10 +526,10 @@ fn test_compare_sorting() -> Result<()> {
     let mut doc = Document::new();
     doc.add(LatLonPoint::new("foo", lat, lon)?);
     doc.add(LatLonDocValuesField::new("foo", lat, lon)?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let lat = random.random::<f64>() * 180.0 - 90.0;
@@ -561,6 +561,6 @@ fn test_compare_sorting() -> Result<()> {
     );
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }

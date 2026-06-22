@@ -136,7 +136,7 @@ fn test() -> Result<()> {
           // Create document and add field
           let mut doc = Document::new();
           doc.add(Field::new("field", text.as_str(), field_type.clone()));
-          iw.add_document(doc)?;
+          iw.add_document(&mut thread_random, doc)?;
         }
 
         Ok(())
@@ -152,8 +152,8 @@ fn test() -> Result<()> {
     Ok(())
   })?;
 
-  iw.force_merge(1)?;
-  let ir = iw.get_reader()?;
+  iw.force_merge(&mut random, 1)?;
+  let ir = iw.get_reader(&mut random)?;
   let top_reader_context = get_context(&ir)?;
   let leaves = top_reader_context.leaves()?;
   assert_eq!(1, leaves.len());
@@ -174,7 +174,7 @@ fn test() -> Result<()> {
   }
 
   drop(ir);
-  iw.close()?;
+  iw.close(&mut random)?;
 
   Ok(())
 }

@@ -102,17 +102,17 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
     doc_values.push(br.clone());
     doc.add(NumericDocValuesField::new("id", num_docs_indexed as i64));
     doc.add(StoredField::from_i32("id", num_docs_indexed as i32)?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
     num_docs_indexed += 1;
 
     if random.random_range(0..40) == 17 {
-      drop(writer.get_reader()?);
+      drop(writer.get_reader(&mut random)?);
     }
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let max_doc = reader.max_doc()?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
   let iters = at_least(&mut random, 100);

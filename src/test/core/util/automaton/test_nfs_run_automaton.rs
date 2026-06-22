@@ -185,12 +185,12 @@ fn test_random_automaton_query() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  writer.commit()?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut foreign_vocab = BTreeSet::new();
@@ -249,7 +249,7 @@ fn test_random_automaton_query() -> Result<()> {
     i += 1;
   }
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 

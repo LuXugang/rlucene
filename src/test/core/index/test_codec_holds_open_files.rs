@@ -55,12 +55,12 @@ fn test() -> Result<()> {
     doc.add(IntPoint::new("doc", vec![i])?);
     doc.add(IntPoint::new("doc2d", vec![i, i])?);
     doc.add(NumericDocValuesField::new("dv", i as i64));
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
-  w.commit()?;
-  w.close()?;
+  let r = w.get_reader(&mut random)?;
+  w.commit(&mut random)?;
+  w.close(&mut random)?;
 
   for name in d.list_all()? {
     d.delete_file(&name)?;

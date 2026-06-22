@@ -47,9 +47,9 @@ fn test_not() -> Result<()> {
     &mut field_to_type,
   )?);
 
-  writer.add_document(d1)?;
+  writer.add_document(&mut random, d1)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut query = Builder::new();
@@ -62,6 +62,6 @@ fn test_not() -> Result<()> {
   let hits = searcher.search(query.build(), 1000)?.score_docs;
   assert_eq!(0, hits.len());
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }

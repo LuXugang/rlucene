@@ -55,7 +55,7 @@ fn test() -> Result<()> {
         // TODO set_codec 未实现
       }
       if let Some(writer) = w.take() {
-        writer.close()?;
+        writer.close(&mut random)?;
       }
       w = Some(RandomIndexWriter::with_config(
         &mut random,
@@ -72,7 +72,7 @@ fn test() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    w.as_ref().unwrap().add_document(doc)?;
+    w.as_ref().unwrap().add_document(&mut random, doc)?;
     doc_upto += 1;
     docs_left_in_this_segment -= 1;
   }
@@ -86,17 +86,18 @@ fn test() -> Result<()> {
     let to_delete = random.random_range(0..num_docs);
     if !deleted.contains(&to_delete) {
       deleted.insert(to_delete);
-      w.as_ref()
-        .unwrap()
-        .delete_documents_with_terms(vec![Term::from_text("id", to_delete.to_string())])?;
+      w.as_ref().unwrap().delete_documents_with_terms(
+        &mut random,
+        vec![Term::from_text("id", to_delete.to_string())],
+      )?;
       if random.random_range(0..17) == 6 {
-        let r = w.as_ref().unwrap().get_reader()?;
+        let r = w.as_ref().unwrap().get_reader(&mut random)?;
         assert_eq!(num_docs - deleted.len() as i32, r.num_docs()?);
         r.close()?;
       }
     }
   }
 
-  w.unwrap().close()?;
+  w.unwrap().close(&mut random)?;
   Ok(())
 }

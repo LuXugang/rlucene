@@ -102,8 +102,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     )?);
     doc.add(NumericDocValuesField::new("dv", 5));
 
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -157,8 +157,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     )?);
     doc.add(FloatDocValuesField::new("dv", 5.7f32));
 
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -213,8 +213,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     doc.add(NumericDocValuesField::new("dv1", 5));
     doc.add(NumericDocValuesField::new("dv2", 17));
 
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -279,8 +279,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       new_bytes_ref_from_string(random, &text)?,
     ));
 
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -353,10 +353,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         &mut field_to_type,
       )?);
       doc.add(BinaryDocValuesField::new("dv1", bytes_ref));
-      iwriter.add_document(doc)?;
+      iwriter.add_document(random, doc)?;
     }
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -412,8 +412,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       new_bytes_ref_from_string(random, "hello world")?,
     ));
 
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -482,8 +482,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       new_bytes_ref_from_string(random, "hello world")?,
     ));
 
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -559,8 +559,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     ));
     doc.add(NumericDocValuesField::new("dv3", 5));
 
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -618,13 +618,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("dv", 1));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("dv", 2));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -660,8 +660,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("dv", -10));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -672,9 +672,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("dv", 99));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -711,13 +711,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("dv", i64::MIN));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("dv", i64::MAX));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -745,13 +745,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("dv", -8841491950446638677));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("dv", 9062230939892376225));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -794,8 +794,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -851,8 +851,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world 1")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -866,9 +866,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello 2")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -910,7 +910,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -924,13 +924,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hi")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let mut dv = get_only_leaf_reader(&ireader)?
       .get_binary_doc_values("field")?
@@ -966,8 +966,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1014,16 +1014,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world 1")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "dv",
       new_bytes_ref_from_string(random, "hello world 2")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1056,23 +1056,23 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world 1")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "dv",
       new_bytes_ref_from_string(random, "hello world 2")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "dv",
       new_bytes_ref_from_string(random, "hello world 1")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1116,8 +1116,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world 1")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -1131,9 +1131,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world 2")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1189,7 +1189,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -1203,13 +1203,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let mut dv = get_only_leaf_reader(&ireader)?
       .get_sorted_doc_values("field")?
@@ -1240,8 +1240,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello\nworld\r1")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1273,9 +1273,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "hello world 2")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.add_document(Document::new())?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.add_document(random, Document::new())?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1308,25 +1308,25 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "field",
       new_bytes_ref_from_string(random, "world")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "field",
       new_bytes_ref_from_string(random, "beer")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let mut dv = get_only_leaf_reader(&ireader)?
       .get_sorted_doc_values("field")?
@@ -1405,16 +1405,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "dv",
       new_bytes_ref_from_string(random, "")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1446,16 +1446,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(BinaryDocValuesField::new(
       "dv",
       new_bytes_ref_from_string(random, "")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.force_merge(1)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.force_merge(random, 1)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1486,8 +1486,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     random.fill_bytes(&mut bytes);
     let b = new_bytes_ref_from_bytes(random, bytes.as_ref())?;
     doc.add(BinaryDocValuesField::new("dv", b.clone()));
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1516,8 +1516,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     random.fill_bytes(&mut bytes);
     let b = new_bytes_ref_from_bytes(random, bytes.as_ref())?;
     doc.add(SortedDocValuesField::new("dv", b.clone()));
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1547,8 +1547,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "boo!")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1577,8 +1577,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv",
       new_bytes_ref_from_string(random, "boo!")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.close()?;
+    iwriter.add_document(random, doc)?;
+    iwriter.close(random)?;
 
     let ireader =
       self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
@@ -1673,11 +1673,11 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       doc.add(SortedDocValuesField::new("field", br));
       all_values.push(string.clone());
       doc_to_string.insert(id, string);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     if rarely(random) {
-      writer.commit()?;
+      writer.commit(random)?;
     }
 
     let num_docs_no_value = at_least(random, 10);
@@ -1690,11 +1690,11 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         Store::Yes,
         &mut field_to_type,
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     if rarely(random) {
-      writer.commit()?;
+      writer.commit(random)?;
     }
 
     for i in 0..num_docs {
@@ -1712,12 +1712,12 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       doc.add(SortedDocValuesField::new("field", br));
       all_values.push(string.clone());
       doc_to_string.insert(id, string);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
-    writer.commit()?;
+    writer.commit(random)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let mut doc_values = MultiDocValues::get_sorted_values(&reader, "field")?.unwrap();
     all_values.sort_by(|a, b| TestUtil::string_codepoint_comparator(a, b));
     all_values.dedup();
@@ -1743,7 +1743,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(expected.as_str(), actual.utf8_to_string()?);
     }
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -1781,7 +1781,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     for i in 0..num_docs {
       if random.random::<f64>() > density {
-        writer.add_document(Document::new())?;
+        writer.add_document(random, Document::new())?;
         continue;
       }
 
@@ -1796,20 +1796,20 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       let value = longs(random);
       doc.add(StoredField::from_string("stored", value.to_string())?);
       doc.add(NumericDocValuesField::new("dv", value));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     let num_deletions = random.random_range(0..=(num_docs / 10).max(0));
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
-    writer.force_merge((num_docs / std::cmp::max(256, min_docs)).max(1))?;
-    writer.close()?;
+    writer.force_merge(random, (num_docs / std::cmp::max(256, min_docs)).max(1))?;
+    writer.close(random)?;
 
     self.assert_dv_iterate(dir.clone())
   }
@@ -2042,33 +2042,33 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         doc.add(StoredField::from_string("stored", value.to_string())?);
       }
 
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     let num_deletions = random.random_range(0..=(num_docs / 10).max(0));
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
-    writer.commit()?;
+    writer.commit(random)?;
     {
       let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
-    writer.force_merge((num_docs / 256).max(1))?;
-    writer.commit()?;
+    writer.force_merge(random, (num_docs / 256).max(1))?;
+    writer.commit(random)?;
 
     {
       let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -2215,7 +2215,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     for i in 0..num_docs {
       if random.random::<f64>() > density {
-        writer.add_document(Document::new())?;
+        writer.add_document(random, Document::new())?;
         continue;
       }
 
@@ -2235,19 +2235,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         "dv",
         BytesRef::from_slice(buffer, 0, dv_value),
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     let num_deletions = random.random_range(0..=(num_docs / 10).max(0));
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let context = get_context(&reader)?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -2269,9 +2269,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
-    writer.force_merge(1)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let context = get_context(&reader)?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -2293,7 +2293,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -2386,7 +2386,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     for i in 0..num_docs {
       if random.random::<f64>() > density {
-        writer.add_document(Document::new())?;
+        writer.add_document(random, Document::new())?;
         continue;
       }
 
@@ -2406,19 +2406,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         "dv",
         BytesRef::from_slice(buffer, 0, dv_len),
       ));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     let num_deletions = random.random_range(0..=(num_docs / 10).max(0));
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let context = get_context(&reader)?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -2441,9 +2441,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
-    writer.force_merge(1)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let context = get_context(&reader)?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -2466,7 +2466,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -2558,10 +2558,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2592,10 +2592,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field2",
       new_bytes_ref_from_string(random, "world")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     let mut dv = leaf.get_sorted_set_doc_values("field")?.unwrap();
@@ -2633,19 +2633,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
-    writer.commit()?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
       "field",
       new_bytes_ref_from_string(random, "world")?,
     ));
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2686,10 +2686,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "world")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2725,10 +2725,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2767,8 +2767,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "world")?,
     ));
-    writer.add_document(doc)?;
-    writer.commit()?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
@@ -2779,11 +2779,11 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "beer")?,
     ));
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2827,12 +2827,12 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
-    writer.add_document(Document::new())?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.add_document(random, Document::new())?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2863,13 +2863,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
-    writer.commit()?;
-    writer.add_document(Document::new())?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
+    writer.add_document(random, Document::new())?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2895,18 +2895,18 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
-    writer.add_document(Document::new())?;
+    writer.add_document(random, Document::new())?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2932,19 +2932,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
-    writer.add_document(Document::new())?;
-    writer.commit()?;
+    writer.add_document(random, Document::new())?;
+    writer.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -2979,7 +2979,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
     let mut doc = Document::new();
     doc.add(new_string_field(
       random,
@@ -2992,13 +2992,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -3035,10 +3035,10 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "beer")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -3303,28 +3303,28 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         ));
       }
 
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     let num_deletions = random.random_range(0..=(num_docs / 10).max(0));
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
     {
-      let reader = writer.get_reader()?;
+      let reader = writer.get_reader(random)?;
       self.compare_stored_field_with_sorted_set_dv(random, &reader, "stored", "dv")?;
     }
-    writer.force_merge(1)?;
+    writer.force_merge(random, 1)?;
     {
-      let reader = writer.get_reader()?;
+      let reader = writer.get_reader(random)?;
       self.compare_stored_field_with_sorted_set_dv(random, &reader, "stored", "dv")?;
     }
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -3600,7 +3600,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("dv1", 0));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3610,9 +3610,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
@@ -3645,8 +3645,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("dv1", 0));
-    writer.add_document(doc)?;
-    writer.commit()?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3656,9 +3656,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
@@ -3691,7 +3691,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("dv1", 0));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3701,8 +3701,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
-    writer.commit()?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3713,9 +3713,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("dv1", 5));
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
@@ -3752,7 +3752,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv1",
       BytesRef::from_slice(vec![], 0, 0),
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3762,9 +3762,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
@@ -3803,8 +3803,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv1",
       BytesRef::from_slice(vec![], 0, 0),
     ));
-    writer.add_document(doc)?;
-    writer.commit()?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3814,9 +3814,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
@@ -3855,7 +3855,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv1",
       BytesRef::from_slice(vec![], 0, 0),
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3865,8 +3865,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
-    writer.commit()?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -3880,9 +3880,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "dv1",
       new_bytes_ref_from_string(random, "boo")?,
     ));
-    writer.add_document(doc)?;
-    writer.force_merge(1)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     assert_eq!(1, get_context(&reader)?.leaves()?.len());
@@ -3934,19 +3934,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         numeric_value.to_string(),
       )?);
       doc.add(NumericDocValuesField::new("dvNum", numeric_value));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
 
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     let num_deletions = random.random_range(0..(num_docs / 10).max(1));
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
-    writer.close()?;
+    writer.close(random)?;
 
     let reader =
       Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
@@ -4070,18 +4070,18 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         )?);
       }
 
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     let num_deletions = random.random_range(0..(num_docs / 10).max(1));
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
-    writer.close()?;
+    writer.close(random)?;
 
     let reader =
       Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?);
@@ -4218,9 +4218,9 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
           TestUtil::next_long(random, i64::MIN, i64::MAX),
         ));
       }
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.close()?;
+    writer.close(random)?;
 
     for _ in 0..10 {
       let reader =
@@ -4273,16 +4273,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       for _ in 0..4 {
         let mut doc = Document::new();
         doc.add(BinaryDocValuesField::new("field", bytes.clone()));
-        writer.add_document(doc)?;
+        writer.add_document(random, doc)?;
       }
 
       let mut doc = Document::new();
       doc.add(StoredField::from_string("id", "5")?);
       doc.add(BinaryDocValuesField::new("field", BytesRef::new()));
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
 
-      let reader = writer.get_reader()?;
-      writer.close()?;
+      let reader = writer.get_reader(random)?;
+      writer.close(random)?;
 
       let mut values = MultiDocValues::get_binary_values(&reader, "field")?.unwrap();
       for j in 0..5 {
@@ -4303,8 +4303,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("dv", 5));
-    writer.add_document(doc)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
@@ -4367,7 +4367,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -4378,13 +4378,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("field", 5));
-    writer.add_document(doc)?;
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_numeric_doc_values("field")?
@@ -4403,8 +4403,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("dv", 11));
     doc.add(SortedNumericDocValuesField::new("dv", -5));
-    writer.add_document(doc)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
@@ -4430,8 +4430,8 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("dv", 11));
     doc.add(SortedNumericDocValuesField::new("dv", 11));
-    writer.add_document(doc)?;
-    writer.close()?;
+    writer.add_document(random, doc)?;
+    writer.close(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory)?)?;
     let context = get_context(&reader)?;
@@ -4534,7 +4534,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -4545,13 +4545,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(SortedNumericDocValuesField::new("field", 5));
-    writer.add_document(doc)?;
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_numeric_doc_values("field")?
@@ -4575,27 +4575,27 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "2")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "field",
       new_bytes_ref_from_string(random, "1")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedDocValuesField::new(
       "field",
       new_bytes_ref_from_string(random, "3")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    writer.commit()?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     self.do_test_sorted_set_enum_advance_independently(&mut || {
@@ -4624,7 +4624,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "3")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
@@ -4635,7 +4635,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "3")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
@@ -4646,13 +4646,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "2")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    writer.commit()?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let leaf = get_only_leaf_reader(&reader)?;
     self.do_test_sorted_set_enum_advance_independently(&mut || {
@@ -4771,19 +4771,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      writer.add_document(Document::new())?;
+      writer.add_document(random, Document::new())?;
     }
 
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_doc_values("field")?
@@ -4821,19 +4821,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      writer.add_document(Document::new())?;
+      writer.add_document(random, Document::new())?;
     }
 
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_set_doc_values("field")?
@@ -4868,19 +4868,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::new("field", 42));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      writer.add_document(Document::new())?;
+      writer.add_document(random, Document::new())?;
     }
 
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_numeric_doc_values("field")?
@@ -4909,19 +4909,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(SortedNumericDocValuesField::new("field", 42));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      writer.add_document(Document::new())?;
+      writer.add_document(random, Document::new())?;
     }
 
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_sorted_numeric_doc_values("field")?
@@ -4953,19 +4953,19 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      writer.add_document(Document::new())?;
+      writer.add_document(random, Document::new())?;
     }
 
-    writer.commit()?;
-    writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    writer.force_merge(random, 1)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let mut dv = get_only_leaf_reader(&reader)?
       .get_binary_doc_values("field")?
@@ -5080,15 +5080,15 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
           missing_ids.insert(id);
         }
         id += 1;
-        writer.add_document(doc)?;
+        writer.add_document(random, doc)?;
       }
     }
 
     if random.random_bool(0.5) {
-      writer.force_merge(1)?;
+      writer.force_merge(random, 1)?;
     }
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let max_doc = reader.max_doc()?;
     let mut stored_fields = reader.stored_fields()?;
     let mut missing = vec![false; max_doc as usize];
@@ -5134,7 +5134,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
   fn codec_accepts_huge_binary_values(&self, _field: &str) -> bool {

@@ -69,21 +69,22 @@ fn test_sum_doc_freq() -> Result<()> {
       char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
     field2.set_string_value(format!("{} {}", ch1, ch2))?;
 
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut random, doc.clone())?;
   }
 
   {
-    let ir = writer.get_reader()?;
+    let ir = writer.get_reader(&mut random)?;
     assert_sum_doc_freq(ir)?;
   }
 
   let num_deletions = at_least(&mut random, 20);
   for _ in 0..num_deletions {
     let id_val = random.random_range(0..num_docs);
-    writer.delete_documents_with_terms(vec![Term::from_text("id", id_val.to_string())])?;
+    writer
+      .delete_documents_with_terms(&mut random, vec![Term::from_text("id", id_val.to_string())])?;
   }
-  writer.force_merge(1)?;
-  writer.close()?;
+  writer.force_merge(&mut random, 1)?;
+  writer.close(&mut random)?;
 
   {
     let ir = directory_reader::open(dir.clone())?;

@@ -53,9 +53,9 @@ fn test_basic_prefix() -> Result<()> {
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "abc", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let query = FuzzyQuery::with_max_edits_and_prefix(
     Term::from_text("field", "abc"),
@@ -88,9 +88,9 @@ fn test_fuzziness() -> Result<()> {
   add_doc(&mut random, "bbbbb", &writer, &mut field_to_type)?;
   add_doc(&mut random, "ddddd", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let mut query = FuzzyQuery::with_max_edits_and_prefix(
     Term::from_text("field", "aaaaa"),
@@ -509,9 +509,9 @@ fn test_prefix_length_equal_string_length() -> Result<()> {
   add_doc(&mut random, "b*abcd", &writer, &mut field_to_type)?;
   let multibyte = "아프리카코끼리속";
   add_doc(&mut random, multibyte, &writer, &mut field_to_type)?;
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
   let mut max_edits = 0;
   let mut prefix_length = 3;
   let mut query = FuzzyQuery::with_max_edits_and_prefix(
@@ -580,9 +580,9 @@ fn test2() -> Result<()> {
   add_doc(&mut random, "WOJNAROWSKI", &writer, &mut field_to_type)?;
   add_doc(&mut random, "WRICKE", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let query = FuzzyQuery::with_max_edits_and_prefix(Term::from_text("field", "WEBER"), 2, 1)?;
   let hits = searcher.search(query, 1000)?.score_docs;
@@ -605,10 +605,10 @@ fn test_single_query_exact_match_scores_highest() -> Result<()> {
   add_doc(&mut random, "smythe", &writer, &mut field_to_type)?;
   add_doc(&mut random, "smdssasd", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_similarity(classic_similarity::new());
-  writer.close()?;
+  writer.close(&mut random)?;
   let search_terms = vec!["smith", "smythe", "smdssasd"];
   let mut stored_fields = searcher.stored_fields()?;
   for search_term in search_terms {
@@ -649,11 +649,11 @@ fn test_multiple_queries_idf_works() -> Result<()> {
   add_doc(&mut random, "micheal vegas", &writer, &mut field_to_type)?;
   add_doc(&mut random, "michael lydon", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_similarity(classic_similarity::new());
 
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let mut query = BooleanQueryBuilder::new();
   let common_search_term = "michael";
@@ -717,16 +717,16 @@ fn test_tie_breaker() -> Result<()> {
   add_doc(&mut random, "c123456", &writer2, &mut field_to_type2)?;
   add_doc(&mut random, "f123456", &writer2, &mut field_to_type2)?;
 
-  let ir1 = writer.get_reader()?;
-  let ir2 = writer2.get_reader()?;
+  let ir1 = writer.get_reader(&mut random)?;
+  let ir2 = writer2.get_reader(&mut random)?;
 
   let mr = MultiReader::with_composite_reader(vec![ir1, ir2])?;
   let searcher = new_searcher_with_reader(mr)?;
   let fq = FuzzyQuery::with_options(Term::from_text("field", "z123456"), 1, 0, 2, false)?;
   let docs = searcher.search(fq, 2)?;
   assert_eq!(5, docs.total_hits.value());
-  writer.close()?;
-  writer2.close()?;
+  writer.close(&mut random)?;
+  writer2.close(&mut random)?;
 
   Ok(())
 }
@@ -741,9 +741,9 @@ fn test_boost_only_rewrite() -> Result<()> {
   add_doc(&mut random, "Lucene", &writer, &mut field_to_type)?;
   add_doc(&mut random, "Lucenne", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let query = FuzzyQuery::with_rewrite(
     Term::from_text("field", "lucene"),
@@ -832,7 +832,7 @@ fn test_giga() -> Result<()> {
   add_doc(&mut random, "Willis bruce", &w, &mut field_to_type)?;
   add_doc(&mut random, "Brute willis", &w, &mut field_to_type)?;
   add_doc(&mut random, "B. willis", &w, &mut field_to_type)?;
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
 
   let q = FuzzyQuery::with_max_edits(Term::from_text("field", "giga"), 0)?;
 
@@ -851,7 +851,7 @@ fn test_giga() -> Result<()> {
       .as_ref()
       .as_str()
   );
-  w.close()?;
+  w.close(&mut random)?;
 
   Ok(())
 }
@@ -864,9 +864,9 @@ fn test_distance_as_edits_searching() -> Result<()> {
   add_doc(&mut random, "foobar", &w, &mut field_to_type)?;
   add_doc(&mut random, "test", &w, &mut field_to_type)?;
   add_doc(&mut random, "working", &w, &mut field_to_type)?;
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  w.close()?;
+  w.close(&mut random)?;
 
   let mut q = FuzzyQuery::with_max_edits(Term::from_text("field", "fouba"), 2)?;
   let mut hits = searcher.search(q, 10)?.score_docs;
@@ -946,7 +946,7 @@ where
     Store::Yes,
     field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
   Ok(())
 }
@@ -987,10 +987,10 @@ fn test_random() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
-  let r = w.get_reader()?;
-  w.close()?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
   let s = new_searcher_with_reader(r)?;
   let iters = at_least(&mut random, 200);
   for _iter in 0..iters {

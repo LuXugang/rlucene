@@ -339,7 +339,7 @@ fn test_illegal_payloads_without_positions() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -350,7 +350,7 @@ fn test_illegal_payloads_without_positions() -> Result<()> {
     _ => unreachable!("{:?}", err),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -370,7 +370,7 @@ fn test_illegal_offsets_without_vectors() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -381,7 +381,7 @@ fn test_illegal_offsets_without_vectors() -> Result<()> {
     _ => unreachable!("{:?}", err),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -400,7 +400,7 @@ fn test_illegal_positions_without_vectors() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -411,7 +411,7 @@ fn test_illegal_positions_without_vectors() -> Result<()> {
     _ => unreachable!("{:?}", err),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -429,7 +429,7 @@ fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -440,7 +440,7 @@ fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
     _ => unreachable!("{err:?}"),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -458,7 +458,7 @@ fn test_illegal_vectors_without_indexed() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -469,7 +469,7 @@ fn test_illegal_vectors_without_indexed() -> Result<()> {
     _ => unreachable!("{err:?}"),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -487,7 +487,7 @@ fn test_illegal_vector_positions_without_indexed() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -498,7 +498,7 @@ fn test_illegal_vector_positions_without_indexed() -> Result<()> {
     _ => unreachable!("{err:?}"),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -516,7 +516,7 @@ fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -527,7 +527,7 @@ fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
     _ => unreachable!("{err:?}"),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -545,7 +545,7 @@ fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
   let mut doc = Document::new();
   doc.add(Field::new("field", "value", ft));
 
-  let err = w.add_document(doc).unwrap_err();
+  let err = w.add_document(&mut random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
@@ -556,7 +556,7 @@ fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
     _ => unreachable!("{err:?}"),
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 

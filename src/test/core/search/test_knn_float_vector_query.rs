@@ -454,13 +454,13 @@ fn test_doc_and_score_query_basics() -> Result<()> {
           format!("value{i}"),
           Store::No,
         )?);
-        writer.add_document(doc)?;
+        writer.add_document(random, doc)?;
         if i % 10 == 0 {
           writer.flush()?;
         }
       }
-      let reader = writer.get_reader()?;
-      writer.close()?;
+      let reader = writer.get_reader(random)?;
+      writer.close(random)?;
       reader
     };
 

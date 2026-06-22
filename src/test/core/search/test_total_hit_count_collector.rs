@@ -54,11 +54,11 @@ fn test_basics() -> Result<()> {
       format!("b{}", i),
       Store::No,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   // TODO IMPORTANT Concurrency未实现
   let searcher = new_searcher_with_threads(&mut random, reader, true, true, true)?;

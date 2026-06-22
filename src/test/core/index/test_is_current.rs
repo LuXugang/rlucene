@@ -24,30 +24,32 @@ use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::{new_directory_shared, new_text_field, random};
+use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
 struct TestIsCurrent;
 
-fn set_up() -> Result<RandomIndexWriter<DirEnum>> {
-  let mut random = random();
-
+fn set_up<R>(random: &mut R) -> Result<RandomIndexWriter<DirEnum>>
+where
+  R: Rng + ?Sized,
+{
   // initialize directory
-  let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory);
+  let directory = new_directory_shared(random)?;
+  let writer = RandomIndexWriter::new(random, directory);
 
   // write document
   let mut field_types = HashMap::<String, FieldType>::new();
   let mut doc = Document::new();
   doc.add(new_text_field(
-    &mut random,
+    random,
     "UUID",
     "1",
     Store::Yes,
     &mut field_types,
   )?);
-  writer.add_document(doc)?;
-  writer.commit()?;
+  writer.add_document(random, doc)?;
+  writer.commit(random)?;
 
   Ok(writer)
 }
@@ -55,10 +57,11 @@ fn set_up() -> Result<RandomIndexWriter<DirEnum>> {
 /** Failing testcase showing the trouble */
 #[test]
 fn test_delete_by_term_is_current() -> Result<()> {
-  let writer = set_up()?;
+  let mut random = random();
+  let writer = set_up(&mut random)?;
 
   // get reader
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
 
   // assert index has a document and reader is up2date
   assert_eq!(1, writer.get_doc_stats()?.num_docs);
@@ -66,25 +69,26 @@ fn test_delete_by_term_is_current() -> Result<()> {
 
   // remove document
   let id_term = Term::from_text("UUID", "1");
-  writer.delete_documents_with_terms(vec![id_term])?;
-  writer.commit()?;
+  writer.delete_documents_with_terms(&mut random, vec![id_term])?;
+  writer.commit(&mut random)?;
 
   // assert document has been deleted (index changed), reader is stale
   assert_eq!(0, writer.get_doc_stats()?.num_docs);
   assert!(!reader.is_current(&writer.w)?);
 
   reader.close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
 /** Testcase for example to show that writer.deleteAll() is working as expected */
 #[test]
 fn test_delete_all_is_current() -> Result<()> {
-  let writer = set_up()?;
+  let mut random = random();
+  let writer = set_up(&mut random)?;
 
   // get reader
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
 
   // assert index has a document and reader is up2date
   assert_eq!(1, writer.get_doc_stats()?.num_docs);
@@ -92,13 +96,13 @@ fn test_delete_all_is_current() -> Result<()> {
 
   // remove all documents
   writer.w.delete_all()?;
-  writer.commit()?;
+  writer.commit(&mut random)?;
 
   // assert document has been deleted (index changed), reader is stale
   assert_eq!(0, writer.get_doc_stats()?.num_docs);
   assert!(!reader.is_current(&writer.w)?);
 
   reader.close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }

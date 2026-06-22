@@ -107,9 +107,9 @@ fn test_boolean_queries() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone());
 
-  w.add_document(Document::new())?;
-  let reader = w.get_reader()?;
-  w.close()?;
+  w.add_document(&mut random, Document::new())?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let mut searcher = new_searcher_with_reader(reader)?;
   let policy = UsageTrackingQueryCachingPolicy::new()?;

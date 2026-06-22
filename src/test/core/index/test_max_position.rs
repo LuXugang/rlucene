@@ -62,12 +62,12 @@ fn test_too_big_position() -> Result<()> {
     "foo",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![t1, t2])),
   )?);
-  assert!(iw.add_document(doc).is_err());
+  assert!(iw.add_document(&mut random, doc).is_err());
 
   // Document should not be visible:
-  let r = iw.get_reader()?;
+  let r = iw.get_reader(&mut random)?;
   assert_eq!(0, r.num_docs()?);
-  iw.close()?;
+  iw.close(&mut random)?;
 
   Ok(())
 }
@@ -99,10 +99,10 @@ fn test_max_position() -> Result<()> {
     "foo",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![t1, t2])),
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   // Document should be visible:
-  let r = iw.get_reader()?;
+  let r = iw.get_reader(&mut random)?;
   assert_eq!(1, r.num_docs()?);
   let mut postings = get_term_postings_enum(&r, "foo", &BytesRef::from_string("foo"))?
     .expect("postings enum for term 'foo' must exist");
@@ -119,7 +119,7 @@ fn test_max_position() -> Result<()> {
   // next at pos=MAX
   assert_eq!(MAX_POSITION, postings.next_position()?);
 
-  iw.close()?;
+  iw.close(&mut random)?;
 
   Ok(())
 }

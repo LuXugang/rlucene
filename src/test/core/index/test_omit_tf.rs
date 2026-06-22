@@ -327,9 +327,9 @@ fn test_stats() -> Result<()> {
   let f = new_field(&mut random, "foo", "bar", &ft, &mut field_to_type)?;
   doc.add(f);
 
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   assert_eq!(
     ir.doc_freq(&Term::new("foo", BytesRef::from_string("bar")))? as i64,

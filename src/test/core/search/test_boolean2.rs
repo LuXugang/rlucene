@@ -109,21 +109,21 @@ where
 
   let mut doc = Document::new();
   for _ in 0..pre_filler_docs {
-    writer.add_document(doc.clone())?;
+    writer.add_document(random, doc.clone())?;
   }
   let mut field_types = HashMap::new();
 
   for doc_field in &DOC_FIELDS {
     doc.add(new_field(random, FIELD, *doc_field, &ft, &mut field_types)?);
-    writer.add_document(doc.clone())?;
+    writer.add_document(random, doc.clone())?;
 
     doc = Document::new();
     for _ in 0..num_filler_docs {
-      writer.add_document(doc.clone())?;
+      writer.add_document(random, doc.clone())?;
     }
   }
 
-  writer.close()?;
+  writer.close(random)?;
   drop(writer);
   let little_reader = directory_reader::open(directory.clone())?;
   let mut searcher = new_searcher_with_reader(little_reader)?;
@@ -183,10 +183,10 @@ where
     let iwc = new_index_writer_config_with_analyzer(random, analyzer);
     let w = RandomIndexWriter::with_config(random, dir2.clone(), iwc);
 
-    w.add_indexes_from_dir(std::slice::from_ref(&copy))?;
+    w.add_indexes_from_dir(random, std::slice::from_ref(&copy))?;
     copy.close()?;
     let doc_count = w.get_doc_stats()?.max_doc as usize;
-    w.close()?;
+    w.close(random)?;
     mul_factor *= 2;
     if doc_count >= 3000 * num_filler_docs {
       break;
@@ -202,7 +202,7 @@ where
   doc = Document::new();
   doc.add(new_field(random, "field2", "xxx", &ft, &mut field_types)?);
   for _ in 0..(NUM_EXTRA_DOCS / 2) {
-    w.add_document(doc.clone())?;
+    w.add_document(random, doc.clone())?;
   }
 
   doc = Document::new();
@@ -214,12 +214,12 @@ where
     &mut field_types,
   )?);
   for _ in 0..(NUM_EXTRA_DOCS / 2) {
-    w.add_document(doc.clone())?;
+    w.add_document(random, doc.clone())?;
   }
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(random)?;
   let big_searcher = new_searcher_with_reader(reader)?;
-  w.close()?;
+  w.close(random)?;
   Ok(TestBoolean2Context {
     searcher,
     single_segment_searcher,

@@ -83,10 +83,10 @@ fn test() -> Result<()> {
   let w = RandomIndexWriter::with_analyzer(&mut random, d.clone(), analyzer);
   let num_docs = at_least(&mut random, 10);
   for _doc_count in 0..num_docs {
-    w.add_document(docs.next_doc()?)?;
+    w.add_document(&mut line_random, docs.next_doc()?)?;
   }
-  let r = w.get_reader()?;
-  w.close()?;
+  let r = w.get_reader(&mut line_random)?;
+  w.close(&mut line_random)?;
 
   let mut terms: Vec<BytesRef<Vec<u8>>> = Vec::new();
   let mut terms_enum = get_terms(&r, "body")?
@@ -180,7 +180,7 @@ where
     term_to_id.insert(new_bytes_ref_from_string(random, s.as_ref())?, id);
   }
 
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
   terms.clear();
   Ok(())
 }
@@ -247,8 +247,8 @@ fn test_intersect_random() -> Result<()> {
   }
   terms_array.sort_unstable();
 
-  let r = writer.get_reader()?;
-  writer.close()?;
+  let r = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let max_doc = r.max_doc()?;
   let mut doc_id_to_id = vec![0i32; max_doc as usize];
@@ -378,10 +378,10 @@ where
     let mut doc = Document::new();
     let field = new_string_field(random, FIELD, term, No, &mut field_to_type)?;
     doc.add(field);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
   Ok(reader)
 }
 fn doc_freq<CR>(reader: CR, term: &str) -> Result<i32>
@@ -670,14 +670,14 @@ fn test_zero_terms() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  writer.commit()?;
-  writer.delete_documents_with_terms(vec![Term::from_text("field", "one")])?;
-  writer.force_merge(1)?;
+  writer.commit(&mut random)?;
+  writer.delete_documents_with_terms(&mut random, vec![Term::from_text("field", "one")])?;
+  writer.force_merge(&mut random, 1)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   assert_eq!(1, reader.num_docs()?);
   assert_eq!(1, reader.max_doc()?);
@@ -757,7 +757,7 @@ fn test_intersect_basic() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -767,7 +767,7 @@ fn test_intersect_basic() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -777,12 +777,12 @@ fn test_intersect_basic() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  writer.force_merge(1)?;
+  writer.force_merge(&mut random, 1)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let sub = get_only_leaf_reader(&reader)?;
   let terms = sub.terms("field")?.expect("terms must exist");
@@ -834,7 +834,7 @@ fn test_intersect_start_term() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -844,7 +844,7 @@ fn test_intersect_start_term() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -854,7 +854,7 @@ fn test_intersect_start_term() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -864,12 +864,12 @@ fn test_intersect_start_term() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  writer.force_merge(1)?;
+  writer.force_merge(&mut random, 1)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let sub = get_only_leaf_reader(&reader)?;
   let terms = sub.terms("field")?.expect("terms must exist");
@@ -934,7 +934,7 @@ fn test_intersect_empty_string() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -951,12 +951,12 @@ fn test_intersect_empty_string() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  writer.force_merge(1)?;
+  writer.force_merge(&mut random, 1)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let sub = get_only_leaf_reader(&reader)?;
   let terms = sub.terms("field")?.expect("terms must exist");
@@ -1017,10 +1017,10 @@ fn test_common_prefix_terms() -> Result<()> {
       Yes,
       &mut field_to_type,
     )?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let mut terms_enum = get_terms(&r, "id")?.unwrap().iterator()?;
   let mut postings_enum = None;
   let context = get_context(&r)?;
@@ -1074,7 +1074,7 @@ fn test_common_prefix_terms() -> Result<()> {
   }
 
   r.close()?;
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[cfg(feature = "nightly")]
@@ -1110,9 +1110,9 @@ fn test_varying_terms_per_segment() -> Result<()> {
       No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(&mut random)?;
     let context = get_context(&reader)?;
     let leaves = context.leaves()?;
     assert_eq!(1, leaves.len());
@@ -1137,7 +1137,7 @@ fn test_varying_terms_per_segment() -> Result<()> {
     }
 
     reader.close()?;
-    writer.close()?;
+    writer.close(&mut random)?;
   }
   Ok(())
 }
@@ -1156,9 +1156,9 @@ fn test_intersect_regexp() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let terms = get_terms(&reader, "field")?.expect("terms must exist");
 
   let automaton = RegExp::from_string("do_not_match_anything")?.to_automaton()?;

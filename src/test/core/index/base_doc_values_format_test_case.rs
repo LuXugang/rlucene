@@ -80,7 +80,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -94,13 +94,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_sorted_doc_values("field")?.unwrap();
@@ -140,7 +140,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -154,13 +154,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_sorted_set_doc_values("field")?.unwrap();
@@ -200,7 +200,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -211,13 +211,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::indexed_field("field", 5));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_numeric_doc_values("field")?.unwrap();
@@ -251,7 +251,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       Store::No,
       &mut field_to_type,
     )?);
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -262,13 +262,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(SortedNumericDocValuesField::indexed_field("field", 5));
-    iwriter.add_document(doc)?;
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.add_document(random, doc)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_sorted_numeric_doc_values("field")?.unwrap();
@@ -309,19 +309,19 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      iwriter.add_document(Document::new())?;
+      iwriter.add_document(random, Document::new())?;
     }
 
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_sorted_doc_values("field")?.unwrap();
@@ -368,19 +368,19 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       "field",
       new_bytes_ref_from_string(random, "hello")?,
     ));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      iwriter.add_document(Document::new())?;
+      iwriter.add_document(random, Document::new())?;
     }
 
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_sorted_set_doc_values("field")?.unwrap();
@@ -424,19 +424,19 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(NumericDocValuesField::indexed_field("field", 42));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      iwriter.add_document(Document::new())?;
+      iwriter.add_document(random, Document::new())?;
     }
 
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_numeric_doc_values("field")?.unwrap();
@@ -474,19 +474,19 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       &mut field_to_type,
     )?);
     doc.add(SortedNumericDocValuesField::indexed_field("field", 42));
-    iwriter.add_document(doc)?;
+    iwriter.add_document(random, doc)?;
 
     let num_empty_docs = at_least(random, 1024);
     for _ in 0..num_empty_docs {
-      iwriter.add_document(Document::new())?;
+      iwriter.add_document(random, Document::new())?;
     }
 
-    iwriter.commit()?;
-    iwriter.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
-    iwriter.force_merge(1)?;
+    iwriter.commit(random)?;
+    iwriter.delete_documents_with_terms(random, vec![Term::from_text("id", "1")])?;
+    iwriter.force_merge(random, 1)?;
 
-    let ireader = iwriter.get_reader()?;
-    iwriter.close()?;
+    let ireader = iwriter.get_reader(random)?;
+    iwriter.close(random)?;
 
     let leaf = get_only_leaf_reader(&ireader)?;
     let mut dv = leaf.get_sorted_numeric_doc_values("field")?.unwrap();
@@ -662,18 +662,18 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
         test_doc_value_skipper.populate_doc(random, &mut doc)?;
         num_docs += 1;
       }
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if rarely(random) {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
     writer.flush()?;
     if random.random_bool(0.5) {
-      writer.force_merge(1)?;
+      writer.force_merge(random, 1)?;
     }
 
-    let ireader = writer.get_reader()?;
+    let ireader = writer.get_reader(random)?;
     let context = get_context(&ireader)?;
     let mut read_docs = 0;
     for reader_context in context.leaves()? {
@@ -695,7 +695,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
 
     assert_eq!(num_docs, read_docs);
     ireader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 

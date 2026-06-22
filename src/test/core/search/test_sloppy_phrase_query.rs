@@ -249,8 +249,8 @@ where
   let analyzer = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
   let config = new_index_writer_config_with_analyzer(random, analyzer);
   let writer = RandomIndexWriter::with_config(random, dir.clone(), config);
-  writer.add_document(doc)?;
-  let reader = writer.get_reader()?;
+  writer.add_document(random, doc)?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
   let result = searcher.search_with_collector_manager(query.clone(), &MaxFreqCollectorManager)?;
   assert_eq!(
@@ -258,7 +258,7 @@ where
     "slop: {slop} query: {query:?} Wrong number of hits"
   );
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(result.max)
 }
 
@@ -447,30 +447,30 @@ fn test_slop_with_holes() -> Result<()> {
   let mut f = Field::new("lyrics", "", custom_type);
   let mut doc = Document::new();
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   f.set_string_value("drug drug")?;
   doc = Document::new();
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   f.set_string_value("drug druggy drug")?;
   doc = Document::new();
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   f.set_string_value("drug druggy druggy drug")?;
   doc = Document::new();
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   f.set_string_value("drug druggy drug druggy drug")?;
   doc = Document::new();
   doc.add(f.clone());
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut builder = PhraseQueryBuilder::new();
@@ -505,9 +505,9 @@ fn test_infinite_freq1() -> Result<()> {
     &field_type,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(ir)?;
 
@@ -565,10 +565,10 @@ fn test_infinite_freq2() -> Result<()> {
     &FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?,
     &mut field_to_type,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(ir)?;
 

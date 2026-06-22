@@ -97,22 +97,22 @@ fn set_up<R: Rng + ?Sized>(
       &mut field_to_type,
     )?);
 
-    writer.add_document(doc.clone())?;
+    writer.add_document(random, doc.clone())?;
 
     if i % 2 == 0 {
-      swriter1.add_document(doc)?;
+      swriter1.add_document(random, doc)?;
     } else {
-      swriter2.add_document(doc)?;
+      swriter2.add_document(random, doc)?;
     }
   }
 
-  writer.force_merge(1)?;
-  swriter1.force_merge(1)?;
-  swriter2.force_merge(1)?;
+  writer.force_merge(random, 1)?;
+  swriter1.force_merge(random, 1)?;
+  swriter2.force_merge(random, 1)?;
 
-  writer.close()?;
-  swriter1.close()?;
-  swriter2.close()?;
+  writer.close(random)?;
+  swriter1.close(random)?;
+  swriter2.close(random)?;
 
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;

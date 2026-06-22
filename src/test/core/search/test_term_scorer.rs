@@ -88,13 +88,13 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  writer.force_merge(1)?;
-  let reader = writer.get_reader()?;
+  writer.force_merge(random, 1)?;
+  let reader = writer.get_reader(random)?;
   let index_reader = get_only_leaf_reader(&reader)?;
-  writer.close()?;
+  writer.close(random)?;
 
   let mut index_searcher = new_searcher_with_leaf_reader(index_reader)?;
   index_searcher.set_similarity(classic_similarity::new());

@@ -57,12 +57,12 @@ where
     let s = format!("{:03}", i);
     field.set_string_value(s)?;
     doc.add(field);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
     doc = Document::new();
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
   new_searcher_with_reader(reader)
 }
 fn n<R>(random: &mut R) -> char

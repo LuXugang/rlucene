@@ -191,13 +191,13 @@ fn test_negative_scores() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, directory.clone());
-  writer.add_document(Document::new())?;
-  writer.commit()?;
+  writer.add_document(&mut random, Document::new())?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let context = get_context(reader)?;
   let leaves = context.leaves()?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let mut scorer = SimpleScorer::new();
   let manager = TopScoreDocCollectorManager::new(SCORES.len(), i32::MAX as usize)?;

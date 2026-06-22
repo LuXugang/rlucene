@@ -42,9 +42,9 @@ fn test_term_min_max_basic() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("field", "a b c cc ddd", No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let terms = multi_terms::get_terms(&r, "field")?.expect("terms should exist");
   assert_eq!(
     &BytesRef::from_string("a"),
@@ -55,7 +55,7 @@ fn test_term_min_max_basic() -> Result<()> {
     terms.get_max()?.expect("max term should exist").as_ref()
   );
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -99,10 +99,10 @@ fn test_term_min_max_random() -> Result<()> {
       "field",
       FieldTokenStreamEnum::custom(CannedBinaryTokenStream::new(tokens)?),
     )?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
   let terms = multi_terms::get_terms(&r, "field")?.expect("terms should exist");
   assert_eq!(
     min_term.as_ref().expect("min term should exist"),
@@ -113,6 +113,6 @@ fn test_term_min_max_random() -> Result<()> {
     terms.get_max()?.expect("max term should exist").as_ref()
   );
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }

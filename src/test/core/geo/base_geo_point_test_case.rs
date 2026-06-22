@@ -220,16 +220,16 @@ pub trait BaseGeoPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(
       1,
       searcher.count(self.new_rect_query("field", 18.0, 19.0, -66.0, -65.0)?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -270,16 +270,16 @@ pub trait BaseGeoPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     assert_eq!(
       1,
       searcher.count(self.new_distance_query("field", 18.0, -65.0, 50_000.0)?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -361,9 +361,9 @@ pub trait BaseGeoPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     let polygon = Polygon::new(
       vec![18.0, 18.0, 19.0, 19.0, 18.0],
@@ -375,7 +375,7 @@ pub trait BaseGeoPointTestCase {
       searcher.count(self.new_polygon_query("field", vec![polygon])?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -389,9 +389,9 @@ pub trait BaseGeoPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     let inner = Polygon::new(
       vec![18.5, 18.5, 18.7, 18.7, 18.5],
@@ -408,7 +408,7 @@ pub trait BaseGeoPointTestCase {
       searcher.count(self.new_polygon_query("field", vec![outer])?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -422,9 +422,9 @@ pub trait BaseGeoPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     let inner = Polygon::new(
       vec![18.2, 18.2, 18.4, 18.4, 18.2],
@@ -441,7 +441,7 @@ pub trait BaseGeoPointTestCase {
       searcher.count(self.new_polygon_query("field", vec![outer])?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -455,9 +455,9 @@ pub trait BaseGeoPointTestCase {
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
-    writer.add_document(document)?;
+    writer.add_document(random, document)?;
 
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
     let a = Polygon::new(
       vec![28.0, 28.0, 29.0, 29.0, 28.0],
@@ -474,7 +474,7 @@ pub trait BaseGeoPointTestCase {
       searcher.count(self.new_polygon_query("field", vec![a, b])?)?
     );
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -619,14 +619,14 @@ pub trait BaseGeoPointTestCase {
       lons[2 * id + 1] = self.quantize_lon(self.next_longitude(random));
       self.add_point_to_doc(FIELD_NAME, &mut doc, lats[2 * id + 1], lons[2 * id + 1])?;
 
-      w.add_document(doc)?;
+      w.add_document(random, doc)?;
     }
 
     if random.random_bool(0.5) {
-      w.force_merge(1)?;
+      w.force_merge(random, 1)?;
     }
-    let r = w.get_reader()?;
-    w.close()?;
+    let r = w.get_reader(random)?;
+    w.close(random)?;
 
     let s = new_searcher_with_reader(r)?;
 
@@ -1170,10 +1170,10 @@ pub trait BaseGeoPointTestCase {
 
         let mut doc = Document::new();
         self.add_point_to_doc(FIELD_NAME, &mut doc, lat, lon)?;
-        w.add_document(doc)?;
+        w.add_document(random, doc)?;
       }
     }
-    let r = w.get_reader()?;
+    let r = w.get_reader(random)?;
     let s = new_searcher_with_reader(r)?;
     assert_eq!(
       8,
@@ -1253,7 +1253,7 @@ pub trait BaseGeoPointTestCase {
       );
     }
 
-    w.close()?;
+    w.close(random)?;
     Ok(())
   }
 
@@ -1304,9 +1304,9 @@ pub trait BaseGeoPointTestCase {
       self.add_point_to_doc("field", &mut doc, lat, lon)?;
       doc.add(StoredField::from_f64("lat", lat)?);
       doc.add(StoredField::from_f64("lon", lon)?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(random)?;
     let searcher = new_searcher_with_reader(reader)?;
 
     let mut stored_fields = searcher.stored_fields()?;
@@ -1370,7 +1370,7 @@ pub trait BaseGeoPointTestCase {
         assert_eq!(expected, actual);
       }
     }
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -1482,14 +1482,14 @@ pub trait BaseGeoPointTestCase {
     for p in pts {
       let mut doc = Document::new();
       self.add_point_to_doc("point", &mut doc, p[0], p[1])?;
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     for i in (0..pts.len()).step_by(2) {
       let mut doc = Document::new();
       self.add_point_to_doc("point", &mut doc, pts[i][0], pts[i][1])?;
       self.add_point_to_doc("point", &mut doc, pts[i + 1][0], pts[i + 1][1])?;
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     for i in 0..random.random_range(0..10) {
@@ -1499,11 +1499,11 @@ pub trait BaseGeoPointTestCase {
         i.to_string(),
         Store::No,
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
 
     let searcher = new_searcher_with_reader(reader)?;
     searcher.search(query, size)

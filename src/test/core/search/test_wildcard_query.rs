@@ -297,10 +297,10 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(dir)
 }
 fn assert_matches<IRC, Q>(
@@ -409,9 +409,9 @@ fn test_parsing_and_searching() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(Arc::new(reader))?;
@@ -467,8 +467,8 @@ fn test_large() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  writer.close()?;
+  writer.add_document(&mut random, doc)?;
+  writer.close(&mut random)?;
 
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -494,7 +494,7 @@ fn test_cost_estimate() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -504,7 +504,7 @@ fn test_cost_estimate() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_string_field(
@@ -514,12 +514,12 @@ fn test_cost_estimate() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
   writer.flush()?;
-  writer.force_merge(1)?;
-  writer.close()?;
+  writer.force_merge(&mut random, 1)?;
+  writer.close(&mut random)?;
 
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;

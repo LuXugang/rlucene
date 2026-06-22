@@ -166,11 +166,11 @@ where
       field_name.as_str(),
       new_bytes_ref_from_string(random, &value)?,
     ));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  let reader = Arc::new(writer.get_reader()?);
-  writer.close()?;
+  let reader = Arc::new(writer.get_reader(random)?);
+  writer.close(random)?;
   Ok((
     new_searcher_with_reader(reader.clone())?,
     new_searcher_with_reader(reader.clone())?,

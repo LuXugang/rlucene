@@ -92,9 +92,9 @@ fn test_phrase_prefix() -> Result<()> {
     &mut field_to_type,
   )?;
 
-  writer.force_merge(1)?;
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  writer.force_merge(&mut random, 1)?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -220,8 +220,8 @@ fn test_tall() -> Result<()> {
     &mut field_to_type,
   )?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let mut qb = MultiPhraseQuery::builder();
@@ -251,8 +251,8 @@ fn test_multi_sloppy_with_repeats() -> Result<()> {
     &mut field_to_type,
   )?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -282,8 +282,8 @@ fn test_multi_exact_with_repeats() -> Result<()> {
     &mut field_to_type,
   )?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let mut qb = MultiPhraseQuery::builder();
@@ -317,7 +317,7 @@ where
     Store::Yes,
     field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
   Ok(())
 }
 #[test]
@@ -347,7 +347,7 @@ fn test_boolean_query_containing_single_term_prefix_query() -> Result<()> {
     &mut field_to_type,
   )?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   // This query will be equivalent to +body:pie +body:"blue*"
@@ -372,7 +372,7 @@ fn test_boolean_query_containing_single_term_prefix_query() -> Result<()> {
   // just make sure no exc:
   searcher.explain(query, 0)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -394,7 +394,7 @@ fn test_phrase_prefix_with_boolean_query() -> Result<()> {
   )?;
   add_with_type(&mut random, "a note", "note", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   // This query will be equivalent to +type:note +body:"a t*"
@@ -416,7 +416,7 @@ fn test_phrase_prefix_with_boolean_query() -> Result<()> {
 
   assert_eq!(0, hits.len(), "Wrong number of hits");
 
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -429,7 +429,7 @@ fn test_no_docs() -> Result<()> {
   let mut field_to_type = HashMap::new();
   add_with_type(&mut random, "a note", "note", &writer, &mut field_to_type)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut qb = MultiPhraseQuery::builder();
@@ -446,7 +446,7 @@ fn test_no_docs() -> Result<()> {
   // just make sure no exc:
   searcher.explain(q, 0)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -526,7 +526,7 @@ where
     field_to_type,
   )?);
   doc.add(StringField::from_string("type", typ, Store::No)?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
   Ok(())
 }
 #[test]
@@ -555,17 +555,17 @@ fn test_zero_pos_incr() -> Result<()> {
     "field",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(tokens.clone())),
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(TextField::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(tokens)),
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -672,10 +672,10 @@ fn do_test_zero_pos_incr_sloppy(query: impl Into<Query>, n_expected: i32) -> Res
     "field",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(incr_0_doc_tokens()?)),
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let hits = searcher.search(query, 1)?;

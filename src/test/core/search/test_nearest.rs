@@ -59,14 +59,14 @@ fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
   let mut doc = Document::new();
   doc.add(LatLonPoint::new("point", 40.0, 50.0)?);
   doc.add(StringField::from_string("id", "0", Store::Yes)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(LatLonPoint::new("point", 45.0, 55.0)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let r = Arc::new(w.get_reader()?);
+  let r = Arc::new(w.get_reader(&mut random)?);
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
   let mut s = new_searcher_with_reader(r.clone())?;
@@ -84,8 +84,8 @@ fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
   );
   r.close()?;
 
-  w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
-  let r = Arc::new(w.get_reader()?);
+  w.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "0")])?;
+  let r = Arc::new(w.get_reader(&mut random)?);
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
   s = new_searcher_with_reader(r.clone())?;
@@ -103,7 +103,7 @@ fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
       .as_ref()
   );
   r.close()?;
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -116,14 +116,14 @@ fn test_nearest_neighbor_with_all_deleted_docs() -> Result<()> {
   let mut doc = Document::new();
   doc.add(LatLonPoint::new("point", 40.0, 50.0)?);
   doc.add(StringField::from_string("id", "0", Store::Yes)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(LatLonPoint::new("point", 45.0, 55.0)?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let r = Arc::new(w.get_reader()?);
+  let r = Arc::new(w.get_reader(&mut random)?);
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
   let mut s = new_searcher_with_reader(r.clone())?;
@@ -141,10 +141,10 @@ fn test_nearest_neighbor_with_all_deleted_docs() -> Result<()> {
   );
   r.close()?;
 
-  w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
-  w.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+  w.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "0")])?;
+  w.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "1")])?;
 
-  let r = Arc::new(w.get_reader()?);
+  let r = Arc::new(w.get_reader(&mut random)?);
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
   s = new_searcher_with_reader(r.clone())?;
@@ -155,7 +155,7 @@ fn test_nearest_neighbor_with_all_deleted_docs() -> Result<()> {
       .len()
   );
   r.close()?;
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -218,7 +218,7 @@ fn test_nearest_neighbor_with_no_docs() -> Result<()> {
   let iwc = new_index_writer_config(&mut random);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  let r = Arc::new(w.get_reader()?);
+  let r = Arc::new(w.get_reader(&mut random)?);
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
   let searcher = new_searcher_with_reader(r.clone())?;
@@ -229,7 +229,7 @@ fn test_nearest_neighbor_with_no_docs() -> Result<()> {
       .len()
   );
   r.close()?;
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -268,14 +268,14 @@ fn test_nearest_neighbor_random() -> Result<()> {
     doc.add(LatLonPoint::new("point", lats[id], lons[id])?);
     doc.add(LatLonDocValuesField::new("point", lats[id], lons[id])?);
     doc.add(StoredField::from_i32("id", id as i32)?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   if random.random_bool(0.5) {
-    w.force_merge(1)?;
+    w.force_merge(&mut random, 1)?;
   }
 
-  let r = Arc::new(w.get_reader()?);
+  let r = Arc::new(w.get_reader(&mut random)?);
 
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
@@ -345,7 +345,7 @@ fn test_nearest_neighbor_random() -> Result<()> {
   }
 
   r.close()?;
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 fn get_index_writer_config<R>(random: &mut R) -> IndexWriterConfig

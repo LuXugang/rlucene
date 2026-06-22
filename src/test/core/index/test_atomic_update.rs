@@ -40,7 +40,14 @@ use std::thread;
 struct TestAtomicUpdate;
 
 impl TestAtomicUpdate {
-  fn indexer_do_work(writer: &RandomIndexWriter<DirEnum>, current_iteration: i32) -> Result<()> {
+  fn indexer_do_work<R>(
+    writer: &RandomIndexWriter<DirEnum>,
+    random: &mut R,
+    current_iteration: i32,
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
     // Update all 100 docs...
     for i in 0..100 {
       let mut d = Document::new();
@@ -52,7 +59,7 @@ impl TestAtomicUpdate {
       )?);
       d.add(IntPoint::new("doc", [i])?);
       d.add(IntPoint::new("doc2d", [i, i])?);
-      writer.update_document_with_term(Term::from_text("id", i.to_string()), d)?;
+      writer.update_document_with_term(random, Term::from_text("id", i.to_string()), d)?;
     }
     Ok(())
   }
@@ -101,11 +108,11 @@ impl TestAtomicUpdate {
         Store::No,
       )?);
       if (i - 1) % 7 == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
-      writer.add_document(d)?;
+      writer.add_document(random, d)?;
     }
-    writer.commit()?;
+    writer.commit(random)?;
 
     let r = directory_reader::open(directory.clone())?;
     assert_eq!(100, r.num_docs()?);
@@ -115,8 +122,9 @@ impl TestAtomicUpdate {
       for _ in 0..index_threads {
         let writer = writer.clone();
         handles.push(scope.spawn(move || -> Result<()> {
+          let mut thread_random = crate::test::core::util::lucene_test_case::random();
           for count in 0..index_iterations {
-            Self::indexer_do_work(&writer, count)?;
+            Self::indexer_do_work(&writer, &mut thread_random, count)?;
           }
           Ok(())
         }));
@@ -138,7 +146,7 @@ impl TestAtomicUpdate {
       results
     });
 
-    writer.close()?;
+    writer.close(random)?;
 
     for thread_result in thread_results {
       match thread_result {

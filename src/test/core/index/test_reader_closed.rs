@@ -57,11 +57,11 @@ fn set_up() -> Result<Arc<StandardDirectoryReaderType<DirEnum>>> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
-  writer.force_merge(1)?;
-  let reader = Arc::new(writer.get_reader()?);
-  writer.close()?;
+  writer.force_merge(&mut random, 1)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
+  writer.close(&mut random)?;
   Ok(reader)
 }
 

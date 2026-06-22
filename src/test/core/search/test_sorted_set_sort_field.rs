@@ -100,7 +100,7 @@ fn test_forward() -> Result<()> {
     Store::No,
   )?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   // doc2
   let mut doc = Document::new();
@@ -115,10 +115,10 @@ fn test_forward() -> Result<()> {
     Store::No,
   )?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;
@@ -156,7 +156,7 @@ fn test_reverse() -> Result<()> {
     Store::No,
   )?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(KeywordField::from_bytes_ref(
@@ -165,10 +165,10 @@ fn test_reverse() -> Result<()> {
     Store::No,
   )?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedSetSortField::new("value", true)?])?;
@@ -208,7 +208,7 @@ fn test_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_types,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(KeywordField::from_bytes_ref(
@@ -228,7 +228,7 @@ fn test_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_types,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   // doc3: missing 'value'
   let mut doc = Document::new();
@@ -239,10 +239,10 @@ fn test_missing_first() -> Result<()> {
     Store::Yes,
     &mut field_types,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -283,7 +283,7 @@ fn test_singleton() -> Result<()> {
     Store::No,
   )?);
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(KeywordField::from_bytes_ref(
@@ -292,10 +292,10 @@ fn test_singleton() -> Result<()> {
     Store::No,
   )?);
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;

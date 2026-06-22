@@ -105,14 +105,14 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
       }
 
       docs.insert(id.clone(), doc.clone());
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
 
       if random.random_range(0..50) == 17 {
         field_ids.shuffle(random);
       }
       if random.random_range(0..5) == 3 && i > 0 {
         let del_id = random.random_range(0..i).to_string();
-        writer.delete_documents_with_terms(vec![Term::from_text("id", del_id.clone())])?;
+        writer.delete_documents_with_terms(random, vec![Term::from_text("id", del_id.clone())])?;
         docs.remove(&del_id);
       }
     }
@@ -140,11 +140,11 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
             );
           }
         }
-        writer.force_merge(1)?;
+        writer.force_merge(random, 1)?;
       }
     }
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -164,9 +164,9 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     doc.add(Field::new("zzz", "a b c", stored_only.clone()));
     doc.add(Field::new("aaa", "a b c", stored_only.clone()));
     doc.add(Field::new("zzz", "1 2 3", stored_only));
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let doc = reader.stored_fields()?.document(0)?;
     let fields = doc.get_fields();
 
@@ -188,7 +188,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     );
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -213,9 +213,9 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut doc = Document::new();
     doc.add(field);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let doc = reader.stored_fields()?.document(0)?;
     let field = doc.get_field("binary").unwrap();
     let binary = field.binary_value()?.unwrap();
@@ -223,7 +223,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(87, binary.bytes[binary.offset]);
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -277,12 +277,12 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
       doc.add(NumericDocValuesField::new("id", id as i64));
       answers[id] = answer;
       type_answers[id] = type_answer;
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     let reader =
       self.maybe_wrap_with_merging_reader(directory_reader::open_from_writer(&writer.w)?)?;
-    writer.close()?;
+    writer.close(random)?;
     assert_eq!(num_docs as i32, reader.num_docs()?);
 
     for leaf in get_context(reader)?.leaves()? {
@@ -326,9 +326,9 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     let mut doc = Document::new();
     doc.add(Field::new("field", "value", only_stored));
     doc.add(StringField::from_string("field2", "value", Store::Yes)?);
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
 
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let doc = reader.stored_fields()?.document(0)?;
     assert_eq!(
       IndexOptions::None,
@@ -344,7 +344,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     );
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -385,11 +385,11 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
       doc.add(StoredField::from_i32("int", int_value)?);
       doc.add(StoredField::from_f32("float", float_value)?);
       doc.add(StoredField::from_f64("double", double_value)?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.commit()?;
+    writer.commit(random)?;
 
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let mut stored_fields = reader.stored_fields()?;
     let doc_id = random.random_range(0..100);
 
@@ -419,7 +419,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -440,11 +440,11 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     };
 
     for _ in 0..num_docs {
-      writer.add_document(Document::new())?;
+      writer.add_document(random, Document::new())?;
     }
-    writer.commit()?;
+    writer.commit(random)?;
 
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let mut stored_fields = reader.stored_fields()?;
     for i in 0..num_docs {
       let doc = stored_fields.document(i)?;
@@ -452,7 +452,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
   fn test_concurrent_reads<R>(&self, random: &mut R) -> Result<()>
@@ -469,9 +469,9 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     for i in 0..num_docs {
       let mut doc = Document::new();
       doc.add(StringField::from_string("fld", i.to_string(), Store::Yes)?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
-    writer.commit()?;
+    writer.commit(random)?;
 
     let reader =
       Arc::new(self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?);
@@ -536,7 +536,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     })?;
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
   fn random_byte_array<R>(&self, random: &mut R, length: usize, max: i32) -> Vec<u8>
@@ -608,18 +608,20 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
           type_.clone(),
         )?);
       }
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     for _ in 0..10 {
       let min = random.random_range(0..data.len() as i32);
       let max = min + random.random_range(0..20);
-      writer
-        .delete_documents_with_query(vec![IntPoint::new_range_query("id", min, max - 1)?.into()])?;
+      writer.delete_documents_with_query(
+        random,
+        vec![IntPoint::new_range_query("id", min, max - 1)?.into()],
+      )?;
     }
 
-    writer.force_merge(2)?;
-    writer.commit()?;
+    writer.force_merge(random, 2)?;
+    writer.commit(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(directory.clone())?)?;
     let mut stored_fields = reader.stored_fields()?;
@@ -649,10 +651,10 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     reader.close()?;
 
     writer.w.delete_all()?;
-    writer.commit()?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.force_merge(random, 1)?;
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
   fn test_merge_filter_reader<R>(&self, _random: &mut R) -> Result<()>
@@ -716,14 +718,14 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
       let mut doc = docs[template_idx].clone();
       doc.remove_field("id");
       doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
       if random.random_bool(0.1) {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
-    writer.commit()?;
-    writer.force_merge(1)?;
+    writer.commit(random)?;
+    writer.force_merge(random, 1)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
     let searcher = new_searcher_with_reader(directory_reader::open(dir.clone())?)?;
@@ -750,7 +752,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -772,23 +774,24 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
         "f",
         TestUtil::random_simple_string(random),
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     let delete_count = TestUtil::next_int(random, 5, num_docs as i32) as usize;
     for _ in 0..delete_count {
       let id = TestUtil::next_int(random, 0, (num_docs - 1) as i32);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
-    writer.commit()?;
-    writer.close()?;
+    writer.commit(random)?;
+    writer.close(random)?;
     drop(writer);
 
     let writer = RandomIndexWriter::new(random, dir.clone());
-    writer.force_merge(TestUtil::next_int(random, 1, 3))?;
-    writer.commit()?;
-    writer.close()?;
+    let max_num_segments = TestUtil::next_int(random, 1, 3);
+    writer.force_merge(random, max_num_segments)?;
+    writer.commit(random)?;
+    writer.close(random)?;
 
     TestUtil::check_index(dir)?;
     Ok(())

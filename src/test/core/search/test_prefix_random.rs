@@ -80,14 +80,14 @@ where
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc.clone())?;
+    writer.add_document(random, doc.clone())?;
     doc = Document::new();
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(searcher)
 }
 

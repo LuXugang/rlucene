@@ -97,10 +97,10 @@ fn test_wrapped_2_times() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("field", "term1", Store::No)?);
   doc.add(StringField::from_string("field", "term2", Store::No)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_query_cache(None);
@@ -145,7 +145,7 @@ fn test_constant_score_query_and_filter() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -155,10 +155,10 @@ fn test_constant_score_query_and_filter() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -203,10 +203,10 @@ fn test_propagates_approximations() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  writer.commit()?;
+  writer.add_document(&mut random, doc)?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 

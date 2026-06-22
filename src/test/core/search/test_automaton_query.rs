@@ -77,14 +77,14 @@ where
   doc.add(title_field.clone());
   doc.add(field.clone());
   doc.add(footer_field.clone());
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
   doc = Document::new();
   field.set_string_value("some text from doc two a short piece 5678.91")?;
   doc.add(title_field.clone());
   doc.add(field.clone());
   doc.add(footer_field.clone());
-  writer.add_document(doc.clone())?;
+  writer.add_document(random, doc.clone())?;
 
   doc = Document::new();
   field
@@ -92,12 +92,12 @@ where
   doc.add(title_field.clone());
   doc.add(field.clone());
   doc.add(footer_field.clone());
-  writer.add_document(doc.clone())?;
+  writer.add_document(random, doc.clone())?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(searcher)
 }
 fn new_term(value: &str) -> Term {

@@ -204,8 +204,8 @@ where
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(d)?;
+  writer.add_document(random, d)?;
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(directory)
 }

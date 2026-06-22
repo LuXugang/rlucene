@@ -52,7 +52,7 @@ fn test_deletes1() -> Result<()> {
   iwc.set_max_buffered_docs(5000);
   iwc.set_ram_buffer_size_mb(100.0);
   iwc.set_merge_policy(MergePolicyEnum::Range(RangeMergePolicy::new(false)));
-  let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   for x in 0..5 {
     writer.add_document(DocHelper::create_document(x, "1", 2))?;

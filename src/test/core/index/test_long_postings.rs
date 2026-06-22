@@ -129,11 +129,11 @@ fn test_long_postings() -> Result<()> {
     for _ in 0..count {
       doc.add(f.clone());
     }
-    riw.add_document(doc)?;
+    riw.add_document(&mut random, doc)?;
   }
 
-  let r = riw.get_reader()?;
-  riw.close()?;
+  let r = riw.get_reader(&mut random)?;
+  riw.close(&mut random)?;
 
   assert_eq!(num_docs, r.num_docs()?);
   assert!(r.doc_freq(&Term::from_text("field", &s1))? > 0);
@@ -277,11 +277,11 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
     for _ in 0..count {
       doc.add(f.clone());
     }
-    riw.add_document(doc)?;
+    riw.add_document(&mut random, doc)?;
   }
 
-  let r = riw.get_reader()?;
-  riw.close()?;
+  let r = riw.get_reader(&mut random)?;
+  riw.close(&mut random)?;
 
   assert_eq!(num_docs, r.num_docs()?);
   assert!(r.doc_freq(&Term::from_text("field", &s1))? > 0);

@@ -75,7 +75,7 @@ fn test_mixup_docs() -> Result<()> {
     custom_type.clone(),
   )?;
   doc.add(field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut with_payload = token::with_range(Some("withPayload"), 0, 11)?;
   with_payload
@@ -94,7 +94,7 @@ fn test_mixup_docs() -> Result<()> {
     custom_type.clone(),
   )?;
   doc.add(field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut ts = MockTokenizer::with_default_max_token_length(
     random_from_seed(random.random()),
@@ -105,9 +105,9 @@ fn test_mixup_docs() -> Result<()> {
   let mut doc = Document::new();
   let field = Field::from_token_stream("field", FieldTokenStreamEnum::custom(ts), custom_type)?;
   doc.add(field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut term_vectors = reader.term_vectors()?;
   let fields = term_vectors
     .get(1)?
@@ -127,7 +127,7 @@ fn test_mixup_docs() -> Result<()> {
       .as_ref()
   );
   assert_eq!(NO_MORE_DOCS, de.next_doc()?);
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -183,9 +183,9 @@ fn test_mixup_multi_valued() -> Result<()> {
   ts.set_reader(StringReader::new("nopayload").into())?;
   let field3 = Field::from_token_stream("field", FieldTokenStreamEnum::custom(ts), custom_type)?;
   doc.add(field3);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut term_vectors = reader.term_vectors()?;
   let fields = term_vectors
     .get(0)?
@@ -205,7 +205,7 @@ fn test_mixup_multi_valued() -> Result<()> {
       .as_ref()
   );
   assert_eq!(NO_MORE_DOCS, de.next_doc()?);
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -224,10 +224,10 @@ fn test_payloads_without_positions() -> Result<()> {
   doc.add(Field::new("field", "foo", custom_type));
 
   assert!(matches!(
-    writer.add_document(doc),
+    writer.add_document(&mut random, doc),
     Err(LuceneError::IllegalArgument(_))
   ));
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }

@@ -46,43 +46,23 @@ where
   let writer = RandomIndexWriter::new(random, directory);
   let mut field_to_type = HashMap::new();
   // Add the first document.  text = "Document 1"  dateTime = Oct 10 03:25:22 EDT 2007
-  writer.add_document(create_document(
-    random,
-    "20071010072522",
-    "Document 1",
-    &mut field_to_type,
-  )?)?;
+  let doc = create_document(random, "20071010072522", "Document 1", &mut field_to_type)?;
+  writer.add_document(random, doc)?;
   // Add the second document.  text = "Document 2"  dateTime = Oct 10 03:25:26 EDT 2007
-  writer.add_document(create_document(
-    random,
-    "20071010072526",
-    "Document 2",
-    &mut field_to_type,
-  )?)?;
+  let doc = create_document(random, "20071010072526", "Document 2", &mut field_to_type)?;
+  writer.add_document(random, doc)?;
   // Add the third document.  text = "Document 3"  dateTime = Oct 11 07:12:13 EDT 2007
-  writer.add_document(create_document(
-    random,
-    "20071011111213",
-    "Document 3",
-    &mut field_to_type,
-  )?)?;
+  let doc = create_document(random, "20071011111213", "Document 3", &mut field_to_type)?;
+  writer.add_document(random, doc)?;
   // Add the fourth document.  text = "Document 4"  dateTime = Oct 11 08:02:09 EDT 2007
-  writer.add_document(create_document(
-    random,
-    "20071011120209",
-    "Document 4",
-    &mut field_to_type,
-  )?)?;
+  let doc = create_document(random, "20071011120209", "Document 4", &mut field_to_type)?;
+  writer.add_document(random, doc)?;
   // Add the fifth document.  text = "Document 5"  dateTime = Oct 12 13:25:43 EDT 2007
-  writer.add_document(create_document(
-    random,
-    "20071012172543",
-    "Document 5",
-    &mut field_to_type,
-  )?)?;
+  let doc = create_document(random, "20071012172543", "Document 5", &mut field_to_type)?;
+  writer.add_document(random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
 
   Ok(reader)
 }

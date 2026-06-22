@@ -72,14 +72,14 @@ fn test_float_norms() -> Result<()> {
     let f = TextField::from_string(FLOAT_TEST_FIELD, value, Store::Yes)?;
 
     doc.add(f);
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut random, doc.clone())?;
     doc.remove_field(FLOAT_TEST_FIELD);
     if rarely(&mut random) {
-      writer.commit()?;
+      writer.commit(&mut random)?;
     }
   }
-  writer.commit()?;
-  writer.close()?;
+  writer.commit(&mut random)?;
+  writer.close(&mut random)?;
 
   let open = directory_reader::open(dir)?;
   let mut norms = MultiDocValues::get_norm_values(&open, FLOAT_TEST_FIELD)?

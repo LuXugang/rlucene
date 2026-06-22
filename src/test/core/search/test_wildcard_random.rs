@@ -83,12 +83,12 @@ fn test_wildcards() -> Result<()> {
     field.set_string_value(format!("{:03}", i))?;
     let mut doc = Document::new();
     doc.add(field.clone());
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let num = at_least(&mut random, 1);
   for _ in 0..num {

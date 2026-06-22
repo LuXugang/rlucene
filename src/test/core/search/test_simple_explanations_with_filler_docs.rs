@@ -102,17 +102,19 @@ impl TestSimpleExplanationsWithFillerDocs {
     let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
 
     for _ in 0..self.pre_filler_docs {
-      writer.add_document(self.make_filler_doc(random)?)?;
+      let doc = self.make_filler_doc(random)?;
+      writer.add_document(random, doc)?;
     }
     for i in 0..DOC_FIELDS.len() {
-      writer.add_document(create_doc(i)?)?;
+      writer.add_document(random, create_doc(i)?)?;
 
       for _ in 0..self.num_filler_docs {
-        writer.add_document(self.make_filler_doc(random)?)?;
+        let doc = self.make_filler_doc(random)?;
+        writer.add_document(random, doc)?;
       }
     }
-    let reader = Arc::new(writer.get_reader()?);
-    writer.close()?;
+    let reader = Arc::new(writer.get_reader(random)?);
+    writer.close(random)?;
     let searcher = new_searcher_with_reader(reader.clone())?;
 
     self.context.directory = directory;

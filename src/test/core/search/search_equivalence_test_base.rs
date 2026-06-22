@@ -247,27 +247,27 @@ impl SearchEquivalenceTestBaseMeta {
       field.set_string_value(random_field_contents(random))?;
       doc.add(id);
       doc.add(field);
-      iw.add_document(doc)?;
+      iw.add_document(random, doc)?;
     }
 
     let num_deletes = num_docs / 20;
     for _ in 0..num_deletes {
       let to_delete = Term::from_text("id", random.random_range(0..num_docs).to_string());
       if random.random_bool(0.5) {
-        iw.delete_documents_with_terms(vec![to_delete])?;
+        iw.delete_documents_with_terms(random, vec![to_delete])?;
       } else {
-        iw.delete_documents_with_terms(vec![to_delete])?;
+        iw.delete_documents_with_terms(random, vec![to_delete])?;
         // TODO delete by query 未实现
         // iw.delete_documents(TermQuery::new(to_delete))?;
       }
     }
 
-    let reader = Arc::new(iw.get_reader()?);
+    let reader = Arc::new(iw.get_reader(random)?);
     let mut s1 = new_searcher_with_reader(reader.clone())?;
     s1.set_query_cache(None);
     let mut s2 = new_searcher_with_reader(reader)?;
     s2.set_query_cache(None);
-    iw.close()?;
+    iw.close(random)?;
 
     Ok(SearchEquivalenceTestBaseMeta { s1, s2 })
   }

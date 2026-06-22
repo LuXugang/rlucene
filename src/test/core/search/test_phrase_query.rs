@@ -133,7 +133,7 @@ where
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -143,7 +143,7 @@ where
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -153,10 +153,10 @@ where
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -298,10 +298,10 @@ fn test_phrase_query_with_stop_analyzer() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -332,7 +332,7 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_text_field(
@@ -349,10 +349,10 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(&mut random)?;
+    writer.close(&mut random)?;
 
     let searcher = new_searcher_with_reader(reader)?;
 
@@ -386,7 +386,7 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_text_field(
@@ -396,7 +396,7 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
     let mut doc = Document::new();
     doc.add(new_text_field(
@@ -406,10 +406,10 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
 
-    let reader = writer.get_reader()?;
-    writer.close()?;
+    let reader = writer.get_reader(&mut random)?;
+    writer.close(&mut random)?;
 
     let searcher = new_searcher_with_reader(reader)?;
 
@@ -464,7 +464,7 @@ fn test_slop_scoring() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc2 = Document::new();
   doc2.add(new_text_field(
@@ -474,7 +474,7 @@ fn test_slop_scoring() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc2)?;
+  writer.add_document(&mut random, doc2)?;
 
   let mut doc3 = Document::new();
   doc3.add(new_text_field(
@@ -484,10 +484,10 @@ fn test_slop_scoring() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(doc3)?;
+  writer.add_document(&mut random, doc3)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_similarity(classic_similarity::new());
@@ -737,10 +737,10 @@ fn test_zero_pos_incr() -> Result<()> {
     "field",
     FieldTokenStreamEnum::custom(CannedTokenStream::new(tokens)),
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   // Sanity check; simple "a b" phrase.
@@ -818,11 +818,11 @@ fn test_top_phrases() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -1175,11 +1175,11 @@ fn test_random_top_docs() -> Result<()> {
       }
     }
     doc.add(TextField::from_string("foo", &text, Store::No)?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   for first_term in &["a", "b", "c"] {

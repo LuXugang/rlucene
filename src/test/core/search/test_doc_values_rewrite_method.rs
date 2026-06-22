@@ -94,20 +94,20 @@ where
       terms.push(s);
     }
 
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
   let num_deletions = random.random_range(0..(num / 10).max(1));
 
   for _ in 0..num_deletions {
     let id = random.random_range(0..num);
-    writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+    writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  writer.close()?;
+  writer.close(random)?;
 
   Ok((field_name, searcher))
 }

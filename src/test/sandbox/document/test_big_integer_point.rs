@@ -41,10 +41,10 @@ fn test_basics() -> Result<()> {
   let mut document = Document::new();
   let large = BigInt::from(i64::MAX) * BigInt::from(64);
   document.add(BigIntegerPoint::new("field", [large.clone()])?);
-  writer.add_document(document)?;
+  writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
@@ -78,7 +78,7 @@ fn test_basics() -> Result<()> {
   );
 
   searcher.get_index_reader().close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   dir.close()?;
   Ok(())
 }
@@ -94,10 +94,10 @@ fn test_negative() -> Result<()> {
   let mut document = Document::new();
   let negative = -(BigInt::from(i64::MAX) * BigInt::from(64));
   document.add(BigIntegerPoint::new("field", [negative.clone()])?);
-  writer.add_document(document)?;
+  writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
@@ -113,7 +113,7 @@ fn test_negative() -> Result<()> {
   );
 
   searcher.get_index_reader().close()?;
-  writer.close()?;
+  writer.close(&mut random)?;
   dir.close()?;
   Ok(())
 }

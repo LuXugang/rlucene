@@ -72,7 +72,7 @@ fn test() -> Result<()> {
   // TODO IMPORTANT ConcurrentMergeScheduler 未实现
   let my_index_writer = MyIndexWriter::new();
   let merge_count = my_index_writer.merge_count.clone();
-  let mut w = IndexWriter::with_hooks(
+  let w = IndexWriter::with_hooks(
     d.clone(),
     iwc,
     Some(IndexWriterHooksEnum::custom(my_index_writer)),

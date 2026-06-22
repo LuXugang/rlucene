@@ -54,6 +54,17 @@ use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick search
 pub struct LuceneTestCase;
+
+pub(crate) fn maybe_change_live_index_writer_config<R, C>(
+  _random: &mut R,
+  _config: &mut C,
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+  C: LiveIndexWriterConfig + ?Sized,
+{
+  Ok(())
+}
 /// Describes the currently supported environment variables used to control
 /// Lucene tests.
 ///

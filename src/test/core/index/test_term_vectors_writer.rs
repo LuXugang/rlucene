@@ -911,7 +911,7 @@ where
       Store::No,
       &mut field_types,
     )?);
-    iw.add_document(doc)?;
+    iw.add_document(random, doc)?;
   }
 
   let mut doc = Document::new();
@@ -919,7 +919,7 @@ where
   doc.add(Field::new("field", "value1", ft2.clone()));
 
   // ensure broken doc hits error
-  let err = iw.add_document(doc).unwrap_err();
+  let err = iw.add_document(random, doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert!(
@@ -932,9 +932,9 @@ where
     },
     _ => unreachable!("unexpected error type: {:?}", err),
   }
-  let ir = iw.get_reader()?;
+  let ir = iw.get_reader(random)?;
   assert_eq!(3, ir.num_docs()?);
-  iw.close()?;
+  iw.close(random)?;
   Ok(())
 }
 #[test]

@@ -82,35 +82,35 @@ where
   {
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
   }
   {
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
     doc.add(StringField::from_string("f", "bar".to_string(), Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
   }
   {
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
   }
   {
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "bar".to_string(), Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
   }
   {
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "foo".to_string(), Store::No)?);
     doc.add(StringField::from_string("f", "bar".to_string(), Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
   }
 
-  w.force_merge(1)?;
+  w.force_merge(random, 1)?;
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(random)?;
+  w.close(random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let query: Query = {
@@ -384,11 +384,11 @@ where
     if random.random_bool(0.5) {
       doc.add(StringField::from_string("f", "C".to_string(), Store::No)?);
     }
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
   }
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(random)?;
+  w.close(random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let must_term: Query = TermQuery::new(Term::from_text("f", "A")).into();

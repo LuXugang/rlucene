@@ -92,14 +92,14 @@ where
     terms.insert(BytesRef::from_string(&s));
     let mut doc = Document::new();
     doc.add(field.clone());
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
   let v: Vec<BytesRef<Vec<u8>>> = terms.iter().cloned().collect();
   let terms_automaton = Automata::make_string_union(v.as_slice())?;
 
-  let reader = Arc::new(writer.get_reader()?);
+  let reader = Arc::new(writer.get_reader(random)?);
   let searcher = new_searcher_with_reader(reader.clone())?;
-  writer.close()?;
+  writer.close(random)?;
 
   Ok((
     num_iterations,

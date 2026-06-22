@@ -105,7 +105,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(d1)?;
+    writer.add_document(random, d1)?;
   }
 
   // d2
@@ -139,7 +139,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(d2)?;
+    writer.add_document(random, d2)?;
   }
 
   // d3
@@ -166,7 +166,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(d3)?;
+    writer.add_document(random, d3)?;
   }
 
   // d4
@@ -200,14 +200,14 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(d4)?;
+    writer.add_document(random, d4)?;
   }
 
-  writer.force_merge(1)?;
+  writer.force_merge(random, 1)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let r = get_only_leaf_reader(&reader)?;
-  writer.close()?;
+  writer.close(random)?;
 
   let mut s = IndexSearcher::from_lr(r)?;
   s.set_similarity(sim);

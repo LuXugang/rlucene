@@ -266,7 +266,7 @@ fn test_force_merge_deletes() -> Result<()> {
   conf.set_merge_policy(tmp);
   conf.set_max_buffered_docs(4);
 
-  let mut w = IndexWriter::new(dir.clone(), conf)?;
+  let w = IndexWriter::new(dir.clone(), conf)?;
 
   let mut field_to_type = HashMap::new();
 

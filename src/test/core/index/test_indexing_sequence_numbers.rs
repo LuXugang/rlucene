@@ -110,15 +110,17 @@ fn test_stress_update_same_id() -> Result<()> {
       for thread_id in 0..num_threads {
         let w = w.clone();
         let starting_gun = starting_gun.clone();
+        let seed = random.random();
         let seq_nos = seq_nos.clone();
         let id = id.clone();
         handles.push(scope.spawn(move || -> Result<()> {
           let mut doc = Document::new();
           doc.add(StoredField::from_i32("thread", thread_id as i32)?);
           doc.add(StringField::from_string("id", "id", Store::No)?);
+          let mut r = random_from_seed(seed);
           starting_gun.wait();
           for _ in 0..100 {
-            let seq_no = w.update_document_with_term(id.clone(), doc.clone())?;
+            let seq_no = w.update_document_with_term(&mut r, id.clone(), doc.clone())?;
             seq_nos.lock().unwrap()[thread_id] = seq_no;
           }
           Ok(())
@@ -143,14 +145,14 @@ fn test_stress_update_same_id() -> Result<()> {
     }
     assert_eq!(num_threads, all_seq_nos.len());
 
-    let r = w.get_reader()?;
+    let r = w.get_reader(&mut random)?;
     let max_doc = r.max_doc()?;
     let s = new_searcher_with_reader(r)?;
     let hits = s.search(TermQuery::new(id), 1)?;
     assert_eq!(1, hits.total_hits.value(), "maxDoc: {}", max_doc);
     let doc = s.stored_fields()?.document(hits.score_docs[0].doc)?;
     assert_eq!(max_thread as i32, get_i32_field(&doc, "thread")?);
-    w.close()?;
+    w.close(&mut random)?;
   }
   Ok(())
 }

@@ -78,8 +78,8 @@ fn index_one_doc(seed: u64, dir: Arc<DirEnum>, doc: Document, use_cfs: bool) -> 
   }
 
   let w = RandomIndexWriter::with_config(&mut random, dir, conf);
-  w.add_document(doc)?;
-  w.close()
+  w.add_document(&mut random, doc)?;
+  w.close(&mut random)
 }
 
 fn swap_files<R>(random: &mut R, dir1: Arc<DirEnum>, dir2: Arc<DirEnum>) -> Result<()>

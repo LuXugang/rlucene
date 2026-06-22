@@ -77,14 +77,14 @@ fn test_no_dv_field_on_segment() -> Result<()> {
         ));
         ssdv_exist = true;
       }
-      iw.add_document(d)?;
-      iw.commit()?;
+      iw.add_document(&mut index_random, d)?;
+      iw.commit(&mut index_random)?;
     }
   }
-  iw.force_merge(1)?;
-  let reader = iw.get_reader()?;
+  iw.force_merge(&mut random, 1)?;
+  let reader = iw.get_reader(&mut random)?;
 
-  iw.close()?;
+  iw.close(&mut random)?;
   let wrapper = get_only_leaf_reader(&reader)?;
 
   let sdv = wrapper.get_sorted_doc_values("sdv")?;

@@ -270,7 +270,7 @@ fn test_many_threads_close() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   iwc.set_commit_on_close(false);
-  let mut writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
+  let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
   writer.set_do_random_force_merge(false);
   let w = Arc::new(writer);
   let num_threads = TestUtil::next_int(&mut random, 4, 30) as usize;
@@ -282,6 +282,7 @@ fn test_many_threads_close() -> Result<()> {
       let w = w.clone();
       let starting_gun = starting_gun.clone();
       threads.push(scope.spawn(move || -> Result<()> {
+        let mut thread_random = crate::test::core::util::lucene_test_case::random();
         starting_gun.wait();
         let mut doc = Document::new();
         doc.add(TextField::from_string(
@@ -290,7 +291,7 @@ fn test_many_threads_close() -> Result<()> {
           Store::No,
         )?);
         for _ in 0..1000 {
-          match w.add_document(doc.clone()) {
+          match w.add_document(&mut thread_random, doc.clone()) {
             Ok(_) => {},
             Err(LuceneError::AlreadyClosed(_)) => break,
             Err(e) => return Err(e),
@@ -302,7 +303,7 @@ fn test_many_threads_close() -> Result<()> {
 
     starting_gun.wait();
     thread::sleep(Duration::from_millis(100));
-    if let Err(e) = w.close()
+    if let Err(e) = w.close(&mut random)
       && !matches!(e, LuceneError::IllegalState(_))
     {
       return Err(e);
@@ -313,7 +314,7 @@ fn test_many_threads_close() -> Result<()> {
     Ok(())
   })?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]

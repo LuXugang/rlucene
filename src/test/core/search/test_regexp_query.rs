@@ -55,10 +55,10 @@ where
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(random, doc)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 

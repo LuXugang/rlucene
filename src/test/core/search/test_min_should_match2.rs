@@ -94,12 +94,12 @@ where
       add_some(random, &mut doc, RARE_TERMS)?;
     }
 
-    iw.add_document(doc)?;
+    iw.add_document(random, doc)?;
   }
 
-  iw.force_merge(1)?;
-  let reader = iw.get_reader()?;
-  iw.close()?;
+  iw.force_merge(random, 1)?;
+  let reader = iw.get_reader(random)?;
+  iw.close(random)?;
 
   let mut searcher = new_searcher_with_leaf_reader(get_only_leaf_reader(&reader)?)?;
   searcher.set_similarity(classic_similarity::new());

@@ -81,20 +81,20 @@ fn test_multi_valued_doc_values_field() -> Result<()> {
   let f = NumericDocValuesField::new("field", 17);
   doc.add(f.clone());
 
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   doc.add(f.clone());
   // Index doc values are single-valued so we should not
   // be able to add same field more than once:
-  let res = w.add_document(doc);
+  let res = w.add_document(&mut random, doc);
   assert!(
     matches!(res, Err(LuceneError::IllegalArgument(_))),
     "expected IllegalArgument but got: {:?}",
     res
   );
 
-  let r = w.get_reader()?;
-  w.close()?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let leaf = get_only_leaf_reader(r)?;
   let values_opt = leaf.get_numeric_doc_values("field")?;
@@ -117,7 +117,7 @@ fn test_different_typed_doc_values_field() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("field", 17));
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   // Index doc values are single-valued so we should not
   // be able to add same field more than once:
@@ -126,15 +126,15 @@ fn test_different_typed_doc_values_field() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "blah")?,
   ));
 
-  let res = w.add_document(doc);
+  let res = w.add_document(&mut random, doc);
   assert!(
     matches!(res, Err(LuceneError::IllegalArgument(_))),
     "expected IllegalArgument for mixed doc-values types, got: {:?}",
     res
   );
 
-  let r = w.get_reader()?;
-  w.close()?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let leaf = get_only_leaf_reader(r)?;
   let values_opt = leaf.get_numeric_doc_values("field")?;
@@ -156,7 +156,7 @@ fn test_different_typed_doc_values_field2() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("field", 17));
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
   // Index doc values are single-valued so we should not
   // be able to add same field more than once:
   doc.add(SortedDocValuesField::new(
@@ -164,14 +164,14 @@ fn test_different_typed_doc_values_field2() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "hello")?,
   ));
 
-  let res = w.add_document(doc);
+  let res = w.add_document(&mut random, doc);
   assert!(
     matches!(res, Err(LuceneError::IllegalArgument(_))),
     "expected IllegalArgument but got: {:?}",
     res
   );
 
-  let r = w.get_reader()?;
+  let r = w.get_reader(&mut random)?;
 
   let leaf = get_only_leaf_reader(r)?;
   let values_opt = leaf.get_numeric_doc_values("field")?;
@@ -181,7 +181,7 @@ fn test_different_typed_doc_values_field2() -> Result<()> {
   assert_eq!(0, values.next_doc()?);
   assert_eq!(17, values.long_value()?);
 
-  w.close()?;
+  w.close(&mut random)?;
 
   Ok(())
 }

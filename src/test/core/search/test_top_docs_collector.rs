@@ -223,10 +223,10 @@ where
   let mut random = random();
   let writer = RandomIndexWriter::new(&mut random, dir);
   for _ in 0..30 {
-    let _ = writer.add_document(Document::new())?;
+    let _ = writer.add_document(&mut random, Document::new())?;
   }
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
   Ok(reader)
 }
 fn do_search<R>(random: &mut R, num_results: i32) -> Result<MyTopDocsCollector>
@@ -807,11 +807,11 @@ fn test_random_min_competitive_score() -> Result<()> {
     for _ in 0..num_cs {
       doc.add(StringField::from_string("f", "C", Store::No)?);
     }
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let index_reader = Arc::new(w.get_reader()?);
-  w.close()?;
+  let index_reader = Arc::new(w.get_reader(&mut random)?);
+  w.close(&mut random)?;
 
   let queries: Vec<Query> = vec![
     TermQuery::new(Term::from_text("f", "A")).into(),
@@ -847,12 +847,12 @@ fn test_realistic_concurrent_minimum_score() -> Result<()> {
     let mut line_docs = LineFileDocs::new(&mut random)?;
     let num_docs = at_least(&mut random, 100);
     for _ in 0..num_docs {
-      writer.add_document(line_docs.next_doc()?)?;
+      writer.add_document(&mut random, line_docs.next_doc()?)?;
     }
   }
 
-  let index_reader = Arc::new(writer.get_reader()?);
-  writer.close()?;
+  let index_reader = Arc::new(writer.get_reader(&mut random)?);
+  writer.close(&mut random)?;
 
   let terms = get_terms(index_reader.clone(), "body")?
     .ok_or_else(|| LuceneError::illegal_state("no terms for field 'body'"))?;

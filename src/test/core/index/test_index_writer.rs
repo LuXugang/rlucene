@@ -1631,7 +1631,7 @@ fn test_whether_delete_all_deletes_write_lock() -> Result<()> {
     Err(LuceneError::LockObtainFailed(_))
   ));
 
-  w1.close()?;
+  w1.close(&mut random)?;
   Ok(())
 }
 
@@ -1965,9 +1965,9 @@ fn test_stopwords_pos_inc_hole() -> Result<()> {
   let mut doc = Document::new();
   doc.add(TextField::from_string("body", "just a", Store::No)?);
   doc.add(TextField::from_string("body", "test of gaps", Store::No)?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let searcher = new_searcher_with_reader(ir)?;
   let mut builder = PhraseQueryBuilder::new();
   builder.add(Term::from_text("body", "just"), 0)?;
@@ -1993,9 +1993,9 @@ fn test_stopwords_pos_inc_hole2() -> Result<()> {
   let mut doc = Document::new();
   doc.add(TextField::from_string("body", "just a foobar", Store::No)?);
   doc.add(TextField::from_string("body", "test of gaps", Store::No)?);
-  iw.add_document(doc)?;
-  let ir = iw.get_reader()?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.close(&mut random)?;
   let searcher = new_searcher_with_reader(ir)?;
   let mut builder = PhraseQueryBuilder::new();
   builder.add(Term::from_text("body", "just"), 0)?;
@@ -3098,7 +3098,7 @@ fn test_deletes_applied_on_flush() -> Result<()> {
         &STORED_TEXT_TYPE,
         &mut field_types,
       )?);
-      w.add_document(doc)?;
+      w.add_document(&mut random, doc)?;
     }
     for i in 0..num_docs {
       if random.random_bool(0.5) {
@@ -3110,7 +3110,7 @@ fn test_deletes_applied_on_flush() -> Result<()> {
           &STORED_TEXT_TYPE,
           &mut field_types,
         )?);
-        w.update_document_with_term(Term::from_text("id", i.to_string()), doc)?;
+        w.update_document_with_term(&mut random, Term::from_text("id", i.to_string()), doc)?;
       }
     }
 
@@ -3119,7 +3119,7 @@ fn test_deletes_applied_on_flush() -> Result<()> {
       assert!(w.w.flush_next_buffer()?);
       assert_eq!(0, w.w.doc_writer.flush_control.get_delete_bytes_used()?);
     }
-    w.close()?;
+    w.close(&mut random)?;
   }
 
   Ok(())

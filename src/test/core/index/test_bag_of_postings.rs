@@ -77,6 +77,7 @@ fn test() -> Result<()> {
     let field_type = field_type.clone();
 
     handles.push(thread::spawn(move || {
+      let mut thread_random = crate::test::core::util::lucene_test_case::random();
       let _ = barrier.wait();
 
       loop {
@@ -111,7 +112,7 @@ fn test() -> Result<()> {
 
         let mut doc = Document::new();
         doc.add(Field::new("field", text.as_str(), field_type.clone()));
-        if let Err(e) = iw.add_document(doc) {
+        if let Err(e) = iw.add_document(&mut thread_random, doc) {
           panic!("thread indexing failed: {:?}", e);
         }
       }
@@ -124,8 +125,8 @@ fn test() -> Result<()> {
     handle.join().expect("thread panicked");
   }
 
-  iw.force_merge(1)?;
-  let ir = iw.get_reader()?;
+  iw.force_merge(&mut random, 1)?;
+  let ir = iw.get_reader(&mut random)?;
   let top_reader_context = get_context(&ir)?;
   let leaves = top_reader_context.leaves()?;
   assert_eq!(1, leaves.len());
@@ -146,7 +147,7 @@ fn test() -> Result<()> {
   }
 
   drop(ir);
-  iw.close()?;
+  iw.close(&mut random)?;
 
   Ok(())
 }

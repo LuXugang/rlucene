@@ -754,10 +754,10 @@ fn test_sparse_points() -> Result<()> {
       }
     }
 
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let ctx = get_context(reader)?;
   let leaves = ctx.leaves()?;
 
@@ -777,7 +777,7 @@ fn test_sparse_points() -> Result<()> {
     assert_eq!(field_sizes[field as usize], size);
   }
 
-  w.close()?;
+  w.close(&mut random)?;
 
   Ok(())
 }

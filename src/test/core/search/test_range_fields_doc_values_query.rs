@@ -42,9 +42,9 @@ fn test_double_range_doc_values_intersects_query() -> Result<()> {
   for _ in 0..iters {
     let mut doc = Document::new();
     doc.add(DoubleRangeDocValuesField::new("dv", min, max)?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
   let non_matching_min = [256.7, 296.0, 532.4];
   let non_matching_max = [259.3, 364.8, 534.3];
@@ -55,12 +55,12 @@ fn test_double_range_doc_values_intersects_query() -> Result<()> {
     non_matching_min,
     non_matching_max,
   )?);
-  iw.add_document(doc)?;
-  iw.commit()?;
+  iw.add_document(&mut random, doc)?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let low_range = [111.3, 294.4, 517.4];
   let high_range = [116.7, 319.4, 533.0];
@@ -89,7 +89,7 @@ fn test_int_range_doc_values_intersects_query() -> Result<()> {
   for _ in 0..iters {
     let mut doc = Document::new();
     doc.add(IntRangeDocValuesField::new("dv", min, max)?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
   let min2 = [11, 19, 27];
@@ -98,11 +98,11 @@ fn test_int_range_doc_values_intersects_query() -> Result<()> {
   let mut doc = Document::new();
   doc.add(IntRangeDocValuesField::new("dv", min2, max2)?);
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let low_range = [6, 16, 19];
   let high_range = [29, 41, 42];
@@ -139,7 +139,7 @@ fn test_long_range_doc_values_intersect_query() -> Result<()> {
   for _ in 0..iters {
     let mut doc = Document::new();
     doc.add(LongRangeDocValuesField::new("dv", min, max)?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
   let min2 = [101i64, 124, 137];
@@ -147,11 +147,11 @@ fn test_long_range_doc_values_intersect_query() -> Result<()> {
   let mut doc = Document::new();
   doc.add(LongRangeDocValuesField::new("dv", min2, max2)?);
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let low_range = [6i64, 12, 1];
   let high_range = [34i64, 24, 3];
@@ -181,7 +181,7 @@ fn test_float_range_doc_values_intersect_query() -> Result<()> {
   for _ in 0..iters {
     let mut doc = Document::new();
     doc.add(FloatRangeDocValuesField::new("dv", min, max)?);
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
   }
 
   let non_matching_min = [11.4f32, 29.7, 102.4];
@@ -192,13 +192,13 @@ fn test_float_range_doc_values_intersect_query() -> Result<()> {
     non_matching_min,
     non_matching_max,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let low_range = [1.2f32, 8.3, 21.4];
   let high_range = [6.0f32, 17.6, 47.1];
@@ -258,11 +258,11 @@ fn test_no_data() -> Result<()> {
   let iw = RandomIndexWriter::new(&mut random, dir.clone());
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "abc", Store::No)?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   // test on field that doesn't exist
   let q1 = LongRangeDocValuesField::new_slow_intersects_query("bar", [20i64], [27i64])?;

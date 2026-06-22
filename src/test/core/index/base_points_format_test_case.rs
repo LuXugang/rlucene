@@ -374,11 +374,11 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
       docs.push(values);
       let mut doc = Document::new();
       doc.add(BinaryPoint::new("field", bytes)?);
-      w.add_document(doc)?;
+      w.add_document(random, doc)?;
     }
 
-    let r = get_context(w.get_reader()?)?;
-    w.close()?;
+    let r = get_context(w.get_reader(random)?)?;
+    w.close(random)?;
 
     let iters = at_least(random, 100);
     for iter in 0..iters {
@@ -630,7 +630,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
           if use_real_writer {
             w.w.add_document(prev_doc)?;
           } else {
-            w.add_document(prev_doc)?;
+            w.add_document(random, prev_doc)?;
           }
         }
         let mut new_doc = Document::new();
@@ -654,7 +654,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
         if use_real_writer {
           w.w.add_document(Document::new())?;
         } else {
-          w.add_document(Document::new())?;
+          w.add_document(random, Document::new())?;
         }
         if cfg!(feature = "test_log_verbose") {
           println!("add empty doc");
@@ -675,7 +675,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
         if use_real_writer {
           w.w.add_document(xdoc)?;
         } else {
-          w.add_document(xdoc)?;
+          w.add_document(random, xdoc)?;
         }
         if cfg!(feature = "test_log_verbose") {
           println!("add doc doc-to-delete");
@@ -685,7 +685,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
             w.w
               .delete_documents_with_terms(vec![Term::from_text("nukeme", "yes")])?;
           } else {
-            w.delete_documents_with_terms(vec![Term::from_text("nukeme", "yes")])?;
+            w.delete_documents_with_terms(random, vec![Term::from_text("nukeme", "yes")])?;
           }
         }
       }
@@ -699,21 +699,21 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     if let Some(final_doc) = doc.take() {
-      w.add_document(final_doc)?;
+      w.add_document(random, final_doc)?;
     } else {
       unreachable!("dco should not be none");
     }
-    w.delete_documents_with_terms(vec![Term::from_text("nukeme", "yes")])?;
+    w.delete_documents_with_terms(random, vec![Term::from_text("nukeme", "yes")])?;
 
     if random.random_bool(0.5) {
       if cfg!(feature = "test_log_verbose") {
         println!("\nTEST: now force merge");
       }
-      w.force_merge(1)?;
+      w.force_merge(random, 1)?;
     }
 
-    let r = w.get_reader()?;
-    w.close()?;
+    let r = w.get_reader(random)?;
+    w.close(random)?;
 
     if cfg!(feature = "test_log_verbose") {
       println!("TEST: reader opened");
@@ -950,16 +950,16 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     for i in 0..2 {
       let mut doc = Document::new();
       doc.add(IntPoint::new("int", vec![i])?);
-      w.add_document(doc)?;
+      w.add_document(random, doc)?;
     }
     // index has 1 segment now (with 2 docs) and that segment does have points
 
     let mut doc = Document::new();
     doc.add(IntPoint::new("id", vec![0])?);
-    w.add_document(doc)?;
+    w.add_document(random, doc)?;
     // now we write another segment where the id field does have points:
-    w.force_merge(1)?;
-    w.close()?;
+    w.force_merge(random, 1)?;
+    w.close(random)?;
     Ok(())
   }
 

@@ -81,7 +81,7 @@ fn test_all_docs_in_field_term() -> Result<()> {
     )?);
     let sparse_term = other_terms[i % other_terms.len()].clone();
     doc.add(StringField::from_bytes_ref(field, sparse_term, Store::No)?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
   for _ in 0..100 {
@@ -89,7 +89,7 @@ fn test_all_docs_in_field_term() -> Result<()> {
     doc.add(StringField::from_string("foo", "bar", Store::No)?);
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut query_terms = other_terms;
@@ -99,7 +99,7 @@ fn test_all_docs_in_field_term() -> Result<()> {
   let top_docs = searcher.search(query, num_docs)?;
   assert_eq!(num_docs, top_docs.total_hits().value());
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -124,15 +124,16 @@ fn test_duel() -> Result<()> {
       let term = all_terms[random.random_range(0..all_terms.len())].clone();
       doc.add(StringField::from_bytes_ref(field, term.clone(), Store::No)?);
       doc.add(SortedSetDocValuesField::indexed_field(field, term));
-      writer.add_document(doc)?;
+      writer.add_document(&mut random, doc)?;
     }
     if num_terms > 1 && random.random_bool(0.5) {
-      writer.delete_documents_with_terms(vec![Term::new(field, all_terms[0].clone())])?;
+      writer
+        .delete_documents_with_terms(&mut random, vec![Term::new(field, all_terms[0].clone())])?;
     }
-    writer.commit()?;
-    let reader = writer.get_reader()?;
+    writer.commit(&mut random)?;
+    let reader = writer.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    writer.close()?;
+    writer.close(&mut random)?;
 
     if searcher.get_index_reader().num_docs()? == 0 {
       continue;
@@ -185,11 +186,11 @@ fn test_returns_null_score_supplier() -> Result<()> {
     let value = ch.to_string();
     doc.add(KeywordField::from_string("id", value.clone(), Store::Yes)?);
     doc.add(KeywordField::from_string("content", value, Store::Yes)?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let mut terms = Vec::new();
   for ch in 'a'..='z' {
@@ -261,25 +262,25 @@ fn test_skipper_optimization_gap_assumption() -> Result<()> {
     let term = new_bytes_ref_from_string(&mut random, "b")?;
     doc.add(SortedSetDocValuesField::new("field", term.clone()));
     doc.add(SortedSetDocValuesField::indexed_field("idx_field", term));
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
 
   let mut doc = Document::new();
   let term = new_bytes_ref_from_string(&mut random, "a")?;
   doc.add(SortedSetDocValuesField::new("field", term.clone()));
   doc.add(SortedSetDocValuesField::indexed_field("idx_field", term));
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   let term = new_bytes_ref_from_string(&mut random, "c")?;
   doc.add(SortedSetDocValuesField::new("field", term.clone()));
   doc.add(SortedSetDocValuesField::indexed_field("idx_field", term));
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  writer.commit()?;
-  let reader = writer.get_reader()?;
+  writer.commit(&mut random)?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   let query_terms = vec![
     new_bytes_ref_from_string(&mut random, "a")?,

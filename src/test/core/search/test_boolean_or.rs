@@ -186,11 +186,11 @@ where
     FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?,
   ));
 
-  writer.add_document(d)?;
+  writer.add_document(random, d)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(random)?;
   Ok(searcher)
 }
 #[test]
@@ -210,12 +210,12 @@ fn test_boolean_scorer_max() -> Result<()> {
       "a",
       FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?,
     ));
-    riw.add_document(doc)?;
+    riw.add_document(&mut random, doc)?;
   }
 
-  riw.force_merge(1)?;
-  let r = riw.get_reader()?;
-  riw.close()?;
+  riw.force_merge(&mut random, 1)?;
+  let r = riw.get_reader(&mut random)?;
+  riw.close(&mut random)?;
 
   let s = new_searcher_with_reader(r)?;
   let mut bq = Builder::new();

@@ -793,8 +793,8 @@ fn test_across_fields() -> Result<()> {
     "here we go",
     Store::Yes,
   )?);
-  writer.add_document(doc)?;
-  writer.close()?;
+  writer.add_document(&mut random, doc)?;
+  writer.close(&mut random)?;
   drop(writer);
 
   let analyzer =
@@ -807,10 +807,10 @@ fn test_across_fields() -> Result<()> {
     "here we go",
     Store::Yes,
   )?);
-  writer.add_document(doc.clone())?;
-  writer.add_document(doc)?;
-  writer.force_merge(1)?;
-  writer.close()?;
+  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, doc)?;
+  writer.force_merge(&mut random, 1)?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -833,7 +833,7 @@ fn test_mixup_docs() -> Result<()> {
     crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let mut with_payload = token::with_range(Some("withPayload"), 0, 11)?;
   with_payload
@@ -852,7 +852,7 @@ fn test_mixup_docs() -> Result<()> {
   )?;
   let mut doc = Document::new();
   doc.add(field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
   let v = random_from_seed(random.random());
   let mut ts =
@@ -865,9 +865,9 @@ fn test_mixup_docs() -> Result<()> {
   )?;
   let mut doc = Document::new();
   doc.add(field);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let terms = get_terms(&reader, "field")?.unwrap();
   let mut te = terms.iterator()?;
   assert!(te.seek_exact(&BytesRef::from_string("withPayload"))?);
@@ -880,7 +880,7 @@ fn test_mixup_docs() -> Result<()> {
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
       .as_ref()
   );
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }
@@ -922,9 +922,9 @@ fn test_mixup_multi_valued() -> Result<()> {
     crate::core::document::text_field::TYPE_NOT_STORED.clone(),
   )?;
   doc.add(field3);
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let leaf = get_only_leaf_reader(&reader)?;
   let mut de = leaf
     .postings_with_flag(&Term::from_text("field", "withPayload"), PAYLOADS as i32)?
@@ -937,7 +937,7 @@ fn test_mixup_multi_valued() -> Result<()> {
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
       .as_ref()
   );
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }

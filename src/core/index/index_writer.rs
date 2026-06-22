@@ -156,7 +156,6 @@ where
   maybe_merge: AtomicBool,
   merge_source: IndexWriterMergeSource,
 
-  did_message_state: bool,
   flush_count: AtomicI32,
   flush_deletes_count: AtomicI32,
   reader_pool: ReaderPool<D, LongSupplierImpl>,
@@ -317,7 +316,7 @@ where
 
       let mut change_count = 0;
       let mut segment_infos;
-      let did_message_state = false;
+      let _did_message_state = AtomicBool::new(false);
       let rollback_segments;
       let reader = if create {
         if index_commit_wrapper.commit.is_some() {
@@ -558,7 +557,6 @@ where
         closing: AtomicBool::new(false),
         maybe_merge: AtomicBool::new(false),
         merge_source: IndexWriterMergeSource,
-        did_message_state,
         flush_count: AtomicI32::new(0),
         flush_deletes_count: AtomicI32::new(0),
         reader_pool,
@@ -596,7 +594,6 @@ where
         full_flush_lock: Mutex::new(()),
         add_indexes_merge_source: AddIndexesMergeSource,
       };
-      iw.message_state()?;
       Ok(iw)
     })();
     if result.is_err() && info_stream.is_enabled("IW") {
@@ -668,24 +665,11 @@ where
     &self.config
   }
   /// Mutable version of [`Self::get_config`].
-  pub fn get_config_mut(&mut self) -> &mut IndexWriterConfig {
-    &mut self.config
-  }
-  fn message_state(&self) -> Result<()> {
-    // if self.info_stream.enabled("IW") && !self.did_message_state {
-    //     self.did_message_state = true;
-    //
-    //     let msg = format!(
-    //         "\ndir={}\nindex={}\nversion={}\n{}",
-    //         self.directory_orig,
-    //         self.seg_string()?,
-    //         *LATEST,
-    //         self.config
-    //     );
-    //
-    //     self.info_stream.message("IW", &msg);
-    // }
-    Ok(())
+  #[cfg(test)]
+  #[allow(invalid_reference_casting)]
+  #[allow(clippy::mut_from_ref)]
+  pub(crate) fn get_config_mut(&self) -> &mut IndexWriterConfig {
+    unsafe { &mut *(&self.config as *const IndexWriterConfig as *mut IndexWriterConfig) }
   }
   /// Gracefully closes (commits, waits for merges), but calls rollback if there's an error so the
   /// [`IndexWriter`] is always closed. This is called from [`close`] when
@@ -2009,7 +1993,7 @@ where
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
-        &format!("forceMergeDeletes: index now {}", self.seg_string()?),
+        &format!("forceMergeDeletes: index now {}", self.seg_string(None)?),
       )?;
     }
 
@@ -2086,7 +2070,7 @@ where
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
-        &format!("forceMerge: index now {}", self.seg_string()?),
+        &format!("forceMerge: index now {}", self.seg_string(None)?),
       )?;
       self.info_stream.message("IW", "now flush at forceMerge")?;
     }
@@ -2248,7 +2232,6 @@ where
       Some(i) => i,
       None => &mut *self.inner.lock(),
     };
-    self.message_state()?;
 
     debug_assert!(max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS || max_num_segments > 0);
 
@@ -3591,7 +3574,7 @@ where
       self.info_stream.message("IW", "prepareCommit: flush")?;
       self.info_stream.message(
         "IW",
-        &format!("  index before flush {}", self.seg_string()?),
+        &format!("  index before flush {}", self.seg_string(None)?),
       )?;
     }
 
@@ -4216,7 +4199,7 @@ where
         )?;
         self.info_stream.message(
           "IW",
-          &format!("  index before flush {}", self.seg_string()?),
+          &format!("  index before flush {}", self.seg_string(None)?),
         )?;
       }
 
@@ -4308,7 +4291,7 @@ where
         return Err(LuceneError::merge(format!(
           "MergePolicy selected a segment ({}) that is not in the current index {}",
           info,
-          self.seg_string()?
+          self.seg_string(Some(inner))?
         )));
       }
     }
@@ -4695,9 +4678,10 @@ where
     }
 
     if self.info_stream.is_enabled("IW") {
-      self
-        .info_stream
-        .message("IW", &format!("after commitMerge: {}", self.seg_string()?))?;
+      self.info_stream.message(
+        "IW",
+        &format!("after commitMerge: {}", self.seg_string(Some(&inner))?),
+      )?;
     }
 
     if merge.stat.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS && !drop_segment {
@@ -5080,8 +5064,11 @@ where
   }
 
   /// Returns a string description of all segments, for debugging.
-  pub(crate) fn seg_string(&self) -> Result<String> {
-    let inner = self.inner.lock();
+  pub(crate) fn seg_string(&self, inner: Option<&Inner<D>>) -> Result<String> {
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
     self.seg_string_from_infos(inner.segment_infos.iter())
   }
 
@@ -7932,15 +7919,19 @@ impl DocModifier for DocModifierImpl2 {
 #[cfg(test)]
 pub(crate) mod tests {
   use super::*;
+  use std::sync::LazyLock;
 
   pub(crate) struct IndexWriterAccessImpl;
+
+  pub(crate) static INDEX_WRITER_ACCESS: LazyLock<IndexWriterAccessImpl> =
+    LazyLock::new(|| IndexWriterAccessImpl);
 
   impl IndexWriterAccess for IndexWriterAccessImpl {
     fn seg_string<D>(&self, iw: &IndexWriter<D>) -> Result<String>
     where
       D: Directory,
     {
-      iw.seg_string()
+      iw.seg_string(None)
     }
 
     fn get_segment_count<D>(&self, iw: &IndexWriter<D>) -> usize

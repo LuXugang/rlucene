@@ -108,11 +108,11 @@ fn test_similarity() -> Result<()> {
   let mut d2 = Document::new();
   d2.add(TextField::from_string("field", "a c b", Store::Yes)?);
 
-  writer.add_document(d1)?;
-  writer.add_document(d2)?;
+  writer.add_document(&mut random, d1)?;
+  writer.add_document(&mut random, d2)?;
 
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_similarity(new_simple_similarity());

@@ -76,10 +76,10 @@ fn test_method() -> Result<()> {
   for value in values {
     let mut doc = Document::new();
     doc.add(StringField::from_string(FIELD, value, Store::Yes)?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
-  let ir = writer.get_reader()?;
-  writer.close()?;
+  let ir = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let mut boolean_query1 = Builder::new();
   boolean_query1.add(TermQuery::new(Term::from_text(FIELD, "1")), Occur::Should)?;
@@ -106,10 +106,10 @@ fn test_embedded_boolean_scorer() -> Result<()> {
         "doctors are people who prescribe medicines of which they know little, to cure diseases of which they know less, in human beings of whom they know nothing",
         Store::No,
     )?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
   let mut q1 = Builder::new();
@@ -137,9 +137,9 @@ fn test_optimize_top_level_clause_or_null() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_query_cache(None);
   let leaves = searcher.get_top_reader_context().leaves()?;
@@ -181,7 +181,7 @@ fn test_optimize_top_level_clause_or_null() -> Result<()> {
         .unwrap();
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
   assert!(matches!(bs.kind(), BulkScorerKind::Default));
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -193,14 +193,14 @@ fn test_optimize_prohibited_clauses() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
   doc.add(StringField::from_string("foo", "baz", Store::No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "baz", Store::No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  w.force_merge(1)?;
-  let reader = w.get_reader()?;
+  w.force_merge(&mut random, 1)?;
+  let reader = w.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_query_cache(None);
   let leaves = searcher.get_top_reader_context().leaves()?;
@@ -287,7 +287,7 @@ fn test_optimize_prohibited_clauses() -> Result<()> {
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
   assert!(matches!(bs.kind(), BulkScorerKind::ReqExcl));
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -302,7 +302,7 @@ fn test_sparse_clause_optimization() -> Result<()> {
 
   for _ in 0..num_docs {
     for _ in (0..=num_empty_docs).rev() {
-      w.add_document(empty_doc.clone())?;
+      w.add_document(&mut random, empty_doc.clone())?;
     }
 
     let mut doc = Document::new();
@@ -311,19 +311,19 @@ fn test_sparse_clause_optimization() -> Result<()> {
         doc.add(StringField::from_string("field", value, Store::No)?);
       }
     }
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
   num_empty_docs = at_least(&mut random, 200);
   for _ in (0..=num_empty_docs).rev() {
-    w.add_document(empty_doc.clone())?;
+    w.add_document(&mut random, empty_doc.clone())?;
   }
 
   if random.random_bool(0.5) {
-    w.force_merge(1)?;
+    w.force_merge(&mut random, 1)?;
   }
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut query = Builder::new();
@@ -343,7 +343,7 @@ fn test_sparse_clause_optimization() -> Result<()> {
 
   QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -356,9 +356,9 @@ fn test_filter_constant_score() -> Result<()> {
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
   doc.add(StringField::from_string("foo", "bat", Store::No)?);
   doc.add(StringField::from_string("foo", "baz", Store::No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_query_cache(None);
 
@@ -451,7 +451,7 @@ fn test_filter_constant_score() -> Result<()> {
     }
   }
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[derive(Clone, Debug)]

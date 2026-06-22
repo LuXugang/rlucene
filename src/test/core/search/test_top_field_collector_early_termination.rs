@@ -105,35 +105,35 @@ where
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
   iwc.set_index_sort(SORT.clone())?;
 
-  let mut iw = RandomIndexWriter::with_config(random, dir.clone(), iwc);
+  let iw = RandomIndexWriter::with_config(random, dir.clone(), iwc);
   iw.set_do_random_force_merge(false);
 
   for i in 0..num_docs {
     let doc = random_document(random, &terms)?;
-    iw.add_document(doc)?;
+    iw.add_document(random, doc)?;
 
     if i == num_docs / 2 || (i != num_docs - 1 && random.random_range(0..8) == 0) {
-      iw.commit()?;
+      iw.commit(random)?;
     }
 
     if random.random_range(0..15) == 0 {
       let term = terms.choose(random).unwrap();
-      iw.delete_documents_with_terms(vec![Term::from_text("s", term)])?;
+      iw.delete_documents_with_terms(random, vec![Term::from_text("s", term)])?;
     }
   }
 
   if single_sorted_segment {
-    iw.force_merge(1)?;
+    iw.force_merge(random, 1)?;
   } else if random.random_bool(0.5) {
-    iw.force_merge(FORCE_MERGE_MAX_SEGMENT_COUNT)?;
+    iw.force_merge(random, FORCE_MERGE_MAX_SEGMENT_COUNT)?;
   }
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(random)?;
 
   let v = if reader.num_docs()? == 0 {
-    iw.add_document(Document::new())?;
+    iw.add_document(random, Document::new())?;
     reader.close()?;
-    iw.get_reader()?
+    iw.get_reader(random)?
   } else {
     reader
   };

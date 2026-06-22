@@ -321,9 +321,9 @@ fn test_null_or_sub_scorer() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let mut s = new_searcher_with_reader(reader)?;
   s.set_similarity(classic_similarity::new());
 
@@ -348,7 +348,7 @@ fn test_null_or_sub_scorer() -> Result<()> {
     1.0,
   )?;
   assert_eq!(1, s.search(dmq, 10)?.total_hits.value());
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -365,9 +365,9 @@ fn test_de_morgan() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  iw1.add_document(doc1)?;
-  let reader1 = iw1.get_reader()?;
-  iw1.close()?;
+  iw1.add_document(&mut random, doc1)?;
+  let reader1 = iw1.get_reader(&mut random)?;
+  iw1.close(&mut random)?;
 
   let dir2 = new_directory_shared(&mut random)?;
   let iw2 = RandomIndexWriter::new(&mut random, dir2);
@@ -379,9 +379,9 @@ fn test_de_morgan() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  iw2.add_document(doc2)?;
-  let reader2 = iw2.get_reader()?;
-  iw2.close()?;
+  iw2.add_document(&mut random, doc2)?;
+  let reader2 = iw2.get_reader(&mut random)?;
+  iw2.close(&mut random)?;
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text("field", "foo")), Occur::Must)?;
@@ -436,12 +436,12 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
-  writer.force_merge(1)?;
-  let reader = writer.get_reader()?;
+  writer.force_merge(&mut random, 1)?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  writer.close()?;
+  writer.close(&mut random)?;
 
   for _ in 0..(10 * random_multiplier()) {
     let mut terms: Vec<&'static str> = vec!["a", "b", "c", "d", "e", "f"];
@@ -579,21 +579,21 @@ fn test_filter_clause_behaves_like_must() -> Result<()> {
     &mut field_to_type,
   )?;
   doc.add(f.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   f.set_string_value("b d")?;
   let mut doc = Document::new();
   doc.add(f.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   f.set_string_value("d")?;
   let mut doc = Document::new();
   doc.add(f);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  w.commit()?;
+  w.commit(&mut random)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let cases: Vec<Vec<&str>> = vec![
@@ -619,7 +619,7 @@ fn test_filter_clause_behaves_like_must() -> Result<()> {
 
     assert_eq!(matches1, matches2);
   }
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -666,21 +666,21 @@ fn test_filter_clause_does_not_impact_score() -> Result<()> {
     &mut field_to_type,
   )?;
   doc.add(f.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   f.set_string_value("b d")?;
   let mut doc = Document::new();
   doc.add(f.clone());
-  w.add_document(doc.clone())?;
+  w.add_document(&mut random, doc.clone())?;
 
   f.set_string_value("a d")?;
   let mut doc = Document::new();
   doc.add(f);
-  w.add_document(doc)?;
+  w.add_document(&mut random, doc)?;
 
-  w.commit()?;
+  w.commit(&mut random)?;
 
-  let reader = w.get_reader()?;
+  let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut q_builder = Builder::new();
@@ -715,7 +715,7 @@ fn test_filter_clause_does_not_impact_score() -> Result<()> {
   q = q_builder.build();
   assert_same_scores_without_filters(&searcher, q)?;
 
-  w.close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 
@@ -735,10 +735,10 @@ fn test_conjunction_propagates_approximations() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  writer.commit()?;
+  writer.add_document(&mut random, doc)?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   // not new_searcher_with_reader to not have the asserting wrappers
   // and perform type checks.
   let mut searcher = IndexSearcher::from_cr(reader)?;
@@ -779,10 +779,10 @@ fn test_disjunction_propagates_approximations() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  writer.commit()?;
+  writer.add_document(&mut random, doc)?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut searcher = IndexSearcher::from_cr(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
@@ -821,10 +821,10 @@ fn test_boosted_scorer_propagates_approximations() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  writer.commit()?;
+  writer.add_document(&mut random, doc)?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   // not new_searcher_with_reader to not have the asserting wrappers
   // and perform type checks.
   let mut searcher = IndexSearcher::from_cr(reader)?;
@@ -865,10 +865,10 @@ fn test_exclusion_propagates_approximations() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  writer.commit()?;
+  writer.add_document(&mut random, doc)?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut searcher = IndexSearcher::from_cr(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
@@ -910,10 +910,10 @@ fn test_req_opt_propagates_approximations() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
-  writer.commit()?;
+  writer.add_document(&mut random, doc)?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let mut searcher = IndexSearcher::from_cr(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
@@ -971,11 +971,11 @@ fn test_query_matches_count() -> Result<()> {
       )?);
     }
 
-    writer.add_document(doc)?;
+    writer.add_document(&mut random, doc)?;
   }
-  writer.commit()?;
+  writer.commit(&mut random)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = IndexSearcher::from_cr(reader)?;
 
   let mut b = Builder::new();

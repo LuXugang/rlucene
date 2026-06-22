@@ -59,9 +59,9 @@ fn test_set_position() -> Result<()> {
     Store::Yes,
     &mut field_to_type,
   )?);
-  writer.add_document(d)?;
-  let reader = writer.get_reader()?;
-  writer.close()?;
+  writer.add_document(&mut random, d)?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 

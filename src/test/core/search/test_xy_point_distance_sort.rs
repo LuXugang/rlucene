@@ -62,7 +62,7 @@ fn test_distance_sort() -> Result<()> {
     40.759_01f32,
     -73.984_474f32,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
   let d1 = cartesian_distance(
     40.759_01_f32 as f64,
     -73.984_474_f32 as f64,
@@ -76,7 +76,7 @@ fn test_distance_sort() -> Result<()> {
     40.718266f32,
     -74.007_82f32,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
   let d2 = cartesian_distance(
     40.718266f32 as f64,
     -74.007_82_f32 as f64,
@@ -90,7 +90,7 @@ fn test_distance_sort() -> Result<()> {
     40.705_116f32,
     -74.008_83f32,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
   let d3 = cartesian_distance(
     40.705_116_f32 as f64,
     -74.008_83_f32 as f64,
@@ -98,9 +98,9 @@ fn test_distance_sort() -> Result<()> {
     -74.005_974_f32 as f64,
   );
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let sort = Sort::with_fields(vec![XYDocValuesField::new_distance_sort(
     "location",
@@ -129,7 +129,7 @@ fn test_missing_last() -> Result<()> {
 
   // missing
   let doc = Document::new();
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(XYDocValuesField::new(
@@ -137,7 +137,7 @@ fn test_missing_last() -> Result<()> {
     40.718266f32,
     -74.007_82f32,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
   let d2 = cartesian_distance(
     40.718266f32 as f64,
     -74.007_82_f32 as f64,
@@ -151,7 +151,7 @@ fn test_missing_last() -> Result<()> {
     40.705_116f32,
     -74.008_83f32,
   )?);
-  iw.add_document(doc)?;
+  iw.add_document(&mut random, doc)?;
   let d3 = cartesian_distance(
     40.705_116_f32 as f64,
     -74.008_83_f32 as f64,
@@ -159,9 +159,9 @@ fn test_missing_last() -> Result<()> {
     -74.005_974_f32 as f64,
   );
 
-  let reader = iw.get_reader()?;
+  let reader = iw.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let sort = Sort::with_fields(vec![XYDocValuesField::new_distance_sort(
     "location",
@@ -273,10 +273,10 @@ where
       doc.add(StoredField::from_f32("y", y)?);
     } // otherwise "missing"
 
-    writer.add_document(doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let max_doc = reader.max_doc()?;
   let mut stored_fields = reader.stored_fields()?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -364,6 +364,6 @@ where
     }
   }
 
-  writer.close()?;
+  writer.close(random)?;
   Ok(())
 }

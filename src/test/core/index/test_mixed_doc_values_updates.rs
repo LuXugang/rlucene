@@ -407,7 +407,7 @@ fn test_tons_of_updates() -> Result<()> {
   let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
   conf.set_ram_buffer_size_mb(crate::core::index::index_writer_config::DEFAULT_RAM_BUFFER_SIZE_MB);
   conf.set_max_buffered_docs(crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH);
-  let mut writer = IndexWriter::new(dir.clone(), conf)?;
+  let writer = IndexWriter::new(dir.clone(), conf)?;
 
   // test data: lots of documents (few 10Ks) and lots of update terms (few hundreds)
   let num_docs = at_least(&mut random, 20000);

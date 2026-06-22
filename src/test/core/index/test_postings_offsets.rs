@@ -92,9 +92,9 @@ fn test_basic() -> Result<()> {
     ft,
   )?);
 
-  w.add_document(doc)?;
-  let r = w.get_reader()?;
-  w.close()?;
+  w.add_document(&mut random, doc)?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let mut dp = get_term_postings_enum(&r, "content", &BytesRef::from_string("a"))?
     .expect("postings enum for term 'a' must exist");
@@ -172,11 +172,11 @@ fn do_test_numbers(with_payloads: bool) -> Result<()> {
       ft.clone(),
     )?);
     doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
 
-  let reader = w.get_reader()?;
-  w.close()?;
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let terms = [
     "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "hundred",
@@ -324,10 +324,10 @@ fn test_random() -> Result<()> {
       FieldTokenStreamEnum::custom(CannedTokenStream::new(tokens)),
       ft.clone(),
     )?);
-    w.add_document(doc)?;
+    w.add_document(&mut random, doc)?;
   }
-  let r = w.get_reader()?;
-  w.close()?;
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let terms = ["a", "b", "c", "d"];
   for ctx in get_context(&r)?.leaves()? {
@@ -432,8 +432,8 @@ fn test_add_field_twice() -> Result<()> {
     "here is more content with aaa aaa aaa",
     custom_type3,
   )?);
-  iw.add_document(doc)?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  iw.close(&mut random)?;
   Ok(())
 }
 
@@ -494,7 +494,7 @@ fn test_crazy_offset_gap() -> Result<()> {
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  iw.add_document(Document::new())?;
+  iw.add_document(&mut random, Document::new())?;
 
   assert!(
     (|| -> Result<()> {
@@ -504,13 +504,13 @@ fn test_crazy_offset_gap() -> Result<()> {
       let mut doc = Document::new();
       doc.add(Field::from_string("foo", "bar", ft.clone())?);
       doc.add(Field::from_string("foo", "bar", ft)?);
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
       Ok(())
     })()
     .is_err()
   );
-  iw.commit()?;
-  iw.close()?;
+  iw.commit(&mut random)?;
+  iw.close(&mut random)?;
 
   let r = directory_reader::open(dir)?;
   assert_eq!(1, r.num_docs()?);
@@ -543,8 +543,8 @@ fn test_legal_but_very_large_offsets() -> Result<()> {
     FieldTokenStreamEnum::custom(token_stream),
     ft,
   )?);
-  iw.add_document(doc)?;
-  iw.close()?;
+  iw.add_document(&mut random, doc)?;
+  iw.close(&mut random)?;
   Ok(())
 }
 
@@ -574,8 +574,8 @@ fn check_tokens(field1: Vec<token::Token>, field2: Option<Vec<token::Token>>) ->
       ft,
     )?);
   }
-  riw.add_document(doc)?;
-  riw.close()?;
+  riw.add_document(&mut random, doc)?;
+  riw.close(&mut random)?;
   Ok(())
 }
 

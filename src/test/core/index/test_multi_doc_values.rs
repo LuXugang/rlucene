@@ -72,19 +72,19 @@ fn test_numerics() -> Result<()> {
   for _ in 0..num_docs {
     let value = random.random();
     field.set_long_value(value)?;
-    iw.add_document(doc.clone())?;
+    iw.add_document(&mut random, doc.clone())?;
 
     if random.random_range(0..17) == 0 {
-      iw.commit()?;
+      iw.commit(&mut random)?;
     }
   }
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let ir = iw.get_reader()?;
-  iw.force_merge(1)?;
-  let ir2 = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.force_merge(&mut random, 1)?;
+  let ir2 = iw.get_reader(&mut random)?;
   let merged = get_only_leaf_reader(&ir2)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let mut multi = MultiDocValues::get_numeric_values(&ir, "numbers")?.expect("multi should exist");
   let mut single = merged
@@ -137,21 +137,21 @@ fn test_binary() -> Result<()> {
     let bytes = BytesRef::from_string(&s);
 
     field.set_bytes_value(bytes)?;
-    iw.add_document(doc.clone())?;
+    iw.add_document(&mut random, doc.clone())?;
 
     if random.random_range(0..17) == 0 {
-      iw.commit()?;
+      iw.commit(&mut random)?;
     }
   }
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let ir = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
 
-  iw.force_merge(1)?;
-  let ir2 = iw.get_reader()?;
+  iw.force_merge(&mut random, 1)?;
+  let ir2 = iw.get_reader(&mut random)?;
   let merged = get_only_leaf_reader(&ir2)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let mut multi = MultiDocValues::get_binary_values(&ir, "bytes")?.expect("multi should exist");
   let mut single = merged
@@ -209,23 +209,23 @@ fn test_sorted() -> Result<()> {
     field.set_bytes_value(r)?;
 
     if random.random_range(0..7) == 0 {
-      iw.add_document(Document::new())?;
+      iw.add_document(&mut random, Document::new())?;
     }
 
-    iw.add_document(doc.clone())?;
+    iw.add_document(&mut random, doc.clone())?;
 
     if random.random_range(0..17) == 0 {
-      iw.commit()?;
+      iw.commit(&mut random)?;
     }
   }
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let ir = iw.get_reader()?;
-  iw.force_merge(1)?;
-  let ir2 = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.force_merge(&mut random, 1)?;
+  let ir2 = iw.get_reader(&mut random)?;
   let merged = get_only_leaf_reader(&ir2)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let mut multi = MultiDocValues::get_sorted_values(&ir, "bytes")?.expect("multi should exist");
   let mut single = merged
@@ -293,20 +293,20 @@ fn test_sorted_with_lots_of_dups() -> Result<()> {
     let s = TestUtil::random_simple_string_with_len(&mut random, 2);
     let r = BytesRef::from_string(s.as_ref());
     field.set_bytes_value(r)?;
-    iw.add_document(doc.clone())?;
+    iw.add_document(&mut random, doc.clone())?;
 
     if random.random_range(0..17) == 0 {
-      iw.commit()?;
+      iw.commit(&mut random)?;
     }
   }
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let ir = iw.get_reader()?;
-  iw.force_merge(1)?;
-  let ir2 = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.force_merge(&mut random, 1)?;
+  let ir2 = iw.get_reader(&mut random)?;
   let merged = get_only_leaf_reader(&ir2)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let mut multi = MultiDocValues::get_sorted_values(&ir, "bytes")?.expect("multi should exist");
   let mut single = merged
@@ -374,20 +374,20 @@ fn test_sorted_set() -> Result<()> {
       doc.add(SortedSetDocValuesField::new("bytes", r));
     }
 
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
 
     if random.random_range(0..17) == 0 {
-      iw.commit()?;
+      iw.commit(&mut random)?;
     }
   }
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let ir = iw.get_reader()?;
-  iw.force_merge(1)?;
-  let ir2 = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.force_merge(&mut random, 1)?;
+  let ir2 = iw.get_reader(&mut random)?;
   let merged = get_only_leaf_reader(&ir2)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let mut multi_opt = MultiDocValues::get_sorted_set_values(&ir, "bytes")?;
   let mut single_opt = merged.get_sorted_set_doc_values("bytes")?;
@@ -468,20 +468,20 @@ fn test_sorted_set_with_dups() -> Result<()> {
       doc.add(SortedSetDocValuesField::new("bytes", r));
     }
 
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
 
     if random.random_range(0..17) == 0 {
-      iw.commit()?;
+      iw.commit(&mut random)?;
     }
   }
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let ir = iw.get_reader()?;
-  iw.force_merge(1)?;
-  let ir2 = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.force_merge(&mut random, 1)?;
+  let ir2 = iw.get_reader(&mut random)?;
   let merged = get_only_leaf_reader(&ir2)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let mut multi_opt = MultiDocValues::get_sorted_set_values(&ir, "bytes")?;
   let mut single_opt = merged.get_sorted_set_doc_values("bytes")?;
@@ -566,20 +566,20 @@ fn test_sorted_numeric() -> Result<()> {
       doc.add(SortedNumericDocValuesField::new("nums", v));
     }
 
-    iw.add_document(doc)?;
+    iw.add_document(&mut random, doc)?;
 
     if random.random_range(0..17) == 0 {
-      iw.commit()?;
+      iw.commit(&mut random)?;
     }
   }
 
-  iw.commit()?;
+  iw.commit(&mut random)?;
 
-  let ir = iw.get_reader()?;
-  iw.force_merge(1)?;
-  let ir2 = iw.get_reader()?;
+  let ir = iw.get_reader(&mut random)?;
+  iw.force_merge(&mut random, 1)?;
+  let ir2 = iw.get_reader(&mut random)?;
   let merged = get_only_leaf_reader(&ir2)?;
-  iw.close()?;
+  iw.close(&mut random)?;
 
   let mut multi_opt = MultiDocValues::get_sorted_numeric_values(&ir, "nums")?;
   let mut single_opt = merged.get_sorted_numeric_doc_values("nums")?;

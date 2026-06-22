@@ -489,7 +489,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
       let mut doc = Document::new();
       doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
       if !docs_with_field.get(i as usize)? {
-        writer.add_document(doc)?;
+        writer.add_document(random, doc)?;
       } else {
         let value = norms[norm_ord];
         norm_ord += 1;
@@ -499,11 +499,11 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
           if value == 0 { "" } else { "a" },
           Store::No,
         )?);
-        writer.add_document(doc)?;
+        writer.add_document(random, doc)?;
       }
 
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
@@ -511,22 +511,22 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     let num_deletions = random.random_range(0..max_deletions);
     for _ in 0..num_deletions {
       let id = random.random_range(0..num_docs);
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
-    writer.commit()?;
+    writer.commit(random)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
     self.check_norms_vs_doc_values(&reader)?;
     reader.close()?;
 
-    writer.force_merge(1)?;
+    writer.force_merge(random, 1)?;
 
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir)?)?;
     self.check_norms_vs_doc_values(&reader)?;
     reader.close()?;
 
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -573,15 +573,15 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
           Store::No,
         )?);
       }
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
     }
 
     for id in to_delete {
-      writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
+      writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
-    writer.force_merge(1)?;
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    writer.force_merge(random, 1)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     assert!(!reader.has_deletions()?);
 
     let mut norms = MultiDocValues::get_norm_values(&reader, "content")?
@@ -596,7 +596,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
   fn test_threads<R>(&self, random: &mut R) -> Result<()>
@@ -653,15 +653,15 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
         )?);
         doc.add(NumericDocValuesField::indexed_field("dv", value));
       }
-      writer.add_document(doc)?;
+      writer.add_document(random, doc)?;
 
       if random.random_range(0..31) == 0 {
-        writer.commit()?;
+        writer.commit(random)?;
       }
     }
 
-    let reader = Arc::new(self.maybe_wrap_with_merging_reader(writer.get_reader()?)?);
-    writer.close()?;
+    let reader = Arc::new(self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?);
+    writer.close(random)?;
 
     let num_threads = TestUtil::next_int(random, 3, 30);
     thread::scope(|scope| -> Result<()> {
@@ -703,11 +703,11 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     let mut doc = Document::new();
     doc.add(TextField::from_string("indexed", "a", Store::No)?);
     for _ in 0..3 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(random, doc.clone())?;
     }
 
-    writer.force_merge(1)?;
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    writer.force_merge(random, 1)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let leaf = get_only_leaf_reader(&reader)?;
     let mut n1 = leaf
       .get_norm_values("indexed")?
@@ -732,7 +732,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(NO_MORE_DOCS, n2.next_doc()?);
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 
@@ -753,12 +753,12 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     doc.add(TextField::from_string("indexed", "a", Store::No)?);
     let empty_doc = Document::new();
     for _ in 0..3 {
-      writer.add_document(doc.clone())?;
-      writer.add_document(empty_doc.clone())?;
+      writer.add_document(random, doc.clone())?;
+      writer.add_document(random, empty_doc.clone())?;
     }
 
-    writer.force_merge(1)?;
-    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader()?)?;
+    writer.force_merge(random, 1)?;
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let leaf = get_only_leaf_reader(&reader)?;
     let mut n1 = leaf
       .get_norm_values("indexed")?
@@ -783,7 +783,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     assert_eq!(NO_MORE_DOCS, n2.next_doc()?);
 
     reader.close()?;
-    writer.close()?;
+    writer.close(random)?;
     Ok(())
   }
 }

@@ -48,21 +48,22 @@ fn test_simple() -> Result<()> {
   let num_docs = at_least(&mut random, 100);
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   for _ in 0..num_docs {
-    iw.add_document(doc(&mut random, &mut field_to_type)?)?;
+    let doc = doc(&mut random, &mut field_to_type)?;
+    iw.add_document(&mut random, doc)?;
   }
 
   {
-    let ir = iw.get_reader()?;
+    let ir = iw.get_reader(&mut random)?;
     verify_count(&ir, &mut random)?;
   }
-  iw.force_merge(1)?;
+  iw.force_merge(&mut random, 1)?;
 
   {
-    let ir = iw.get_reader()?;
+    let ir = iw.get_reader(&mut random)?;
     verify_count(&ir, &mut random)?;
   }
 
-  iw.close()?;
+  iw.close(&mut random)?;
   Ok(())
 }
 fn doc<R>(random: &mut R, field_to_type: &mut HashMap<String, FieldType>) -> Result<Document>

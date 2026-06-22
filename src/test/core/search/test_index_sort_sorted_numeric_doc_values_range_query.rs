@@ -48,7 +48,7 @@ use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::util::test_util::TestUtil;
-use rand::RngExt;
+use rand::{Rng, RngExt};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -94,7 +94,7 @@ fn test_same_hits_as_point_range_query() -> Result<()> {
         doc.add(LongPoint::new("idx", vec![value])?);
       }
 
-      iw.add_document(doc)?;
+      iw.add_document(&mut random, doc)?;
     }
 
     // TODO delete by query 未实现
@@ -103,9 +103,9 @@ fn test_same_hits_as_point_range_query() -> Result<()> {
     //     iw.delete_documents_query(LongPoint::new_range_query("idx", vec![0], vec![10])?)?;
     // }
 
-    let reader = iw.get_reader()?;
+    let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    iw.close()?;
+    iw.close(&mut random)?;
 
     for _i in 0..100 {
       let min = if random.random_bool(0.5) {
@@ -214,14 +214,14 @@ fn test_index_sort_doc_values_with_even_length_inner(
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   // even-length doc list = 6 docs
-  writer.add_document(create_document("field", -80))?;
-  writer.add_document(create_document("field", -5))?;
-  writer.add_document(create_document("field", 0))?;
-  writer.add_document(create_document("field", 0))?;
-  writer.add_document(create_document("field", 30))?;
-  writer.add_document(create_document("field", 35))?;
+  writer.add_document(&mut random, create_document("field", -80))?;
+  writer.add_document(&mut random, create_document("field", -5))?;
+  writer.add_document(&mut random, create_document("field", 0))?;
+  writer.add_document(&mut random, create_document("field", 0))?;
+  writer.add_document(&mut random, create_document("field", 30))?;
+  writer.add_document(&mut random, create_document("field", 35))?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   // Test ranges consisting of one value.
@@ -258,7 +258,7 @@ fn test_index_sort_doc_values_with_even_length_inner(
   assert_number_of_hits(&searcher, create_query("field", -80, 35), 6)?;
   assert_number_of_hits(&searcher, create_query("field", -90, 40), 6)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -299,15 +299,15 @@ fn test_index_sort_doc_values_with_odd_length_inner(reverse: bool) -> Result<()>
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  writer.add_document(create_document("field", -80))?;
-  writer.add_document(create_document("field", -5))?;
-  writer.add_document(create_document("field", 0))?;
-  writer.add_document(create_document("field", 0))?;
-  writer.add_document(create_document("field", 5))?;
-  writer.add_document(create_document("field", 30))?;
-  writer.add_document(create_document("field", 35))?;
+  writer.add_document(&mut random, create_document("field", -80))?;
+  writer.add_document(&mut random, create_document("field", -5))?;
+  writer.add_document(&mut random, create_document("field", 0))?;
+  writer.add_document(&mut random, create_document("field", 0))?;
+  writer.add_document(&mut random, create_document("field", 5))?;
+  writer.add_document(&mut random, create_document("field", 30))?;
+  writer.add_document(&mut random, create_document("field", 35))?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   // Test ranges consisting of one value.
@@ -344,7 +344,7 @@ fn test_index_sort_doc_values_with_odd_length_inner(reverse: bool) -> Result<()>
   assert_number_of_hits(&searcher, create_query("field", -80, 35), 7)?;
   assert_number_of_hits(&searcher, create_query("field", -90, 40), 7)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -367,9 +367,9 @@ fn test_index_sort_doc_values_with_single_value_inner(reverse: bool) -> Result<(
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  writer.add_document(create_document("field", 42))?;
+  writer.add_document(&mut random, create_document("field", 42))?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   assert_number_of_hits(&searcher, create_query("field", 42, 43), 1)?;
@@ -377,7 +377,7 @@ fn test_index_sort_doc_values_with_single_value_inner(reverse: bool) -> Result<(
   assert_number_of_hits(&searcher, create_query("field", 41, 41), 0)?;
   assert_number_of_hits(&searcher, create_query("field", 43, 43), 0)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -396,16 +396,16 @@ fn test_index_sort_missing_values() -> Result<()> {
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  writer.add_document(create_document("field", -80))?;
-  writer.add_document(create_document("field", -5))?;
-  writer.add_document(create_document("field", 0))?;
-  writer.add_document(create_document("field", 35))?;
+  writer.add_document(&mut random, create_document("field", -80))?;
+  writer.add_document(&mut random, create_document("field", -5))?;
+  writer.add_document(&mut random, create_document("field", 0))?;
+  writer.add_document(&mut random, create_document("field", 35))?;
 
-  writer.add_document(create_document("other-field", 0))?;
-  writer.add_document(create_document("other-field", 10))?;
-  writer.add_document(create_document("other-field", 20))?;
+  writer.add_document(&mut random, create_document("other-field", 0))?;
+  writer.add_document(&mut random, create_document("other-field", 10))?;
+  writer.add_document(&mut random, create_document("other-field", 20))?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   assert_number_of_hits(&searcher, create_query("field", -70, 0), 2)?;
@@ -414,7 +414,7 @@ fn test_index_sort_missing_values() -> Result<()> {
   assert_number_of_hits(&searcher, create_query("field", -80, 35), 4)?;
   assert_number_of_hits(&searcher, create_query("field", i64::MIN, i64::MAX), 4)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -425,9 +425,9 @@ fn test_no_documents() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(Document::new())?;
+  writer.add_document(&mut random, Document::new())?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let query = create_query("foo", 2, 4);
@@ -441,7 +441,7 @@ fn test_no_documents() -> Result<()> {
   let scorer_opt = weight.scorer(ctx0, &searcher)?;
   assert!(scorer_opt.is_none());
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -450,8 +450,8 @@ fn test_rewrite_exhaustive_range() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(Document::new())?;
-  let reader = writer.get_reader()?;
+  writer.add_document(&mut random, Document::new())?;
+  let reader = writer.get_reader(&mut random)?;
 
   let query = create_query("field", i64::MIN, i64::MAX);
   let searcher = new_searcher_with_reader(reader)?;
@@ -462,7 +462,7 @@ fn test_rewrite_exhaustive_range() -> Result<()> {
     rewritten_query
   );
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 #[test]
@@ -470,8 +470,8 @@ fn test_rewrite_fallback_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(Document::new())?;
-  let reader = writer.get_reader()?;
+  writer.add_document(&mut random, Document::new())?;
+  let reader = writer.get_reader(&mut random)?;
 
   let fallback_query = Query::Boolean(Builder::new().build());
   let query = Query::IndexSortSortedNumericDocValuesRange(
@@ -494,7 +494,7 @@ fn test_rewrite_fallback_query() -> Result<()> {
   };
 
   matches!(*range_query.fallback_query, Query::MatchNoDocs(_));
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 /// Test that the index sort optimization not activated if there is no index sort.
@@ -503,9 +503,9 @@ fn test_no_index_sort() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone());
-  writer.add_document(create_document("field", 0))?;
-  test_index_sort_optimization_deactivated(&writer)?;
-  writer.close()?;
+  writer.add_document(&mut random, create_document("field", 0))?;
+  test_index_sort_optimization_deactivated(&mut random, &writer)?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -520,9 +520,9 @@ fn test_index_sort_on_wrong_field() -> Result<()> {
   let sort = Sort::with_fields(vec![sort_field])?;
   iwc.set_index_sort(sort)?;
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
-  writer.add_document(create_document("field", 0))?;
-  test_index_sort_optimization_deactivated(&writer)?;
-  writer.close()?;
+  writer.add_document(&mut random, create_document("field", 0))?;
+  test_index_sort_optimization_deactivated(&mut random, &writer)?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -538,9 +538,9 @@ fn test_other_sort_types() -> Result<()> {
     let sort = Sort::with_fields(vec![sort_field])?;
     iwc.set_index_sort(sort)?;
     let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
-    writer.add_document(create_document("field", 0))?;
-    test_index_sort_optimization_deactivated(&writer)?;
-    writer.close()?;
+    writer.add_document(&mut random, create_document("field", 0))?;
+    test_index_sort_optimization_deactivated(&mut random, &writer)?;
+    writer.close(&mut random)?;
   }
 
   Ok(())
@@ -560,19 +560,23 @@ fn test_multi_doc_values() -> Result<()> {
   let mut doc = Document::new();
   doc.add(SortedNumericDocValuesField::new("field", 0));
   doc.add(SortedNumericDocValuesField::new("field", 10));
-  writer.add_document(doc)?;
+  writer.add_document(&mut random, doc)?;
 
-  test_index_sort_optimization_deactivated(&writer)?;
+  test_index_sort_optimization_deactivated(&mut random, &writer)?;
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
-fn test_index_sort_optimization_deactivated<D>(writer: &RandomIndexWriter<D>) -> Result<()>
+fn test_index_sort_optimization_deactivated<R, D>(
+  random: &mut R,
+  writer: &RandomIndexWriter<D>,
+) -> Result<()>
 where
+  R: Rng + ?Sized,
   D: Directory + 'static,
 {
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
   let query = create_query("field", 0, 0);
   let weight = query.create_weight(&searcher, &ScoreMode::TopScores, 1.0)?;
@@ -601,8 +605,8 @@ fn test_fallback_count() -> Result<()> {
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
   let mut doc = Document::new();
   doc.add(SortedNumericDocValuesField::new("field", 10));
-  writer.add_document(doc)?;
-  let reader = writer.get_reader()?;
+  writer.add_document(&mut random, doc)?;
+  let reader = writer.get_reader(&mut random)?;
 
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -616,7 +620,7 @@ fn test_fallback_count() -> Result<()> {
     assert_eq!(0, weight.count(ctx)?);
   }
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -657,7 +661,7 @@ fn test_compare_count() -> Result<()> {
         doc = create_sndv_and_point_document("field", value)?;
       }
 
-      writer.add_document(doc)?;
+      writer.add_document(&mut random, doc)?;
     }
 
     // TODO delete by query 未实现
@@ -669,9 +673,9 @@ fn test_compare_count() -> Result<()> {
     // }
 
     // Reader + Searcher
-    let reader = writer.get_reader()?;
+    let reader = writer.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    writer.close()?;
+    writer.close(&mut random)?;
 
     for _i in 0..100 {
       let min = if random.random_bool(0.5) {
@@ -743,17 +747,19 @@ fn test_count_boundary() -> Result<()> {
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  writer.add_document(create_sndv_and_point_document(
-    "field",
-    random.random_range(lower_value..upper_value),
-  )?)?;
-  writer.add_document(create_sndv_and_point_document(
-    "field",
-    random.random_range(lower_value..upper_value),
-  )?)?;
-  writer.add_document(create_missing_value_document()?)?;
+  let first_value = random.random_range(lower_value..upper_value);
+  writer.add_document(
+    &mut random,
+    create_sndv_and_point_document("field", first_value)?,
+  )?;
+  let second_value = random.random_range(lower_value..upper_value);
+  writer.add_document(
+    &mut random,
+    create_sndv_and_point_document("field", second_value)?,
+  )?;
+  writer.add_document(&mut random, create_missing_value_document()?)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let fallback_query = LongPoint::new_range_query("field", lower_value, upper_value)?;
@@ -774,7 +780,7 @@ fn test_count_boundary() -> Result<()> {
 
   assert_eq!(2, count);
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -849,16 +855,16 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  add_doc_with_bkd(&writer, field_name, 7, 500)?;
-  add_doc_with_bkd(&writer, field_name, 5, 600)?;
-  add_doc_with_bkd(&writer, field_name, 11, 700)?;
-  add_doc_with_bkd(&writer, field_name, 13, 800)?;
-  add_doc_with_bkd(&writer, field_name, 9, 900)?;
+  add_doc_with_bkd(&mut random, &writer, field_name, 7, 500)?;
+  add_doc_with_bkd(&mut random, &writer, field_name, 5, 600)?;
+  add_doc_with_bkd(&mut random, &writer, field_name, 11, 700)?;
+  add_doc_with_bkd(&mut random, &writer, field_name, 13, 800)?;
+  add_doc_with_bkd(&mut random, &writer, field_name, 9, 900)?;
 
   writer.flush()?;
-  writer.force_merge(1)?;
+  writer.force_merge(&mut random, 1)?;
 
-  let reader = writer.get_reader()?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
   // Both bounds exist in the dataset
   {
@@ -960,7 +966,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     }
   }
 
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
@@ -989,12 +995,12 @@ fn do_test_random_count_with_bkd(reverse: bool) -> Result<()> {
     let value = random.random_range(0..1000) as i64;
     let repeat = random.random_range(0..1000);
 
-    add_doc_with_bkd(&writer, field_name, value, repeat)?;
+    add_doc_with_bkd(&mut random, &writer, field_name, value, repeat)?;
   }
 
   writer.flush()?;
-  writer.force_merge(1)?;
-  let reader = writer.get_reader()?;
+  writer.force_merge(&mut random, 1)?;
+  let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
   for _k in 0..100 {
@@ -1019,24 +1025,26 @@ fn do_test_random_count_with_bkd(reverse: bool) -> Result<()> {
       assert_eq!(expected, actual);
     }
   }
-  writer.close()?;
+  writer.close(&mut random)?;
   Ok(())
 }
 
-fn add_doc_with_bkd<D>(
+fn add_doc_with_bkd<R, D>(
+  random: &mut R,
   index_writer: &RandomIndexWriter<D>,
   field: &str,
   value: i64,
   repeat: i32,
 ) -> Result<()>
 where
+  R: Rng + ?Sized,
   D: Directory,
 {
   for _ in 0..repeat {
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new(field, value));
     doc.add(LongPoint::new(field, vec![value])?);
-    index_writer.add_document(doc)?;
+    index_writer.add_document(random, doc)?;
   }
   Ok(())
 }
