@@ -209,7 +209,7 @@ impl DocIdsWriter {
           out.write_long(0)?;
         }
       }
-      current_word |= 1i64 << (index as u32);
+      current_word |= 1i64.wrapping_shl(index as u32);
     }
     out.write_long(current_word)?;
     debug_assert!(

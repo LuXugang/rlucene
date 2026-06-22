@@ -466,7 +466,7 @@ where
 
         if accepted {
           let i = (doc - inner_window_min) as usize;
-          self.window_matches[i >> 6] |= 1u64 << i;
+          self.window_matches[i >> 6] |= 1u64 << (i & 0x3f);
           self.window_scores[i] += top.scorer.score()? as f64;
         }
         doc = top.scorer.iterator_mut().next_doc()?;

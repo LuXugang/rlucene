@@ -239,7 +239,7 @@ pub fn do_test(iter: i32, ndocs: i32, max_tf: i32, percent_docs: f32) -> Result<
 
   let start = Instant::now();
 
-  let mut ret = 0;
+  let mut ret: i32 = 0;
   let mut tdocs = None;
   let mut docs_random = StdRng::seed_from_u64(random.random());
   for _ in 0..iter {
@@ -252,7 +252,7 @@ pub fn do_test(iter: i32, ndocs: i32, max_tf: i32, percent_docs: f32) -> Result<
     )?);
     let term_docs = tdocs.as_mut().expect("postings enum must exist");
     while term_docs.next_doc()? != NO_MORE_DOCS {
-      ret += term_docs.doc_id();
+      ret = ret.wrapping_add(term_docs.doc_id());
     }
   }
 

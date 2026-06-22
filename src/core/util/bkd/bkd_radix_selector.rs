@@ -598,7 +598,11 @@ impl BKDRadixSelector {
   {
     let bytes_per_dim = self.config.bytes_per_dim;
     let dim_offset = dim * bytes_per_dim + common_prefix_length;
-    let dim_cmp_bytes = bytes_per_dim - common_prefix_length;
+    let dim_cmp_bytes = bytes_per_dim
+      .checked_sub(common_prefix_length)
+      .ok_or_else(|| {
+        LuceneError::illegal_argument("common_prefix_length must be <= bytes_per_dim")
+      })?;
     let data_offset = self.config.packed_index_bytes_length() - dim_cmp_bytes;
     let sub_selector = RadixSelectorImpl {
       points,
@@ -650,7 +654,11 @@ impl BKDRadixSelector {
   {
     let bytes_per_dim = self.config.bytes_per_dim;
     let dim_offset = dim * bytes_per_dim + common_prefix_length;
-    let dim_cmp_bytes = bytes_per_dim - common_prefix_length;
+    let dim_cmp_bytes = bytes_per_dim
+      .checked_sub(common_prefix_length)
+      .ok_or_else(|| {
+        LuceneError::illegal_argument("common_prefix_length must be <= bytes_per_dim")
+      })?;
     let data_offset = self.config.packed_index_bytes_length() - dim_cmp_bytes;
     let max_length = self.bytes_sorted - common_prefix_length;
     let delegate = MSBRadixSorterImpl {

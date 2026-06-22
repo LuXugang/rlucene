@@ -1392,7 +1392,7 @@ fn test_stress_multi_threading() -> Result<()> {
       ));
       doc.add(BinaryDocValuesField::new(
         format!("cf{j}"),
-        to_bytes(&mut random, value * 2)?,
+        to_bytes(&mut random, value.wrapping_mul(2))?,
       ));
     }
 
@@ -1442,7 +1442,8 @@ fn test_stress_multi_threading() -> Result<()> {
                 t,
                 vec![
                   BinaryDocValuesField::new(f, to_bytes(&mut random, upd_value)?).into(),
-                  BinaryDocValuesField::new(cf, to_bytes(&mut random, upd_value * 2)?).into(),
+                  BinaryDocValuesField::new(cf, to_bytes(&mut random, upd_value.wrapping_mul(2))?)
+                    .into(),
                 ],
               )?;
 
@@ -1512,7 +1513,7 @@ fn test_stress_multi_threading() -> Result<()> {
 
           let value = get_value(&mut bdv)?;
           let control_value = get_value(&mut control)?;
-          assert_eq!(control_value, value * 2);
+          assert_eq!(control_value, value.wrapping_mul(2));
         }
       }
     }
@@ -1539,14 +1540,14 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       format!("doc{i}"),
       Store::No,
     )?);
-    let value = random.random();
+    let value = random.random::<i32>() as i64;
     doc.add(BinaryDocValuesField::new(
       "f",
       to_bytes(&mut random, value)?,
     ));
     doc.add(BinaryDocValuesField::new(
       "cf",
-      to_bytes(&mut random, value * 2)?,
+      to_bytes(&mut random, value.wrapping_mul(2))?,
     ));
     writer.add_document(doc)?;
   }
@@ -1555,12 +1556,12 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
   for _ in 0..num_gens {
     let doc_idx = random.random_range(0..num_docs);
     let t = Term::from_text("id", format!("doc{doc_idx}"));
-    let value = random.random();
+    let value = random.random::<i64>();
     writer.update_doc_values(
       t,
       vec![
         BinaryDocValuesField::new("f", to_bytes(&mut random, value)?).into(),
-        BinaryDocValuesField::new("cf", to_bytes(&mut random, value * 2)?).into(),
+        BinaryDocValuesField::new("cf", to_bytes(&mut random, value.wrapping_mul(2))?).into(),
       ],
     )?;
 
@@ -1578,7 +1579,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
         assert_eq!(j, cfbdv.next_doc()?);
         let f = get_value(&mut fbdv)?;
         let cf = get_value(&mut cfbdv)?;
-        assert_eq!(cf, f * 2);
+        assert_eq!(cf, f.wrapping_mul(2));
       }
     }
   }
@@ -1680,14 +1681,14 @@ fn test_tons_of_updates() -> Result<()> {
     }
 
     for j in 0..num_binary_fields {
-      let val = random.random();
+      let val = random.random::<i32>() as i64;
       doc.add(BinaryDocValuesField::new(
         format!("f{j}"),
         to_bytes(&mut random, val)?,
       ));
       doc.add(BinaryDocValuesField::new(
         format!("cf{j}"),
-        to_bytes(&mut random, val * 2)?,
+        to_bytes(&mut random, val.wrapping_mul(2))?,
       ));
     }
 
@@ -1706,12 +1707,16 @@ fn test_tons_of_updates() -> Result<()> {
   for _ in 0..num_updates {
     let field = random.random_range(0..num_binary_fields);
     let update_term = Term::from_text("upd", update_terms.choose(&mut random).unwrap());
-    let value = random.random();
+    let value = random.random::<i32>() as i64;
     writer.update_doc_values(
       update_term,
       vec![
         BinaryDocValuesField::new(format!("f{field}"), to_bytes(&mut random, value)?).into(),
-        BinaryDocValuesField::new(format!("cf{field}"), to_bytes(&mut random, value * 2)?).into(),
+        BinaryDocValuesField::new(
+          format!("cf{field}"),
+          to_bytes(&mut random, value.wrapping_mul(2))?,
+        )
+        .into(),
       ],
     )?;
   }
@@ -1734,7 +1739,11 @@ fn test_tons_of_updates() -> Result<()> {
 
         let v_f = get_value(&mut f)?;
         let v_cf = get_value(&mut cf)?;
-        assert_eq!(v_cf, v_f * 2, "field=f{i}, doc={j}, cf={v_cf}, f={v_f}");
+        assert_eq!(
+          v_cf,
+          v_f.wrapping_mul(2),
+          "field=f{i}, doc={j}, cf={v_cf}, f={v_f}"
+        );
       }
     }
   }

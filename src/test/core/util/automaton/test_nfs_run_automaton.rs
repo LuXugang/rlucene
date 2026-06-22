@@ -17,10 +17,11 @@
 use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::index::directory_reader;
 use crate::core::index::term::Term;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::util::automation::automata::Automata;
@@ -97,7 +98,7 @@ fn test_random_access_transition() -> Result<()> {
   let mut run_automaton1 = NFARunAutomaton::new(nfa.clone());
   let mut run_automaton2 = NFARunAutomaton::new(nfa);
 
-  let mut visited = BTreeSet::new();
+  let mut visited = HashSet::new();
   assert_random_access_transition(
     &mut random,
     &mut run_automaton1,
@@ -114,7 +115,7 @@ fn assert_random_access_transition<R>(
   automaton1: &mut NFARunAutomaton,
   automaton2: &mut NFARunAutomaton,
   state: i32,
-  visited: &mut BTreeSet<i32>,
+  visited: &mut HashSet<i32>,
 ) -> Result<()>
 where
   R: Rng + ?Sized,
@@ -151,10 +152,10 @@ fn test_random_automaton_query() -> Result<()> {
   let automaton_num: usize = 50;
 
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory);
+  let writer = RandomIndexWriter::new(&mut random, directory.clone());
 
-  let mut vocab = BTreeSet::new();
-  let mut per_doc_vocab = BTreeSet::new();
+  let mut vocab = HashSet::new();
+  let mut per_doc_vocab = HashSet::new();
   let mut field_to_type = HashMap::new();
   for _ in 0..doc_num {
     per_doc_vocab.clear();
@@ -169,13 +170,9 @@ fn test_random_automaton_query() -> Result<()> {
       vocab.insert(s);
     }
 
-    let mut text = String::new();
-    for t in per_doc_vocab.iter() {
-      if !text.is_empty() {
-        text.push(' ');
-      }
-      text.push_str(t);
-    }
+    let text = per_doc_vocab
+      .iter()
+      .fold(String::new(), |s1, s2| s1 + " " + s2);
 
     let mut doc = Document::new();
     doc.add(new_text_field(
@@ -190,10 +187,10 @@ fn test_random_automaton_query() -> Result<()> {
 
   writer.commit(&mut random)?;
 
-  let reader = writer.get_reader(&mut random)?;
+  let reader = directory_reader::open(directory.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let mut foreign_vocab = BTreeSet::new();
+  let mut foreign_vocab = HashSet::new();
   while foreign_vocab.len() < vocab.len() {
     let mut s = TestUtil::random_unicode_string(&mut random);
     while s.is_empty() {
@@ -205,7 +202,7 @@ fn test_random_automaton_query() -> Result<()> {
   let vocab_list: Vec<String> = vocab.into_iter().collect();
   let foreign_vocab_list: Vec<String> = foreign_vocab.into_iter().collect();
 
-  let mut per_query_vocab = BTreeSet::new();
+  let mut per_query_vocab = HashSet::new();
 
   let mut i = 0;
   while i < automaton_num {
@@ -233,7 +230,6 @@ fn test_random_automaton_query() -> Result<()> {
     let a = a.unwrap();
 
     if a.is_deterministic() {
-      i -= 1;
       continue;
     }
 

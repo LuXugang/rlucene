@@ -562,15 +562,21 @@ impl CheckHits {
       loop {
         let doc_id = s2.doc_id()?;
         let (advance, target) = if random.random_bool(0.5) {
-          (false, doc_id + 1)
+          (false, doc_id.wrapping_add(1))
         } else {
-          let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc_id);
-          (true, s2.doc_id()? + delta)
+          let delta = std::cmp::min(
+            1 + random.random_range(0..512),
+            NO_MORE_DOCS.wrapping_sub(doc_id),
+          );
+          (true, s2.doc_id()?.wrapping_add(delta))
         };
 
         if target > upto && random.random_bool(0.5) {
-          let delta = std::cmp::min(random.random_range(0..512), NO_MORE_DOCS - target);
-          upto = target + delta;
+          let delta = std::cmp::min(
+            random.random_range(0..512),
+            NO_MORE_DOCS.wrapping_sub(target),
+          );
+          upto = target.wrapping_add(delta);
           let m = s2.advance_shallow(target)?;
           assert!(m >= target);
           max_score = s2.get_max_score(upto)?;

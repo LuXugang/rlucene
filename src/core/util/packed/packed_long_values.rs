@@ -145,7 +145,9 @@ impl PackedLongValues {
       None => 0,
     };
 
-    self.values[block as usize].get(element as usize) + value
+    self.values[block as usize]
+      .get(element as usize)
+      .wrapping_add(value)
   }
   pub fn iterator(&self) -> PackedLongValuesIterator {
     PackedLongValuesIterator::new(self.clone())

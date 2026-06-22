@@ -54,7 +54,7 @@ impl ForDeltaUtil {
   fn prefix_sum_of_ones(arr: &mut [i32], base: i32) {
     arr.copy_from(&IDENTITY_PLUS_ONE, 0);
     for v in arr.iter_mut() {
-      *v += base;
+      *v = v.wrapping_add(base);
     }
   }
   fn prefix_sum8(arr: &mut [i32], base: i32) {
@@ -66,15 +66,17 @@ impl ForDeltaUtil {
     ForUtil::expand8(arr);
 
     let l0 = base;
-    let l1 = l0 + arr[Self::ONE_BLOCK_SIZE_FOURTH - 1];
-    let l2 = l1 + arr[Self::TWO_BLOCK_SIZE_FOURTHS - 1];
-    let l3 = l2 + arr[Self::THREE_BLOCK_SIZE_FOURTHS - 1];
+    let l1 = l0.wrapping_add(arr[Self::ONE_BLOCK_SIZE_FOURTH - 1]);
+    let l2 = l1.wrapping_add(arr[Self::TWO_BLOCK_SIZE_FOURTHS - 1]);
+    let l3 = l2.wrapping_add(arr[Self::THREE_BLOCK_SIZE_FOURTHS - 1]);
 
     for i in 0..Self::ONE_BLOCK_SIZE_FOURTH {
-      arr[i] += l0;
-      arr[Self::ONE_BLOCK_SIZE_FOURTH + i] += l1;
-      arr[Self::TWO_BLOCK_SIZE_FOURTHS + i] += l2;
-      arr[Self::THREE_BLOCK_SIZE_FOURTHS + i] += l3;
+      arr[i] = arr[i].wrapping_add(l0);
+      arr[Self::ONE_BLOCK_SIZE_FOURTH + i] = arr[Self::ONE_BLOCK_SIZE_FOURTH + i].wrapping_add(l1);
+      arr[Self::TWO_BLOCK_SIZE_FOURTHS + i] =
+        arr[Self::TWO_BLOCK_SIZE_FOURTHS + i].wrapping_add(l2);
+      arr[Self::THREE_BLOCK_SIZE_FOURTHS + i] =
+        arr[Self::THREE_BLOCK_SIZE_FOURTHS + i].wrapping_add(l3);
     }
   }
 
@@ -87,119 +89,119 @@ impl ForDeltaUtil {
     ForUtil::expand16(arr);
 
     let l0 = base;
-    let l1 = l0 + arr[Self::HALF_BLOCK_SIZE - 1];
+    let l1 = l0.wrapping_add(arr[Self::HALF_BLOCK_SIZE - 1]);
 
     for i in 0..Self::HALF_BLOCK_SIZE {
-      arr[i] += l0;
-      arr[Self::HALF_BLOCK_SIZE + i] += l1;
+      arr[i] = arr[i].wrapping_add(l0);
+      arr[Self::HALF_BLOCK_SIZE + i] = arr[Self::HALF_BLOCK_SIZE + i].wrapping_add(l1);
     }
   }
 
   fn prefix_sum32(arr: &mut [i32], base: i32) {
-    arr[0] += base;
+    arr[0] = arr[0].wrapping_add(base);
     for i in 1..Self::BLOCK_SIZE {
-      arr[i] += arr[i - 1];
+      arr[i] = arr[i].wrapping_add(arr[i - 1]);
     }
   }
   // For some reason unrolling seems to help
   fn inner_prefix_sum8(arr: &mut [i32]) {
-    arr[1] += arr[0];
-    arr[2] += arr[1];
-    arr[3] += arr[2];
-    arr[4] += arr[3];
-    arr[5] += arr[4];
-    arr[6] += arr[5];
-    arr[7] += arr[6];
-    arr[8] += arr[7];
-    arr[9] += arr[8];
-    arr[10] += arr[9];
-    arr[11] += arr[10];
-    arr[12] += arr[11];
-    arr[13] += arr[12];
-    arr[14] += arr[13];
-    arr[15] += arr[14];
-    arr[16] += arr[15];
-    arr[17] += arr[16];
-    arr[18] += arr[17];
-    arr[19] += arr[18];
-    arr[20] += arr[19];
-    arr[21] += arr[20];
-    arr[22] += arr[21];
-    arr[23] += arr[22];
-    arr[24] += arr[23];
-    arr[25] += arr[24];
-    arr[26] += arr[25];
-    arr[27] += arr[26];
-    arr[28] += arr[27];
-    arr[29] += arr[28];
-    arr[30] += arr[29];
-    arr[31] += arr[30];
+    arr[1] = arr[1].wrapping_add(arr[0]);
+    arr[2] = arr[2].wrapping_add(arr[1]);
+    arr[3] = arr[3].wrapping_add(arr[2]);
+    arr[4] = arr[4].wrapping_add(arr[3]);
+    arr[5] = arr[5].wrapping_add(arr[4]);
+    arr[6] = arr[6].wrapping_add(arr[5]);
+    arr[7] = arr[7].wrapping_add(arr[6]);
+    arr[8] = arr[8].wrapping_add(arr[7]);
+    arr[9] = arr[9].wrapping_add(arr[8]);
+    arr[10] = arr[10].wrapping_add(arr[9]);
+    arr[11] = arr[11].wrapping_add(arr[10]);
+    arr[12] = arr[12].wrapping_add(arr[11]);
+    arr[13] = arr[13].wrapping_add(arr[12]);
+    arr[14] = arr[14].wrapping_add(arr[13]);
+    arr[15] = arr[15].wrapping_add(arr[14]);
+    arr[16] = arr[16].wrapping_add(arr[15]);
+    arr[17] = arr[17].wrapping_add(arr[16]);
+    arr[18] = arr[18].wrapping_add(arr[17]);
+    arr[19] = arr[19].wrapping_add(arr[18]);
+    arr[20] = arr[20].wrapping_add(arr[19]);
+    arr[21] = arr[21].wrapping_add(arr[20]);
+    arr[22] = arr[22].wrapping_add(arr[21]);
+    arr[23] = arr[23].wrapping_add(arr[22]);
+    arr[24] = arr[24].wrapping_add(arr[23]);
+    arr[25] = arr[25].wrapping_add(arr[24]);
+    arr[26] = arr[26].wrapping_add(arr[25]);
+    arr[27] = arr[27].wrapping_add(arr[26]);
+    arr[28] = arr[28].wrapping_add(arr[27]);
+    arr[29] = arr[29].wrapping_add(arr[28]);
+    arr[30] = arr[30].wrapping_add(arr[29]);
+    arr[31] = arr[31].wrapping_add(arr[30]);
   }
   // For some reason unrolling seems to help
   fn inner_prefix_sum16(arr: &mut [i32]) {
-    arr[1] += arr[0];
-    arr[2] += arr[1];
-    arr[3] += arr[2];
-    arr[4] += arr[3];
-    arr[5] += arr[4];
-    arr[6] += arr[5];
-    arr[7] += arr[6];
-    arr[8] += arr[7];
-    arr[9] += arr[8];
-    arr[10] += arr[9];
-    arr[11] += arr[10];
-    arr[12] += arr[11];
-    arr[13] += arr[12];
-    arr[14] += arr[13];
-    arr[15] += arr[14];
-    arr[16] += arr[15];
-    arr[17] += arr[16];
-    arr[18] += arr[17];
-    arr[19] += arr[18];
-    arr[20] += arr[19];
-    arr[21] += arr[20];
-    arr[22] += arr[21];
-    arr[23] += arr[22];
-    arr[24] += arr[23];
-    arr[25] += arr[24];
-    arr[26] += arr[25];
-    arr[27] += arr[26];
-    arr[28] += arr[27];
-    arr[29] += arr[28];
-    arr[30] += arr[29];
-    arr[31] += arr[30];
-    arr[32] += arr[31];
-    arr[33] += arr[32];
-    arr[34] += arr[33];
-    arr[35] += arr[34];
-    arr[36] += arr[35];
-    arr[37] += arr[36];
-    arr[38] += arr[37];
-    arr[39] += arr[38];
-    arr[40] += arr[39];
-    arr[41] += arr[40];
-    arr[42] += arr[41];
-    arr[43] += arr[42];
-    arr[44] += arr[43];
-    arr[45] += arr[44];
-    arr[46] += arr[45];
-    arr[47] += arr[46];
-    arr[48] += arr[47];
-    arr[49] += arr[48];
-    arr[50] += arr[49];
-    arr[51] += arr[50];
-    arr[52] += arr[51];
-    arr[53] += arr[52];
-    arr[54] += arr[53];
-    arr[55] += arr[54];
-    arr[56] += arr[55];
-    arr[57] += arr[56];
-    arr[58] += arr[57];
-    arr[59] += arr[58];
-    arr[60] += arr[59];
-    arr[61] += arr[60];
-    arr[62] += arr[61];
-    arr[63] += arr[62];
+    arr[1] = arr[1].wrapping_add(arr[0]);
+    arr[2] = arr[2].wrapping_add(arr[1]);
+    arr[3] = arr[3].wrapping_add(arr[2]);
+    arr[4] = arr[4].wrapping_add(arr[3]);
+    arr[5] = arr[5].wrapping_add(arr[4]);
+    arr[6] = arr[6].wrapping_add(arr[5]);
+    arr[7] = arr[7].wrapping_add(arr[6]);
+    arr[8] = arr[8].wrapping_add(arr[7]);
+    arr[9] = arr[9].wrapping_add(arr[8]);
+    arr[10] = arr[10].wrapping_add(arr[9]);
+    arr[11] = arr[11].wrapping_add(arr[10]);
+    arr[12] = arr[12].wrapping_add(arr[11]);
+    arr[13] = arr[13].wrapping_add(arr[12]);
+    arr[14] = arr[14].wrapping_add(arr[13]);
+    arr[15] = arr[15].wrapping_add(arr[14]);
+    arr[16] = arr[16].wrapping_add(arr[15]);
+    arr[17] = arr[17].wrapping_add(arr[16]);
+    arr[18] = arr[18].wrapping_add(arr[17]);
+    arr[19] = arr[19].wrapping_add(arr[18]);
+    arr[20] = arr[20].wrapping_add(arr[19]);
+    arr[21] = arr[21].wrapping_add(arr[20]);
+    arr[22] = arr[22].wrapping_add(arr[21]);
+    arr[23] = arr[23].wrapping_add(arr[22]);
+    arr[24] = arr[24].wrapping_add(arr[23]);
+    arr[25] = arr[25].wrapping_add(arr[24]);
+    arr[26] = arr[26].wrapping_add(arr[25]);
+    arr[27] = arr[27].wrapping_add(arr[26]);
+    arr[28] = arr[28].wrapping_add(arr[27]);
+    arr[29] = arr[29].wrapping_add(arr[28]);
+    arr[30] = arr[30].wrapping_add(arr[29]);
+    arr[31] = arr[31].wrapping_add(arr[30]);
+    arr[32] = arr[32].wrapping_add(arr[31]);
+    arr[33] = arr[33].wrapping_add(arr[32]);
+    arr[34] = arr[34].wrapping_add(arr[33]);
+    arr[35] = arr[35].wrapping_add(arr[34]);
+    arr[36] = arr[36].wrapping_add(arr[35]);
+    arr[37] = arr[37].wrapping_add(arr[36]);
+    arr[38] = arr[38].wrapping_add(arr[37]);
+    arr[39] = arr[39].wrapping_add(arr[38]);
+    arr[40] = arr[40].wrapping_add(arr[39]);
+    arr[41] = arr[41].wrapping_add(arr[40]);
+    arr[42] = arr[42].wrapping_add(arr[41]);
+    arr[43] = arr[43].wrapping_add(arr[42]);
+    arr[44] = arr[44].wrapping_add(arr[43]);
+    arr[45] = arr[45].wrapping_add(arr[44]);
+    arr[46] = arr[46].wrapping_add(arr[45]);
+    arr[47] = arr[47].wrapping_add(arr[46]);
+    arr[48] = arr[48].wrapping_add(arr[47]);
+    arr[49] = arr[49].wrapping_add(arr[48]);
+    arr[50] = arr[50].wrapping_add(arr[49]);
+    arr[51] = arr[51].wrapping_add(arr[50]);
+    arr[52] = arr[52].wrapping_add(arr[51]);
+    arr[53] = arr[53].wrapping_add(arr[52]);
+    arr[54] = arr[54].wrapping_add(arr[53]);
+    arr[55] = arr[55].wrapping_add(arr[54]);
+    arr[56] = arr[56].wrapping_add(arr[55]);
+    arr[57] = arr[57].wrapping_add(arr[56]);
+    arr[58] = arr[58].wrapping_add(arr[57]);
+    arr[59] = arr[59].wrapping_add(arr[58]);
+    arr[60] = arr[60].wrapping_add(arr[59]);
+    arr[61] = arr[61].wrapping_add(arr[60]);
+    arr[62] = arr[62].wrapping_add(arr[61]);
+    arr[63] = arr[63].wrapping_add(arr[62]);
   }
   /// Encode deltas of a strictly monotonically increasing sequence of
   /// integers. The provided ints are expected to be deltas between

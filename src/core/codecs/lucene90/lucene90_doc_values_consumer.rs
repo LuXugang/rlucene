@@ -298,7 +298,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             // computation for them
             gcd = 1;
           } else {
-            gcd = MathUtil::gcd(gcd, v - first_value);
+            gcd = MathUtil::gcd(gcd, v.wrapping_sub(first_value));
           }
         }
 
@@ -388,7 +388,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         .map(|set| {
           set.len() > 1
             && unsigned_bits_required(set.len() as i64 - 1)
-              < unsigned_bits_required((max - min) / gcd)
+              < unsigned_bits_required(max.wrapping_sub(min) / gcd)
         })
         .unwrap_or(false);
       if use_unique_encoding {
@@ -421,8 +421,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             .meta
             .write_int(-2 - Lucene90DocValuesFormat::NUMERIC_BLOCK_SHIFT)?;
         } else {
-          num_bits_per_value = unsigned_bits_required((max - min) / gcd);
-          if gcd == 1 && min > 0 && unsigned_bits_required(max) == unsigned_bits_required(max - min)
+          num_bits_per_value = unsigned_bits_required(max.wrapping_sub(min) / gcd);
+          if gcd == 1
+            && min > 0
+            && unsigned_bits_required(max) == unsigned_bits_required(max.wrapping_sub(min))
           {
             min = 0;
           }
@@ -480,7 +482,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         let encoded = if let Some(map) = &encode {
           *map.get(&v).unwrap_or(&0) as i64
         } else {
-          (v - min) / gcd
+          v.wrapping_sub(min) / gcd
         };
         writer.add(encoded)?;
       }
@@ -550,7 +552,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     let mut max = values[0];
 
     for &v in &values[1..] {
-      debug_assert_eq!((v - min).rem_euclid(gcd), 0);
+      debug_assert_eq!(v.wrapping_sub(min).rem_euclid(gcd), 0);
       min = min.min(v);
       max = max.max(v);
     }
@@ -559,14 +561,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       self.data.write_byte(0)?;
       self.data.write_long(min)?;
     } else {
-      let bits_per_value = unsigned_bits_required((max - min) / gcd);
+      let bits_per_value = unsigned_bits_required(max.wrapping_sub(min) / gcd);
 
       buffer.reset();
       debug_assert_eq!(buffer.size(), 0);
 
       let mut w = DirectWriter::get_instance(buffer, length as i64, bits_per_value)?;
       for &v in values {
-        w.add((v - min) / gcd)?;
+        w.add(v.wrapping_sub(min) / gcd)?;
       }
       w.finish()?;
 
@@ -1130,8 +1132,10 @@ impl MinMaxTracker {
   /// Update the required space
   pub fn finish(&mut self) {
     if self.max > self.min {
-      let bits = unsigned_bits_required(self.max - self.min);
-      self.space_in_bits += bits as i64 * self.num_values;
+      let bits = unsigned_bits_required(self.max.wrapping_sub(self.min));
+      self.space_in_bits = self
+        .space_in_bits
+        .wrapping_add((bits as i64).wrapping_mul(self.num_values));
     }
   }
 

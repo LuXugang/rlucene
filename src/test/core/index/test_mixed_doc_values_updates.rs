@@ -223,7 +223,10 @@ fn test_stress_multi_threading() -> Result<()> {
         format!("f{j}"),
         to_bytes(&mut random, value)?,
       ));
-      doc.add(NumericDocValuesField::new(format!("cf{j}"), value * 2));
+      doc.add(NumericDocValuesField::new(
+        format!("cf{j}"),
+        value.wrapping_mul(2),
+      ));
     }
     writer.add_document(doc)?;
   }
@@ -262,7 +265,7 @@ fn test_stress_multi_threading() -> Result<()> {
                 t,
                 vec![
                   BinaryDocValuesField::new(f, to_bytes(&mut random, upd_value)?).into(),
-                  NumericDocValuesField::new(cf, upd_value * 2).into(),
+                  NumericDocValuesField::new(cf, upd_value.wrapping_mul(2)).into(),
                 ],
               )?;
 
@@ -328,7 +331,7 @@ fn test_stress_multi_threading() -> Result<()> {
           assert_eq!(j, control.advance(j)?);
           let ctrl_value = control.long_value()?;
           assert_eq!(j, bdv.advance(j)?);
-          let bdv_value = get_value(&mut bdv)? * 2;
+          let bdv_value = get_value(&mut bdv)?.wrapping_mul(2);
           assert_eq!(ctrl_value, bdv_value);
         }
       }
@@ -360,7 +363,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       "f",
       to_bytes(&mut random, value)?,
     ));
-    doc.add(NumericDocValuesField::new("cf", value * 2));
+    doc.add(NumericDocValuesField::new("cf", value.wrapping_mul(2)));
     writer.add_document(doc)?;
   }
 
@@ -371,7 +374,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
     let value = random.random::<i64>();
     let updates = vec![
       BinaryDocValuesField::new("f", to_bytes(&mut random, value)?).into(),
-      NumericDocValuesField::new("cf", value * 2).into(),
+      NumericDocValuesField::new("cf", value.wrapping_mul(2)).into(),
     ];
     if random.random_bool(0.5) {
       do_update(t, &writer, updates)?;
@@ -388,7 +391,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       for j in 0..r.max_doc()? {
         assert_eq!(j, cfndv.next_doc()?);
         assert_eq!(j, fbdv.next_doc()?);
-        assert_eq!(cfndv.long_value()?, get_value(&mut fbdv)? * 2);
+        assert_eq!(cfndv.long_value()?, get_value(&mut fbdv)?.wrapping_mul(2));
       }
     }
   }
@@ -436,7 +439,10 @@ fn test_tons_of_updates() -> Result<()> {
         format!("f{j}"),
         to_bytes(&mut random, val)?,
       ));
-      doc.add(NumericDocValuesField::new(format!("cf{j}"), val * 2));
+      doc.add(NumericDocValuesField::new(
+        format!("cf{j}"),
+        val.wrapping_mul(2),
+      ));
     }
     writer.add_document(doc)?;
   }
@@ -457,7 +463,7 @@ fn test_tons_of_updates() -> Result<()> {
       update_term,
       vec![
         BinaryDocValuesField::new(format!("f{field}"), to_bytes(&mut random, value)?).into(),
-        NumericDocValuesField::new(format!("cf{field}"), value * 2).into(),
+        NumericDocValuesField::new(format!("cf{field}"), value.wrapping_mul(2)).into(),
       ],
     )?;
   }
@@ -474,7 +480,7 @@ fn test_tons_of_updates() -> Result<()> {
       for j in 0..r.max_doc()? {
         assert_eq!(j, cf.next_doc()?);
         assert_eq!(j, f.next_doc()?);
-        assert_eq!(cf.long_value()?, get_value(&mut f)? * 2);
+        assert_eq!(cf.long_value()?, get_value(&mut f)?.wrapping_mul(2));
       }
     }
   }

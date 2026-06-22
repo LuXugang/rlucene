@@ -39,8 +39,12 @@ impl DisiPriorityQueue {
     node + 1
   }
 
-  pub(crate) fn parent_node(node: usize) -> usize {
-    (node - 1) >> 1
+  pub(crate) fn parent_node(node: usize) -> Option<usize> {
+    if node == 0 {
+      None
+    } else {
+      Some((node - 1) >> 1)
+    }
   }
 
   pub fn size(&self) -> usize {
@@ -244,12 +248,12 @@ impl DisiPriorityQueue {
     let node_index = self.heap[i].expect("node missing");
     let node_doc = wrappers[node_index].doc;
 
-    let mut j = Self::parent_node(i);
-
-    while i > 0 && node_doc < wrappers[self.heap[j].expect("parent missing")].doc {
+    while let Some(j) = Self::parent_node(i) {
+      if node_doc >= wrappers[self.heap[j].expect("parent missing")].doc {
+        break;
+      }
       self.heap[i] = self.heap[j];
       i = j;
-      j = Self::parent_node(j);
     }
 
     self.heap[i] = Some(node_index);

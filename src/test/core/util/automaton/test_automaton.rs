@@ -683,10 +683,10 @@ fn test_builder_random() -> Result<()> {
     }
 
     let v1 = Operations::remove_dead_states(&a)?;
-    let a1 = Operations::determinize(&v1, usize::MAX)?;
+    let a1 = Operations::determinize(&v1, i32::MAX as usize)?;
     let b = builder.finish()?;
     let v2 = Operations::remove_dead_states(&b)?;
-    let a2 = Operations::determinize(&v2, usize::MAX)?;
+    let a2 = Operations::determinize(&v2, i32::MAX as usize)?;
     assert!(AutomatonTestUtil::same_language(&a1, &a2)?);
   }
 

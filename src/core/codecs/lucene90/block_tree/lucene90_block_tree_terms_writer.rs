@@ -681,7 +681,7 @@ where
   // term/sub-block starting with 't'.  We use this to figure out when
   // to write a new block:
   last_term: BytesRefBuilder<Vec<u8>>,
-  prefix_starts: Vec<usize>,
+  prefix_starts: Vec<i32>,
   // Pending stack of terms and blocks.  As terms arrive (in sorted order)
   // we append to this stack, and once the top of the stack has enough
   // terms starting with a common prefix, we write a new block with
@@ -1214,9 +1214,9 @@ where
     }
 
     for i in (prefix_length as usize..last_bytes.length).rev() {
-      let prefix_top_size = self.pending.len() - self.prefix_starts[i];
-      if prefix_top_size >= self.min_items_in_block as usize {
-        self.write_blocks(i + 1, prefix_top_size)?;
+      let prefix_top_size = self.pending.len() as i32 - self.prefix_starts[i];
+      if prefix_top_size >= self.min_items_in_block {
+        self.write_blocks(i + 1, prefix_top_size as usize)?;
         self.prefix_starts[i] -= prefix_top_size - 1;
       }
     }
@@ -1226,7 +1226,7 @@ where
     }
 
     for i in prefix_length as usize..text.length {
-      self.prefix_starts[i] = self.pending.len();
+      self.prefix_starts[i] = self.pending.len() as i32;
     }
 
     self.last_term.copy_bytes_from_ref(text);

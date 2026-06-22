@@ -270,7 +270,7 @@ impl HnswUtil {
     );
 
     let mut i = index >> 6;
-    let mut word = !(barray[i] >> index);
+    let mut word = !barray[i].wrapping_shr(index as u32);
     let mut next: usize = NO_MORE_DOCS as usize;
     if word != 0 {
       next = index + word.trailing_zeros() as usize;

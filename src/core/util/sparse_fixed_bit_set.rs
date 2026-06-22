@@ -182,16 +182,15 @@ impl SparseFixedBitSet {
   }
   /// Return the last document that occurs on or before the provided block
   /// index.
-  fn last_doc(&self, i4096: usize) -> Option<usize> {
+  fn last_doc(&self, mut i4096: isize) -> Option<usize> {
     let mut index;
-    let mut i4096: i32 = i4096 as i32;
     while i4096 >= 0 {
       index = self.indices[i4096 as usize];
       if index != 0 {
         let i64 = 63 - index.leading_zeros() as usize;
         let bits = self.bits[i4096 as usize].as_ref().unwrap()[index.count_ones() as usize - 1];
         return Option::from(
-          ((i4096 as usize) << 12) | (i64 << 6) | (63 - bits.count_ones() as usize),
+          ((i4096 as usize) << 12) | (i64 << 6) | (63 - bits.leading_zeros() as usize),
         );
       }
       i4096 -= 1;
@@ -223,7 +222,7 @@ impl SparseFixedBitSet {
       }
       o += 1;
     }
-    let index_bits = (index >> i64) >> 1;
+    let index_bits = (index >> (i64 % 64)) >> 1;
     if index_bits == 0 {
       // no more bits are set in the current block of 4096 bits, go to the
       // next one
@@ -283,22 +282,24 @@ impl SparseFixedBitSet {
     };
     // we iterate backwards in order to not override data we might need on
     // the next iteration if the array is reused
-    let mut i = new_index.count_ones();
-    let mut new0 = new_index.count_ones() - 1;
+    let new_index = new_index as u64;
+    let mut i = new_index.leading_zeros() as usize;
+    let mut new_o = new_index.count_ones() as isize - 1;
     while i < 64 {
       // bitIndex is the index of a bit which is set in newIndex and newO
       // is the number of 1 bits on its right
       let bit_index = 63 - i;
-      debug_assert!(new0 == (new_index as u64 & (1_u64 << (bit_index % 64))).count_ones());
-      new_bits[new0 as usize] = (long_bits(
-        current_index,
-        current_bits.as_ref().unwrap(),
-        bit_index as usize,
-      ) | long_bits(index, bits, bit_index as usize)) as u64;
-      i += 1 + (new_index << (i + 1)).count_ones();
-      new0 -= 1;
+      debug_assert_eq!(
+        new_o as u32,
+        (new_index & (1_u64.wrapping_shl(bit_index as u32).wrapping_sub(1))).count_ones()
+      );
+      new_bits[new_o as usize] =
+        (long_bits(current_index, current_bits.as_ref().unwrap(), bit_index)
+          | long_bits(index, bits, bit_index)) as u64;
+      i += 1 + new_index.wrapping_shl((i + 1) as u32).leading_zeros() as usize;
+      new_o -= 1;
     }
-    self.indices[i4096] = new_index;
+    self.indices[i4096] = new_index as usize;
     self.bits[i4096] = Some(new_bits);
     self.non_zero_long_count += non_zero_long_count - (current_index & index).count_ones() as usize;
   }
@@ -370,8 +371,8 @@ impl SparseFixedBitSet {
 }
 
 fn mask(from: usize, to: usize) -> usize {
-  let shift = ((to - from) % 64 + 64) % 64;
-  (((1_u64 << shift << 1) - 1) << (from % 64)) as usize
+  let shift = (to as isize - from as isize).rem_euclid(64) as u32;
+  ((1_u64 << shift << 1).wrapping_sub(1) << (from % 64)) as usize
 }
 
 fn oversize(s: i32) -> i32 {
@@ -562,7 +563,7 @@ impl BitSet for SparseFixedBitSet {
       // There is at least one bit that is set in the same long, check if
       // there is one bit that is set that is lower than i
       debug_assert!(bit_array.is_some());
-      let bits = bit_array.unwrap()[o] & ((1_u64 << (i % 64) << 1) - 1);
+      let bits = bit_array.unwrap()[o] & (1_u64 << (i % 64) << 1).wrapping_sub(1);
       if bits != 0 {
         return Option::from((i64 << 6) | (63 - bits.leading_zeros()) as usize);
       }
@@ -570,7 +571,7 @@ impl BitSet for SparseFixedBitSet {
     if index_bits == 0 {
       // no more bits are set in this block, go find the last bit in the
       // previous block
-      return self.last_doc(i4096 - 1);
+      return self.last_doc(i4096 as isize - 1);
     }
     // go to the previous long
     i64 = 63 - index_bits.leading_zeros() as usize;

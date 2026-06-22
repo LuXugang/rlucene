@@ -333,6 +333,6 @@ impl BitUtil {
   /// Return true if, and only if, the provided integer - treated as an unsigned integer - is either
   /// 0 or a power of two.
   pub fn is_zero_or_power_of_two(x: i32) -> bool {
-    (x & (x - 1)) == 0
+    (x & x.wrapping_sub(1)) == 0
   }
 }

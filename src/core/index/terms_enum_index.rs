@@ -217,5 +217,5 @@ pub fn prefix8_to_comparable_unsigned_long(term: &BytesRef<Vec<u8>>) -> u64 {
   }
 
   let pad_bits = (BitUtil::LONG_BYTES - len) << 3;
-  l << pad_bits
+  l.wrapping_shl(pad_bits as u32)
 }

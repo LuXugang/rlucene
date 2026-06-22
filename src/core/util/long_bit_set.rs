@@ -63,7 +63,11 @@ impl LongBitSet {
         num_bits
       )));
     }
-    Ok((((num_bits - 1) >> 6) + 1) as i32)
+    if num_bits == 0 {
+      Ok(0)
+    } else {
+      Ok((((num_bits - 1) >> 6) + 1) as i32)
+    }
   }
   /// Creates a new [`LongBitSet`]. The internally allocated `[i64]` will be
   /// exactly the size needed to accommodate the `numBits` specified.
@@ -122,7 +126,7 @@ impl LongBitSet {
       return true;
     }
 
-    let mask = !0i64 << self.num_bits;
+    let mask = (!0i64).wrapping_shl(self.num_bits as u32);
     (self.bits[self.num_words as usize - 1] & mask) == 0
   }
   /// Returns the number of bits stored in this bitset.
@@ -160,7 +164,7 @@ impl LongBitSet {
     // signed shift will keep a negative index and force an
     // array-index-out-of-bounds-error, removing the need for an
     // explicit check.
-    let bitmask = 1i64 << index;
+    let bitmask = 1i64.wrapping_shl(index as u32);
     (self.bits[i] & bitmask) != 0
   }
 
@@ -172,7 +176,7 @@ impl LongBitSet {
       self.num_bits
     );
     let word_num = index >> 6;
-    let bitmask = 1i64 << index;
+    let bitmask = 1i64.wrapping_shl(index as u32);
     self.bits[word_num] |= bitmask;
   }
 
@@ -185,7 +189,7 @@ impl LongBitSet {
       self.num_bits
     );
     let word_num = index >> 6;
-    let bitmask = 1i64 << index;
+    let bitmask = 1i64.wrapping_shl(index as u32);
     let val = (self.bits[word_num] & bitmask) != 0;
     self.bits[word_num] |= bitmask;
     val
@@ -198,7 +202,7 @@ impl LongBitSet {
       self.num_bits
     );
     let word_num = index >> 6;
-    let bitmask = 1i64 << index;
+    let bitmask = 1i64.wrapping_shl(index as u32);
     self.bits[word_num] &= !bitmask;
   }
 
@@ -211,7 +215,7 @@ impl LongBitSet {
       self.num_bits
     );
     let word_num = index >> 6;
-    let bitmask = 1i64 << index;
+    let bitmask = 1i64.wrapping_shl(index as u32);
     let val = (self.bits[word_num] & bitmask) != 0;
     self.bits[word_num] &= !bitmask;
     val
@@ -405,7 +409,7 @@ impl LongBitSet {
       self.num_bits
     );
     let word_num = index >> 6;
-    let bitmask = 1i64 << index; // mod 64 is implicit
+    let bitmask = 1i64.wrapping_shl(index as u32); // mod 64 is implicit
     self.bits[word_num] ^= bitmask;
   }
 

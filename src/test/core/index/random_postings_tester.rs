@@ -858,13 +858,19 @@ impl RandomPostingsTester {
         let (advance, target) = if random.random_bool(0.5) {
           (false, doc + 1)
         } else {
-          let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc);
-          (true, doc + delta)
+          let delta = std::cmp::min(
+            1 + random.random_range(0..512),
+            NO_MORE_DOCS.wrapping_sub(doc),
+          );
+          (true, doc.wrapping_add(delta))
         };
 
         if target > max && random.random_bool(0.5) {
-          let delta = std::cmp::min(random.random_range(0..512), NO_MORE_DOCS - target);
-          max = target + delta;
+          let delta = std::cmp::min(
+            random.random_range(0..512),
+            NO_MORE_DOCS.wrapping_sub(target),
+          );
+          max = target.wrapping_add(delta);
 
           impacts_enum.advance_shallow(target)?;
           let impacts = impacts_enum.get_impacts()?;
@@ -911,8 +917,11 @@ impl RandomPostingsTester {
         }
 
         if doc > max {
-          let delta = std::cmp::min(1 + random.random_range(0..512), NO_MORE_DOCS - doc);
-          max = doc + delta;
+          let delta = std::cmp::min(
+            1 + random.random_range(0..512),
+            NO_MORE_DOCS.wrapping_sub(doc),
+          );
+          max = doc.wrapping_add(delta);
           let impacts = impacts_enum.get_impacts()?;
           // TODO IMPORTANT INDEX_PACKAGE_ACCESS未实现
           impacts_copy = Some(vec![Impact::new(i32::MAX, 1_i64)]);

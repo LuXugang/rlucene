@@ -377,8 +377,8 @@ where
     flag: i32,
     total_positions: usize,
     position_index: &[Vec<usize>],
-  ) -> Result<Vec<Vec<usize>>> {
-    let mut positions = vec![Vec::new(); num_fields];
+  ) -> Result<Vec<Vec<i32>>> {
+    let mut positions = vec![Vec::<i32>::new(); num_fields];
     // reset reader
     let mut reader =
       BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
@@ -412,7 +412,7 @@ where
           let slice = &next_positions.longs
             [next_positions.offset..next_positions.offset + next_positions.length];
           for &val in slice {
-            field_positions[j] = val as usize;
+            field_positions[j] = val as i32;
             j += 1;
           }
         }
@@ -695,7 +695,7 @@ where
         &position_index,
       )?
     } else {
-      vec![vec![]; num_fields]
+      vec![Vec::<i32>::new(); num_fields]
     };
     let (start_offsets, lengths) = if total_offsets > 0 {
       // average number of chars per term
@@ -733,7 +733,7 @@ where
         if !f_start_offsets.is_empty() && !f_positions.is_empty() {
           let field_chars_per_term = chars_per_term[field_num_offs[i]];
           for j in 0..f_start_offsets.len() {
-            f_start_offsets[j] += (field_chars_per_term * f_positions[j] as f32) as usize;
+            f_start_offsets[j] += (field_chars_per_term * f_positions[j] as f32) as i32;
           }
         }
 
@@ -744,7 +744,7 @@ where
           let term_count = num_terms.get_mut(skip + i)? as usize;
           for j in 0..term_count {
             // delta-decode start offsets and  patch lengths using term lengths
-            let term_length = f_prefix_lengths[j] + f_suffix_lengths[j];
+            let term_length = (f_prefix_lengths[j] + f_suffix_lengths[j]) as i32;
             let pos_start = position_index[i][j];
             let pos_end = position_index[i][j + 1];
             f_lengths[pos_start] += term_length;
@@ -758,7 +758,10 @@ where
 
       (start_offsets, lengths)
     } else {
-      (vec![vec![]; num_fields], vec![vec![]; num_fields])
+      (
+        vec![Vec::<i32>::new(); num_fields],
+        vec![Vec::<i32>::new(); num_fields],
+      )
     };
 
     if total_positions > 0 {
@@ -1000,9 +1003,9 @@ pub struct TVFields {
   suffix_lengths: Vec<Rc<Vec<usize>>>,
   term_freqs: Vec<Rc<Vec<usize>>>,
   position_index: Vec<Rc<Vec<usize>>>,
-  positions: Vec<Rc<Vec<usize>>>,
-  start_offsets: Vec<Rc<Vec<usize>>>,
-  lengths: Vec<Rc<Vec<usize>>>,
+  positions: Vec<Rc<Vec<i32>>>,
+  start_offsets: Vec<Rc<Vec<i32>>>,
+  lengths: Vec<Rc<Vec<i32>>>,
 
   payload_bytes: BytesRef<Rc<Vec<u8>>>,
   payload_index: Vec<Rc<Vec<usize>>>,
@@ -1023,9 +1026,9 @@ impl TVFields {
     suffix_lengths: Vec<Rc<Vec<usize>>>,
     term_freqs: Vec<Rc<Vec<usize>>>,
     position_index: Vec<Rc<Vec<usize>>>,
-    positions: Vec<Rc<Vec<usize>>>,
-    start_offsets: Vec<Rc<Vec<usize>>>,
-    lengths: Vec<Rc<Vec<usize>>>,
+    positions: Vec<Rc<Vec<i32>>>,
+    start_offsets: Vec<Rc<Vec<i32>>>,
+    lengths: Vec<Rc<Vec<i32>>>,
     payload_bytes: BytesRef<Rc<Vec<u8>>>,
     payload_index: Vec<Rc<Vec<usize>>>,
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
@@ -1146,9 +1149,9 @@ pub struct TVTerms {
   suffix_lengths: Rc<Vec<usize>>,
   term_freqs: Rc<Vec<usize>>,
   position_index: Rc<Vec<usize>>,
-  positions: Rc<Vec<usize>>,
-  start_offsets: Rc<Vec<usize>>,
-  lengths: Rc<Vec<usize>>,
+  positions: Rc<Vec<i32>>,
+  start_offsets: Rc<Vec<i32>>,
+  lengths: Rc<Vec<i32>>,
   payload_index: Rc<Vec<usize>>,
 
   payload_bytes: BytesRef<Rc<Vec<u8>>>,
@@ -1163,9 +1166,9 @@ impl TVTerms {
     suffix_lengths: Rc<Vec<usize>>,
     term_freqs: Rc<Vec<usize>>,
     position_index: Rc<Vec<usize>>,
-    positions: Rc<Vec<usize>>,
-    start_offsets: Rc<Vec<usize>>,
-    lengths: Rc<Vec<usize>>,
+    positions: Rc<Vec<i32>>,
+    start_offsets: Rc<Vec<i32>>,
+    lengths: Rc<Vec<i32>>,
     payload_index: Rc<Vec<usize>>,
     payload_bytes: BytesRef<Rc<Vec<u8>>>,
     term_bytes: BytesRef<Rc<Vec<u8>>>,
@@ -1269,9 +1272,9 @@ pub struct TVTermsEnum {
   suffix_lengths: Rc<Vec<usize>>,
   term_freqs: Rc<Vec<usize>>,
   position_index: Rc<Vec<usize>>,
-  positions: Rc<Vec<usize>>,
-  start_offsets: Rc<Vec<usize>>,
-  lengths: Rc<Vec<usize>>,
+  positions: Rc<Vec<i32>>,
+  start_offsets: Rc<Vec<i32>>,
+  lengths: Rc<Vec<i32>>,
   payload_index: Rc<Vec<usize>>,
 
   input: ByteArrayDataInput<Rc<Vec<u8>>>,
@@ -1287,9 +1290,9 @@ impl TVTermsEnum {
     suffix_lengths: Rc<Vec<usize>>,
     term_freqs: Rc<Vec<usize>>,
     position_index: Rc<Vec<usize>>,
-    positions: Rc<Vec<usize>>,
-    start_offsets: Rc<Vec<usize>>,
-    lengths: Rc<Vec<usize>>,
+    positions: Rc<Vec<i32>>,
+    start_offsets: Rc<Vec<i32>>,
+    lengths: Rc<Vec<i32>>,
     payload_index: Rc<Vec<usize>>,
     payloads: BytesRef<Rc<Vec<u8>>>,
     input: ByteArrayDataInput<Rc<Vec<u8>>>,
@@ -1492,9 +1495,9 @@ pub struct TVPostingsEnum {
   term_freq: usize,
   position_index: usize,
 
-  positions: Rc<Vec<usize>>,
-  start_offsets: Rc<Vec<usize>>,
-  lengths: Rc<Vec<usize>>,
+  positions: Rc<Vec<i32>>,
+  start_offsets: Rc<Vec<i32>>,
+  lengths: Rc<Vec<i32>>,
   payload: BytesRef<Rc<Vec<u8>>>,
   payload_index: Rc<Vec<usize>>,
   base_payload_offset: usize,
@@ -1535,9 +1538,9 @@ impl TVPostingsEnum {
     &mut self,
     freq: usize,
     position_index: usize,
-    positions: Rc<Vec<usize>>,
-    start_offsets: Rc<Vec<usize>>,
-    lengths: Rc<Vec<usize>>,
+    positions: Rc<Vec<i32>>,
+    start_offsets: Rc<Vec<i32>>,
+    lengths: Rc<Vec<i32>>,
     payloads: BytesRef<Rc<Vec<u8>>>,
     payload_index: Rc<Vec<usize>>,
   ) {
@@ -1638,7 +1641,7 @@ impl PostingsEnum for TVPostingsEnum {
     if self.positions.is_empty() {
       Ok(-1)
     } else {
-      Ok(self.positions[self.position_index + i] as i32)
+      Ok(self.positions[self.position_index + i])
     }
   }
 
@@ -1647,7 +1650,7 @@ impl PostingsEnum for TVPostingsEnum {
     if self.start_offsets.is_empty() {
       Ok(-1)
     } else {
-      Ok(self.start_offsets[self.position_index + self.i.unwrap()] as i32)
+      Ok(self.start_offsets[self.position_index + self.i.unwrap()])
     }
   }
 
@@ -1657,7 +1660,7 @@ impl PostingsEnum for TVPostingsEnum {
       Ok(-1)
     } else {
       let index = self.position_index + self.i.unwrap();
-      Ok((self.start_offsets[index] + self.lengths[index]) as i32)
+      Ok(self.start_offsets[index] + self.lengths[index])
     }
   }
 

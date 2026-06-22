@@ -311,7 +311,7 @@ fn assert_nodes_equal(expected: &[usize], neighbors: &NeighborArray) {
 struct TestRandomVectorScorer;
 impl RandomVectorScorer for TestRandomVectorScorer {
   fn score(&self, node: usize) -> Result<f32> {
-    Ok((7 - node + 1) as f32)
+    Ok((7 - node as i32 + 1) as f32)
   }
 
   fn max_ord(&self) -> usize {
@@ -335,7 +335,7 @@ impl RandomVectorScorer for TestRandomVectorScorer {
 struct TestRandomVectorScorer1;
 impl RandomVectorScorer for TestRandomVectorScorer1 {
   fn score(&self, node: usize) -> Result<f32> {
-    Ok((7 - node + 11) as f32)
+    Ok((7 - node as i32 + 11) as f32)
   }
 
   fn max_ord(&self) -> usize {

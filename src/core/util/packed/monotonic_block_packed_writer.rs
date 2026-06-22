@@ -64,7 +64,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
     let avg = if *off == 1 {
       0.0f32
     } else {
-      (values[*off as usize - 1] - values[0]) as f32 / (*off as f32 - 1.0)
+      values[*off as usize - 1].wrapping_sub(values[0]) as f32 / (*off as f32 - 1.0)
     };
 
     let mut min = values[0];
@@ -73,13 +73,13 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
       debug_assert!(i <= i32::MAX as usize);
       let expected = expected(min, avg, i as i32);
       if expected > actual {
-        min -= expected - actual;
+        min = min.wrapping_sub(expected.wrapping_sub(actual));
       }
     }
     let mut max_delta = 0;
     for (i, value) in values.iter_mut().take(*off as usize).enumerate() {
       debug_assert!(i <= i32::MAX as usize);
-      *value -= expected(min, avg, i as i32);
+      *value = value.wrapping_sub(expected(min, avg, i as i32));
       max_delta = max_delta.max(*value);
     }
     out.write_zlong(min)?;

@@ -6862,13 +6862,12 @@ where
     let mut result = rld
       .get_read_only_clone(&IOContext::default_io_context()?, sci)?
       .ok_or_else(|| LuceneError::illegal_state("should always be able to get read only clone"))
-      .map(|segment_reader| {
+      .inspect(|segment_reader| {
         if self.max_full_flush_merge_wait_millis > 0 {
           self
             .opened_read_only_clones
             .insert(sci.info.name.clone(), segment_reader.clone());
         }
-        segment_reader
       });
 
     if let Err(release_error) = self.writer.release(rld.as_ref(), inner) {

@@ -135,7 +135,7 @@ impl FieldInfos {
 
     let mut by_number: Vec<Option<Arc<FieldInfo>>> = Vec::with_capacity(infos.len());
     let mut values: Vec<Arc<FieldInfo>> = Vec::with_capacity(infos.len());
-    if field_number_strictly_ascending && (max_field_number as usize == infos.len() - 1) {
+    if field_number_strictly_ascending && ((max_field_number + 1) as usize == infos.len()) {
       // The input FieldInfo[] contains all fields numbered from 0 to
       // infos.length - 1, and they are sorted, use it
       // directly. This is an optimization when reading a segment with all
@@ -145,7 +145,7 @@ impl FieldInfos {
       }
       values = infos.clone();
     } else {
-      by_number = vec![None; max_field_number as usize + 1];
+      by_number = vec![None; (max_field_number + 1) as usize];
       for field_info in &infos {
         match &by_number[field_info.number as usize] {
           None => {},
@@ -158,7 +158,7 @@ impl FieldInfos {
         }
         by_number[field_info.number as usize] = Some(field_info.clone());
       }
-      if max_field_number as usize == infos.len() - 1 {
+      if (max_field_number + 1) as usize == infos.len() {
         for fi in by_number.iter().flatten() {
           values.push(fi.clone())
         }

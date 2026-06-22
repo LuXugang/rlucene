@@ -661,7 +661,7 @@ where
             for _ in 0..field.freqs[i] {
               let length = self.lengths_buf[field.off_start + pos];
               self.writer.add(
-                (length as usize - prefix - suffix) as i64,
+                (length - prefix as i32 - suffix as i32) as i64,
                 &mut self.vectors_stream,
               )?;
               pos += 1;

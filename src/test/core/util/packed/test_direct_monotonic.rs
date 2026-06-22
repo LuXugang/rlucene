@@ -302,7 +302,7 @@ pub fn test_monotonic_binary_search_random() -> Result<()> {
     let base: i64 = random.random();
     let bpv = TestUtil::next_int(&mut random, 4, 61);
     for value in array.iter_mut() {
-      *value = base + TestUtil::next_long(&mut random, 0, (1 << bpv) - 1);
+      *value = base.wrapping_add(TestUtil::next_long(&mut random, 0, (1 << bpv) - 1));
     }
     array.sort();
     let block_shift = TestUtil::next_int(&mut random, 2, 10);

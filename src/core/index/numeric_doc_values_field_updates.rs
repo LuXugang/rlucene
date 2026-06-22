@@ -57,7 +57,7 @@ impl NumericDocValuesFieldUpdates {
     })
   }
   pub(crate) fn with_range(min_value: i64, max_value: i64) -> Result<NumericDocValuesFieldUpdates> {
-    let bits_per_value = PackedInts::unsigned_bits_required(max_value - min_value);
+    let bits_per_value = PackedInts::unsigned_bits_required(max_value.wrapping_sub(min_value));
     let sub_reader = AbstractPagedMutableBaseEnum::Mutable(PagedMutable::with_overhead_ratio(
       PAGE_SIZE,
       bits_per_value,
@@ -80,7 +80,7 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
 
   fn add_value(&mut self, _doc: i32, value: i64, index: usize) -> Result<()> {
     let _guard = self.lock.lock();
-    self.values.set(index, value - self.min_value);
+    self.values.set(index, value.wrapping_sub(self.min_value));
     Ok(())
   }
 
@@ -164,7 +164,7 @@ impl AbstractIteratorNumeric {
 }
 impl AbstractIteratorBase for AbstractIteratorNumeric {
   fn set(&mut self, idx: usize) -> Result<()> {
-    self.value = self.values.get(idx)? + self.min_value;
+    self.value = self.values.get(idx)?.wrapping_add(self.min_value);
     Ok(())
   }
 

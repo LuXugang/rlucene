@@ -82,7 +82,7 @@ fn test_too_many_allocs() -> Result<()> {
   })();
 
   assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
-  assert!(pool.int_offset + INT_BLOCK_SIZE < pool.int_offset);
+  assert!(pool.int_offset.wrapping_add(INT_BLOCK_SIZE) < pool.int_offset);
 
   Ok(())
 }

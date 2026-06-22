@@ -280,7 +280,7 @@ impl PackedInts {
     if bits_per_value == 64 {
       i64::MAX
     } else {
-      (1i64 << bits_per_value) - 1
+      !(!0i64 << bits_per_value)
     }
   }
   /// Copy `src[src_pos..src_pos+len]` into `dest[dest_pos..dest_pos+len]`

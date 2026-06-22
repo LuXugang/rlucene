@@ -308,16 +308,12 @@ mod compression_numeric_encoding_tests {
     let mut rng = random();
     for _ in 0..100_000 {
       let num_bits = rng.random_range(0..=64);
-      let mask = if num_bits == 64 {
-        -1i64
-      } else {
-        ((1u64 << num_bits) - 1) as i64
-      };
+      let mask = 1i64.wrapping_shl(num_bits).wrapping_sub(1);
       let mut l1 = rng.random::<i64>() & mask;
       match rng.random_range(0..4) {
-        0 => l1 *= SECOND,
-        1 => l1 *= HOUR,
-        2 => l1 *= DAY,
+        0 => l1 = l1.wrapping_mul(SECOND),
+        1 => l1 = l1.wrapping_mul(HOUR),
+        2 => l1 = l1.wrapping_mul(DAY),
         _ => {},
       }
       write_tlong(&mut out, l1)?;

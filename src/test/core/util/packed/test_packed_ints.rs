@@ -423,11 +423,7 @@ fn create_packed_ints(value_count: i32, bits_per_value: i32) -> Result<Vec<Mutab
 }
 
 fn fill(packed_int: &mut MutablePacked64Enum, bits_per_value: i32, seed: u64) -> Result<()> {
-  let max_value = if bits_per_value == 64 {
-    i64::MAX
-  } else {
-    (1 << bits_per_value) - 1
-  };
+  let max_value = PackedInts::max_value(bits_per_value);
   let mut random = random_from_seed(seed);
   for i in 0..packed_int.size() {
     let value: i64 = if bits_per_value == 64 {
@@ -659,7 +655,7 @@ fn test_bulk_set() -> Result<()> {
         if i >= index && i < index + sets as usize {
           assert_eq!(
             ints.get(i),
-            arr[off - index + i],
+            arr[(off as isize - index as isize + i as isize) as usize],
             "{}: value mismatch at index {}",
             m,
             i
@@ -1252,7 +1248,11 @@ fn test_block_packed_reader_writer() -> Result<()> {
       } else if bpv == 64 {
         random.random()
       } else {
-        min_value + TestUtil::next_int(&mut random, 0, (1 << bpv) - 1) as i64
+        min_value.wrapping_add(TestUtil::next_long(
+          &mut random,
+          0,
+          PackedInts::max_value(bpv),
+        ))
       };
     }
     let fp;

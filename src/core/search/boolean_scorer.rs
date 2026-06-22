@@ -135,7 +135,7 @@ where
         let i = doc as usize & MASK;
         let idx = i >> 6;
 
-        self.matching[idx] |= 1u64 << i;
+        self.matching[idx] |= 1u64 << (i & 0x3f);
         if let Some(ref mut buckets) = self.buckets {
           let bucket = &mut buckets[i];
           bucket.freq += 1;

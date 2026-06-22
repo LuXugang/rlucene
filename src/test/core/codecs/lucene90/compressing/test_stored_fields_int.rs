@@ -38,7 +38,11 @@ fn test_random() -> Result<()> {
     let bpv = TestUtil::next_int(&mut random, 1, 31);
     let mut values = vec![0; len];
     for v in values.iter_mut().take(len) {
-      *v = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
+      *v = TestUtil::next_int(
+        &mut random,
+        0,
+        1i32.wrapping_shl(bpv as u32).wrapping_sub(1),
+      );
     }
     test(&mut random, &dir, &values)?;
   }
@@ -52,7 +56,11 @@ fn test_all_equals() -> Result<()> {
   let dir = new_directory(&mut random)?;
   let len = random.random_range(1..=5000);
   let bpv = TestUtil::next_int(&mut random, 1, 31);
-  let value = TestUtil::next_int(&mut random, 0, (1 << bpv) - 1);
+  let value = TestUtil::next_int(
+    &mut random,
+    0,
+    1i32.wrapping_shl(bpv as u32).wrapping_sub(1),
+  );
   let values = vec![value; len];
   test(&mut random, &dir, &values)?;
   Ok(())

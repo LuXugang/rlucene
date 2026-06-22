@@ -34,7 +34,7 @@ impl MonotonicLongValues {
     let average = self.averages[block as usize];
     for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
       debug_assert!(i <= i32::MAX as usize);
-      *item += expected(0, average, i as i32);
+      *item = item.wrapping_add(expected(0, average, i as i32));
     }
     count
   }
@@ -81,12 +81,12 @@ impl MonotonicLongValuesBuilder {
     let average = if num_values == 1 {
       0.0
     } else {
-      (values[num_values as usize - 1] - values[0]) as f32 / (num_values - 1) as f32
+      values[num_values as usize - 1].wrapping_sub(values[0]) as f32 / (num_values - 1) as f32
     };
 
     for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
       debug_assert!(i <= i32::MAX as usize);
-      *value -= expected(0, average, i as i32);
+      *value = value.wrapping_sub(expected(0, average, i as i32));
     }
     self.averages[block as usize] = average;
   }

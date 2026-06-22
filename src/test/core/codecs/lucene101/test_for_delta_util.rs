@@ -75,9 +75,9 @@ fn test_encode_decode() -> Result<()> {
       for j in 0..ForUtil::BLOCK_SIZE {
         expected[j] = values[i * ForUtil::BLOCK_SIZE + j] as i32;
         if j > 0 {
-          expected[j] += expected[j - 1];
+          expected[j] = expected[j].wrapping_add(expected[j - 1]);
         } else {
-          expected[j] += base;
+          expected[j] = expected[j].wrapping_add(base);
         }
       }
 

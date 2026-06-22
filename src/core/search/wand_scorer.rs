@@ -627,12 +627,13 @@ where
   /// Heap helpers
   fn up_heap_max_score(heap: &mut [usize], mut i: usize, all: &[DisiWrapper<S>]) {
     let node = heap[i];
-    let mut j = DisiPriorityQueue::parent_node(i);
 
-    while j < heap.len() && Self::greater_max_score(&all[node], &all[heap[j]]) {
+    while let Some(j) = DisiPriorityQueue::parent_node(i) {
+      if !Self::greater_max_score(&all[node], &all[heap[j]]) {
+        break;
+      }
       heap[i] = heap[j];
       i = j;
-      j = DisiPriorityQueue::parent_node(j);
     }
 
     heap[i] = node;

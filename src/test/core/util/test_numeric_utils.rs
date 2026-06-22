@@ -22,7 +22,7 @@ use std::ops::{Add, Sub};
 
 use num_bigint::{BigInt, Sign};
 use num_traits::{Float, FromPrimitive};
-use rand::RngExt;
+use rand::{Rng, RngExt};
 
 use crate::core::index::BytesRef;
 use crate::core::util::SliceCopyOps;
@@ -448,8 +448,14 @@ fn test_add() -> Result<()> {
   let num_bytes = TestUtil::next_usize(&mut random, 1, 100);
 
   for _ in 0..iters {
-    let v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
-    let v2 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+    let mut v1_bytes_random = vec![0u8; num_bytes];
+    random.fill_bytes(&mut v1_bytes_random);
+    v1_bytes_random[0] &= 0x7f;
+    let v1 = BigInt::from_bytes_be(Sign::Plus, &v1_bytes_random);
+    let mut v2_bytes_random = vec![0u8; num_bytes];
+    random.fill_bytes(&mut v2_bytes_random);
+    v2_bytes_random[0] &= 0x7f;
+    let v2 = BigInt::from_bytes_be(Sign::Plus, &v2_bytes_random);
 
     let mut v1_bytes = vec![0u8; num_bytes];
     let v1_raw_bytes = v1.to_signed_bytes_be();
@@ -509,8 +515,14 @@ fn test_subtract() -> Result<()> {
   let num_bytes = TestUtil::next_usize(&mut random, 1, 100);
 
   for _ in 0..iters {
-    let mut v1 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
-    let mut v2 = BigInt::from(random.random::<i128>().abs() % (1 << (8 * num_bytes - 1)));
+    let mut v1_bytes_random = vec![0u8; num_bytes];
+    random.fill_bytes(&mut v1_bytes_random);
+    v1_bytes_random[0] &= 0x7f;
+    let mut v1 = BigInt::from_bytes_be(Sign::Plus, &v1_bytes_random);
+    let mut v2_bytes_random = vec![0u8; num_bytes];
+    random.fill_bytes(&mut v2_bytes_random);
+    v2_bytes_random[0] &= 0x7f;
+    let mut v2 = BigInt::from_bytes_be(Sign::Plus, &v2_bytes_random);
 
     if v1 < v2 {
       std::mem::swap(&mut v1, &mut v2);

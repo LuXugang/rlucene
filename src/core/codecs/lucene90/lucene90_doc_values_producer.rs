@@ -28,6 +28,7 @@ use crate::core::codecs::lucene90::dov_values_inner_enum::{
 use crate::core::codecs::lucene90_doc_values_format::{
   Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
+use crate::core::index::base_terms_enum::BaseTermsEnumTermStateImpl;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum3};
 use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -1493,7 +1494,12 @@ where
       .values
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("values is None"))?;
-    Ok(self.mul * v.read_from_slice(index & self.mask, Some(&mut self.slice))? + self.delta)
+    Ok(
+      self
+        .mul
+        .wrapping_mul(v.read_from_slice(index & self.mask, Some(&mut self.slice))?)
+        .wrapping_add(self.delta),
+    )
   }
 }
 
@@ -1690,7 +1696,12 @@ where
   R: RandomAccessInput,
 {
   fn long_value(&mut self, doc: i32) -> Result<i64> {
-    Ok(self.mul * self.values.get_mut(doc as usize)? + self.delta)
+    Ok(
+      self
+        .mul
+        .wrapping_mul(self.values.get_mut(doc as usize)?)
+        .wrapping_add(self.delta),
+    )
   }
 }
 
@@ -1782,7 +1793,12 @@ where
   where
     I: IndexInput,
   {
-    Ok(self.mul * self.values.get_mut(disi.index_u())? + self.delta)
+    Ok(
+      self
+        .mul
+        .wrapping_mul(self.values.get_mut(disi.index_u())?)
+        .wrapping_add(self.delta),
+    )
   }
 }
 
@@ -1840,7 +1856,12 @@ where
   R: RandomAccessInput,
 {
   fn get_mut(&mut self, index: usize) -> Result<i64> {
-    Ok(self.gcd * self.values.get_mut(index)? + self.min_value)
+    Ok(
+      self
+        .gcd
+        .wrapping_mul(self.values.get_mut(index)?)
+        .wrapping_add(self.min_value),
+    )
   }
 }
 pub struct LongValuesImpl4<R>
@@ -1855,7 +1876,7 @@ where
   R: RandomAccessInput,
 {
   fn get_mut(&mut self, index: usize) -> Result<i64> {
-    Ok(self.values.get_mut(index)? + self.min_value)
+    Ok(self.values.get_mut(index)?.wrapping_add(self.min_value))
   }
 }
 
@@ -3120,7 +3141,7 @@ where
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
-    todo!()
+    Ok(BaseTermsEnumTermStateImpl.into())
   }
 }
 

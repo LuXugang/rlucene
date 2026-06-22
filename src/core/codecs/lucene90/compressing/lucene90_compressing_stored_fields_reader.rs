@@ -1006,9 +1006,9 @@ pub fn read_tlong(input: &mut impl DataInput) -> Result<i64> {
   let mut l = BitUtil::zig_zag_decode_i64(bits as u64);
 
   match header & DAY_ENCODING {
-    SECOND_ENCODING => l *= SECOND,
-    HOUR_ENCODING => l *= HOUR,
-    DAY_ENCODING => l *= DAY,
+    SECOND_ENCODING => l = l.wrapping_mul(SECOND),
+    HOUR_ENCODING => l = l.wrapping_mul(HOUR),
+    DAY_ENCODING => l = l.wrapping_mul(DAY),
     0 => {},
     _ => {
       debug_assert!(false, "should not be here");

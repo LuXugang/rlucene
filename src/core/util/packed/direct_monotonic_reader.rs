@@ -73,8 +73,11 @@ where
   fn get_bounds(&self, index: usize) -> Result<[i64; 2]> {
     let block = index >> self.block_shift;
     let block_index = index & self.block_mask;
-    let lower_bound = self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64);
-    let upper_bound = lower_bound + ((1i64 << (self.bpvs[block] as u32)) - 1);
+    let lower_bound =
+      self.mins[block].wrapping_add((self.avgs[block] * (block_index as f32)) as i64);
+    let upper_bound = lower_bound
+      .wrapping_add(1i64.wrapping_shl(self.bpvs[block] as u32))
+      .wrapping_sub(1);
     if self.bpvs[block] == 64 || upper_bound < lower_bound {
       Ok([i64::MIN, i64::MAX])
     } else {
@@ -159,7 +162,11 @@ where
     let block = index >> self.block_shift;
     let block_index = index & self.block_mask;
     let delta = self.readers[block].read_from_slice(block_index, Some(&mut self.slice))?;
-    Ok(self.mins[block] + ((self.avgs[block] * (block_index as f32)) as i64) + delta)
+    Ok(
+      self.mins[block]
+        .wrapping_add((self.avgs[block] * (block_index as f32)) as i64)
+        .wrapping_add(delta),
+    )
   }
 }
 /// In-memory metadata that needs to be kept around for

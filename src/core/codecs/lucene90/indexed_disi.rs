@@ -199,7 +199,7 @@ where
         "Acceptable values for denseRankPower are 7-15 (every 128-32768 docIDs). \
                      The provided power was {} (every {} docIDs).",
         dense_rank_power,
-        1 << dense_rank_power
+        2_f64.powi(dense_rank_power as i32) as i32
       )));
     }
 
@@ -806,7 +806,7 @@ where
       "Acceptable values for denseRankPower are 7-15 (every 128-32768 docIDs). \
              The provided power was {} (every {} docIDs)",
       dense_rank_power,
-      1 << dense_rank_power
+      2_f64.powi(dense_rank_power as i32) as i32
     )));
   }
 

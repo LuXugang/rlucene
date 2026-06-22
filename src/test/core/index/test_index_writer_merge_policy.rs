@@ -61,7 +61,7 @@ struct TestIndexWriterMergePolicy;
 #[derive(Clone)]
 pub struct MockMergePolicy {
   base: MergePolicyBase,
-  merge_factor: usize,
+  merge_factor: i32,
 }
 
 impl Default for MockMergePolicy {
@@ -74,11 +74,11 @@ impl Default for MockMergePolicy {
 }
 
 impl MockMergePolicy {
-  fn get_merge_factor(&self) -> usize {
+  fn get_merge_factor(&self) -> i32 {
     self.merge_factor
   }
 
-  fn set_merge_factor(&mut self, merge_factor: usize) {
+  fn set_merge_factor(&mut self, merge_factor: i32) {
     self.merge_factor = merge_factor;
   }
 }
@@ -116,32 +116,33 @@ impl MergePolicy for MockMergePolicy {
     MC: MergeContext<D>,
   {
     let segments = segment_infos.iter();
+    let merge_factor = self.merge_factor as usize;
     let mut spec = None;
     let mut start = 0;
-    while start + self.merge_factor <= segments.len() {
+    while start + merge_factor <= segments.len() {
       let start_doc_count = segments[start].info.max_doc()?;
       let mut end = start + 1;
       for i in (start + 1..segments.len()).rev() {
         let doc_count = segments[i].info.max_doc()?;
-        if i64::from(doc_count) * self.merge_factor as i64 > i64::from(start_doc_count)
-          && i64::from(doc_count) < self.merge_factor as i64 * i64::from(start_doc_count)
+        if i64::from(doc_count) * i64::from(self.merge_factor) > i64::from(start_doc_count)
+          && i64::from(doc_count) < i64::from(self.merge_factor) * i64::from(start_doc_count)
         {
           end = i + 1;
           break;
         }
       }
 
-      if start + self.merge_factor <= end {
+      if start + merge_factor <= end {
         let merge_spec = spec.get_or_insert_with(MergeSpecificationNoReader::new);
-        let mut merge_segments = Vec::with_capacity(self.merge_factor);
-        for info in &segments[start..start + self.merge_factor] {
+        let mut merge_segments = Vec::with_capacity(merge_factor);
+        for info in &segments[start..start + merge_factor] {
           merge_segments.push(SegmentDocAndID::new(
             info.info.get_id_key().to_string(),
             info.info.max_doc()?,
           ));
         }
         merge_spec.add(OneMerge::new(merge_segments)?);
-        start += self.merge_factor;
+        start += merge_factor;
       } else {
         start += 1;
       }
@@ -436,18 +437,18 @@ where
   let ram_segment_count = writer.get_num_buffered_documents();
   assert!(ram_segment_count < max_buffered_docs);
 
-  let segment_count = writer.get_segment_count();
+  let segment_count = writer.get_segment_count() as i32;
   let mut lower_bound = i32::MAX;
   for i in 0..segment_count {
-    lower_bound = lower_bound.min(writer.max_doc(i as i32));
+    lower_bound = lower_bound.min(writer.max_doc(i));
   }
-  let upper_bound = lower_bound * merge_factor as i32;
+  let upper_bound = lower_bound.wrapping_mul(merge_factor);
 
   let mut segments_across_levels = 0;
   while segments_across_levels < segment_count {
     let mut segments_on_current_level = 0;
     for i in 0..segment_count {
-      let doc_count = writer.max_doc(i as i32);
+      let doc_count = writer.max_doc(i);
       if doc_count >= lower_bound && doc_count < upper_bound {
         segments_on_current_level += 1;
       }

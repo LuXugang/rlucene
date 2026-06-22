@@ -1633,7 +1633,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
     )?);
     let value = random.random();
     doc.add(NumericDocValuesField::new("f", value));
-    doc.add(NumericDocValuesField::new("cf", value * 2));
+    doc.add(NumericDocValuesField::new("cf", value.wrapping_mul(2)));
     writer.add_document(doc)?;
   }
 
@@ -1646,7 +1646,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       t,
       vec![
         NumericDocValuesField::new("f", value).into(),
-        NumericDocValuesField::new("cf", value * 2).into(),
+        NumericDocValuesField::new("cf", value.wrapping_mul(2)).into(),
       ],
     )?;
 
@@ -1660,7 +1660,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       for j in 0..r.max_doc()? {
         assert_eq!(j, fndv.next_doc()?);
         assert_eq!(j, cfndv.next_doc()?);
-        assert_eq!(cfndv.long_value()?, fndv.long_value()? * 2);
+        assert_eq!(cfndv.long_value()?, fndv.long_value()?.wrapping_mul(2));
       }
     }
   }
@@ -2046,7 +2046,7 @@ fn test_tons_of_updates() -> Result<()> {
       doc.add(StringField::from_string("upd", term_val, Store::No)?);
     }
     for j in 0..num_numeric_fields {
-      let val = random.random();
+      let val = random.random::<i32>() as i64;
       doc.add(NumericDocValuesField::new(format!("f{}", j), val));
       doc.add(NumericDocValuesField::new(format!("cf{}", j), val * 2));
     }
@@ -2066,7 +2066,7 @@ fn test_tons_of_updates() -> Result<()> {
     let field = random.random_range(0..num_numeric_fields);
     let term_val = update_terms.choose(&mut random).unwrap();
     let update_term = Term::from_text("upd", term_val);
-    let value = random.random();
+    let value = random.random::<i32>() as i64;
     writer.update_doc_values(
       update_term,
       vec![

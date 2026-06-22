@@ -117,11 +117,14 @@ where
       bits_left -= self.bits_per_value;
 
       if bits_left < 0 {
-        let lower_part =
-          (blocks[blocks_offset] & ((1u64 << (self.bits_per_value + bits_left)) - 1)) << -bits_left;
+        let lower_part = (blocks[blocks_offset]
+          & (1u64
+            .wrapping_shl((self.bits_per_value + bits_left) as u32)
+            .wrapping_sub(1)))
+        .wrapping_shl((-bits_left) as u32);
 
         blocks_offset += 1;
-        let upper_part = blocks[blocks_offset] >> (64 + bits_left);
+        let upper_part = blocks[blocks_offset].wrapping_shr((64 + bits_left) as u32);
 
         values[values_offset] = (lower_part | upper_part) as i64;
         bits_left += 64;
@@ -168,7 +171,8 @@ where
         }
 
         bits_left = self.bits_per_value - bits;
-        next_value = (bytes & ((1 << bits) - 1) as i64) << bits_left;
+        next_value =
+          ((bytes as u64 & (1u64 << bits).wrapping_sub(1)).wrapping_shl(bits_left as u32)) as i64;
       }
     }
 
@@ -201,12 +205,15 @@ where
 
       if bits_left < 0 {
         // Handle case where bits_left is negative
-        let lower_part =
-          (blocks[blocks_offset] & ((1u64 << (self.bits_per_value + bits_left)) - 1)) << -bits_left;
+        let lower_part = (blocks[blocks_offset]
+          & (1u64
+            .wrapping_shl((self.bits_per_value + bits_left) as u32)
+            .wrapping_sub(1)))
+        .wrapping_shl((-bits_left) as u32);
 
         blocks_offset += 1;
 
-        let upper_part = blocks[blocks_offset] >> (64 + bits_left);
+        let upper_part = blocks[blocks_offset].wrapping_shr((64 + bits_left) as u32);
 
         values[values_offset] = (lower_part | upper_part) as i32;
         bits_left += 64;
@@ -256,7 +263,8 @@ where
 
         // Then buffer the remaining bits
         bits_left = self.bits_per_value - bits;
-        next_value = (bytes & ((1 << bits) - 1)) << bits_left;
+        next_value =
+          ((bytes as u32 & (1u32 << bits).wrapping_sub(1)).wrapping_shl(bits_left as u32)) as i32;
       }
     }
 
@@ -313,13 +321,14 @@ where
         },
         std::cmp::Ordering::Less => {
           // Handle case where bits_left < 0
-          next_block |= (values[values_offset] as u64) >> -bits_left;
+          next_block |= (values[values_offset] as u64).wrapping_shr((-bits_left) as u32);
 
           blocks[blocks_offset] = next_block;
           blocks_offset += 1;
 
-          next_block = ((values[values_offset] & ((1u64 << -bits_left) - 1) as i64)
-            << (64 + bits_left)) as u64;
+          next_block = ((values[values_offset] as u64)
+            & 1u64.wrapping_shl((-bits_left) as u32).wrapping_sub(1))
+          .wrapping_shl((64 + bits_left) as u32);
           values_offset += 1;
           bits_left += 64;
         },
@@ -400,11 +409,13 @@ where
           bits_left = 64;
         },
         Ordering::Less => {
-          next_block |= (values[values_offset] as u64 & 0xFFFFFFFF) >> -bits_left;
+          next_block |=
+            (values[values_offset] as u64 & 0xFFFFFFFF).wrapping_shr((-bits_left) as u32);
           blocks[blocks_offset] = next_block;
           blocks_offset += 1;
-          next_block = ((values[values_offset] as u64 & 0xFFFFFFFF) & ((1u64 << -bits_left) - 1))
-            << (64 + bits_left);
+          next_block = ((values[values_offset] as u64 & 0xFFFFFFFF)
+            & 1u64.wrapping_shl((-bits_left) as u32).wrapping_sub(1))
+          .wrapping_shl((64 + bits_left) as u32);
           values_offset += 1;
           bits_left += 64;
         },

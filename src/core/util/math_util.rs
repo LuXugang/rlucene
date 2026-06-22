@@ -69,8 +69,8 @@ impl MathUtil {
   ///   although it is the GCD of `i64::MIN` and `0`, as well as `i64::MIN`
   ///   and `i64::MIN`. In these two cases, this method returns `i64::MIN`.
   pub fn gcd(mut a: i64, mut b: i64) -> i64 {
-    a = a.abs();
-    b = b.abs();
+    a = a.wrapping_abs();
+    b = b.wrapping_abs();
     if a == 0 {
       return b;
     } else if b == 0 {
@@ -89,7 +89,7 @@ impl MathUtil {
       if a == 1 {
         break;
       }
-      b -= a;
+      b = b.wrapping_sub(a);
     }
     a << common_trailing_zeros
   }

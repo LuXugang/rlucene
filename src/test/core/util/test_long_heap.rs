@@ -56,7 +56,7 @@ where
 
   for _ in 0..count {
     let next = random.random();
-    sum += next;
+    sum = sum.wrapping_add(next);
     pq.push(next);
     check_validity(&pq);
   }
@@ -71,7 +71,7 @@ where
       last
     );
     last = next;
-    sum2 += last;
+    sum2 = sum2.wrapping_add(last);
   }
 
   assert_eq!(sum, sum2, "Sum mismatch after all pops");

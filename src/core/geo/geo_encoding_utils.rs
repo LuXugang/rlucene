@@ -513,24 +513,27 @@ where
     let base = &self.base;
 
     let lat2 = ((lat.wrapping_sub(i32::MIN) as u32) >> base.lat_shift) as i32;
-    if lat2 < base.lat_base || lat2 - base.lat_base >= base.max_lat_delta {
+    let lat_delta = lat2.wrapping_sub(base.lat_base);
+    if lat2 < base.lat_base || lat_delta >= base.max_lat_delta {
       return false;
     }
 
     let mut lon2 = ((lon.wrapping_sub(i32::MIN) as u32) >> base.lon_shift) as i32;
     if lon2 < base.lon_base {
-      lon2 += 1i32 << (32 - base.lon_shift);
+      lon2 = lon2.wrapping_add(1i32.wrapping_shl((32 - base.lon_shift) as u32));
     }
 
     debug_assert!((lon2 as u32) >= (base.lon_base as u32));
-    debug_assert!(lon2 - base.lon_base >= 0);
+    let lon_delta = lon2.wrapping_sub(base.lon_base);
+    debug_assert!(lon_delta >= 0);
 
-    if lon2 - base.lon_base >= base.max_lon_delta {
+    if lon_delta >= base.max_lon_delta {
       return false;
     }
 
-    let relation = base.relations
-      [((lat2 - base.lat_base) * base.max_lon_delta + (lon2 - base.lon_base)) as usize];
+    let relation = base.relations[(lat_delta
+      .wrapping_mul(base.max_lon_delta)
+      .wrapping_add(lon_delta)) as usize];
 
     if relation == CellCrossesQuery.ordinal() as u8 {
       self.tree.contains(

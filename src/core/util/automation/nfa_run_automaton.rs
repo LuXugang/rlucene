@@ -489,7 +489,7 @@ impl DState {
     let mut is_accept = false;
 
     for s in nfa_states.iter() {
-      hash_code += BitMixer::mix_i32(*s);
+      hash_code = hash_code.wrapping_add(BitMixer::mix_i32(*s));
       if nfa.automaton.is_accept(*s) {
         is_accept = true;
       }

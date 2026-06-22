@@ -201,7 +201,7 @@ fn test_too_many_allocs() -> Result<()> {
   })();
 
   assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
-  assert!(pool.byte_offset + BYTE_BLOCK_SIZE < pool.byte_offset);
+  assert!(pool.byte_offset.wrapping_add(BYTE_BLOCK_SIZE) < pool.byte_offset);
 
   Ok(())
 }

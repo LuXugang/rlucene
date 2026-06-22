@@ -37,7 +37,7 @@ impl DeltaPackedLongValues {
   pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
     let min = self.mins[block as usize];
     for item in dest.iter_mut().take(count as usize) {
-      *item += min;
+      *item = item.wrapping_add(min);
     }
     match self.sub_long_value {
       Some(ref sub) => sub.decode_block(block, dest, count),
@@ -101,7 +101,7 @@ impl DeltaPackedLongValuesBuilder {
       min = min.min(value);
     }
     for value in values.iter_mut().take(num_values as usize) {
-      *value -= min;
+      *value = value.wrapping_sub(min);
     }
     self.mins[block as usize] = min;
   }

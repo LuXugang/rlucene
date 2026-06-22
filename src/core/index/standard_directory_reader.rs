@@ -231,7 +231,8 @@ where
     let infos = match infos {
       Some(infos) => infos,
       None => &inner.segment_infos,
-    }.try_clone()?;
+    }
+    .try_clone()?;
     // IndexWriter synchronizes externally before calling
     // us, which ensures infos will not change; so there's
     // no need to process segments in reverse order
@@ -257,7 +258,7 @@ where
         debug_assert!(Arc::ptr_eq(&info.info.dir, &dir));
         let reader = reader_function.apply(info, inner)?;
         if reader.num_docs()? > 0
-            || writer
+          || writer
             .get_config()
             .get_merge_policy()
             .keep_fully_deleted_segment(|| Ok(reader.clone()))?

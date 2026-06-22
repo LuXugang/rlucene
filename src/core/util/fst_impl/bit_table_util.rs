@@ -88,7 +88,7 @@ impl BitTableUtil {
     if remaining_bits != 0 {
       let num_remaining_bytes = (remaining_bits + (i8::BITS - 1) as i32) >> 3;
       // Prepare a mask with 1s on the right up to bitIndex exclusive.
-      let mask = (1u64 << bit_index) - 1; // Shifts are mod 64.
+      let mask = 1u64.wrapping_shl(bit_index as u32).wrapping_sub(1); // Shifts are mod 64.
       // Count the bits set only within the mask part, so up to bitIndex
       // exclusive.
       let l = Self::read_upto_8_bytes(num_remaining_bytes, reader)?;

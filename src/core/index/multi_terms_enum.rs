@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::index::base_terms_enum::BaseTermsEnumTermStateImpl;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::multi_postings_enum::{EnumWithSlice, MultiPostingsEnum};
 use crate::core::index::reader_slice::ReaderSlice;
@@ -491,7 +492,7 @@ where
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
-    todo!()
+    Ok(BaseTermsEnumTermStateImpl.into())
   }
 }
 struct TopTermsEnumWithSliceCmp<'a, TE>

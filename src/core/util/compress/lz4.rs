@@ -471,13 +471,13 @@ impl HashTable for FastCompressionHashTable {
     self.base = off;
     self.end = off + len;
 
-    let bits_per_offset = if (len - LZ4::LAST_LITERALS) < (1 << 16) {
+    let bits_per_offset: i32 = if (len - LZ4::LAST_LITERALS) < (1 << 16) {
       16
     } else {
       32
     };
 
-    let bits_per_offset_log = 32 - ((bits_per_offset - 1) as i64).leading_zeros() as i32;
+    let bits_per_offset_log = 32 - (bits_per_offset - 1).leading_zeros() as i32;
     self.hash_log = LZ4::MEMORY_USAGE + 3 - bits_per_offset_log;
 
     let need_new_table = match &self.hash_table {

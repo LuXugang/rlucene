@@ -1119,7 +1119,11 @@ impl QueryTimeout for CountingQueryTimeout {
     let previous = self
       .remaining
       .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |remaining| {
-        (remaining > 0).then_some(remaining - 1)
+        if remaining > 0 {
+          Some(remaining - 1)
+        } else {
+          None
+        }
       })
       .unwrap_or_else(|remaining| remaining);
     previous == 0

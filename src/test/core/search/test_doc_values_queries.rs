@@ -836,7 +836,10 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
       )?);
       doc.add(NumericDocValuesField::new("long", number));
       doc.add(SortedNumericDocValuesField::new("twolongs", number));
-      doc.add(SortedNumericDocValuesField::new("twolongs", number * 2));
+      doc.add(SortedNumericDocValuesField::new(
+        "twolongs",
+        number.wrapping_mul(2),
+      ));
 
       iw.add_document(&mut random, doc)?;
     }
@@ -867,7 +870,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
       for _ in 0..num_query_numbers {
         let number = all_numbers[random.random_range(0..all_numbers.len())];
         query_numbers.insert(number);
-        query_numbers_x2.insert(number * 2);
+        query_numbers_x2.insert(number.wrapping_mul(2));
       }
 
       let query_numbers_array: Vec<i64> = query_numbers.iter().copied().collect();

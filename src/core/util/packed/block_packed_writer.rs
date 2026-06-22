@@ -66,7 +66,7 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
       max = max.max(value);
     }
 
-    let delta = max - min;
+    let delta = max.wrapping_sub(min);
     let bits_required = if delta == 0 {
       0
     } else {

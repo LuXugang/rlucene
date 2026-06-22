@@ -842,7 +842,7 @@ where
   CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, seg_suffix)?;
   for _ in 0..size {
     os.write_byte(start)?;
-    start += 1;
+    start = start.wrapping_add(1);
   }
   CodecUtil::write_footer(&mut os)?;
 
