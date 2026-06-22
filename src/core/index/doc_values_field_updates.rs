@@ -195,7 +195,12 @@ where
   where
     T: DocValuesFieldIterator,
   {
-    self.sub_update.add_iterator(doc_id, iterator)
+    let index = if self.sub_update.need_add_doc() {
+      self.add(doc_id)?
+    } else {
+      0
+    };
+    self.sub_update.add_iterator(doc_id, iterator, index)
   }
   pub(crate) fn finish(&mut self) -> Result<()> {
     let mut inner = self.inner.lock();
@@ -326,7 +331,7 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
   fn finish(&mut self);
   fn add_value(&mut self, doc: i32, value: i64, index: usize) -> Result<()>;
   fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()>;
-  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
+  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T, index: usize) -> Result<()>
   where
     T: DocValuesFieldIterator;
   /// This method could be called once
@@ -433,16 +438,16 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
     }
   }
 
-  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
+  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T, index: usize) -> Result<()>
   where
     T: DocValuesFieldIterator,
   {
     match self {
-      DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_iterator(doc_id, iterator),
-      DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_iterator(doc_id, iterator),
-      DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_iterator(doc_id, iterator),
+      DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_iterator(doc_id, iterator, index),
+      DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_iterator(doc_id, iterator, index),
+      DocValuesFieldUpdatesBaseEnum::SingleValue(s) => s.add_iterator(doc_id, iterator, index),
       #[cfg(test)]
-      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.add_iterator(doc_id, iterator),
+      DocValuesFieldUpdatesBaseEnum::SingleUpdate(s) => s.add_iterator(doc_id, iterator, index),
     }
   }
 
@@ -1155,7 +1160,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn add_iterator<T>(&mut self, _doc_id: i32, _iterator: &mut T) -> Result<()>
+  fn add_iterator<T>(&mut self, _doc_id: i32, _iterator: &mut T, _index: usize) -> Result<()>
   where
     T: DocValuesFieldIterator,
   {

@@ -367,16 +367,17 @@ where
         }
 
         self.reserve_one_doc()?;
-        num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-        self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-        self.indexing_chain.process_document(
-          self.state.num_docs_in_ram.load(SeqCst) - 1,
+        let doc_id = self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
+        let process_result = self.indexing_chain.process_document(
+          doc_id,
           doc_fields,
           &mut self.segment_info,
           &mut self.field_infos,
           index_writer_config,
           &self.aborting_exception,
-        )?;
+        );
+        num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
+        process_result?;
       }
 
       let num_docs = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;

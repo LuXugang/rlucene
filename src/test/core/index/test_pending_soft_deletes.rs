@@ -637,7 +637,7 @@ impl DocValuesFieldUpdatesBase for TestSingleUpdateDocValuesFieldUpdates {
     Err(LuceneError::unsupported_operation("add_byte_ref"))
   }
 
-  fn add_iterator<T>(&mut self, _doc_id: i32, _iterator: &mut T) -> Result<()>
+  fn add_iterator<T>(&mut self, _doc_id: i32, _iterator: &mut T, _index: usize) -> Result<()>
   where
     T: DocValuesFieldIterator,
   {

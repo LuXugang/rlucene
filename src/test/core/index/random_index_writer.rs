@@ -661,12 +661,8 @@ where
         println!("RIW.getReader: open new reader");
       }
       self.w.commit()?;
-      // TODO SoftDeletesDirectoryReaderWrapper未实现
-      if r.random() && self.w.get_config().get_soft_deletes_field().is_none() {
-        directory_reader::open(self.w.get_directory())
-      } else {
-        INDEX_WRITER_ACCESS.get_reader(&self.w, apply_deletions, write_all_deletes)
-      }
+      // TODO SoftDeletesDirectoryReaderWrapper未实现，暂时统一走 NRT reader。
+      INDEX_WRITER_ACCESS.get_reader(&self.w, apply_deletions, write_all_deletes)
     }
   }
 

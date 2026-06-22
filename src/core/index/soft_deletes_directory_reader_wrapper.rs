@@ -419,7 +419,7 @@ where
     },
   };
 
-  let num_soft_deletes = apply_soft_deletes(&mut iterator, &mut bits, true)?;
+  let num_soft_deletes = apply_soft_deletes(&mut iterator, &mut bits, |_| Ok(true))?;
   if num_soft_deletes == 0 {
     return Ok(CodecReaderEnum2::A(reader));
   }

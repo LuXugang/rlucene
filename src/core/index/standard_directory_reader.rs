@@ -224,14 +224,14 @@ pub(crate) fn open_with_reader_function<D, IO, C>(
 ) -> Result<StandardDirectoryReader<C, D>>
 where
   D: Directory,
-  IO: IOFunction<SegmentCommitInfo<D>, DefaultLeafReader<D>>,
+  IO: IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   let (segment_infos, dir, readers) = {
     let infos = match infos {
       Some(infos) => infos,
       None => &inner.segment_infos,
-    };
+    }.try_clone()?;
     // IndexWriter synchronizes externally before calling
     // us, which ensures infos will not change; so there's
     // no need to process segments in reverse order
@@ -255,9 +255,9 @@ where
           },
         };
         debug_assert!(Arc::ptr_eq(&info.info.dir, &dir));
-        let reader = reader_function.apply(info)?;
+        let reader = reader_function.apply(info, inner)?;
         if reader.num_docs()? > 0
-          || writer
+            || writer
             .get_config()
             .get_merge_policy()
             .keep_fully_deleted_segment(|| Ok(reader.clone()))?

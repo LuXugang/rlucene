@@ -192,7 +192,8 @@ impl PendingDeletesBase for PendingSoftDeletes {
         if iter.next_doc()? != NO_MORE_DOCS {
           iterator = get_doc_values_doc_id_set_iterator(&self.field, reader)?;
           let mut iter = iterator.unwrap();
-          new_del_count = apply_soft_deletes(&mut iter, self.base.get_mutable_bits()?, true)?;
+          new_del_count =
+            apply_soft_deletes(&mut iter, self.base.get_mutable_bits()?, |_| Ok(true))?;
         } else {
           new_del_count = 0;
         }
@@ -291,8 +292,9 @@ impl PendingDeletesBase for PendingSoftDeletes {
     if self.field == field_info.name
       && let Some(mut iter) = iterator
     {
-      let has_value = iter.has_value()?;
-      let delta = apply_soft_deletes(&mut iter, self.base.get_mutable_bits()?, has_value)?;
+      let delta = apply_soft_deletes(&mut iter, self.base.get_mutable_bits()?, |iter| {
+        iter.has_value()
+      })?;
       self.base.pending_delete_count += delta;
       debug_assert!(self.assert_pending_deletes(info)?);
       info.set_soft_del_count(info.get_soft_del_count() + self.base.pending_delete_count)?;
@@ -394,18 +396,22 @@ pub(crate) fn count_soft_deletes(
 /// # Returns
 ///
 /// The number of bits changed by this function.
-pub(crate) fn apply_soft_deletes(
-  iterator: &mut impl DocIdSetIterator,
+pub(crate) fn apply_soft_deletes<I, F>(
+  iterator: &mut I,
   bits: &mut FixedBitSet,
-  has_value: bool,
-) -> Result<i32> {
+  mut has_value: F,
+) -> Result<i32>
+where
+  I: DocIdSetIterator,
+  F: FnMut(&I) -> Result<bool>,
+{
   let mut new_deletes = 0;
   loop {
     let doc_id = iterator.next_doc()?;
     if doc_id == NO_MORE_DOCS {
       break;
     }
-    if has_value {
+    if has_value(iterator)? {
       if bits.get_and_clear(doc_id as usize) {
         new_deletes += 1;
         // now that we know we deleted it and we fully control the hard deletes we can do correct

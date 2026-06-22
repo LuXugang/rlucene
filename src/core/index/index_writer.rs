@@ -2819,7 +2819,7 @@ where
       published = true;
       self.checkpoint(&mut *inner)?;
       let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
-      if packet_any {
+      if packet_any && sort_map.is_some() {
         let _ = self.get_pooled_instance(new_segment.into(), true, sort_map)?;
       }
       // this is a corner case where documents delete them-self with soft deletes. This is used to
@@ -6192,7 +6192,11 @@ where
     //     std::collections::HashMap::new();
     let mut opened_read_only_clones = HashMap::new();
 
-    let mut reader_factory = IOFunctionImpl::new(self, &mut opened_read_only_clones);
+    let mut reader_factory = IOFunctionImpl::new(
+      self,
+      &mut opened_read_only_clones,
+      max_full_flush_merge_wait_millis,
+    );
     let _opening_segment_infos: Option<SegmentInfos<D>> = None;
     let result1 = (|| {
       /*
@@ -6775,7 +6779,7 @@ pub(crate) struct IOConsumerImpl<'a, D>
 where
   D: Directory,
 {
-  deleter: &'a mut IndexFileDeleter<D>,
+  inner: &'a mut Inner<D>,
   merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
   reader_factory: &'a mut IOFunctionImpl<'a, D>,
   stop_collecting_merged_readers: &'a AtomicBool,
@@ -6785,13 +6789,13 @@ where
   D: Directory,
 {
   pub(crate) fn new(
-    deleter: &'a mut IndexFileDeleter<D>,
+    inner: &'a mut Inner<D>,
     merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
     reader_factory: &'a mut IOFunctionImpl<'a, D>,
     stop_collecting_merged_readers: &'a AtomicBool,
   ) -> Self {
     Self {
-      deleter,
+      inner,
       merge_readers,
       reader_factory,
       stop_collecting_merged_readers,
@@ -6807,12 +6811,12 @@ where
       !self.stop_collecting_merged_readers.load(Ordering::Acquire),
       "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
     );
-    let apply = self.reader_factory.apply(sci)?;
+    let apply = self.reader_factory.apply(sci, self.inner)?;
     self.merge_readers.insert(sci.info.name.clone(), apply);
     // we need to incRef the files of the opened SR otherwise it's possible that
     // another merge
     // removes the segment before we pass it on to the SDR
-    self.deleter.inc_ref_files(sci.files()?)?;
+    self.inner.deleter.inc_ref_files(sci.files()?)?;
     Ok(())
   }
 }
@@ -6823,6 +6827,7 @@ where
 {
   writer: &'a IndexWriter<D>,
   opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
+  max_full_flush_merge_wait_millis: i64,
 }
 impl<'a, D> IOFunctionImpl<'a, D>
 where
@@ -6831,35 +6836,49 @@ where
   pub(crate) fn new(
     writer: &'a IndexWriter<D>,
     opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
+    max_full_flush_merge_wait_millis: i64,
   ) -> Self {
     Self {
       writer,
       opened_read_only_clones,
+      max_full_flush_merge_wait_millis,
     }
   }
 }
-impl<'a, D> IOFunction<SegmentCommitInfo<D>, DefaultLeafReader<D>> for IOFunctionImpl<'a, D>
+impl<'a, D> IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>
+  for IOFunctionImpl<'a, D>
 where
   D: Directory,
 {
-  fn apply(&mut self, sci: &SegmentCommitInfo<D>) -> Result<DefaultLeafReader<D>> {
-    let rld = self.writer.get_pooled_instance(sci.into(), true, None)?;
-    match rld {
-      Some(r) => match r.get_read_only_clone(&IOContext::default_io_context()?, sci)? {
-        Some(segment_reader) => {
+  fn apply(
+    &mut self,
+    sci: &SegmentCommitInfo<D>,
+    inner: &mut Inner<D>,
+  ) -> Result<DefaultLeafReader<D>> {
+    let rld = self
+      .writer
+      .get_pooled_instance(sci.into(), true, None)?
+      .ok_or_else(|| LuceneError::illegal_state("should always be able to get pooled instance"))?;
+    let mut result = rld
+      .get_read_only_clone(&IOContext::default_io_context()?, sci)?
+      .ok_or_else(|| LuceneError::illegal_state("should always be able to get read only clone"))
+      .map(|segment_reader| {
+        if self.max_full_flush_merge_wait_millis > 0 {
           self
             .opened_read_only_clones
             .insert(sci.info.name.clone(), segment_reader.clone());
-          Ok(segment_reader)
-        },
-        None => Err(LuceneError::illegal_state(
-          "should always be able to get read only clone",
-        )),
-      },
-      None => Err(LuceneError::illegal_state(
-        "should always be able to get pooled instance",
-      )),
+        }
+        segment_reader
+      });
+
+    if let Err(release_error) = self.writer.release(rld.as_ref(), inner) {
+      if let Err(error) = &mut result {
+        error.add_suppressed(release_error);
+      } else {
+        return Err(release_error);
+      }
     }
+    result
   }
 }
 impl<D> Display for IndexWriter<D>
