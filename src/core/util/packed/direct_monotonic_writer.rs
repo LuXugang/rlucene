@@ -103,7 +103,7 @@ where
     debug_assert!(self.buffer_size != 0);
 
     let avg_inc = {
-      let numerator = self.buffer[(self.buffer_size - 1) as usize] - self.buffer[0];
+      let numerator = self.buffer[(self.buffer_size - 1) as usize].wrapping_sub(self.buffer[0]);
       let denominator = std::cmp::max(1, self.buffer_size - 1) as f64;
       (numerator as f64 / denominator) as f32
     };
@@ -111,13 +111,13 @@ where
     let mut min = i64::MAX;
     for i in 0..(self.buffer_size as usize) {
       let expected = (avg_inc * (i as f32)) as i64;
-      self.buffer[i] -= expected;
+      self.buffer[i] = self.buffer[i].wrapping_sub(expected);
       min = std::cmp::min(self.buffer[i], min);
     }
 
     let mut max_delta = 0;
     for i in 0..(self.buffer_size as usize) {
-      self.buffer[i] -= min;
+      self.buffer[i] = self.buffer[i].wrapping_sub(min);
       // use | will change nothing when it comes to computing required
       // bits but has the benefit of working fine with
       // negative values too (in case of overflow)
