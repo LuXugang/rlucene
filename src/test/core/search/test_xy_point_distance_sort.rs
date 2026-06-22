@@ -31,8 +31,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::shape_test_util::ShapeTestUtil;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 #[cfg(feature = "nightly")]
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::is_night_mode;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::is_night_mode;
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 use crate::test::core::util::test_util::TestUtil;
@@ -40,7 +40,6 @@ use rand::{Rng, RngExt};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-
 #[allow(dead_code)] // for quick search
 pub struct TestXYPointDistanceSort;
 fn cartesian_distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {

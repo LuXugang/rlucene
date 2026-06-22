@@ -29,7 +29,7 @@ use crate::test::core::search::asserting_query::AssertingQuery;
 use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::search::random_approximation_query::RandomApproximationQuery;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_searcher_with_threads, random,
 };
 use crate::test::core::util::test_util::TestUtil;

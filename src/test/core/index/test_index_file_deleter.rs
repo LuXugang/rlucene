@@ -17,6 +17,11 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
+  new_log_merge_policy_with_merge_factor_cfs, new_string_field, new_text_field, random,
+  slow_file_exists,
+};
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -35,11 +40,6 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
-  new_log_merge_policy_with_merge_factor_cfs, new_string_field, new_text_field, random,
-  slow_file_exists,
-};
 #[allow(dead_code)] // for quick search
 struct TestIndexFileDeleter;
 

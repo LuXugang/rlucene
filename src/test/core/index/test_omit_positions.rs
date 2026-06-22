@@ -32,7 +32,7 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, random,
 };

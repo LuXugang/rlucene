@@ -52,9 +52,7 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::index::test_pending_deletes::TestPendingDeletesBase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -65,7 +63,7 @@ mod test_pending_deletes_base_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::index::test_pending_deletes::TestPendingDeletesBase;
   use crate::test::core::index::test_pending_soft_deletes::TestPendingSoftDeletes;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use crate::test::core::util::lucene_test_case::random;
 
   #[test]
   fn test_delete_doc() -> Result<()> {

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::test::core::util::lucene_test_case::{is_night_mode, random};
 
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_reader_context::IRCLeafReader;
@@ -34,7 +35,6 @@ use crate::core::search::scorer::Scorer;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{is_night_mode, random};
 use crate::test::core::util::{DummyCR, dummy_directory, dummy_index_searcher};
 use rand::Rng;
 use rand::RngExt;

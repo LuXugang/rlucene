@@ -24,7 +24,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::asserting_leaf_collector::AssertingLeafCollector;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
+use crate::test::core::util::lucene_test_case::random_from_seed;
 use rand::RngExt;
 
 /// Wraps a BulkScorer with additional checks.

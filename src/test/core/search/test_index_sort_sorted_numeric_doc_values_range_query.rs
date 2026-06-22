@@ -21,6 +21,10 @@ use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValu
 use crate::core::document::string_field::StringField;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+  random,
+};
 
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::field_exists_query::FieldExistsQuery;
@@ -43,10 +47,6 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 use crate::test::core::search::query_utils::QueryUtils;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  random,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::sync::Arc;

@@ -21,9 +21,7 @@ use crate::core::document::text_field::TextField;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 #[allow(dead_code)] // for quick search
 pub struct TestSameTokenSamePosition;
 

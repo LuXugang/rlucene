@@ -28,7 +28,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_string_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;

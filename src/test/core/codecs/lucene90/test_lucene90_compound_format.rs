@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::SliceRandom;
@@ -26,8 +27,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_compound_format_test_case::{
   BaseCompoundFormatTestCase, create_random_file, new_segment_info,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90CompoundFormat;
 

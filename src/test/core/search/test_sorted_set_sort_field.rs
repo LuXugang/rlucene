@@ -19,6 +19,10 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::keyword_field::KeywordField;
 use crate::core::document::string_field::StringField;
+use crate::test::core::util::lucene_test_case::{
+  new_bytes_ref_from_string, new_directory_shared, new_searcher_with_reader, new_string_field,
+  random,
+};
 
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::stored_fields::StoredFields;
@@ -35,10 +39,6 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_bytes_ref_from_string, new_directory_shared, new_searcher_with_reader, new_string_field,
-  random,
-};
 use std::collections::HashMap;
 
 /// Simple tests for SortedSetSortField, indexing the sortedset up front

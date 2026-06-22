@@ -35,7 +35,7 @@ use crate::test::core::search::base_explanation_test_case::{
 };
 use crate::test::core::search::test_simple_explanations::SimpleExplanations;
 use crate::test::core::util::DefaultIndexSearchCRShared;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher_with_reader, random,
 };

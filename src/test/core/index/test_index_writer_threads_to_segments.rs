@@ -39,7 +39,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::version::LATEST;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   create_temp_dir, is_night_mode, new_directory_shared, new_fs_directory,
   new_index_writer_config_with_analyzer, random,
 };

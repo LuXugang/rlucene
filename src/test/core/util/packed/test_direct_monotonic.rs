@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory, new_directory_shared, random,
+};
 use rand::Rng;
 use rand::RngExt;
 
@@ -28,9 +31,6 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_monotonic_writer::{
   DirectMonotonicWriter, MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT,
-};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory, new_directory_shared, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 

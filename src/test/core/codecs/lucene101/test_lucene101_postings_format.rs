@@ -30,12 +30,10 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::base_postings_format_test_case::BasePostingsFormatTestCase;
 use crate::test::core::index::random_postings_tester::RandomPostingsTester;
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
 #[allow(dead_code)] // for quick search
 struct TestLucene101PostingsFormat;
 impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {

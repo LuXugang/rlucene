@@ -25,7 +25,7 @@ use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use std::collections::{HashMap, LinkedList};

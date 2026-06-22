@@ -29,9 +29,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::english::English;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, is_night_mode, new_directory_shared, new_fs_directory,
-  new_index_writer_config_with_analyzer, random as new_random,
+  new_index_writer_config_with_analyzer, random,
 };
 use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
@@ -151,7 +151,7 @@ impl TestAtomicUpdate {
     Ok(())
   }
   fn test_atomic_updates() -> Result<()> {
-    let mut random = new_random();
+    let mut random = random();
 
     // Run against a random directory.
     // TODO IMPORTANT MockDirectoryWrapper未实现

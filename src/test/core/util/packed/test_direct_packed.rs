@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  is_night_mode, new_directory, new_directory_shared, random,
+};
 use rand::Rng;
 use rand::RngExt;
 
@@ -25,9 +28,6 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  is_night_mode, new_directory, new_directory_shared, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

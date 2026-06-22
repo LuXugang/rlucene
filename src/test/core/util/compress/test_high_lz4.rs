@@ -16,7 +16,7 @@
  */
 use crate::core::util::compress::lz4::{HashTableEnum, HighCompressionHashTable};
 use crate::test::core::util::compress::lz4_test_case::{AssertingHashTable, LZ4TestCase};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 
 #[allow(dead_code)] // for quick search
 struct TestHighLZ4;

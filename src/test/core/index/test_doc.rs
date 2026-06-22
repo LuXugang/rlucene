@@ -48,7 +48,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_io_context, new_io_context_with_default, random,
 };
 use parking_lot::Mutex;

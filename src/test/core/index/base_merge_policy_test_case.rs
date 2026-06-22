@@ -39,7 +39,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::{HasIdentity, LATEST, LUCENE_10_1_1, StringHelper};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer,
 };
 use crate::test::core::util::test_util::TestUtil;

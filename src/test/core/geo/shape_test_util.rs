@@ -22,7 +22,7 @@ use crate::core::geo::xy_point::XYPoint;
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::is_night_mode;
+use crate::test::core::util::lucene_test_case::is_night_mode;
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 /// generates random cartesian geometry; heavy reuse of GeoTestUtil

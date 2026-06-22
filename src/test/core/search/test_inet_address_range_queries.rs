@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::base_range_field_query_test_case::{
   BaseRangeFieldQueryTestCase, Range, RangeBase,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 use std::fmt;

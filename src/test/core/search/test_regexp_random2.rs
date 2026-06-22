@@ -46,7 +46,7 @@ use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::DefaultIndexSearchCRShared;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_bytes_ref_from_string, new_directory_shared, new_index_writer_config_with_analyzer,
   new_searcher_with_reader, new_string_field, random,
 };

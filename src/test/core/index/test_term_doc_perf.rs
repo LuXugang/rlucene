@@ -37,7 +37,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, random,
 };

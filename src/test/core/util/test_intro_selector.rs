@@ -16,12 +16,12 @@
  */
 // Migrated from src/core/util/intro_selector.rs
 
+use crate::test::core::util::lucene_test_case::random;
 use rand::{Rng, RngExt};
 
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::selector::Selector;
 use crate::core::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

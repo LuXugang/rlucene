@@ -21,9 +21,7 @@ use crate::core::index::upgrade_index_merge_policy::UpgradeIndexMergePolicy;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_merge_policy_test_case::BaseMergePolicyTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_tiered_merge_policy, random,
-};
+use crate::test::core::util::lucene_test_case::{new_tiered_merge_policy, random};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;

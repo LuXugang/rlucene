@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
@@ -24,7 +25,6 @@ use rand::rng;
 
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
 #[allow(dead_code)] // for quick search
 struct TestBlockingFloatHeap;

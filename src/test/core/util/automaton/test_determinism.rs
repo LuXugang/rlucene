@@ -20,7 +20,7 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use crate::test::core::util::lucene_test_case::{at_least, random};
 /// Not completely thorough, but tries to test determinism correctness somewhat
 /// randomly.
 #[allow(dead_code)] // for quick search

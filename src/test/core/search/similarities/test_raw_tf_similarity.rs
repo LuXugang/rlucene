@@ -17,6 +17,9 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field, random,
+};
 use std::collections::HashMap;
 
 use crate::core::index::directory_reader;
@@ -28,9 +31,6 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
 use crate::test::core::util::DefaultIndexSearchCR;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field, random,
-};
 use rand::Rng;
 
 #[allow(dead_code)]

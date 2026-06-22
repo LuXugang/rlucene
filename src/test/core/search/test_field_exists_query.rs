@@ -17,6 +17,9 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+};
 use std::cmp::Ordering;
 
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -37,9 +40,6 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
-};
 
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::double_doc_values_field::DoubleDocValuesField;

@@ -23,6 +23,9 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer, random,
+};
 
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
@@ -37,9 +40,6 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer, random,
-};
 use std::collections::HashMap;
 use std::sync::Arc;
 

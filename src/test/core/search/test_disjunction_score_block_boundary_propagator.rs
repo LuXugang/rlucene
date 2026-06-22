@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::disjunction_score_block_boundary_propagator::DisjunctionScoreBlockBoundaryPropagator;
+use crate::test::core::util::lucene_test_case::random;
 
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
@@ -22,7 +23,6 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use rand::prelude::SliceRandom;
 
 #[allow(dead_code)] // for quick search

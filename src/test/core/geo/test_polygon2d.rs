@@ -22,7 +22,7 @@ use crate::core::geo::polygon2d::create_from_polygon;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 

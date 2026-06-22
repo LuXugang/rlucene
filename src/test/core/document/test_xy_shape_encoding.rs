@@ -22,7 +22,7 @@ use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::document::base_shape_encoding_test_case::BaseShapeEncodingTestCase;
 use crate::test::core::geo::shape_test_util::ShapeTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

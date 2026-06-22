@@ -19,9 +19,7 @@
 use crate::core::index::BytesRef;
 use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_bytes_ref_from_string, random,
-};
+use crate::test::core::util::lucene_test_case::{new_bytes_ref_from_string, random};
 
 #[allow(dead_code)] // for quick search
 pub struct TestStringHelper;

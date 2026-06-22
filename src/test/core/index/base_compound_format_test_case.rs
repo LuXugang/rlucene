@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  at_least_usize, new_directory_shared, new_io_context, random,
+};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -37,9 +40,6 @@ use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least_usize, new_directory_shared, new_io_context, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseCompoundFormatTestCase {

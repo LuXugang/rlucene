@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, random,
+};
 use std::borrow::Cow;
 use std::collections::HashSet;
 
@@ -36,9 +39,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::util::Util;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test::core::util::automaton::minimization_operation::MinimizationOperations;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  is_night_mode, new_bytes_ref_from_bytes_ref, new_bytes_ref_from_string, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

@@ -66,7 +66,7 @@ use crate::test::core::index::doc_helper::{
   DocHelper, FIELD_1_TEXT, FIELD_2_TEXT, FIELD_3_TEXT, KEYWORD_FIELD_KEY, KEYWORD_TEXT,
   NO_NORMS_KEY, NO_NORMS_TEXT, TEXT_FIELD_1_KEY, TEXT_FIELD_2_KEY, TEXT_FIELD_3_KEY,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, random,
 };

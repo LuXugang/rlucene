@@ -17,7 +17,7 @@
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene94FieldInfosFormat;

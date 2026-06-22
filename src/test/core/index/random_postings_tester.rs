@@ -66,10 +66,8 @@ use crate::core::util::version::LATEST;
 use crate::test::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_multiplier;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, is_night_mode};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_fs_directory, random_from_seed,
+use crate::test::core::util::lucene_test_case::{
+  at_least, is_night_mode, new_fs_directory, random_from_seed, random_multiplier,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;

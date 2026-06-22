@@ -18,6 +18,11 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
 use crate::core::index::{BytesRef, directory_reader};
+use crate::test::core::util::lucene_test_case::{
+  at_least, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string, new_directory,
+  new_directory_shared, new_fs_directory, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, random, random_from_seed, random_multiplier,
+};
 
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::index_writer_config::OpenMode;
@@ -60,11 +65,6 @@ use crate::test::core::util::fst::fst_tester::{
   to_ints_ref_from_string,
 };
 use crate::test::core::util::line_file_docs::LineFileDocs;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string, new_directory,
-  new_directory_shared, new_fs_directory, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, random, random_from_seed, random_multiplier,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;

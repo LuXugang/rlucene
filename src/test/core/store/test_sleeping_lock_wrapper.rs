@@ -66,7 +66,7 @@ mod base_lock_factory_test_case_tests {
   use super::TestSleepingLockWrapper;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+  use crate::test::core::util::lucene_test_case::random;
 
   #[test]
   fn test_basics() -> Result<()> {

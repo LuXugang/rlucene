@@ -57,7 +57,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::version::LATEST;
 use crate::test::core::search::query_utils::QueryUtils;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::rarely;
+use crate::test::core::util::lucene_test_case::rarely;
 use crate::test::ulp_f32;
 use rand::Rng;
 use rand::RngExt;

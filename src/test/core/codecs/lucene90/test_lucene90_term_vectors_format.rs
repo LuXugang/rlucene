@@ -17,7 +17,7 @@
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

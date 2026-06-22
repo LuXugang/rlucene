@@ -20,9 +20,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 

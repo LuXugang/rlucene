@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  create_temp_dir_with_prefix, new_io_context, random, slow_file_exists,
+};
 use std::collections::HashSet;
 use std::fs::File;
 
@@ -29,9 +32,6 @@ use crate::core::store::native_fs_lock_factory::NativeFSLockFactory;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  create_temp_dir_with_prefix, new_io_context, random, slow_file_exists,
-};
 
 #[allow(dead_code)] // for quick search
 struct TestDirectory;

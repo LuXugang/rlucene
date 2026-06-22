@@ -23,6 +23,9 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+};
 
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_options::IndexOptions::DocsAndFreqs;
@@ -36,9 +39,6 @@ use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::similarities::base_similarity_test_case::BaseSimilarityTestCase;
 use crate::test::core::util::DefaultIndexSearchCR;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 

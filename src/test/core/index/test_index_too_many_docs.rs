@@ -23,7 +23,7 @@ use crate::core::index::index_writer::{IndexWriter, MAX_DOCS, set_max_docs};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random, random_from_seed,
 };
 use rand::RngExt;

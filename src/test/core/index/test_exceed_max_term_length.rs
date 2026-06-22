@@ -22,7 +22,7 @@ use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory, new_index_writer_config, new_index_writer_config_with_analyzer, random,
 };
 use crate::test::core::util::test_util::TestUtil;

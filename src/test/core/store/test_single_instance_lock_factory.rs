@@ -19,6 +19,7 @@ use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+use crate::test::core::util::lucene_test_case::random;
 use std::path::PathBuf;
 
 /// Simple tests for SingleInstanceLockFactory
@@ -47,9 +48,7 @@ mod single_instance_lock_factory_tests {
   use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
   use crate::core::util::error::lucene_error::{LuceneError, Result};
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_index_writer_config_with_analyzer, random,
-  };
+  use crate::test::core::util::lucene_test_case::{new_index_writer_config_with_analyzer, random};
 
   fn assert_single_instance_lock_factory(_: &SingleInstanceLockFactory) {}
 
@@ -121,7 +120,7 @@ fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestSingleInstanceLockFactory, &mut rand::prelude::StdRng) -> Result<()>,
 {
-  let mut random = crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+  let mut random = random();
   let case = TestSingleInstanceLockFactory;
   f(&case, &mut random)
 }

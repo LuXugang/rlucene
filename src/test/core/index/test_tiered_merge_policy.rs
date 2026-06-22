@@ -44,7 +44,7 @@ use crate::test::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory, IOStats, MockMergeContext, apply_deletes, apply_merge,
   make_segment_commit_info,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_field, new_index_writer_config_with_analyzer, new_text_field,
   new_tiered_merge_policy, random, random_multiplier,
 };

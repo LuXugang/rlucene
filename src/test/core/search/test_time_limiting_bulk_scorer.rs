@@ -30,6 +30,10 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+  new_text_field, random,
+};
 
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -37,10 +41,6 @@ use crate::core::search::time_limiting_bulk_scorer::{INTERVAL, TimeLimitingBulkS
 use crate::core::util::bits::{Bits, MatchAllBits};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_text_field, random,
-};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicI32;

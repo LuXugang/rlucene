@@ -18,6 +18,7 @@ use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::test::core::util::lucene_test_case::{at_least, random};
 
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -32,7 +33,6 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test::core::search::random_approximation_query::RandomTwoPhaseView;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
 

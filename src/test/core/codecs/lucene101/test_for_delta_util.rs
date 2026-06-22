@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use rand::RngExt;
 
 use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
@@ -23,7 +24,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{ByteBuffersDirectory, IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use crate::test::core::util::test_util::TestUtil;
 #[allow(dead_code)]
 struct TestForDeltaUtil;

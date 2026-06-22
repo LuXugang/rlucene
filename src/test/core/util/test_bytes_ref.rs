@@ -16,12 +16,12 @@
  */
 // Migrated from src/core/index/bytes_ref.rs
 
+use crate::test::core::util::lucene_test_case::random;
 use rand::RngExt;
 use rand::distr::Alphanumeric;
 
 use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

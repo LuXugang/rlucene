@@ -53,10 +53,8 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_searcher_with_reader;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least_usize, get_only_leaf_reader,
+use crate::test::core::util::lucene_test_case::{
+  at_least_usize, get_only_leaf_reader, new_directory_shared, new_searcher_with_reader,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;

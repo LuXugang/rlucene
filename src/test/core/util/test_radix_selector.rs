@@ -16,6 +16,7 @@
  */
 // Migrated from src/core/util/radix_selector.rs
 
+use crate::test::core::util::lucene_test_case::random;
 use std::cmp::{Ordering, min};
 
 use rand::Rng;
@@ -25,7 +26,6 @@ use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::core::util::selector::Selector;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

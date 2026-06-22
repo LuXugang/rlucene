@@ -21,7 +21,7 @@ use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::base_xy_point_test_case::BaseXYPointTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 
 pub struct TestXYPointQueries;

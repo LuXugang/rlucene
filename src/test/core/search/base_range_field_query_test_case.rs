@@ -33,7 +33,7 @@ use crate::core::search::query::Query;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::fixed_bit_set_collector::FixedBitSetCollector;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_searcher_with_reader,
 };

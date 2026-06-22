@@ -21,7 +21,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 

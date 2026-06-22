@@ -16,8 +16,7 @@
  */
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::is_night_mode;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::{is_night_mode, random};
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90LiveDocsFormat;

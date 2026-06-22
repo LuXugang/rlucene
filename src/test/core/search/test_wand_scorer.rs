@@ -25,6 +25,10 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
+  new_searcher_with_reader, new_searcher_with_threads, random,
+};
 
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::search::boolean_clause::Occur;
@@ -57,10 +61,6 @@ use crate::core::util::{HasIdentity, ToInt};
 use crate::test::core::search::asserting_query::AssertingQuery;
 use crate::test::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
 use crate::test::core::search::check_hits::CheckHits;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
-  new_searcher_with_reader, new_searcher_with_threads, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::fmt::Debug;

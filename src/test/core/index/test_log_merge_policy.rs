@@ -32,9 +32,7 @@ use crate::test::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory, IOStats, MockMergeContext, apply_merge,
   make_segment_commit_info,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_log_merge_policy, random,
-};
+use crate::test::core::util::lucene_test_case::{new_log_merge_policy, random};
 use rand::Rng;
 use rand::prelude::StdRng;
 use std::sync::Arc;

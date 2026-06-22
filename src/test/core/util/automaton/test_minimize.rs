@@ -21,7 +21,7 @@ use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test::core::util::automaton::minimization_operation::MinimizationOperations;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use crate::test::core::util::lucene_test_case::{at_least, random};
 #[allow(dead_code)] // for quick search
 /// This test builds some randomish NFA/DFA and minimizes them.
 struct TestMinimize;

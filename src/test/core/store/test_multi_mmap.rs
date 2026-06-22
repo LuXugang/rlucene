@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  create_temp_dir_with_prefix, new_io_context, random,
+};
 use std::path::PathBuf;
 
 use rand::prelude::StdRng;
@@ -30,9 +33,6 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  create_temp_dir_with_prefix, new_io_context, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

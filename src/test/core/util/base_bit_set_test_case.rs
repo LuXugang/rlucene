@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use std::collections::HashSet;
 
 use crate::core::index::index_reader::Identity;
@@ -27,7 +28,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::test::core::util::id_set_common;
 use crate::test::core::util::id_set_common::clear_range;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use rand::Rng;
 use rand::RngExt;
 

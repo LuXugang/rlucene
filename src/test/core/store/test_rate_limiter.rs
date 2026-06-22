@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random as new_random;
 use rand::RngExt;
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Barrier};
@@ -34,7 +35,7 @@ fn test_overflow_int() -> Result<()> {
 
 #[test]
 fn test_threads() -> Result<()> {
-  let mut random = crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+  let mut random = new_random();
 
   let target_mb_per_sec = 10.0 + 20.0 * random.random::<f64>();
   let limiter = Arc::new(SimpleRateLimiter::new(target_mb_per_sec));
@@ -48,8 +49,7 @@ fn test_threads() -> Result<()> {
     let limiter = Arc::clone(&limiter);
     let barrier = Arc::clone(&barrier);
     let tot_bytes = Arc::clone(&tot_bytes);
-    let mut thread_random =
-      crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+    let mut thread_random = new_random();
 
     handles.push(std::thread::spawn(move || {
       barrier.wait();

@@ -36,7 +36,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_string_field, random,
 };

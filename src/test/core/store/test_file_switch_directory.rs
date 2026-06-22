@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  new_index_writer_config_with_analyzer, new_log_merge_policy_with_cfs, random,
+};
 use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::path::PathBuf;
@@ -43,9 +46,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::test_index_writer_reader::create_index_no_close;
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_index_writer_config_with_analyzer, new_log_merge_policy_with_cfs, random,
-};
 
 type NioDirectory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 type SwitchDirectory = FileSwitchDirectory<NioDirectory, NioDirectory>;

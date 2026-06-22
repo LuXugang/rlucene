@@ -22,7 +22,7 @@ use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_text_field, random,
 };
 use std::collections::HashMap;

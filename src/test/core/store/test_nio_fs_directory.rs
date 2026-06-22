@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use std::path::PathBuf;
 
 use rand::Rng;
@@ -22,7 +23,6 @@ use crate::core::store::nio_fs_directory::{NIOFSDirectory, NIOFSIndexInput};
 use crate::core::store::{BufferedIndexInput, FSDirectory, NativeFSLockFactory};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 #[allow(dead_code)] // for quick search
 pub struct TestNIOFSDirectory;

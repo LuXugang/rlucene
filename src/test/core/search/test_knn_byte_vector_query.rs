@@ -22,7 +22,7 @@ use crate::core::search::query::Query;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use crate::test::core::util::test_vector_util::random_vector_bytes_dim;
 use rand::Rng;
 use rand::rngs::StdRng;

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 
@@ -24,7 +25,6 @@ use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
 use crate::test::core::util::base_doc_id_set_test_case::{
   BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 pub struct TestIntArrayDocIdSet;
 

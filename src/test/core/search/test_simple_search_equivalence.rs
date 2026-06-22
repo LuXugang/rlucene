@@ -26,7 +26,7 @@ use crate::test::core::search::asserting_query::AssertingQuery;
 use crate::test::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 

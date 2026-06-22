@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use rand::RngExt;
 
 use crate::core::util::error::lucene_error::Result;
@@ -37,7 +38,6 @@ fn test_basic_operations() -> Result<()> {
   assert_eq!(heap.size(), 0);
   Ok(())
 }
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
 #[test]
 fn test_basic_operations2() -> Result<()> {

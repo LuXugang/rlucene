@@ -24,7 +24,7 @@ use crate::core::util::not_doc_id_set::NotDocIdSet;
 use crate::test::core::util::base_doc_id_set_test_case::{
   BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

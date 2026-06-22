@@ -29,9 +29,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 

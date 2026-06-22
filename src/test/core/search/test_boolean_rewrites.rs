@@ -18,6 +18,9 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory_shared, new_searcher_with_reader, new_text_field, random,
+};
 
 use crate::core::document::field::FieldBase;
 use crate::core::document::text_field::TextField;
@@ -46,9 +49,6 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_searcher_with_reader, new_text_field, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};

@@ -17,6 +17,9 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_searcher_with_threads, random,
+};
 
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
@@ -29,9 +32,6 @@ use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollect
 
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_searcher_with_threads, random,
-};
 
 #[allow(dead_code)] // for quick search
 struct TestTotalHitCountCollector;

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{random, random_multiplier};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Barrier};
@@ -40,7 +41,6 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::get_default_info_stream;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
 
 #[allow(dead_code)] // for quick search
 struct TestDocumentsWriterDeleteQueue;

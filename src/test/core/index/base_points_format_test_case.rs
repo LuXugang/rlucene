@@ -49,7 +49,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
   new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_string_field, rarely,

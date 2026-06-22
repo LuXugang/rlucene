@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use std::borrow::Cow;
 use std::collections::HashSet;
 
@@ -34,7 +35,6 @@ use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test::core::util::automaton::minimization_operation::MinimizationOperations;
 use crate::test::core::util::automaton::test_operations::TestOperations;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 use crate::test::core::util::test_util::TestUtil;
 /// Test for FiniteStringsIterator.
 #[allow(dead_code)] // for quick search

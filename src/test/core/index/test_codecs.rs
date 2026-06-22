@@ -59,7 +59,7 @@ use crate::core::util::iterator::{IteratorExt, VecIter, VecIteratorExt};
 use crate::core::util::string_helper::StringHelper;
 use crate::core::util::version::LATEST;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config_with_analyzer, random, random_from_seed,
 };

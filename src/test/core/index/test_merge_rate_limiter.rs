@@ -21,9 +21,7 @@ use crate::core::store::rate_limiter::RateLimiter;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 
 #[allow(dead_code)] // for quick search
 struct TestMergeRateLimiter;

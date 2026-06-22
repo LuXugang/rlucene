@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_searcher_with_reader, new_text_field, random,
+};
 use std::collections::{BTreeSet, HashMap};
 
 use crate::core::document::document::Document;
@@ -31,9 +34,6 @@ use crate::core::util::ints_ref::IntsRef;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
-};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;

@@ -26,9 +26,7 @@ use crate::sandbox::index::merge_on_flush_merge_policy::{MergeOnFlushMergePolicy
 use crate::test::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory, MockMergeContext, make_segment_commit_info,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_merge_policy_with_mock_mp, random,
-};
+use crate::test::core::util::lucene_test_case::{new_merge_policy_with_mock_mp, random};
 use crate::test::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};

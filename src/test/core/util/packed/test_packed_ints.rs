@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use crate::test::core::util::lucene_test_case::{
+  at_least, is_night_mode, new_directory_shared, new_io_context, random, random_from_seed, rarely,
+};
 use rand::RngExt;
 
 use crate::core::store::directory::Directory;
@@ -42,12 +45,6 @@ use crate::core::util::packed::{
   is_supported,
 };
 use crate::core::util::{SliceCopyOps, TryIntoInt};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, is_night_mode, random_from_seed,
-};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_io_context, random, rarely,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

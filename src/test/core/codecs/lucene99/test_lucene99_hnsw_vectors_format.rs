@@ -16,7 +16,7 @@
  */
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::base_knn_vectors_format_test_case::BaseKnnVectorsFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

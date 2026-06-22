@@ -48,11 +48,8 @@ use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least_usize, new_directory_shared,
-};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_index_writer_config, new_searcher_with_reader,
+use crate::test::core::util::lucene_test_case::{
+  at_least_usize, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
 };
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};

@@ -16,6 +16,7 @@
  */
 // Migrated from src/core/util/bytes_ref_array.rs
 
+use crate::test::core::util::lucene_test_case::{at_least_usize, random};
 use std::sync::Arc;
 
 use rand::RngExt;
@@ -27,7 +28,6 @@ use crate::core::util::{
   AtomicCounter, BytesRefArray, IndexedBytesRefIterator, Natural, NaturalOrder,
   SortableBytesRefArray,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

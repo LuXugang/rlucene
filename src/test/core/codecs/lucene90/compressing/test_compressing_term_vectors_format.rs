@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_field, random,
 };
 use rand::Rng;

@@ -30,9 +30,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::print_stream_info_stream::PrintStreamInfoStream;
 use crate::test::core::analysis::mock_tokenizer::MockTokenizer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random, random_from_seed,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random, random_from_seed};
 use rand::RngExt;
 use std::io::Cursor;
 use std::sync::{Arc, LazyLock};

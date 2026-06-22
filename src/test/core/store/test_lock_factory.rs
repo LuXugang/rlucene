@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  new_directory_with_lock_factory, new_index_writer_config, new_text_field, random,
+};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
@@ -29,7 +32,6 @@ use crate::core::store::lock::{Lock, LockEnum};
 use crate::core::store::lock_factory::{LockFactory, LockFactoryEnum};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util;
 
 #[allow(dead_code)] // for quick search
 struct TestLockFactory;
@@ -39,15 +41,13 @@ struct TestLockFactory;
 
 #[test]
 fn test_custom_lock_factory() -> Result<()> {
-  let mut random = lucene_test_case_util::random();
+  let mut random = random();
   let lf = MockLockFactory::new();
   // TODO IMPORTANT MockDirectoryWrapper 未实现
-  let dir = lucene_test_case_util::new_directory_with_lock_factory(
-    &mut random,
-    LockFactoryEnum::Custom(Box::new(lf.clone())),
-  )?;
+  let dir =
+    new_directory_with_lock_factory(&mut random, LockFactoryEnum::Custom(Box::new(lf.clone())))?;
 
-  let iwc = lucene_test_case_util::new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random);
   let writer = IndexWriter::new(Arc::new(dir), iwc)?;
 
   // add 100 documents (so that commit lock is used)
@@ -70,18 +70,18 @@ fn test_custom_lock_factory() -> Result<()> {
 // Verify: NoLockFactory allows two IndexWriters
 #[test]
 fn test_directory_no_locking() -> Result<()> {
-  let mut random = lucene_test_case_util::random();
+  let mut random = random();
   // TODO IMPORTANT MockDirectoryWrapper 未实现
-  let dir = lucene_test_case_util::new_directory_with_lock_factory(&mut random, NoLockFactory)?;
+  let dir = new_directory_with_lock_factory(&mut random, NoLockFactory)?;
   let dir = Arc::new(dir);
 
-  let iwc = lucene_test_case_util::new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   writer.commit()?; // required so the second open succeed
 
   // Create a 2nd IndexWriter. This is normally not allowed but it should
   // run through since we're not using any locks:
-  let mut iwc2 = lucene_test_case_util::new_index_writer_config(&mut random);
+  let mut iwc2 = new_index_writer_config(&mut random);
   iwc2.set_open_mode(OpenMode::Append);
   let writer2 = IndexWriter::new(dir, iwc2);
   match writer2 {
@@ -164,7 +164,7 @@ fn add_doc(
   field_to_type: &mut HashMap<String, crate::core::document::field_type::FieldType>,
 ) -> Result<()> {
   let mut doc = Document::new();
-  doc.add(lucene_test_case_util::new_text_field(
+  doc.add(new_text_field(
     random,
     "content",
     "aaa",

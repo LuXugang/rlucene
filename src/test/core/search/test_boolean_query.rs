@@ -20,6 +20,11 @@ use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_log_merge_policy, new_searcher_with_reader, new_string_field, new_text_field, random,
+  random_multiplier,
+};
 
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -63,11 +68,6 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test::core::search::query_utils::QueryUtils;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_searcher_with_reader, new_string_field, new_text_field, random,
-  random_multiplier,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::prelude::SliceRandom;

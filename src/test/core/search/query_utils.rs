@@ -33,7 +33,7 @@ use crate::core::util::CoreHelper;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::search::check_hits::CheckHits;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_searcher_with_lr_wrap;
+use crate::test::core::util::lucene_test_case::new_searcher_with_lr_wrap;
 use rand::{Rng, RngExt};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;

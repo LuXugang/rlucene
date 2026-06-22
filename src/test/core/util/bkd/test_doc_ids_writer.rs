@@ -22,19 +22,15 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::IndexWriter;
+use crate::test::core::util::lucene_test_case::{at_least, new_directory, random};
+#[cfg(feature = "nightly")]
+use crate::test::core::util::lucene_test_case::{new_directory_shared, new_index_writer_config};
 
 use crate::core::index::point_values::{IntersectVisitor, Relation};
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory, random,
-};
-#[cfg(feature = "nightly")]
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;

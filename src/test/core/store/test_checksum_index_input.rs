@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{new_directory, new_io_context, random};
 use std::fmt::{Display, Formatter};
 
 use rand::RngExt;
@@ -27,9 +28,6 @@ use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory, new_io_context, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 pub struct TestChecksumIndexInput;

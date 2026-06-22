@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, new_io_context, random_from_seed};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -34,9 +35,6 @@ use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_io_context, random_from_seed,
-};
 /// Helper struct to test FSTs.
 #[allow(clippy::type_complexity)]
 pub struct FSTTester<D, R, O, S>

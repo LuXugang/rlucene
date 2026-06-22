@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use std::any::Any;
 use std::collections::HashMap;
 
@@ -36,7 +37,6 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{FSDirectory, NativeFSLockFactory};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use rand::RngExt;
 use rand::prelude::IndexedRandom;
 

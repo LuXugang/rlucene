@@ -41,15 +41,15 @@ use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy, new_text_field,
+  random,
+};
 
 use crate::core::index::index_reader::IndexReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy, new_text_field,
-  random,
-};
 use rand::Rng;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};

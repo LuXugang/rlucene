@@ -31,7 +31,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_index_writer_config_with_analyzer;
+use crate::test::core::util::lucene_test_case::new_index_writer_config_with_analyzer;
 use crate::test::core::util::null_info_stream::NullInfoStream;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;

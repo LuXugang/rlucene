@@ -35,8 +35,8 @@ mod tests {
   use crate::core::store::directory::DirEnum;
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-    new_searcher_with_reader, random,
+  use crate::test::core::util::lucene_test_case::{
+    new_directory_shared, new_searcher_with_reader, random,
   };
   use rand::RngExt;
   use std::sync::Arc;
@@ -53,10 +53,7 @@ mod tests {
 
   fn create_index() -> Result<Arc<DirEnum>> {
     let mut random = random();
-    let directory =
-      crate::test::core::util::lucene_test_case::lucene_test_case_util::new_directory_shared(
-        &mut random,
-      )?;
+    let directory = new_directory_shared(&mut random)?;
 
     let writer = get_writer(directory.clone())?;
 

@@ -23,7 +23,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
 };
 use rand::Rng;

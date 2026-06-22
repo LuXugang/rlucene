@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{new_bytes_ref_from_string, random};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -39,9 +40,6 @@ use crate::core::util::attribute_source::EmptyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{AtomicCounter, ByteBlockPool};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_bytes_ref_from_string, random,
-};
 
 use rand::RngExt;
 use rand::distr::Alphanumeric;

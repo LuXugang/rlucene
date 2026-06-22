@@ -52,7 +52,7 @@ use crate::core::util::hnsw::{
 use crate::core::util::vector_util::VectorUtil;
 use crate::test::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
 use crate::test::core::util::hnsw::mock_vector_values::MockVectorValues;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::at_least_usize;
+use crate::test::core::util::lucene_test_case::at_least_usize;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::HashSet;

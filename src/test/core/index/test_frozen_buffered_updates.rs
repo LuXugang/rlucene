@@ -31,15 +31,15 @@ use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{AtomicCounter, BytesRefArray, Natural, SortableBytesRefArray};
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, new_string_field_binary, random, rarely,
+};
 use rand::RngExt;
 use rand::prelude::IndexedRandom;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, new_string_field_binary, random, rarely,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

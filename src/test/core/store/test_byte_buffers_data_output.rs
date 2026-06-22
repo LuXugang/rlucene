@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{is_night_mode, random, random_from_seed};
 use rand::RngExt;
 
 use crate::core::store::data_output::DataOutput;
@@ -22,8 +23,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_data_output_test_case::{
   BaseDataOutputTestCase, add_random_data,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::is_night_mode;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{random, random_from_seed};
 
 struct TestByteBuffersDataOutput;
 impl BaseDataOutputTestCase for TestByteBuffersDataOutput {

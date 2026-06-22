@@ -34,6 +34,9 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
+};
 
 use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::term_query::TermQuery;
@@ -42,9 +45,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::query_utils::QueryUtils;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
-};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;

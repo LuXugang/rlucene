@@ -21,7 +21,7 @@ use crate::core::geo::line2d::create_from_line;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 #[allow(dead_code)] // for quick search
 struct TestLine2D;
 

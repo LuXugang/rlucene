@@ -16,6 +16,9 @@
  */
 use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, random,
+};
 
 use crate::core::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool;
 
@@ -25,10 +28,6 @@ use crate::core::index::index_writer::IndexWriter;
 
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamEnum, NoOutput};
-
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, random,
-};
 
 use std::sync::Arc;
 

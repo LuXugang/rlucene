@@ -17,6 +17,11 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_log_merge_policy, new_searcher_with_reader, new_searcher_with_threads, new_text_field,
+  random,
+};
 
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
@@ -32,11 +37,6 @@ use crate::core::search::total_hits::Relation;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_searcher_with_reader, new_searcher_with_threads, new_text_field,
-  random,
-};
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;

@@ -22,7 +22,7 @@ use crate::core::store::{
 };
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 

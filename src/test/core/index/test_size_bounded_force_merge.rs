@@ -30,9 +30,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_index_writer_config, random,
-};
+use crate::test::core::util::lucene_test_case::{new_index_writer_config, random};
 use rand::Rng;
 use std::sync::Arc;
 

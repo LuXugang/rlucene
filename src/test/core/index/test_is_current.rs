@@ -23,9 +23,7 @@ use crate::core::index::term::Term;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_text_field, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, new_text_field, random};
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search

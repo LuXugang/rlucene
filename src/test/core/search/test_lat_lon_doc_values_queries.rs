@@ -23,7 +23,7 @@ use crate::core::geo::polygon::Polygon;
 use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 pub struct TestLatLonDocValuesQueries;
 fn run_case<F>(f: F) -> Result<()>

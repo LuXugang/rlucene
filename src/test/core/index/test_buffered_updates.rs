@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use std::collections::HashMap;
 
 use rand::{Rng, RngExt};
@@ -25,7 +26,6 @@ use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
 /// Unit test for BufferedUpdate
 #[allow(dead_code)] // for quick search

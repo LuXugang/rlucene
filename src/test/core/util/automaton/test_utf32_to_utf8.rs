@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  at_least, at_least_usize, new_bytes_ref_from_string, random,
+};
 use std::collections::HashSet;
 use std::string::FromUtf16Error;
 
@@ -36,9 +39,6 @@ use crate::test::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
 };
 use crate::test::core::util::automaton::test_operations::TestOperations;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, at_least_usize, new_bytes_ref_from_string, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestUTF32ToUTF8;

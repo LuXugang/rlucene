@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 
 use crate::core::codecs::compression::compression_mode::{CompressionMode, CompressionModeEnum};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::codecs::compressing::abstract_test_compression_mod::AbstractTestCompressionMode;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 #[allow(dead_code)]
 pub struct TestFastDecompressionMode;

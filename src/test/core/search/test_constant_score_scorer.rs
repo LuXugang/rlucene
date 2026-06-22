@@ -39,16 +39,16 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hits::Relation::GreaterThanOrEqualTo;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_log_merge_policy, new_searcher_with_reader, new_text_field, random,
+};
 use rand::Rng;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_searcher_with_reader, new_text_field, random,
-};
 
 #[allow(dead_code)] // for quick search
 struct TestConstantScoreScorer;

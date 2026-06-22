@@ -47,7 +47,7 @@ use crate::core::search::{QueryCache, QueryCacheEnum};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_string_field, random,
 };
 use rand::RngExt;

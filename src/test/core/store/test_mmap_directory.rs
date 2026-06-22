@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{is_night_mode, random, random_multiplier};
 use std::mem::size_of;
 use std::path::PathBuf;
 use std::sync::{Arc, Barrier};
@@ -33,9 +34,6 @@ use crate::core::store::{
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  is_night_mode, random, random_multiplier,
-};
 
 #[allow(dead_code)] // for quick search
 struct TestMMapDirectory {

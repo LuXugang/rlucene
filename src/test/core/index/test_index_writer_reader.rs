@@ -43,7 +43,7 @@ use crate::core::util::Comparator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_index_writer_config,
   new_log_merge_policy_with_merge_factor, new_text_field, random, random_from_seed,
 };

@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::base_doc_values_format_test_case::BaseDocValuesFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::new_index_writer_config_with_analyzer;
+use crate::test::core::util::lucene_test_case::new_index_writer_config_with_analyzer;
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;

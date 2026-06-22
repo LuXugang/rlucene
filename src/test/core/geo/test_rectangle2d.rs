@@ -20,7 +20,7 @@ use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::point_values::Relation::{CellInsideQuery, CellOutsideQuery};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::shape_test_util::ShapeTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::RngExt;
 #[allow(dead_code)] // for quick search
 struct TestRectangle2D;

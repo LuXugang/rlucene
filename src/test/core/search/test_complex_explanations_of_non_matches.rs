@@ -24,7 +24,7 @@ use crate::test::core::search::test_complex_explanations::{
   ComplexExplanations, TestComplexExplanations,
 };
 use crate::test::core::util::DefaultIndexSearchCRShared;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

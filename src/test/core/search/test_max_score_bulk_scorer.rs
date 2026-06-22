@@ -21,6 +21,9 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_log_merge_policy, new_searcher_with_reader, random,
+};
 use std::fmt::{Display, Formatter};
 
 use crate::core::index::directory_reader;
@@ -46,9 +49,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_log_merge_policy, new_searcher_with_reader, random,
-};
 use rand::Rng;
 use rand::prelude::SliceRandom;
 use std::sync::Arc;

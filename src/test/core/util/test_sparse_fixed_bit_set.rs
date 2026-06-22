@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use rand::RngExt;
 use rand::prelude::StdRng;
 
@@ -25,7 +26,6 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::test::core::util::base_bit_set_test_case::{
   BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 pub struct TestSparseFixedBitSet;
 

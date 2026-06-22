@@ -94,7 +94,7 @@ use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test::core::analysis::token;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_searcher_with_reader,

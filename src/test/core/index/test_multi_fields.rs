@@ -33,7 +33,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::test_index_writer::KeepFullyDeletedSegmentsMergePolicy;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_string_field, random,
   random_multiplier,
 };

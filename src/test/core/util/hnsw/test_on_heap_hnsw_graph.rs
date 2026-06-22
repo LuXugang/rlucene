@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use rand::RngExt;
 
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 #[allow(dead_code)] // for quick search
 struct TestOnHeapHnswGraph;

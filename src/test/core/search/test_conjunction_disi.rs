@@ -16,6 +16,7 @@
  */
 use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionTwoPhaseIterator};
 use crate::core::search::conjunction_scorer::ConjunctionScorerDisi;
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use rand::{Rng, RngExt};
 use std::sync::Arc;
 
@@ -37,7 +38,6 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

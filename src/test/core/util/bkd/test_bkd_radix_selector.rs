@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::test::core::util::lucene_test_case::{at_least_usize, new_directory, random};
 use std::cmp::Ordering::{Greater, Less};
 
 use rand::Rng;
@@ -33,9 +34,6 @@ use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps, ToInt};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least_usize, new_directory, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

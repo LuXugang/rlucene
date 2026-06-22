@@ -23,15 +23,13 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::test::core::util::lucene_test_case::{at_least, new_directory, random, rarely};
 
 use crate::core::util::bit_set::{BitSet, of};
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory, random, rarely,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 use crate::core::util::TryIntoInt;

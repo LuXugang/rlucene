@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_bytes_ref, new_bytes_ref_empty, new_bytes_ref_from_string, random, random_from_seed,
+};
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashSet};
 
@@ -40,9 +43,6 @@ use crate::test::core::util::automaton::automaton_test_util::{
 };
 use crate::test::core::util::automaton::minimization_operation::MinimizationOperations;
 use crate::test::core::util::automaton::test_operations::TestOperations;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_bytes_ref, new_bytes_ref_empty, new_bytes_ref_from_string, random, random_from_seed,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

@@ -35,7 +35,7 @@ use crate::test::core::util::hnsw::hnsw_graph_test_case::{
   create_random_byte_vectors, random_vector8,
 };
 use crate::test::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 

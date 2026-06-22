@@ -52,7 +52,7 @@ use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::index::random_postings_tester::Option_;
 use crate::test::core::index::random_postings_tester::RandomPostingsTester;
 use crate::test::core::util::line_file_docs::LineFileDocs;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
   new_directory_shared, new_fs_directory, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, new_text_field,
@@ -405,11 +405,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random);
     iwc.base.codec = self.get_codec()?;
-    iwc.base.merge_policy =
-      crate::test::core::util::lucene_test_case::lucene_test_case_util::new_tiered_merge_policy(
-        random,
-      )
-      .into();
+    iwc.base.merge_policy = new_tiered_merge_policy(random).into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
     let mut field_types = HashMap::new();
 

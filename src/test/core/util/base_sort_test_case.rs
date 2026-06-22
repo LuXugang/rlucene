@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::rarely;
 use std::cmp::Ordering;
 
 use rand::Rng;
@@ -24,7 +25,6 @@ use crate::core::util::{COMPARATOR_TYPE, Comparator, Sorter, ToInt};
 use crate::test::core::util::base_sort_test_case::Strategy::{
   Random, RandomLowCardinality, RandomMediumCardinality,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::rarely;
 use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseSortTestCase {

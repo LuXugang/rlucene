@@ -33,8 +33,8 @@ use crate::core::util::sloppy_math::SloppyMath;
 use crate::test::core::geo::geo_test_util::GeoTestUtil;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 #[cfg(feature = "nightly")]
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::is_night_mode;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::is_night_mode;
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 use crate::test::core::util::test_util::TestUtil;

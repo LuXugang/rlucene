@@ -37,9 +37,7 @@ use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::DefaultCRReader;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least_usize, new_directory_shared,
-};
+use crate::test::core::util::lucene_test_case::{at_least_usize, new_directory_shared, random};
 use rand::{Rng, RngExt};
 use std::collections::BTreeMap;
 
@@ -83,7 +81,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, us
 
 #[test]
 fn test_field_sort_custom_searcher() -> Result<()> {
-  let mut random = crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+  let mut random = random();
   let (reader, query, _) = set_up(&mut random)?;
   let cust_sort = Sort::with_fields(vec![
     SortField::new(Some("publicationDate_"), SortFieldType::String)?,
@@ -95,7 +93,7 @@ fn test_field_sort_custom_searcher() -> Result<()> {
 
 #[test]
 fn test_field_sort_single_searcher() -> Result<()> {
-  let mut random = crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+  let mut random = random();
   let (reader, query, _) = set_up(&mut random)?;
   let cust_sort = Sort::with_fields(vec![
     SortField::new(Some("publicationDate_"), SortFieldType::String)?,

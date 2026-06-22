@@ -16,6 +16,7 @@
  */
 // Migrated from src/core/util/math_util.rs
 
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -24,7 +25,6 @@ use rand::RngExt;
 use rand::prelude::IndexedRandom;
 
 use crate::core::util::math_util::MathUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
 #[allow(dead_code)] // for quick search
 struct TestMathUtil;

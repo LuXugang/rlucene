@@ -40,7 +40,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random,
 };
 use rand::prelude::IndexedRandom;

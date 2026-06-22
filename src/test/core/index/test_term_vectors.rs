@@ -26,7 +26,7 @@ use crate::core::index::term_vectors::TermVectors;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
 use rand::Rng;

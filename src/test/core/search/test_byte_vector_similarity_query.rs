@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::base_vector_similarity_query_test_case::{
   BaseVectorSimilarityQueryBase, BaseVectorSimilarityQueryTestCase,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
+use crate::test::core::util::lucene_test_case::{at_least_usize, random};
 use crate::test::core::util::test_vector_util::random_vector_bytes_dim;
 use rand::Rng;
 use rand::rngs::StdRng;

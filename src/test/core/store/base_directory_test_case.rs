@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  at_least, at_least_usize, is_night_mode, new_directory, new_io_context, random_from_seed,
+  slow_file_exists,
+};
 use std::collections::{HashMap, HashSet};
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
@@ -41,12 +45,6 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::packed::PackedInts;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, at_least_usize, is_night_mode, new_directory,
-};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_io_context, random_from_seed, slow_file_exists,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 pub const EXTRA_FILE_NAME: &str = "extra0";

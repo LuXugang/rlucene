@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::Rng;
 use rand::RngExt;
 
@@ -23,9 +24,6 @@ use crate::core::codecs::lucene101::postings_util::PostingsUtil;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
 
 // checks for bug described in https://github.com/apache/lucene/issues/13373
 #[allow(dead_code)] // for quick search

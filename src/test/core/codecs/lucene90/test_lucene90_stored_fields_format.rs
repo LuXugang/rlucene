@@ -31,10 +31,7 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory, new_index_writer_config,
-};
+use crate::test::core::util::lucene_test_case::{new_directory, new_index_writer_config, random};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;

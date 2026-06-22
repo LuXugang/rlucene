@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{random, rarely};
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 
@@ -28,7 +29,6 @@ use crate::core::index::numeric_doc_values_field_updates::{
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{random, rarely};
 
 #[allow(dead_code)] // for quick search
 struct TestDocValuesFieldUpdates;

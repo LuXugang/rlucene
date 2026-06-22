@@ -49,7 +49,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::bulk_scorer_wrapper_scorer::BulkScorerWrapperScorer;
 use crate::test::core::util::DefaultIndexSearchLR;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, new_directory_shared, new_searcher_with_leaf_reader, random,
 };
 use crate::test::core::util::test_util::TestUtil;

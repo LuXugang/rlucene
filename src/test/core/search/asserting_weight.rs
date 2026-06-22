@@ -28,7 +28,7 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::asserting_bulk_scorer::AssertingBulkScorer;
 use crate::test::core::search::asserting_scorer::AssertingScorer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{random_from_seed, usually};
+use crate::test::core::util::lucene_test_case::{random_from_seed, usually};
 use rand::RngExt;
 use std::sync::Arc;
 

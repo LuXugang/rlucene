@@ -15,6 +15,10 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::test::core::util::lucene_test_case::{
+  at_least, at_least_usize, new_directory_shared, new_searcher_with_reader,
+  new_searcher_with_threads, random,
+};
 use std::fmt::{Display, Formatter};
 
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -69,10 +73,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::DefaultIndexSearchCR;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, at_least_usize, new_directory_shared, new_searcher_with_reader,
-  new_searcher_with_threads, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;

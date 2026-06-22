@@ -36,7 +36,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, at_least_usize, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
   new_field, new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_text_field, random,

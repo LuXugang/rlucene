@@ -22,6 +22,9 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::test::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config_with_analyzer, random,
+};
 
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -36,9 +39,6 @@ use crate::core::search::sorted_set_selector::SortedSetSelectorType::Min;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, new_index_writer_config_with_analyzer, random,
-};
 #[allow(dead_code)] // for quick search
 struct TestSortingCodecReader;
 #[test]

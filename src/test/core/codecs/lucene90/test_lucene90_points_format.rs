@@ -25,7 +25,7 @@ use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::base_points_format_test_case::BasePointsFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_index_writer_config,
   new_log_merge_policy, random,
 };

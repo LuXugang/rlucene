@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use rand::RngExt;
 use std::sync::Arc;
 
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 
 use crate::core::util::fst_impl::node_hash::PagedGrowableHash;
 

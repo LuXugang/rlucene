@@ -18,6 +18,7 @@ use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{FSDirectory, SimpleFSLockFactory};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+use crate::test::core::util::lucene_test_case::random;
 use std::path::PathBuf;
 
 /// Simple tests for SimpleFSLockFactory
@@ -43,7 +44,7 @@ mod simple_fs_lock_factory_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::test::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
   use crate::test::core::store::test_simple_fs_lock_factory::run_case;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::create_temp_dir;
+  use crate::test::core::util::lucene_test_case::create_temp_dir;
 
   /// delete the lockfile and test ensureValid fails
   #[test]
@@ -106,7 +107,7 @@ fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestSimpleFSLockFactory, &mut rand::prelude::StdRng) -> Result<()>,
 {
-  let mut random = crate::test::core::util::lucene_test_case::lucene_test_case_util::random();
+  let mut random = random();
   let case = TestSimpleFSLockFactory;
   f(&case, &mut random)
 }

@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::BytesRef;
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 
 use crate::core::index::field_infos::get_indexed_fields;
 use crate::core::index::fields::Fields;
@@ -44,9 +45,6 @@ use crate::test::core::index::doc_helper::NameValue::{Str, String};
 use crate::test::core::index::doc_helper::{
   DATA, DocHelper, FIELD_2_TEXT, FIELDS, NAME_VALUES, NO_NORMS_KEY, NO_NORMS_TEXT,
   TEXT_FIELD_1_KEY, TEXT_FIELD_2_KEY,
-};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;

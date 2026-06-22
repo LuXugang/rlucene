@@ -19,7 +19,7 @@ use crate::core::geo::geometry::Geometry;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::geo::shape_test_util::ShapeTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
 #[allow(dead_code)] // for quick search

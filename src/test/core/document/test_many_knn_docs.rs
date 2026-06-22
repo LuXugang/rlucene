@@ -31,7 +31,7 @@ mod monster {
   use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
   use crate::core::search::top_docs::TopDocsLike;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+  use crate::test::core::util::lucene_test_case::{
     create_temp_dir_with_prefix, new_fs_directory, new_searcher_with_reader, random,
   };
 

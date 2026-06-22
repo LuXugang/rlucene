@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{
+  at_least, is_night_mode, new_directory_shared, random,
+};
 use rand::{Rng, RngExt};
 
 use crate::core::store::directory::Directory;
@@ -22,9 +25,6 @@ use crate::core::store::{ByteArrayDataInput, DataOutput, IOContext};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, is_night_mode, new_directory_shared, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[test]

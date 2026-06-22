@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::random;
 use std::clone::Clone;
 use std::io::Cursor;
 
@@ -27,7 +28,6 @@ use crate::core::util::ReadableCursorExt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedIndexInput;

@@ -24,7 +24,7 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::query_utils::QueryUtils;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
 use rand::RngExt;

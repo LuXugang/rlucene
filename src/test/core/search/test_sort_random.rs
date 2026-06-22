@@ -47,7 +47,7 @@ use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_searcher_with_wrap, random,
 };
 use crate::test::core::util::test_util::TestUtil;

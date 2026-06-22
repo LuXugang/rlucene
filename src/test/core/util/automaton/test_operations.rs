@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::ptr;
@@ -38,7 +39,6 @@ use crate::core::util::unicode_util::UnicodeUtil;
 use crate::test::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use crate::test::core::util::test_util::TestUtil;
 
 pub(crate) struct TestOperations;

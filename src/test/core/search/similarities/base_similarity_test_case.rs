@@ -22,7 +22,7 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::small_float::SmallFloat;
 use crate::test::core::search::check_hits::CheckHits;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, rarely};
+use crate::test::core::util::lucene_test_case::{at_least, rarely};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;

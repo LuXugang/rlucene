@@ -30,9 +30,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::BTreeSet;

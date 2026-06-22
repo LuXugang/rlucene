@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::base_range_field_query_test_case::{
   BaseRangeFieldQueryTestCase, Range, RangeBase,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 use rand::prelude::StdRng;

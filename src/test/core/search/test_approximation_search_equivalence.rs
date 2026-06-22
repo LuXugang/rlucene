@@ -25,7 +25,7 @@ use crate::test::core::search::random_approximation_query::RandomApproximationQu
 use crate::test::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 /// Basic equivalence tests for approximations.
 pub struct TestApproximationSearchEquivalence {

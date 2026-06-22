@@ -30,7 +30,7 @@ use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::analysis::token;
 use crate::test::core::analysis::token::Token;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
 use crate::test::core::util::test_util::TestUtil;

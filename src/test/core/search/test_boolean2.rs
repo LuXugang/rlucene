@@ -42,7 +42,7 @@ use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::search::test_boolean_min_should_match::Callback;
 use crate::test::core::util::DefaultIndexSearchCR;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least_usize, create_temp_dir, new_directory_shared, new_field, new_fs_directory,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader, random,
 };

@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 use crate::core::store::directory::DirEnum;
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;

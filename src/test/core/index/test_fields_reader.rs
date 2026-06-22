@@ -41,7 +41,7 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::doc_helper::{
   DocHelper, NO_TF_KEY, TEXT_FIELD_1_KEY, TEXT_FIELD_2_KEY, TEXT_FIELD_3_KEY,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
 };
 use parking_lot::Mutex;

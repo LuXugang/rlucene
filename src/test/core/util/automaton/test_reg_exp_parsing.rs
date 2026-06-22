@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::test::core::util::lucene_test_case::random;
 use std::collections::{HashMap, HashSet};
 
 use rand::Rng;
@@ -32,7 +33,6 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 #[allow(dead_code)] // for quick search
 struct TestRegExp {
   case_sensitive_query: bool,

@@ -21,9 +21,7 @@ use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_directory_shared, random,
-};
+use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;

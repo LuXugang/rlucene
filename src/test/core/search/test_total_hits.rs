@@ -17,7 +17,7 @@
 use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::TotalHits;
 use crate::core::util::CoreHelper;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::IndexedRandom;

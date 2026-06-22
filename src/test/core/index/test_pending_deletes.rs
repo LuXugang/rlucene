@@ -21,6 +21,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_info::SegmentInfo;
+use crate::test::core::util::lucene_test_case::random;
 
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::IOContext;
@@ -28,7 +29,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 use crate::core::index::pending_soft_deletes;
 use rand::RngExt;

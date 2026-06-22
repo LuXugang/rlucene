@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, new_directory_shared};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -37,9 +38,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{StringHelper, Version};
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {

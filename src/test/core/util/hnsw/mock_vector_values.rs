@@ -25,7 +25,7 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
+use crate::test::core::util::lucene_test_case::random_from_seed;
 use rand::RngExt;
 use std::borrow::Cow;
 

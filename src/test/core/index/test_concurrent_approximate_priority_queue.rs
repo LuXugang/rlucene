@@ -20,7 +20,7 @@ use crate::core::index::concurrent_approximate_priority_queue::{
 };
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use crate::test::core::util::test_util::TestUtil;
 use std::sync::{Arc, mpsc};
 use std::thread;

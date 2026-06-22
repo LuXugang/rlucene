@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::is_night_mode;
 use rand::Rng;
 use rand::RngExt;
 
@@ -24,7 +25,6 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::base_bit_set_test_case::random_set;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::is_night_mode;
 use crate::test::core::util::test_util::TestUtil;
 
 pub trait BaseDocIdSetTestCase {

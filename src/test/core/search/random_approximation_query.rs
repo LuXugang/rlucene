@@ -34,7 +34,7 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
+use crate::test::core::util::lucene_test_case::random_from_seed;
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::StdRng;

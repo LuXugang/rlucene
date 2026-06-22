@@ -17,6 +17,9 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::test::core::util::lucene_test_case::{
+  at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
+};
 
 use crate::core::index::BytesRef;
 use crate::core::index::multi_terms::get_terms;
@@ -34,9 +37,6 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::DefaultIndexSearchCR;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;

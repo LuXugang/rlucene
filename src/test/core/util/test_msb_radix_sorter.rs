@@ -16,6 +16,7 @@
  */
 // Migrated from src/core/util/most_significant_bit_radix_sort.rs
 
+use crate::test::core::util::lucene_test_case::{at_least_usize, random};
 use std::collections::{BTreeSet, HashSet};
 
 use rand::Rng;
@@ -25,7 +26,6 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
 use crate::test::core::util::common_method::assert_vecs_equal;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least_usize, random};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

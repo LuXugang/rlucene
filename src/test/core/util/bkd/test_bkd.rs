@@ -36,7 +36,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory, new_directory_shared, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;

@@ -24,7 +24,7 @@ use crate::core::util::access::ByteSourceMut;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_io_context, random, random_multiplier, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;

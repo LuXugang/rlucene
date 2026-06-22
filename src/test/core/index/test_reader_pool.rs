@@ -40,7 +40,7 @@ use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::long_supplier::LongSupplier;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random,
 };
 

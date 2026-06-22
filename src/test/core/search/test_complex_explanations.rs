@@ -29,7 +29,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::base_explanation_test_case::{
   BaseExplanationTestCase, BaseExplanationTestContext, FIELD, before_class_test_explanations,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

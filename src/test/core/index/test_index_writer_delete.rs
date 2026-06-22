@@ -47,7 +47,11 @@ use crate::test::core::analysis::mock_tokenizer;
 #[cfg(feature = "nightly")]
 use crate::test::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+#[cfg(feature = "nightly")]
+use crate::test::core::util::lucene_test_case::random_from_seed;
+#[cfg(feature = "nightly")]
+use crate::test::core::util::lucene_test_case::slow_file_exists;
+use crate::test::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_searcher_with_reader, new_string_field, new_text_field, random,
 };
@@ -706,9 +710,7 @@ fn test_indexing_then_deleting() -> Result<()> {
   impl Analyzer for IndexingThenDeletingAnalyzer {
     fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
       let tokenizer = MockTokenizer::with_default_max_token_length(
-        crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed(
-          self.seed,
-        ),
+        random_from_seed(self.seed),
         mock_tokenizer::WHITESPACE.clone(),
         true,
       );
@@ -778,7 +780,9 @@ fn test_indexing_then_deleting() -> Result<()> {
 #[test]
 fn test_flush_pushed_deletes_by_ram() -> Result<()> {
   use crate::core::index::no_merge_policy::NoMergePolicy;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::slow_file_exists;
+  use crate::test::core::util::lucene_test_case::{
+    new_directory_shared, new_index_writer_config_with_analyzer, slow_file_exists,
+  };
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -823,7 +827,9 @@ fn test_flush_pushed_deletes_by_ram() -> Result<()> {
 fn test_apply_deletes_on_flush() -> Result<()> {
   use crate::core::index::index_writer::{IndexWriterHooks, IndexWriterHooksEnum};
   use crate::core::index::no_merge_policy::NoMergePolicy;
-  use crate::test::core::util::lucene_test_case::lucene_test_case_util::slow_file_exists;
+  use crate::test::core::util::lucene_test_case::{
+    new_directory_shared, new_index_writer_config_with_analyzer,
+  };
   use crate::test::core::util::test_util::TestUtil;
   use std::sync::atomic::{AtomicBool, AtomicI32};
 

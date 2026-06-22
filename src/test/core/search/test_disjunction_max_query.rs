@@ -30,6 +30,11 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase};
+use crate::test::core::util::lucene_test_case::{
+  at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
+  new_text_field, random,
+};
 
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::core::document::string_field::StringField;
@@ -53,11 +58,6 @@ use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::search::query_utils::QueryUtils;
 use crate::test::core::util::DefaultIndexSearchLR;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
-  new_text_field, random,
-};
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 

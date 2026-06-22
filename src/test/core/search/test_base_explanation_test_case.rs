@@ -33,7 +33,7 @@ use crate::test::core::search::base_explanation_test_case::{
   BaseExplanationTestCase, BaseExplanationTestContext, FIELD, before_class_test_explanations,
 };
 use crate::test::core::search::check_hits::CheckHits;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use std::hash::{Hash, Hasher};
 use std::panic::{AssertUnwindSafe, catch_unwind};

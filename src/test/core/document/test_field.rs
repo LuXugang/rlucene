@@ -17,6 +17,10 @@
 
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
+use crate::test::core::util::lucene_test_case::{
+  new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
+  new_searcher_with_reader, random,
+};
 
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
@@ -65,10 +69,6 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::token;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
-  new_searcher_with_reader, random,
-};
 use std::sync::Arc;
 use std::vec;
 #[allow(dead_code)] // for quick search

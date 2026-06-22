@@ -23,7 +23,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::search::asserting_weight::AssertingWeight;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random_from_seed;
+use crate::test::core::util::lucene_test_case::random_from_seed;
 use rand::RngExt;
 use rand::prelude::StdRng;
 use rand_xoshiro::rand_core::Rng;

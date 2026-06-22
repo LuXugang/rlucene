@@ -23,7 +23,7 @@ use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test::core::util::automaton::test_finite_strings_iterator::get_finite_strings;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use crate::test::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestLimitedFiniteStringsIterator;

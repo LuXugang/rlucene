@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{random, random_multiplier};
 use rand::RngExt;
 
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::{IndexOutput, OutputStreamIndexOutput, align_offset};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{random, random_multiplier};
 
 #[allow(dead_code)] // for quick search
 struct TestIndexOutputAlignment;

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use rand::Rng;
 use rand::RngExt;
 use std::rc::Rc;
@@ -24,7 +25,6 @@ use crate::core::store::DataInput;
 use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{ByteBlockPool, TryIntoInt};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

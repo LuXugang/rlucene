@@ -17,7 +17,7 @@
 
 use crate::core::document::doc_values_long_hash_set::DocValuesLongHashSet;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashSet;

@@ -54,7 +54,7 @@ use crate::core::util::{CoreHelper, SliceCopyOps};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::fixed_bit_set_collector::FixedBitSetCollector;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
+use crate::test::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
   new_searcher_with_wrap, new_string_field, random, random_from_seed,

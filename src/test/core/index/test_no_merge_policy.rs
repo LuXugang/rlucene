@@ -28,7 +28,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory,
 };
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
+use crate::test::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 use std::collections::HashMap;

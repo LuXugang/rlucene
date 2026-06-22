@@ -20,7 +20,7 @@ use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::earth_debugger::EarthDebugger;
 use crate::test::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use rand::{Rng, RngExt};
 
 struct TestGeoUtils;

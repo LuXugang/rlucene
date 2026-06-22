@@ -16,6 +16,7 @@
  */
 // Migrated from src/core/util/bytes_ref_hash.rs
 
+use crate::test::core::util::lucene_test_case::{at_least, random};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Barrier};
@@ -30,7 +31,6 @@ use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesRefHash, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool};
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{at_least, random};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

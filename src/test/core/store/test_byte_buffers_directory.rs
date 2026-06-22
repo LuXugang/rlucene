@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use crate::test::core::util::lucene_test_case::{
+  new_index_writer_config, new_string_field, random,
+};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -34,9 +37,6 @@ use crate::core::store::{
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
 use crate::test::core::util::english::English;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  new_index_writer_config, new_string_field, random,
-};
 
 #[allow(dead_code)] // for quick search
 pub struct TestByteBuffersDirectory {

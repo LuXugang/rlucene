@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::test::core::util::lucene_test_case::{at_least, new_directory, random};
 use rand::Rng;
 use rand::RngExt;
 
@@ -22,9 +23,6 @@ use crate::core::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory, random,
-};
 use crate::test::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search

@@ -18,9 +18,9 @@ use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::test::core::analysis::base_token_stream_test_case::{
   assert_analyzes_to6, assert_analyzes_to7, assert_analyzes_to9, check_one_term,
 };
+use crate::test::core::util::lucene_test_case::random;
 
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::random;
 
 #[allow(dead_code)]
 struct TestStandardAnalyzer;

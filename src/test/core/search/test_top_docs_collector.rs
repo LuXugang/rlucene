@@ -24,6 +24,10 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::terms::Terms;
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+  new_searcher_with_threads, random,
+};
 
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
@@ -63,10 +67,6 @@ use crate::core::util::priority_queue::PriorityQueue;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::search::check_hits::CheckHits;
 use crate::test::core::util::line_file_docs::LineFileDocs;
-use crate::test::core::util::lucene_test_case::lucene_test_case_util::{
-  at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-  new_searcher_with_threads, random,
-};
 use rand::{Rng, RngExt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
