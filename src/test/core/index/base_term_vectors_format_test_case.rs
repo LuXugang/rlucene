@@ -27,6 +27,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
@@ -64,6 +65,7 @@ use crate::test::core::util::lucene_test_case::{
   new_index_writer_config, new_index_writer_config_with_analyzer, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
+use rand::seq::SliceRandom;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -252,13 +254,111 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   }
   fn do_test_merge<R>(
     &self,
-    _random: &mut R,
-    _sort: Option<Sort>,
-    _allow_deletes: bool,
+    random: &mut R,
+    index_sort: Option<Sort>,
+    allow_deletes: bool,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let doc_factory = RandomDocumentFactory::new(random, 5, 20);
+    let num_docs = if is_night_mode() {
+      at_least(random, 100)
+    } else {
+      at_least(random, 10)
+    } as usize;
+    for options in self.valid_options() {
+      let mut docs = HashMap::new();
+      for i in 0..num_docs {
+        let field_count = TestUtil::next_int(random, 1, 3) as usize;
+        let max_term_count = at_least(random, 10) as usize;
+        docs.insert(
+          i.to_string(),
+          doc_factory.new_document(random, field_count, max_term_count, options)?,
+        );
+      }
+      let dir = new_directory_shared(random)?;
+      let mut iwc = new_index_writer_config(random);
+      if let Some(sort) = index_sort.clone() {
+        iwc.set_index_sort(sort)?;
+      }
+      let writer = RandomIndexWriter::with_config(random, dir, iwc);
+      let mut live_doc_ids = Vec::new();
+      let mut ids = docs.keys().cloned().collect::<Vec<_>>();
+      ids.shuffle(random);
+      let verify_term_vectors = |random: &mut R,
+                                 docs: &HashMap<String, RandomDocument>,
+                                 live_doc_ids: &[String]|
+       -> Result<()> {
+        let reader = Arc::new(self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?);
+        let mut term_vectors = reader.term_vectors()?;
+        for id in live_doc_ids {
+          let doc_id = doc_id(reader.clone(), id)?;
+          let fields = term_vectors
+            .get(doc_id)?
+            .expect("term vectors should exist");
+          assert_random_document_equals(
+            random,
+            docs.get(id).expect("live doc id must exist"),
+            fields,
+          )?;
+        }
+        reader.close()?;
+        Ok(())
+      };
+      for id in ids {
+        let mut doc = add_id(
+          docs
+            .get(&id)
+            .expect("document id must exist")
+            .to_document()?,
+          &id,
+        )?;
+        if let Some(index_sort) = index_sort.as_ref() {
+          for sort_field in index_sort.get_sort() {
+            if let Some(field) = sort_field.get_field() {
+              doc.add(NumericDocValuesField::new(
+                field.to_string(),
+                TestUtil::next_int(random, 0, 1024) as i64,
+              ));
+            }
+          }
+        }
+        writer.add_document(random, doc)?;
+        // TODO add_indexes_slowly未实现
+        // if random.random_range(0..100) < 5 {
+        //   // add via foreign writer
+        //   let mut other_iwc = new_index_writer_config(random);
+        //   if let Some(sort) = index_sort.clone() {
+        //     other_iwc.set_index_sort(sort)?;
+        //   }
+        //   let other_dir = new_directory_shared(random)?;
+        //   let other_iw = RandomIndexWriter::with_config(random, other_dir.clone(), other_iwc);
+        //   other_iw.add_document(random, doc)?;
+        //   other_iw.close(random)?;
+        //   writer.w.add_indexes_from_dir(&[other_dir])?;
+        // } else {
+        //   writer.add_document(random, doc)?;
+        // }
+        live_doc_ids.push(id);
+        if allow_deletes && random.random_range(0..100) < 20 {
+          let delete_id = live_doc_ids.remove(random.random_range(0..live_doc_ids.len()));
+          writer.delete_documents_with_terms(random, vec![Term::from_text("id", delete_id)])?;
+        }
+        if rarely(random) {
+          writer.commit(random)?;
+          verify_term_vectors(random, &docs, &live_doc_ids)?;
+        }
+        if rarely(random) {
+          writer.force_merge(random, 1)?;
+          verify_term_vectors(random, &docs, &live_doc_ids)?;
+        }
+      }
+      verify_term_vectors(random, &docs, &live_doc_ids)?;
+      writer.force_merge(random, 1)?;
+      verify_term_vectors(random, &docs, &live_doc_ids)?;
+      writer.close(random)?;
+    }
     Ok(())
   }
 
