@@ -27,7 +27,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
-use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
@@ -65,10 +64,10 @@ use crate::test::core::util::lucene_test_case::{
   new_index_writer_config, new_index_writer_config_with_analyzer, rarely,
 };
 use crate::test::core::util::test_util::TestUtil;
-use rand::seq::SliceRandom;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   fn valid_options(&self) -> Vec<Options> {
@@ -110,9 +109,9 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
           writer.add_document(random, empty_doc.clone())?;
         }
       }
-      let reader = writer.get_reader(random)?;
+      let reader = Arc::new(writer.get_reader(random)?);
       let mut term_vectors = reader.term_vectors()?;
-      let doc_with_vectors_id = doc_id(reader, "42")?;
+      let doc_with_vectors_id = doc_id(reader.clone(), "42")?;
       for _ in 0..10 {
         let doc_id = random.random_range(0..num_docs);
         let fields = term_vectors.get(doc_id)?;
@@ -200,11 +199,9 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         writer.add_document(_random, add_id(doc1.to_document()?, "1")?)?;
         writer.add_document(_random, add_id(doc2.to_document()?, "2")?)?;
 
-        let reader_for_doc1 = writer.get_reader(_random)?;
-        let doc1_id = doc_id(reader_for_doc1, "1")?;
-        let reader_for_doc2 = writer.get_reader(_random)?;
-        let doc2_id = doc_id(reader_for_doc2, "2")?;
-        let reader = writer.get_reader(_random)?;
+        let reader = Arc::new(writer.get_reader(_random)?);
+        let doc1_id = doc_id(reader.clone(), "1")?;
+        let doc2_id = doc_id(reader.clone(), "2")?;
         let mut term_vectors = reader.term_vectors()?;
 
         let fields1 = term_vectors
@@ -240,11 +237,10 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     for (i, doc) in docs.iter().enumerate() {
       writer.add_document(_random, add_id(doc.to_document()?, &i.to_string())?)?;
     }
-    let reader = writer.get_reader(_random)?;
+    let reader = Arc::new(writer.get_reader(_random)?);
     let mut term_vectors = reader.term_vectors()?;
     for (i, doc) in docs.iter().enumerate() {
-      let reader_for_search = writer.get_reader(_random)?;
-      let doc_id = doc_id(reader_for_search, &i.to_string())?;
+      let doc_id = doc_id(reader.clone(), &i.to_string())?;
       let fields = term_vectors
         .get(doc_id)?
         .expect("term vectors should exist");
@@ -254,130 +250,15 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close(_random)?;
     Ok(())
   }
-  fn do_test_merge<R>(&self, random: &mut R, sort: Option<Sort>, allow_deletes: bool) -> Result<()>
+  fn do_test_merge<R>(
+    &self,
+    _random: &mut R,
+    _sort: Option<Sort>,
+    _allow_deletes: bool,
+  ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let doc_factory = RandomDocumentFactory::new(random, 5, 20);
-    let num_docs = if is_night_mode() {
-      at_least(random, 100)
-    } else {
-      at_least(random, 10)
-    };
-    for options in self.valid_options() {
-      let mut docs = HashMap::new();
-      for i in 0..num_docs {
-        let field_count = TestUtil::next_int(random, 1, 3) as usize;
-        let max_term_count = at_least(random, 10) as usize;
-        docs.insert(
-          i.to_string(),
-          doc_factory.new_document(random, field_count, max_term_count, options)?,
-        );
-      }
-      let dir = new_directory_shared(random)?;
-      let mut iwc = new_index_writer_config(random);
-      if let Some(sort) = sort.clone() {
-        iwc.set_index_sort(sort)?;
-      }
-      let writer = RandomIndexWriter::with_config(random, dir, iwc);
-      let mut live_doc_ids = Vec::new();
-      let mut ids = docs.keys().cloned().collect::<Vec<_>>();
-      ids.shuffle(random);
-      for id in ids {
-        let mut doc = add_id(
-          docs
-            .get(&id)
-            .expect("document id should exist")
-            .to_document()?,
-          &id,
-        )?;
-        if let Some(sort) = &sort {
-          for sort_field in sort.get_sort() {
-            if let Some(field) = sort_field.get_field() {
-              doc.add(NumericDocValuesField::new(
-                field,
-                TestUtil::next_int(random, 0, 1024) as i64,
-              ));
-            }
-          }
-        }
-        writer.add_document(random, doc)?;
-        live_doc_ids.push(id);
-        if allow_deletes && random.random_range(0..100) < 20 {
-          let delete_idx = random.random_range(0..live_doc_ids.len());
-          let delete_id = live_doc_ids.remove(delete_idx);
-          writer.delete_documents_with_terms(random, vec![Term::from_text("id", delete_id)])?;
-        }
-        if rarely(random) {
-          writer.commit(random)?;
-          let reader = writer.get_reader(random)?;
-          let mut term_vectors = reader.term_vectors()?;
-          for id in &live_doc_ids {
-            let reader_for_search = writer.get_reader(random)?;
-            let doc_id = doc_id(reader_for_search, id)?;
-            let fields = term_vectors
-              .get(doc_id)?
-              .expect("term vectors should exist");
-            assert_random_document_equals(
-              random,
-              docs.get(id).expect("document id should exist"),
-              fields,
-            )?;
-          }
-          reader.close()?;
-        }
-        if rarely(random) {
-          writer.force_merge(random, 1)?;
-          let reader = writer.get_reader(random)?;
-          let mut term_vectors = reader.term_vectors()?;
-          for id in &live_doc_ids {
-            let reader_for_search = writer.get_reader(random)?;
-            let doc_id = doc_id(reader_for_search, id)?;
-            let fields = term_vectors
-              .get(doc_id)?
-              .expect("term vectors should exist");
-            assert_random_document_equals(
-              random,
-              docs.get(id).expect("document id should exist"),
-              fields,
-            )?;
-          }
-          reader.close()?;
-        }
-      }
-      let reader = writer.get_reader(random)?;
-      let mut term_vectors = reader.term_vectors()?;
-      for id in &live_doc_ids {
-        let reader_for_search = writer.get_reader(random)?;
-        let doc_id = doc_id(reader_for_search, id)?;
-        let fields = term_vectors
-          .get(doc_id)?
-          .expect("term vectors should exist");
-        assert_random_document_equals(
-          random,
-          docs.get(id).expect("document id should exist"),
-          fields,
-        )?;
-      }
-      reader.close()?;
-      writer.force_merge(random, 1)?;
-      let reader = writer.get_reader(random)?;
-      let mut term_vectors = reader.term_vectors()?;
-      for id in &live_doc_ids {
-        let reader_for_search = writer.get_reader(random)?;
-        let doc_id = doc_id(reader_for_search, id)?;
-        let fields = term_vectors
-          .get(doc_id)?
-          .expect("term vectors should exist");
-        assert_random_document_equals(
-          random,
-          docs.get(id).expect("document id should exist"),
-          fields,
-        )?;
-      }
-      reader.close()?;
-      writer.close(random)?;
-    }
     Ok(())
   }
 

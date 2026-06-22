@@ -82,7 +82,7 @@ fn test_payload() -> Result<()> {
 }
 // Tests whether the DocumentWriter and SegmentMerger correctly enable the
 // payload bit in the FieldInfo
-// #[test]
+#[test]
 fn test_payload_field_bit() -> Result<()> {
   let mut random = random();
   let ram = new_directory_shared(&mut random)?;
