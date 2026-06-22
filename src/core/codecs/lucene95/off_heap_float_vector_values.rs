@@ -49,6 +49,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
+#[cfg(debug_assertions)]
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Read the vector values froGm the index input. This supports both iterated and random access.

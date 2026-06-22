@@ -39,6 +39,8 @@ use crate::core::index::{BytesRef, BytesRefBuilder, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::{ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexOutput};
+#[cfg(debug_assertions)]
+use crate::core::util::ToInt;
 use crate::core::util::access::{ByteSourceMut, SharedAccessVec};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
@@ -57,7 +59,7 @@ use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::to_string_utils::ToStringUtils;
-use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, ToInt, TryIntoInt};
+use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;

@@ -38,7 +38,7 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::internal::index_writer_access::IndexWriterAccess;
 use crate::test::core::util::lucene_test_case::{
-  maybe_change_live_index_writer_config, new_index_writer_config_with_analyzer, random,
+  maybe_change_live_index_writer_config, new_index_writer_config_with_analyzer, random_from_seed,
 };
 use crate::test::core::util::null_info_stream::NullInfoStream;
 use crate::test::core::util::test_util::TestUtil;
@@ -62,6 +62,7 @@ where
   soft_deletes_ratio: f64,
   do_random_force_merge: AtomicBool,
   do_random_force_merge_assert: AtomicBool,
+  seed: u64,
 }
 
 struct FlushState {
@@ -205,7 +206,7 @@ where
     // Make sure we sometimes test indices that don't get any forced merges.
     let do_random_force_merge =
       !matches!(w.get_config().get_merge_policy(), MergePolicyEnum::No(_)) && r.random();
-
+    let seed = r.random();
     Self {
       w,
       flush_state: Mutex::new(FlushState {
@@ -217,6 +218,7 @@ where
       soft_deletes_ratio,
       do_random_force_merge: AtomicBool::new(do_random_force_merge),
       do_random_force_merge_assert: AtomicBool::new(false),
+      seed,
     }
   }
 
@@ -715,7 +717,7 @@ where
   D: Directory,
 {
   fn drop(&mut self) {
-    let mut r = random();
+    let mut r = random_from_seed(self.seed);
     let _ = self.close(&mut r);
   }
 }

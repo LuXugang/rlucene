@@ -28,6 +28,7 @@ use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
+#[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};

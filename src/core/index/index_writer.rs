@@ -27,7 +27,9 @@ use crate::core::index::merge_policy::{
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
-use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
+use crate::core::index::segment_info::SegmentInfo;
+#[cfg(debug_assertions)]
+use crate::core::index::segment_info::named_for_this_segment;
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
@@ -401,6 +403,7 @@ where
         if let Some(_v) = &reader.writer_closed {
           if let Some(si) = index_commit_wrapper.segment_infos.as_ref() {
             // The old writer better be closed (we have the write lock now!):
+            #[cfg(debug_assertions)]
             debug_assert!(
               index_commit_wrapper
                 .old_index_writer_closed

@@ -19,6 +19,7 @@ use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
+#[cfg(debug_assertions)]
 use std::collections::HashSet;
 /// Default implementation of [`PayloadAttribute`].
 #[derive(PartialEq, Eq, Clone)]

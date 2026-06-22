@@ -17,6 +17,7 @@
 use std::fmt;
 
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(debug_assertions)]
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;

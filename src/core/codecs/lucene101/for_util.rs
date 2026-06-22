@@ -46,7 +46,7 @@ impl ForUtil {
   }
 
   const fn mask32(bits_per_value: i32) -> i32 {
-    (1i32 << bits_per_value) - 1
+    ((1u32 << (bits_per_value as u32)) - 1) as i32
   }
 
   const fn mask16(bits_per_value: i32) -> i32 {
