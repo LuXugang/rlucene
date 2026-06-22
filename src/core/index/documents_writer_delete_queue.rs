@@ -416,9 +416,10 @@ impl DocumentsWriterDeleteQueue {
       seq_no,
       self.max_seq_no.load(Ordering::SeqCst)
     );
-    self
-      .next_seq_no
-      .store(self.max_seq_no.load(Ordering::SeqCst) + 1, Ordering::SeqCst);
+    self.next_seq_no.store(
+      self.max_seq_no.load(Ordering::SeqCst).wrapping_add(1),
+      Ordering::SeqCst,
+    );
     Ok(())
   }
   #[cfg(debug_assertions)]

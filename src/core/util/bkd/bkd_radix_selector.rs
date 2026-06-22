@@ -598,12 +598,18 @@ impl BKDRadixSelector {
   {
     let bytes_per_dim = self.config.bytes_per_dim;
     let dim_offset = dim * bytes_per_dim + common_prefix_length;
-    let dim_cmp_bytes = bytes_per_dim
+    let max_length = self
+      .bytes_sorted
       .checked_sub(common_prefix_length)
       .ok_or_else(|| {
-        LuceneError::illegal_argument("common_prefix_length must be <= bytes_per_dim")
+        LuceneError::illegal_argument("common_prefix_length must be <= bytes_sorted")
       })?;
-    let data_offset = self.config.packed_index_bytes_length() - dim_cmp_bytes;
+    let dim_cmp_bytes = bytes_per_dim.saturating_sub(common_prefix_length);
+    let data_offset = if common_prefix_length < bytes_per_dim {
+      self.config.packed_index_bytes_length() - dim_cmp_bytes
+    } else {
+      self.config.packed_index_bytes_length() + common_prefix_length - bytes_per_dim
+    };
     let sub_selector = RadixSelectorImpl {
       points,
       common_prefix_length,
@@ -616,8 +622,7 @@ impl BKDRadixSelector {
     };
 
     debug_assert!(self.bytes_sorted >= common_prefix_length);
-    let mut radix_selector =
-      RadixSelector::new(self.bytes_sorted - common_prefix_length, sub_selector);
+    let mut radix_selector = RadixSelector::new(max_length, sub_selector);
     radix_selector.select(from, to, partition_point)?;
 
     let mut partition = vec![0u8; bytes_per_dim];
@@ -654,13 +659,18 @@ impl BKDRadixSelector {
   {
     let bytes_per_dim = self.config.bytes_per_dim;
     let dim_offset = dim * bytes_per_dim + common_prefix_length;
-    let dim_cmp_bytes = bytes_per_dim
+    let max_length = self
+      .bytes_sorted
       .checked_sub(common_prefix_length)
       .ok_or_else(|| {
-        LuceneError::illegal_argument("common_prefix_length must be <= bytes_per_dim")
+        LuceneError::illegal_argument("common_prefix_length must be <= bytes_sorted")
       })?;
-    let data_offset = self.config.packed_index_bytes_length() - dim_cmp_bytes;
-    let max_length = self.bytes_sorted - common_prefix_length;
+    let dim_cmp_bytes = bytes_per_dim.saturating_sub(common_prefix_length);
+    let data_offset = if common_prefix_length < bytes_per_dim {
+      self.config.packed_index_bytes_length() - dim_cmp_bytes
+    } else {
+      self.config.packed_index_bytes_length() + common_prefix_length - bytes_per_dim
+    };
     let delegate = MSBRadixSorterImpl {
       points,
       dim_cmp_bytes,

@@ -626,8 +626,8 @@ where
       let data_slice = &bytes
         [(packed_value_offset + data_offset)..(packed_value_offset + data_offset + data_length)];
       let data_dim_slice = &data_dim[0..data_length];
-      slice1_equal1 = data_slice == partition_slice;
-      slice1_equal2 = dim_slice == data_dim_slice;
+      slice1_equal1 = dim_slice == partition_slice;
+      slice1_equal2 = data_slice == data_dim_slice;
     }
 
     if slice1_equal1 && slice1_equal2 {
@@ -664,11 +664,11 @@ where
     let end_idx = packed_value_offset + offset + config.bytes_per_dim;
     let dim_slice = &value_vec[start_idx..end_idx];
     let min_dim_slice = &min_dim[0..config.bytes_per_dim];
-    if min_dim_slice.cmp(dim_slice) == Less {
+    if min_dim_slice == dim_slice {
       let copy_start = packed_value_offset + config.num_index_dims * config.bytes_per_dim;
       let copy_end = copy_start + size;
       value.copy_from(&value_vec[copy_start..copy_end], 0);
-      if min_dim_slice.cmp(&value) == Greater {
+      if min.cmp(&value) == Greater {
         min.copy_from(&value, 0);
       }
     }
@@ -728,7 +728,7 @@ where
     let end_idx = start_idx + config.bytes_per_dim;
     let dim_slice = &value_vec[start_idx..end_idx];
     let max_dim_slice = &max_dim[0..config.bytes_per_dim];
-    if max_dim_slice.cmp(dim_slice) == Less {
+    if max_dim_slice == dim_slice {
       let copy_start = packed_value_offset + config.packed_index_bytes_length();
       let copy_end = copy_start + size;
       value.copy_from(&value_vec[copy_start..copy_end], 0);
