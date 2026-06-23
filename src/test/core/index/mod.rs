@@ -162,6 +162,7 @@ mod test_stress_advance;
 mod test_stress_deletes;
 mod test_stress_indexing;
 pub mod test_stress_indexing2;
+pub mod test_stress_nrt;
 mod test_sum_doc_freq;
 mod test_swapped_index_files;
 mod test_term;
