@@ -335,18 +335,16 @@ where
     let block_index = self.block_index(self.pos);
     let block_offset = self.block_offset(self.pos);
     let block = self.blocks.get(block_index).unwrap();
-    let remain = block
+    let block_remain = block
       .get_ref()
       .as_slice()
       .len()
       .saturating_sub(block_offset);
-    let len = GroupVIntUtil::read_group_vint_i32_with_reader(
-      self,
-      remain as u64,
-      block_offset,
-      dst,
-      offset,
-    )?;
+    let input_remain = (self.length + self.offset).saturating_sub(self.pos);
+    let remain = block_remain.min(input_remain);
+    let pos = self.position()?;
+    let len =
+      GroupVIntUtil::read_group_vint_i32_with_reader(self, remain as u64, pos, dst, offset)?;
     self.pos += len;
     Ok(())
   }
