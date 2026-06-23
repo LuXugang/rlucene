@@ -27,13 +27,12 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
-use std::sync::Arc;
 
 pub(crate) struct StoredFieldsConsumer<D>
 where
   D: Directory,
 {
-  directory: Arc<D>,
+  directory: D,
   pub(crate) writer: Option<DefaultStoredFieldsWriter<D::IndexOutput>>,
   last_doc: i32,
   sub: Option<SortingStoredFieldsConsumer<D>>,
@@ -42,7 +41,7 @@ impl<D> StoredFieldsConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) fn new(directory: Arc<D>, sub: Option<SortingStoredFieldsConsumer<D>>) -> Self {
+  pub(crate) fn new(directory: D, sub: Option<SortingStoredFieldsConsumer<D>>) -> Self {
     Self {
       directory,
       writer: None,
@@ -63,7 +62,7 @@ where
       None => {
         if self.writer.is_none() {
           let writer = LATEST_CODEC.stored_fields_format().fields_writer(
-            self.directory.as_ref(),
+            &self.directory,
             info,
             &IOContext::default_io_context()?,
           )?;

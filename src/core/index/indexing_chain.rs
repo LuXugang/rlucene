@@ -196,11 +196,12 @@ where
   pub(crate) fn new<D1>(
     index_created_version_major: i32,
     segment_info: &SegmentInfo<D1>,
-    directory: Arc<D>,
+    directory: D,
     index_writer_config: &impl LiveIndexWriterConfig,
   ) -> Result<Self>
   where
     D1: Directory,
+    D: Clone,
   {
     let bytes_used = Arc::new(AtomicCounter::new());
     let (stored_fields_consumer, term_vectors_writer) = if segment_info.get_index_sort().is_none() {

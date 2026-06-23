@@ -66,7 +66,7 @@ where
   D: Directory,
 {
   pub(crate) directory: Arc<TrackingDirectoryWrapper<Arc<IndexWriterDir<D>>>>,
-  indexing_chain: IndexingChain<TrackingDirectoryWrapper<Arc<IndexWriterDir<D>>>>,
+  indexing_chain: IndexingChain<Arc<TrackingDirectoryWrapper<Arc<IndexWriterDir<D>>>>>,
   pending_updates: BufferedUpdates,
   pub(crate) segment_info: SegmentInfo<D>,
   field_infos: Builder,
@@ -518,7 +518,7 @@ where
           ))?;
           let mut flush_state = SegmentWriteState::new(
             self.info_stream.clone(),
-            self.directory.as_ref(),
+            &self.directory,
             Arc::new(self.field_infos.finish()?),
             &io_context,
           );

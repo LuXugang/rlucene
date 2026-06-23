@@ -49,16 +49,16 @@ where
   D: Directory,
 {
   pub(crate) writer: Option<
-    DefaultTermVectorsWriter<<TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput>,
+    DefaultTermVectorsWriter<<TrackingTmpOutputDirectoryWrapper<D> as Directory>::IndexOutput>,
   >,
-  pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
+  pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
   tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
+  pub(crate) fn new(dir: D) -> Result<Self> {
     let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
       "TempTermVectors",
       "",

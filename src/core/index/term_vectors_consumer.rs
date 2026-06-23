@@ -41,7 +41,7 @@ pub(crate) struct TermVectorsConsumer<D>
 where
   D: Directory,
 {
-  directory: Arc<D>,
+  directory: D,
   pub(crate) writer: Option<DefaultTermVectorsWriter<D::IndexOutput>>,
   has_vectors: bool,
   num_vector_fields: i32,
@@ -84,7 +84,7 @@ impl Ord for PerFieldMeta {
 #[cfg(test)]
 impl Default for TermVectorsConsumer<DummyDirectory> {
   fn default() -> Self {
-    let directory = Arc::new(DummyDirectory);
+    let directory = DummyDirectory;
     TermVectorsConsumer::new(directory, None)
   }
 }
@@ -93,7 +93,7 @@ impl<D> TermVectorsConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) fn new(directory: Arc<D>, sub: Option<SortingTermVectorsConsumer<D>>) -> Self {
+  pub(crate) fn new(directory: D, sub: Option<SortingTermVectorsConsumer<D>>) -> Self {
     let base = TermsHash::new(Arc::new(AtomicCounter::new()));
 
     let per_fields = vec![PerFieldMeta::default(); 1];
@@ -280,7 +280,7 @@ where
           let context = IOContext::with_flush(flush_info)?;
 
           self.writer = Option::from(LATEST_CODEC.term_vectors_format().vectors_writer(
-            self.directory.as_ref(),
+            &self.directory,
             info,
             &context,
           )?);

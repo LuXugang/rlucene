@@ -35,13 +35,13 @@ where
 {
   pub(crate) writer: Option<DefaultKnnVectorsWriter<D::IndexOutput>>,
   info_stream: InfoStreamMT,
-  dir: Arc<D>,
+  dir: D,
 }
 impl<D> VectorValuesConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) fn new(dir: Arc<D>, info_stream: InfoStreamMT) -> Self {
+  pub(crate) fn new(dir: D, info_stream: InfoStreamMT) -> Self {
     Self {
       writer: None,
       info_stream,

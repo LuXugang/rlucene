@@ -48,18 +48,16 @@ where
   D: Directory,
 {
   pub(crate) writer: Option<
-    DefaultStoredFieldsWriter<
-      <TrackingTmpOutputDirectoryWrapper<Arc<D>> as Directory>::IndexOutput,
-    >,
+    DefaultStoredFieldsWriter<<TrackingTmpOutputDirectoryWrapper<D> as Directory>::IndexOutput>,
   >,
-  pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<Arc<D>>,
+  pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
   stored_fields_format: Lucene90CompressingStoredFieldsFormat,
 }
 impl<D> SortingStoredFieldsConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) fn new(dir: Arc<D>) -> Result<Self> {
+  pub(crate) fn new(dir: D) -> Result<Self> {
     let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
       "TempStoredFields",
       CompressionModeEnum::Impl(NoCompression),
