@@ -244,11 +244,6 @@ where
       index_writer_config,
     )?;
 
-    // TODO: 应该在updateDocuments期间调用
-    // let parent_field = index_writer_config
-    //     .get_parent_field()
-    //     .map(|pf| indexing_chain.mark_as_reserved(NumericDocValuesField::new(pf, -1)));
-
     let state = State {
       cvar: Condvar::new(),
       available: Mutex::new(true),
@@ -806,7 +801,7 @@ where
         if index_writer_config.get_use_compound_file() {
           let original_files = new_segment.info.files()?.clone();
           if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
-            let dir = TrackingDirectoryWrapper::new(self.directory.clone());
+            let dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
             create_compound_file(
               &self.info_stream,
               &dir,

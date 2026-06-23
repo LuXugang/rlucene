@@ -35,7 +35,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::output_enum::OutputEnum;
-use crate::core::util::{IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, Version};
+use crate::core::util::{HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, Version};
 use num_bigint::BigInt;
 use std::io::Write;
 
@@ -1168,7 +1168,10 @@ pub trait FindSegmentsFile {
   fn get_directory_point(&self) -> Arc<Self::D>;
   /// Run doBody on the provided commit.
   fn run_with_commit(&mut self, commit: &impl IndexCommit<Directory = Self::D>) -> Result<Self::V> {
-    if !Arc::ptr_eq(&self.get_directory_point(), &commit.get_directory()) {
+    if !self
+      .get_directory_point()
+      .is_same_identity(&commit.get_directory())
+    {
       return Err(LuceneError::illegal_state(
         "The specified commit does not match the specified Directory",
       ));

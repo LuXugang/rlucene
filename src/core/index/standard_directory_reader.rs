@@ -194,7 +194,11 @@ where
     IC: IndexCommit<Directory = D>,
   {
     if let Some(commit) = commit {
-      if !Arc::ptr_eq(&self.directory().directory, &commit.get_directory()) {
+      if !self
+        .directory()
+        .directory
+        .is_same_identity(&commit.get_directory())
+      {
         return Err(
           std::io::Error::other("the specified commit does not match the specified Directory")
             .into(),
@@ -255,7 +259,7 @@ where
             ));
           },
         };
-        debug_assert!(Arc::ptr_eq(&info.info.dir, &dir));
+        debug_assert!(info.info.dir.is_same_identity(&dir));
         let reader = reader_function.apply(info, inner)?;
         if reader.num_docs()? > 0
           || writer

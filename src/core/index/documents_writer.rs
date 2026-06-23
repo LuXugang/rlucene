@@ -21,9 +21,7 @@ use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushCont
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
-use crate::core::index::field_infos::Builder;
-use crate::core::index::field_infos::FieldNumbersLock;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterDir};
+use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::segment_info::SegmentInfo;
@@ -1017,73 +1015,5 @@ where
   fn get_mut(&mut self) -> Result<Option<FlushTicket<D>>> {
     let frozen_buffered_updates = self.dwpt.prepare_flush()?;
     Ok(Some(FlushTicket::new(frozen_buffered_updates, true)))
-  }
-}
-
-struct SupplierImpl2<D, L>
-where
-  D: Directory,
-  L: LiveIndexWriterConfig,
-{
-  index_major_version_created: i32,
-  directory_orig: Arc<D>,
-  directory: Arc<IndexWriterDir<D>>,
-  config: Arc<L>,
-  delete_queue: Arc<DocumentsWriterDeleteQueue>,
-  pending_num_docs: Arc<AtomicI64>,
-  enable_test_points: bool,
-  field_numbers: FieldNumbersLock,
-}
-impl<D, L> SupplierImpl2<D, L>
-where
-  D: Directory,
-  L: LiveIndexWriterConfig,
-{
-  #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new(
-    index_major_version_created: i32,
-    directory_orig: Arc<D>,
-    directory: Arc<IndexWriterDir<D>>,
-    config: Arc<L>,
-    delete_queue: Arc<DocumentsWriterDeleteQueue>,
-    field_numbers: FieldNumbersLock,
-    pending_num_docs: Arc<AtomicI64>,
-    enable_test_points: bool,
-  ) -> Self {
-    SupplierImpl2 {
-      index_major_version_created,
-      directory_orig,
-      directory,
-      config,
-      delete_queue,
-      pending_num_docs,
-      enable_test_points,
-      field_numbers,
-    }
-  }
-}
-impl<D, L> Supplier<DocumentsWriterPerThread<D>> for SupplierImpl2<D, L>
-where
-  D: Directory,
-  L: LiveIndexWriterConfig,
-{
-  fn get_mut(&mut self) -> Result<DocumentsWriterPerThread<D>> {
-    self.get()
-  }
-
-  fn get(&self) -> Result<DocumentsWriterPerThread<D>> {
-    let infos = Builder::new(self.field_numbers.clone());
-    let dwpt = DocumentsWriterPerThread::new(
-      self.index_major_version_created,
-      "",
-      self.directory_orig.clone(),
-      self.directory.clone(),
-      self.config.as_ref(),
-      self.delete_queue.clone(),
-      infos,
-      self.pending_num_docs.clone(),
-      self.enable_test_points,
-    )?;
-    Ok(dwpt)
   }
 }

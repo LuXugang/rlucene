@@ -19,6 +19,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use crate::core::store::directory::Directory;
+use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 
 pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
@@ -54,12 +55,12 @@ pub fn is_same_commit<T>(a: &T, b: &T) -> bool
 where
   T: IndexCommit,
 {
-  Arc::ptr_eq(&a.get_directory(), &b.get_directory()) && a.get_generation() == b.get_generation()
+  a.get_directory().is_same_identity(&b.get_directory()) && a.get_generation() == b.get_generation()
 }
 pub fn cmp_commit<T>(a: &T, b: &T) -> Ordering
 where
   T: IndexCommit,
 {
-  debug_assert!(Arc::ptr_eq(&a.get_directory(), &b.get_directory()));
+  debug_assert!(a.get_directory().is_same_identity(&b.get_directory()));
   a.get_generation().cmp(&b.get_generation())
 }

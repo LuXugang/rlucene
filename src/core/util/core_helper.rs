@@ -285,6 +285,15 @@ impl_try_convert!(i64 => u8);
 
 pub trait HasIdentity {
   fn identity(&self) -> &Identity;
+
+  #[inline]
+  fn is_same_identity<T>(&self, other: &T) -> bool
+  where
+    Self: Sized,
+    T: HasIdentity + ?Sized,
+  {
+    self.identity() == other.identity()
+  }
 }
 
 impl<T> HasIdentity for Arc<T>

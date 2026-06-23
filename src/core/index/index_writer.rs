@@ -371,13 +371,21 @@ where
         let commit = index_commit_wrapper.commit.as_ref().ok_or_else(|| {
           LuceneError::illegal_argument("IndexCommit must be provided when opening from reader")
         })?;
-        if !Arc::ptr_eq(&reader.directory().directory, &commit.get_directory()) {
+        if !reader
+          .directory()
+          .directory
+          .is_same_identity(&commit.get_directory())
+        {
           return Err(LuceneError::illegal_argument(
             "IndexCommit's reader must have the same directory as the IndexCommit",
           ));
         }
 
-        if !Arc::ptr_eq(&reader.directory().directory, &directory_orig) {
+        if !reader
+          .directory()
+          .directory
+          .is_same_identity(&directory_orig)
+        {
           return Err(LuceneError::illegal_argument(
             "IndexCommit's reader must have the same directory passed to IndexWriter",
           ));
@@ -449,7 +457,7 @@ where
         // retrying it does is not necessary here (we hold the write lock):
         segment_infos = SegmentInfos::read_commit(directory_orig.clone(), &last_segments_file)?;
         if let Some(commit) = index_commit_wrapper.commit {
-          if !Arc::ptr_eq(&commit.get_directory(), &directory_orig) {
+          if !commit.get_directory().is_same_identity(&directory_orig) {
             return Err(LuceneError::illegal_argument(format!(
               "IndexCommit's directory doesn't match my directory, expected={}, got={}",
               directory_orig,
@@ -6235,7 +6243,7 @@ where
     Ok(seg_states)
   }
   fn validate(&self, info: &SegmentCommitInfo<D>) -> Result<()> {
-    if !Arc::ptr_eq(&info.info.dir, &self.directory_orig) {
+    if !info.info.dir.is_same_identity(&self.directory_orig) {
       return Err(LuceneError::illegal_argument(
         "SegmentCommitInfo must be from the same directory",
       ));
