@@ -601,7 +601,10 @@ where
   {
     let mut readers = Vec::with_capacity(self.readers.len());
     for reader in &self.readers {
-      readers.push(reader.as_ref().map(|r| r.try_clone()).transpose()?);
+      match reader {
+        Some(reader) => readers.push(Some(reader.try_clone()?)),
+        None => readers.push(None),
+      }
     }
     Ok(SlowCompositeStoredFieldsReaderWrapper::new(
       self.doc_starts.clone(),
@@ -797,7 +800,10 @@ where
   {
     let mut readers = Vec::with_capacity(self.readers.len());
     for reader in &self.readers {
-      readers.push(reader.as_ref().map(|r| r.try_clone()).transpose()?);
+      match reader {
+        Some(reader) => readers.push(Some(reader.try_clone()?)),
+        None => readers.push(None),
+      }
     }
     Ok(Self {
       doc_starts: self.doc_starts.clone(),

@@ -261,11 +261,10 @@ where
     &self,
     writer: &IndexWriter<Self::Directory>,
   ) -> Result<Option<Self::DirectoryReader>> {
-    self
-      .in_
-      .do_open_if_changed(writer)?
-      .map(|reader| self.do_wrap_directory_reader_impl(reader))
-      .transpose()
+    match self.in_.do_open_if_changed(writer)? {
+      Some(reader) => Ok(Some(self.do_wrap_directory_reader_impl(reader)?)),
+      None => Ok(None),
+    }
   }
 
   fn do_open_if_changed_with_commit<IC>(
@@ -276,11 +275,10 @@ where
   where
     IC: IndexCommit<Directory = Self::Directory>,
   {
-    self
-      .in_
-      .do_open_if_changed_with_commit(writer, commit)?
-      .map(|reader| self.do_wrap_directory_reader_impl(reader))
-      .transpose()
+    match self.in_.do_open_if_changed_with_commit(writer, commit)? {
+      Some(reader) => Ok(Some(self.do_wrap_directory_reader_impl(reader)?)),
+      None => Ok(None),
+    }
   }
 
   fn do_open_if_changed_with_deletes(
@@ -288,11 +286,13 @@ where
     writer: &IndexWriter<Self::Directory>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
-    self
+    match self
       .in_
       .do_open_if_changed_with_deletes(writer, apply_deletes)?
-      .map(|reader| self.do_wrap_directory_reader_impl(reader))
-      .transpose()
+    {
+      Some(reader) => Ok(Some(self.do_wrap_directory_reader_impl(reader)?)),
+      None => Ok(None),
+    }
   }
 
   fn get_version(&self) -> Result<i64> {
@@ -338,9 +338,10 @@ where
     &self,
     in_: Option<<Self::Delegate as DirectoryReader>::DirectoryReader>,
   ) -> Result<Option<Self::WrapDirectoryReader>> {
-    in_
-      .map(|reader| self.do_wrap_directory_reader_impl(reader))
-      .transpose()
+    match in_ {
+      Some(reader) => Ok(Some(self.do_wrap_directory_reader_impl(reader)?)),
+      None => Ok(None),
+    }
   }
 }
 

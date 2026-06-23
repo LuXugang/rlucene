@@ -621,12 +621,10 @@ where
 
   fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
     self.ensure_open()?;
-    self
-      .core
-      .term_vectors_reader_orig
-      .as_ref()
-      .map(|reader| reader.try_clone())
-      .transpose()
+    match &self.core.term_vectors_reader_orig {
+      Some(reader) => Ok(Some(reader.try_clone()?)),
+      None => Ok(None),
+    }
   }
 
   fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
