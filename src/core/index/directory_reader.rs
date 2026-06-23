@@ -147,7 +147,7 @@ pub trait DirectoryReader: BaseCompositeReader {
 /// Returns an error if there is a low-level I/O error.
 pub fn open<D>(directory: Arc<D>) -> Result<StandardDirectoryReaderType<D>>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   StandardDirectoryReader::<_, _>::open::<DummyIndexCommit<D>>(directory, None, None)
 }
@@ -172,7 +172,7 @@ pub fn open_with_sorter<D, C>(
   leaf_sorter: Option<C>,
 ) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
@@ -193,7 +193,7 @@ where
 /// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
 pub fn open_from_writer<D>(writer: &IndexWriter<D>) -> Result<StandardDirectoryReaderType<D>>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   open_with_writer_deletes(writer, true, false)
 }
@@ -202,7 +202,7 @@ pub fn open_from_writer_with_leaf_sorter<D, C>(
   leaf_sorter: C,
 ) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   open_with_writer_deletes_and_leaf_sorter(writer, true, false, leaf_sorter)
@@ -234,7 +234,7 @@ pub fn open_with_writer_deletes<D>(
   write_all_deletes: bool,
 ) -> Result<StandardDirectoryReaderType<D>>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   writer.get_reader(apply_all_deletes, write_all_deletes)
 }
@@ -245,7 +245,7 @@ pub fn open_with_writer_deletes_and_leaf_sorter<D, C>(
   leaf_sorter: C,
 ) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   writer.get_reader_with_leaf_sorter(apply_all_deletes, write_all_deletes, Some(leaf_sorter))
@@ -262,7 +262,7 @@ where
 /// Returns an error if there is a low-level I/O error.
 pub fn open_from_commit<D, C, IC>(commit: &IC) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = D>,
 {
@@ -292,7 +292,7 @@ pub fn open_if_changed<D, C>(
   writer: &IndexWriter<D>,
 ) -> Result<Option<StandardDirectoryReader<C, D>>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   old_reader.do_open_if_changed(writer)
@@ -310,7 +310,7 @@ pub fn open_if_changed_with_commit<D, C, IC>(
   writer: &IndexWriter<D>,
 ) -> Result<Option<StandardDirectoryReader<C, D>>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = D>,
 {
@@ -348,7 +348,7 @@ pub fn open_if_changed_with_writer<D, C>(
   writer: &IndexWriter<D>,
 ) -> Result<Option<StandardDirectoryReader<C, D>>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   open_if_changed_with_writer_deletes(old_reader, writer, true)
@@ -378,7 +378,7 @@ pub fn open_if_changed_with_writer_deletes<D, C>(
   apply_all_deletes: bool,
 ) -> Result<Option<StandardDirectoryReader<C, D>>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   old_reader.do_open_if_changed_with_deletes(writer, apply_all_deletes)
@@ -497,7 +497,7 @@ pub fn open_with_version<D, C, IC>(
   leaf_sorter: Option<C>,
 ) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = D>,
 {

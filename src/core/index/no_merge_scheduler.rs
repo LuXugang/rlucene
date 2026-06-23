@@ -55,7 +55,7 @@ impl MergeScheduler for NoMergeScheduler {
   ) -> Result<()>
   where
     MS: MergeSource,
-    D: Directory,
+    D: Directory + 'static,
   {
     Ok(())
   }

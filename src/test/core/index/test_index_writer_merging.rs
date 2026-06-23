@@ -79,7 +79,7 @@ fn test_lucene() -> Result<()> {
 
 fn verify_index<D>(directory: Arc<D>, start_at: i32) -> Result<bool>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let reader = directory_reader::open(directory)?;
   let max = reader.max_doc()?;
@@ -111,7 +111,7 @@ fn fill_index<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let analyzer = MockAnalyzer::new(random);
@@ -388,7 +388,7 @@ impl MergeScheduler for MyMergeScheduler {
   ) -> Result<()>
   where
     MS: MergeSource,
-    D: Directory,
+    D: Directory + 'static,
   {
     loop {
       let mut merge = match merge_source.get_next_merge(writer)? {

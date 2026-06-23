@@ -53,7 +53,7 @@ impl MergeScheduler for SerialMergeScheduler {
   ) -> Result<()>
   where
     MS: MergeSource,
-    D: Directory,
+    D: Directory + 'static,
   {
     let _guard = self.merge_lock.lock();
     loop {

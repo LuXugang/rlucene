@@ -158,7 +158,7 @@ fn do_test_doc_with_missing_schema_options_throws_error<D>(
   error_msg: &str,
 ) -> Result<()>
 where
-  D: crate::core::store::directory::Directory,
+  D: crate::core::store::directory::Directory + 'static,
 {
   let mut doc = Document::new();
   for (i, field) in fields.iter().enumerate() {
@@ -183,7 +183,7 @@ fn do_test_doc_with_extra_schema_options_throws_error<D>(
   error_msg: &str,
 ) -> Result<()>
 where
-  D: crate::core::store::directory::Directory,
+  D: crate::core::store::directory::Directory + 'static,
 {
   let mut doc = Document::new();
   add_field(&mut doc, existing);

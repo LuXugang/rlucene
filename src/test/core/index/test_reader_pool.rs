@@ -530,7 +530,7 @@ fn test_get_reader_by_ram() -> Result<()> {
 
 fn build_index<D, R>(directory: Arc<D>, random: &mut R) -> Result<(FieldNumbersLock, i32)>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let writer = IndexWriter::new(directory, new_index_writer_config(random))?;

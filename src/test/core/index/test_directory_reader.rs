@@ -612,7 +612,7 @@ fn add_document_with_fields<D, R>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -653,7 +653,7 @@ fn add_document_with_different_fields<D, R>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -694,7 +694,7 @@ fn add_document_with_term_vector_fields<D, R>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -762,7 +762,7 @@ fn add_doc<D, R>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();

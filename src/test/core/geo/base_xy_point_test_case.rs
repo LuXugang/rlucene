@@ -984,7 +984,7 @@ pub trait BaseXYPointTestCase {
     w: &IndexWriter<D>,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
     R: Rng + ?Sized,
   {
     for id in 0..xs.len() {

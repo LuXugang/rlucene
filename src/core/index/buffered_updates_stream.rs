@@ -129,7 +129,7 @@ impl BufferedUpdatesStream {
   /// This is called during refresh and commit.
   pub(crate) fn wait_apply_all<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let wait_for = {
       let inner = self.inner.lock();
@@ -178,7 +178,7 @@ impl BufferedUpdatesStream {
     writer: &IndexWriter<D>,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let mut max_del_gen = i64::MIN;
     {
@@ -228,7 +228,7 @@ impl BufferedUpdatesStream {
     writer: &IndexWriter<D>,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let start_ns = std::time::Instant::now();
     let packet_count = wait_for.len();

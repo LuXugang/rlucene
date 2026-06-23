@@ -426,7 +426,7 @@ fn index_thread<D>(
   do_random_commit: bool,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut random = random_from_seed(seed);
   let mut docs = LineFileDocs::new(&mut random)?;

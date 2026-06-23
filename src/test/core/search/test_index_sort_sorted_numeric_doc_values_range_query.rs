@@ -1038,7 +1038,7 @@ fn add_doc_with_bkd<R, D>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   for _ in 0..repeat {
     let mut doc = Document::new();

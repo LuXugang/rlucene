@@ -164,7 +164,7 @@ fn add_doc<R, D>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut doc = Document::new();
   doc.add(new_text_field(

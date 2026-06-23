@@ -2082,7 +2082,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    D: Directory,
+    D: Directory + 'static,
   {
     self.add_float_with_sort_key(
       iw,
@@ -2105,7 +2105,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    D: Directory,
+    D: Directory + 'static,
   {
     self.add_byte_with_sort_key(
       iw,
@@ -2126,7 +2126,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     vector: Option<Vec<u8>>,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     self.add_byte_with_sort_key(
       iw,
@@ -2148,7 +2148,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     similarity_function: VectorSimilarityFunction,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let mut doc = Document::new();
     if let Some(vector) = vector {
@@ -2179,7 +2179,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     vector: Option<Vec<f32>>,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     self.add_float_with_sort_key(
       iw,
@@ -2201,7 +2201,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     similarity_function: VectorSimilarityFunction,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let mut doc = Document::new();
     if let Some(vector) = vector {
@@ -2566,7 +2566,7 @@ impl MergeScheduler for TestMergeScheduler {
   ) -> Result<()>
   where
     MS: MergeSource,
-    D: Directory,
+    D: Directory + 'static,
   {
     while let Some(mut merge) = merge_source.get_next_merge(writer)? {
       let result: Result<()> = merge_source.merge(&mut merge, writer);

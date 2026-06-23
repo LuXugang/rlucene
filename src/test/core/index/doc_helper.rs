@@ -365,7 +365,7 @@ impl DocHelper {
   }
   pub fn write_doc<D, R>(random: &mut R, dir: Arc<D>, doc: Document) -> Result<SegmentCommitInfo<D>>
   where
-    D: Directory,
+    D: Directory + 'static,
     R: Rng + ?Sized,
   {
     let mock = MockAnalyzer::with_automaton(random, mock_analyzer::WHITESPACE.clone(), false);
@@ -379,7 +379,7 @@ impl DocHelper {
     doc: Document,
   ) -> Result<SegmentCommitInfo<D>>
   where
-    D: Directory,
+    D: Directory + 'static,
     R: Rng + ?Sized,
     A: Into<AnalyzerEnum>,
     S: Into<SimilarityEnum>,

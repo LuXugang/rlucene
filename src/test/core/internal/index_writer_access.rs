@@ -43,7 +43,7 @@ pub(crate) trait IndexWriterAccess {
     write_all_deletes: bool,
   ) -> Result<StandardDirectoryReaderType<D>>
   where
-    D: Directory;
+    D: Directory + 'static;
 
   fn get_doc_writer_thread_pool_size<D>(&self, iw: &IndexWriter<D>) -> usize
   where

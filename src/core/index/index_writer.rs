@@ -225,7 +225,10 @@ impl<D> IndexWriter<D>
 where
   D: Directory,
 {
-  pub fn new(d: Arc<D>, conf: IndexWriterConfig) -> Result<Self> {
+  pub fn new(d: Arc<D>, conf: IndexWriterConfig) -> Result<Self>
+  where
+    D: 'static,
+  {
     Self::with_hooks(d, conf, Some(EmptyIndexWriterHooks.into()))
   }
 }
@@ -260,7 +263,10 @@ where
     d: Arc<D>,
     conf: IndexWriterConfig,
     sub: Option<IndexWriterHooksEnum>,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    D: 'static,
+  {
     Self::with_index_commit_and_hook(d, conf, sub, IndexCommitWrapper::default())
   }
   pub fn with_index_commit<IC, C>(
@@ -271,6 +277,7 @@ where
   where
     IC: IndexCommit<Directory = D>,
     C: Comparator<DefaultLeafReader<D>> + Clone,
+    D: 'static,
   {
     Self::with_index_commit_and_hook(d, conf, Some(EmptyIndexWriterHooks.into()), index_commit)
   }
@@ -284,6 +291,7 @@ where
   where
     IC: IndexCommit<Directory = D>,
     C: Comparator<DefaultLeafReader<D>> + Clone,
+    D: 'static,
   {
     let enable_test_points = hooks.as_ref().unwrap().is_enable_test_points();
     let info_stream = conf.get_info_stream();
@@ -677,7 +685,10 @@ where
   /// Gracefully closes (commits, waits for merges), but calls rollback if there's an error so the
   /// [`IndexWriter`] is always closed. This is called from [`close`] when
   /// [`IndexWriterConfig::commit_on_close`] is `true`.
-  fn shut_down(&self) -> Result<()> {
+  fn shut_down(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     if self.commit_lock.lock().pending_commit.is_some() {
       return Err(LuceneError::illegal_state(
         "cannot close: prepareCommit was already called with no corresponding call to commit",
@@ -725,7 +736,10 @@ where
   ///
   /// **NOTE**: You must ensure no other threads are still making changes at the same time
   /// that this method is invoked.
-  pub fn close(&self) -> Result<()> {
+  pub fn close(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     if self.config.get_commit_on_close() {
       self.shut_down()?;
     } else {
@@ -771,7 +785,10 @@ where
   /// # Errors
   /// - `CorruptIndex` if the index is corrupt.
   /// - `Io` if a low-level IO error occurs.
-  pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64> {
+  pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64>
+  where
+    D: 'static,
+  {
     self.do_ensure_open(true)?;
     let res: Result<i64> = (|| {
       let seq = self.maybe_process_events(self.doc_writer.delete_terms(&self.config, terms)?)?;
@@ -795,7 +812,10 @@ where
   /// # Errors
   /// - `CorruptIndex` if the index is corrupt.
   /// - `Io` if a low-level IO error occurs.
-  pub fn delete_documents_with_queries(&self, queries: Vec<Query>) -> Result<i64> {
+  pub fn delete_documents_with_queries(&self, queries: Vec<Query>) -> Result<i64>
+  where
+    D: 'static,
+  {
     self.do_ensure_open(true)?;
 
     // LUCENE-6379: Specialize MatchAllDocsQuery
@@ -847,6 +867,7 @@ where
   pub fn add_document<DF>(&self, doc: DF) -> Result<i64>
   where
     DF: IntoIterator<Item = Fields>,
+    D: 'static,
   {
     self.update_document_with_term(None, doc)
   }
@@ -882,6 +903,7 @@ where
   where
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
+    D: 'static,
   {
     self.update_documents(None, docs)
   }
@@ -901,6 +923,7 @@ where
   where
     T: Into<Option<Term>>,
     DF: IntoIterator<Item = Fields>,
+    D: 'static,
   {
     let del_node = del_term
       .into()
@@ -930,6 +953,7 @@ where
     T: Into<Option<Term>>,
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
+    D: 'static,
   {
     let del_node = del_term
       .into()
@@ -944,6 +968,7 @@ where
     T: Into<Option<Query>>,
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
+    D: 'static,
   {
     let del_node = del_query
       .into()
@@ -956,6 +981,7 @@ where
   where
     DI: IntoIterator<Item = DF>,
     DF: IntoIterator<Item = Fields>,
+    D: 'static,
   {
     self.do_ensure_open(true)?;
     let res: Result<i64> = (|| {
@@ -1013,6 +1039,7 @@ where
   where
     T: Into<Arc<Term>>,
     DF: IntoIterator<Item = Vec<Fields>>,
+    D: 'static,
   {
     if soft_deletes.is_empty() {
       return Err(LuceneError::illegal_argument(
@@ -1176,6 +1203,7 @@ where
   where
     T: Into<Arc<Term>>,
     DF: IntoIterator<Item = Fields>,
+    D: 'static,
   {
     if soft_deletes.is_empty() {
       return Err(LuceneError::illegal_argument(
@@ -1211,6 +1239,7 @@ where
   where
     T: Into<Arc<Term>>,
     F: Into<String>,
+    D: 'static,
   {
     let field = field.into();
     self.do_ensure_open(true)?;
@@ -1285,6 +1314,7 @@ where
   where
     T: Into<Arc<Term>>,
     F: Into<String>,
+    D: 'static,
   {
     let field = field.into();
     self.do_ensure_open(true)?;
@@ -1336,6 +1366,7 @@ where
   pub fn update_doc_values<T>(&self, term: T, updates: Vec<Fields>) -> Result<i64>
   where
     T: Into<Arc<Term>>,
+    D: 'static,
   {
     self.do_ensure_open(true)?;
     let dv_updates = self.build_doc_values_update(Some(term), updates)?;
@@ -1968,7 +1999,10 @@ where
   /// Returns an error if the index is corrupt or if a low-level I/O error occurs.
   ///
   /// See [`MergePolicy::find_merges`].
-  pub fn force_merge(&self, max_num_segments: i32) -> Result<()> {
+  pub fn force_merge(&self, max_num_segments: i32) -> Result<()>
+  where
+    D: 'static,
+  {
     self.force_merge_with_wait(max_num_segments, true)
   }
 
@@ -1982,14 +2016,20 @@ where
   ///
   /// **NOTE**: this method first flushes a new segment (if there are indexed documents), and
   /// applies all buffered deletes.
-  pub fn force_merge_deletes(&self) -> Result<()> {
+  pub fn force_merge_deletes(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     self.force_merge_deletes_with_wait(true)
   }
 
   /// Just like [`Self::force_merge_deletes`], except you can specify whether the call should block
   /// until the operation completes. This is only meaningful with a [`MergeScheduler`] that is
   /// able to run merges in background threads.
-  pub fn force_merge_deletes_with_wait(&self, do_wait: bool) -> Result<()> {
+  pub fn force_merge_deletes_with_wait(&self, do_wait: bool) -> Result<()>
+  where
+    D: 'static,
+  {
     self.ensure_open()?;
     self.flush_with_apply_merge_deletes(true, true)?;
 
@@ -2060,7 +2100,10 @@ where
   ///
   /// This is only meaningful with a [`MergeScheduler`] that is able to run merges
   /// in background threads.
-  pub fn force_merge_with_wait(&self, max_num_segments: i32, do_wait: bool) -> Result<()> {
+  pub fn force_merge_with_wait(&self, max_num_segments: i32, do_wait: bool) -> Result<()>
+  where
+    D: 'static,
+  {
     self.ensure_open()?;
 
     if max_num_segments < 1 {
@@ -2195,7 +2238,10 @@ where
   /// is when merge policy parameters have changed.
   ///
   /// This method will call the [`MergePolicy`] with [`MergeTrigger::Explicit`].
-  pub fn maybe_merge(&self) -> Result<()> {
+  pub fn maybe_merge(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     self.maybe_merge_with_max_num_segments(
       self.config.get_merge_policy(),
       MergeTrigger::Explicit,
@@ -2208,7 +2254,10 @@ where
     merge_policy: &MergePolicyEnum,
     trigger: MergeTrigger,
     max_num_segments: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D: 'static,
+  {
     self.do_ensure_open(false)?;
     if self.update_pending_merges(merge_policy, trigger, max_num_segments, None)? {
       self.execute_merge(trigger)?;
@@ -2216,7 +2265,10 @@ where
     Ok(())
   }
 
-  pub(crate) fn execute_merge(&self, trigger: MergeTrigger) -> Result<()> {
+  pub(crate) fn execute_merge(&self, trigger: MergeTrigger) -> Result<()>
+  where
+    D: 'static,
+  {
     self
       .config
       .get_merge_scheduler()
@@ -2339,7 +2391,10 @@ where
     Ok(!inner.pending_merges.is_empty())
   }
 
-  fn rollback_internal(&self) -> Result<()> {
+  fn rollback_internal(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     // Make sure no commit is running, else e.g. we can close while another thread is still
     // fsync'ing.
     let mut commit_lock = self.commit_lock.lock();
@@ -2353,7 +2408,10 @@ where
     Ok(())
   }
 
-  fn rollback_internal_no_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()> {
+  fn rollback_internal_no_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()>
+  where
+    D: 'static,
+  {
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "rollback")?;
     }
@@ -2528,7 +2586,10 @@ where
   /// they may receive `MergeAbortedError` errors.
   ///
   /// Returns the sequence number for this operation.
-  pub fn delete_all(&self) -> Result<i64> {
+  pub fn delete_all(&self) -> Result<i64>
+  where
+    D: 'static,
+  {
     self.ensure_open()?;
 
     // Remove any buffered docs. Hold the full flush lock to prevent concurrent commits / NRT
@@ -2692,7 +2753,10 @@ where
   ///
   /// It is guaranteed that any merges started prior to calling this method
   /// will have completed once this method returns.
-  pub(crate) fn wait_for_merges(&self) -> Result<()> {
+  pub(crate) fn wait_for_merges(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     self
       .config
       .get_merge_scheduler()
@@ -2917,7 +2981,10 @@ where
   /// same coarse-grained flow:
   /// flush current in-memory changes, validate incoming commits, copy segment files as-is,
   /// reserve document ids, publish the new segments, and finally trigger merges if needed.
-  pub fn add_indexes_from_dir(&self, dirs: &[Arc<D>]) -> Result<i64> {
+  pub fn add_indexes_from_dir(&self, dirs: &[Arc<D>]) -> Result<i64>
+  where
+    D: 'static,
+  {
     self.ensure_open()?;
     self.no_dup_dirs(dirs)?;
 
@@ -3279,6 +3346,7 @@ where
     CR: CodecReader + Clone,
     OneMerge<D, CR>: OneMergeBase<D, CR>,
     <OneMerge<D, CR> as OneMergeBase<D, CR>>::CodecReader: Clone,
+    D: 'static,
   {
     merge.merge_init();
     merge.check_aborted()?;
@@ -3546,7 +3614,10 @@ where
   /// can access the [`IndexWriter`]'s current memory consumption via `Self::ram_bytes_used`.
   ///
   /// Returns `true` iff this method flushed at least one segment to disk.
-  pub fn flush_next_buffer(&self) -> Result<bool> {
+  pub fn flush_next_buffer(&self) -> Result<bool>
+  where
+    D: 'static,
+  {
     let result = (|| -> Result<bool> {
       if self.doc_writer.flush_one_dwpt(self)? {
         self.process_events(true)?;
@@ -3565,7 +3636,10 @@ where
     result
   }
 
-  fn prepare_commit_internal(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<i64> {
+  fn prepare_commit_internal(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<i64>
+  where
+    D: 'static,
+  {
     let commit_lock = match commit_lock {
       Some(lock) => lock,
       None => &mut *self.commit_lock.lock(),
@@ -3995,7 +4069,10 @@ where
     Ok(self.doc_writer.any_changes()? || self.buffered_updates_stream.any())
   }
 
-  pub(crate) fn commit_internal(&self, merge_policy: &MergePolicyEnum) -> Result<i64> {
+  pub(crate) fn commit_internal(&self, merge_policy: &MergePolicyEnum) -> Result<i64>
+  where
+    D: 'static,
+  {
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "commit: start")?;
     }
@@ -4035,7 +4112,10 @@ where
     Ok(seq_no)
   }
 
-  pub(crate) fn finish_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()> {
+  pub(crate) fn finish_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()>
+  where
+    D: 'static,
+  {
     let mut commit_completed = false;
     let try_res: Result<()> = (|| {
       let mut inner = self.inner.lock();
@@ -4147,7 +4227,10 @@ where
   }
   /// Moves all in-memory segments to the [`Directory`], but does not commit (fsync) them
   /// (call [`commit`](Self::commit) for that).
-  pub fn flush(&self) -> Result<()> {
+  pub fn flush(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     self.flush_with_apply_merge_deletes(true, true)
   }
   /// Flushes all in-memory buffered updates (adds and deletes) to the `Directory`.
@@ -4160,7 +4243,10 @@ where
     &self,
     trigger_merge: bool,
     apply_all_deletes: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D: 'static,
+  {
     // NOTE: this method cannot be sync'd because
     // maybeMerge() in turn calls mergeScheduler.merge which
     // in turn can take a long time to run and we don't want
@@ -4180,7 +4266,10 @@ where
     Ok(())
   }
   /// Returns true a segment was flushed or deletes were applied.
-  fn do_flush(&self, apply_all_deletes: bool) -> Result<bool> {
+  fn do_flush(&self, apply_all_deletes: bool) -> Result<bool>
+  where
+    D: 'static,
+  {
     if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot flush {}",
@@ -4260,7 +4349,10 @@ where
     res
   }
 
-  fn apply_all_deletes_and_updates(&self) -> Result<()> {
+  fn apply_all_deletes_and_updates(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     self.flush_deletes_count.fetch_add(1, Ordering::AcqRel);
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
@@ -4703,7 +4795,10 @@ where
   }
 
   /// Merges the indicated segments, replacing them in the stack with a single segment.
-  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
+  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()>
+  where
+    D: 'static,
+  {
     #[cfg(test)]
     if let Some(s) = &self.hooks {
       s.do_before_merge(&merge.stat)?;
@@ -4857,7 +4952,10 @@ where
     Ok(true)
   }
   /// Performs fast initial merge setup while holding the `IndexWriter` lock.
-  pub(crate) fn merge_init(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
+  pub(crate) fn merge_init(&self, merge: &mut OneMergeSR<D>) -> Result<()>
+  where
+    D: 'static,
+  {
     // Make sure any deletes that must be resolved before we commit the merge are complete:
     self
       .buffered_updates_stream
@@ -5141,7 +5239,10 @@ where
     &self,
     mut to_sync: Option<SegmentInfos<D>>,
     commit_lock: &mut CommitInner<D>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D: 'static,
+  {
     debug_assert!(commit_lock.files_to_commit.is_some());
     // wrap with Option for easily take ownership
     debug_assert!(to_sync.is_some());
@@ -5349,13 +5450,19 @@ where
 
   /// This method set the tragic error unless it's already set and closes the writer if necessary.
   /// Note this method will not return the throwable passed to it.
-  fn tragic_event(&self, tragedy: LuceneError, location: &str) -> Result<()> {
+  fn tragic_event(&self, tragedy: LuceneError, location: &str) -> Result<()>
+  where
+    D: 'static,
+  {
     let result = self.on_tragic_event(tragedy, location);
     self.maybe_close_on_tragic_event()?;
     result
   }
 
-  fn maybe_close_on_tragic_event(&self) -> Result<()> {
+  fn maybe_close_on_tragic_event(&self) -> Result<()>
+  where
+    D: 'static,
+  {
     if self.tragedy.get().is_some() && self.should_close(false) {
       self.rollback_internal()?;
     }
@@ -5532,7 +5639,10 @@ where
   /// # Returns
   ///
   /// The given `seq_no` inverted if negative.
-  fn maybe_process_events(&self, mut seq_no: i64) -> Result<i64> {
+  fn maybe_process_events(&self, mut seq_no: i64) -> Result<i64>
+  where
+    D: 'static,
+  {
     if seq_no < 0 {
       seq_no = -seq_no;
       self.process_events(true)?;
@@ -5540,7 +5650,10 @@ where
     Ok(seq_no)
   }
 
-  fn process_events(&self, trigger_merge: bool) -> Result<()> {
+  fn process_events(&self, trigger_merge: bool) -> Result<()>
+  where
+    D: 'static,
+  {
     if self.tragedy.get().is_none() {
       self.event_queue.process_events(self)?;
     }
@@ -5687,7 +5800,10 @@ where
   /// by incoming indexing threads. This method will return immediately without blocking if another
   /// thread is currently applying the package. To ensure the packet has been applied,
   /// [`IndexWriter::force_apply(FrozenBufferedUpdates)`](Self::force_apply) must be called.
-  pub(crate) fn try_apply(&self, updates: &FrozenBufferedUpdates) -> Result<bool> {
+  pub(crate) fn try_apply(&self, updates: &FrozenBufferedUpdates) -> Result<bool>
+  where
+    D: 'static,
+  {
     let _guard = updates.as_ref().try_lock();
     if _guard.is_some() {
       self.force_apply(updates)?;
@@ -5698,7 +5814,10 @@ where
   /// Translates a frozen packet of delete term/query, or doc values updates, into their actual
   /// doc IDs in the index, and applies the change.
   /// This is a heavy operation and is done concurrently by incoming indexing threads.
-  pub(crate) fn force_apply(&self, updates: &FrozenBufferedUpdates) -> Result<()> {
+  pub(crate) fn force_apply(&self, updates: &FrozenBufferedUpdates) -> Result<()>
+  where
+    D: 'static,
+  {
     let _guard = updates.lock();
 
     if updates.is_applied() {
@@ -6158,7 +6277,10 @@ where
     &self,
     apply_all_deletes: bool,
     write_all_deletes: bool,
-  ) -> Result<StandardDirectoryReaderType<D>> {
+  ) -> Result<StandardDirectoryReaderType<D>>
+  where
+    D: 'static,
+  {
     self.get_reader_with_leaf_sorter::<EmptyLeafSorter>(apply_all_deletes, write_all_deletes, None)
   }
   pub(crate) fn get_reader_with_leaf_sorter<C>(
@@ -6169,6 +6291,7 @@ where
   ) -> Result<StandardDirectoryReader<C, D>>
   where
     C: Comparator<DefaultLeafReader<D>> + Clone,
+    D: 'static,
   {
     self.do_ensure_open(true)?;
 
@@ -6411,7 +6534,7 @@ where
 }
 impl<D> TwoPhaseCommit for IndexWriter<D>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   /// **Expert:** Prepares for commit. This is the first phase of a 2-phase commit.
   /// This method performs all steps necessary to commit changes since this writer was opened:
@@ -7435,7 +7558,7 @@ impl EventQueue {
   }
   pub(crate) fn process_events<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     self.acquire()?;
     let result = self.process_events_internal(writer);
@@ -7444,7 +7567,7 @@ impl EventQueue {
   }
   fn process_events_internal<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     debug_assert!(
       (Permits::MAX - self.permits.available()) > 0,
@@ -7458,7 +7581,7 @@ impl EventQueue {
   }
   pub(crate) fn close<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let _guard = self.guard.lock();
     debug_assert!(
@@ -7563,7 +7686,7 @@ impl EventImpl5 {
 }
 impl<D> Event<D> for EventImpl5
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     // we call tryApply here since we don't want to block if a refresh or a flush is already
@@ -7628,7 +7751,7 @@ pub(crate) enum EventEnum {
 }
 impl<D> Event<D> for EventEnum
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
     match self {
@@ -7684,7 +7807,7 @@ impl MergeSource for IndexWriterMergeSource {
 
   fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     writer.merge(merge)
   }
@@ -7792,7 +7915,7 @@ impl MergeSource for AddIndexesMergeSource {
 
   fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let mut success = false;
     let result = match writer.add_indexes_reader_merge(merge) {
@@ -7993,7 +8116,7 @@ pub(crate) mod tests {
       write_all_deletes: bool,
     ) -> Result<StandardDirectoryReaderType<D>>
     where
-      D: Directory,
+      D: Directory + 'static,
     {
       iw.get_reader(apply_deletions, write_all_deletes)
     }

@@ -312,7 +312,7 @@ fn verify_equals<D, R>(
   id_field: &str,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: rand::Rng + ?Sized,
 {
   let r2 = directory_reader::open(dir2)?;
@@ -327,7 +327,7 @@ fn verify_equals_dirs<D, R>(
   id_field: &str,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: rand::Rng + ?Sized,
 {
   let r1 = directory_reader::open(dir1)?;

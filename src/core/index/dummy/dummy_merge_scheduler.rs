@@ -38,7 +38,7 @@ impl MergeScheduler for DummyMergeScheduler {
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
     MS: MergeSource,
-    D: Directory,
+    D: Directory + 'static,
   {
     dummy_unreachable!()
   }

@@ -218,7 +218,7 @@ impl TopDocsCollector for MyTopDocsCollector {
 }
 fn get_reader<D>(dir: Arc<D>) -> Result<StandardDirectoryReaderType<D>>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut random = random();
   let writer = RandomIndexWriter::new(&mut random, dir);

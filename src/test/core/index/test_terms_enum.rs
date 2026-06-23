@@ -170,7 +170,7 @@ fn add_doc<D, R>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("id", id as i64));

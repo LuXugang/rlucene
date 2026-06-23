@@ -48,7 +48,7 @@ pub trait MergeScheduler: CloseableRef {
   ) -> Result<()>
   where
     MS: MergeSource,
-    D: Directory;
+    D: Directory + 'static;
   type Directory<D>: Directory
   where
     D: Directory;
@@ -102,7 +102,7 @@ pub trait MergeSource {
   /// with a single segment.
   fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
   where
-    D: Directory;
+    D: Directory + 'static;
 
   fn merge_segment_ids<'a, D>(&self, _merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
   where
@@ -163,7 +163,7 @@ impl MergeScheduler for MergeSchedulerEnum {
   ) -> Result<()>
   where
     MS: MergeSource,
-    D: Directory,
+    D: Directory + 'static,
   {
     match self {
       MergeSchedulerEnum::Serial(s) => s.merge(merge_source, trigger, index_writer),

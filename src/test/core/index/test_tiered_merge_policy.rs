@@ -919,7 +919,7 @@ where
 
 fn delete_pct_docs_from_each_seg<D>(w: &mut IndexWriter<D>, pct: i32, round_up: bool) -> Result<i32>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let reader = directory_reader::open_from_writer(w)?;
   let reader = get_context(reader)?;

@@ -214,7 +214,7 @@ fn indexing_thread<D>(
   field_to_type: &Mutex<HashMap<String, FieldType>>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut random = random_from_seed(seed);
   let mut open: Option<StandardDirectoryReaderType<D>> = None;

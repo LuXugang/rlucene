@@ -198,7 +198,7 @@ pub(crate) fn add_doc<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -219,7 +219,7 @@ pub(crate) fn add_doc_with_index<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -244,7 +244,7 @@ where
 
 pub(crate) fn assert_no_unreferenced_files<D>(dir: Arc<D>, message: &str) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut start_files = dir.list_all()?;
   let mut random = random();
@@ -4643,7 +4643,7 @@ impl IndexWriterHooks for MockIndexWriter {
 
 fn assert_hard_live_docs<D>(writer: &IndexWriter<D>, unique_docs: &HashSet<i32>) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let reader = directory_reader::open_from_writer(writer)?;
   assert_eq!(unique_docs.len() as i32, reader.num_docs()?);
@@ -4683,7 +4683,7 @@ fn add_doc_with_field<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();

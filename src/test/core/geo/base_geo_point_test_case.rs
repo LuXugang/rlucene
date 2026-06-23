@@ -1063,7 +1063,7 @@ pub trait BaseGeoPointTestCase {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    D: Directory,
+    D: Directory + 'static,
   {
     for id in 0..lats.len() {
       let mut doc = Document::new();

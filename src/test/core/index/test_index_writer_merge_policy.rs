@@ -408,7 +408,7 @@ fn add_doc<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -425,7 +425,7 @@ where
 
 fn check_invariants<D>(writer: &IndexWriter<D>) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   writer.wait_for_merges()?;
   let max_buffered_docs = writer.get_config().get_max_buffered_docs();

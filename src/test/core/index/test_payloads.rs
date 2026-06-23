@@ -208,7 +208,7 @@ fn test_payloads_encoding() -> Result<()> {
 
 fn perform_test<D>(dir: Arc<D>) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut random = random();
   let analyzer = PayloadAnalyzer::new();

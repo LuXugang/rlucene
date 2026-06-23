@@ -54,7 +54,7 @@ use std::thread;
 /// may flush by doc count instead of RAM, etc.
 pub struct RandomIndexWriter<D>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   pub(crate) w: IndexWriter<D>,
   flush_state: Mutex<FlushState>,
@@ -73,7 +73,7 @@ struct FlushState {
 
 impl<D> RandomIndexWriter<D>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   /// Returns an indexwriter that randomly mixes up thread scheduling (by yielding at test points).
   pub fn mock_index_writer<R>(
@@ -710,7 +710,7 @@ where
 }
 impl<D> Drop for RandomIndexWriter<D>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   fn drop(&mut self) {
     let mut r = random_from_seed(self.seed);
@@ -764,7 +764,7 @@ impl InfoStream for TestPointInfoStream {
 
 impl<D> RandomIndexWriter<D>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   /// Writes all in-memory segments to the Directory.
   pub fn flush(&self) -> Result<()> {

@@ -1529,7 +1529,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
 
   fn assert_dv_advance<D>(&self, dir: std::sync::Arc<D>, jump_step: i32) -> Result<()>
   where
-    D: crate::core::store::directory::Directory,
+    D: crate::core::store::directory::Directory + 'static,
   {
     let reader = directory_reader::open(dir)?;
     let context = get_context(&reader)?;

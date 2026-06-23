@@ -52,7 +52,7 @@ impl CheckIndex {
     output: &mut W,
   ) -> Result<Status>
   where
-    D: Directory,
+    D: Directory + 'static,
     W: Write,
   {
     Level::check_if_level_in_bounds(level)?;

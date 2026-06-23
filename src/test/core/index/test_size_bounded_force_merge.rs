@@ -39,14 +39,14 @@ pub struct TestSizeBoundedForceMerge;
 
 fn add_docs<D>(writer: &mut IndexWriter<D>, num_docs: i32) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   add_docs_with_id(writer, num_docs, false)
 }
 
 fn add_docs_with_id<D>(writer: &mut IndexWriter<D>, num_docs: i32, with_id: bool) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   for i in 0..num_docs {
     let mut doc = Document::new();

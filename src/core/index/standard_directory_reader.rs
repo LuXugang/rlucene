@@ -70,7 +70,7 @@ where
 impl<C, D> StandardDirectoryReader<C, D>
 where
   C: Comparator<DefaultLeafReader<D>> + Clone,
-  D: Directory,
+  D: Directory + 'static,
 {
   pub(crate) fn new(
     directory: Arc<D>,
@@ -223,7 +223,7 @@ pub(crate) fn open_with_reader_function<D, IO, C>(
   leaf_sorter: Option<C>,
 ) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   IO: IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
@@ -314,7 +314,7 @@ pub(crate) fn open_with_leaf_sorter<D, C>(
   leaf_sorter: Option<C>,
 ) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   // we put the old SegmentReaders in a map, that allows us
@@ -584,7 +584,7 @@ where
 impl<C, D> DirectoryReader for StandardDirectoryReader<C, D>
 where
   C: Comparator<DefaultLeafReader<D>> + Clone,
-  D: Directory,
+  D: Directory + 'static,
 {
   type DirectoryReader = StandardDirectoryReader<C, D>;
 
@@ -697,7 +697,7 @@ where
 }
 impl<D, C> FindSegmentsFileImpl1<D, C>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   pub fn new(min_supported_major_version: i32, directory: Arc<D>, leaf_sorter: Option<C>) -> Self {
@@ -710,7 +710,7 @@ where
 }
 impl<D, C> FindSegmentsFile for FindSegmentsFileImpl1<D, C>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   type V = StandardDirectoryReader<C, D>;
@@ -773,7 +773,7 @@ where
 }
 impl<D, C> FindSegmentsFileImpl2<D, C>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   pub fn new(
@@ -790,7 +790,7 @@ where
 }
 impl<D, C> FindSegmentsFile for FindSegmentsFileImpl2<D, C>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   type V = StandardDirectoryReader<C, D>;
@@ -817,7 +817,7 @@ pub(crate) fn do_open_if_changed<D, C>(
   sub_readers_sorter: Option<C>,
 ) -> Result<StandardDirectoryReader<C, D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   open_with_leaf_sorter(directory, infos, old_readers, sub_readers_sorter)

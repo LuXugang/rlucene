@@ -792,7 +792,7 @@ impl MergeScheduler for SerialMergeSchedulerImpl {
   ) -> Result<()>
   where
     MS: MergeSource,
-    D: Directory,
+    D: Directory + 'static,
   {
     if !self.may_merge.load(Ordering::SeqCst) {
       let merge = merge_source.get_next_merge(writer)?;

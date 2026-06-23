@@ -432,7 +432,7 @@ fn test_more_merges() -> Result<()> {
 }
 fn new_writer<D>(dir: Arc<D>, mut conf: IndexWriterConfig) -> Result<IndexWriter<D>>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   conf.set_merge_policy(LogMergePolicy::log_doc());
   IndexWriter::new(dir, conf)
@@ -444,7 +444,7 @@ fn add_docs<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   for i in 0..num_docs {
@@ -471,7 +471,7 @@ fn add_docs2<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   for i in 0..num_docs {
@@ -493,7 +493,7 @@ where
 
 fn verify_num_docs<D>(dir: Arc<D>, num_docs: i32) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let reader = directory_reader::open(dir)?;
   assert_eq!(num_docs, reader.max_doc()?);
@@ -504,7 +504,7 @@ where
 
 fn verify_term_docs<R, D>(random: &mut R, dir: Arc<D>, term: &Term, num_docs: i32) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let reader = directory_reader::open(dir)?;
@@ -536,7 +536,7 @@ fn add_docs_with_id<R, D>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   for i in 0..num_docs {
     let mut doc = Document::new();
@@ -570,8 +570,8 @@ fn set_up_dirs<R, D1, D2>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D1: Directory,
-  D2: Directory,
+  D1: Directory + 'static,
+  D2: Directory + 'static,
 {
   set_up_dirs_with_id(random, dir, aux, false, field_types)
 }
@@ -585,8 +585,8 @@ fn set_up_dirs_with_id<R, D1, D2>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D1: Directory,
-  D2: Directory,
+  D1: Directory + 'static,
+  D2: Directory + 'static,
 {
   let analyzer = MockAnalyzer::new(random);
   let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
@@ -729,7 +729,7 @@ fn add_doc<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();

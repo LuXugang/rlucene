@@ -97,7 +97,7 @@ fn test_commit_recreate() -> Result<()> {
 fn do_test_reopen_with_commit<R, D>(random: &mut R, dir: Arc<D>, with_reopen: bool) -> Result<()>
 where
   R: rand::Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let analyzer = MockAnalyzer::new(random);
   let mut config = new_index_writer_config_with_analyzer(random, analyzer);
@@ -193,7 +193,7 @@ where
 
 impl<D> TestReopen<D>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
     directory_reader::open(self.dir.clone())
@@ -213,7 +213,7 @@ fn perform_default_tests<R, D>(
   iw: IndexWriter<D>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut index1 = test.open_reader()?;
@@ -279,7 +279,7 @@ fn refresh_reader<R, D>(
   iw: IndexWriter<D>,
 ) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   refresh_reader_with_test(random, reader, None, -1, has_changes, iw)
@@ -294,7 +294,7 @@ fn refresh_reader_with_test<R, D>(
   mut iw: IndexWriter<D>,
 ) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut r = None;
@@ -334,7 +334,7 @@ where
 fn create_index<R, D>(random: &mut R, dir: Arc<D>, multi_segment: bool) -> Result<IndexWriter<D>>
 where
   R: rand::Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let analyzer = MockAnalyzer::new(random);
   let mut config = new_index_writer_config_with_analyzer(random, analyzer);
@@ -371,7 +371,7 @@ fn modify_index<D, R>(
   iw: IndexWriter<D>,
 ) -> Result<IndexWriter<D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let iw = match i {

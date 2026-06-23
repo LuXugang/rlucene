@@ -36,7 +36,7 @@ use std::sync::Arc;
 struct TestTermVectors;
 fn create_writer<D, R>(random: &mut R, dir: Arc<D>) -> Result<DefaultIndexWriterType<D>>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let a = MockAnalyzer::new(random);
@@ -47,7 +47,7 @@ where
 pub fn create_dir<D, R>(random: &mut R, dir: Arc<D>) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let mock = MockAnalyzer::new(random);
   let mut config = new_index_writer_config_with_analyzer(random, mock);
@@ -71,7 +71,7 @@ fn create_doc() -> Result<Document> {
 }
 fn verify_index<D>(dir: Arc<D>) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   let reader = directory_reader::open(dir)?;
 

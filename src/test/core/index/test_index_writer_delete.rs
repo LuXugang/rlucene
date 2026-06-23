@@ -537,7 +537,7 @@ fn update_doc<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: rand::Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -577,7 +577,7 @@ fn add_doc<D, R>(
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: rand::Rng + ?Sized,
 {
   let mut doc = Document::new();

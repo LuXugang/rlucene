@@ -1816,7 +1816,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
   fn assert_dv_iterate<D>(&self, dir: Arc<D>) -> Result<()>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir)?)?;
     let context = get_context(&reader)?;

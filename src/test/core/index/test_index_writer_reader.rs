@@ -375,7 +375,7 @@ pub(crate) fn create_index_no_close<D>(
   w: &IndexWriter<D>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
 {
   for i in 0..100 {
     w.add_document(DocHelper::create_document(i, index_name, 4))?;

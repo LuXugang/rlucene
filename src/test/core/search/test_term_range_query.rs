@@ -344,7 +344,7 @@ fn initialize_index<D, R>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let a = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
   initialize_index_with_analyzer(random, dir, values, a, field_to_type)
@@ -359,7 +359,7 @@ fn initialize_index_with_analyzer<D, A, R>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
   A: Into<AnalyzerEnum>,
 {
   let mut config = new_index_writer_config_with_analyzer(random, analyzer);
@@ -385,7 +385,7 @@ fn add_doc<D, R>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let a = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
   let mut config = new_index_writer_config_with_analyzer(random, a);
@@ -404,7 +404,7 @@ fn insert_doc<D, R>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();

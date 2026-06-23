@@ -190,7 +190,7 @@ fn add_docs<D, R>(
   percent_docs: f32,
 ) -> Result<()>
 where
-  D: Directory,
+  D: Directory + 'static,
   R: Rng + ?Sized,
 {
   let analyzer = RepeatingAnalyzer::new(val, random, percent_docs, max_tf);

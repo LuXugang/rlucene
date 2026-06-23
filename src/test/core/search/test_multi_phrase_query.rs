@@ -306,7 +306,7 @@ fn add<R, D>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: crate::core::store::directory::Directory,
+  D: crate::core::store::directory::Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();
@@ -514,7 +514,7 @@ fn add_with_type<R, D>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where
-  D: crate::core::store::directory::Directory,
+  D: crate::core::store::directory::Directory + 'static,
   R: Rng + ?Sized,
 {
   let mut doc = Document::new();

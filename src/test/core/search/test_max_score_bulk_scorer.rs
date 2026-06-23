@@ -59,7 +59,7 @@ struct TestMaxScoreBulkScorer;
 fn write_documents<R, D>(random: &mut R, dir: Arc<D>) -> Result<()>
 where
   R: Rng + ?Sized,
-  D: Directory,
+  D: Directory + 'static,
 {
   let mut iwc = IndexWriterConfig::new();
   iwc.set_merge_policy(new_log_merge_policy(random)?);

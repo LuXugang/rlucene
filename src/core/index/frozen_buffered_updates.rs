@@ -191,7 +191,7 @@ impl FrozenBufferedUpdates {
     infos: &SegmentInfos<D>,
   ) -> Result<i64>
   where
-    D: Directory,
+    D: Directory + 'static,
   {
     debug_assert!(
       self.apply_lock.is_owned_by_current_thread(),
@@ -222,7 +222,7 @@ impl FrozenBufferedUpdates {
     }
 
     let mut count = self.apply_term_deletes(seg_states, infos)?;
-    // count += self.apply_query_deletes(seg_states, infos)?;
+    count += self.apply_query_deletes(seg_states, infos)?;
     count += self.apply_doc_values_updates_all(seg_states)?;
     self.total_del_count.store(count, Ordering::Relaxed);
     Ok(count)

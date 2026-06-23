@@ -573,7 +573,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    D: Directory,
+    D: Directory + 'static,
   {
     let num_values = doc_values.len();
     if cfg!(feature = "test_log_verbose") {
