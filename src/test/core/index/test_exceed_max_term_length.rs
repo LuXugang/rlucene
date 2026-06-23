@@ -42,11 +42,13 @@ where
   new_directory(random).unwrap()
 }
 
+#[test]
 fn test_token_stream() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(create_dir(&mut random));
 
-  let a = MockAnalyzer::new(&mut random);
+  let mut a = MockAnalyzer::new(&mut random);
+  a.set_max_token_length(i32::MAX);
   let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -125,6 +127,7 @@ fn test_token_stream() -> Result<()> {
   writer.close()?;
   Ok(())
 }
+#[test]
 fn test_binary_value() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(create_dir(&mut random));

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::char_array_set::CharArraySet;
+use crate::core::util::error::lucene_error::Result;
 
 #[allow(dead_code)]
 struct TestCharArraySet;
@@ -23,8 +24,9 @@ static TEST_STOP_WORDS: &[&str] = &[
   "no", "not", "of", "on", "or", "such", "that", "the", "their", "then", "there", "these", "they",
   "this", "to", "was", "will", "with",
 ];
-fn test_rehash() {
-  // not required in Rust Lucene
+#[test]
+fn test_rehash() -> Result<()> {
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]

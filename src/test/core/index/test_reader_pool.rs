@@ -44,9 +44,21 @@ use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random,
 };
 
+use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::index_writer::Inner as IWInner;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::merge_policy::{
+  MergeContext, MergePolicy, MergePolicyBase, MergeSpecification, MergeSpecificationNoReader,
+};
+use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use rand::Rng;
 use rand::RngExt;
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -382,9 +394,8 @@ fn test_update() -> Result<()> {
 
       assert_ne!(-1, doc);
 
-      let mut number = updated_reader
-        .get_numeric_doc_values("number")?
-        .expect("numeric dv missing");
+      let mut number =
+        LeafReader::get_numeric_doc_values(&updated_reader, "number")?.expect("numeric dv missing");
 
       assert_eq!(doc, number.advance(doc)?);
       assert_eq!(1000_i64, number.long_value()?);
@@ -519,8 +530,128 @@ fn test_deletes() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+
+  let (field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
+
+  let mut reader = directory_reader::open(directory.clone())?;
+  let max_doc = reader.max_doc()?;
+  let num_segments = reader.segment_infos.segments.len();
+
+  let lock = directory.obtain_lock("writer_lock")?;
+  let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
+
+  let pool = Arc::new(ReaderPool::new::<String, DummyComparator>(
+    lock_dir,
+    directory.clone(),
+    &reader.segment_infos,
+    Arc::new(InfoStreamEnum::default()),
+    None,
+    LongSupplierImpl,
+    None,
+    index_created_version_major,
+  )?);
+
+  if random.random_bool(0.5) {
+    pool.enable_reader_pooling();
+  }
+
+  let merge_policy = KeepFullyDeletedSegmentsMergePolicy::default();
+
+  use std::sync::Barrier;
+  use std::sync::atomic::{AtomicBool, Ordering};
+  use std::thread;
+
+  let is_done = Arc::new(AtomicBool::new(false));
+  let latch = Arc::new(Barrier::new(2));
+
+  let pool_bg = pool.clone();
+  let is_done_bg = is_done.clone();
+  let latch_bg = latch.clone();
+  let bg_dir = directory.clone();
+  let bg_field_numbers = field_numbers.clone();
+  let bg_num_segments = num_segments;
+
+  let mut bg_random = crate::test::core::util::lucene_test_case::random();
+  let refresher = thread::spawn(move || -> Result<()> {
+    let mut bg_reader = directory_reader::open(bg_dir)?;
+    latch_bg.wait();
+    while !is_done_bg.load(Ordering::SeqCst) {
+      for idx in 0..bg_num_segments {
+        let seg_infos = &mut bg_reader.segment_infos;
+        let commit_info = seg_infos.info_idx_mut(idx).unwrap();
+        let readers_and_updates = pool_bg.get(commit_info.to_meta()?, true, None)?.unwrap();
+        let segment_reader = readers_and_updates
+          .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?;
+        if let Some(ref sr) = segment_reader {
+          readers_and_updates.release(sr.as_ref(), None)?;
+        }
+        pool_bg.release(
+          &readers_and_updates,
+          bg_random.random_bool(0.5),
+          seg_infos,
+          None,
+          &bg_field_numbers.lock(),
+        )?;
+      }
+    }
+    Ok(())
+  });
+
+  latch.wait();
+
+  for i in 0..max_doc {
+    for idx in 0..num_segments {
+      let commit_info = reader.segment_infos.info_idx_mut(idx).unwrap();
+      let readers_and_updates = pool.get(commit_info.to_meta()?, true, None)?.unwrap();
+      let read_only_clone = readers_and_updates
+        .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
+        .unwrap();
+
+      let term = Term::from_text("id", i.to_string());
+      let mut postings = read_only_clone.postings(&term)?;
+
+      if let Some(ref mut postings) = postings {
+        let mut doc_id = postings.next_doc()?;
+        while doc_id != NO_MORE_DOCS {
+          readers_and_updates.delete(
+            doc_id,
+            reader.segment_infos.info_idx_mut(idx).unwrap(),
+            None,
+          )?;
+          assert!(readers_and_updates.keep_fully_deleted_segment(
+            &merge_policy,
+            reader.segment_infos.info_idx_mut(idx).unwrap(),
+          )?);
+          doc_id = postings.next_doc()?;
+        }
+      }
+
+      assert!(readers_and_updates.keep_fully_deleted_segment(
+        &merge_policy,
+        reader.segment_infos.info_idx_mut(idx).unwrap(),
+      )?);
+
+      read_only_clone.close()?;
+
+      pool.release(
+        &readers_and_updates,
+        random.random_bool(0.5),
+        &mut reader.segment_infos,
+        None,
+        &field_numbers.lock(),
+      )?;
+    }
+  }
+
+  is_done.store(true, Ordering::SeqCst);
+  refresher.join().unwrap()?;
+
+  pool.close(&mut reader.segment_infos)?;
+
   Ok(())
 }
 fn test_get_reader_by_ram() -> Result<()> {
@@ -551,4 +682,171 @@ where
   writer.close()?;
 
   Ok((field_numbers, writer.get_index_major_version_created()))
+}
+/// A MergePolicy wrapper that always keeps fully deleted segments,
+/// and accesses the supplied reader to verify it is valid.
+/// Used to test concurrent reader pool access.
+#[derive(Default)]
+struct KeepFullyDeletedSegmentsMergePolicy {
+  in_: NoMergePolicy,
+}
+
+impl Display for KeepFullyDeletedSegmentsMergePolicy {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "KeepFullyDeletedSegmentsMergePolicy")
+  }
+}
+
+impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
+  fn get_base(&self) -> &MergePolicyBase {
+    self.in_.get_base()
+  }
+
+  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
+    self.in_.get_base_mut()
+  }
+
+  fn find_merges<D, MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&IWInner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .in_
+      .find_merges(merge_trigger, segment_infos, inner, merge_context)
+  }
+
+  fn find_merges_readers<CR, D>(
+    &self,
+    readers: Vec<CR>,
+  ) -> Result<Option<MergeSpecification<D, CR>>>
+  where
+    CR: CodecReader,
+    D: Directory,
+  {
+    self.in_.find_merges_readers(readers)
+  }
+
+  fn find_forced_merges<D, MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    max_segment_count: usize,
+    segments_to_merge: &HashMap<String, Option<bool>>,
+    inner: Option<&IWInner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.in_.find_forced_merges(
+      segment_infos,
+      max_segment_count,
+      segments_to_merge,
+      inner,
+      merge_context,
+    )
+  }
+
+  fn find_forced_deletes_merges<D, MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&IWInner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    MC: MergeContext<D>,
+    D: Directory,
+  {
+    self
+      .in_
+      .find_forced_deletes_merges(segment_infos, inner, merge_context)
+  }
+
+  fn find_full_flush_merges<D, MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&IWInner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .in_
+      .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+  }
+
+  fn use_compound_file<D, MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    merged_info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .in_
+      .use_compound_file(infos, merged_info, merge_context)
+  }
+
+  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.in_.size(info, merge_context)
+  }
+
+  fn max_full_flush_merge_size(&self) -> i64 {
+    self.in_.max_full_flush_merge_size()
+  }
+
+  fn has_merged<D, MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.in_.has_merged(infos, info, merge_context)
+  }
+
+  fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
+  where
+    D: Directory,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    let reader = reader_supplier()?;
+    assert!(reader.max_doc()? > 0); // just try to access the reader
+    Ok(true)
+  }
+
+  fn num_deletes_to_merge<D, F>(
+    &self,
+    info: &SegmentCommitInfo<D>,
+    del_count: i32,
+    reader_supplier: F,
+  ) -> Result<i32>
+  where
+    D: Directory,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    self
+      .in_
+      .num_deletes_to_merge(info, del_count, reader_supplier)
+  }
 }
