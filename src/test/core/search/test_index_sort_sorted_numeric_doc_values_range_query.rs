@@ -97,11 +97,12 @@ fn test_same_hits_as_point_range_query() -> Result<()> {
       iw.add_document(&mut random, doc)?;
     }
 
-    // TODO delete by query 未实现
-    // Optional delete
-    // if random.random_bool(0.5) {
-    //     iw.delete_documents_query(LongPoint::new_range_query("idx", vec![0], vec![10])?)?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![LongPoint::new_range_query("idx", 0, 10)?.into()],
+      )?;
+    }
 
     let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
@@ -664,13 +665,12 @@ fn test_compare_count() -> Result<()> {
       writer.add_document(&mut random, doc)?;
     }
 
-    // TODO delete by query 未实现
-    // Optional delete
-    // if random.random_bool(0.5) {
-    //     writer.delete_documents_query(
-    //         LongPoint::new_range_query("field", vec![0], vec![10])?
-    //     )?;
-    // }
+    if random.random_bool(0.5) {
+      writer.delete_documents_with_queries(
+        &mut random,
+        vec![LongPoint::new_range_query("field", 0, 10)?.into()],
+      )?;
+    }
 
     // Reader + Searcher
     let reader = writer.get_reader(&mut random)?;

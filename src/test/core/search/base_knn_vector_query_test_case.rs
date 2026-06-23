@@ -789,14 +789,10 @@ pub trait BaseKnnVectorQueryTestCase {
     for _ in 0..num_docs {
       let mut doc = Document::new();
       doc.add(self.get_knn_vector_field("vector", self.random_vector(random, dim))?);
-      // TODO delete by query 未实现 先用 delete by term 替换
-      doc.add(StringField::from_string("vector", "0", Store::Yes)?);
       writer.add_document(doc)?;
     }
     writer.commit()?;
-    // TODO delete by query 未实现 先用 delete by term 替换
-    writer.delete_documents_with_terms(vec![Term::from_text("vector", "0")])?;
-    // writer.delete_documents_with_queries(vec![MatchAllDocsQuery::new().into()])?;
+    writer.delete_documents_with_queries(vec![MatchAllDocsQuery::new().into()])?;
     writer.commit()?;
     writer.close()?;
 

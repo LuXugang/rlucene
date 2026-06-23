@@ -85,19 +85,15 @@ fn test() -> Result<()> {
               if delete_mode == 0 {
                 w.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
               } else if delete_mode == 1 {
-                w.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
-                // TODO delete by query 未实现
-                // w.delete_documents_with_queries(vec![Query::from(TermQuery::new(
-                //   Term::from_text("id", id.to_string()),
-                // ))])?;
+                w.delete_documents_with_queries(vec![
+                  TermQuery::new(Term::from_text("id", id.to_string())).into(),
+                ])?;
               } else if random.random_bool(0.5) {
                 w.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
               } else {
-                w.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
-                // w.delete_documents_with_queries(vec![Query::from(TermQuery::new(
-                // TODO delete by query 未实现
-                //   Term::from_text("id", id.to_string()),
-                // ))])?;
+                w.delete_documents_with_queries(vec![
+                  TermQuery::new(Term::from_text("id", id.to_string())).into(),
+                ])?;
               }
               exists.insert(id, false);
             }

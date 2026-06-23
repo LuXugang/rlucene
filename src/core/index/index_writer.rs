@@ -707,10 +707,10 @@ where
       match result {
         Ok(()) => {
           // if we got that far lets rollback and close
-          self.rollback_internal()?;
+          self.rollback_internal(None)?;
         },
         Err(mut t) => {
-          if let Err(t1) = self.rollback_internal() {
+          if let Err(t1) = self.rollback_internal(None) {
             t.add_suppressed(t1);
           }
           return Err(t);
@@ -798,7 +798,7 @@ where
     if let Err(ref e) = res
       && e.is_tragedy_error()
     {
-      self.tragic_event(e.clone(), "deleteDocuments(Term..)")?;
+      self.tragic_event(e.clone(), "deleteDocuments(Term..)", None)?;
     }
 
     res
@@ -834,7 +834,7 @@ where
     if let Err(ref e) = res
       && e.is_tragedy_error()
     {
-      self.tragic_event(e.clone(), "deleteDocuments(Query..)")?;
+      self.tragic_event(e.clone(), "deleteDocuments(Query..)", None)?;
     }
 
     res
@@ -993,7 +993,7 @@ where
     let tragic_res = if let Err(ref e) = res
       && e.is_tragedy_error()
     {
-      self.tragic_event(e.clone(), "updateDocuments")
+      self.tragic_event(e.clone(), "updateDocuments", None)
     } else {
       Ok(())
     };
@@ -1003,7 +1003,7 @@ where
           .info_stream
           .message("IW", "hit exception updating document")?;
       }
-      self.maybe_close_on_tragic_event()?;
+      self.maybe_close_on_tragic_event(None)?;
     }
     tragic_res?;
     res
@@ -1277,7 +1277,7 @@ where
     if let Err(ref e) = res
       && e.is_tragedy_error()
     {
-      self.tragic_event(e.clone(), "updateNumericDocValue")?;
+      self.tragic_event(e.clone(), "updateNumericDocValue", None)?;
     }
     res
   }
@@ -1341,7 +1341,7 @@ where
     if let Err(ref e) = res
       && e.is_tragedy_error()
     {
-      self.tragic_event(e.clone(), "updateBinaryDocValue")?;
+      self.tragic_event(e.clone(), "updateBinaryDocValue", None)?;
     }
     res
   }
@@ -1381,7 +1381,7 @@ where
     if let Err(ref e) = res
       && e.is_tragedy_error()
     {
-      self.tragic_event(e.clone(), "updateDocValues")?;
+      self.tragic_event(e.clone(), "updateDocValues", None)?;
     }
     res
   }
@@ -2391,14 +2391,19 @@ where
     Ok(!inner.pending_merges.is_empty())
   }
 
-  fn rollback_internal(&self) -> Result<()>
+  fn rollback_internal(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<()>
   where
     D: 'static,
   {
     // Make sure no commit is running, else e.g. we can close while another thread is still
     // fsync'ing.
-    let mut commit_lock = self.commit_lock.lock();
-    self.rollback_internal_no_commit(&mut commit_lock)?;
+    match commit_lock {
+      Some(commit_lock) => self.rollback_internal_no_commit(commit_lock)?,
+      None => {
+        let mut commit_lock = self.commit_lock.lock();
+        self.rollback_internal_no_commit(&mut commit_lock)?;
+      },
+    }
 
     debug_assert!({
       let pending_num_docs = self.pending_num_docs.load(Ordering::Acquire);
@@ -2559,7 +2564,8 @@ where
     let mut result = result;
     if let Err(error) = &mut result
       && error.is_tragedy_error()
-      && let Err(tragic_error) = self.tragic_event(error.clone(), "rollbackInternal")
+      && let Err(tragic_error) =
+        self.tragic_event(error.clone(), "rollbackInternal", Some(commit_lock))
     {
       error.add_suppressed(tragic_error);
     }
@@ -2670,7 +2676,7 @@ where
     if let Err(ref e) = result
       && e.is_tragedy_error()
     {
-      self.tragic_event(e.clone(), "deleteAll")?;
+      self.tragic_event(e.clone(), "deleteAll", None)?;
     }
 
     result
@@ -3630,9 +3636,9 @@ where
     if let Err(err) = &result
       && err.is_tragedy_error()
     {
-      self.tragic_event(err.clone(), "flush_next_buffer")?;
+      self.tragic_event(err.clone(), "flush_next_buffer", None)?;
     }
-    self.maybe_close_on_tragic_event()?;
+    self.maybe_close_on_tragic_event(None)?;
     result
   }
 
@@ -3775,13 +3781,13 @@ where
     let tragic_res = match tragic_res {
       Err(e) => {
         if e.is_tragedy_error() {
-          self.tragic_event(e.clone(), "prepareCommit")?;
+          self.tragic_event(e.clone(), "prepareCommit", Some(&mut *commit_lock))?;
         }
         Err(e)
       },
       Ok(()) => Ok(()),
     };
-    self.maybe_close_on_tragic_event()?;
+    self.maybe_close_on_tragic_event(Some(&mut *commit_lock))?;
     tragic_res?;
     // TODO: 这里pointInTimeMerges没有实现
 
@@ -4207,7 +4213,7 @@ where
           .message("IW", &format!("hit exception during finishCommit: {}", t))?;
       }
       if commit_completed {
-        self.tragic_event(t.clone(), "finishCommit")?;
+        self.tragic_event(t.clone(), "finishCommit", Some(&mut *commit_lock))?;
       }
       return Err(t);
     }
@@ -4335,7 +4341,7 @@ where
     if let Err(t) = &res
       && t.is_tragedy_error()
     {
-      self.tragic_event(t.clone(), "doFlush")?;
+      self.tragic_event(t.clone(), "doFlush", None)?;
     }
 
     if res.is_err() {
@@ -4344,7 +4350,7 @@ where
           .info_stream
           .message("IW", "hit exception during flush")?;
       }
-      self.maybe_close_on_tragic_event()?;
+      self.maybe_close_on_tragic_event(None)?;
     }
     res
   }
@@ -4851,7 +4857,7 @@ where
       Ok(())
     })();
     if let Err(e) = result {
-      self.tragic_event(e.clone(), "merge")?;
+      self.tragic_event(e.clone(), "merge", None)?;
       return Err(e);
     }
     Ok(())
@@ -5418,7 +5424,7 @@ where
       Ok(()) => {},
       Err(e) => {
         if e.is_tragedy_error() {
-          self.tragic_event(e.clone(), "startCommit")?;
+          self.tragic_event(e.clone(), "startCommit", Some(&mut *commit_lock))?;
         }
         return Err(e);
       },
@@ -5450,21 +5456,26 @@ where
 
   /// This method set the tragic error unless it's already set and closes the writer if necessary.
   /// Note this method will not return the throwable passed to it.
-  fn tragic_event(&self, tragedy: LuceneError, location: &str) -> Result<()>
+  fn tragic_event(
+    &self,
+    tragedy: LuceneError,
+    location: &str,
+    commit_lock: Option<&mut CommitInner<D>>,
+  ) -> Result<()>
   where
     D: 'static,
   {
     let result = self.on_tragic_event(tragedy, location);
-    self.maybe_close_on_tragic_event()?;
+    self.maybe_close_on_tragic_event(commit_lock)?;
     result
   }
 
-  fn maybe_close_on_tragic_event(&self) -> Result<()>
+  fn maybe_close_on_tragic_event(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<()>
   where
     D: 'static,
   {
     if self.tragedy.get().is_some() && self.should_close(false) {
-      self.rollback_internal()?;
+      self.rollback_internal(commit_lock)?;
     }
 
     Ok(())
@@ -6438,7 +6449,7 @@ where
     match result1 {
       Ok(v) => Ok(v),
       Err(e) => {
-        self.tragic_event(e.clone(), "get_reader")?;
+        self.tragic_event(e.clone(), "get_reader", None)?;
         Err(e)
       },
     }
@@ -6598,7 +6609,7 @@ where
     // Ensure that only one thread actually gets to do the
     // closing, and make sure no commit is also in progress:
     if self.should_close(true) {
-      self.rollback_internal()?;
+      self.rollback_internal(None)?;
     }
     Ok(())
   }

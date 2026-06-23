@@ -31,6 +31,7 @@ mod tests {
   use crate::core::index::log_merge_policy::LogMergePolicy;
   use crate::core::index::term::Term;
   use crate::core::index::two_phase_commit::TwoPhaseCommit;
+  use crate::core::search::query::Query;
   use crate::core::search::term_query::TermQuery;
   use crate::core::store::directory::DirEnum;
   use crate::core::util::error::lucene_error::Result;
@@ -170,10 +171,9 @@ mod tests {
 
     let top_docs = searcher.search(TermQuery::new(Term::from_text("foo", "0")), 100)?;
     assert_eq!(1, top_docs.total_hits.value());
-    // TODO delete by query 未实现
-    // let result =
-    //   writer.delete_documents_with_queries(vec![Query::from(TermQuery::new(Term::from_text("foo", "0")))])?;
-    let result = writer.delete_documents_with_terms(vec![Term::from_text("foo", "0")])?;
+    let result = writer.delete_documents_with_queries(vec![Query::from(TermQuery::new(
+      Term::from_text("foo", "0"),
+    ))])?;
 
     assert_ne!(result, -1);
 

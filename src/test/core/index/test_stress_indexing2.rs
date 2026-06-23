@@ -40,6 +40,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -913,8 +914,9 @@ impl IndexingThread {
     R: rand::Rng + ?Sized,
   {
     let id_string = self.get_id_string(r);
-    // TODO: delete by query is not implemented correctly; this TermQuery case is equivalent.
-    w.delete_documents_with_terms(vec![Term::from_text("id", id_string.clone())])?;
+    w.delete_documents_with_queries(vec![
+      TermQuery::new(Term::from_text("id", id_string.clone())).into(),
+    ])?;
     self.docs.remove(&id_string);
     Ok(())
   }

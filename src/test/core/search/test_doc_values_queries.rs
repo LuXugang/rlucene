@@ -186,11 +186,12 @@ fn do_test_duel_point_range_numeric_range_query(
       iw.add_document(&mut random, doc)?;
     }
 
-    // TODO delete by query 未实现
-    // if random.random_bool(0.5) {
-    //     let del_query = LongPoint::new_range_query("idx", vec![0], vec![10])?;
-    //     iw.delete_documents(del_query)?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![LongPoint::new_range_query("idx", 0, 10)?.into()],
+      )?;
+    }
 
     let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
@@ -289,11 +290,12 @@ fn do_test_duel_point_range_sorted_range_query(
       iw.add_document(&mut random, doc)?;
     }
 
-    // TODO delete by query 未实现
-    // if random.random_bool(0.5) {
-    //     let del_query = LongPoint::new_range_query("idx", vec![0], vec![10])?;
-    //     iw.ded(del_query)?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![LongPoint::new_range_query("idx", 0, 10)?.into()],
+      )?;
+    }
 
     let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
@@ -843,12 +845,12 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
 
       iw.add_document(&mut random, doc)?;
     }
-    // TODO delete by query 未实现
-    // if num_numbers > 1 && random.random_bool(0.5) {
-    //     iw.delete_documents_with_terms(
-    //         Term::from_text("text", all_numbers[0].to_string()),
-    //     )?;
-    // }
+    if num_numbers > 1 && random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("text", all_numbers[0].to_string())).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;

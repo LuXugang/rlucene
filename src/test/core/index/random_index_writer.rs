@@ -488,7 +488,7 @@ where
     self.w.delete_documents_with_terms(terms)
   }
 
-  pub fn delete_documents_with_query<R>(&self, r: &mut R, queries: Vec<Query>) -> Result<i64>
+  pub fn delete_documents_with_queries<R>(&self, r: &mut R, queries: Vec<Query>) -> Result<i64>
   where
     R: Rng + ?Sized,
   {

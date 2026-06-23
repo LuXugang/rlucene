@@ -34,6 +34,7 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::directory::{Directory, DirectoryEnum2};
@@ -188,17 +189,189 @@ fn test_simple_case() -> Result<()> {
 }
 #[test]
 fn test_with_pending_deletes() -> Result<()> {
-  // TODO delete by query 未实现
+  // main directory
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  // auxiliary directory
+  let aux = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  conf.set_open_mode(OpenMode::Append);
+  let writer = new_writer(dir.clone(), conf)?;
+  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+
+  // Adds 10 docs, then replaces them with another 10
+  // docs, so 10 pending deletes:
+  for i in 0..20 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "id",
+      (i % 10).to_string(),
+      Store::No,
+    )?);
+    doc.add(new_text_field(
+      &mut random,
+      "content",
+      format!("bbb {i}"),
+      Store::No,
+      &mut field_types,
+    )?);
+    doc.add(IntPoint::new("doc", [i])?);
+    doc.add(IntPoint::new("doc2d", [i, i])?);
+    doc.add(NumericDocValuesField::new("dv", i as i64));
+    writer.update_document_with_term(Term::from_text("id", (i % 10).to_string()), doc)?;
+  }
+  // Deletes one of the 10 added docs, leaving 9:
+  let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
+  writer.delete_documents_with_queries(vec![q.into()])?;
+
+  writer.force_merge(1)?;
+  writer.commit()?;
+
+  verify_num_docs(dir.clone(), 1039)?;
+  verify_term_docs(
+    &mut random,
+    dir.clone(),
+    &Term::from_text("content", "aaa"),
+    1030,
+  )?;
+  verify_term_docs(
+    &mut random,
+    dir.clone(),
+    &Term::from_text("content", "bbb"),
+    9,
+  )?;
+
+  writer.close()?;
   Ok(())
 }
 #[test]
 fn test_with_pending_deletes2() -> Result<()> {
-  // TODO delete by query 未实现
+  // main directory
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  // auxiliary directory
+  let aux = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  conf.set_open_mode(OpenMode::Append);
+  let writer = new_writer(dir.clone(), conf)?;
+
+  // Adds 10 docs, then replaces them with another 10
+  // docs, so 10 pending deletes:
+  for i in 0..20 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "id",
+      (i % 10).to_string(),
+      Store::No,
+    )?);
+    doc.add(new_text_field(
+      &mut random,
+      "content",
+      format!("bbb {i}"),
+      Store::No,
+      &mut field_types,
+    )?);
+    doc.add(IntPoint::new("doc", [i])?);
+    doc.add(IntPoint::new("doc2d", [i, i])?);
+    doc.add(NumericDocValuesField::new("dv", i as i64));
+    writer.update_document_with_term(Term::from_text("id", (i % 10).to_string()), doc)?;
+  }
+
+  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+
+  // Deletes one of the 10 added docs, leaving 9:
+  let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
+  writer.delete_documents_with_queries(vec![q.into()])?;
+
+  writer.force_merge(1)?;
+  writer.commit()?;
+
+  verify_num_docs(dir.clone(), 1039)?;
+  verify_term_docs(
+    &mut random,
+    dir.clone(),
+    &Term::from_text("content", "aaa"),
+    1030,
+  )?;
+  verify_term_docs(
+    &mut random,
+    dir.clone(),
+    &Term::from_text("content", "bbb"),
+    9,
+  )?;
+
+  writer.close()?;
   Ok(())
 }
 #[test]
 fn test_with_pending_deletes3() -> Result<()> {
-  // TODO delete by query 未实现
+  // main directory
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  // auxiliary directory
+  let aux = new_directory_shared(&mut random)?;
+  let mut field_types = HashMap::new();
+
+  set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  conf.set_open_mode(OpenMode::Append);
+  let writer = new_writer(dir.clone(), conf)?;
+
+  // Adds 10 docs, then replaces them with another 10
+  // docs, so 10 pending deletes:
+  for i in 0..20 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "id",
+      (i % 10).to_string(),
+      Store::No,
+    )?);
+    doc.add(new_text_field(
+      &mut random,
+      "content",
+      format!("bbb {i}"),
+      Store::No,
+      &mut field_types,
+    )?);
+    doc.add(IntPoint::new("doc", [i])?);
+    doc.add(IntPoint::new("doc2d", [i, i])?);
+    doc.add(NumericDocValuesField::new("dv", i as i64));
+    writer.update_document_with_term(Term::from_text("id", (i % 10).to_string()), doc)?;
+  }
+
+  // Deletes one of the 10 added docs, leaving 9:
+  let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
+  writer.delete_documents_with_queries(vec![q.into()])?;
+
+  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+
+  writer.force_merge(1)?;
+  writer.commit()?;
+
+  verify_num_docs(dir.clone(), 1039)?;
+  verify_term_docs(
+    &mut random,
+    dir.clone(),
+    &Term::from_text("content", "aaa"),
+    1030,
+  )?;
+  verify_term_docs(
+    &mut random,
+    dir.clone(),
+    &Term::from_text("content", "bbb"),
+    9,
+  )?;
+
+  writer.close()?;
   Ok(())
 }
 #[test]

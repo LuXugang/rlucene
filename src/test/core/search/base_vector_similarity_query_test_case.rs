@@ -430,19 +430,82 @@ pub trait BaseVectorSimilarityQueryTestCase {
     Ok(())
   }
 
-  fn test_some_deletes<R>(&self, _random: &mut R) -> Result<()>
+  fn test_some_deletes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO delete by query 未实现
+    // Delete a sub-range from 0 to numDocs
+    let (num_docs, dim, vector_field, id_field) = {
+      let base = self.get_base();
+      (base.num_docs, base.dim, &base.vector_field, &base.id_field)
+    };
+    let start_index = random.random_range(0..num_docs);
+    let end_index = random.random_range(start_index..num_docs);
+    let delete: Query =
+      IntField::new_range_query(id_field, start_index as i32, end_index as i32)?.into();
+
+    let vectors = self.get_random_vectors(random, num_docs, dim);
+    let index_store = self.get_index_store(random, vectors)?;
+    let writer = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random))?;
+    writer.delete_documents_with_queries(vec![delete])?;
+    writer.commit()?;
+    writer.close()?;
+
+    let reader = directory_reader::open(index_store.into())?;
+    HnswUtil::graph_is_rooted(&reader, vector_field)?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let query = self.get_vector_query(
+      vector_field,
+      self.get_random_vector(random, dim),
+      f32::NEG_INFINITY,
+      f32::NEG_INFINITY,
+      None,
+    )?;
+
+    let score_docs = searcher.search(query, num_docs)?.score_docs;
+    for score_doc in &score_docs {
+      let id = self.get_id(&searcher, id_field, score_doc.doc)?;
+
+      // Check that returned document is not deleted
+      assert!(id < start_index as i32 || id > end_index as i32);
+    }
+    // Check that all live docs are returned
+    assert_eq!(num_docs - end_index + start_index - 1, score_docs.len());
     Ok(())
   }
 
-  fn test_all_deletes<R>(&self, _random: &mut R) -> Result<()>
+  fn test_all_deletes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO delete by query 未实现
+    let (num_docs, dim, vector_field, _id_field) = {
+      let base = self.get_base();
+      (base.num_docs, base.dim, &base.vector_field, &base.id_field)
+    };
+    let vectors = self.get_random_vectors(random, num_docs, dim);
+    let index_store = self.get_index_store(random, vectors)?;
+    let writer = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random))?;
+    // Delete all documents
+    writer.delete_documents_with_queries(vec![
+      crate::core::search::match_all_docs_query::MatchAllDocsQuery::new().into(),
+    ])?;
+    writer.commit()?;
+    writer.close()?;
+
+    let reader = directory_reader::open(index_store.into())?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let query = self.get_vector_query(
+      vector_field,
+      self.get_random_vector(random, dim),
+      f32::NEG_INFINITY,
+      f32::NEG_INFINITY,
+      None,
+    )?;
+
+    // Check that no vectors are found
+    assert_eq!(0, searcher.count(query)?);
     Ok(())
   }
 

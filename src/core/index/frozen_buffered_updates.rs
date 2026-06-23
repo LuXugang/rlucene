@@ -41,6 +41,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
+use crate::core::search::scorer::Scorer;
 use crate::core::store::directory::Directory;
 use crate::core::util::ToInt;
 use crate::core::util::accountable::Accountable;
@@ -477,8 +478,8 @@ impl FrozenBufferedUpdates {
         let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
         let scorer = weight.scorer(&reader_context, &searcher)?;
 
-        if let Some(scorer) = scorer {
-          let mut it = scorer.iterator();
+        if let Some(mut scorer) = scorer {
+          let mut it = scorer.iterator_mut();
           let info = infos
             .index_of(&seg_state.rld.info_id)
             .ok_or_else(|| LuceneError::illegal_state("segment is missing"))?;

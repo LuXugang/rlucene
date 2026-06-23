@@ -106,14 +106,13 @@ fn test_rolling_updates() -> Result<()> {
     update_count += 1;
 
     if do_update {
-      // TODO delete by query 未实现
-      w.update_document_with_term(id_term, doc)?;
-      // if random.random_bool(0.5) {
-      //   w.update_document_with_term(id_term, doc)?;
-      // } else {
-      //   w.delete_documents_with_queries(vec![TermQuery::new(id_term).into()])?;
-      //   w.add_document(doc)?;
-      // }
+      if random.random_bool(0.5) {
+        w.update_document_with_term(id_term, doc)?;
+      } else {
+        // It's OK to not be atomic for this test (no separate thread reopening readers):
+        w.delete_documents_with_queries(vec![TermQuery::new(id_term).into()])?;
+        w.add_document(doc)?;
+      }
     } else {
       w.add_document(doc)?;
     }

@@ -169,10 +169,12 @@ fn test_duel_terms_query() -> Result<()> {
       ));
       iw.add_document(&mut random, doc)?;
     }
-    // TODO delete by query 未实现
-    // if num_terms > 1 && random.random_bool(0.5) {
-    //   iw.delete_documents_with_terms(vec![all_terms[0].clone()])?;
-    // }
+    if num_terms > 1 && random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![Query::from(TermQuery::new(all_terms[0].clone()))],
+      )?;
+    }
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;

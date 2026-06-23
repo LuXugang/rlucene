@@ -646,7 +646,22 @@ fn test_error_in_docs_writer_add() -> Result<()> {
 
 #[test]
 fn test_delete_null_query() -> Result<()> {
-  // TODO delete by query 未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let mut modifier = IndexWriter::new(dir, iwc)?;
+  let mut field_types = HashMap::new();
+
+  for i in 0..5 {
+    add_doc(&mut random, &mut modifier, i, 2 * i, &mut field_types)?;
+  }
+
+  modifier
+    .delete_documents_with_queries(vec![TermQuery::new(Term::from_text("nada", "nada")).into()])?;
+  modifier.commit()?;
+  assert_eq!(5, modifier.get_doc_stats()?.num_docs);
+  modifier.close()?;
   Ok(())
 }
 

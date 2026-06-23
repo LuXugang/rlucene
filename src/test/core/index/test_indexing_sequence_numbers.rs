@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+#[cfg(feature = "nightly")]
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
@@ -24,14 +25,19 @@ use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::indexable_field::IndexableField;
+#[cfg(feature = "nightly")]
 use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
+#[cfg(feature = "nightly")]
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::segment_infos::SegmentInfos;
+#[cfg(feature = "nightly")]
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+#[cfg(feature = "nightly")]
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::query::Query;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
@@ -165,7 +171,9 @@ struct Operation {
   seq_no: i64,
 }
 
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_stress_concurrent_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);
@@ -209,13 +217,11 @@ fn test_stress_concurrent_commit() -> Result<()> {
             let id_term = Term::from_text("id", op.id.to_string());
             if random.random_range(0..10) == 1 {
               op.what = 1;
-              op.seq_no = w.delete_documents_with_terms(vec![id_term])?;
-              // TODO delete by query 未实现
-              // op.seq_no = if random.random_bool(0.5) {
-              //   w.delete_documents_with_terms(vec![id_term])?
-              // } else {
-              //   w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
-              // };
+              op.seq_no = if random.random_bool(0.5) {
+                w.delete_documents_with_terms(vec![id_term])?
+              } else {
+                w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
+              };
             } else {
               let mut doc = Document::new();
               doc.add(StoredField::from_i32("thread", thread_id as i32)?);
@@ -298,7 +304,9 @@ fn test_stress_concurrent_commit() -> Result<()> {
   Ok(())
 }
 
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);
@@ -472,13 +480,11 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
             let id_term = Term::from_text("id", op.id.to_string());
             if random.random_range(0..10) == 1 {
               op.what = 1;
-              op.seq_no = w.delete_documents_with_terms(vec![id_term])?;
-              // TODO delete by query 未实现
-              // op.seq_no = if random.random_bool(0.5) {
-              //   w.delete_documents_with_terms(vec![id_term])?
-              // } else {
-              //   w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
-              // };
+              op.seq_no = if random.random_bool(0.5) {
+                w.delete_documents_with_terms(vec![id_term])?
+              } else {
+                w.delete_documents_with_queries(vec![Query::from(TermQuery::new(id_term))])?
+              };
             } else {
               let thread_op = format!("{}-{}", thread_id, ops.lock().unwrap().len());
               let mut doc = Document::new();

@@ -236,9 +236,12 @@ fn test_doc_values_random() -> Result<()> {
       iw.add_document(&mut random, doc)?;
     }
 
-    // TODO delete by query 未实现
-    // if rng.random_bool(0.5) {
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("f", "no")).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;

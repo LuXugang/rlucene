@@ -27,6 +27,7 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
+use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::automation::automata::Automata;
@@ -256,9 +257,7 @@ impl SearchEquivalenceTestBaseMeta {
       if random.random_bool(0.5) {
         iw.delete_documents_with_terms(random, vec![to_delete])?;
       } else {
-        iw.delete_documents_with_terms(random, vec![to_delete])?;
-        // TODO delete by query 未实现
-        // iw.delete_documents(TermQuery::new(to_delete))?;
+        iw.delete_documents_with_queries(random, vec![TermQuery::new(to_delete).into()])?;
       }
     }
 

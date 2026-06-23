@@ -449,8 +449,9 @@ fn test_delete_from_index_writer() -> Result<()> {
     .string_value()?
     .expect("id field should be stored")
     .into_owned();
-  // TODO delete by query 未实现  先用delete_documents_with_terms替代
-  writer.delete_documents_with_terms(vec![Term::from_text("id", id75.clone())])?;
+  writer.delete_documents_with_queries(vec![
+    TermQuery::new(Term::from_text("id", id75.clone())).into(),
+  ])?;
   let r4 = directory_reader::open_from_writer(&writer)?;
   assert_eq!(
     1,

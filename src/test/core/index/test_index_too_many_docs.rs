@@ -22,6 +22,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_DOCS, set_max_docs};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
+use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random, random_from_seed,
@@ -73,10 +74,9 @@ fn test_index_too_many_docs() -> Result<()> {
                 let id = random.random_range(0..num_max_doc * 2).to_string();
                 doc.add(StringField::from_string("id", id.clone(), Store::No)?);
                 let t = Term::from_text("id", id);
-                // TODO delete by query 未实现
-                // if random.random_range(0..5) == 0 {
-                //   writer.delete_documents_with_queries(vec![TermQuery::new(t.clone()).into()])?;
-                // }
+                if random.random_range(0..5) == 0 {
+                  writer.delete_documents_with_queries(vec![TermQuery::new(t.clone()).into()])?;
+                }
                 match writer.update_document_with_term(t, doc) {
                   Ok(_) => {},
                   Err(LuceneError::IllegalArgument(message)) => {

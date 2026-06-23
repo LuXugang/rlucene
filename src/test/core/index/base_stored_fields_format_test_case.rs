@@ -614,7 +614,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     for _ in 0..10 {
       let min = random.random_range(0..data.len() as i32);
       let max = min + random.random_range(0..20);
-      writer.delete_documents_with_query(
+      writer.delete_documents_with_queries(
         random,
         vec![IntPoint::new_range_query("id", min, max - 1)?.into()],
       )?;
