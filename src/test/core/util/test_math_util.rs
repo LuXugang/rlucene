@@ -38,14 +38,14 @@ where
   R: Rng + ?Sized,
 {
   if random.random_bool(0.5) {
-    let mut l = 1;
+    let mut l: i64 = 1;
     if random.random_bool(0.5) {
       l *= -1;
     }
     for &i in PRIMES.iter() {
       let m = random.random_range(0..3);
       for _ in 0..m {
-        l *= i;
+        l = l.wrapping_mul(i);
       }
     }
     l
