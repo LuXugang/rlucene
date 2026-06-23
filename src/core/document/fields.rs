@@ -27,7 +27,6 @@ use crate::core::document::double_point::DoublePoint;
 use crate::core::document::double_range::DoubleRange;
 use crate::core::document::double_range_doc_values_field::DoubleRangeDocValuesField;
 use crate::core::document::field::{Field, FieldDataEnum};
-use crate::core::document::field_type::FieldType;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
@@ -63,6 +62,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
+use crate::core::index::indexable_field_type::IndexableFieldTypeEnum;
 use crate::core::index::indexing_chain::ReservedField;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
@@ -75,6 +75,8 @@ use crate::sandbox::document::lat_lon_bounding_box::LatLonBoundingBox;
 use crate::test::core::index::test_doc_values_indexing::FieldImpl;
 #[cfg(test)]
 use crate::test::core::index::test_document_writer::MockIndexableField;
+#[cfg(test)]
+use crate::test::core::index::test_indexable_field::{CustomField, MyField};
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -92,6 +94,10 @@ pub enum Fields {
   FieldImpl(FieldImpl),
   #[cfg(test)]
   MockIndexableField(MockIndexableField),
+  #[cfg(test)]
+  MyField(MyField),
+  #[cfg(test)]
+  CustomField(CustomField),
   FloatDocValues(FloatDocValuesField),
   FloatField(FloatField),
   FloatPoint(FloatPoint),
@@ -143,6 +149,10 @@ macro_rules! dispatch_fields {
       Fields::FieldImpl($inner) => $body,
       #[cfg(test)]
       Fields::MockIndexableField($inner) => $body,
+      #[cfg(test)]
+      Fields::MyField($inner) => $body,
+      #[cfg(test)]
+      Fields::CustomField($inner) => $body,
       Fields::FloatDocValues($inner) => $body,
       Fields::FloatField($inner) => $body,
       Fields::FloatPoint($inner) => $body,
@@ -229,6 +239,8 @@ impl_from_for_enum!(
 impl_from_for_enum!(Fields, FieldImpl => FieldImpl);
 #[cfg(test)]
 impl_from_for_enum!(Fields, MockIndexableField => MockIndexableField);
+#[cfg(test)]
+impl_from_for_enum!(Fields, MyField => MyField, CustomField => CustomField);
 
 impl Display for Fields {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -241,10 +253,13 @@ impl IndexableField for Fields {
     dispatch_fields!(self, |field| field.name())
   }
 
-  type FieldType = FieldType;
+  type FieldType<'a>
+    = IndexableFieldTypeEnum<'a>
+  where
+    Self: 'a;
 
-  fn field_type(&self) -> &Self::FieldType {
-    dispatch_fields!(self, |field| field.field_type())
+  fn field_type(&self) -> Self::FieldType<'_> {
+    dispatch_fields!(self, |field| field.field_type().into())
   }
   fn token_stream<'a, A>(
     &'a mut self,
@@ -286,7 +301,7 @@ impl IndexableField for Fields {
     dispatch_fields!(self, |field| field.numeric_value())
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     dispatch_fields!(self, |field| field.stored_value())
   }
 
@@ -297,14 +312,6 @@ impl IndexableField for Fields {
   fn is_reserved(&self) -> bool {
     dispatch_fields!(self, |field| field.is_reserved())
   }
-
-  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
-    dispatch_fields!(self, |field| field.init_token_stream(analyzer))
-  }
-
   fn vector_value(&self) -> Result<&VectorValueEnum> {
     dispatch_fields!(self, |field| field.vector_value())
   }

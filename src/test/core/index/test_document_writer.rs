@@ -784,9 +784,12 @@ impl IndexableField for MockIndexableField {
     &self.field
   }
 
-  type FieldType = FieldType;
+  type FieldType<'a>
+    = &'a FieldType
+  where
+    Self: 'a;
 
-  fn field_type(&self) -> &Self::FieldType {
+  fn field_type(&self) -> Self::FieldType<'_> {
     &self.field_type
   }
 
@@ -825,18 +828,11 @@ impl IndexableField for MockIndexableField {
     Ok(None)
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     None
   }
 
   fn invertable_type(&self) -> &InvertableType {
     &InvertableType::BINARY
-  }
-
-  fn init_token_stream<A>(&mut self, _analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
-    Ok(())
   }
 }

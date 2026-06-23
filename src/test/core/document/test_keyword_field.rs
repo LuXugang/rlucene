@@ -65,7 +65,7 @@ fn test_set_bytes_value() -> Result<()> {
       let stored = field.stored_value().unwrap();
       match stored {
         FieldDataEnum::Binary(v) => {
-          assert_eq!(new_bytes_ref_from_string(&mut random, "value")?, *v);
+          assert_eq!(new_bytes_ref_from_string(&mut random, "value")?, v);
         },
         _ => unreachable!(""),
       }
@@ -85,7 +85,7 @@ fn test_set_bytes_value() -> Result<()> {
       let stored = field.stored_value().unwrap();
       match stored {
         FieldDataEnum::Binary(v) => {
-          assert_eq!(new_bytes_ref_from_string(&mut random, "value2")?, *v);
+          assert_eq!(new_bytes_ref_from_string(&mut random, "value2")?, v);
         },
         _ => unreachable!(""),
       }

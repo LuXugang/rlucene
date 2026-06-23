@@ -41,9 +41,12 @@ impl IndexableField for DummyIndexableField {
     dummy_unreachable!()
   }
 
-  type FieldType = DummyIndexableFieldType;
+  type FieldType<'a>
+    = &'a DummyIndexableFieldType
+  where
+    Self: 'a;
 
-  fn field_type(&self) -> &Self::FieldType {
+  fn field_type(&self) -> Self::FieldType<'_> {
     dummy_unreachable!()
   }
   fn token_stream<'a, A>(
@@ -85,7 +88,7 @@ impl IndexableField for DummyIndexableField {
     dummy_unreachable!()
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     dummy_unreachable!()
   }
 
@@ -94,13 +97,6 @@ impl IndexableField for DummyIndexableField {
   }
 
   fn is_reserved(&self) -> bool {
-    dummy_unreachable!()
-  }
-
-  fn init_token_stream<A>(&mut self, _analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
     dummy_unreachable!()
   }
 }

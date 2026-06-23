@@ -493,10 +493,13 @@ impl IndexableField for Field {
     self.name.as_str()
   }
 
-  type FieldType = FieldType;
+  type FieldType<'a>
+    = &'a FieldType
+  where
+    Self: 'a;
 
   /// Returns the [`FieldType`] for this field.
-  fn field_type(&self) -> &Self::FieldType {
+  fn field_type(&self) -> Self::FieldType<'_> {
     &self.indexable_field_type
   }
   fn token_stream<'a, A>(
@@ -656,37 +659,17 @@ impl IndexableField for Field {
     }
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     if !self.indexable_field_type.stored() {
       return None;
     }
 
-    Some(&self.fields_data)
+    Some(self.fields_data.clone())
   }
 
   fn invertable_type(&self) -> &InvertableType {
     &InvertableType::TokenStream
   }
-
-  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
-    let field_type = self.field_type();
-    if *field_type.index_options() == IndexOptions::None {
-      return Ok(());
-    }
-    if field_type.tokenized() {
-      if let Some(reader) = self.take_reader_value()? {
-        drop(analyzer.token_stream(self.name(), reader)?);
-      }
-      if let Some(v) = self.string_value()? {
-        drop(analyzer.token_stream(self.name(), ReaderEnum::from(v.as_ref()))?);
-      }
-    }
-    Ok(())
-  }
-
   fn vector_value(&self) -> Result<&VectorValueEnum> {
     if let FieldDataEnum::VectorValue(v) = &self.fields_data {
       Ok(v)
@@ -783,7 +766,6 @@ pub enum FieldDataEnum {
   Dummy(()),
   VectorValue(VectorValueEnum),
 }
-#[cfg(test)]
 impl Clone for FieldDataEnum {
   fn clone(&self) -> Self {
     match self {

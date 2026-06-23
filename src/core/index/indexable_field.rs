@@ -39,8 +39,10 @@ pub trait IndexableField: Display {
   fn name(&self) -> &str;
 
   /// [`IndexableFieldType`] describing the properties of this field.
-  type FieldType: IndexableFieldType;
-  fn field_type(&self) -> &Self::FieldType;
+  type FieldType<'a>: IndexableFieldType
+  where
+    Self: 'a;
+  fn field_type(&self) -> Self::FieldType<'_>;
   /// Creates the TokenStream used for indexing this field. If appropriate,
   /// implementations should use the given Analyzer to create the
   /// TokenStreams.
@@ -84,7 +86,7 @@ pub trait IndexableField: Display {
 
   /// Stored value. This method is called to populate stored fields and must
   /// return a present value if the field stored.
-  fn stored_value(&self) -> Option<&FieldDataEnum>;
+  fn stored_value(&self) -> Option<FieldDataEnum>;
 
   /// Describes how this field should be inverted. This must return a present
   /// value if the field indexes terms and postings.
@@ -93,15 +95,12 @@ pub trait IndexableField: Display {
   fn is_reserved(&self) -> bool {
     false
   }
-  // Rust Lucene Only
-  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-  where
-    A: Analyzer;
 
   fn vector_value(&self) -> Result<&VectorValueEnum> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
 pub type IndexingTokenStream<'a> = Option<
   IndexingTokenStreamEnum3<
     RefMut<'a, AnalyzerTokenStreams>,

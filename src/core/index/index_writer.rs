@@ -20,6 +20,7 @@ use crate::core::index::buffered_updates_stream::{
 use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_file_deleter::IndexFileDeleter;
+use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
   MergeContext, MergePolicyEnum, MergeReaderSR, MergeSpecificationNoReader, OneMergeBase,
@@ -1410,8 +1411,9 @@ where
 
     for mut f in updates {
       let name = f.name().to_string();
-      let dv_type = f.field_type().doc_values_type();
-      if *dv_type == DocValuesType::None {
+      let field_type = f.field_type();
+      let dv_type = *field_type.doc_values_type();
+      if dv_type == DocValuesType::None {
         return Err(LuceneError::illegal_argument(format!(
           "can only update NUMERIC or BINARY fields! field={}",
           name
@@ -1423,7 +1425,7 @@ where
       self
         .global_field_number_map
         .lock()
-        .verify_or_create_dv_only_field(&name, dv_type, false)?;
+        .verify_or_create_dv_only_field(&name, &dv_type, false)?;
 
       if self.config.get_index_sort_fields().contains(&name) {
         return Err(LuceneError::illegal_argument(format!(
@@ -7257,7 +7259,6 @@ use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
-use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::{LeafReader, get_context};
 use crate::core::index::merge_policy::{MergePolicy, MergeStat, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;

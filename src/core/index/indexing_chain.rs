@@ -773,7 +773,7 @@ where
         self.doc_fields[doc_field_idx] = pf_idx;
         doc_field_idx += 1;
         let pf = &mut self.per_fields[pf_idx];
-        Self::update_doc_field_schema(field.name(), &mut pf.schema, field_type)?;
+        Self::update_doc_field_schema(field.name(), &mut pf.schema, &field_type)?;
       }
 
       // For each field, if it's the first time we see this field in this segment,
@@ -975,10 +975,9 @@ where
   ) -> Result<bool> {
     let pf = &mut self.per_fields[per_field_index];
     let mut indexed_field = false;
-    let field_type = field.field_type();
 
     // Invert indexed fields
-    if *field_type.index_options() != IndexOptions::None {
+    if *field.field_type().index_options() != IndexOptions::None {
       // first time we see this field in this doc
       if pf.first {
         pf.invert(
@@ -1006,9 +1005,8 @@ where
         )?;
       }
     }
-    let field_type = field.field_type();
     // Add stored fields
-    if field_type.stored() {
+    if field.field_type().stored() {
       let stored_value = field
         .stored_value()
         .ok_or_else(|| LuceneError::illegal_argument("Cannot store a null value"))?;
@@ -1027,17 +1025,17 @@ where
         "panic while writing stored field",
         self
           .stored_fields_consumer
-          .write_field(pf.field_info.as_ref().unwrap(), stored_value)
+          .write_field(pf.field_info.as_ref().unwrap(), &stored_value)
       )?;
     }
 
-    let dv_type = *field_type.doc_values_type();
+    let dv_type = *field.field_type().doc_values_type();
     if dv_type != DocValuesType::None {
       Self::index_doc_value(doc_id, pf, dv_type, field, &mut self.doc_values_byte_pool)?;
     }
 
     // points
-    if field_type.point_dimension_count() != 0 {
+    if field.field_type().point_dimension_count() != 0 {
       let binary_value = field
         .binary_value()?
         .ok_or_else(|| LuceneError::illegal_argument("point field missing binary value"))?;
@@ -1047,7 +1045,7 @@ where
         .add_packed_value(doc_id, binary_value.as_ref())?;
     }
 
-    if field_type.vector_dimension() != 0 {
+    if field.field_type().vector_dimension() != 0 {
       let field_writer_idx = pf
         .knn_field_vectors_writer
         .ok_or_else(|| LuceneError::illegal_state("field writer idx not initialized"))?;
@@ -2720,9 +2718,12 @@ where
     self.delegate.name()
   }
 
-  type FieldType = <T as IndexableField>::FieldType;
+  type FieldType<'a>
+    = <T as IndexableField>::FieldType<'a>
+  where
+    Self: 'a;
 
-  fn field_type(&self) -> &Self::FieldType {
+  fn field_type(&self) -> Self::FieldType<'_> {
     self.delegate.field_type()
   }
   fn token_stream<'a, A>(
@@ -2764,7 +2765,7 @@ where
     self.delegate.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     self.delegate.stored_value()
   }
   fn invertable_type(&self) -> &InvertableType {
@@ -2773,12 +2774,5 @@ where
 
   fn is_reserved(&self) -> bool {
     true
-  }
-
-  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
-    self.delegate.init_token_stream(analyzer)
   }
 }

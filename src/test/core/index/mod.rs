@@ -101,7 +101,7 @@ pub(crate) mod test_index_writer_reader;
 mod test_index_writer_threads_to_segments;
 mod test_index_writer_unicode;
 mod test_index_writer_with_threads;
-mod test_indexable_field;
+pub(crate) mod test_indexable_field;
 mod test_indexing_sequence_numbers;
 mod test_info_stream;
 mod test_int_block_pool;

@@ -105,3 +105,208 @@ pub trait IndexableFieldType {
   /// Returns the attributes for the field type.
   fn get_attributes(&self) -> Option<&HashMap<String, String>>;
 }
+
+impl<T> IndexableFieldType for &T
+where
+  T: IndexableFieldType,
+{
+  fn stored(&self) -> bool {
+    (**self).stored()
+  }
+
+  fn tokenized(&self) -> bool {
+    (**self).tokenized()
+  }
+
+  fn store_term_vectors(&self) -> bool {
+    (**self).store_term_vectors()
+  }
+
+  fn store_term_vector_offsets(&self) -> bool {
+    (**self).store_term_vector_offsets()
+  }
+
+  fn store_term_vector_positions(&self) -> bool {
+    (**self).store_term_vector_positions()
+  }
+
+  fn store_term_vector_payloads(&self) -> bool {
+    (**self).store_term_vector_payloads()
+  }
+
+  fn omit_norms(&self) -> bool {
+    (**self).omit_norms()
+  }
+
+  fn index_options(&self) -> &IndexOptions {
+    (**self).index_options()
+  }
+
+  fn doc_values_type(&self) -> &DocValuesType {
+    (**self).doc_values_type()
+  }
+
+  fn doc_values_skip_index_type(&self) -> &DocValuesSkipIndexType {
+    (**self).doc_values_skip_index_type()
+  }
+
+  fn point_dimension_count(&self) -> usize {
+    (**self).point_dimension_count()
+  }
+
+  fn point_index_dimension_count(&self) -> usize {
+    (**self).point_index_dimension_count()
+  }
+
+  fn point_num_bytes(&self) -> usize {
+    (**self).point_num_bytes()
+  }
+
+  fn vector_dimension(&self) -> i32 {
+    (**self).vector_dimension()
+  }
+
+  fn vector_encoding(&self) -> &VectorEncoding {
+    (**self).vector_encoding()
+  }
+
+  fn vector_similarity_function(&self) -> &VectorSimilarityFunction {
+    (**self).vector_similarity_function()
+  }
+
+  fn get_attributes(&self) -> Option<&HashMap<String, String>> {
+    (**self).get_attributes()
+  }
+}
+
+pub enum IndexableFieldTypeEnum<'a> {
+  FieldType(&'a crate::core::document::field_type::FieldType),
+  Custom(&'a dyn IndexableFieldType),
+}
+
+impl<'a> From<&'a crate::core::document::field_type::FieldType> for IndexableFieldTypeEnum<'a> {
+  fn from(field_type: &'a crate::core::document::field_type::FieldType) -> Self {
+    Self::FieldType(field_type)
+  }
+}
+
+impl IndexableFieldType for IndexableFieldTypeEnum<'_> {
+  fn stored(&self) -> bool {
+    match self {
+      Self::FieldType(field_type) => field_type.stored(),
+      Self::Custom(field_type) => field_type.stored(),
+    }
+  }
+
+  fn tokenized(&self) -> bool {
+    match self {
+      Self::FieldType(field_type) => field_type.tokenized(),
+      Self::Custom(field_type) => field_type.tokenized(),
+    }
+  }
+
+  fn store_term_vectors(&self) -> bool {
+    match self {
+      Self::FieldType(field_type) => field_type.store_term_vectors(),
+      Self::Custom(field_type) => field_type.store_term_vectors(),
+    }
+  }
+
+  fn store_term_vector_offsets(&self) -> bool {
+    match self {
+      Self::FieldType(field_type) => field_type.store_term_vector_offsets(),
+      Self::Custom(field_type) => field_type.store_term_vector_offsets(),
+    }
+  }
+
+  fn store_term_vector_positions(&self) -> bool {
+    match self {
+      Self::FieldType(field_type) => field_type.store_term_vector_positions(),
+      Self::Custom(field_type) => field_type.store_term_vector_positions(),
+    }
+  }
+
+  fn store_term_vector_payloads(&self) -> bool {
+    match self {
+      Self::FieldType(field_type) => field_type.store_term_vector_payloads(),
+      Self::Custom(field_type) => field_type.store_term_vector_payloads(),
+    }
+  }
+
+  fn omit_norms(&self) -> bool {
+    match self {
+      Self::FieldType(field_type) => field_type.omit_norms(),
+      Self::Custom(field_type) => field_type.omit_norms(),
+    }
+  }
+
+  fn index_options(&self) -> &IndexOptions {
+    match self {
+      Self::FieldType(field_type) => field_type.index_options(),
+      Self::Custom(field_type) => field_type.index_options(),
+    }
+  }
+
+  fn doc_values_type(&self) -> &DocValuesType {
+    match self {
+      Self::FieldType(field_type) => field_type.doc_values_type(),
+      Self::Custom(field_type) => field_type.doc_values_type(),
+    }
+  }
+
+  fn doc_values_skip_index_type(&self) -> &DocValuesSkipIndexType {
+    match self {
+      Self::FieldType(field_type) => field_type.doc_values_skip_index_type(),
+      Self::Custom(field_type) => field_type.doc_values_skip_index_type(),
+    }
+  }
+
+  fn point_dimension_count(&self) -> usize {
+    match self {
+      Self::FieldType(field_type) => field_type.point_dimension_count(),
+      Self::Custom(field_type) => field_type.point_dimension_count(),
+    }
+  }
+
+  fn point_index_dimension_count(&self) -> usize {
+    match self {
+      Self::FieldType(field_type) => field_type.point_index_dimension_count(),
+      Self::Custom(field_type) => field_type.point_index_dimension_count(),
+    }
+  }
+
+  fn point_num_bytes(&self) -> usize {
+    match self {
+      Self::FieldType(field_type) => field_type.point_num_bytes(),
+      Self::Custom(field_type) => field_type.point_num_bytes(),
+    }
+  }
+
+  fn vector_dimension(&self) -> i32 {
+    match self {
+      Self::FieldType(field_type) => field_type.vector_dimension(),
+      Self::Custom(field_type) => field_type.vector_dimension(),
+    }
+  }
+
+  fn vector_encoding(&self) -> &VectorEncoding {
+    match self {
+      Self::FieldType(field_type) => field_type.vector_encoding(),
+      Self::Custom(field_type) => field_type.vector_encoding(),
+    }
+  }
+
+  fn vector_similarity_function(&self) -> &VectorSimilarityFunction {
+    match self {
+      Self::FieldType(field_type) => field_type.vector_similarity_function(),
+      Self::Custom(field_type) => field_type.vector_similarity_function(),
+    }
+  }
+
+  fn get_attributes(&self) -> Option<&HashMap<String, String>> {
+    match self {
+      Self::FieldType(field_type) => field_type.get_attributes(),
+      Self::Custom(field_type) => field_type.get_attributes(),
+    }
+  }
+}

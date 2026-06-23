@@ -67,9 +67,12 @@ impl IndexableField for FloatDocValuesField {
     self.parent_field.name()
   }
 
-  type FieldType = FieldType;
+  type FieldType<'a>
+    = &'a FieldType
+  where
+    Self: 'a;
 
-  fn field_type(&self) -> &Self::FieldType {
+  fn field_type(&self) -> Self::FieldType<'_> {
     self.parent_field.field_type()
   }
   fn token_stream<'a, A>(
@@ -111,7 +114,7 @@ impl IndexableField for FloatDocValuesField {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     self.parent_field.stored_value()
   }
 
@@ -121,13 +124,6 @@ impl IndexableField for FloatDocValuesField {
 
   fn is_reserved(&self) -> bool {
     self.parent_field.is_reserved()
-  }
-
-  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
-    self.parent_field.init_token_stream(analyzer)
   }
 }
 

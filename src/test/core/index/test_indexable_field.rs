@@ -14,6 +14,511 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// TODO : IndexWriter not implement
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+
+use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::reader::{ReaderEnum, StringReader};
+use crate::core::document::document::Document;
+use crate::core::document::field::{FieldDataEnum, IndexingTokenStreamEnum3, Store};
+use crate::core::document::field_type::FieldType;
+use crate::core::document::invertable_field::InvertableType;
+use crate::core::document::stored_field::stored_field_type;
+use crate::core::index::BytesRef;
+use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::fields::Fields as FieldsTrait;
+use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::indexable_field::{
+  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
+};
+use crate::core::index::indexable_field_type::{IndexableFieldType, IndexableFieldTypeEnum};
+use crate::core::index::postings_enum::{ALL, PostingsEnum};
+use crate::core::index::stored_fields::StoredFields as StoredFieldsTrait;
+use crate::core::index::term::Term;
+use crate::core::index::term_vectors::TermVectors;
+use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::term_query::TermQuery;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::number::Number;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::util::lucene_test_case::{
+  at_least, new_directory_shared, new_searcher_with_reader, new_string_field, random,
+};
+use crate::test::core::util::test_util::TestUtil;
+
 #[allow(dead_code)] // for quick search
-struct TestIndexableField;
+pub(crate) struct TestIndexableField;
+
+#[derive(Clone)]
+pub struct MyField {
+  counter: i32,
+  name: String,
+  field_type: MyFieldType,
+}
+
+#[derive(Clone)]
+pub struct MyFieldType {
+  counter: i32,
+}
+
+impl IndexableFieldType for MyFieldType {
+  fn stored(&self) -> bool {
+    (self.counter & 1) == 0 || (self.counter % 10) == 3
+  }
+
+  fn tokenized(&self) -> bool {
+    true
+  }
+
+  fn store_term_vectors(&self) -> bool {
+    self.index_options() != &IndexOptions::None && self.counter % 2 == 1 && self.counter % 10 != 9
+  }
+
+  fn store_term_vector_offsets(&self) -> bool {
+    self.store_term_vectors() && self.counter % 10 != 9
+  }
+
+  fn store_term_vector_positions(&self) -> bool {
+    self.store_term_vectors() && self.counter % 10 != 9
+  }
+
+  fn store_term_vector_payloads(&self) -> bool {
+    self.store_term_vectors() && self.counter % 10 != 9
+  }
+
+  fn omit_norms(&self) -> bool {
+    false
+  }
+
+  fn index_options(&self) -> &IndexOptions {
+    if self.counter % 10 == 3 {
+      &IndexOptions::None
+    } else {
+      &IndexOptions::DocsAndFreqsAndPositions
+    }
+  }
+
+  fn doc_values_type(&self) -> &DocValuesType {
+    &DocValuesType::None
+  }
+
+  fn doc_values_skip_index_type(&self) -> &DocValuesSkipIndexType {
+    &DocValuesSkipIndexType::None
+  }
+
+  fn point_dimension_count(&self) -> usize {
+    0
+  }
+
+  fn point_index_dimension_count(&self) -> usize {
+    0
+  }
+
+  fn point_num_bytes(&self) -> usize {
+    0
+  }
+
+  fn vector_dimension(&self) -> i32 {
+    0
+  }
+
+  fn vector_encoding(&self) -> &VectorEncoding {
+    &VectorEncoding::FLOAT32(4)
+  }
+
+  fn vector_similarity_function(&self) -> &VectorSimilarityFunction {
+    &VectorSimilarityFunction::Euclidean
+  }
+
+  fn get_attributes(&self) -> Option<&HashMap<String, String>> {
+    None
+  }
+}
+
+impl<'a> From<&'a MyFieldType> for IndexableFieldTypeEnum<'a> {
+  fn from(field_type: &'a MyFieldType) -> Self {
+    Self::Custom(field_type)
+  }
+}
+
+impl MyField {
+  fn new(counter: i32) -> Result<Self> {
+    Ok(Self {
+      counter,
+      name: format!("f{counter}"),
+      field_type: MyFieldType { counter },
+    })
+  }
+
+  fn reader_value(&self) -> Option<ReaderEnum> {
+    if self.counter % 10 == 7 {
+      Some(ReaderEnum::from(StringReader::new(format!(
+        "text {}",
+        self.counter
+      ))))
+    } else {
+      None
+    }
+  }
+}
+
+impl Display for MyField {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "MyField<{}>", self.counter)
+  }
+}
+
+impl IndexableField for MyField {
+  fn name(&self) -> &str {
+    &self.name
+  }
+
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if (self.counter % 10) == 3 {
+      let mut bytes = vec![0u8; 10];
+      for (idx, byte) in bytes.iter_mut().enumerate() {
+        *byte = self.counter.wrapping_add(idx as i32) as u8;
+      }
+      let length = bytes.len();
+      Ok(Some(Cow::Owned(BytesRef::from_slice(bytes, 0, length))))
+    } else {
+      Ok(None)
+    }
+  }
+
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    Ok(self.binary_value()?.map(|value| value.into_owned()))
+  }
+
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    let field_id = self.counter % 10;
+    if field_id != 3 && field_id != 7 {
+      Ok(Some(Cow::Owned(format!("text {}", self.counter))))
+    } else {
+      Ok(None)
+    }
+  }
+
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    Ok(self.string_value()?.map(|value| value.into_owned()))
+  }
+
+  fn get_char_sequence_value(&self) -> Result<Option<Cow<'_, String>>> {
+    self.string_value()
+  }
+
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    Ok(self.reader_value())
+  }
+
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    Ok(None)
+  }
+
+  type FieldType<'a>
+    = &'a MyFieldType
+  where
+    Self: 'a;
+
+  fn field_type(&self) -> Self::FieldType<'_> {
+    &self.field_type
+  }
+
+  fn token_stream<'a, A>(
+    &'a mut self,
+    analyzer: &'a A,
+    _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
+    if let Some(reader) = self.reader_value() {
+      Ok(Some(IndexingTokenStreamEnum3::AnalyzerTokenStream(
+        analyzer.token_stream(self.name(), reader)?,
+      )))
+    } else if let Some(string_value) = self.string_value()?.map(|value| value.into_owned()) {
+      Ok(Some(IndexingTokenStreamEnum3::AnalyzerTokenStream(
+        analyzer.token_stream(
+          self.name(),
+          ReaderEnum::from(StringReader::new(string_value)),
+        )?,
+      )))
+    } else {
+      Err(LuceneError::illegal_state(format!(
+        "Field must have either TokenStream, String, Reader or Number value; got {}",
+        self
+      )))
+    }
+  }
+
+  fn stored_value(&self) -> Option<FieldDataEnum> {
+    if let Some(string_value) = self
+      .string_value()
+      .expect("MyField::string_value should not fail")
+    {
+      Some(FieldDataEnum::String(string_value.into_owned()))
+    } else {
+      self
+        .binary_value()
+        .expect("MyField::binary_value should not fail")
+        .map(|binary_value| FieldDataEnum::Binary(binary_value.into_owned()))
+    }
+  }
+
+  fn invertable_type(&self) -> &InvertableType {
+    &InvertableType::TokenStream
+  }
+}
+
+// Silly test showing how to index documents w/o using Lucene's core
+// Document nor Field struct
+#[test]
+fn test_arbitrary_fields() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
+
+  let num_docs = at_least(&mut random, 27) as usize;
+  if cfg!(feature = "test_log_verbose") {
+    println!("TEST: {num_docs} docs");
+  }
+  let mut fields_per_doc = vec![0usize; num_docs];
+  let mut base_count = 0usize;
+  let mut field_to_type = HashMap::new();
+
+  for (doc_count, fields_in_doc) in fields_per_doc.iter_mut().enumerate().take(num_docs) {
+    let field_count = TestUtil::next_int(&mut random, 1, 17) as usize;
+    *fields_in_doc = field_count - 1;
+
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: {field_count} fields in doc {doc_count}");
+    }
+
+    let final_base_count = base_count;
+    base_count += field_count - 1;
+
+    let mut d = Document::new();
+    d.add(new_string_field(
+      &mut random,
+      "id",
+      doc_count.to_string(),
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    for field_upto in 1..field_count {
+      d.add(MyField::new((final_base_count + (field_upto - 1)) as i32)?);
+    }
+    w.add_document(&mut random, d)?;
+  }
+
+  let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
+
+  let mut term_vectors = r.term_vectors()?;
+  let s = new_searcher_with_reader(r)?;
+  let mut stored_fields = s.stored_fields()?;
+  let mut counter = 0;
+  for (id, fields_in_doc) in fields_per_doc.iter().enumerate() {
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: verify doc id={id} ({fields_in_doc} fields) counter={counter}");
+    }
+
+    let hits = s.search(TermQuery::new(Term::from_text("id", id.to_string())), 1)?;
+    assert_eq!(1, hits.total_hits.value());
+    let doc_id = hits.score_docs[0].doc;
+    let doc = stored_fields.document(doc_id)?;
+    let end_counter = counter + *fields_in_doc as i32;
+    while counter < end_counter {
+      let name = format!("f{counter}");
+      let field_id = counter % 10;
+
+      let stored = (counter & 1) == 0 || field_id == 3;
+      let binary = field_id == 3;
+      let indexed = field_id != 3;
+
+      let string_value = if field_id != 3 && field_id != 9 {
+        Some(format!("text {counter}"))
+      } else {
+        None
+      };
+
+      // stored:
+      if stored {
+        let f = doc
+          .get_field(&name)
+          .unwrap_or_else(|| panic!("doc {id} doesn't have field f{counter}"));
+        if binary {
+          let b = f.binary_value()?.unwrap();
+          assert_eq!(10, b.length);
+          for idx in 0..10 {
+            assert_eq!((idx as i32 + counter) as u8, b.bytes[b.offset + idx]);
+          }
+        } else {
+          let actual = f.string_value()?.unwrap();
+          assert_eq!(string_value.unwrap().as_str(), actual.as_ref().as_str());
+        }
+      }
+
+      if indexed {
+        let tv = counter % 2 == 1 && field_id != 9;
+        if tv {
+          let tfv = term_vectors.get(doc_id)?.unwrap().terms(&name)?.unwrap();
+          let mut terms_enum = tfv.iterator()?;
+          assert_eq!(
+            BytesRef::from_string(&counter.to_string()),
+            terms_enum.next()?.unwrap().into_owned()
+          );
+          assert_eq!(1, terms_enum.total_term_freq()?);
+          let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
+          assert_ne!(NO_MORE_DOCS, dp_enum.next_doc()?);
+          assert_eq!(1, dp_enum.freq()?);
+          assert_eq!(1, dp_enum.next_position()?);
+
+          assert_eq!(
+            BytesRef::from_string("text"),
+            terms_enum.next()?.unwrap().into_owned()
+          );
+          assert_eq!(1, terms_enum.total_term_freq()?);
+          let mut dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
+          assert_ne!(NO_MORE_DOCS, dp_enum.next_doc()?);
+          assert_eq!(1, dp_enum.freq()?);
+          assert_eq!(0, dp_enum.next_position()?);
+
+          assert!(terms_enum.next()?.is_none());
+
+          // TODO: offsets
+        } else {
+          let vectors = term_vectors.get(doc_id)?;
+          assert!(vectors.is_none() || vectors.unwrap().terms(&name)?.is_none());
+        }
+
+        let mut bq = BooleanQueryBuilder::new();
+        bq.add(
+          TermQuery::new(Term::from_text("id", id.to_string())),
+          Occur::Must,
+        )?;
+        bq.add(TermQuery::new(Term::from_text(&name, "text")), Occur::Must)?;
+        let hits2 = s.search(bq.build(), 1)?;
+        assert_eq!(1, hits2.total_hits.value());
+        assert_eq!(doc_id, hits2.score_docs[0].doc);
+
+        let mut bq = BooleanQueryBuilder::new();
+        bq.add(
+          TermQuery::new(Term::from_text("id", id.to_string())),
+          Occur::Must,
+        )?;
+        bq.add(
+          TermQuery::new(Term::from_text(&name, counter.to_string())),
+          Occur::Must,
+        )?;
+        let hits3 = s.search(bq.build(), 1)?;
+        assert_eq!(1, hits3.total_hits.value());
+        assert_eq!(doc_id, hits3.score_docs[0].doc);
+      }
+
+      counter += 1;
+    }
+  }
+
+  Ok(())
+}
+
+#[derive(Clone)]
+pub struct CustomField {
+  field_type: FieldType,
+}
+
+impl CustomField {
+  fn new() -> Result<Self> {
+    let mut field_type = FieldType::from_ref(&*stored_field_type::TYPE)?;
+    field_type.set_store_term_vectors(true)?;
+    field_type.freeze();
+    Ok(Self { field_type })
+  }
+}
+
+impl Display for CustomField {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "CustomField")
+  }
+}
+
+impl IndexableField for CustomField {
+  fn name(&self) -> &str {
+    "field"
+  }
+
+  type FieldType<'a>
+    = &'a FieldType
+  where
+    Self: 'a;
+
+  fn field_type(&self) -> Self::FieldType<'_> {
+    &self.field_type
+  }
+
+  fn token_stream<'a, A>(
+    &'a mut self,
+    _analyzer: &'a A,
+    _reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
+  ) -> Result<IndexingTokenStream<'a>>
+  where
+    A: Analyzer,
+  {
+    Ok(None)
+  }
+
+  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Ok(None)
+  }
+
+  fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+    Ok(None)
+  }
+
+  fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
+    Ok(Some(Cow::Owned("foobar".to_string())))
+  }
+
+  fn take_string_value(&mut self) -> Result<Option<String>> {
+    Ok(Some("foobar".to_string()))
+  }
+
+  fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
+    Ok(None)
+  }
+
+  fn numeric_value(&self) -> Result<Option<Number>> {
+    Ok(None)
+  }
+
+  fn stored_value(&self) -> Option<FieldDataEnum> {
+    None
+  }
+
+  fn invertable_type(&self) -> &InvertableType {
+    &InvertableType::TokenStream
+  }
+}
+
+// LUCENE-5611
+#[test]
+fn test_not_indexed_term_vectors() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let w = RandomIndexWriter::new(&mut random, dir)?;
+  let result = w.add_document(&mut random, vec![CustomField::new()?.into()]);
+  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  w.close(&mut random)?;
+  Ok(())
+}

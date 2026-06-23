@@ -139,9 +139,12 @@ impl IndexableField for IntRangeDocValuesField {
     self.base.name()
   }
 
-  type FieldType = FieldType;
+  type FieldType<'a>
+    = &'a FieldType
+  where
+    Self: 'a;
 
-  fn field_type(&self) -> &Self::FieldType {
+  fn field_type(&self) -> Self::FieldType<'_> {
     self.base.field_type()
   }
 
@@ -180,19 +183,12 @@ impl IndexableField for IntRangeDocValuesField {
     self.base.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     self.base.stored_value()
   }
 
   fn invertable_type(&self) -> &InvertableType {
     self.base.invertable_type()
-  }
-
-  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
-    self.base.init_token_stream(analyzer)
   }
 }
 

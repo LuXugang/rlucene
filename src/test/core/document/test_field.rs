@@ -1313,7 +1313,7 @@ fn test_binary_string_field() -> Result<()> {
 
     if field.field_type().stored() {
       match field.stored_value() {
-        Some(FieldDataEnum::Binary(v)) => assert_eq!(v, &BytesRef::from_string("baz")),
+        Some(FieldDataEnum::Binary(v)) => assert_eq!(v, BytesRef::from_string("baz")),
         _ => unreachable!(),
       }
     } else {

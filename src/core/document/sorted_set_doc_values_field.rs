@@ -176,9 +176,12 @@ impl IndexableField for SortedSetDocValuesField {
     self.parent_field.name()
   }
 
-  type FieldType = FieldType;
+  type FieldType<'a>
+    = &'a FieldType
+  where
+    Self: 'a;
 
-  fn field_type(&self) -> &Self::FieldType {
+  fn field_type(&self) -> Self::FieldType<'_> {
     self.parent_field.field_type()
   }
   fn token_stream<'a, A>(
@@ -216,19 +219,12 @@ impl IndexableField for SortedSetDocValuesField {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<&FieldDataEnum> {
+  fn stored_value(&self) -> Option<FieldDataEnum> {
     self.parent_field.stored_value()
   }
 
   fn invertable_type(&self) -> &InvertableType {
     self.parent_field.invertable_type()
-  }
-
-  fn init_token_stream<A>(&mut self, analyzer: &A) -> Result<()>
-  where
-    A: Analyzer,
-  {
-    self.parent_field.init_token_stream(analyzer)
   }
 }
 
