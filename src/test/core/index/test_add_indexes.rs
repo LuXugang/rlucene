@@ -63,7 +63,7 @@ fn test_simple_case() -> Result<()> {
   let mut field_types = HashMap::new();
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   let mut writer = new_writer(dir.clone(), conf)?;
   add_docs(&mut random, &mut writer, 100, &mut field_types)?;
@@ -73,7 +73,7 @@ fn test_simple_case() -> Result<()> {
   TestUtil::check_index(dir.clone())?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, false)?);
   let mut writer = new_writer(aux.clone(), conf)?;
@@ -83,7 +83,7 @@ fn test_simple_case() -> Result<()> {
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   let mut writer = new_writer(aux2.clone(), conf)?;
   add_docs2(&mut random, &mut writer, 50, &mut field_types)?;
@@ -92,7 +92,7 @@ fn test_simple_case() -> Result<()> {
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   assert_eq!(100, writer.get_doc_stats()?.max_doc);
@@ -107,7 +107,7 @@ fn test_simple_case() -> Result<()> {
 
   let aux3 = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let mut writer = new_writer(aux3.clone(), conf)?;
   add_docs(&mut random, &mut writer, 40, &mut field_types)?;
   assert_eq!(40, writer.get_doc_stats()?.max_doc);
@@ -115,7 +115,7 @@ fn test_simple_case() -> Result<()> {
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   assert_eq!(190, writer.get_doc_stats()?.max_doc);
@@ -139,7 +139,7 @@ fn test_simple_case() -> Result<()> {
   )?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   writer.force_merge(1)?;
@@ -162,14 +162,14 @@ fn test_simple_case() -> Result<()> {
 
   let aux4 = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let mut writer = new_writer(aux4.clone(), conf)?;
   add_docs2(&mut random, &mut writer, 1, &mut field_types)?;
   writer.close()?;
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   assert_eq!(230, writer.get_doc_stats()?.max_doc);
@@ -198,7 +198,7 @@ fn test_with_pending_deletes() -> Result<()> {
 
   set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
@@ -259,7 +259,7 @@ fn test_with_pending_deletes2() -> Result<()> {
 
   set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
 
@@ -322,7 +322,7 @@ fn test_with_pending_deletes3() -> Result<()> {
 
   set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
 
@@ -382,7 +382,7 @@ fn test_add_self() -> Result<()> {
   let mut field_types = HashMap::new();
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let mut writer = new_writer(dir.clone(), conf)?;
   add_docs(&mut random, &mut writer, 100, &mut field_types)?;
   assert_eq!(100, writer.get_doc_stats()?.max_doc);
@@ -390,7 +390,7 @@ fn test_add_self() -> Result<()> {
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(1000);
   conf.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, false)?);
@@ -400,7 +400,7 @@ fn test_add_self() -> Result<()> {
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(1000);
   conf.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, false)?);
@@ -410,7 +410,7 @@ fn test_add_self() -> Result<()> {
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer2 = new_writer(dir.clone(), conf)?;
 
@@ -437,7 +437,7 @@ fn test_no_tail_segments() -> Result<()> {
   set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   conf.set_max_buffered_docs(10);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
@@ -463,7 +463,7 @@ fn test_no_merge_after_copy() -> Result<()> {
   set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   conf.set_max_buffered_docs(10);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
@@ -498,7 +498,7 @@ fn test_merge_after_copy() -> Result<()> {
   )?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   dont_merge_config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(aux.clone(), dont_merge_config)?;
   for i in 0..20 {
@@ -512,7 +512,7 @@ fn test_merge_after_copy() -> Result<()> {
   reader.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   conf.set_max_buffered_docs(4);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
@@ -551,7 +551,7 @@ fn test_more_merges() -> Result<()> {
   )?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(100);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
@@ -563,7 +563,7 @@ fn test_more_merges() -> Result<()> {
   drop(writer);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   dont_merge_config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(aux.clone(), dont_merge_config)?;
   for i in 0..27 {
@@ -577,7 +577,7 @@ fn test_more_merges() -> Result<()> {
   reader.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   dont_merge_config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(aux2.clone(), dont_merge_config)?;
   for i in 0..8 {
@@ -591,7 +591,7 @@ fn test_more_merges() -> Result<()> {
   reader.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   conf.set_max_buffered_docs(6);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
@@ -762,7 +762,7 @@ where
   D2: Directory + 'static,
 {
   let analyzer = MockAnalyzer::new(random);
-  let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(1000);
   let mut writer = new_writer(dir.clone(), conf)?;
@@ -778,7 +778,7 @@ where
   drop(writer);
 
   let analyzer = MockAnalyzer::new(random);
-  let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(1000);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor_cfs(
@@ -797,7 +797,7 @@ where
     drop(writer);
 
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_open_mode(OpenMode::Append);
     conf.set_max_buffered_docs(1000);
     conf.set_merge_policy(new_log_merge_policy_with_merge_factor_cfs(
@@ -821,7 +821,7 @@ fn test_hang_on_close() -> Result<()> {
   lmp.set_merge_factor(100)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(5);
   iwc.set_merge_policy(lmp);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -888,7 +888,7 @@ fn test_hang_on_close() -> Result<()> {
   lmp.set_merge_factor(4)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
   iwc.set_merge_policy(lmp);
   let writer = IndexWriter::new(dir2.clone(), iwc)?;
@@ -1022,13 +1022,13 @@ fn test_locks_block() -> Result<()> {
   let mut random = random();
 
   let src = new_directory_shared(&mut random)?;
-  let w1 = RandomIndexWriter::new(&mut random, src.clone());
+  let w1 = RandomIndexWriter::new(&mut random, src.clone())?;
   w1.add_document(&mut random, Document::new())?;
   w1.commit(&mut random)?;
 
   let dest = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w2 = RandomIndexWriter::with_config(&mut random, dest.clone(), iwc);
 
   let err = w2.add_indexes_from_dir(&mut random, std::slice::from_ref(&src));
@@ -1045,7 +1045,7 @@ fn test_illegal_index_sort_change1() -> Result<()> {
 
   let dir1 = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let mut iwc1 = new_index_writer_config_with_analyzer(&mut random, a);
+  let mut iwc1 = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc1.set_index_sort(Sort::with_fields(vec![SortField::new(
     Some("foo"),
     SortFieldType::Int,
@@ -1061,7 +1061,7 @@ fn test_illegal_index_sort_change1() -> Result<()> {
 
   let dir2 = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let mut iwc2 = new_index_writer_config_with_analyzer(&mut random, a);
+  let mut iwc2 = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc2.set_index_sort(Sort::with_fields(vec![SortField::new(
     Some("foo"),
     SortFieldType::String,
@@ -1091,7 +1091,7 @@ fn test_add_indexes_dv_update_same_segment_name() -> Result<()> {
 
   let dir1 = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let iwc1 = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc1 = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w1 = IndexWriter::new(dir1.clone(), iwc1)?;
 
   let mut doc = Document::new();
@@ -1109,7 +1109,7 @@ fn test_add_indexes_dv_update_same_segment_name() -> Result<()> {
   w1.close()?;
   drop(w1);
   let a = MockAnalyzer::new(&mut random);
-  let iwc2 = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc2 = new_index_writer_config_with_analyzer(&mut random, a)?;
   let dir2 = new_directory_shared(&mut random)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
   w2.add_indexes_from_dir(std::slice::from_ref(&dir1))?;
@@ -1122,12 +1122,12 @@ fn test_add_indexes_dv_update_same_segment_name() -> Result<()> {
   }
 
   let a = MockAnalyzer::new(&mut random);
-  let iwc3 = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc3 = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w3 = IndexWriter::new(dir2.clone(), iwc3)?;
   w3.close()?;
   drop(w3);
   let a = MockAnalyzer::new(&mut random);
-  let iwc3 = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc3 = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w3 = IndexWriter::new(dir2.clone(), iwc3)?;
   w3.close()?;
 

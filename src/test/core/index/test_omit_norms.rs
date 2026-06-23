@@ -40,7 +40,7 @@ fn test_mixed_merge_throws_error() -> Result<()> {
   let mut random = random();
   let ram = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(3);
   iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
   let writer = IndexWriter::new(ram.clone(), iwc)?;
@@ -116,7 +116,7 @@ fn test_mixed_ram() -> Result<()> {
   let mut random = random();
   let ram = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(10);
   iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
   let writer = IndexWriter::new(ram.clone(), iwc)?;
@@ -180,7 +180,7 @@ fn test_no_nrm_file() -> Result<()> {
   let mut random = random();
   let ram = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(3);
   let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
   mp.get_base_mut().set_no_cfs_ratio(0.0)?;

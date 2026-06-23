@@ -45,11 +45,11 @@ impl Closeable for DummyIndexOutput {
 }
 
 impl IndexOutput for DummyIndexOutput {
-  fn get_file_pointer(&self) -> usize {
+  fn get_file_pointer(&self) -> Result<usize> {
     dummy_unreachable!()
   }
 
-  fn get_checksum(&mut self) -> u64 {
+  fn get_checksum(&mut self) -> Result<u64> {
     dummy_unreachable!()
   }
 

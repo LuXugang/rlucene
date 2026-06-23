@@ -45,11 +45,6 @@ use std::sync::Arc;
 pub struct IndexWriterConfig {
   pub(crate) base: LiveIndexWriterConfigBase,
 }
-impl Default for IndexWriterConfig {
-  fn default() -> Self {
-    Self::new()
-  }
-}
 
 impl IndexWriterConfig {
   /// Creates a new config using the default analyzer.
@@ -58,7 +53,7 @@ impl IndexWriterConfig {
   /// is used for merging. This merge policy is free to select non-contiguous
   /// merges, which means doc IDs may not remain monotonic over time. If this is
   /// a problem, switch to a log-style merge policy.
-  pub fn new() -> Self {
+  pub fn new() -> Result<Self> {
     Self::with_analyzer(StandardAnalyzer::new())
   }
 
@@ -68,13 +63,13 @@ impl IndexWriterConfig {
   /// is used for merging. This merge policy is free to select non-contiguous
   /// merges, which means doc IDs may not remain monotonic over time. If this is
   /// a problem, switch to a log-style merge policy.
-  pub fn with_analyzer<T>(analyzer: T) -> Self
+  pub fn with_analyzer<T>(analyzer: T) -> Result<Self>
   where
     T: Into<AnalyzerEnum>,
   {
-    Self {
-      base: LiveIndexWriterConfigBase::with_analyzer(analyzer),
-    }
+    Ok(Self {
+      base: LiveIndexWriterConfigBase::with_analyzer(analyzer)?,
+    })
   }
 
   /// Sets if calls to `IndexWriter::close` should first commit before closing.

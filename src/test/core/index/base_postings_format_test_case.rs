@@ -249,7 +249,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
@@ -278,7 +278,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
@@ -301,7 +301,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
@@ -332,7 +332,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
@@ -365,7 +365,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     iwc.base.merge_policy = new_log_merge_policy(random)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
@@ -403,7 +403,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     iwc.base.merge_policy = new_tiered_merge_policy(random).into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
@@ -454,7 +454,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     iwc.base.merge_policy = new_tiered_merge_policy(random).into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
@@ -526,7 +526,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
     iwc.base.merge_policy = new_log_merge_policy(random)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
@@ -587,7 +587,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
     let mut field_types = HashMap::new();
     let mut doc = Document::new();
@@ -647,7 +647,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     // TODO IMPORTANT MockTokenizer未实现
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
     let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
@@ -714,7 +714,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     // TODO IMPORTANT MockTokenizer未实现
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
     let mut doc = Document::new();
@@ -880,7 +880,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     // TODO IMPORTANT MockTokenizer未实现
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
     let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
@@ -1082,7 +1082,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
     let mut token1 = token::with_range(Some("bar"), 0, 3)?;
@@ -1342,7 +1342,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
     let mut token1 = token::with_range(Some("bar"), 0, 3)?;
@@ -1647,7 +1647,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
 
     {
       let mut docs = LineFileDocs::new(random)?;
-      let w = IndexWriter::new(dir.clone(), IndexWriterConfig::default())?;
+      let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
       let num_docs = at_least(random, 10_000);
       let mut field_to_type = HashMap::new();

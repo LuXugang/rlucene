@@ -31,7 +31,7 @@ fn test_newest_segment() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     directory.clone(),
-    new_index_writer_config_with_analyzer(&mut random, mock),
+    new_index_writer_config_with_analyzer(&mut random, mock)?,
   )?;
   writer.new_segment_name(None);
   writer.close()?;

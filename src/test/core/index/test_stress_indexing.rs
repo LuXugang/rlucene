@@ -60,7 +60,7 @@ impl TimedThread {
 fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum) -> Result<()> {
   let mut random = new_random();
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_open_mode(OpenMode::Create);
   config.set_max_buffered_docs(10);
   config.set_merge_scheduler(merge_scheduler);

@@ -132,17 +132,17 @@ impl KeywordField {
   ///
   /// * `field` - Field name.
   /// * `values` - Values to match.
-  pub fn new_set_query<T>(field: T, values: Vec<BytesRef<Vec<u8>>>) -> IndexOrDocValuesQuery
+  pub fn new_set_query<T>(field: T, values: Vec<BytesRef<Vec<u8>>>) -> Result<IndexOrDocValuesQuery>
   where
     T: Into<String>,
   {
     let field = field.into();
-    let index_query = TermInSetQuery::new(field.clone(), values.clone());
-    let dv_query = TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values);
-    IndexOrDocValuesQuery::new(
+    let index_query = TermInSetQuery::new(field.clone(), values.clone())?;
+    let dv_query = TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values)?;
+    Ok(IndexOrDocValuesQuery::new(
       MultiTermQuerySet::from(index_query),
       MultiTermQuerySet::from(dv_query),
-    )
+    ))
   }
 }
 

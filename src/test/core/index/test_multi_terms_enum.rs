@@ -68,7 +68,7 @@ fn test_no_terms_in_field() -> Result<()> {
   let a = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     directory.clone(),
-    new_index_writer_config_with_analyzer(&mut random, a),
+    new_index_writer_config_with_analyzer(&mut random, a)?,
   )?;
   let mut document = Document::new();
   document.add(StringField::from_string("deleted", "0", Store::Yes)?);
@@ -81,7 +81,7 @@ fn test_no_terms_in_field() -> Result<()> {
   let a = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     directory2.clone(),
-    new_index_writer_config_with_analyzer(&mut random, a),
+    new_index_writer_config_with_analyzer(&mut random, a)?,
   )?;
 
   let irc = get_context(reader)?;

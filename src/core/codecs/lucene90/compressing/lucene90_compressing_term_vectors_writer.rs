@@ -132,7 +132,7 @@ where
     )?;
     debug_assert_eq!(
       CodecUtil::index_header_length(&format!("{}Meta", VECTORS_INDEX_CODEC_NAME), segment_suffix),
-      meta_stream.get_file_pointer()
+      meta_stream.get_file_pointer()?
     );
 
     let mut vectors_stream = directory.create_output(
@@ -148,7 +148,7 @@ where
     )?;
     debug_assert_eq!(
       CodecUtil::index_header_length(format_name, segment_suffix),
-      vectors_stream.get_file_pointer()
+      vectors_stream.get_file_pointer()?
     );
 
     let index_writer = FieldsIndexWriter::new(
@@ -239,7 +239,7 @@ where
     // write the index file
     self
       .index_writer
-      .write_index(chunk_docs as i32, self.vectors_stream.get_file_pointer())?;
+      .write_index(chunk_docs as i32, self.vectors_stream.get_file_pointer()?)?;
 
     let doc_base = self.num_docs - chunk_docs as i32;
     self.vectors_stream.write_vint(doc_base)?;
@@ -762,7 +762,7 @@ where
         // write a new index entry and new header for this chunk.
         self
           .index_writer
-          .write_index(buffered_docs, self.vectors_stream.get_file_pointer())?;
+          .write_index(buffered_docs, self.vectors_stream.get_file_pointer()?)?;
         self.vectors_stream.write_vint(self.num_docs)?;
         self.vectors_stream.write_vint(code)?;
 
@@ -1025,7 +1025,7 @@ where
 
     self.index_writer.finish(
       num_docs,
-      self.vectors_stream.get_file_pointer(),
+      self.vectors_stream.get_file_pointer()?,
       &mut self.meta_stream,
       dir,
     )?;

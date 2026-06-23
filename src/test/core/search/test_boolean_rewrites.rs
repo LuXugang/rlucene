@@ -66,7 +66,7 @@ fn test_one_clause_rewrite_optimization() -> Result<()> {
   let value = "foo";
 
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.close(&mut random)?;
 
   let reader = directory_reader::open(dir)?;
@@ -97,7 +97,7 @@ fn test_one_clause_rewrite_optimization() -> Result<()> {
 fn test_single_filter_clause() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut doc = Document::new();
@@ -603,7 +603,7 @@ fn test_remove_match_all_filter() -> Result<()> {
 fn test_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   let mut f = TextField::from_string("body", "a b c", No)?;

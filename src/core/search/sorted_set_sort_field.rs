@@ -183,7 +183,7 @@ impl SortFiledBase for SortedSetSortField {
     let field = self
       .base
       .get_field()
-      .expect("field must not be None")
+      .ok_or_else(|| LuceneError::illegal_state("field must not be None"))?
       .to_string();
     let base = TermOrdValComparator::new(
       field,
@@ -289,8 +289,8 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
     self.base.compare(slot1, slot2)
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
-    self.base.set_top_value(value);
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
+    self.base.set_top_value(value)
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {

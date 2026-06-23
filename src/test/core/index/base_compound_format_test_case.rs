@@ -156,7 +156,7 @@ pub trait BaseCompoundFormatTestCase {
     // riw should sometimes create docvalues fields, etc
     let dir = new_directory_shared(&mut random)?;
 
-    let riw = RandomIndexWriter::new(&mut random, dir.clone());
+    let riw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
     let mut doc = Document::new();
     // these fields should sometimes get term vectors, etc
@@ -736,7 +736,7 @@ pub trait BaseCompoundFormatTestCase {
       // write footer with wrong checksum
       CodecUtil::write_be_int(&mut os, CodecUtil::FOOTER_MAGIC)?;
       CodecUtil::write_be_int(&mut os, 0)?;
-      let checksum = os.get_checksum();
+      let checksum = os.get_checksum()?;
       assert!(checksum <= i64::MAX as u64);
       CodecUtil::write_be_long(&mut os, checksum as i64 + 1)?;
     }

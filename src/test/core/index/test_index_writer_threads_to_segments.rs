@@ -60,7 +60,7 @@ fn test_segment_count_on_flush_basic() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let w = Arc::new(IndexWriter::new(
     dir,
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?);
   let starting_gun = Arc::new(Barrier::new(3));
   let start_done = Arc::new(Barrier::new(3));
@@ -183,7 +183,7 @@ fn test_segment_count_on_flush_random() -> Result<()> {
   let mut random = random();
   let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   // Never trigger flushes (so we only flush on getReader).
   iwc.set_max_buffered_docs(100000000);
@@ -268,7 +268,7 @@ fn test_many_threads_close() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_commit_on_close(false);
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
   writer.set_do_random_force_merge(false);
@@ -322,7 +322,7 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   // TODO: memory calculation not implement
   iwc.set_max_buffered_docs(1000);
   iwc.set_merge_policy(NoMergePolicy::default());

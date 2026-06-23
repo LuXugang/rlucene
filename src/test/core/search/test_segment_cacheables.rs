@@ -122,7 +122,7 @@ fn test_multiple_doc_values_delegates() -> Result<()> {
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 

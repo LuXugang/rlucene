@@ -247,7 +247,7 @@ where
 
   let dir = new_directory_shared(random)?;
   let analyzer = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
-  let config = new_index_writer_config_with_analyzer(random, analyzer);
+  let config = new_index_writer_config_with_analyzer(random, analyzer)?;
   let writer = RandomIndexWriter::with_config(random, dir.clone(), config);
   writer.add_document(random, doc)?;
   let reader = writer.get_reader(random)?;
@@ -441,7 +441,7 @@ impl Display for SaneScoringCollector {
 fn test_slop_with_holes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
   let mut f = Field::new("lyrics", "", custom_type);
@@ -494,7 +494,7 @@ fn test_infinite_freq1() -> Result<()> {
   let document = "drug druggy drug drug drug";
 
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   let field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   let mut field_to_type = HashMap::new();
@@ -554,7 +554,7 @@ fn test_infinite_freq2() -> Result<()> {
                 Drug drug druggy \
                 Need sensation like my baby";
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_to_type = HashMap::new();
   let mut doc = Document::new();

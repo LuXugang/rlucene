@@ -91,7 +91,7 @@ fn test_duel_point_range_numeric_range_with_skipper_query() -> Result<()> {
 fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   let reverse = random.random_bool(0.5);
   config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
     Some("dv"),
@@ -147,9 +147,9 @@ fn do_test_duel_point_range_numeric_range_query(
     let dir = new_directory_shared(&mut random)?;
 
     let iw = if sorted_numeric || random.random_bool(0.5) {
-      RandomIndexWriter::new(&mut random, dir.clone())
+      RandomIndexWriter::new(&mut random, dir.clone())?
     } else {
-      let mut config = IndexWriterConfig::new();
+      let mut config = IndexWriterConfig::new()?;
       let reverse = random.random_bool(0.5);
       config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
         Some("dv"),
@@ -236,9 +236,9 @@ fn do_test_duel_point_range_sorted_range_query(
     let dir = new_directory_shared(&mut random)?;
 
     let iw = if sorted_set || random.random_bool(0.5) {
-      RandomIndexWriter::new(&mut random, dir.clone())
+      RandomIndexWriter::new(&mut random, dir.clone())?
     } else {
-      let mut config = IndexWriterConfig::new();
+      let mut config = IndexWriterConfig::new()?;
       let reverse = random.random_bool(0.5);
       config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
         Some("dv"),
@@ -410,7 +410,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
 
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   let reverse = random.random_bool(0.5);
   config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
     Some("dv"),
@@ -685,7 +685,7 @@ fn test_to_string() -> Result<()> {
 fn test_missing_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   iw.add_document(&mut random, Document::new())?;
   let reader = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
@@ -727,7 +727,7 @@ fn test_missing_field() -> Result<()> {
 fn test_slow_range_query_rewrite() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let reader = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -747,7 +747,7 @@ fn test_slow_range_query_rewrite() -> Result<()> {
 fn test_sorted_numeric_npe() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let nums = [
     -1.7147449030215377E-208_f64,
@@ -824,7 +824,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
     }
 
     let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
     let num_docs = at_least(&mut random, 100);
     for _ in 0..num_docs {

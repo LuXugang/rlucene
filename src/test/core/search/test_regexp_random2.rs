@@ -145,7 +145,7 @@ where
     "".to_string()
   };
   let a = MockAnalyzer::with_automaton(random, mock_tokenizer::KEYWORD.clone(), false);
-  let mut config = new_index_writer_config_with_analyzer(random, a);
+  let mut config = new_index_writer_config_with_analyzer(random, a)?;
   config.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
 
   let writer = RandomIndexWriter::with_config(random, dir, config);

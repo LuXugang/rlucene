@@ -41,7 +41,7 @@ where
   let dir1 = new_directory_shared(random)?;
   let dir2 = new_directory_shared(random)?;
 
-  let mut iwc1 = new_index_writer_config(random);
+  let mut iwc1 = new_index_writer_config(random)?;
   iwc1.set_merge_policy(new_log_merge_policy(random)?);
   let iw1 = RandomIndexWriter::with_config(random, dir1.clone(), iwc1);
 
@@ -69,7 +69,7 @@ where
   let reader1 = iw1.get_reader(random)?;
   iw1.close(random)?;
 
-  let mut iwc2 = new_index_writer_config(random);
+  let mut iwc2 = new_index_writer_config(random)?;
   iwc2.set_merge_policy(new_log_merge_policy(random)?);
   let iw2 = RandomIndexWriter::with_config(random, dir2.clone(), iwc2);
 

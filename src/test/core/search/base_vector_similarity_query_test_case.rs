@@ -446,7 +446,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
 
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let writer = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random))?;
+    let writer = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random)?)?;
     writer.delete_documents_with_queries(vec![delete])?;
     writer.commit()?;
     writer.close()?;
@@ -485,7 +485,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     };
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
-    let writer = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random))?;
+    let writer = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random)?)?;
     // Delete all documents
     writer.delete_documents_with_queries(vec![
       crate::core::search::match_all_docs_query::MatchAllDocsQuery::new().into(),
@@ -646,7 +646,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
       IntField::new_set_query(id_field, self.get_filtered(random, num_filtered))?.into();
 
     let index_store = self.get_index_store(random, vectors)?;
-    let w = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random))?;
+    let w = IndexWriter::new(index_store.clone().into(), new_index_writer_config(random)?)?;
     // Force merge because smaller segments have few filtered docs and often fall back to exact
     // search, making this test flaky
     w.force_merge(1)?;
@@ -801,7 +801,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     R: Rng + ?Sized,
   {
     let index_store = self.new_directory_for_test(random)?;
-    let writer = RandomIndexWriter::new(random, index_store.clone().into());
+    let writer = RandomIndexWriter::new(random, index_store.clone().into())?;
     let (vector_field, id_field, function) = {
       let base = self.get_base();
       (&base.vector_field, &base.id_field, base.function)

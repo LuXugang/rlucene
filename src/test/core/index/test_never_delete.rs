@@ -45,7 +45,7 @@ fn test_indexing() -> Result<()> {
   let mut d = new_fs_directory(&mut random, tmp_dir)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let w = RandomIndexWriter::with_config(&mut random, d.clone(), iwc);
   w.w

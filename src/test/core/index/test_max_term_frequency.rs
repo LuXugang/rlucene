@@ -106,7 +106,7 @@ fn test() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::SIMPLE.clone(), true);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
   config.set_similarity(SimilarityEnum::custom(TestSimilarity));
 

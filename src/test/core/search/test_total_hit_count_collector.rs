@@ -40,7 +40,7 @@ struct TestTotalHitCountCollector;
 fn test_basics() -> Result<()> {
   let mut random = random();
   let index_store = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, index_store.clone());
+  let writer = RandomIndexWriter::new(&mut random, index_store.clone())?;
 
   for i in 0..5 {
     let mut doc = Document::new();

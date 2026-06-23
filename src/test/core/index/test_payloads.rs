@@ -90,7 +90,7 @@ fn test_payload_field_bit() -> Result<()> {
   analyzer.set_payload_data("f2", "somedata".as_bytes().to_vec(), 0, 1);
   let writer = IndexWriter::new(
     ram.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
 
   let mut d = Document::new();
@@ -148,7 +148,7 @@ fn test_payload_field_bit() -> Result<()> {
   let analyzer = PayloadAnalyzer::new();
   analyzer.set_payload_data("f2", "somedata".as_bytes().to_vec(), 0, 1);
   analyzer.set_payload_data("f3", "somedata".as_bytes().to_vec(), 0, 3);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_open_mode(OpenMode::Create);
   let writer = IndexWriter::new(ram.clone(), iwc)?;
   let mut d = Document::new();
@@ -212,7 +212,7 @@ where
 {
   let mut random = random();
   let analyzer = PayloadAnalyzer::new();
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer.clone());
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer.clone())?;
   iwc.set_open_mode(OpenMode::Create);
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -340,7 +340,7 @@ where
   );
 
   let analyzer = PayloadAnalyzer::new();
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer.clone());
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer.clone())?;
   iwc.set_open_mode(OpenMode::Create);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let single_term = "lucene";
@@ -632,7 +632,7 @@ fn test_thread_safety() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
   let field = "test";
   let random = Mutex::new(random);
@@ -783,7 +783,7 @@ fn test_across_fields() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let analyzer =
     MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
-  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer);
+  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer)?;
   let mut doc = Document::new();
   doc.add(TextField::from_string(
     "hasMaybepayload",
@@ -796,7 +796,7 @@ fn test_across_fields() -> Result<()> {
 
   let analyzer =
     MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), true);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
   let mut doc = Document::new();
   doc.add(TextField::from_string(
@@ -816,7 +816,7 @@ fn test_across_fields() -> Result<()> {
 fn test_mixup_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
@@ -887,7 +887,7 @@ fn test_mixup_docs() -> Result<()> {
 fn test_mixup_multi_valued() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir);
+  let writer = RandomIndexWriter::new(&mut random, dir)?;
   let mut doc = Document::new();
   let v = random_from_seed(random.random());
   let mut ts = MockTokenizer::new(v);

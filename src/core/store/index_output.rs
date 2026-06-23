@@ -34,9 +34,9 @@ use std::fs::File;
 pub trait IndexOutput: DataOutput + Display + Closeable {
   /// Returns the current position in this file, where the next write will
   /// occur.
-  fn get_file_pointer(&self) -> usize;
+  fn get_file_pointer(&self) -> Result<usize>;
   /// Returns the current checksum of bytes written so far.
-  fn get_checksum(&mut self) -> u64;
+  fn get_checksum(&mut self) -> Result<u64>;
   /// Returns the name used to create this `IndexOutput`. This is especially
   /// useful when using
   /// [`Directory::create_temp_output`](crate::core::store::directory::Directory::create_temp_output).
@@ -56,7 +56,7 @@ pub trait IndexOutput: DataOutput + Display + Closeable {
   /// # See Also
   /// [`align_offset`]
   fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
-    let offset = self.get_file_pointer();
+    let offset = self.get_file_pointer()?;
     let aligned_offset = align_offset(offset, alignment_bytes)?;
     let count = (aligned_offset - offset) as usize;
     for _ in 0..count {
@@ -209,14 +209,14 @@ impl Closeable for IndexOutputEnum {
 }
 
 impl IndexOutput for IndexOutputEnum {
-  fn get_file_pointer(&self) -> usize {
+  fn get_file_pointer(&self) -> Result<usize> {
     match self {
       Self::Fs(inner) => inner.get_file_pointer(),
       Self::Custom(inner) => inner.get_file_pointer(),
     }
   }
 
-  fn get_checksum(&mut self) -> u64 {
+  fn get_checksum(&mut self) -> Result<u64> {
     match self {
       Self::Fs(inner) => inner.get_checksum(),
       Self::Custom(inner) => inner.get_checksum(),
@@ -382,13 +382,13 @@ macro_rules! either_index_output {
         where
             $( $T: IndexOutput ),+
         {
-            fn get_file_pointer(&self) -> usize{
+            fn get_file_pointer(&self) -> Result<usize>{
                 match self {
                     $( Self::$Variant(inner) => inner.get_file_pointer(), )+
                 }
             }
 
-            fn get_checksum(&mut self) -> u64 {
+            fn get_checksum(&mut self) -> Result<u64> {
                 match self {
                     $( Self::$Variant(inner) => inner.get_checksum(), )+
                 }

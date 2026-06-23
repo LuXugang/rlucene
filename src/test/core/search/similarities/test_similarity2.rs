@@ -61,7 +61,7 @@ fn sims() -> Result<Vec<Arc<SimilarityEnum>>> {
 fn test_empty_index() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let ir = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
   let mut searcher = new_searcher_with_reader(ir)?;
@@ -84,7 +84,7 @@ fn test_empty_index() -> Result<()> {
 fn test_empty_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -116,7 +116,7 @@ fn test_empty_field() -> Result<()> {
 fn test_empty_term() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   let mut field_to_type = HashMap::new();
   doc.add(new_text_field(
@@ -146,7 +146,7 @@ fn test_empty_term() -> Result<()> {
 fn test_no_norms() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   let mut field_to_type = HashMap::new();
   let mut ft = FieldType::from_ref(&*TYPE_NOT_STORED)?;
@@ -178,7 +178,7 @@ fn test_no_norms() -> Result<()> {
 fn test_no_field_skew() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iw_config = new_index_writer_config(&mut random);
+  let mut iw_config = new_index_writer_config(&mut random)?;
   iw_config.set_merge_policy(new_log_merge_policy(&mut random)?);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iw_config);
   let mut field_to_type = HashMap::new();
@@ -240,7 +240,7 @@ fn test_no_field_skew() -> Result<()> {
 fn test_omit_tf() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   let mut field_to_type = HashMap::new();
   let mut ft = FieldType::from_ref(&*TYPE_NOT_STORED)?;
@@ -272,7 +272,7 @@ fn test_omit_tf() -> Result<()> {
 fn test_omit_tf_and_norms() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   let mut field_to_type = HashMap::new();
   let mut ft = FieldType::from_ref(&*TYPE_NOT_STORED)?;

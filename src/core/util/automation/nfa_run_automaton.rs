@@ -338,7 +338,7 @@ impl NFARunAutomaton {
       let limit = ends.next;
       for j in (0..limit).step_by(3) {
         let dest = ends.transitions[j];
-        self.states_set.decr(dest);
+        self.states_set.decr(dest)?;
       }
       ends.next = 0;
 

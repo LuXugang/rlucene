@@ -67,7 +67,7 @@ where
     last.ok_or_else(|| LuceneError::illegal_state(format!("Couldn't find commit point {id}")))?;
 
   let mock = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, mock);
+  let mut config = new_index_writer_config_with_analyzer(random, mock)?;
   config.set_index_deletion_policy(RollbackDeletionPolicy::new(id));
   let writer = IndexWriter::with_index_commit(
     dir,
@@ -126,7 +126,7 @@ where
   let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
   let mock = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, mock);
+  let mut config = new_index_writer_config_with_analyzer(random, mock)?;
   config.set_index_deletion_policy(KeepAllTransactionDeletionPolicy);
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -229,7 +229,7 @@ fn test_rollback_deletion_policy() -> Result<()> {
 
   for _ in 0..2 {
     let mock = MockAnalyzer::new(&mut random);
-    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
     config.set_index_deletion_policy(DeleteLastCommitPolicy);
     IndexWriter::new(dir.clone(), config)?.close()?;
 

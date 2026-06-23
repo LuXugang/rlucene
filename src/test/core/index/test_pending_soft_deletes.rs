@@ -106,7 +106,7 @@ impl TestPendingDeletesBase for TestPendingSoftDeletes {
 fn test_hard_delete_soft_deleted() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")
     // make sure all docs will end up in the same segment
@@ -142,7 +142,7 @@ fn test_hard_delete_soft_deleted() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info: &SegmentCommitInfo<_> = segment_reader.get_segment_info();
-  let meta = segment_info.into();
+  let meta = segment_info.to_meta()?;
   let mut pending_soft_deletes = match TestPendingSoftDeletes.new_pending_deletes(&meta)? {
     PendingDeletesEnum::Soft(deletes) => deletes,
     PendingDeletesEnum::PD(_) => unreachable!(),
@@ -169,7 +169,7 @@ fn test_hard_delete_soft_deleted() -> Result<()> {
 fn test_delete_soft() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")
     // make sure all docs will end up in the same segment
@@ -205,7 +205,7 @@ fn test_delete_soft() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info: &SegmentCommitInfo<_> = segment_reader.get_segment_info();
-  let meta = segment_info.into();
+  let meta = segment_info.to_meta()?;
   let mut pending_soft_deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
   pending_soft_deletes.on_new_reader(segment_reader, segment_info)?;
   assert_eq!(0, pending_soft_deletes.num_pending_deletes());
@@ -233,7 +233,7 @@ fn test_delete_soft() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info: &SegmentCommitInfo<_> = segment_reader.get_segment_info();
-  let meta = segment_info.into();
+  let meta = segment_info.to_meta()?;
   pending_soft_deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
   pending_soft_deletes.on_new_reader(segment_reader, segment_info)?;
   assert_eq!(0, pending_soft_deletes.num_pending_deletes());
@@ -273,7 +273,7 @@ fn test_apply_updates() -> Result<()> {
   )?;
   let mut commit_info =
     SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..commit_info.info.max_doc()? {
     writer.add_document(Document::new())?;
   }
@@ -284,7 +284,7 @@ fn test_apply_updates() -> Result<()> {
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
-  let meta = (&commit_info).into();
+  let meta = commit_info.to_meta()?;
   let mut deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
   deletes.on_new_reader(segment_reader, &commit_info)?;
   reader.close()?;
@@ -374,7 +374,7 @@ fn test_apply_updates() -> Result<()> {
 fn test_update_applied_only_once() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")
     .set_max_buffered_docs(3) // make sure we write one segment
@@ -409,7 +409,7 @@ fn test_update_applied_only_once() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info = segment_reader.get_segment_info();
-  let meta = segment_info.into();
+  let meta = segment_info.to_meta()?;
   let mut deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
   deletes.on_new_reader(segment_reader, segment_info)?;
   let field_info = FieldInfo::new(
@@ -464,7 +464,7 @@ fn test_update_applied_only_once() -> Result<()> {
 fn test_reset_on_update() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")
     .set_max_buffered_docs(3) // make sure we write one segment
@@ -499,7 +499,7 @@ fn test_reset_on_update() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info = segment_reader.get_segment_info();
-  let meta = segment_info.into();
+  let meta = segment_info.to_meta()?;
   let mut deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
   deletes.on_new_reader(segment_reader, segment_info)?;
   let field_info = FieldInfo::new(

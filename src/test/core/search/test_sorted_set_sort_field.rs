@@ -90,7 +90,7 @@ fn test_equals() -> Result<()> {
 fn test_forward() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // doc1
   let mut doc = Document::new();
@@ -142,7 +142,7 @@ fn test_forward() -> Result<()> {
 fn test_reverse() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(KeywordField::from_bytes_ref(
@@ -191,7 +191,7 @@ fn test_reverse() -> Result<()> {
 fn test_missing_first() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
@@ -274,7 +274,7 @@ fn test_missing_first() -> Result<()> {
 fn test_singleton() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(KeywordField::from_bytes_ref(

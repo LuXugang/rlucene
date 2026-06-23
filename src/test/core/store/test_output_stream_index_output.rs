@@ -53,9 +53,9 @@ fn do_test_data_types(offset: usize) -> Result<()> {
 
     out.write_long(1234567890123456789)?;
     hasher.update(&1234567890123456789u64.to_le_bytes());
-    assert_eq!(out.get_file_pointer(), (offset + 14));
+    assert_eq!(out.get_file_pointer()?, (offset + 14));
     assert_eq!(
-      out.get_checksum() as u32,
+      out.get_checksum()? as u32,
       hasher.finalize(),
       "Checksum mismatch"
     );
@@ -89,9 +89,9 @@ fn test_write_exceeding_buffer() -> Result<()> {
     out.write_bytes_range(&large_data, 0, large_data.len())?;
     hasher.update(&large_data);
 
-    assert_eq!(out.get_file_pointer(), large_data.len());
+    assert_eq!(out.get_file_pointer()?, large_data.len());
     assert_eq!(
-      out.get_checksum(),
+      out.get_checksum()?,
       hasher.finalize() as u64,
       "Checksum mismatch"
     );
@@ -116,14 +116,14 @@ fn test_multiple_writes_with_checksum() -> Result<()> {
 
     out.write_bytes_range(data1, 0, data1.len())?;
     hasher.update(data1);
-    let sum1 = out.get_checksum();
+    let sum1 = out.get_checksum()?;
     out.write_bytes_range(data2, 0, data2.len())?;
     hasher.update(data2);
-    let sum2 = out.get_checksum();
+    let sum2 = out.get_checksum()?;
     assert_ne!(sum1, sum2, "Checksum mismatch");
 
     assert_eq!(
-      out.get_checksum(),
+      out.get_checksum()?,
       hasher.finalize() as u64,
       "Checksum mismatch"
     );

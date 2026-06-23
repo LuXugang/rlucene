@@ -69,7 +69,7 @@ fn test_basic() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = RandomIndexWriter::with_config(&mut random, dir, iwc);
   let mut doc = Document::new();
 
@@ -146,7 +146,7 @@ fn do_test_numbers(with_payloads: bool) -> Result<()> {
   } else {
     MockAnalyzer::new(&mut random).into()
   };
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
@@ -255,7 +255,7 @@ fn test_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
   let num_docs = at_least(&mut random, 20);
@@ -414,7 +414,7 @@ fn test_add_field_twice() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir, iwc);
   let mut doc = Document::new();
   let mut custom_type3 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
@@ -491,7 +491,7 @@ fn test_crazy_offset_gap() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = CrazyOffsetGapAnalyzer::new(random.random());
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   iw.add_document(&mut random, Document::new())?;
@@ -522,7 +522,7 @@ fn test_legal_but_very_large_offsets() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir, iwc);
   let mut doc = Document::new();
   let mut t1 = token::with_range(Some("foo"), 0, i32::MAX - 500)?;
@@ -552,7 +552,7 @@ fn check_tokens(field1: Vec<token::Token>, field2: Option<Vec<token::Token>>) ->
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let riw = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;

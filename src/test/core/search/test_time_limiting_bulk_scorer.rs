@@ -56,7 +56,7 @@ fn test_time_limiting_bulk_scorer() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     directory.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
 
   let n = 10000;

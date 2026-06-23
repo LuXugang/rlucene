@@ -800,7 +800,7 @@ pub fn write_bitset_with_dense_rank_power<O>(
 where
   O: IndexOutput,
 {
-  let origo = out.get_file_pointer();
+  let origo = out.get_file_pointer()?;
   if !(7..=15).contains(&dense_rank_power) && dense_rank_power != -1 {
     return Err(LuceneError::illegal_argument(format!(
       "Acceptable values for denseRankPower are 7-15 (every 128-32768 docIDs). \
@@ -825,7 +825,7 @@ where
     if prev_block != -1 && block != prev_block {
       add_jumps(
         &mut jumps,
-        out.get_file_pointer() - origo,
+        out.get_file_pointer()? - origo,
         total_cardinality,
         jump_block_index,
         (prev_block + 1) as usize,
@@ -847,7 +847,7 @@ where
   if block_cardinality > 0 {
     add_jumps(
       &mut jumps,
-      out.get_file_pointer() - origo,
+      out.get_file_pointer()? - origo,
       total_cardinality,
       jump_block_index,
       (prev_block + 1) as usize,
@@ -872,7 +872,7 @@ where
   // block after all real blocks.
   add_jumps(
     &mut jumps,
-    out.get_file_pointer() - origo,
+    out.get_file_pointer()? - origo,
     total_cardinality,
     last_block,
     last_block + 1,

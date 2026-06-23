@@ -101,7 +101,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let doc_with_vectors = random.random_range(0..num_docs);
       let empty_doc = Document::new();
       let dir = new_directory_shared(random)?;
-      let writer = RandomIndexWriter::new(random, dir);
+      let writer = RandomIndexWriter::new(random, dir)?;
       let field_count = TestUtil::next_int(random, 1, 3) as usize;
       let doc = doc_factory.new_document(random, field_count, 20, options)?;
       for i in 0..num_docs {
@@ -142,7 +142,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         continue;
       }
       let dir = new_directory_shared(_random)?;
-      let writer = RandomIndexWriter::new(_random, dir);
+      let writer = RandomIndexWriter::new(_random, dir)?;
       let field_count = TestUtil::next_int(_random, 1, 2) as usize;
       let max_term_count = at_least(_random, 2000) as usize;
       let doc = doc_factory.new_document(_random, field_count, max_term_count, options)?;
@@ -169,7 +169,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let doc_factory = RandomDocumentFactory::new(_random, field_count, 10);
     for options in self.valid_options() {
       let dir = new_directory_shared(_random)?;
-      let writer = RandomIndexWriter::new(_random, dir);
+      let writer = RandomIndexWriter::new(_random, dir)?;
       let doc_field_count = TestUtil::next_int(_random, 5, field_count as i32) as usize;
       let doc = doc_factory.new_document(_random, doc_field_count, 5, options)?;
       writer.add_document(_random, doc.to_document()?)?;
@@ -195,7 +195,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
           continue;
         }
         let dir = new_directory_shared(_random)?;
-        let writer = RandomIndexWriter::new(_random, dir);
+        let writer = RandomIndexWriter::new(_random, dir)?;
         let doc1 = doc_factory.new_document(_random, num_fields, 20, options1)?;
         let doc2 = doc_factory.new_document(_random, num_fields, 20, options2)?;
         writer.add_document(_random, add_id(doc1.to_document()?, "1")?)?;
@@ -235,7 +235,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       docs.push(doc_factory.new_document(_random, field_count, max_term_count, options)?);
     }
     let dir = new_directory_shared(_random)?;
-    let writer = RandomIndexWriter::new(_random, dir);
+    let writer = RandomIndexWriter::new(_random, dir)?;
     for (i, doc) in docs.iter().enumerate() {
       writer.add_document(_random, add_id(doc.to_document()?, &i.to_string())?)?;
     }
@@ -278,7 +278,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         );
       }
       let dir = new_directory_shared(random)?;
-      let mut iwc = new_index_writer_config(random);
+      let mut iwc = new_index_writer_config(random)?;
       if let Some(sort) = index_sort.clone() {
         iwc.set_index_sort(sort)?;
       }
@@ -328,7 +328,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         // TODO add_indexes_slowly未实现
         // if random.random_range(0..100) < 5 {
         //   // add via foreign writer
-        //   let mut other_iwc = new_index_writer_config(random);
+        //   let mut other_iwc = new_index_writer_config(random)?;
         //   if let Some(sort) = index_sort.clone() {
         //     other_iwc.set_index_sort(sort)?;
         //   }
@@ -418,7 +418,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     // TODO TokenStreamComponents未实现
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -492,7 +492,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     // TODO TokenStreamComponents未实现
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -664,7 +664,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     // TODO TokenStreamComponents未实现
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -874,7 +874,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     // TODO TokenStreamComponents未实现
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -1080,7 +1080,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let w = IndexWriter::new(dir, iwc)?;
 
     let mut token1 = token::with_range(Some("bar"), 0, 3)?;
@@ -1323,7 +1323,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let w = IndexWriter::new(dir, iwc)?;
 
     let mut token1 = token::with_range(Some("bar"), 0, 3)?;

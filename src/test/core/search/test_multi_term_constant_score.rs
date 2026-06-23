@@ -76,7 +76,7 @@ fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReaderType<DirEnum>)> {
   let mut random = random();
   let small = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = RandomIndexWriter::with_config(&mut random, small.clone(), config);
   let mut field_types = HashMap::new();

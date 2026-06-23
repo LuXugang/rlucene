@@ -39,7 +39,7 @@ fn test_many_fields() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_max_buffered_docs(10);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -136,8 +136,8 @@ fn test_diverse_docs() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let _iwc = new_index_writer_config_with_analyzer(&mut random, mock);
-  let mut iwc = new_index_writer_config(&mut random);
+  let _iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_ram_buffer_size_mb(0.5);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -210,7 +210,7 @@ fn test_rotating_field_names() -> Result<()> {
   let mut random = random();
   let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_ram_buffer_size_mb(0.2);
   iwc.set_max_buffered_docs(-1);
 

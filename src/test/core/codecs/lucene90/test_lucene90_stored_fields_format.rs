@@ -157,7 +157,7 @@ impl TestLucene90StoredFieldsFormat {
     let counter = Arc::new(AtomicUsize::new(0));
     let dir = Arc::new(CountingPrefetchDirectory::new(orig_dir, counter.clone()));
 
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_use_compound_file(false);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 

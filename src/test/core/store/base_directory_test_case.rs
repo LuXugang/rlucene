@@ -1113,7 +1113,7 @@ pub trait BaseDirectoryTestCase {
       }
 
       output.write_bytes_range(&bytes, 0, byte_upto)?;
-      assert_eq!(size, output.get_file_pointer());
+      assert_eq!(size, output.get_file_pointer()?);
     }
     assert_eq!(size, dir.file_length("test")?);
 
@@ -1671,11 +1671,11 @@ pub trait BaseDirectoryTestCase {
     let mut large_buf = vec![0u8; 2048];
     random.fill_bytes(&mut large_buf);
 
-    let current_pos = output.get_file_pointer();
+    let current_pos = output.get_file_pointer()?;
     let large_buf_len = large_buf.len();
     output.write_bytes_with_len(&large_buf, large_buf_len)?;
 
-    assert_eq!(current_pos + large_buf.len(), output.get_file_pointer());
+    assert_eq!(current_pos + large_buf.len(), output.get_file_pointer()?);
     Ok(())
   }
   /// This test verifies that the `to_string` implementation of `IndexOutput`

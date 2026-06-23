@@ -289,19 +289,21 @@ where
 
         if options.write_positions {
           let pos_out = self.pos_out.as_ref().unwrap();
+          let pos_fp = pos_out.get_file_pointer()?;
           self
             .level0_output
-            .write_vlong((pos_out.get_file_pointer() - self.level0_last_pos_fp as usize) as i64)?;
+            .write_vlong((pos_fp - self.level0_last_pos_fp as usize) as i64)?;
           self.level0_output.write_byte(self.pos_buffer_upto as u8)?;
-          self.level0_last_pos_fp = pos_out.get_file_pointer() as i64;
+          self.level0_last_pos_fp = pos_fp as i64;
 
           if options.write_offsets || options.write_payloads {
             let pay_out = self.pay_out.as_ref().unwrap();
-            self.level0_output.write_vlong(
-              (pay_out.get_file_pointer() - self.level0_last_pay_fp as usize) as i64,
-            )?;
+            let pay_fp = pay_out.get_file_pointer()?;
+            self
+              .level0_output
+              .write_vlong((pay_fp - self.level0_last_pay_fp as usize) as i64)?;
             self.level0_output.write_vint(self.payload_byte_upto)?;
-            self.level0_last_pay_fp = pay_out.get_file_pointer() as i64;
+            self.level0_last_pay_fp = pay_fp as i64;
           }
         }
       }
@@ -375,14 +377,14 @@ where
         self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_convert()?;
       }
       if options.write_positions {
-        let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer() as i64;
+        let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer()? as i64;
         self
           .scratch_output
           .write_vlong(pos_fp - self.level1_last_pos_fp)?;
         self.scratch_output.write_byte(self.pos_buffer_upto as u8)?;
         self.level1_last_pos_fp = pos_fp;
         if options.write_offsets || options.write_payloads {
-          let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer() as i64;
+          let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer()? as i64;
           self
             .scratch_output
             .write_vlong(pay_fp - self.level1_last_pay_fp)?;
@@ -393,7 +395,7 @@ where
       let level1_len =
         2 * BitUtil::SHORT_BYTES + self.scratch_output.size() + self.level1_output.size();
       self.doc_out.write_vlong(level1_len as i64)?;
-      level1_end = self.doc_out.get_file_pointer() + level1_len;
+      level1_end = self.doc_out.get_file_pointer()? + level1_len;
       // There are at most 128 impacts, that require at most 2 bytes each
       debug_assert!(self.scratch_output.size() <= i16::MAX as usize);
       // Like impacts plus a few vlongs, still way under the max short
@@ -407,12 +409,12 @@ where
       self.scratch_output.reset();
     } else {
       self.doc_out.write_vlong(self.level1_output.size() as i64)?;
-      level1_end = self.doc_out.get_file_pointer() + self.level1_output.size();
+      level1_end = self.doc_out.get_file_pointer()? + self.level1_output.size();
     }
 
     self.level1_output.copy_to(&mut self.doc_out)?;
     self.level1_output.reset();
-    debug_assert_eq!(self.doc_out.get_file_pointer(), level1_end);
+    debug_assert_eq!(self.doc_out.get_file_pointer()?, level1_end);
     Ok(())
   }
   pub fn close(&mut self) {
@@ -434,11 +436,11 @@ where
         .write_int(self.max_impact_num_bytes_at_level1)?;
       self
         .meta_out
-        .write_long(self.doc_out.get_file_pointer() as i64)?;
+        .write_long(self.doc_out.get_file_pointer()? as i64)?;
       if let Some(ref po) = self.pos_out {
-        self.meta_out.write_long(po.get_file_pointer() as i64)?;
+        self.meta_out.write_long(po.get_file_pointer()? as i64)?;
         if let Some(ref pay) = self.pay_out {
-          self.meta_out.write_long(pay.get_file_pointer() as i64)?;
+          self.meta_out.write_long(pay.get_file_pointer()? as i64)?;
         }
       }
       CodecUtil::write_footer(&mut self.meta_out)?;
@@ -524,15 +526,15 @@ where
   }
 
   fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()> {
-    self.doc_start_fp = self.doc_out.get_file_pointer() as i64;
+    self.doc_start_fp = self.doc_out.get_file_pointer()? as i64;
     if options.write_positions
       && let Some(ref pos_out) = self.pos_out
     {
-      self.pos_start_fp = pos_out.get_file_pointer() as i64;
+      self.pos_start_fp = pos_out.get_file_pointer()? as i64;
       self.level0_last_pos_fp = self.pos_start_fp;
       self.level1_last_pos_fp = self.pos_start_fp;
       if options.write_payloads || options.write_offsets {
-        let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer() as i64;
+        let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer()? as i64;
         self.pay_start_fp = pay_fp;
         self.level0_last_pay_fp = pay_fp;
         self.level1_last_pay_fp = pay_fp;
@@ -572,7 +574,7 @@ where
       debug_assert!(state.base.total_term_freq != -1);
       let offset = if state.base.total_term_freq > Lucene101PostingsFormat::BLOCK_SIZE as i64 {
         // record file offset for last pos in last block
-        self.pos_out.as_ref().unwrap().get_file_pointer() as i64 - self.pos_start_fp
+        self.pos_out.as_ref().unwrap().get_file_pointer()? as i64 - self.pos_start_fp
       } else {
         -1
       };

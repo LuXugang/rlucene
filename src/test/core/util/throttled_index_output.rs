@@ -168,11 +168,11 @@ impl<O> IndexOutput for ThrottledIndexOutput<O>
 where
   O: IndexOutput,
 {
-  fn get_file_pointer(&self) -> usize {
+  fn get_file_pointer(&self) -> Result<usize> {
     self.out.get_file_pointer()
   }
 
-  fn get_checksum(&mut self) -> u64 {
+  fn get_checksum(&mut self) -> Result<u64> {
     self.out.get_checksum()
   }
 

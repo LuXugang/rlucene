@@ -362,7 +362,7 @@ where
   D: Directory + 'static,
   A: Into<AnalyzerEnum>,
 {
-  let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   config.set_open_mode(OpenMode::Create);
 
   let mut writer = IndexWriter::new(dir, config)?;
@@ -388,7 +388,7 @@ where
   D: Directory + 'static,
 {
   let a = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
-  let mut config = new_index_writer_config_with_analyzer(random, a);
+  let mut config = new_index_writer_config_with_analyzer(random, a)?;
   config.set_open_mode(OpenMode::Append);
   let mut writer = IndexWriter::new(dir, config)?;
   insert_doc(random, &mut writer, doc_count, content, field_to_type)?;

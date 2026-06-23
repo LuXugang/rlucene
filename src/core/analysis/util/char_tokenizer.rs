@@ -70,7 +70,7 @@ where
   S: CharTokenizerBase,
 {
   fn drop(&mut self) {
-    self.close().expect("should not fail");
+    let _ = self.close();
   }
 }
 

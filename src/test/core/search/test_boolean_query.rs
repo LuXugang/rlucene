@@ -309,7 +309,7 @@ fn test_too_many_clauses() -> Result<()> {
 fn test_null_or_sub_scorer() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_to_type = HashMap::new();
 
@@ -355,7 +355,7 @@ fn test_null_or_sub_scorer() -> Result<()> {
 fn test_de_morgan() -> Result<()> {
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let iw1 = RandomIndexWriter::new(&mut random, dir1);
+  let iw1 = RandomIndexWriter::new(&mut random, dir1)?;
   let mut field_to_type = HashMap::new();
   let mut doc1 = Document::new();
   doc1.add(new_text_field(
@@ -370,7 +370,7 @@ fn test_de_morgan() -> Result<()> {
   iw1.close(&mut random)?;
 
   let dir2 = new_directory_shared(&mut random)?;
-  let iw2 = RandomIndexWriter::new(&mut random, dir2);
+  let iw2 = RandomIndexWriter::new(&mut random, dir2)?;
   let mut doc2 = Document::new();
   doc2.add(new_text_field(
     &mut random,
@@ -406,7 +406,7 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let num_docs = at_least(&mut random, 300);
@@ -524,7 +524,7 @@ fn test_min_should_match_leniency() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut doc = Document::new();
@@ -566,7 +566,7 @@ where
 fn test_filter_clause_behaves_like_must() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_to_type = HashMap::new();
 
@@ -653,7 +653,7 @@ where
 fn test_filter_clause_does_not_impact_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_to_type = HashMap::new();
 
@@ -724,7 +724,7 @@ fn test_conjunction_propagates_approximations() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -768,7 +768,7 @@ fn test_disjunction_propagates_approximations() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -810,7 +810,7 @@ fn test_boosted_scorer_propagates_approximations() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -854,7 +854,7 @@ fn test_exclusion_propagates_approximations() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -899,7 +899,7 @@ fn test_req_opt_propagates_approximations() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -941,7 +941,7 @@ fn test_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let random_num_docs = TestUtil::next_int(&mut random, 10, 101) as usize;
@@ -995,7 +995,7 @@ fn test_query_matches_count() -> Result<()> {
 fn test_conjunction_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut doc = Document::new();
   let mut long_point = LongPoint::new("long", [3i64])?;
@@ -1084,7 +1084,7 @@ fn test_conjunction_matches_count() -> Result<()> {
 fn test_disjunction_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut doc = Document::new();
   let mut long_point = LongPoint::new("long", [3i64])?;
@@ -1282,7 +1282,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   }
 
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -1457,7 +1457,7 @@ fn test_disjunction_two_clauses_matches_count_and_score() -> Result<()> {
   ];
 
   {
-    let mut iwc = new_index_writer_config(&mut random);
+    let mut iwc = new_index_writer_config(&mut random)?;
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -1513,7 +1513,7 @@ fn test_disjunction_random_clauses_matches_count() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   {
-    let mut iwc = new_index_writer_config(&mut random);
+    let mut iwc = new_index_writer_config(&mut random)?;
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -1553,7 +1553,7 @@ fn test_disjunction_random_clauses_matches_count() -> Result<()> {
 fn test_prohibited_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut doc = Document::new();
   doc.add(LongPoint::new("long", vec![3])?);
@@ -1641,7 +1641,7 @@ fn test_prohibited_matches_count() -> Result<()> {
 fn test_random_boolean_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut doc = Document::new();
   doc.add(LongPoint::new("long", [3])?);

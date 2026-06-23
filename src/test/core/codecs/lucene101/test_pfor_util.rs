@@ -96,6 +96,6 @@ fn encode_test_data(iterations: usize, values: &[i32], dir: &impl Directory) -> 
     pfor_util.encode(&mut source, &mut out)?;
   }
 
-  let end_pointer = out.get_file_pointer();
+  let end_pointer = out.get_file_pointer()?;
   Ok(end_pointer)
 }

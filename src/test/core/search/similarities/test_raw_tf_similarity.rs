@@ -42,7 +42,7 @@ where
   let directory = new_directory_shared(random)?;
 
   {
-    let index_writer = IndexWriter::new(directory.clone(), new_index_writer_config(random))?;
+    let index_writer = IndexWriter::new(directory.clone(), new_index_writer_config(random)?)?;
     let mut field_types = HashMap::new();
     let mut document1 = Document::new();
     let mut document2 = Document::new();

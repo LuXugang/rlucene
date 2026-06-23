@@ -90,7 +90,7 @@ pub fn build_index(dir: Arc<DirEnum>) -> Result<()> {
   // we need at least 3 for maxTokenLength otherwise norms are messed up
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 3, MAX_TERM_LENGTH));
 
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let provider = MySimProvider;
   config.set_similarity(SimilarityEnum::custom(provider));
 
@@ -119,7 +119,7 @@ fn test_empty_value_vs_no_value() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;

@@ -61,7 +61,7 @@ fn test_phrase_prefix() -> Result<()> {
   let index_store = new_directory_shared(&mut random)?;
 
   let mut field_to_type = HashMap::new();
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = RandomIndexWriter::with_config(&mut random, index_store.clone(), config);
 
   add(&mut random, "blueberry pie", &writer, &mut field_to_type)?;
@@ -204,7 +204,7 @@ fn test_tall() -> Result<()> {
   let index_store = new_directory_shared(&mut random)?;
 
   let mut field_to_type = HashMap::new();
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = RandomIndexWriter::with_config(&mut random, index_store.clone(), config);
 
   add(
@@ -241,7 +241,7 @@ fn test_multi_sloppy_with_repeats() -> Result<()> {
   let index_store = new_directory_shared(&mut random)?;
 
   let mut field_to_type = HashMap::new();
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = RandomIndexWriter::with_config(&mut random, index_store.clone(), config);
 
   add(
@@ -272,7 +272,7 @@ fn test_multi_exact_with_repeats() -> Result<()> {
   let index_store = new_directory_shared(&mut random)?;
 
   let mut field_to_type = HashMap::new();
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = RandomIndexWriter::with_config(&mut random, index_store.clone(), config);
 
   add(
@@ -330,7 +330,7 @@ fn test_boolean_query_containing_single_term_prefix_query() -> Result<()> {
   let mut random = random();
 
   let index_store = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, index_store.clone());
+  let writer = RandomIndexWriter::new(&mut random, index_store.clone())?;
 
   let mut field_to_type = HashMap::new();
   add(&mut random, "blueberry pie", &writer, &mut field_to_type)?;
@@ -382,7 +382,7 @@ fn test_phrase_prefix_with_boolean_query() -> Result<()> {
   let mut random = random();
 
   let index_store = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, index_store.clone());
+  let writer = RandomIndexWriter::new(&mut random, index_store.clone())?;
 
   let mut field_to_type = HashMap::new();
   add_with_type(
@@ -425,7 +425,7 @@ fn test_no_docs() -> Result<()> {
   let mut random = random();
 
   let index_store = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, index_store.clone());
+  let writer = RandomIndexWriter::new(&mut random, index_store.clone())?;
   let mut field_to_type = HashMap::new();
   add_with_type(&mut random, "a note", "note", &writer, &mut field_to_type)?;
 
@@ -548,7 +548,7 @@ fn test_zero_pos_incr() -> Result<()> {
     make_token("c", 0)?,
   ];
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(TextField::from_token_stream(
@@ -664,7 +664,7 @@ fn test_zero_pos_incr_sloppy_parsed_and() -> Result<()> {
 fn do_test_zero_pos_incr_sloppy(query: impl Into<Query>, n_expected: i32) -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = RandomIndexWriter::with_config(&mut random, dir, config);
 
   let mut doc = Document::new();

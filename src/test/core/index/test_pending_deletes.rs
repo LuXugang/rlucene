@@ -104,7 +104,7 @@ pub(crate) trait TestPendingDeletesBase {
       None,
     )?;
     let commit_info = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
-    let meta = (&commit_info).into();
+    let meta = commit_info.to_meta()?;
     let mut deletes = self.new_pending_deletes(&meta)?;
     assert!(deletes.get_live_docs().is_none());
 
@@ -153,7 +153,7 @@ pub(crate) trait TestPendingDeletesBase {
     let mut commit_info =
       SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
 
-    let meta = (&commit_info).into();
+    let meta = commit_info.to_meta()?;
     let mut deletes = self.new_pending_deletes(&meta)?;
     assert!(!deletes.write_live_docs(dir.clone(), &mut commit_info)?);
     assert_eq!(dir.list_all()?.len(), 0);
@@ -251,7 +251,7 @@ pub(crate) trait TestPendingDeletesBase {
       &field_infos,
       &IOContext::default_io_context()?,
     )?;
-    let meta = (&commit_info).into();
+    let meta = commit_info.to_meta()?;
     let mut deletes = self.new_pending_deletes(&meta)?;
 
     for i in 0..3 {

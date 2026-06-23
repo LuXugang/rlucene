@@ -45,7 +45,7 @@ where
   R: Rng + ?Sized,
 {
   let directory = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, directory.clone());
+  let writer = RandomIndexWriter::new(random, directory.clone())?;
   let mut doc = Document::new();
   let mut field_to_type = HashMap::new();
   doc.add(new_text_field(

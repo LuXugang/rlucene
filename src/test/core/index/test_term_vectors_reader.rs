@@ -100,7 +100,7 @@ impl TestTermVectorsReader {
 
     let dir = new_directory_shared(&mut random)?;
     let mut config =
-      new_index_writer_config_with_analyzer(&mut random, MyAnalyzer::new(tokens.clone()));
+      new_index_writer_config_with_analyzer(&mut random, MyAnalyzer::new(tokens.clone()))?;
     config.set_max_buffered_docs(-1);
     config.set_merge_policy(LogMergePolicy::log_doc());
     config.set_use_compound_file(false);
@@ -330,7 +330,7 @@ fn test_illegal_payloads_without_positions() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock)?;
 
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(true)?;
@@ -361,7 +361,7 @@ fn test_illegal_offsets_without_vectors() -> Result<()> {
 
   let mut a = MockAnalyzer::new(&mut random);
   a.set_enable_checks(false);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a)?;
 
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(false)?;
@@ -391,7 +391,7 @@ fn test_illegal_positions_without_vectors() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), mock)?;
 
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(false)?;
@@ -420,7 +420,7 @@ fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut a = MockAnalyzer::new(&mut random);
   a.set_enable_checks(false);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a)?;
 
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   ft.set_store_term_vectors(false)?;
@@ -450,7 +450,7 @@ fn test_illegal_vectors_without_indexed() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut a = MockAnalyzer::new(&mut random);
   a.set_enable_checks(false);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a)?;
 
   let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
   ft.set_store_term_vectors(true)?;
@@ -479,7 +479,7 @@ fn test_illegal_vector_positions_without_indexed() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut a = MockAnalyzer::new(&mut random);
   a.set_enable_checks(false);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a)?;
 
   let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
   ft.set_store_term_vector_positions(true)?;
@@ -508,7 +508,7 @@ fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut a = MockAnalyzer::new(&mut random);
   a.set_enable_checks(false);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a)?;
 
   let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
   ft.set_store_term_vector_offsets(true)?;
@@ -537,7 +537,7 @@ fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut a = MockAnalyzer::new(&mut random);
   a.set_enable_checks(false);
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), a)?;
 
   let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
   ft.set_store_term_vector_payloads(true)?;

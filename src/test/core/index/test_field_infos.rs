@@ -50,7 +50,7 @@ fn test_field_infos() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -121,7 +121,7 @@ fn test_field_attributes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -176,7 +176,7 @@ fn test_field_attributes_single_segment() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -225,7 +225,7 @@ fn test_field_attributes_single_segment() -> Result<()> {
 fn test_merged_field_infos_empty() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
@@ -240,7 +240,7 @@ fn test_merged_field_infos_single_leaf() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let mut d1 = Document::new();

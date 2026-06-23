@@ -33,7 +33,7 @@ struct TestInfoStream;
 fn test_test_points_off() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = IndexWriterConfig::new();
+  let mut iwc = IndexWriterConfig::new()?;
   iwc.set_info_stream(InfoStreamEnum::Custom(Box::new(NoTestPointsInfoStream)));
   let iw = IndexWriter::new(dir, iwc)?;
   iw.add_document(Document::new())?;
@@ -46,7 +46,7 @@ fn test_test_points_off() -> Result<()> {
 fn test_test_points_on() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = IndexWriterConfig::new();
+  let mut iwc = IndexWriterConfig::new()?;
   let seen_test_point = Arc::new(AtomicBool::new(false));
   iwc.set_info_stream(InfoStreamEnum::Custom(Box::new(TestPointsInfoStream {
     seen_test_point: seen_test_point.clone(),

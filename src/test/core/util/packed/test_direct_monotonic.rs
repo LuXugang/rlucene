@@ -69,7 +69,7 @@ pub fn test_empty() -> Result<()> {
     let mut writer =
       DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 0, block_shift)?;
     writer.finish()?;
-    data_length = data_out.get_file_pointer();
+    data_length = data_out.get_file_pointer()?;
   }
 
   {
@@ -104,7 +104,7 @@ pub fn test_simple() -> Result<()> {
       writer.add(v)?;
     }
     writer.finish()?;
-    data_length = data_out.get_file_pointer();
+    data_length = data_out.get_file_pointer()?;
   }
 
   {
@@ -146,7 +146,7 @@ pub fn test_constant_slope() -> Result<()> {
       writer.add(v)?;
     }
     writer.finish()?;
-    data_length = data_out.get_file_pointer();
+    data_length = data_out.get_file_pointer()?;
   }
 
   {
@@ -189,7 +189,7 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
       writer.add(0)?;
     }
     writer.finish()?;
-    data_length = data_out.get_file_pointer();
+    data_length = data_out.get_file_pointer()?;
   }
 
   {
@@ -261,7 +261,7 @@ where
         writer.add(v)?;
       }
       writer.finish()?;
-      data_length = data_out.get_file_pointer();
+      data_length = data_out.get_file_pointer()?;
     }
 
     {

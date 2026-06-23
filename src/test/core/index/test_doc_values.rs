@@ -43,7 +43,7 @@ struct TestDocValues;
 fn test_empty_index() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let doc = Document::new();
   writer.add_document(doc)?;
 
@@ -69,7 +69,7 @@ fn test_empty_index() -> Result<()> {
 fn test_misconfigured_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
@@ -108,7 +108,7 @@ fn test_misconfigured_field() -> Result<()> {
 fn test_numeric_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("foo", 3));
@@ -146,7 +146,7 @@ fn test_numeric_field() -> Result<()> {
 fn test_binary_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let mut doc = Document::new();
   doc.add(BinaryDocValuesField::new(
@@ -188,7 +188,7 @@ fn test_binary_field() -> Result<()> {
 fn test_sorted_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let mut doc = Document::new();
   doc.add(SortedDocValuesField::new(
@@ -229,7 +229,7 @@ fn test_sorted_field() -> Result<()> {
 fn test_sorted_set_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let mut doc = Document::new();
   doc.add(SortedSetDocValuesField::new(
@@ -271,7 +271,7 @@ fn test_sorted_set_field() -> Result<()> {
 fn test_sorted_numeric_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let mut doc = Document::new();
   doc.add(SortedNumericDocValuesField::new("foo", 3));

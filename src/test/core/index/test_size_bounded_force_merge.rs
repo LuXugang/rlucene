@@ -59,23 +59,23 @@ where
   Ok(())
 }
 
-fn new_writer_config<R>(random: &mut R) -> IndexWriterConfig
+fn new_writer_config<R>(random: &mut R) -> Result<IndexWriterConfig>
 where
   R: Rng + ?Sized,
 {
-  let mut conf = new_index_writer_config(random);
+  let mut conf = new_index_writer_config(random)?;
   conf.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
   conf.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
   conf.set_use_compound_file(false);
   conf.set_merge_policy(NoMergePolicy::default());
-  conf
+  Ok(conf)
 }
 #[test]
 fn test_byte_size_limit() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(ByteBuffersDirectory::new());
 
-  let conf = new_writer_config(&mut random);
+  let conf = new_writer_config(&mut random)?;
   let num_segments = 15;
   {
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
@@ -98,7 +98,7 @@ fn test_byte_size_limit() -> Result<()> {
 
   let min = sis.info(0).unwrap().size_in_bytes()? as f64;
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_bytes_size();
   lmp.set_max_merge_mb_for_forced_merge(min / ((1 << 20) as f64));
   conf.set_merge_policy(lmp);
@@ -119,7 +119,7 @@ fn test_num_docs_limit() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs(&mut writer, 3)?;
     add_docs(&mut writer, 3)?;
@@ -131,7 +131,7 @@ fn test_num_docs_limit() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   conf.set_merge_policy(lmp);
@@ -151,7 +151,7 @@ fn test_last_segment_too_large() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs(&mut writer, 3)?;
     add_docs(&mut writer, 3)?;
@@ -160,7 +160,7 @@ fn test_last_segment_too_large() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   conf.set_merge_policy(lmp);
@@ -180,7 +180,7 @@ fn test_first_segment_too_large() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs(&mut writer, 5)?;
     add_docs(&mut writer, 3)?;
@@ -189,7 +189,7 @@ fn test_first_segment_too_large() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   conf.set_merge_policy(lmp);
@@ -209,7 +209,7 @@ fn test_all_segments_small() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs(&mut writer, 3)?;
     add_docs(&mut writer, 3)?;
@@ -218,7 +218,7 @@ fn test_all_segments_small() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   conf.set_merge_policy(lmp);
@@ -238,7 +238,7 @@ fn test_all_segments_large() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs(&mut writer, 3)?;
     add_docs(&mut writer, 3)?;
@@ -246,7 +246,7 @@ fn test_all_segments_large() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(2);
   conf.set_merge_policy(lmp);
@@ -266,7 +266,7 @@ fn test_one_large_one_small() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs(&mut writer, 3)?;
     add_docs(&mut writer, 5)?;
@@ -275,7 +275,7 @@ fn test_one_large_one_small() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   conf.set_merge_policy(lmp);
@@ -295,7 +295,7 @@ fn test_merge_factor() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs(&mut writer, 3)?;
     add_docs(&mut writer, 3)?;
@@ -307,7 +307,7 @@ fn test_merge_factor() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   lmp.set_merge_factor(2)?;
@@ -328,7 +328,7 @@ fn test_single_mergeable_segment() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs_with_id(&mut writer, 3, true)?;
     add_docs_with_id(&mut writer, 5, true)?;
@@ -337,7 +337,7 @@ fn test_single_mergeable_segment() -> Result<()> {
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   conf.set_merge_policy(lmp);
@@ -358,13 +358,13 @@ fn test_single_non_mergeable_segment() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs_with_id(&mut writer, 3, true)?;
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(3);
   conf.set_merge_policy(lmp);
@@ -384,14 +384,14 @@ fn test_single_mergeable_too_large_segment() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   {
-    let conf = new_writer_config(&mut random);
+    let conf = new_writer_config(&mut random)?;
     let mut writer = IndexWriter::new(dir.clone(), conf)?;
     add_docs_with_id(&mut writer, 5, true)?;
     writer.delete_documents_with_terms(vec![Term::from_text("id", "4")])?;
     writer.close()?;
   }
 
-  let mut conf = new_writer_config(&mut random);
+  let mut conf = new_writer_config(&mut random)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_max_merge_docs(2);
   conf.set_merge_policy(lmp);

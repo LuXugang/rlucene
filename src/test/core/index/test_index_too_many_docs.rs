@@ -45,7 +45,7 @@ fn test_index_too_many_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let num_max_doc = 25;
-  let mut config = new_index_writer_config(&mut random);
+  let mut config = new_index_writer_config(&mut random)?;
   config.set_ram_buffer_size_mb(0.000001);
   let writer = IndexWriter::new(dir.clone(), config)?;
 

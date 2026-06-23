@@ -70,7 +70,7 @@ fn test() -> Result<()> {
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("bagofpositions")?)?;
 
   let a = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
   let thread_count = TestUtil::next_int(&mut random, 1, 5);

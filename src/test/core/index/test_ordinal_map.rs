@@ -50,7 +50,7 @@ fn test_one_segment_with_all_values() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut cfg = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut cfg = new_index_writer_config_with_analyzer(&mut random, mock)?;
   cfg.set_merge_policy(NoMergePolicy::default());
 
   let iw = IndexWriter::new(dir.clone(), cfg)?;

@@ -105,7 +105,7 @@ where
   let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
   let mut v = BitSetIterator::new(set, cardinality as i64)?;
   let jump_count = write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
-  let length = out.get_file_pointer();
+  let length = out.get_file_pointer()?;
   drop(out);
 
   let mut disi2 = BitSetIterator::new(v.bits, cardinality as i64)?;
@@ -167,7 +167,7 @@ fn test_position_not_zero() -> Result<()> {
     &mut out,
     dense_rank_power,
   )? as i32;
-  let length = out.get_file_pointer();
+  let length = out.get_file_pointer()?;
   drop(out);
 
   let full_input = dir.open_input("foo", &IOContext::default_io_context()?)?;
@@ -254,7 +254,7 @@ where
   let jump_table_entry_count =
     { write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32 };
 
-  let length = out.get_file_pointer();
+  let length = out.get_file_pointer()?;
   drop(out);
 
   let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
@@ -371,7 +371,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
   let mut v = BitSetIterator::new(set, MAX_ARRAY_LENGTH as i64)?;
   let jump_table_entry_count =
     { write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32 };
-  let length = out.get_file_pointer();
+  let length = out.get_file_pointer()?;
   drop(out);
 
   let mut set = v.bits;
@@ -397,7 +397,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
   let mut v = BitSetIterator::new(set.clone(), (MAX_ARRAY_LENGTH + 1) as i64)?;
   write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)?;
   let set = v.bits;
-  let length = out.get_file_pointer();
+  let length = out.get_file_pointer()?;
   drop(out);
 
   {
@@ -492,7 +492,7 @@ fn create_and_open_disi(write_power: i8, read_power: i8) -> Result<()> {
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
   let mut v = BitSetIterator::new(set.clone(), set.cardinality() as i64)?;
   let jump_count = write_bitset_with_dense_rank_power(&mut v, &mut out, write_power)? as i32;
-  let length = out.get_file_pointer();
+  let length = out.get_file_pointer()?;
   drop(out);
 
   let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
@@ -527,7 +527,7 @@ fn test_one_doc_missing_fixed() -> Result<()> {
   let mut v = BitSetIterator::new(set, cardinality)?;
   let jump_table_entry_count =
     write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
-  let length = out.get_file_pointer();
+  let length = out.get_file_pointer()?;
   drop(out);
 
   let mut disi2 = BitSetIterator::new(v.bits, cardinality)?;
@@ -603,7 +603,7 @@ where
     let mut v = BitSetIterator::new(set, cardinality)?;
     jump_table_entry_count =
       write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
-    length = out.get_file_pointer();
+    length = out.get_file_pointer()?;
     v.bits
   };
 

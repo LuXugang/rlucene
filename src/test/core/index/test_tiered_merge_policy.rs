@@ -255,7 +255,7 @@ fn test_force_merge_deletes() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   let mut tmp = new_tiered_merge_policy(&mut random);
 
@@ -327,7 +327,7 @@ fn test_partial_merge() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
-    let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
     conf.set_merge_scheduler(SerialMergeScheduler::new());
 
@@ -414,7 +414,7 @@ fn test_force_merge_deletes_max_seg_size() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   let mut tmp = TieredMergePolicy::new();
   tmp.set_max_merged_segment_mb(0.01)?;
@@ -481,7 +481,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let mut tmp = TieredMergePolicy::new();
 
   let mb_size = 0.004;
@@ -1069,7 +1069,7 @@ fn test_unbalanced_merge_selection() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   let tmp = match iwc.get_merge_policy_mut() {
     MergePolicyEnum::Tiered(t) => t,

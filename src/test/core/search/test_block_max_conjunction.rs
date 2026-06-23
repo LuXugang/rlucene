@@ -62,7 +62,7 @@ where
 fn test_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let num_docs = at_least(&mut random, 1000);
 
   for _ in 0..num_docs {

@@ -86,7 +86,7 @@ where
     self
       .queue
       .top()
-      .expect("priority queue top element should exist")
+      .ok_or_else(|| LuceneError::illegal_state("priority queue top element should exist"))?
       .start_position()
   }
 
@@ -94,15 +94,15 @@ where
     self
       .queue
       .top()
-      .expect("priority queue top element should exist")
-      .end_position()
+      .map(MatchesIterator::end_position)
+      .unwrap_or(-1)
   }
 
   fn start_offset(&self) -> Result<i32> {
     self
       .queue
       .top()
-      .expect("priority queue top element should exist")
+      .ok_or_else(|| LuceneError::illegal_state("priority queue top element should exist"))?
       .start_offset()
   }
 
@@ -110,7 +110,7 @@ where
     self
       .queue
       .top()
-      .expect("priority queue top element should exist")
+      .ok_or_else(|| LuceneError::illegal_state("priority queue top element should exist"))?
       .end_offset()
   }
 
@@ -131,8 +131,8 @@ where
     self
       .queue
       .top()
-      .expect("priority queue top element should exist")
-      .get_query()
+      .map(MatchesIterator::get_query)
+      .unwrap_or_else(|| Arc::new(Query::default()))
   }
 }
 

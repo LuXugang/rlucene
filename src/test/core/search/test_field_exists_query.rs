@@ -74,7 +74,7 @@ fn test_doc_values_rewrite_with_terms_present() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
   let num_docs = at_least(&mut random, 100);
 
@@ -106,7 +106,7 @@ fn test_doc_values_rewrite_with_point_values_present() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
   let num_docs = at_least(&mut random, 100);
 
@@ -134,7 +134,7 @@ fn test_doc_values_no_rewrite() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
   let num_docs = at_least(&mut random, 100);
 
@@ -176,7 +176,7 @@ fn test_doc_values_no_rewrite_with_doc_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
   let num_docs = at_least(&mut random, 100);
 
@@ -213,7 +213,7 @@ fn test_doc_values_random() -> Result<()> {
   let iters = at_least(&mut random, 10);
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = at_least(&mut random, 100);
 
     for _ in 0..num_docs {
@@ -273,7 +273,7 @@ fn test_doc_values_approximation() -> Result<()> {
 
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let config = new_index_writer_config(&mut random);
+    let config = new_index_writer_config(&mut random)?;
     let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
     let num_docs = at_least(&mut random, 100);
@@ -335,7 +335,7 @@ fn test_doc_values_score() -> Result<()> {
 
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let config = new_index_writer_config(&mut random);
+    let config = new_index_writer_config(&mut random)?;
     let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
     let num_docs = at_least(&mut random, 100);
@@ -388,7 +388,7 @@ fn test_doc_values_missing_field() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   iw.add_document(&mut random, Document::new())?;
   iw.commit(&mut random)?;
@@ -406,7 +406,7 @@ fn test_doc_values_all_docs_have_field() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("f", 1));
@@ -426,7 +426,7 @@ fn test_doc_values_field_exists_but_no_docs_have_field() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("f", 1));
@@ -449,7 +449,7 @@ fn test_doc_values_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
   let random_num_docs = random.random_range(11..=100);
@@ -509,7 +509,7 @@ fn test_norms_random() -> Result<()> {
   let iters = at_least(&mut random, 10);
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = at_least(&mut random, 100);
 
     for _ in 0..num_docs {
@@ -557,7 +557,7 @@ fn test_norms_approximation() -> Result<()> {
 
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let config = new_index_writer_config(&mut random);
+    let config = new_index_writer_config(&mut random)?;
     let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
     let num_docs = at_least(&mut random, 100);
@@ -616,7 +616,7 @@ fn test_norms_score() -> Result<()> {
 
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let config = new_index_writer_config(&mut random);
+    let config = new_index_writer_config(&mut random)?;
     let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
     let num_docs = at_least(&mut random, 100);
@@ -666,7 +666,7 @@ fn test_norms_missing_field() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   iw.add_document(&mut random, Document::new())?;
   iw.commit(&mut random)?;
@@ -684,7 +684,7 @@ fn test_norms_all_docs_have_field() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("f", "value", Store::No)?);
@@ -704,7 +704,7 @@ fn test_norms_field_exists_but_no_docs_have_field() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("f", "value", Store::No)?);
@@ -726,7 +726,7 @@ fn test_norms_field_exists_but_no_docs_have_field() -> Result<()> {
 fn test_norms_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let random_num_docs = TestUtil::next_int(&mut random, 10, 100);
 
@@ -825,7 +825,7 @@ fn test_knn_vector_random() -> Result<()> {
 
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = at_least(&mut random, 100);
 
     for _ in 0..num_docs {
@@ -879,7 +879,7 @@ fn test_knn_vector_random() -> Result<()> {
 fn test_knn_vector_missingfield() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   iw.add_document(&mut random, Document::new())?;
   iw.commit(&mut random)?;
@@ -897,7 +897,7 @@ fn test_knn_vector_missingfield() -> Result<()> {
 fn test_knn_vector_all_docs_have_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   for _ in 0..100 {
     let mut doc = Document::new();
@@ -925,7 +925,7 @@ fn test_knn_vector_all_docs_have_field() -> Result<()> {
 fn test_delete_knn_vector() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let num_docs = at_least(&mut random, 100) as usize;
 
   let all_docs_have_vector = random.random_bool(0.5);
@@ -965,7 +965,7 @@ fn test_delete_knn_vector() -> Result<()> {
 fn test_knn_vector_conjunction() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let num_docs = at_least(&mut random, 100);
   let mut num_vectors = 0;
 
@@ -1014,7 +1014,7 @@ fn test_knn_vector_conjunction() -> Result<()> {
 fn test_knn_vector_field_exists_but_no_docs_have_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(KnnFloatVectorField::new(
@@ -1051,7 +1051,7 @@ where
 fn test_delete_all_point_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "0", Store::No)?);
@@ -1087,7 +1087,7 @@ fn test_delete_all_point_docs() -> Result<()> {
 fn test_delete_all_term_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "0", Store::No)?);

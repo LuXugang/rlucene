@@ -39,7 +39,7 @@ struct TestIndexWriterFromReader;
 fn test_right_after_commit() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.commit()?;
 
@@ -50,7 +50,7 @@ fn test_right_after_commit() -> Result<()> {
   let commit = r.get_index_commit()?;
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
   )?;
 
@@ -69,7 +69,7 @@ fn test_right_after_commit() -> Result<()> {
 fn test_from_non_nrt_reader() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.close()?;
   drop(w);
@@ -80,7 +80,7 @@ fn test_from_non_nrt_reader() -> Result<()> {
 
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), None)?,
   )?;
 
@@ -104,7 +104,7 @@ fn test_with_no_first_commit() -> Result<()> {
 fn test_after_commit_then_index() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.commit()?;
   w.add_document(Document::new())?;
@@ -116,7 +116,7 @@ fn test_after_commit_then_index() -> Result<()> {
   let commit = r.get_index_commit()?;
   let result = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
   );
   match result {
@@ -134,7 +134,7 @@ fn test_after_commit_then_index() -> Result<()> {
 fn test_nrt_rollback() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.commit()?;
 
@@ -148,7 +148,7 @@ fn test_nrt_rollback() -> Result<()> {
   let commit = r.get_index_commit()?;
   let result = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
   );
   match result {
@@ -169,7 +169,7 @@ fn test_random() -> Result<()> {
 
   let num_ops = at_least(&mut random, 100);
 
-  let mut w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let mut w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   w.commit()?;
 
@@ -234,7 +234,7 @@ fn test_random() -> Result<()> {
             let commit = r.get_index_commit()?;
             w = IndexWriter::with_index_commit(
               dir.clone(),
-              new_index_writer_config(&mut random),
+              new_index_writer_config(&mut random)?,
               IndexCommitWrapper::new(Some(commit), Some(r), None)?,
             )?;
           } else {
@@ -242,7 +242,7 @@ fn test_random() -> Result<()> {
             let commit = r.get_index_commit()?;
             w = IndexWriter::with_index_commit(
               dir.clone(),
-              new_index_writer_config(&mut random),
+              new_index_writer_config(&mut random)?,
               IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
             )?;
           }
@@ -268,7 +268,7 @@ fn test_random() -> Result<()> {
 fn test_consistent_field_numbers() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let mut field_types = HashMap::<String, FieldType>::new();
 
   w.commit()?;
@@ -304,7 +304,7 @@ fn test_consistent_field_numbers() -> Result<()> {
   let commit = r2.get_index_commit()?;
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r2), Some(w))?,
   )?;
 
@@ -332,7 +332,7 @@ fn test_consistent_field_numbers() -> Result<()> {
 fn test_invalid_open_mode() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.commit()?;
 
@@ -340,7 +340,7 @@ fn test_invalid_open_mode() -> Result<()> {
   assert_eq!(1, r.max_doc()?);
   w.close()?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_open_mode(OpenMode::Create);
   let commit = r.get_index_commit()?;
   let result = IndexWriter::with_index_commit(
@@ -358,7 +358,7 @@ fn test_invalid_open_mode() -> Result<()> {
 fn test_on_closed_reader() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.commit()?;
 
@@ -370,7 +370,7 @@ fn test_on_closed_reader() -> Result<()> {
 
   let result = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
   );
   match result {
@@ -385,7 +385,7 @@ fn test_on_closed_reader() -> Result<()> {
 fn test_stale_nrt_reader() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.commit()?;
 
@@ -400,7 +400,7 @@ fn test_stale_nrt_reader() -> Result<()> {
   let commit = r.get_index_commit()?;
   let w = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
   )?;
   assert_eq!(1, w.get_doc_stats()?.num_docs);
@@ -421,7 +421,7 @@ fn test_stale_nrt_reader() -> Result<()> {
 fn test_after_rollback() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.commit()?;
   w.add_document(Document::new())?;
@@ -433,7 +433,7 @@ fn test_after_rollback() -> Result<()> {
   let commit = r.get_index_commit()?;
   let w = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
   )?;
   assert_eq!(2, w.get_doc_stats()?.num_docs);
@@ -449,7 +449,7 @@ fn test_after_rollback() -> Result<()> {
 fn test_after_commit_then_index_keep_commits() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
 
   iwc.set_index_deletion_policy(NoDeletionPolicy);
 
@@ -470,7 +470,7 @@ fn test_after_commit_then_index_keep_commits() -> Result<()> {
   let commit = r.get_index_commit()?;
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
-    new_index_writer_config(&mut random),
+    new_index_writer_config(&mut random)?,
     IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
   )?;
   assert_eq!(2, w2.get_doc_stats()?.max_doc);

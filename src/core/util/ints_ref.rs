@@ -106,10 +106,11 @@ where
       offset,
       length,
     };
-    debug_assert!(instance.is_valid().expect("not fail"));
+    debug_assert!(instance.is_valid().unwrap_or(false));
     instance
   }
   /// Performs internal consistency checks. Always returns true (or Error)
+  #[cfg(debug_assertions)]
   pub fn is_valid(&self) -> Result<bool> {
     self.ints.access(|ints| {
       if self.length > ints.len() {
@@ -137,11 +138,11 @@ where
       Ok(true)
     })
   }
-  pub fn ints_equals(&self, other: &IntsRef<AV>) -> Result<bool> {
+  pub fn ints_equals(&self, other: &IntsRef<AV>) -> bool {
     with_other!(self.ints, other.ints, |ints_bytes, other_bytes| {
       let self_slice = &ints_bytes[self.offset..(self.offset + self.length)];
       let other_slice = &other_bytes[other.offset..(other.offset + other.length)];
-      Ok(self_slice == other_slice)
+      self_slice == other_slice
     })
   }
   /// Creates a new IntsRef that points to a copy of the ints from `other`
@@ -197,9 +198,7 @@ where
   AV: SharedAccessVec<i32>,
 {
   fn eq(&self, other: &Self) -> bool {
-    self
-      .ints_equals(other)
-      .expect("IntsRef PartialEq#eq failed")
+    self.ints_equals(other)
   }
 }
 impl<AV> Eq for IntsRef<AV> where AV: SharedAccessVec<i32> {}

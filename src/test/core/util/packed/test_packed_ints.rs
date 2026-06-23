@@ -130,7 +130,7 @@ fn test_packed_ints() -> Result<()> {
       {
         let mut out = directory.create_output("out.bin", &io_context)?;
         let mem = random.random_range(0..2 * PackedInts::DEFAULT_BUFFER_SIZE);
-        let start_fp = out.get_file_pointer() as i64;
+        let start_fp = out.get_file_pointer()? as i64;
         let mut writer = PackedInts::get_writer_no_header(
           &mut out,
           Packed(PackedImpl::new(0)),
@@ -166,7 +166,7 @@ fn test_packed_ints() -> Result<()> {
           value_count as i32,
           writer.bits_per_value,
         );
-        fp = out.get_file_pointer() as i64;
+        fp = out.get_file_pointer()? as i64;
         assert_eq!(bytes, fp - start_fp);
       }
 
@@ -1267,7 +1267,7 @@ fn test_block_packed_reader_writer() -> Result<()> {
       assert_eq!(value_count, writer.ord());
       writer.finish(&mut out)?;
       assert_eq!(value_count, writer.ord());
-      fp = out.get_file_pointer();
+      fp = out.get_file_pointer()?;
     }
 
     let mut buf = vec![0u8; fp];
@@ -1409,7 +1409,7 @@ fn test_monotonic_block_packed_reader_writer() -> Result<()> {
       assert_eq!(value_count, writer.ord());
       writer.finish(&mut out)?;
       assert_eq!(value_count, writer.ord());
-      file_pointer = out.get_file_pointer();
+      file_pointer = out.get_file_pointer()?;
     }
     let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
     let reader = MonotonicBlockPackedReader::of(

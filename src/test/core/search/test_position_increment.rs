@@ -49,7 +49,7 @@ fn test_set_position() -> Result<()> {
     stored_value: AnalyzerStoredValue::new(),
   }) as Box<dyn Analyzer>;
   let store = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::with_analyzer(&mut random, store, analyzer);
+  let writer = RandomIndexWriter::with_analyzer(&mut random, store, analyzer)?;
   let mut d = Document::new();
   let mut field_to_type = HashMap::new();
   d.add(new_text_field(

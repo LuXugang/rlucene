@@ -51,7 +51,7 @@ where
 {
   let directory = new_directory_shared(random)?;
 
-  let index_writer = IndexWriter::new(directory.clone(), new_index_writer_config(random))?;
+  let index_writer = IndexWriter::new(directory.clone(), new_index_writer_config(random)?)?;
 
   let mut document = Document::new();
   document.add(StringField::from_string("test", "hit", Store::No)?);

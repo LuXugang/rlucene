@@ -67,7 +67,7 @@ fn test_upgrade_field_to_points() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   {
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -85,7 +85,7 @@ fn test_upgrade_field_to_points() -> Result<()> {
   }
 
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -101,7 +101,7 @@ fn test_illegal_dim_change_one_doc() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -128,7 +128,7 @@ fn test_illegal_dim_change_two_docs() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -159,7 +159,7 @@ fn test_illegal_dim_change_two_segments() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -195,7 +195,7 @@ fn test_illegal_dim_change_two_writers() -> Result<()> {
 
   {
     let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -206,7 +206,7 @@ fn test_illegal_dim_change_two_writers() -> Result<()> {
 
   {
     let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     let w2 = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc2 = Document::new();
@@ -234,7 +234,7 @@ fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
   doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
@@ -244,7 +244,7 @@ fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
 
   let dir2 = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let iwc2 = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc2 = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
   let mut doc = Document::new();
   doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
@@ -276,7 +276,7 @@ fn test_illegal_num_bytes_change_one_doc() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -305,7 +305,7 @@ fn test_illegal_num_bytes_change_two_docs() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -336,7 +336,7 @@ fn test_illegal_num_bytes_change_two_segments() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -373,7 +373,7 @@ fn test_illegal_num_bytes_change_two_writers() -> Result<()> {
 
   {
     let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
@@ -383,7 +383,7 @@ fn test_illegal_num_bytes_change_two_writers() -> Result<()> {
   }
 
   {
-    let iwc = new_index_writer_config(&mut random);
+    let iwc = new_index_writer_config(&mut random)?;
     let w2 = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc2 = Document::new();
@@ -412,7 +412,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
   doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
@@ -422,7 +422,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
 
   let dir2 = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc)?;
   let mut doc = Document::new();
   doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
@@ -454,7 +454,7 @@ fn test_illegal_too_many_bytes() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let err = BinaryPoint::new("dim", vec![vec![0u8; MAX_NUM_BYTES + 1]]);
@@ -477,7 +477,7 @@ fn test_illegal_too_many_dimensions() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut values: Vec<Vec<u8>> = Vec::with_capacity(MAX_INDEX_DIMENSIONS + 1);
@@ -619,7 +619,7 @@ fn test_tie_break_by_doc_id() -> Result<()> {
 
   let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -657,7 +657,7 @@ fn test_delete_all_point_docs() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_types = HashMap::new();
@@ -696,7 +696,7 @@ fn test_points_field_missing_from_one_segment() -> Result<()> {
 
   let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_types = HashMap::new();
@@ -729,7 +729,7 @@ fn test_sparse_points() -> Result<()> {
   let num_docs = at_least(&mut random, 1000);
   let num_fields = TestUtil::next_int(&mut random, 1, 10);
 
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_doc_counts = vec![0i32; num_fields as usize];
   let mut field_sizes = vec![0i32; num_fields as usize];
@@ -784,7 +784,7 @@ fn test_sparse_points() -> Result<()> {
 #[test]
 fn test_check_index_includes_points() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
-  let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   let mut doc = Document::new();
   doc.add(IntPoint::new("int1", vec![17])?);
   w.add_document(doc)?;
@@ -829,7 +829,7 @@ fn test_merged_stats_empty_reader() -> Result<()> {
 #[test]
 fn test_merged_stats_one_segment_without_points() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
-  let mut iwc = IndexWriterConfig::new();
+  let mut iwc = IndexWriterConfig::new()?;
   iwc.set_merge_policy(NoMergePolicy::default());
 
   let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -867,7 +867,7 @@ fn test_merged_stats_all_points_deleted() -> Result<()> {
 
   let dir = Arc::new(ByteBuffersDirectory::new());
 
-  let iwc = IndexWriterConfig::new();
+  let iwc = IndexWriterConfig::new()?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   w.add_document(Document::new())?;
@@ -934,7 +934,7 @@ where
 
   let dir = Arc::new(ByteBuffersDirectory::new());
 
-  let iwc = IndexWriterConfig::new();
+  let iwc = IndexWriterConfig::new()?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = TestUtil::next_int(random, 10, 20);

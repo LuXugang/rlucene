@@ -47,7 +47,7 @@ fn test_custom_lock_factory() -> Result<()> {
   let dir =
     new_directory_with_lock_factory(&mut random, LockFactoryEnum::Custom(Box::new(lf.clone())))?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(Arc::new(dir), iwc)?;
 
   // add 100 documents (so that commit lock is used)
@@ -75,13 +75,13 @@ fn test_directory_no_locking() -> Result<()> {
   let dir = new_directory_with_lock_factory(&mut random, NoLockFactory)?;
   let dir = Arc::new(dir);
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   writer.commit()?; // required so the second open succeed
 
   // Create a 2nd IndexWriter. This is normally not allowed but it should
   // run through since we're not using any locks:
-  let mut iwc2 = new_index_writer_config(&mut random);
+  let mut iwc2 = new_index_writer_config(&mut random)?;
   iwc2.set_open_mode(OpenMode::Append);
   let writer2 = IndexWriter::new(dir, iwc2);
   match writer2 {

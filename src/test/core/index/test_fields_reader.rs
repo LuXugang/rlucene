@@ -89,7 +89,7 @@ fn before_class() -> Result<(Document, Arc<DirEnum>)> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let mut mp = new_log_merge_policy(&mut random)?;
   mp.get_base_mut().set_no_cfs_ratio(0.0)?;
   conf.set_merge_policy(mp);

@@ -186,7 +186,7 @@ where
         },
       }
     }
-    score_mode.expect("MultiCollector requires at least one collector")
+    score_mode.unwrap_or(ScoreMode::CompleteNoScores)
   }
 
   fn set_weight<W, IRC>(&self, weight: Option<&W>) -> Result<()>
@@ -315,28 +315,11 @@ where
 
   // NOTE: not propagating collect(DocIdStream) since DocIdStreams may only be consumed once.
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-    self.collect_with_scorer(doc, scorer)
-  }
-
-  fn finish(&mut self) -> Result<()> {
-    for collector in self.collectors.iter_mut().flatten() {
-      collector.finish()?;
-    }
-    Ok(())
-  }
-}
-
-impl<LC> MultiLeafCollector<LC>
-where
-  LC: LeafCollector,
-{
-  fn collect_with_scorer(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
     if self.skip_non_competitive_scores {
+      let min_scores = self.min_scores.as_mut().ok_or_else(|| {
+        LuceneError::illegal_state("min scores exist when non-competitive scores are skipped")
+      })?;
       let collectors = &mut self.collectors;
-      let min_scores = self
-        .min_scores
-        .as_mut()
-        .expect("min scores exist when non-competitive scores are skipped");
       for idx in 0..collectors.len() {
         if let Some(collector) = collectors[idx].as_mut() {
           let mut scorer = MinCompetitiveScoreAwareScorable::new(scorer, idx, min_scores);
@@ -353,24 +336,30 @@ where
           }
         }
       }
-      return Ok(());
-    }
-
-    let mut scorer = FilterScorable::new(scorer);
-    for idx in 0..self.collectors.len() {
-      if let Some(collector) = self.collectors[idx].as_mut() {
-        match collector.collect(doc, &mut scorer) {
-          Ok(()) => {},
-          Err(LuceneError::CollectionTerminated(_)) => {
-            collector.finish()?;
-            self.collectors[idx] = None;
-            if self.all_collectors_terminated() {
-              return Err(LuceneError::collection_terminated(""));
-            }
-          },
-          Err(e) => return Err(e),
+    } else {
+      let mut scorer = FilterScorable::new(scorer);
+      for idx in 0..self.collectors.len() {
+        if let Some(collector) = self.collectors[idx].as_mut() {
+          match collector.collect(doc, &mut scorer) {
+            Ok(()) => {},
+            Err(LuceneError::CollectionTerminated(_)) => {
+              collector.finish()?;
+              self.collectors[idx] = None;
+              if self.all_collectors_terminated() {
+                return Err(LuceneError::collection_terminated(""));
+              }
+            },
+            Err(e) => return Err(e),
+          }
         }
       }
+    }
+    Ok(())
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    for collector in self.collectors.iter_mut().flatten() {
+      collector.finish()?;
     }
     Ok(())
   }

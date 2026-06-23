@@ -39,7 +39,7 @@ fn test_threaded_indexing() -> Result<()> {
 
   let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
 
-  let mut iwc = IndexWriterConfig::new();
+  let mut iwc = IndexWriterConfig::new()?;
   let max_buffered_docs = TestUtil::next_int(&mut random, 100, 2000);
   iwc.set_max_buffered_docs(max_buffered_docs);
 

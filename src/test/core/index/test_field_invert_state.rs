@@ -82,7 +82,7 @@ fn test_basic() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let fis = Arc::new(Mutex::new(FieldInvertState::default()));
   iwc.set_similarity(SimilarityEnum::custom(NeverForgetsSimilarity::new(
     fis.clone(),
@@ -120,7 +120,7 @@ fn test_random() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let fis = Arc::new(Mutex::new(FieldInvertState::default()));
   iwc.set_similarity(SimilarityEnum::custom(NeverForgetsSimilarity::new(
     fis.clone(),

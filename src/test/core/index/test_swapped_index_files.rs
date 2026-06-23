@@ -61,7 +61,7 @@ fn test() -> Result<()> {
 fn index_one_doc(seed: u64, dir: Arc<DirEnum>, doc: Document, use_cfs: bool) -> Result<()> {
   let mut random = StdRng::seed_from_u64(seed);
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   if !use_cfs {
     conf.set_use_compound_file(false);

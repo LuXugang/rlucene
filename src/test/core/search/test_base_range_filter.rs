@@ -120,7 +120,7 @@ where
 {
   loop {
     let analyzer = MockAnalyzer::new(random);
-    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
     config
       .set_open_mode(OpenMode::Create)
       .set_max_buffered_docs(TestUtil::next_int(random, 50, 1000))

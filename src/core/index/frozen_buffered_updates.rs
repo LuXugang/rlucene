@@ -715,7 +715,12 @@ where
         // this allows us depending on the term dict impl to reuse data-structures internally
         // which speed up iteration over terms and docs significantly.
         let cmp = term
-          .cmp(self.reader_term.as_ref().expect("reader_term must be set"))
+          .cmp(
+            self
+              .reader_term
+              .as_ref()
+              .ok_or_else(|| LuceneError::illegal_state("reader_term must be set"))?,
+          )
           .to_int();
 
         return if cmp < 0 {

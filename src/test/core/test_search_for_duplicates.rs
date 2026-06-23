@@ -67,7 +67,7 @@ where
 {
   let directory = new_directory_shared(random)?;
   let analyzer = MockAnalyzer::new(random);
-  let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
   conf.set_use_compound_file(use_compound_files);
   let writer = IndexWriter::new(directory.clone(), conf)?;
 

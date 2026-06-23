@@ -84,11 +84,11 @@ fn test_drop() -> Result<()> {
   let idx = random.random_range(0..segment_infos.segments.len());
   let readers_and_updates = {
     let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-    pool.get((&*commit_info).into(), true, None)?.unwrap()
+    pool.get(commit_info.to_meta()?, true, None)?.unwrap()
   };
 
   let same = pool
-    .get(segment_infos.info(idx).unwrap().into(), false, None)?
+    .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
     .unwrap();
   assert!(Arc::ptr_eq(&readers_and_updates, &same));
   let info_id = segment_infos
@@ -104,7 +104,7 @@ fn test_drop() -> Result<()> {
   }
   assert!(
     pool
-      .get(segment_infos.info(idx).unwrap().into(), false, None)?
+      .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
       .is_none()
   );
   pool.release(
@@ -147,7 +147,7 @@ fn test_pool_readers() -> Result<()> {
 
   let rau = {
     let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-    pool.get((&*commit_info).into(), true, None)?.unwrap()
+    pool.get(commit_info.to_meta()?, true, None)?.unwrap()
   };
   pool.release(
     &rau,
@@ -159,7 +159,7 @@ fn test_pool_readers() -> Result<()> {
 
   assert!(
     pool
-      .get(segment_infos.info(idx).unwrap().into(), false, None)?
+      .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
       .is_none()
   );
   // now start pooling
@@ -168,7 +168,7 @@ fn test_pool_readers() -> Result<()> {
 
   let rau = {
     let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-    pool.get((&*commit_info).into(), true, None)?.unwrap()
+    pool.get(commit_info.to_meta()?, true, None)?.unwrap()
   };
   pool.release(
     &rau,
@@ -179,10 +179,10 @@ fn test_pool_readers() -> Result<()> {
   )?;
 
   let pooled = pool
-    .get(segment_infos.info(idx).unwrap().into(), false, None)?
+    .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
     .unwrap();
   let pooled_again = pool
-    .get(segment_infos.info(idx).unwrap().into(), false, None)?
+    .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
     .unwrap();
   assert!(Arc::ptr_eq(&pooled, &pooled_again));
 
@@ -201,7 +201,7 @@ fn test_pool_readers() -> Result<()> {
   for idx in 0..segment_infos.segments.len() {
     let rau = {
       let info = segment_infos.info_idx_mut(idx).unwrap();
-      pool.get((&*info).into(), true, None)?.unwrap()
+      pool.get(info.to_meta()?, true, None)?.unwrap()
     };
     pool.release(
       &rau,
@@ -222,10 +222,10 @@ fn test_pool_readers() -> Result<()> {
     // ram_bytes_used = pool.ram_bytes_used();
 
     let a = pool
-      .get(segment_infos.info(idx).unwrap().into(), false, None)?
+      .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
       .unwrap();
     let b = pool
-      .get(segment_infos.info(idx).unwrap().into(), false, None)?
+      .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
       .unwrap();
     assert!(Arc::ptr_eq(&a, &b));
   }
@@ -236,7 +236,7 @@ fn test_pool_readers() -> Result<()> {
 
   for idx in 0..segment_infos.segments.len() {
     let info = segment_infos.info(idx).unwrap();
-    assert!(pool.get(info.into(), false, None)?.is_none());
+    assert!(pool.get(info.to_meta()?, false, None)?.is_none());
   }
 
   // TODO: memory calculation not implement
@@ -279,7 +279,7 @@ fn test_update() -> Result<()> {
   for (idx, seg_id) in segment_infos.seg_ids().clone().iter().enumerate() {
     let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
       let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-      let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
+      let readers_and_updates = pool.get(commit_info.to_meta()?, true, None)?.unwrap();
       let read_only_clone = readers_and_updates
         .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
         .unwrap();
@@ -373,7 +373,7 @@ fn test_update() -> Result<()> {
     if expect_update {
       let (readers_and_updates, updated_reader) = {
         let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-        let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
+        let readers_and_updates = pool.get(commit_info.to_meta()?, true, None)?.unwrap();
         let updated_reader = readers_and_updates
           .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
           .unwrap();
@@ -436,7 +436,7 @@ fn test_deletes() -> Result<()> {
   for idx in 0..segment_infos.segments.len() {
     let (read_only_clone, _max_doc, readers_and_updates, mut postings) = {
       let commit_info = segment_infos.info_idx_mut(idx).unwrap();
-      let readers_and_updates = pool.get((&*commit_info).into(), true, None)?.unwrap();
+      let readers_and_updates = pool.get(commit_info.to_meta()?, true, None)?.unwrap();
       let read_only_clone = readers_and_updates
         .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
         .unwrap();
@@ -491,7 +491,7 @@ fn test_deletes() -> Result<()> {
 
     let commit_info = segment_infos.info_idx_mut(idx).unwrap().clone();
     if expect_update {
-      let v = (&commit_info).into();
+      let v = commit_info.to_meta()?;
       let readers_and_updates = pool.get(v, true, None)?.unwrap();
       let updated_reader = readers_and_updates
         .get_read_only_clone(&IOContext::default_io_context()?, &commit_info)?
@@ -533,7 +533,7 @@ where
   D: Directory + 'static,
   R: Rng + ?Sized,
 {
-  let writer = IndexWriter::new(directory, new_index_writer_config(random))?;
+  let writer = IndexWriter::new(directory, new_index_writer_config(random)?)?;
   for i in 0..10 {
     let mut document = Document::new();
     document.add(StringField::from_string("id", i.to_string(), Yes)?);

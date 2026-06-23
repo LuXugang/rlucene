@@ -85,7 +85,7 @@ pub trait BaseMergePolicyTestCase {
     }
 
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_merge_scheduler(MergeSchedulerEnum::SerialTest(merge_scheduler));
     iwc.set_merge_policy(mp);
 

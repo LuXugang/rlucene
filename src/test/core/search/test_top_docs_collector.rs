@@ -221,7 +221,7 @@ where
   D: Directory + 'static,
 {
   let mut random = random();
-  let writer = RandomIndexWriter::new(&mut random, dir);
+  let writer = RandomIndexWriter::new(&mut random, dir)?;
   for _ in 0..30 {
     let _ = writer.add_document(&mut random, Document::new())?;
   }
@@ -439,7 +439,7 @@ impl FixedScore for Score {}
 fn test_set_min_competitive_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -510,7 +510,7 @@ fn test_shared_count_collector_manager() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -543,7 +543,7 @@ fn test_shared_count_collector_manager() -> Result<()> {
 fn test_total_hits() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -613,7 +613,7 @@ fn test_total_hits() -> Result<()> {
 fn test_relation_vs_top_docs_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -654,7 +654,7 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
 fn test_concurrent_min_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -781,7 +781,7 @@ fn test_concurrent_min_score() -> Result<()> {
 fn test_random_min_competitive_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let num_docs = at_least(&mut random, 1000);
   for _ in 0..num_docs {
@@ -841,7 +841,7 @@ fn test_random_min_competitive_score() -> Result<()> {
 fn test_realistic_concurrent_minimum_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   {
     let mut line_docs = LineFileDocs::new(&mut random)?;

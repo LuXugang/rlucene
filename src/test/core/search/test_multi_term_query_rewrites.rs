@@ -77,13 +77,13 @@ fn set_up<R: Rng + ?Sized>(
   let sdir2 = new_directory_shared(random)?;
 
   let mock = MockAnalyzer::new(random);
-  let writer = RandomIndexWriter::with_analyzer(random, dir.clone(), mock);
+  let writer = RandomIndexWriter::with_analyzer(random, dir.clone(), mock)?;
 
   let mock = MockAnalyzer::new(random);
-  let swriter1 = RandomIndexWriter::with_analyzer(random, sdir1.clone(), mock);
+  let swriter1 = RandomIndexWriter::with_analyzer(random, sdir1.clone(), mock)?;
 
   let mock = MockAnalyzer::new(random);
-  let swriter2 = RandomIndexWriter::with_analyzer(random, sdir2.clone(), mock);
+  let swriter2 = RandomIndexWriter::with_analyzer(random, sdir2.clone(), mock)?;
 
   let mut field_to_type = HashMap::new();
 

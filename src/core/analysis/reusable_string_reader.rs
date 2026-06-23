@@ -89,6 +89,6 @@ impl Reader for ReusableStringReader {
 }
 impl Drop for ReusableStringReader {
   fn drop(&mut self) {
-    self.close().expect("never fails");
+    let _ = self.close();
   }
 }

@@ -138,7 +138,7 @@ fn test_skip_to() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_types = HashMap::new();
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let mut writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let ta = Term::from_text("content", "aaa");

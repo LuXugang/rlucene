@@ -54,7 +54,7 @@ fn do_test_search(use_compound_file: bool) -> Result<String> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_use_compound_file(use_compound_file);
   let writer = IndexWriter::new(directory.clone(), conf)?;
 

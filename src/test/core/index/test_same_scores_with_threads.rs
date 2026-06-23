@@ -46,7 +46,7 @@ fn test() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
-  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer);
+  let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer)?;
   let mut docs = LineFileDocs::new(&mut random)?;
   let chars_to_index = at_least(&mut random, 100000);
   let mut chars_indexed = 0;

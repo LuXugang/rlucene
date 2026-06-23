@@ -38,7 +38,7 @@ fn test_rollback_integrity_with_buffer_flush() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let rw = RandomIndexWriter::new(&mut random, dir.clone());
+  let rw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   for i in 0..5 {
@@ -56,7 +56,7 @@ fn test_rollback_integrity_with_buffer_flush() -> Result<()> {
   drop(rw);
   // If buffer size is small enough to cause a flush, errors ensue...
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_max_buffered_docs(2);
   iwc.set_open_mode(OpenMode::Append);
 

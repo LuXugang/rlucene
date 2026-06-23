@@ -639,7 +639,7 @@ impl Operations {
           let limit = ends.next;
           for j in (0..limit).step_by(3) {
             let dest = transitions[j];
-            states_set.decr(dest);
+            states_set.decr(dest)?;
             if a.is_accept(dest) {
               acc_count -= 1;
             }

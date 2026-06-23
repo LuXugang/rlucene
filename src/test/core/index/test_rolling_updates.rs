@@ -62,7 +62,7 @@ fn test_rolling_updates() -> Result<()> {
 
   let w = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
   let size = at_least(&mut random, 20);
   let mut id = 0;
@@ -178,7 +178,7 @@ fn test_update_same_doc() -> Result<()> {
 
   for _ in 0..3 {
     let analyzer = MockAnalyzer::new(&mut random);
-    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     config.set_max_buffered_docs(2);
     let writer = IndexWriter::new(dir.clone(), config)?;
     let num_updates = at_least(&mut random, 20);

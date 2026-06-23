@@ -110,7 +110,7 @@ pub(crate) fn dummy_index_searcher(
 ) -> crate::core::util::error::lucene_error::Result<
   DefaultIndexSearcher<CompositeReaderContext<DummyCR>>,
 > {
-  let iw = IndexWriter::new(dir, IndexWriterConfig::new())?;
+  let iw = IndexWriter::new(dir, IndexWriterConfig::new()?)?;
   let mut doc = Document::new();
   doc.add(StringField::from_string(
     "id",

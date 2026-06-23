@@ -41,7 +41,7 @@ fn set_up() -> Result<Arc<StandardDirectoryReaderType<DirEnum>>> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::KEYWORD.clone(), false);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_max_buffered_docs(TestUtil::next_int(&mut random, 50, 1000));
   let writer = RandomIndexWriter::with_config(&mut random, dir, config);
 

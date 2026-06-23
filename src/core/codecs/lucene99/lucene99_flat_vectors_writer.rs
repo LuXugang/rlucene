@@ -213,7 +213,7 @@ where
       },
     }
 
-    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+    let vector_data_length = self.vector_data.get_file_pointer()? - vector_data_offset;
 
     write_meta(
       &mut self.meta,
@@ -267,7 +267,7 @@ where
         Self::write_sorted_float32_vectors(&mut self.vector_data, field_data, &ord_map, vectors)?
       },
     };
-    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+    let vector_data_length = self.vector_data.get_file_pointer()? - vector_data_offset;
 
     write_meta(
       &mut self.meta,
@@ -320,7 +320,7 @@ where
         write_vector_data(&mut self.vector_data, &mut merged_floats)?
       },
     };
-    let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+    let vector_data_length = self.vector_data.get_file_pointer()? - vector_data_offset;
     write_meta(
       &mut self.meta,
       &mut self.vector_data,
@@ -458,7 +458,7 @@ where
           .copy_bytes(&mut vector_data_input, copy_len)?;
         CodecUtil::retrieve_checksum(&mut vector_data_input)?;
 
-        let vector_data_length = self.vector_data.get_file_pointer() - vector_data_offset;
+        let vector_data_length = self.vector_data.get_file_pointer()? - vector_data_offset;
         write_meta(
           &mut self.meta,
           &mut self.vector_data,

@@ -77,7 +77,7 @@ fn test_basic_ints() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -122,7 +122,7 @@ fn test_basic_floats() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -174,7 +174,7 @@ fn test_basic_longs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -226,7 +226,7 @@ fn test_basic_doubles() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -278,7 +278,7 @@ fn test_crazy_doubles() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -430,7 +430,7 @@ fn test_crazy_floats() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -645,7 +645,7 @@ fn verify_longs<R>(random: &mut R, values: &[i64], ids: Option<&[i32]>) -> Resul
 where
   R: Rng + ?Sized,
 {
-  let mut iwc = new_index_writer_config(random);
+  let mut iwc = new_index_writer_config(random)?;
 
   let mbd = iwc.get_max_buffered_docs();
   if mbd != -1 && mbd < (values.len() / 100) as i32 {
@@ -883,7 +883,7 @@ fn verify_binary<R>(
 where
   R: Rng + ?Sized,
 {
-  let mut iwc = new_index_writer_config(random);
+  let mut iwc = new_index_writer_config(random)?;
 
   let num_dims = doc_values[0].len();
   let bytes_per_dim = doc_values[0][0].len();
@@ -1097,7 +1097,7 @@ fn test_min_max_long() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1156,7 +1156,7 @@ fn test_basic_sorted_set() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1263,7 +1263,7 @@ fn test_long_min_max_numeric() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1313,7 +1313,7 @@ fn test_long_min_max_sorted_set() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1364,7 +1364,7 @@ fn test_sorted_set_no_ords_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1400,7 +1400,7 @@ fn test_numeric_no_values_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1431,7 +1431,7 @@ fn test_no_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   w.add_document(&mut random, Document::new())?;
@@ -1453,7 +1453,7 @@ fn test_wrong_num_dims() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1491,7 +1491,7 @@ fn test_all_point_docs_were_deleted_and_then_merged_again() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -1537,7 +1537,7 @@ fn test_exact_points() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -1696,7 +1696,7 @@ fn test_random_point_in_set_query() -> Result<()> {
     new_directory_shared(&mut random)?
   };
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc_values = vec![0i32; num_docs];
@@ -1820,7 +1820,7 @@ fn new_multi_dim_int_set_query(field: &str, num_dims: usize, values_in: &[i32]) 
 fn test_basic_multi_dim_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -1854,7 +1854,7 @@ fn test_basic_multi_dim_point_in_set_query() -> Result<()> {
 fn test_basic_multi_value_multi_dim_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -1902,7 +1902,7 @@ fn test_basic_multi_value_multi_dim_point_in_set_query() -> Result<()> {
 fn test_many_equal_values_multi_dim_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut zero_count = 0;
@@ -1949,7 +1949,7 @@ fn test_invalid_multi_dim_point_in_set_query() -> Result<()> {
 fn test_basic_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -2157,7 +2157,7 @@ fn test_point_int_set_boxed() -> Result<()> {
 fn test_basic_multi_valued_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -2303,7 +2303,7 @@ fn test_basic_multi_valued_point_in_set_query() -> Result<()> {
 fn test_empty_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -2345,7 +2345,7 @@ fn test_empty_point_in_set_query() -> Result<()> {
 fn test_point_in_set_query_many_equal_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut zero_count = 0;
@@ -2478,7 +2478,7 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let cardinality: i32 = random.random_range(2..20);
@@ -2702,7 +2702,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
   let num_dims: usize = TestUtil::next_usize(&mut random, 1, 3);
 
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // index a single document with an N-dim point
   let mut value = Vec::with_capacity(num_dims);
@@ -2756,7 +2756,7 @@ fn test_point_range_weight_count() -> Result<()> {
   // the optimization for Weight::count kicks in only when the number of dimensions is 1
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let num_points: usize = random.random_range(1..10) as usize;
   let mut points = vec![0i32; num_points];
@@ -3134,7 +3134,7 @@ fn test_inverse_point_range() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let num_dims = random.random_range(1..=3);
   let num_docs = at_least(
@@ -3197,7 +3197,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   {
     let mut doc = Document::new();

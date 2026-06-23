@@ -49,7 +49,7 @@ struct TestFuzzyQuery;
 fn test_basic_prefix() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "abc", &writer, &mut field_to_type)?;
 
@@ -74,7 +74,7 @@ fn test_fuzziness() -> Result<()> {
   let directory = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_merge_policy(new_merge_policy_with_mock_mp(&mut random, false)?);
 
   let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
@@ -500,7 +500,7 @@ fn test_prefix_length_equal_string_length() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "b*a", &writer, &mut field_to_type)?;
@@ -558,7 +558,7 @@ fn test2() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::KEYWORD.clone(), false);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "LANGE", &writer, &mut field_to_type)?;
@@ -594,7 +594,7 @@ fn test2() -> Result<()> {
 fn test_single_query_exact_match_scores_highest() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "smith", &writer, &mut field_to_type)?;
   add_doc(&mut random, "smith", &writer, &mut field_to_type)?;
@@ -638,7 +638,7 @@ fn test_single_query_exact_match_scores_highest() -> Result<()> {
 fn test_multiple_queries_idf_works() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_to_type = HashMap::new();
 
   add_doc(&mut random, "michael smith", &writer, &mut field_to_type)?;
@@ -700,7 +700,7 @@ fn test_multiple_queries_idf_works() -> Result<()> {
 fn test_tie_breaker() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "a123456", &writer, &mut field_to_type)?;
   add_doc(&mut random, "c123456", &writer, &mut field_to_type)?;
@@ -708,7 +708,7 @@ fn test_tie_breaker() -> Result<()> {
   add_doc(&mut random, "e123456", &writer, &mut field_to_type)?;
 
   let directory2 = new_directory_shared(&mut random)?;
-  let writer2 = RandomIndexWriter::new(&mut random, directory2.clone());
+  let writer2 = RandomIndexWriter::new(&mut random, directory2.clone())?;
   let mut field_to_type2 = HashMap::new();
   add_doc(&mut random, "a123456", &writer2, &mut field_to_type2)?;
   add_doc(&mut random, "b123456", &writer2, &mut field_to_type2)?;
@@ -735,7 +735,7 @@ fn test_tie_breaker() -> Result<()> {
 fn test_boost_only_rewrite() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "Lucene", &writer, &mut field_to_type)?;
   add_doc(&mut random, "Lucene", &writer, &mut field_to_type)?;
@@ -798,7 +798,7 @@ fn test_boost_only_rewrite() -> Result<()> {
 fn test_giga() -> Result<()> {
   let mut random = random();
   let index = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, index.clone());
+  let w = RandomIndexWriter::new(&mut random, index.clone())?;
   let mut field_to_type = HashMap::new();
 
   add_doc(&mut random, "Lucene in Action", &w, &mut field_to_type)?;
@@ -859,7 +859,7 @@ fn test_giga() -> Result<()> {
 fn test_distance_as_edits_searching() -> Result<()> {
   let mut random = random();
   let index = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, index.clone());
+  let w = RandomIndexWriter::new(&mut random, index.clone())?;
   let mut field_to_type = HashMap::new();
   add_doc(&mut random, "foobar", &w, &mut field_to_type)?;
   add_doc(&mut random, "test", &w, &mut field_to_type)?;
@@ -976,7 +976,7 @@ fn test_random() -> Result<()> {
   }
 
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
   for term in &terms {
     let mut doc = Document::new();

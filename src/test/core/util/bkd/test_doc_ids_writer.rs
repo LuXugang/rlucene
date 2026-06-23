@@ -144,7 +144,7 @@ where
   {
     let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
     doc_ids_writer.write_doc_ids(ints, 0, ints.len(), &mut out)?;
-    len = out.get_file_pointer();
+    len = out.get_file_pointer()?;
     if random.random_bool(0.5) {
       out.write_long(0)?;
     }
@@ -181,7 +181,7 @@ fn test_crash() -> Result<()> {
   for _ in 0..itrs {
     let dir = new_directory_shared(&mut random)?;
 
-    let config = new_index_writer_config(&mut random);
+    let config = new_index_writer_config(&mut random)?;
     let iw = IndexWriter::new(dir.clone(), config)?;
 
     for _d in 0..20_000 {

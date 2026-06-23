@@ -53,7 +53,7 @@ struct TestNearest;
 fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc = Document::new();
@@ -110,7 +110,7 @@ fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
 fn test_nearest_neighbor_with_all_deleted_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc = Document::new();
@@ -163,7 +163,7 @@ fn test_nearest_neighbor_with_all_deleted_docs() -> Result<()> {
 fn test_tie_break_by_doc_id() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -215,7 +215,7 @@ fn test_tie_break_by_doc_id() -> Result<()> {
 fn test_nearest_neighbor_with_no_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let r = Arc::new(w.get_reader(&mut random)?);
@@ -255,7 +255,7 @@ fn test_nearest_neighbor_random() -> Result<()> {
   let mut lats = vec![0.0; num_points];
   let mut lons = vec![0.0; num_points];
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -348,11 +348,11 @@ fn test_nearest_neighbor_random() -> Result<()> {
   w.close(&mut random)?;
   Ok(())
 }
-fn get_index_writer_config<R>(random: &mut R) -> IndexWriterConfig
+fn get_index_writer_config<R>(random: &mut R) -> Result<IndexWriterConfig>
 where
   R: Rng + ?Sized,
 {
-  let iwc = new_index_writer_config(random);
+  let iwc = new_index_writer_config(random)?;
   // TODO IMPORTANT setCodec未实现
-  iwc
+  Ok(iwc)
 }

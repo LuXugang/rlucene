@@ -71,7 +71,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
   let mut random = random();
   let num_docs = at_least(&mut random, 100) as usize;
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let allow_dups = random.random_bool(0.5);
   let mut seen = HashSet::new();
   let max_length = TestUtil::next_int(&mut random, 5, 100) as usize;

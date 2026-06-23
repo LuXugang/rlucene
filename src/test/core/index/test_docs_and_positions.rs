@@ -62,7 +62,7 @@ fn test_positions_simple() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = RandomIndexWriter::with_config(&mut random, directory, config);
   let field_name = field_name(&mut random);
   let mut field_types = HashMap::new();
@@ -170,7 +170,7 @@ fn test_random_positions() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
@@ -296,7 +296,7 @@ fn test_random_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -408,7 +408,7 @@ fn test_large_number_of_positions() -> Result<()> {
   let directory = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
   let field_name = field_name(&mut random);
@@ -492,7 +492,7 @@ fn test_large_number_of_positions() -> Result<()> {
 fn test_docs_enum_start() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
@@ -534,7 +534,7 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
 
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = RandomIndexWriter::with_config(&mut random, directory.clone(), config);
 
   let mut doc = Document::new();

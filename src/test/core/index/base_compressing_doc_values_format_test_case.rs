@@ -49,7 +49,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   {
     let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let unique_value_count = TestUtil::next_int(random, 1, 256) as usize;
@@ -89,7 +89,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   {
     let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let base = 13_i64;
@@ -123,7 +123,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   {
     let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();

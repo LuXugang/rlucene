@@ -48,7 +48,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, us
   let index_size = at_least_usize(random, 2000);
   let index = new_directory_shared(random)?;
 
-  let writer = RandomIndexWriter::new(random, index);
+  let writer = RandomIndexWriter::new(random, index)?;
   let random_gen = RandomGen;
 
   for i in 0..index_size {

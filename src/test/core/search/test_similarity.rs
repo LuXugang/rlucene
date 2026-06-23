@@ -97,7 +97,7 @@ fn test_similarity() -> Result<()> {
   let store = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_similarity(new_simple_similarity());
   iwc.set_merge_policy(new_merge_policy_with_mock_mp(&mut random, false)?);
   let writer = RandomIndexWriter::with_config(&mut random, store.clone(), iwc);

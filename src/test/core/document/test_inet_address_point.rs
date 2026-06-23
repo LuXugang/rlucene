@@ -35,7 +35,7 @@ struct TestInetAddressPoint;
 fn test_basics() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with an address
   let mut document = Document::new();
@@ -105,7 +105,7 @@ fn test_basics() -> Result<()> {
 fn test_basics_v6() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with an address
   let mut document = Document::new();

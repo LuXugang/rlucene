@@ -85,7 +85,7 @@ fn test_create_weight_does_not_seek_if_scores_are_not_needed() -> Result<()> {
 fn test_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let random_num_docs = TestUtil::next_int(&mut random, 10, 100);
   let mut num_matching_docs = 0;
@@ -125,7 +125,7 @@ fn test_get_term_states() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -160,7 +160,7 @@ fn test_with_different_score_modes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 

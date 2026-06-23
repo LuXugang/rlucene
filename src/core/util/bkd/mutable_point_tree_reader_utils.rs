@@ -47,7 +47,7 @@ impl MutablePointTreeReaderUtils {
     let mut sorted_by_doc_id = true;
     let mut prev_doc = 0;
     for i in from..to {
-      let doc = reader.get_doc_id(i);
+      let doc = reader.get_doc_id(i)?;
       if doc < prev_doc {
         sorted_by_doc_id = false;
         break;
@@ -168,7 +168,7 @@ where
       let rhs = (k - self.config.packed_bytes_length() + 1) << 3;
 
       let effective_shift = self.bits_per_doc_id.saturating_sub(rhs);
-      Ok(((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32)
+      Ok(((self.reader.get_doc_id(i)? as u32 >> effective_shift) & 0xff) as i32)
     }
   }
 }
@@ -224,7 +224,7 @@ where
 
   fn set_pivot(&mut self, i: usize) -> Result<()> {
     self.reader.get_value(i, &mut self.pivot);
-    self.pivot_doc = self.reader.get_doc_id(i);
+    self.pivot_doc = self.reader.get_doc_id(i)?;
     Ok(())
   }
 
@@ -249,7 +249,7 @@ where
 
       let cmp = pivot_slice.cmp(scratch_slice).to_int();
       return if cmp == 0 {
-        Ok(self.pivot_doc - self.reader.get_doc_id(j))
+        Ok(self.pivot_doc - self.reader.get_doc_id(j)?)
       } else {
         Ok(cmp)
       };
@@ -304,7 +304,7 @@ where
       let rhs = (k - self.data_cmp_bytes + 1) << 3;
 
       let effective_shift = self.bits_per_doc_id.saturating_sub(rhs);
-      Ok(((self.reader.get_doc_id(i) as u32 >> effective_shift) & 0xff) as i32)
+      Ok(((self.reader.get_doc_id(i)? as u32 >> effective_shift) & 0xff) as i32)
     }
   }
 
@@ -361,7 +361,7 @@ where
 {
   fn set_pivot(&mut self, i: usize) -> Result<()> {
     self.reader.get_value(i, &mut self.pivot);
-    self.pivot_doc = self.reader.get_doc_id(i);
+    self.pivot_doc = self.reader.get_doc_id(i)?;
     Ok(())
   }
 
@@ -389,7 +389,7 @@ where
         return Ok(cmp);
       }
     }
-    Ok(self.pivot_doc - self.reader.get_doc_id(j))
+    Ok(self.pivot_doc - self.reader.get_doc_id(j)?)
   }
 }
 

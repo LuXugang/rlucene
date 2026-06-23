@@ -268,14 +268,16 @@ impl IndexableField for DoubleField {
 
 impl fmt::Display for DoubleField {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let v = self.get_value_as_double().expect("should get double value");
-    write!(
-      f,
-      "{} <{}:{}>",
-      std::any::type_name::<Self>(),
-      self.parent_field.name(),
-      v
-    )
+    match self.get_value_as_double() {
+      Ok(v) => write!(
+        f,
+        "{} <{}:{}>",
+        std::any::type_name::<Self>(),
+        self.parent_field.name(),
+        v
+      ),
+      Err(v) => write!(f, "{}", v),
+    }
   }
 }
 

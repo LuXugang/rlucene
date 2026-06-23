@@ -417,14 +417,7 @@ where
   }
   /// Set the node address for the given hash slot.
   pub fn set_node_address(&mut self, hash_slot: usize, node_address: i64) {
-    debug_assert_eq!(
-      self
-        .inner
-        .fst_node_address
-        .get(hash_slot)
-        .expect("should not fail"),
-      0
-    );
+    debug_assert_eq!(self.inner.fst_node_address.get(hash_slot).unwrap_or(-1), 0);
     self.inner.fst_node_address.set(hash_slot, node_address);
     self.count += 1;
   }
@@ -436,11 +429,7 @@ where
     length: i32,
   ) -> Result<()> {
     debug_assert_eq!(
-      self
-        .inner
-        .copied_node_address
-        .get(hash_slot)
-        .expect("shoudl not faield"),
+      self.inner.copied_node_address.get(hash_slot).unwrap_or(-1),
       0
     );
 

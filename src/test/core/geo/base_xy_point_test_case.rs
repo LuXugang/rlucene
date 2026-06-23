@@ -158,7 +158,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
@@ -192,7 +192,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
@@ -257,7 +257,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
@@ -287,7 +287,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
@@ -320,7 +320,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
@@ -353,7 +353,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227_45)?;
@@ -515,7 +515,7 @@ pub trait BaseXYPointTestCase {
     let mut ys = vec![0.0; 2 * num_points];
 
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
 
     // We rely on docID order:
     iwc.set_merge_policy(new_log_merge_policy(random)?);
@@ -712,7 +712,7 @@ pub trait BaseXYPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
@@ -777,7 +777,7 @@ pub trait BaseXYPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
@@ -853,7 +853,7 @@ pub trait BaseXYPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
@@ -916,7 +916,7 @@ pub trait BaseXYPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
@@ -1029,7 +1029,7 @@ pub trait BaseXYPointTestCase {
   {
     let rect = ShapeTestUtil::next_box(random)?;
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     // Else seeds may not reproduce:
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
@@ -1164,7 +1164,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     // Else seeds may not reproduce:
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
@@ -1310,7 +1310,7 @@ pub trait BaseXYPointTestCase {
 
     // TODO: must these simple tests really rely on docid order?
     let mock = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(random, mock)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 100, 1000));
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     // Else seeds may not reproduce:

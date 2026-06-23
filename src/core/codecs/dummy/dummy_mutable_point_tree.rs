@@ -81,7 +81,7 @@ impl MutablePointTree for DummyMutablePointTree {
     dummy_unreachable!()
   }
 
-  fn get_doc_id(&self, _i: usize) -> i32 {
+  fn get_doc_id(&self, _i: usize) -> Result<i32> {
     dummy_unreachable!()
   }
 

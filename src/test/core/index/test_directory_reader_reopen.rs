@@ -100,7 +100,7 @@ where
   D: Directory + 'static,
 {
   let analyzer = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   config.set_open_mode(OpenMode::Create);
   config.set_merge_scheduler(SerialMergeScheduler::new());
   config.set_merge_policy(new_log_merge_policy(random)?);
@@ -337,7 +337,7 @@ where
   D: Directory + 'static,
 {
   let analyzer = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   config.set_merge_policy(LogMergePolicy::log_doc());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -378,7 +378,10 @@ where
     0 => {
       drop(iw);
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      let writer = IndexWriter::new(
+        dir,
+        new_index_writer_config_with_analyzer(random, analyzer)?,
+      )?;
       writer.delete_documents_with_terms(vec![Term::from_text("field2", "a11")])?;
       writer.delete_documents_with_terms(vec![Term::from_text("field2", "b30")])?;
       writer.close()?;
@@ -387,7 +390,10 @@ where
     1 => {
       drop(iw);
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      let writer = IndexWriter::new(
+        dir,
+        new_index_writer_config_with_analyzer(random, analyzer)?,
+      )?;
       writer.force_merge(1)?;
       writer.close()?;
       writer
@@ -395,7 +401,10 @@ where
     2 => {
       drop(iw);
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      let writer = IndexWriter::new(
+        dir,
+        new_index_writer_config_with_analyzer(random, analyzer)?,
+      )?;
       writer.add_document(create_document(101, 4)?)?;
       writer.force_merge(1)?;
       writer.add_document(create_document(102, 4)?)?;
@@ -406,7 +415,10 @@ where
     3 => {
       drop(iw);
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(dir, new_index_writer_config_with_analyzer(random, analyzer))?;
+      let writer = IndexWriter::new(
+        dir,
+        new_index_writer_config_with_analyzer(random, analyzer)?,
+      )?;
       writer.add_document(create_document(101, 4)?)?;
       writer.close()?;
       writer
@@ -581,7 +593,7 @@ fn test_reopen_on_commit() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_to_type = HashMap::new();
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   iwc.set_max_buffered_docs(-1);
   iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
@@ -648,7 +660,7 @@ fn test_open_if_changed_nrt_to_commit() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let w = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -685,7 +697,7 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_merge_policy(NoMergePolicy::default());
   let mut w = IndexWriter::new(dir.clone(), config)?;
 
@@ -711,7 +723,7 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   w = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
 
   doc = Document::new();
@@ -746,7 +758,7 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_merge_policy(NoMergePolicy::default());
   let mut w = IndexWriter::new(dir.clone(), config)?;
   let mut doc = Document::new();
@@ -769,7 +781,7 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   w = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
   doc = Document::new();
   doc.add(StringField::from_string("id", "id", Store::No)?);
@@ -820,7 +832,7 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut w = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
   let mut doc = Document::new();
   doc.add(StringField::from_string("field", "value", Store::No)?);
@@ -835,7 +847,7 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
   }
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_merge_policy(NoMergePolicy::default());
   w = IndexWriter::new(dir.clone(), config)?;
   doc = Document::new();
@@ -863,7 +875,7 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
 fn test_reuse_unchanged_leaf_reader_on_dv_update() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut index_writer_config = new_index_writer_config(&mut random);
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
   index_writer_config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
 

@@ -114,7 +114,7 @@ fn index_doc(dir: Arc<DirEnum>, file_name: &str, text: &str) -> Result<SegmentCo
 
   let mut random = random();
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = IndexWriterConfig::with_analyzer(analyzer);
+  let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
   config.set_merge_policy(LogMergePolicy::log_doc());
   let writer = IndexWriter::new(dir.clone(), config)?;
   writer.add_document(doc)?;

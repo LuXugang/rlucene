@@ -150,7 +150,7 @@ where
   }
   fn write_field(&mut self, field_data: usize) -> Result<()> {
     let field_data = self.fields.get_mut(field_data).unwrap();
-    let vector_index_offset = self.vector_index.get_file_pointer();
+    let vector_index_offset = self.vector_index.get_file_pointer()?;
 
     let flat_field_vectors_writers = self.flat_vector_writer.get_fields_mut();
     let cardinality = field_data
@@ -160,7 +160,7 @@ where
     let mut graph = field_data.get_graph(flat_field_vectors_writers)?;
     let graph_level_node_offsets = Self::write_graph(&mut self.vector_index, graph.as_deref_mut())?;
 
-    let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
+    let vector_index_length = self.vector_index.get_file_pointer()? - vector_index_offset;
     Self::write_meta(
       &mut self.vector_index,
       &mut self.meta,
@@ -196,7 +196,7 @@ where
       None,
     )?;
 
-    let vector_index_offset = self.vector_index.get_file_pointer();
+    let vector_index_offset = self.vector_index.get_file_pointer()?;
 
     let field_info = field_data.field_info.clone();
 
@@ -219,7 +219,7 @@ where
       &mut graph_level_node_offsets,
     )?;
 
-    let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
+    let vector_index_length = self.vector_index.get_file_pointer()? - vector_index_offset;
 
     Self::write_meta(
       &mut self.vector_index,
@@ -274,11 +274,11 @@ where
         .ok_or_else(|| LuceneError::illegal_state("Expected more nodes on level 0"))?;
       let neighbors = graph.get_neighbors_mut(0, new_to_old_map[node])?;
 
-      let offset = vector_index.get_file_pointer();
+      let offset = vector_index.get_file_pointer()?;
 
       Self::reconstruct_and_write_neighbours(vector_index, neighbors, old_to_new_map, max_ord)?;
 
-      let delta = (vector_index.get_file_pointer() - offset).try_convert()?;
+      let delta = (vector_index.get_file_pointer()? - offset).try_convert()?;
 
       level_node_offsets[0][node] = delta;
     }
@@ -307,11 +307,11 @@ where
       for (node_offset_index, &node) in new_nodes.iter().enumerate() {
         let neighbors = graph.get_neighbors_mut(level, new_to_old_map[node])?;
 
-        let offset = vector_index.get_file_pointer();
+        let offset = vector_index.get_file_pointer()?;
 
         Self::reconstruct_and_write_neighbours(vector_index, neighbors, old_to_new_map, max_ord)?;
 
-        let delta = (vector_index.get_file_pointer() - offset).try_convert()?;
+        let delta = (vector_index.get_file_pointer()? - offset).try_convert()?;
 
         level_offsets[node_offset_index] = delta;
       }
@@ -381,7 +381,7 @@ where
         let neighbors = graph.get_neighbors_mut(level, node)?;
         let size = neighbors.size();
 
-        let offset_start = vector_index.get_file_pointer();
+        let offset_start = vector_index.get_file_pointer()?;
 
         vector_index.write_vint(size as i32)?;
 
@@ -403,7 +403,7 @@ where
           vector_index.write_vint(n as i32)?;
         }
 
-        let offset = (vector_index.get_file_pointer() - offset_start).try_convert()?;
+        let offset = (vector_index.get_file_pointer()? - offset_start).try_convert()?;
 
         current_level_offsets[node_offset_id] = offset;
       }
@@ -474,7 +474,7 @@ where
       }
     }
 
-    let start = vector_index.get_file_pointer();
+    let start = vector_index.get_file_pointer()?;
     meta.write_long(start as i64)?;
 
     meta.write_vint(DIRECT_MONOTONIC_BLOCK_SHIFT)?;
@@ -497,7 +497,7 @@ where
 
     memory_offsets_writer.finish()?;
 
-    let end = vector_index.get_file_pointer();
+    let end = vector_index.get_file_pointer()?;
     meta.write_long((end - start) as i64)?;
 
     Ok(())
@@ -583,7 +583,7 @@ where
       merge_state,
       segment_write_state,
     )?;
-    let vector_index_offset = self.vector_index.get_file_pointer();
+    let vector_index_offset = self.vector_index.get_file_pointer()?;
     let total_vector_count = scorer_supplier.total_vector_count()?;
 
     let mut graph = None;
@@ -623,7 +623,7 @@ where
       vector_index_node_offsets = Self::write_graph(&mut self.vector_index, graph.as_mut())?;
     }
 
-    let vector_index_length = self.vector_index.get_file_pointer() - vector_index_offset;
+    let vector_index_length = self.vector_index.get_file_pointer()? - vector_index_offset;
     Self::write_meta(
       &mut self.vector_index,
       &mut self.meta,

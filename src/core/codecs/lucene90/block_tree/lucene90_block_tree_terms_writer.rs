@@ -425,11 +425,11 @@ where
     CodecUtil::write_footer(&mut self.index_out)?;
     self
       .meta_out
-      .write_long(self.index_out.get_file_pointer() as i64)?;
+      .write_long(self.index_out.get_file_pointer()? as i64)?;
     CodecUtil::write_footer(&mut self.terms_out)?;
     self
       .meta_out
-      .write_long(self.terms_out.get_file_pointer() as i64)?;
+      .write_long(self.terms_out.get_file_pointer()? as i64)?;
     CodecUtil::write_footer(&mut self.meta_out)?;
     Ok(())
   }
@@ -895,7 +895,7 @@ where
   ) -> Result<PendingBlock> {
     debug_assert!(end > start);
 
-    let start_fp = self.terms_out.get_file_pointer() as i64;
+    let start_fp = self.terms_out.get_file_pointer()? as i64;
     let has_floor_lead = is_floor && floor_lead_label != -1;
 
     let mut prefix_bytes = vec![0u8; prefix_length + if has_floor_lead { 1 } else { 0 }];
@@ -1282,7 +1282,7 @@ where
       self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(first_term_bytes))?;
       let last_term_bytes = std::mem::take(&mut self.last_pending_term_bytes);
       self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(last_term_bytes))?;
-      meta_out.write_vlong(index_out.get_file_pointer() as i64)?;
+      meta_out.write_vlong(index_out.get_file_pointer()? as i64)?;
       root
         .index
         .as_mut()

@@ -40,7 +40,7 @@ fn test_max() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut doc1 = Document::new();
   doc1.add(SortedSetDocValuesField::new(
@@ -102,7 +102,7 @@ fn test_max_reverse() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -165,7 +165,7 @@ fn test_max_missing_first() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -245,7 +245,7 @@ fn test_max_missing_last() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -324,7 +324,7 @@ fn test_max_singleton() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -384,7 +384,7 @@ fn test_middle_min() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -446,7 +446,7 @@ fn test_middle_min_reverse() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -508,7 +508,7 @@ fn test_middle_min_missing_first() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -585,7 +585,7 @@ fn test_middle_min_missing_last() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -666,7 +666,7 @@ fn test_middle_min_singleton() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -726,7 +726,7 @@ fn test_middle_max() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -787,7 +787,7 @@ fn test_middle_max() -> Result<()> {
 fn test_middle_max_reverse() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut d1 = Document::new();
@@ -856,7 +856,7 @@ fn test_middle_max_missing_first() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -934,7 +934,7 @@ fn test_middle_max_missing_last() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc1 = Document::new();
@@ -1011,7 +1011,7 @@ fn test_middle_max_singleton() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
   let mut doc2 = Document::new();

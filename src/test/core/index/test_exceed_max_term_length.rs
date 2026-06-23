@@ -47,7 +47,7 @@ fn test_token_stream() -> Result<()> {
   let dir = Arc::new(create_dir(&mut random));
 
   let a = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut ft = FieldType::new();
@@ -128,7 +128,7 @@ fn test_token_stream() -> Result<()> {
 fn test_binary_value() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(create_dir(&mut random));
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut ft = FieldType::new();

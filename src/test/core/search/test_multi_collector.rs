@@ -598,7 +598,7 @@ fn test_null_collectors() -> Result<()> {
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
@@ -640,7 +640,7 @@ fn test_single_collector() -> Result<()> {
 fn test_collector() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
@@ -679,7 +679,7 @@ fn test_collector() -> Result<()> {
 fn test_cache_scores_if_necessary() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
@@ -738,7 +738,7 @@ fn test_collection_terminated_exception_handling() -> Result<()> {
   let iters = at_least(&mut random, 3);
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = TestUtil::next_int(&mut random, 100, 1000);
     for _ in 0..num_docs {
       writer.add_document(&mut random, Document::new())?;
@@ -782,7 +782,7 @@ fn test_collection_terminated_exception_handling() -> Result<()> {
 fn test_set_scorer_after_collection_terminated() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
@@ -832,7 +832,7 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
 fn test_disables_set_min_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
@@ -853,7 +853,7 @@ fn test_disables_set_min_score() -> Result<()> {
 fn test_disables_set_min_score_with_early_termination() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
@@ -883,7 +883,7 @@ fn test_disables_set_min_score_with_early_termination() -> Result<()> {
 fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
@@ -965,7 +965,7 @@ fn test_min_competitive_score() -> Result<()> {
 fn test_collection_termination() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;
@@ -1013,7 +1013,7 @@ fn test_set_scorer_on_collection_termination_skip_no_skips() -> Result<()> {
 fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool) -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
   let ctx = get_context(reader)?;

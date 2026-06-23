@@ -65,7 +65,7 @@ fn test_encode_decode() -> Result<()> {
       for_util.encode(&mut source, bpv, &mut out)?;
     }
 
-    end_pointer = out.get_file_pointer();
+    end_pointer = out.get_file_pointer()?;
   }
 
   {

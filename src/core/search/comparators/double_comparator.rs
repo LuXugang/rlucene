@@ -78,9 +78,10 @@ impl FieldComparator for DoubleComparator {
     slot1_v.total_cmp(&slot2_v).to_int()
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     self.base.set_top_value();
     self.top_value = value;
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {

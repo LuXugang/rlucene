@@ -40,7 +40,7 @@ where
   R: Rng + ?Sized,
 {
   let a = MockAnalyzer::new(random);
-  let mut conf = new_index_writer_config_with_analyzer(random, a);
+  let mut conf = new_index_writer_config_with_analyzer(random, a)?;
   conf.set_max_buffered_docs(2);
   IndexWriter::new(dir, conf)
 }
@@ -50,7 +50,7 @@ where
   D: Directory + 'static,
 {
   let mock = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, mock);
+  let mut config = new_index_writer_config_with_analyzer(random, mock)?;
   config.set_max_buffered_docs(2);
   let writer = IndexWriter::new(dir.clone(), config)?;
   writer.add_document(create_doc()?)?;

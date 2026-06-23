@@ -64,7 +64,7 @@ fn test_map_cutover() -> Result<()> {
   assert!(set.size() > 32);
   for i in 0..35 {
     // This is pretty much the worst case, perf wise
-    set.decr(i);
+    set.decr(i)?;
   }
 
   assert_eq!(set.size(), 0);
@@ -81,10 +81,10 @@ fn test_modify() -> Result<()> {
   set.incr(1);
   assert_equal(&mut set, &mut set2);
 
-  set.decr(1);
+  set.decr(1)?;
   assert_equal(&mut set, &mut set2);
 
-  set.decr(1);
+  set.decr(1)?;
   assert_ne!(
     (set.long_hash_code(), set.get_array()),
     (set2.long_hash_code(), set2.get_array())

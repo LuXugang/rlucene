@@ -729,7 +729,7 @@ impl CodecUtil {
   ///   set).
   /// - `IoError`: If an I/O error occurs.
   pub fn write_crc(out: &mut impl IndexOutput) -> Result<()> {
-    let value = out.get_checksum();
+    let value = out.get_checksum()?;
     if value & 0xFFFFFFFF00000000 != 0 {
       return Err(LuceneError::illegal_state(format!(
         "Illegal CRC-32 checksum: {value} +  (resource={out})"

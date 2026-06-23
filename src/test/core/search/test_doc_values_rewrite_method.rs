@@ -60,7 +60,7 @@ where
 
   let analyzer = MockAnalyzer::with_automaton(random, mock_tokenizer::KEYWORD.clone(), false);
 
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
 
   let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);

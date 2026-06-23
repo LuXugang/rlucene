@@ -53,7 +53,7 @@ fn cartesian_distance(x1: f64, y1: f64, x2: f64, y2: f64) -> f64 {
 fn test_distance_sort() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add some docs
   let mut doc = Document::new();
@@ -125,7 +125,7 @@ fn test_distance_sort() -> Result<()> {
 fn test_missing_last() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // missing
   let doc = Document::new();
@@ -254,7 +254,7 @@ where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  let mut iwc = new_index_writer_config(random);
+  let mut iwc = new_index_writer_config(random)?;
   // else seeds may not to reproduce:
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
   let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);

@@ -39,7 +39,7 @@ fn test() -> Result<()> {
   // TODO IMPORTANT
   // d.set_check_index_on_close(false);
 
-  let w = RandomIndexWriter::new(&mut random, d.clone());
+  let w = RandomIndexWriter::new(&mut random, d.clone())?;
   let num_docs = at_least(&mut random, 100);
   let mut field_to_type = HashMap::new();
 

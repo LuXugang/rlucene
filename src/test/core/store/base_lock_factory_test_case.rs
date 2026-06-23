@@ -184,7 +184,7 @@ where
 
     // First create a 1 doc index:
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_open_mode(OpenMode::Create);
     let w = IndexWriter::new(dir.clone(), iwc)?;
     {
@@ -275,7 +275,7 @@ where
       let mut hit_exception = false;
       for _ in 0..self.num_iteration {
         let analyzer = MockAnalyzer::new(&mut random);
-        let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+        let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
         iwc.set_open_mode(OpenMode::Append);
         let writer = match IndexWriter::new(self.dir.clone(), iwc) {
           Ok(writer) => writer,

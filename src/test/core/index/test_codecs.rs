@@ -1024,7 +1024,7 @@ fn test_docs_only_freq() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   // we don't need many documents to assert this, but don't use one document either

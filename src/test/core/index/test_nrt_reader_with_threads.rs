@@ -40,7 +40,7 @@ fn test_indexing() -> Result<()> {
   let mut random = random();
   let main_dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_max_buffered_docs(10);
   config.set_merge_policy(new_log_merge_policy_with_merge_factor_cfs(
     &mut random,

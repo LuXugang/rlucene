@@ -53,7 +53,7 @@ fn test_exactly_at_true_limit() -> Result<()> {
 
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BDocs3")?)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let iw = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_types = HashMap::new();
@@ -108,7 +108,7 @@ fn test_add_documents() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     for _ in 0..10 {
       w.add_document(Document::new())?;
@@ -130,7 +130,7 @@ fn test_update_document() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     for _ in 0..10 {
       w.add_document(Document::new())?;
@@ -152,7 +152,7 @@ fn test_update_documents() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     for _ in 0..10 {
       w.add_document(Document::new())?;
@@ -175,7 +175,7 @@ fn test_reclaimed_deletes() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     let mut field_types = HashMap::new();
 
     for i in 0..10 {
@@ -218,7 +218,7 @@ fn test_reclaimed_deletes_whole_segments() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let mut iwc = new_index_writer_config(&mut random);
+    let mut iwc = new_index_writer_config(&mut random)?;
     iwc.set_merge_policy(NoMergePolicy::default());
     let w = IndexWriter::new(dir.clone(), iwc)?;
     let mut field_types = HashMap::new();
@@ -267,7 +267,7 @@ fn test_add_indexes() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     for _ in 0..10 {
       w.add_document(Document::new())?;
@@ -276,7 +276,7 @@ fn test_add_indexes() -> Result<()> {
     drop(w);
 
     let dir2 = new_directory_shared(&mut random)?;
-    let w2 = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random))?;
+    let w2 = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random)?)?;
     w2.add_document(Document::new())?;
 
     let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
@@ -302,7 +302,7 @@ fn test_multi_reader_exact_limit() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   for _ in 0..100000 {
     w.add_document(Document::new())?;
   }
@@ -310,7 +310,7 @@ fn test_multi_reader_exact_limit() -> Result<()> {
 
   let remainder = MAX_DOCS % 100000;
   let dir2 = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random)?)?;
   for _ in 0..remainder {
     w.add_document(Document::new())?;
   }
@@ -336,7 +336,7 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   for _ in 0..100000 {
     w.add_document(Document::new())?;
   }
@@ -346,7 +346,7 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
   remainder += 1;
 
   let dir2 = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random)?)?;
   for _ in 0..remainder {
     w.add_document(Document::new())?;
   }
@@ -387,7 +387,7 @@ fn test_delete_all() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     w.add_document(Document::new())?;
 
@@ -414,7 +414,7 @@ fn test_delete_all_after_flush() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     w.add_document(Document::new())?;
     directory_reader::open_from_writer(&w)?.close()?;
@@ -446,7 +446,7 @@ fn test_delete_all_after_commit() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     w.add_document(Document::new())?;
     w.commit()?;
@@ -479,7 +479,7 @@ fn test_delete_all_multiple_threads() -> Result<()> {
   set_max_docs(limit)?;
   let result = (|| -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
     let starting_gun = Arc::new(Barrier::new(limit as usize + 1));
     thread::scope(|scope| -> Result<()> {
@@ -528,12 +528,12 @@ fn test_delete_all_after_close() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     w.add_document(Document::new())?;
     w.close()?;
     drop(w);
 
-    let w2 = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w2 = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     w2.add_document(Document::new())?;
     let err = w2.add_document(Document::new());
     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
@@ -558,12 +558,12 @@ fn test_across_two_index_writers() -> Result<()> {
   let result = (|| -> Result<()> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     w.add_document(Document::new())?;
     w.close()?;
     drop(w);
 
-    let w2 = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let w2 = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     let err = w2.add_document(Document::new());
     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
@@ -579,7 +579,7 @@ fn test_across_two_index_writers() -> Result<()> {
 fn test_corrupt_index_exception_too_large() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.add_document(Document::new())?;
   w.close()?;
@@ -599,7 +599,7 @@ fn test_corrupt_index_exception_too_large() -> Result<()> {
 fn test_corrupt_index_exception_too_large_writer() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
   w.add_document(Document::new())?;
   w.close()?;
@@ -607,7 +607,7 @@ fn test_corrupt_index_exception_too_large_writer() -> Result<()> {
 
   set_max_docs(1)?;
   let result = {
-    let err = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random));
+    let err = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?);
     assert!(matches!(err, Err(LuceneError::CorruptIndex(_))));
     Ok(())
   };

@@ -438,8 +438,8 @@ impl MutablePointTree for DummyPointsReader {
     packed_value.bytes[packed_value.offset + k]
   }
 
-  fn get_doc_id(&self, i: usize) -> i32 {
-    self.points[i].doc
+  fn get_doc_id(&self, i: usize) -> Result<i32> {
+    Ok(self.points[i].doc)
   }
 
   fn swap(&mut self, i: usize, j: usize) {

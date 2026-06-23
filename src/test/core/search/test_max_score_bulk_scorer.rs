@@ -61,7 +61,7 @@ where
   R: Rng + ?Sized,
   D: Directory + 'static,
 {
-  let mut iwc = IndexWriterConfig::new();
+  let mut iwc = IndexWriterConfig::new()?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -342,7 +342,7 @@ fn test_basics_with_three_disjunction_clauses_and_skipping() -> Result<()> {
 fn test_deletes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = IndexWriterConfig::new();
+  let mut iwc = IndexWriterConfig::new()?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 

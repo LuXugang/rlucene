@@ -39,7 +39,7 @@ fn test_phrase_prefix() -> Result<()> {
   let mut random = random();
 
   let index_store = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, index_store.clone());
+  let writer = RandomIndexWriter::new(&mut random, index_store.clone())?;
 
   let mut field_to_type = HashMap::new();
 

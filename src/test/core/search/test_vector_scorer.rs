@@ -85,7 +85,7 @@ where
   R: Rng + ?Sized,
 {
   let index_store = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, index_store.clone());
+  let writer = RandomIndexWriter::new(random, index_store.clone())?;
 
   for (i, vector) in contents.iter().enumerate() {
     let mut doc = Document::new();

@@ -49,7 +49,7 @@ impl TokenizerBase {
 
 impl Drop for TokenizerBase {
   fn drop(&mut self) {
-    self.close().expect("should not fail");
+    let _ = self.close();
   }
 }
 

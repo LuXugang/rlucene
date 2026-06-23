@@ -38,7 +38,7 @@ pub struct TestMaxPosition;
 fn test_too_big_position() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir);
+  let iw = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut doc = Document::new();
   // This is at position 1:
@@ -76,7 +76,7 @@ fn test_too_big_position() -> Result<()> {
 fn test_max_position() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir);
+  let iw = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut doc = Document::new();
   // This is at position 0:

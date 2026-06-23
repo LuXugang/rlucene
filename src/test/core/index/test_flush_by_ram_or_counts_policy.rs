@@ -76,7 +76,7 @@ fn run_flush_by_ram(num_threads: i32, max_ram_mb: f64, ensure_not_stalled: bool)
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
 
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_flush_policy(flush_policy);
   iwc.set_ram_buffer_size_mb(max_ram_mb);
   iwc.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
@@ -144,7 +144,7 @@ fn test_flush_doc_count() -> Result<()> {
     let num_docs = AtomicI32::new(num_documents_to_index);
     let dir = new_directory_shared(&mut random)?;
     let flush_policy = MockDefaultFlushPolicy::new();
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     iwc.set_flush_policy(flush_policy);
 
     iwc.set_max_buffered_docs(2 + at_least(&mut random, 10));
@@ -209,7 +209,7 @@ fn test_random() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let flush_policy = MockDefaultFlushPolicy::new();
   iwc.set_flush_policy(flush_policy);
 

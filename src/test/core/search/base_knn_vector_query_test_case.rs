@@ -437,7 +437,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
     for j in 1..=5 {
       let mut doc = Document::new();
       doc.add(self.get_knn_vector_field_with_similarity(
@@ -514,7 +514,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
     for j in 0..5 {
       let mut doc = Document::new();
       doc.add(self.get_knn_vector_field("field", vec![j as f32, j as f32])?);
@@ -545,7 +545,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
     for j in 0..5 {
       let mut doc = Document::new();
       doc.add(self.get_knn_vector_field("field", vec![j as f32, j as f32])?);
@@ -577,7 +577,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
     let mut r = 0;
     for _ in 0..5 {
       for _ in 0..5 {
@@ -626,7 +626,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let every_doc_has_a_vector = random.random_bool(0.5);
 
     let directory = self.new_directory_for_test(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone().into());
+    let writer = RandomIndexWriter::new(random, directory.clone().into())?;
     let mut num_docs_with_vectors = 0usize;
     for _ in 0..num_docs {
       let mut doc = Document::new();
@@ -677,7 +677,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let dimension = at_least_usize(random, 5);
     let size = 5usize;
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
     let vector = self.random_vector(random, dimension);
 
     for i in 0..num_docs {
@@ -724,7 +724,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
     let num_docs = at_least_usize(random, 120);
     let dim = 30usize;
     for i in 0..num_docs {
@@ -783,7 +783,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
     let num_docs = at_least_usize(random, 100);
     let dim = 30usize;
     for _ in 0..num_docs {
@@ -811,7 +811,7 @@ pub trait BaseKnnVectorQueryTestCase {
   {
     let dim = 30usize;
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
 
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "0", Store::No)?);
@@ -973,7 +973,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let index_store = self.new_directory_for_test(random)?;
-    let writer = RandomIndexWriter::new(random, index_store.clone().into());
+    let writer = RandomIndexWriter::new(random, index_store.clone().into())?;
 
     for (i, vector) in contents.iter().enumerate() {
       let mut doc = Document::new();
@@ -1022,7 +1022,7 @@ pub trait BaseKnnVectorQueryTestCase {
     R: Rng + ?Sized,
   {
     let index_store = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(index_store.clone().into(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(index_store.clone().into(), IndexWriterConfig::new()?)?;
 
     for (i, vector) in contents.iter().enumerate() {
       let mut doc = Document::new();

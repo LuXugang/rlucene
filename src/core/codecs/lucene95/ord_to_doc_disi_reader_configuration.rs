@@ -99,7 +99,7 @@ impl OrdToDocDISIReaderConfiguration {
       output_meta.write_short(-1)?; // jumpTableEntryCount
       output_meta.write_byte(-1i8 as u8)?; // denseRankPower
     } else {
-      let offset = vector_data.get_file_pointer().try_convert()?;
+      let offset = vector_data.get_file_pointer()?.try_convert()?;
       output_meta.write_long(offset)?; // docsWithFieldOffset
 
       let jump_table_entry_count = write_bitset_with_dense_rank_power(
@@ -108,13 +108,13 @@ impl OrdToDocDISIReaderConfiguration {
         DEFAULT_DENSE_RANK_POWER,
       )?;
 
-      let fp: i64 = vector_data.get_file_pointer().try_convert()?;
+      let fp: i64 = vector_data.get_file_pointer()?.try_convert()?;
       output_meta.write_long(fp - offset)?; // docsWithFieldLength
       output_meta.write_short(jump_table_entry_count)?;
       output_meta.write_byte(DEFAULT_DENSE_RANK_POWER as u8)?;
 
       // write ordToDoc mapping
-      let start = vector_data.get_file_pointer().try_convert()?;
+      let start = vector_data.get_file_pointer()?.try_convert()?;
       output_meta.write_long(start)?;
       output_meta.write_vint(direct_monotonic_block_shift)?;
 
@@ -134,7 +134,7 @@ impl OrdToDocDISIReaderConfiguration {
       }
 
       ord_to_doc_writer.finish()?;
-      let fp: i64 = vector_data.get_file_pointer().try_convert()?;
+      let fp: i64 = vector_data.get_file_pointer()?.try_convert()?;
       output_meta.write_long(fp - start)?;
     }
 

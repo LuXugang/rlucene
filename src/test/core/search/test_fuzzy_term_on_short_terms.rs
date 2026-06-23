@@ -190,7 +190,7 @@ where
 {
   let directory = new_directory_shared(random)?;
   let mock = analyzer;
-  let mut iwc = new_index_writer_config_with_analyzer(random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(random, mock)?;
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 100, 1000));
   iwc.set_merge_policy(new_log_merge_policy(random)?);
 

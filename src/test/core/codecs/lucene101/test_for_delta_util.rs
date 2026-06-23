@@ -56,7 +56,7 @@ fn test_encode_decode() -> Result<()> {
       }
       for_delta_util.encode_deltas(&mut source, &mut out)?;
     }
-    end_pointer = out.get_file_pointer();
+    end_pointer = out.get_file_pointer()?;
   }
 
   // decode

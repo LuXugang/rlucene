@@ -84,7 +84,7 @@ struct TestTopFieldCollector;
 fn setup() -> Result<DefaultIndexSearchCR> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir);
+  let iw = RandomIndexWriter::new(&mut random, dir)?;
   let num_docs = at_least(&mut random, 100);
   for _ in 0..num_docs {
     let doc = Document::new();
@@ -185,7 +185,7 @@ fn test_shared_hitcount_collector() -> Result<()> {
   // 对应 newSearcher(ir, true, true, true)
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir);
+  let iw = RandomIndexWriter::new(&mut random, dir)?;
   let num_docs = at_least(&mut random, 100);
   for _ in 0..num_docs {
     let doc = Document::new();
@@ -271,7 +271,7 @@ fn test_total_hits() -> Result<()> {
     Some("foo"),
     SortFieldType::Long,
   )?])?);
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config
     .set_merge_policy(NoMergePolicy::default())
     .set_index_sort(sort.clone())?
@@ -360,7 +360,7 @@ fn test_set_min_competitive_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -434,7 +434,7 @@ fn test_total_hits_with_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -520,7 +520,7 @@ fn test_sort_no_results() -> Result<()> {
 fn test_compute_scores_only_once() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   let text = StringField::from_string("text", "foo", Store::No)?;
@@ -574,7 +574,7 @@ fn test_compute_scores_only_once() -> Result<()> {
 fn test_populate_scores() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   let mut field = TextField::from_string("f", "foo bar", Store::No)?;
@@ -656,7 +656,7 @@ fn test_populate_scores() -> Result<()> {
 fn test_concurrent_min_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config.set_merge_policy(NoMergePolicy::default());
   let w = IndexWriter::new(dir.clone(), config)?;
   let doc = Document::new();
@@ -783,7 +783,7 @@ fn test_random_min_competitive_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let num_docs = at_least_usize(&mut random, 1000);
 
@@ -862,7 +862,7 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
   ])?);
 
   let dir = new_directory_shared(&mut random)?;
-  let mut config = IndexWriterConfig::new();
+  let mut config = IndexWriterConfig::new()?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 

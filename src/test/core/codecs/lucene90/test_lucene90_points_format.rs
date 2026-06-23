@@ -55,7 +55,7 @@ impl TestLucene90PointsFormat {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     // TODO MockRandomMergePolicy未实现
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -153,7 +153,7 @@ impl TestLucene90PointsFormat {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut point_value = [[0u8; 3]; 2];

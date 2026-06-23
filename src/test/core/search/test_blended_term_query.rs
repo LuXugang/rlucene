@@ -122,7 +122,7 @@ fn test_to_string() -> Result<()> {
 fn test_blended_scores() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("f", "a", Store::No)?);

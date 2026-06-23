@@ -66,7 +66,7 @@ impl TestByteBuffersDirectory {
     R: Rng + ?Sized,
   {
     let dir = Arc::new(self.get_directory(PathBuf::new(), random)?);
-    let mut config = new_index_writer_config(random);
+    let mut config = new_index_writer_config(random)?;
     config.set_open_mode(OpenMode::Create);
     let writer = IndexWriter::new(dir, config)?;
 

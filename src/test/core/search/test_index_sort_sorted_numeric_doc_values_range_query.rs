@@ -61,7 +61,7 @@ fn test_same_hits_as_point_range_query() -> Result<()> {
   for _iter in 0..iters {
     let dir = new_directory_shared(&mut random)?;
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
     let reverse = random.random_bool(0.5);
     let mut sort_field = SortedNumericSortField::with_reverse("dv", SortFieldType::Long, reverse)?;
@@ -207,7 +207,7 @@ fn test_index_sort_doc_values_with_even_length_inner(
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
   let sort_field = SortedNumericSortField::with_reverse("field", field_type, reverse)?;
   iwc.set_index_sort(Sort::with_fields(vec![sort_field])?)?;
@@ -293,7 +293,7 @@ fn test_index_sort_doc_values_with_odd_length_inner(reverse: bool) -> Result<()>
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
   let sort_field = SortedNumericSortField::with_reverse("field", SortFieldType::Long, reverse)?;
   iwc.set_index_sort(Sort::with_fields(vec![sort_field])?)?;
@@ -361,7 +361,7 @@ fn test_index_sort_doc_values_with_single_value_inner(reverse: bool) -> Result<(
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
   let sort_field = SortedNumericSortField::with_reverse("field", SortFieldType::Long, reverse)?;
   iwc.set_index_sort(Sort::with_fields(vec![sort_field])?)?;
@@ -387,7 +387,7 @@ fn test_index_sort_missing_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
   let mut sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
   let missing_value: i64 = random.random();
@@ -425,7 +425,7 @@ fn test_no_documents() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
 
   let reader = writer.get_reader(&mut random)?;
@@ -450,7 +450,7 @@ fn test_no_documents() -> Result<()> {
 fn test_rewrite_exhaustive_range() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = writer.get_reader(&mut random)?;
 
@@ -470,7 +470,7 @@ fn test_rewrite_exhaustive_range() -> Result<()> {
 fn test_rewrite_fallback_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = writer.get_reader(&mut random)?;
 
@@ -503,7 +503,7 @@ fn test_rewrite_fallback_query() -> Result<()> {
 fn test_no_index_sort() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, create_document("field", 0))?;
   test_index_sort_optimization_deactivated(&mut random, &writer)?;
   writer.close(&mut random)?;
@@ -515,7 +515,7 @@ fn test_no_index_sort() -> Result<()> {
 fn test_index_sort_on_wrong_field() -> Result<()> {
   let mut random = random();
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let dir = new_directory_shared(&mut random)?;
   let sort_field = SortedNumericSortField::new("other-field", SortFieldType::Long)?;
   let sort = Sort::with_fields(vec![sort_field])?;
@@ -534,7 +534,7 @@ fn test_other_sort_types() -> Result<()> {
   for sort_type in [Float, Double] {
     let dir = new_directory_shared(&mut random)?;
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     let sort_field = SortedNumericSortField::new("field", sort_type)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     iwc.set_index_sort(sort)?;
@@ -553,7 +553,7 @@ fn test_multi_doc_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
   let sort = Sort::with_fields(vec![sort_field])?;
   iwc.set_index_sort(sort)?;
@@ -596,7 +596,7 @@ fn test_fallback_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let index_sort = Sort::with_fields(vec![SortedNumericSortField::new(
     "field",
     SortFieldType::Long,
@@ -633,7 +633,7 @@ fn test_compare_count() -> Result<()> {
   for _iter in 0..iters {
     let dir = new_directory_shared(&mut random)?;
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     let mut sort_field = SortedNumericSortField::with_reverse("field", SortFieldType::Long, false)?;
     let enable_missing_value = random.random_bool(0.5);
     if enable_missing_value {
@@ -728,7 +728,7 @@ fn test_count_boundary() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
   let mut sort_field = SortedNumericSortField::new("field", SortFieldType::Long)?;
 
@@ -847,7 +847,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
   let sort_field = SortedNumericSortField::with_reverse(field_name, SortFieldType::Long, reverse)?;
   let sort = Sort::with_fields(vec![sort_field])?;
@@ -985,7 +985,7 @@ fn do_test_random_count_with_bkd(reverse: bool) -> Result<()> {
   let field_name = "field";
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let sort_field = SortedNumericSortField::with_reverse(field_name, SortFieldType::Long, reverse)?;
   let sort = Sort::with_fields(vec![sort_field])?;
   iwc.set_index_sort(sort)?;

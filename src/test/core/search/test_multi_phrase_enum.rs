@@ -40,7 +40,7 @@ struct TestMultiPhraseEnum;
 fn test_one_document() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -86,7 +86,7 @@ fn test_one_document() -> Result<()> {
 fn test_some_documents() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 

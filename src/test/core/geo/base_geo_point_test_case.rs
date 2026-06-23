@@ -216,7 +216,7 @@ pub trait BaseGeoPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
@@ -266,7 +266,7 @@ pub trait BaseGeoPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
@@ -357,7 +357,7 @@ pub trait BaseGeoPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
@@ -385,7 +385,7 @@ pub trait BaseGeoPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
@@ -418,7 +418,7 @@ pub trait BaseGeoPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
@@ -451,7 +451,7 @@ pub trait BaseGeoPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, dir);
+    let writer = RandomIndexWriter::new(random, dir)?;
 
     let mut document = Document::new();
     self.add_point_to_doc("field", &mut document, 18.313694, -65.227444)?;
@@ -603,7 +603,7 @@ pub trait BaseGeoPointTestCase {
     let mut lats = vec![0.0; 2 * num_points];
     let mut lons = vec![0.0; 2 * num_points];
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
 
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
@@ -721,7 +721,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
     if mbd != -1 && mbd < (lats.len() / 100) as i32 {
@@ -804,7 +804,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
     if mbd != -1 && mbd < (lats.len() / 100) as i32 {
@@ -894,7 +894,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
     if mbd != -1 && mbd < (lats.len() / 100) as i32 {
@@ -971,7 +971,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
     if mbd != -1 && mbd < (lats.len() / 100) as i32 {
@@ -1145,7 +1145,7 @@ pub trait BaseGeoPointTestCase {
       self.quantize_lon(rect.max_lon),
     )?;
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let w = RandomIndexWriter::with_config(random, dir, iwc);
     for x in 0..3 {
@@ -1288,7 +1288,7 @@ pub trait BaseGeoPointTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let points_in_leaf = 2 + random.random_range(0..4);
     let _ = points_in_leaf;
@@ -1473,7 +1473,7 @@ pub trait BaseGeoPointTestCase {
 
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(random.random_range(100..=1000));
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
@@ -1692,7 +1692,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let dir = new_directory_shared(random)?;
     let w = IndexWriter::new(dir.clone(), iwc)?;

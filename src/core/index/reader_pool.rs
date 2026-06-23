@@ -357,7 +357,7 @@ where
           ids
         ))
       })?;
-      if let Some(rld) = self.get((&*info).into(), false, None)? {
+      if let Some(rld) = self.get(info.to_meta()?, false, None)? {
         any |= rld.write_field_updates(
           &self.directory,
           global_field_number,
@@ -452,7 +452,7 @@ where
 
         if changed {
           // Make sure we only write del docs for a live segment:
-          debug_assert!(self.assert_info_is_live(&(&*info).into()));
+          debug_assert!(self.assert_info_is_live(&info.to_meta()?));
 
           // Must checkpoint because we just
           // created new _X_N.del and field updates files;

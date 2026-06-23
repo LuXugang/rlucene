@@ -410,6 +410,15 @@ where
       self.id.as_ref()
     }
   }
+
+  pub(crate) fn to_meta(&self) -> Result<SegmentCommitInfoMeta<D>> {
+    Ok(SegmentCommitInfoMeta::with_deletions(
+      self.info.dir.clone(),
+      self.info.max_doc()?,
+      self.info.get_id_key().to_string(),
+      self.del_gen != -1,
+    ))
+  }
 }
 pub fn validate_soft_del_count(del_count: i32, max_doc: i32, soft_del_count: i32) -> Result<()> {
   if soft_del_count < 0 || soft_del_count > max_doc {
@@ -477,19 +486,6 @@ where
       f,
       "SegmentCommitInfoMeta(dir={}, maxDoc={:?}, id={}, hasDeletions={:?})",
       self.dir, self.max_doc, self.id, self.has_deletions
-    )
-  }
-}
-impl<D> From<&SegmentCommitInfo<D>> for SegmentCommitInfoMeta<D>
-where
-  D: Directory,
-{
-  fn from(s: &SegmentCommitInfo<D>) -> Self {
-    SegmentCommitInfoMeta::with_deletions(
-      s.info.dir.clone(),
-      s.info.max_doc().expect("should not fail"),
-      s.info.get_id_key().to_string(),
-      s.del_gen != -1,
     )
   }
 }

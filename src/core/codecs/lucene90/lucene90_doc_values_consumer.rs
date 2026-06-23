@@ -125,7 +125,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     values_producer: &impl DocValuesProducer,
   ) -> Result<()> {
     debug_assert!(*field.doc_values_skip_index_type() != DocValuesSkipIndexType::None);
-    let start = self.data.get_file_pointer();
+    let start = self.data.get_file_pointer()?;
     let mut values = values_producer.get_sorted_numeric(field)?;
     let mut global_max_value = i64::MIN;
     let mut global_min_value = i64::MAX;
@@ -193,7 +193,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     self.meta.write_long(start as i64)?; // record the start in meta
     self
       .meta
-      .write_long((self.data.get_file_pointer() - start) as i64)?; // record the length
+      .write_long((self.data.get_file_pointer()? - start) as i64)?; // record the length
     debug_assert!(global_doc_count == 0 || global_max_value >= global_min_value);
     self.meta.write_long(global_max_value)?;
     self.meta.write_long(global_min_value)?;
@@ -358,7 +358,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       self.meta.write_byte(-1i8 as u8)?; // denseRankPower
     } else {
       // meta[data.offset, data.length]: IndexedDISI structure
-      let offset = self.data.get_file_pointer();
+      let offset = self.data.get_file_pointer()?;
       self.meta.write_long(offset as i64)?; // docsWithFieldOffset
 
       let mut values = values_producer.get_sorted_numeric(field)?;
@@ -367,7 +367,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
       self
         .meta
-        .write_long((self.data.get_file_pointer() - offset) as i64)?;
+        .write_long((self.data.get_file_pointer()? - offset) as i64)?;
       self.meta.write_short(jump_table_entry_count)?;
       self.meta.write_byte(DEFAULT_DENSE_RANK_POWER as u8)?;
     }
@@ -437,7 +437,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     self.meta.write_long(min)?;
     self.meta.write_long(gcd)?;
 
-    let start_offset = self.data.get_file_pointer();
+    let start_offset = self.data.get_file_pointer()?;
     self.meta.write_long(start_offset as i64)?;
     let mut jump_table_offset = -1;
 
@@ -458,7 +458,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     self
       .meta
-      .write_long((self.data.get_file_pointer() - start_offset) as i64)?;
+      .write_long((self.data.get_file_pointer()? - start_offset) as i64)?;
     self.meta.write_long(jump_table_offset)?;
 
     Ok((num_docs_with_value, num_values))
@@ -513,7 +513,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
         if upto == NUMERIC_BLOCK_SIZE {
           ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1);
-          offsets[offsets_index] = self.data.get_file_pointer() as i64;
+          offsets[offsets_index] = self.data.get_file_pointer()? as i64;
           offsets_index += 1;
           self.write_block(&buffer, NUMERIC_BLOCK_SIZE, gcd, &mut encode_buffer)?;
           upto = 0;
@@ -523,12 +523,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     if upto > 0 {
       ArrayUtil::grow_with_len(&mut offsets, offsets_index);
-      offsets[offsets_index] = self.data.get_file_pointer() as i64;
+      offsets[offsets_index] = self.data.get_file_pointer()? as i64;
       offsets_index += 1;
       self.write_block(&buffer[..upto], upto, gcd, &mut encode_buffer)?;
     }
     // All blocks has been written. Flush the offset jump-table
-    let offsets_origo = self.data.get_file_pointer().try_convert()?;
+    let offsets_origo = self.data.get_file_pointer()?.try_convert()?;
     for &offset in offsets.iter().take(offsets_index) {
       self.data.write_long(offset)?;
     }
@@ -629,7 +629,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     let mut previous = BytesRefBuilder::new();
     let mut ord: i64 = 0;
-    let mut start = data.get_file_pointer();
+    let mut start = data.get_file_pointer()?;
     let mut max_length = 0;
     let mut max_block_length = 0;
     {
@@ -654,7 +654,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             buffered_output.reset()?;
           }
 
-          writer.add((data.get_file_pointer() - start) as i64)?;
+          writer.add((data.get_file_pointer()? - start) as i64)?;
           // Write the first term both to the index output, and to the
           // buffer where we'll use it as a
           // dictionary for compression
@@ -710,11 +710,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       // Write one more int for storing max block length.
       meta.write_int(max_block_length)?;
       meta.write_long(start as i64)?;
-      meta.write_long((data.get_file_pointer() - start) as i64)?;
-      start = data.get_file_pointer();
+      meta.write_long((data.get_file_pointer()? - start) as i64)?;
+      start = data.get_file_pointer()?;
       address_output.delegate()?.copy_to(data)?;
       meta.write_long(start as i64)?;
-      meta.write_long((data.get_file_pointer() - start) as i64)?;
+      meta.write_long((data.get_file_pointer()? - start) as i64)?;
     }
     self.write_terms_index(values)?;
     Ok(())
@@ -762,7 +762,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     self
       .meta
       .write_int(Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_SHIFT)?;
-    let start = self.data.get_file_pointer();
+    let start = self.data.get_file_pointer()?;
 
     let num_blocks = 1
       + ((size + Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
@@ -816,14 +816,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       self.meta.write_long(start as i64)?;
       self
         .meta
-        .write_long((self.data.get_file_pointer() - start) as i64)?;
+        .write_long((self.data.get_file_pointer()? - start) as i64)?;
 
-      let start = self.data.get_file_pointer();
+      let start = self.data.get_file_pointer()?;
       address_output.delegate()?.copy_to(&mut self.data)?;
       self.meta.write_long(start as i64)?;
       self
         .meta
-        .write_long((self.data.get_file_pointer() - start) as i64)?;
+        .write_long((self.data.get_file_pointer()? - start) as i64)?;
     }
     Ok(())
   }
@@ -846,7 +846,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     self.meta.write_int(num_docs_with_field)?;
     if num_values > num_docs_with_field as i64 {
-      let start = self.data.get_file_pointer();
+      let start = self.data.get_file_pointer()?;
       self.meta.write_long(start as i64)?;
       self
         .meta
@@ -874,7 +874,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       addresses_writer.finish()?;
       self
         .meta
-        .write_long((self.data.get_file_pointer() - start) as i64)?;
+        .write_long((self.data.get_file_pointer()? - start) as i64)?;
     }
 
     Ok(())
@@ -939,7 +939,7 @@ where
     self.meta.write_byte(Lucene90DocValuesFormat::BINARY)?;
 
     let mut values = values_producer.get_binary(field)?;
-    let start = self.data.get_file_pointer();
+    let start = self.data.get_file_pointer()?;
     self.meta.write_long(start as i64)?; // dataOffset
     let mut num_docs_with_field = 0;
     let mut min_length = i32::MAX as usize;
@@ -959,7 +959,7 @@ where
     debug_assert!(num_docs_with_field <= self.max_doc);
     self
       .meta
-      .write_long((self.data.get_file_pointer() - start) as i64)?; // dataLength
+      .write_long((self.data.get_file_pointer()? - start) as i64)?; // dataLength
 
     if num_docs_with_field == 0 {
       self.meta.write_long(-2)?; // docsWithFieldOffset
@@ -972,14 +972,14 @@ where
       self.meta.write_short(-1)?; // jumpTableEntryCount
       self.meta.write_byte(-1i8 as u8)?; // denseRankPower
     } else {
-      let offset = self.data.get_file_pointer();
+      let offset = self.data.get_file_pointer()?;
       self.meta.write_long(offset as i64)?; // docsWithFieldOffset
       let mut values = values_producer.get_binary(field)?;
       let jump_table_entry_count =
         write_bitset_with_dense_rank_power(&mut values, &mut self.data, DEFAULT_DENSE_RANK_POWER)?;
       self
         .meta
-        .write_long((self.data.get_file_pointer() - offset) as i64)?; //docsWithFieldLength
+        .write_long((self.data.get_file_pointer()? - offset) as i64)?; //docsWithFieldLength
       self.meta.write_short(jump_table_entry_count)?;
       self.meta.write_byte(DEFAULT_DENSE_RANK_POWER as u8)?;
     }
@@ -989,7 +989,7 @@ where
     self.meta.write_int(max_length as i32)?;
 
     if max_length > min_length {
-      let start = self.data.get_file_pointer();
+      let start = self.data.get_file_pointer()?;
       self.meta.write_long(start as i64)?;
       self
         .meta
@@ -1017,7 +1017,7 @@ where
       writer.finish()?;
       self
         .meta
-        .write_long((self.data.get_file_pointer() - start) as i64)?;
+        .write_long((self.data.get_file_pointer()? - start) as i64)?;
     }
 
     Ok(())

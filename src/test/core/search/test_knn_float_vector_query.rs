@@ -345,7 +345,7 @@ fn test_get_target() -> Result<()> {
 fn test_score_negative_dot_product() -> Result<()> {
   run_case(|case, random| {
     let directory = case.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone(), IndexWriterConfig::new()?)?;
 
     let mut doc = Document::new();
     doc.add(case.get_knn_vector_field_with_similarity(
@@ -386,7 +386,7 @@ fn test_score_negative_dot_product() -> Result<()> {
 fn test_score_dot_product() -> Result<()> {
   run_case(|case, random| {
     let directory = case.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone(), IndexWriterConfig::new())?;
+    let writer = IndexWriter::new(directory.clone(), IndexWriterConfig::new()?)?;
     for j in 1..=5 {
       let mut vector = vec![j as f32, (j * j) as f32];
       VectorUtil::l2normalize(&mut vector)?;
@@ -446,7 +446,7 @@ fn test_doc_and_score_query_basics() -> Result<()> {
   run_case(|case, random| {
     let directory = case.new_directory_for_test(random)?;
     let reader = {
-      let writer = RandomIndexWriter::new(random, directory.clone());
+      let writer = RandomIndexWriter::new(random, directory.clone())?;
       for i in 0..50 {
         let mut doc = Document::new();
         doc.add(StringField::from_string(

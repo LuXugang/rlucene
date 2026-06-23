@@ -72,7 +72,7 @@ fn test_wildcards() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_max_buffered_docs(TestUtil::next_int(&mut random, 50, 1000));
 
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);

@@ -26,7 +26,7 @@ use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::ToInt;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Comparator that sorts by asc _doc
 pub struct DocComparator {
@@ -63,9 +63,10 @@ impl FieldComparator for DocComparator {
     self.doc_ids[slot1] - self.doc_ids[slot2]
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     self.top_value = value;
     self.top_value_set = true;
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {
@@ -130,9 +131,9 @@ impl DocLeafComparator {
       competitive_iterator,
     })
   }
-  fn update_iterator(&mut self, comparator: &mut DocComparator) {
+  fn update_iterator(&mut self, comparator: &mut DocComparator) -> Result<()> {
     if !comparator.enable_skipping || !comparator.hits_threshold_reached {
-      return;
+      return Ok(());
     }
 
     if comparator.bottom_value_set {
@@ -152,7 +153,7 @@ impl DocLeafComparator {
         let current_doc = self
           .competitive_iterator
           .as_ref()
-          .expect("competitive_iterator must be initialized before update_iterator")
+          .ok_or_else(|| LuceneError::illegal_state("competitive_iterator is None"))?
           .doc_id();
         let segment_min_doc = current_doc.max(self.min_doc - self.doc_base as i32);
 
@@ -161,6 +162,7 @@ impl DocLeafComparator {
         ));
       }
     }
+    Ok(())
   }
 }
 impl LeafFieldComparator for DocLeafComparator {
@@ -168,7 +170,7 @@ impl LeafFieldComparator for DocLeafComparator {
   fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
     comparator.bottom = comparator.doc_ids[slot];
     comparator.bottom_value_set = true;
-    self.update_iterator(comparator);
+    self.update_iterator(comparator)?;
     Ok(())
   }
 
@@ -216,7 +218,7 @@ impl LeafFieldComparator for DocLeafComparator {
   where
     S: Scorable + ?Sized,
   {
-    self.update_iterator(comparator);
+    self.update_iterator(comparator)?;
     Ok(())
   }
 
@@ -231,7 +233,7 @@ impl LeafFieldComparator for DocLeafComparator {
 
   fn set_hits_threshold_reached(&mut self, comparator: &mut Self::FieldComparator) -> Result<()> {
     comparator.hits_threshold_reached = true;
-    self.update_iterator(comparator);
+    self.update_iterator(comparator)?;
     Ok(())
   }
 }

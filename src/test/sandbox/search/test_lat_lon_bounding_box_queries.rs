@@ -278,7 +278,7 @@ impl fmt::Display for GeoBBox {
 fn test_basics() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir, new_index_writer_config(&mut random)?)?;
 
   // Shared meridian test (disjoint)
   let mut document = Document::new();

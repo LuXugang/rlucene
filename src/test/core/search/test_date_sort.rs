@@ -43,7 +43,7 @@ where
   R: Rng + ?Sized,
 {
   let directory = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, directory);
+  let writer = RandomIndexWriter::new(random, directory)?;
   let mut field_to_type = HashMap::new();
   // Add the first document.  text = "Document 1"  dateTime = Oct 10 03:25:22 EDT 2007
   let doc = create_document(random, "20071010072522", "Document 1", &mut field_to_type)?;

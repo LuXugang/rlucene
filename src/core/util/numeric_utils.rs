@@ -256,16 +256,15 @@ impl NumericUtils {
     }
     result.copy_from(&full_big_int_bytes, offset);
 
-    debug_assert!(
-      {
-        let converted = Self::sortable_bytes_to_big_int(result, offset, big_int_size)
-          .expect("Error decoding BigInt");
-        converted == *big_int
-      },
-      "BigInt={} converted={}",
-      big_int,
-      Self::sortable_bytes_to_big_int(result, offset, big_int_size).expect("Error decoding BigInt")
-    );
+    #[cfg(debug_assertions)]
+    {
+      let converted = Self::sortable_bytes_to_big_int(result, offset, big_int_size)?;
+      debug_assert_eq!(
+        &converted, big_int,
+        "BigInt={} converted={}",
+        big_int, converted
+      );
+    }
 
     Ok(())
   }

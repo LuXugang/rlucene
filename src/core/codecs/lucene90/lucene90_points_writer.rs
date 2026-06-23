@@ -209,10 +209,10 @@ where
     CodecUtil::write_footer(&mut self.data_out)?;
     self
       .meta_out
-      .write_long(self.index_out.get_file_pointer() as i64)?;
+      .write_long(self.index_out.get_file_pointer()? as i64)?;
     self
       .meta_out
-      .write_long(self.data_out.get_file_pointer() as i64)?;
+      .write_long(self.data_out.get_file_pointer()? as i64)?;
     CodecUtil::write_footer(&mut self.meta_out)?;
     Ok(())
   }

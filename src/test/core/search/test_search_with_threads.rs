@@ -51,7 +51,7 @@ fn test() -> Result<()> {
   };
 
   let dir = new_directory_shared(&mut random)?;
-  let mut config = new_index_writer_config(&mut random);
+  let mut config = new_index_writer_config(&mut random)?;
   config.set_max_buffered_docs(1000);
   let writer = RandomIndexWriter::with_config(&mut random, dir, config);
   let mut field_to_type = HashMap::new();

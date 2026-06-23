@@ -72,7 +72,7 @@ fn test_method() -> Result<()> {
 
   let values = ["1", "2", "3", "4"];
 
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   for value in values {
     let mut doc = Document::new();
     doc.add(StringField::from_string(FIELD, value, Store::Yes)?);
@@ -98,7 +98,7 @@ fn test_method() -> Result<()> {
 fn test_embedded_boolean_scorer() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(TextField::from_string(
@@ -133,7 +133,7 @@ fn test_embedded_boolean_scorer() -> Result<()> {
 fn test_optimize_top_level_clause_or_null() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
@@ -188,7 +188,7 @@ fn test_optimize_top_level_clause_or_null() -> Result<()> {
 fn test_optimize_prohibited_clauses() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
@@ -294,7 +294,7 @@ fn test_optimize_prohibited_clauses() -> Result<()> {
 fn test_sparse_clause_optimization() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let empty_doc = Document::new();
   let num_docs = at_least(&mut random, 10);
@@ -350,7 +350,7 @@ fn test_sparse_clause_optimization() -> Result<()> {
 fn test_filter_constant_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);

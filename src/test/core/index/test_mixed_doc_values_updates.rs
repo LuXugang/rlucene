@@ -70,7 +70,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 3)?);
   let writer = IndexWriter::new(dir.clone(), conf)?;
 
@@ -192,7 +192,7 @@ fn test_stress_multi_threading() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = Arc::new(IndexWriter::new(dir.clone(), conf)?);
 
   // create index
@@ -347,7 +347,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf.set_max_buffered_docs(4);
   let writer = IndexWriter::new(dir.clone(), conf)?;
   let num_docs = at_least(&mut random, 10);
@@ -407,7 +407,7 @@ fn test_tons_of_updates() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf.set_ram_buffer_size_mb(crate::core::index::index_writer_config::DEFAULT_RAM_BUFFER_SIZE_MB);
   conf.set_max_buffered_docs(crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH);
   let writer = IndexWriter::new(dir.clone(), conf)?;
@@ -491,7 +491,7 @@ fn test_tons_of_updates() -> Result<()> {
 fn test_try_update_doc_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let conf = new_index_writer_config(&mut random);
+  let conf = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), conf)?;
   let num_docs = 1 + random.random_range(0..128);
   for i in 0..num_docs {
@@ -553,7 +553,7 @@ fn test_try_update_doc_values() -> Result<()> {
 fn test_try_update_multi_threaded() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let conf = new_index_writer_config(&mut random);
+  let conf = new_index_writer_config(&mut random)?;
   let writer = Arc::new(IndexWriter::new(dir.clone(), conf)?);
   let num_locks = 25 + random.random_range(0..50);
   let mut values = Vec::new();
@@ -696,7 +696,7 @@ fn test_reset_value() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), conf)?;
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "0", Store::No)?);
@@ -762,7 +762,7 @@ fn test_reset_value_multiple_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), conf)?;
   let num_docs = 10 + random.random_range(0..50);
   let mut current_seq_id = 0;
@@ -840,7 +840,7 @@ fn test_reset_value_multiple_docs() -> Result<()> {
 fn test_update_not_existing_field_dv() -> Result<()> {
   let mut random = random();
   let mock = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let dir = new_directory_shared(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), conf)?;
   let mut doc = Document::new();
@@ -887,7 +887,7 @@ fn test_update_not_existing_field_dv() -> Result<()> {
 fn test_update_field_with_no_previous_doc_values_throws_error() -> Result<()> {
   let mut random = random();
   let mock = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let dir = new_directory_shared(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), conf)?;
   let mut doc = Document::new();

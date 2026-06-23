@@ -182,7 +182,7 @@ fn test_conjunctions() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let iw = IndexWriter::new(dir.clone(), iwc)?;
   // set to false when doing performance testing
   let validate = true;

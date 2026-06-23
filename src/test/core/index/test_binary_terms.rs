@@ -37,7 +37,7 @@ fn test_binary() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
 
-  let iw = RandomIndexWriter::new(&mut random, directory.clone());
+  let iw = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_types = HashMap::new();
   let mut bytes: BytesRef<Vec<u8>> = BytesRef::with_capacity(2)?;
 

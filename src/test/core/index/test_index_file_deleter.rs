@@ -60,7 +60,7 @@ fn test_delete_left_over_files() -> Result<()> {
     .set_max_cfs_segment_size_mb(f64::INFINITY)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_max_buffered_docs(10)
     .set_merge_policy(merge_policy)
@@ -88,7 +88,7 @@ fn test_delete_left_over_files() -> Result<()> {
 
   // Delete one doc so we get a .del file:
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_merge_policy(NoMergePolicy::default())
     .set_use_compound_file(true);
@@ -166,7 +166,7 @@ fn test_delete_left_over_files() -> Result<()> {
 
   // Open & close a writer: it should delete the above files and nothing more:
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
   let writer = IndexWriter::new(dir.clone(), config)?;
   writer.close()?;
@@ -284,7 +284,7 @@ fn test_no_segments_dot_gen_inflation() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   // empty commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   writer.close()?;
   drop(writer);
 
@@ -311,7 +311,7 @@ fn test_segment_name_inflation() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   // empty commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   writer.close()?;
   drop(writer);
 
@@ -343,7 +343,7 @@ fn test_segment_name_inflation() -> Result<()> {
   assert_eq!(4, sis.counter);
 
   // ensure we write _4 segment next
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
   writer.close()?;
@@ -362,7 +362,7 @@ fn test_generation_inflation() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   // initial commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
   writer.close()?;
@@ -403,7 +403,7 @@ fn test_trashy_gen_file() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   // initial commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new())?;
+  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
   writer.close()?;

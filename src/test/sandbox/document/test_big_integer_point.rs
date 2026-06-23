@@ -35,7 +35,7 @@ struct TestBigIntegerPoint;
 fn test_basics() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with a large biginteger value
   let mut document = Document::new();
@@ -88,7 +88,7 @@ fn test_basics() -> Result<()> {
 fn test_negative() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with a large biginteger value
   let mut document = Document::new();

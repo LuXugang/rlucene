@@ -1168,16 +1168,16 @@ where
   let mut field_comparator = sort_field.get_comparator(1, Pruning::None)?;
   match field_comparator {
     FieldComparatorEnum::Long(ref mut fc) => {
-      fc.set_top_value(top_value);
+      fc.set_top_value(top_value)?;
     },
     FieldComparatorEnum::SortedNumericLong(ref mut fc) => {
-      fc.set_top_value(top_value);
+      fc.set_top_value(top_value)?;
     },
     FieldComparatorEnum::Int(ref mut fc) => {
-      fc.set_top_value(top_value as i32);
+      fc.set_top_value(top_value as i32)?;
     },
     FieldComparatorEnum::SortedNumericInt(ref mut fc) => {
-      fc.set_top_value(top_value as i32);
+      fc.set_top_value(top_value as i32)?;
     },
     _ => {
       return Err(LuceneError::illegal_argument(

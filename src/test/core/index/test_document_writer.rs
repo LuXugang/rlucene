@@ -135,7 +135,7 @@ fn test_position_increment_gap() -> Result<()> {
   };
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>),
+    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>)?,
   )?;
 
   let mut doc = Document::new();
@@ -206,7 +206,7 @@ fn test_token_reuse() -> Result<()> {
   };
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>),
+    new_index_writer_config_with_analyzer(&mut random, Box::new(analyzer) as Box<dyn Analyzer>)?,
   )?;
 
   let mut doc = Document::new();
@@ -343,7 +343,7 @@ fn test_pre_analyzed_field() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
   let mut doc = Document::new();
 
@@ -405,7 +405,7 @@ fn test_lucene_1590() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
   writer.add_document(doc)?;
   writer.force_merge(1)?;
@@ -444,7 +444,7 @@ where
 {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_buffered_docs(10);
   iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
   let writer = IndexWriter::new(dir, iwc)?;
@@ -566,7 +566,7 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
   }
 
   for ft in illegal_field_types {
-    let mut iwc = new_index_writer_config(&mut random);
+    let mut iwc = new_index_writer_config(&mut random)?;
     iwc.set_open_mode(OpenMode::Create);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
     let field = MockIndexableField::new("field", Some(BytesRef::from_string("a")), ft);
@@ -582,7 +582,7 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
   }
 
   {
-    let mut iwc = new_index_writer_config(&mut random);
+    let mut iwc = new_index_writer_config(&mut random)?;
     iwc.set_open_mode(OpenMode::Create);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
     let field = MockIndexableField::new(
@@ -653,7 +653,7 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
 
   for ft in legal_field_types {
     {
-      let mut iwc = new_index_writer_config(&mut random);
+      let mut iwc = new_index_writer_config(&mut random)?;
       iwc.set_open_mode(OpenMode::Create);
       let writer = IndexWriter::new(dir.clone(), iwc)?;
       let field = MockIndexableField::new("field", Some(BytesRef::from_string("a")), ft.clone());

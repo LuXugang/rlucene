@@ -53,7 +53,7 @@ fn test_partial_merge() -> Result<()> {
     ldmp.set_merge_factor(5)?;
 
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     iwc.set_open_mode(OpenMode::Create);
     iwc.set_max_buffered_docs(2);
     iwc.set_merge_policy(ldmp);
@@ -72,7 +72,7 @@ fn test_partial_merge() -> Result<()> {
     ldmp.set_merge_factor(5)?;
 
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     iwc.set_merge_policy(ldmp);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
     writer.force_merge(3)?;
@@ -107,7 +107,7 @@ fn test_max_num_segments2() -> Result<()> {
 
   let mock = MockAnalyzer::new(&mut random);
   // TODO IMPORTANT ConcurrentMergeScheduler未实现
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_max_buffered_docs(2);
   iwc.set_merge_policy(ldmp);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -155,7 +155,7 @@ fn test_background_force_merge() -> Result<()> {
 
   for pass in 0..2 {
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     iwc.set_open_mode(OpenMode::Create);
     iwc.set_max_buffered_docs(2);
     iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 51)?);

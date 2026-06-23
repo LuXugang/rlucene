@@ -48,7 +48,7 @@ fn test_all_commits_remain() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;

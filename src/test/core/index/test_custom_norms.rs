@@ -55,7 +55,7 @@ fn test_float_norms() -> Result<()> {
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 2, MAX_TERM_LENGTH));
 
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let provider = MySimProvider;
   config.set_similarity(SimilarityEnum::custom(provider));
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), config);

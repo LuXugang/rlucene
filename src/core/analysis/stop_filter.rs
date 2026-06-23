@@ -38,7 +38,7 @@ impl StopFilter {
 
 impl FilteringTokenFilterBase for StopFilter {
   fn accept(&self, att: &Attributes) -> Result<bool> {
-    let length = att.length().expect("CharTermAttribute length is required");
+    let length = att.length()?;
     debug_assert!(length <= i32::MAX as usize);
     Ok(
       !self

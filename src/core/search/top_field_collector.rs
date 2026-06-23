@@ -164,7 +164,7 @@ impl TopFieldCollector {
       let min_score = first_comparator
         .value(bottom.slot()?)
         .and_then(FieldComparatorValue::into_f32)
-        .expect("first comparator is not a float");
+        .ok_or_else(|| LuceneError::illegal_state("first comparator is not a float"))?;
 
       if min_score > self.min_competitive_score {
         scorer.set_min_competitive_score(min_score)?;
@@ -836,7 +836,7 @@ impl PagingFieldCollector {
     let score_doc = std::mem::take(&mut after.base);
 
     for (comp, top_value) in comparators.iter_mut().zip(fields) {
-      comp.set_top_value(top_value);
+      comp.set_top_value(top_value)?;
     }
 
     Ok(Self {

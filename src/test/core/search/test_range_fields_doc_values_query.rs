@@ -35,7 +35,7 @@ struct TestRangeFieldsDocValuesQuery;
 fn test_double_range_doc_values_intersects_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let iters = at_least(&mut random, 10);
   let min = [112.7, 296.0, 512.4];
   let max = [119.3, 314.8, 524.3];
@@ -82,7 +82,7 @@ fn test_double_range_doc_values_intersects_query() -> Result<()> {
 fn test_int_range_doc_values_intersects_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let iters = at_least(&mut random, 10);
   let min = [3, 11, 17];
   let max = [27, 35, 49];
@@ -132,7 +132,7 @@ fn test_int_range_doc_values_intersects_query() -> Result<()> {
 fn test_long_range_doc_values_intersect_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let iters = at_least(&mut random, 10);
   let min = [31i64, 15, 2];
   let max = [95i64, 27, 4];
@@ -174,7 +174,7 @@ fn test_long_range_doc_values_intersect_query() -> Result<()> {
 fn test_float_range_doc_values_intersect_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let iters = at_least(&mut random, 10);
   let min = [3.7f32, 11.0, 33.4];
   let max = [8.3f32, 21.6, 59.8];
@@ -255,7 +255,7 @@ fn test_to_string() -> Result<()> {
 fn test_no_data() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "abc", Store::No)?);
   iw.add_document(&mut random, doc)?;

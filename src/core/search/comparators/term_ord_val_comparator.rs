@@ -127,10 +127,11 @@ impl FieldComparator for TermOrdValComparator {
     }
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     // None is fine: it means the last doc of the prior
     // search was missing this value
     self.top_value = Some(value);
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {

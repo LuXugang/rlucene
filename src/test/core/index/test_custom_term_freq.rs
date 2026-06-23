@@ -105,7 +105,7 @@ fn test_singleton_terms_one_doc() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -160,7 +160,7 @@ fn test_singleton_terms_two_docs() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -230,7 +230,7 @@ fn test_repeat_terms_one_doc() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -289,7 +289,7 @@ fn test_repeat_terms_two_docs() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -370,7 +370,7 @@ fn test_total_term_freq() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -431,7 +431,7 @@ fn test_invalid_prox() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -469,7 +469,7 @@ fn test_invalid_docs_only() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -508,7 +508,7 @@ fn test_overflow_int() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
@@ -549,7 +549,7 @@ fn test_invalid_term_vector_positions() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -591,7 +591,7 @@ fn test_invalid_term_vector_offsets() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -634,7 +634,7 @@ fn test_term_vectors() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -756,7 +756,7 @@ fn test_field_invert_state() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let fis = Arc::new(Mutex::new((FieldInvertState::default(), 0)));
   let similarity = NeverForgetsSimilarity::new(fis.clone());
   iwc.set_similarity(SimilarityEnum::custom(similarity));

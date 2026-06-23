@@ -23,7 +23,7 @@ use std::io::Write;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::store::DataInput;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{
   ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING, Arc, BIT_TARGET_NEXT,
   BitTable, BytesReader, END_LABEL, FST, InputType, read_end_arc, target_has_arcs,
@@ -791,7 +791,9 @@ where
       && queue.len() == self.max_queue_depth
       && self.max_queue_depth > 0
     {
-      let bottom = queue.last().expect("queue must have a bottom path");
+      let bottom = queue
+        .last()
+        .ok_or_else(|| LuceneError::illegal_state("queue must have a bottom path"))?;
       let comp = self.path_comparator.compare(path, bottom)?;
       if comp > 0 {
         return Ok(());

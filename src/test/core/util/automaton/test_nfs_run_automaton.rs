@@ -152,7 +152,7 @@ fn test_random_automaton_query() -> Result<()> {
   let automaton_num: usize = 50;
 
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
 
   let mut vocab = HashSet::new();
   let mut per_doc_vocab = HashSet::new();

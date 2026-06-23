@@ -1055,7 +1055,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
 
     let dir = new_directory_shared(random)?;
     let analyzer = crate::test::core::analysis::mock_analyzer::MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_scheduler(SerialMergeScheduler::new());
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
@@ -1215,7 +1215,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     for max_doc in (frontier - 1)..=(frontier + 1) {
       let dir = new_directory_shared(random)?;
       let analyzer = crate::test::core::analysis::mock_analyzer::MockAnalyzer::new(random);
-      let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+      let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
       iwc.set_merge_policy(new_log_merge_policy(random)?);
       let writer = IndexWriter::new(dir, iwc)?;
       let mut out = ByteBuffersDataOutput::new();
@@ -1283,7 +1283,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     for max_doc in (frontier - 1)..=(frontier + 1) {
       let dir = new_directory_shared(random)?;
       let analyzer = crate::test::core::analysis::mock_analyzer::MockAnalyzer::new(random);
-      let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+      let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
       iwc.set_merge_policy(new_log_merge_policy(random)?);
       let writer = IndexWriter::new(dir, iwc)?;
       let mut out = ByteBuffersDataOutput::new();
@@ -1364,7 +1364,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
 
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_max_buffered_docs(max_doc);
     conf.set_ram_buffer_size_mb(-1.0);
     conf.set_use_compound_file(false);
@@ -1414,7 +1414,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_max_buffered_docs(at_least(
       random,
       Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE,
@@ -1497,7 +1497,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_max_buffered_docs(at_least(
       random,
       Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE,
@@ -1603,7 +1603,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
 
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
     config.set_use_compound_file(false);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
 
@@ -1663,7 +1663,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
 
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
     config.set_use_compound_file(false);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
 
@@ -1704,7 +1704,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let config = new_index_writer_config_with_analyzer(random, analyzer);
+    let config = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
     let num_docs = at_least(
       random,
@@ -1740,7 +1740,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let config = new_index_writer_config_with_analyzer(random, analyzer);
+    let config = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
     let num_docs = at_least(
       random,
@@ -1806,7 +1806,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
     for value in ["abc0defghijkl", "abc1defghijkl", "abc2defghijkl"] {
@@ -1859,7 +1859,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     let num_terms = Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE + 10;
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
     let term_a = b'A';

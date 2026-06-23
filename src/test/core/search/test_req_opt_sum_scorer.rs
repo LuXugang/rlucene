@@ -75,7 +75,7 @@ where
 {
   let dir = new_directory_shared(random)?;
 
-  let mut iwc = new_index_writer_config(random);
+  let mut iwc = new_index_writer_config(random)?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
   let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
@@ -187,7 +187,7 @@ fn test_max_block() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -251,7 +251,7 @@ fn test_max_score_segment() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let conf = new_index_writer_config(&mut random);
+  let conf = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), conf)?;
 
   let docs: &[&[&str]] = &[
@@ -358,7 +358,7 @@ where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  let config = new_index_writer_config(random);
+  let config = new_index_writer_config(random)?;
   let w = RandomIndexWriter::with_config(random, dir.clone(), config);
   let num_docs = at_least(random, 1000);
 

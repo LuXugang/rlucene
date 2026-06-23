@@ -34,7 +34,7 @@ pub struct TestNot;
 fn test_not() -> Result<()> {
   let mut random = random();
   let store = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, store.clone());
+  let writer = RandomIndexWriter::new(&mut random, store.clone())?;
 
   let mut field_to_type = HashMap::new();
 

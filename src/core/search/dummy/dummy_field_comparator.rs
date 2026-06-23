@@ -27,7 +27,10 @@ impl FieldComparator for DummyFieldComparator {
     dummy_unreachable!()
   }
 
-  fn set_top_value(&mut self, _value: Self::V) {
+  fn set_top_value(
+    &mut self,
+    _value: Self::V,
+  ) -> crate::core::util::error::lucene_error::Result<()> {
     dummy_unreachable!()
   }
 

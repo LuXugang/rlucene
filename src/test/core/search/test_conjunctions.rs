@@ -48,7 +48,7 @@ where
 {
   let dir = new_directory_shared(random)?;
   let mock = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, mock);
+  let mut config = new_index_writer_config_with_analyzer(random, mock)?;
 
   config.set_merge_policy(new_log_merge_policy(random)?);
   let w = IndexWriter::new(dir.clone(), config)?;
@@ -106,7 +106,7 @@ fn test_scorer_get_children() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_to_type = HashMap::new();

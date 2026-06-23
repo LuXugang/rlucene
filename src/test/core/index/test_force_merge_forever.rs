@@ -68,7 +68,7 @@ fn test() -> Result<()> {
   let d = new_directory_shared(&mut random)?;
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   // TODO IMPORTANT ConcurrentMergeScheduler 未实现
   let my_index_writer = MyIndexWriter::new();
   let merge_count = my_index_writer.merge_count.clone();

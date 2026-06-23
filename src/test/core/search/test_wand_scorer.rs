@@ -136,7 +136,7 @@ where
 fn test_basics() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut conf = IndexWriterConfig::new();
+  let mut conf = IndexWriterConfig::new()?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -354,7 +354,7 @@ fn test_basics() -> Result<()> {
 fn test_basics_with_disjunction_and_min_should_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut conf = IndexWriterConfig::new();
+  let mut conf = IndexWriterConfig::new()?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -459,7 +459,7 @@ fn test_basics_with_disjunction_and_min_should_match() -> Result<()> {
 fn test_basics_with_disjunction_and_min_should_match_and_tail_size_condition() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut conf = IndexWriterConfig::new();
+  let mut conf = IndexWriterConfig::new()?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -518,7 +518,7 @@ fn test_basics_with_disjunction_and_min_should_match_and_tail_size_condition() -
 fn test_basics_with_disjunction_and_min_should_match_and_non_scoring_mode() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut conf = IndexWriterConfig::new();
+  let mut conf = IndexWriterConfig::new()?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -587,7 +587,7 @@ fn test_basics_with_disjunction_and_min_should_match_and_non_scoring_mode() -> R
 fn test_basics_with_filtered_disjunction_and_min_should_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut conf = IndexWriterConfig::new();
+  let mut conf = IndexWriterConfig::new()?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -681,7 +681,7 @@ fn test_basics_with_filtered_disjunction_and_min_should_match() -> Result<()> {
 fn test_basics_with_filtered_disjunction_and_min_should_match_and_non_scoring_mode() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut conf = IndexWriterConfig::new();
+  let mut conf = IndexWriterConfig::new()?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -757,7 +757,7 @@ fn test_basics_with_filtered_disjunction_and_min_should_match_and_non_scoring_mo
 fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let conf = IndexWriterConfig::new();
+  let conf = IndexWriterConfig::new()?;
   let w = IndexWriter::new(dir.clone(), conf)?;
 
   let docs: &[&[&str]] = &[
@@ -849,7 +849,7 @@ fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match_and_n
 -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut conf = IndexWriterConfig::new();
+  let mut conf = IndexWriterConfig::new()?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
@@ -927,7 +927,7 @@ fn test_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let num_docs = at_least(&mut random, 1000);
   for _ in 0..num_docs {
     let mut doc = Document::new();
@@ -990,7 +990,7 @@ fn test_random_with_zero_scores() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let num_docs = at_least(&mut random, 1000);
   for _ in 0..num_docs {
     let mut doc = Document::new();
@@ -1063,7 +1063,7 @@ fn do_test_random_special_max_score(max_score: f32) -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let num_docs = at_least(&mut random, 1000);
   for _ in 0..num_docs {
     let mut doc = Document::new();

@@ -46,7 +46,7 @@ fn test_term_enum() -> Result<()> {
   let mut field_types = HashMap::new();
   {
     let mock = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     let mut writer = IndexWriter::new(dir.clone(), iwc)?;
 
     // ADD 100 documents with term : aaa
@@ -64,7 +64,7 @@ fn test_term_enum() -> Result<()> {
   verify_doc_freq(dir.clone())?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   writer.force_merge(1)?;
   writer.close()?;
@@ -78,7 +78,7 @@ fn test_prev_term_at_end() -> Result<()> {
   let mut field_types = HashMap::new();
 
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let mut writer = IndexWriter::new(dir.clone(), iwc)?;
   add_doc(&mut random, &mut writer, "aaa bbb", &mut field_types)?;
   writer.close()?;

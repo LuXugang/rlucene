@@ -48,7 +48,7 @@ fn set_up() -> Result<DefaultIndexSearchCR> {
   let directory = new_directory_shared(&mut random)?;
   let sim = SimilarityEnum::custom(ExampleSimilarityProvider::new());
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_similarity(sim);
 
   let iw = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);

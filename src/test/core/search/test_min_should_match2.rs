@@ -76,7 +76,7 @@ where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  let iw = RandomIndexWriter::new(random, dir.clone());
+  let iw = RandomIndexWriter::new(random, dir.clone())?;
   let num_docs = at_least(random, 300);
 
   for _ in 0..num_docs {

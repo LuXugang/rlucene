@@ -54,7 +54,7 @@ fn test_binary_field_in_index() -> Result<()> {
   // add the doc to an index
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, doc)?;
 
   // open a reader and fetch the document

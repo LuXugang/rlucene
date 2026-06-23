@@ -384,10 +384,10 @@ impl DocHelper {
     A: Into<AnalyzerEnum>,
     S: Into<SimilarityEnum>,
   {
-    let mut config = IndexWriterConfig::with_analyzer(analyzer);
+    let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
     let s = match similarity {
       Some(v) => v.into(),
-      None => get_default_similarity(),
+      None => get_default_similarity()?,
     };
     config.set_similarity(s);
 

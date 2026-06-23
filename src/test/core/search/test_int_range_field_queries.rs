@@ -66,7 +66,7 @@ impl TestIntRangeFieldQueries {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let writer = IndexWriter::new(dir, new_index_writer_config(random))?;
+    let writer = IndexWriter::new(dir, new_index_writer_config(random)?)?;
 
     // intersects (within)
     let mut document = Document::new();

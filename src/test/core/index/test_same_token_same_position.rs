@@ -31,7 +31,7 @@ pub struct TestSameTokenSamePosition;
 fn test() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let riw = RandomIndexWriter::new(&mut random, dir);
+  let riw = RandomIndexWriter::new(&mut random, dir)?;
   let mut doc = Document::new();
   doc.add(TextField::from_token_stream(
     "eng",
@@ -47,7 +47,7 @@ fn test() -> Result<()> {
 fn test_more_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let riw = RandomIndexWriter::new(&mut random, dir);
+  let riw = RandomIndexWriter::new(&mut random, dir)?;
   for _ in 0..100 {
     let mut doc = Document::new();
     doc.add(TextField::from_token_stream(

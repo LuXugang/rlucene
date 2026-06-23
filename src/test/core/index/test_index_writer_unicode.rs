@@ -232,7 +232,7 @@ fn test_embedded_ffff() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = crate::core::index::index_writer::IndexWriter::new(dir.clone(), config)?;
 
   let mut doc = Document::new();
@@ -255,7 +255,7 @@ fn test_invalid_utf16() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::with_automaton(&mut random, WHITESPACE.clone(), false);
-  let config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = crate::core::index::index_writer::IndexWriter::new(dir.clone(), config)?;
 
   let mut doc = Document::new();
@@ -299,7 +299,7 @@ fn test_invalid_utf16() -> Result<()> {
 fn test_term_utf16_sort_order() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir);
+  let writer = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut f = StringField::from_string("f", "", Store::No)?;
   let mut all_terms = HashSet::new();

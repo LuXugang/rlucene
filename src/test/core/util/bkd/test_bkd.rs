@@ -96,7 +96,7 @@ fn test_basic_ints_1d() -> Result<()> {
       let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
       let finalizer = writer.finish(&mut out)?.unwrap();
       {
-        index_fp = out.get_file_pointer();
+        index_fp = out.get_file_pointer()?;
       }
       writer.write_index(&mut out, None, &finalizer)?;
     }
@@ -180,7 +180,7 @@ fn test_random_ints_n_dims() -> Result<()> {
     let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
     {
-      index_fp = out.get_file_pointer();
+      index_fp = out.get_file_pointer()?;
     }
     writer.write_index(&mut out, None, &finalizer)?;
   }
@@ -312,7 +312,7 @@ fn test_big_int_n_dims() -> Result<()> {
     let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
     {
-      index_fp = out.get_file_pointer();
+      index_fp = out.get_file_pointer()?;
     }
     writer.write_index(&mut out, None, &finalizer)?;
   }
@@ -902,7 +902,7 @@ where
       to_merge
         .as_mut()
         .unwrap()
-        .push(out.get_file_pointer() as i64);
+        .push(out.get_file_pointer()? as i64);
       writer.write_index(&mut out, None, &finalizer)?;
       values_in_this_seg = TestUtil::next_usize(random, num_values / 10, num_values / 2);
       seg_count = 0;
@@ -934,7 +934,7 @@ where
   if let Some(to_merge) = &mut to_merge {
     if seg_count > 0 {
       let finalizer = writer.finish(&mut out)?.unwrap();
-      to_merge.push(out.get_file_pointer() as i64);
+      to_merge.push(out.get_file_pointer()? as i64);
       writer.write_index(&mut out, None, &finalizer)?;
       let cur_doc_id_base = last_doc_id_base;
       doc_maps
@@ -970,7 +970,7 @@ where
     {
       let mut out = dir.create_output("bkd2", &IOContext::default_io_context()?)?;
       let finalizer = writer.merge(&mut out, doc_maps, readers)?.unwrap();
-      index_fp = out.get_file_pointer();
+      index_fp = out.get_file_pointer()?;
       writer.write_index(&mut out, None, &finalizer)?;
     }
     input = Arc::new(Mutex::new(
@@ -978,7 +978,7 @@ where
     ));
   } else {
     let finalizer = writer.finish(&mut out)?.unwrap();
-    index_fp = out.get_file_pointer();
+    index_fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
     drop(out);
     input = Arc::new(Mutex::new(
@@ -1362,7 +1362,7 @@ fn test_tie_break_order() -> Result<()> {
   let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
   let finalizer = writer.finish(&mut out)?.unwrap();
-  let fp = out.get_file_pointer();
+  let fp = out.get_file_pointer()?;
   writer.write_index(&mut out, None, &finalizer)?;
 
   let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
@@ -1466,7 +1466,7 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
 
     let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
-    index_fp = out.get_file_pointer();
+    index_fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
     writer.close()?;
   }
@@ -1537,7 +1537,7 @@ fn test_2d_long_ords_offline() -> Result<()> {
   {
     let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
-    fp = out.get_file_pointer();
+    fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
   }
 
@@ -1636,7 +1636,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
     let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
     let finalizer = writer.finish(&mut out)?.unwrap();
-    fp = out.get_file_pointer();
+    fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
   }
   let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
@@ -1754,7 +1754,7 @@ fn test_estimate_point_count() -> Result<()> {
   {
     let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
-    index_fp = out.get_file_pointer();
+    index_fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
   }
 
@@ -1843,8 +1843,8 @@ impl MutablePointTree for MutablePointTreeMock1 {
     b.bytes[b.offset + k]
   }
 
-  fn get_doc_id(&self, _i: usize) -> i32 {
-    0
+  fn get_doc_id(&self, _i: usize) -> Result<i32> {
+    Ok(0)
   }
 
   fn swap(&mut self, _i: usize, _j: usize) {}
@@ -1939,8 +1939,8 @@ impl MutablePointTree for MutablePointTreeMock2 {
     self.point_values[i][k]
   }
 
-  fn get_doc_id(&self, i: usize) -> i32 {
-    self.doc_id[i]
+  fn get_doc_id(&self, i: usize) -> Result<i32> {
+    Ok(self.doc_id[i])
   }
 
   fn swap(&mut self, i: usize, j: usize) {

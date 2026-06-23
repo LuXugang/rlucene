@@ -212,7 +212,7 @@ fn test_sort(use_from: bool) -> Result<()> {
   let tokens = ["a", "b", "c", "d", "e"];
 
   let mut dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut content = Vec::with_capacity(at_least(&mut random, 20) as usize);
 

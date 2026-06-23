@@ -36,7 +36,7 @@ where
 {
   // initialize directory
   let directory = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, directory);
+  let writer = RandomIndexWriter::new(random, directory)?;
 
   // write document
   let mut field_types = HashMap::<String, FieldType>::new();

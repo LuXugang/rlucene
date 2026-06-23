@@ -132,7 +132,7 @@ where
 
     debug_assert_eq!(
       CodecUtil::index_header_length(&format!("{}Meta", INDEX_CODEC_NAME), segment_suffix),
-      meta_stream.get_file_pointer()
+      meta_stream.get_file_pointer()?
     );
 
     CodecUtil::write_index_header(
@@ -145,7 +145,7 @@ where
 
     debug_assert_eq!(
       CodecUtil::index_header_length(format_name, segment_suffix),
-      fields_stream.get_file_pointer()
+      fields_stream.get_file_pointer()?
     );
 
     meta_stream.write_vint(chunk_size)?;
@@ -216,7 +216,7 @@ where
 
     self.index_writer.write_index(
       self.num_buffered_docs,
-      self.fields_stream.get_file_pointer(),
+      self.fields_stream.get_file_pointer()?,
     )?;
 
     // convert end offsets into lengths
@@ -355,7 +355,7 @@ where
           // write a new index entry and new header for this chunk.
           self
             .index_writer
-            .write_index(buffered_docs, self.fields_stream.get_file_pointer())?;
+            .write_index(buffered_docs, self.fields_stream.get_file_pointer()?)?;
           self.fields_stream.write_vint(self.doc_base as i32)?;
           self.fields_stream.write_vint(code)?;
           doc_id += buffered_docs;
@@ -575,7 +575,7 @@ where
 
     self.index_writer.finish(
       num_docs,
-      self.fields_stream.get_file_pointer(),
+      self.fields_stream.get_file_pointer()?,
       &mut self.meta_stream,
       dir,
     )?;

@@ -46,7 +46,7 @@ where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, dir);
+  let writer = RandomIndexWriter::new(random, dir)?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   for _ in 0..1_000 {
     let mut doc = Document::new();

@@ -177,7 +177,7 @@ where
 {
   let mut docs = HashMap::new();
   let analyzer = MockAnalyzer::new(&mut *random);
-  let mut config = new_index_writer_config_with_analyzer(&mut *random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut *random, analyzer)?;
   config.set_open_mode(OpenMode::Create);
   config.set_ram_buffer_size_mb(0.1);
   config.set_max_buffered_docs(max_buffered_docs);
@@ -236,7 +236,7 @@ where
 {
   let mut docs = HashMap::new();
   let analyzer = MockAnalyzer::new(&mut *random);
-  let mut config = new_index_writer_config_with_analyzer(&mut *random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(&mut *random, analyzer)?;
   config.set_open_mode(OpenMode::Create);
   config.set_ram_buffer_size_mb(0.1);
   config.set_max_buffered_docs(max_buffered_docs);
@@ -288,7 +288,7 @@ where
   R: rand::Rng + ?Sized,
 {
   let analyzer = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   config.set_merge_policy(new_log_merge_policy(random)?);
   let w = IndexWriter::new(dir, config)?;
 

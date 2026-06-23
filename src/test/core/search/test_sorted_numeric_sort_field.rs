@@ -100,7 +100,7 @@ fn test_equals() -> Result<()> {
 fn test_forward() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
@@ -143,7 +143,7 @@ fn test_forward() -> Result<()> {
 fn test_reverse() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(IntField::new("value", 3, Store::No)?);
@@ -186,7 +186,7 @@ fn test_reverse() -> Result<()> {
 fn test_missing_first() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
@@ -237,7 +237,7 @@ fn test_missing_first() -> Result<()> {
 fn test_missing_last() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(IntField::new("value", 5, Store::No)?);
@@ -288,7 +288,7 @@ fn test_missing_last() -> Result<()> {
 fn test_singleton() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // doc1
   let mut doc = Document::new();
@@ -330,7 +330,7 @@ fn test_singleton() -> Result<()> {
 fn test_float() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(FloatField::new("value", -3f32, Store::No)?);
@@ -372,7 +372,7 @@ fn test_float() -> Result<()> {
 fn test_double() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(DoubleField::new("value", -3f64, Store::Yes)?);

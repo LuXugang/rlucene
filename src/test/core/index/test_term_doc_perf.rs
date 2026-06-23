@@ -197,7 +197,7 @@ where
   let mut doc = Document::new();
   doc.add(StringField::from_string(field, val, Store::No)?);
 
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   iwc.set_open_mode(OpenMode::Create);
   iwc.set_max_buffered_docs(100);
   iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(random, 100)?);

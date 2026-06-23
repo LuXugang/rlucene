@@ -153,7 +153,7 @@ fn test_set_string_value() -> Result<()> {
 fn test_index_bytes_value() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   w.add_document(vec![
     KeywordField::from_bytes_ref(
@@ -197,7 +197,7 @@ fn test_index_bytes_value() -> Result<()> {
 fn test_index_string_value() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   w.add_document(vec![
     KeywordField::from_string("field", "value", Store::Yes)?.into(),
@@ -242,7 +242,7 @@ fn test_value_clone() -> Result<()> {
     .collect();
 
   let expected = values.clone();
-  KeywordField::new_set_query("f", values.clone());
+  KeywordField::new_set_query("f", values.clone())?;
   assert_eq!(expected, values);
 
   Ok(())

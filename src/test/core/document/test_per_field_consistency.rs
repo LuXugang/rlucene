@@ -202,7 +202,7 @@ where
 fn test_doc_with_missing_schema_options_throws_error() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut config = new_index_writer_config(&mut random);
+  let mut config = new_index_writer_config(&mut random)?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir, config)?;
   let fields = random_fields_with_the_same_name(&mut random, "myfield")?;
@@ -269,7 +269,7 @@ fn test_doc_with_missing_schema_options_throws_error() -> Result<()> {
 fn test_doc_with_extra_schema_options_throws_error() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut config = new_index_writer_config(&mut random);
+  let mut config = new_index_writer_config(&mut random)?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir, config)?;
   let fields = random_fields_with_the_same_name(&mut random, "myfield")?;

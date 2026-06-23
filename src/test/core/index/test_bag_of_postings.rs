@@ -50,7 +50,7 @@ fn test() -> Result<()> {
   let max_terms_per_doc = TestUtil::next_int(&mut random, 10, 20);
   let analyzer = MockAnalyzer::new(&mut random);
   // TODO MockRandomMergePolicy未实现
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   for i in 0..num_terms {
     let term = i.to_string();

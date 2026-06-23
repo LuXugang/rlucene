@@ -38,7 +38,7 @@ struct TestDocumentsWriterPerThreadPool;
 fn test_lock_release_and_close() -> Result<()> {
   let mut random = random();
   let directory_orig = new_directory_shared(&mut random)?;
-  let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random))?;
+  let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random)?)?;
   let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
     InfoStreamEnum::NoOutput(NoOutput),
   )));
@@ -87,7 +87,7 @@ fn test_close_while_new_writers_locked() -> Result<()> {
 
   let mut random = random();
   let directory_orig = new_directory_shared(&mut random)?;
-  let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random))?;
+  let iw = IndexWriter::new(directory_orig, new_index_writer_config(&mut random)?)?;
   let queue = Arc::new(DocumentsWriterDeleteQueue::new(Arc::new(
     InfoStreamEnum::NoOutput(NoOutput),
   )));

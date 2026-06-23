@@ -46,7 +46,7 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
   let mut random = random();
   let tmp_dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let w = IndexWriter::new(tmp_dir.clone(), iwc)?;
 
   let mut doc = Document::new();

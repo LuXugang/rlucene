@@ -384,7 +384,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       self.get_directory_with_max_chunk_size(temp_dir.path().to_path_buf(), chunk_size)?;
     let dir = Arc::new(chunked_dir);
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 

@@ -154,11 +154,17 @@ where
   pub(crate) fn finish_document(&mut self) -> Result<()> {
     match self.sub {
       Some(ref mut sub) => {
-        let writer = sub.writer.as_mut().expect("sub writer must be initialized");
+        let writer = sub
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("sub writer must be initialized"))?;
         writer.finish_document()?;
       },
       None => {
-        let writer = self.writer.as_mut().expect("writer must be initialized");
+        let writer = self
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
         writer.finish_document()?;
       },
     }

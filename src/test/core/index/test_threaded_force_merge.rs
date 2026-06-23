@@ -75,7 +75,7 @@ impl TestThreadedForceMerge {
     R: Rng + ?Sized,
   {
     let analyzer = MockAnalyzer::with_automaton(random, mock_tokenizer::SIMPLE.clone(), true);
-    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
     config.set_open_mode(OpenMode::Create);
     config.set_max_buffered_docs(2);
     config.set_merge_policy(new_log_merge_policy_with_merge_factor(random, 1000)?);
@@ -191,7 +191,7 @@ impl TestThreadedForceMerge {
       drop(writer);
 
       let analyzer = MockAnalyzer::with_automaton(random, mock_tokenizer::SIMPLE.clone(), true);
-      let mut append_config = new_index_writer_config_with_analyzer(random, analyzer);
+      let mut append_config = new_index_writer_config_with_analyzer(random, analyzer)?;
       append_config.set_open_mode(OpenMode::Append);
       append_config.set_max_buffered_docs(2);
       writer = IndexWriter::new(directory.clone(), append_config)?;

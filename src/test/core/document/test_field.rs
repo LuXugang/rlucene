@@ -1720,7 +1720,7 @@ fn test_stored_field_long() -> Result<()> {
 fn test_indexed_binary_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir);
+  let writer = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut doc = Document::new();
   let br = new_bytes_ref_from_bytes(&mut random, &[0u8; 5])?;
@@ -1748,7 +1748,7 @@ fn test_indexed_binary_field() -> Result<()> {
 fn test_knn_vector_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir);
+  let writer = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut doc = Document::new();
   let byte_vector = vec![0u8; 5];

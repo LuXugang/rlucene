@@ -39,7 +39,7 @@ mod monster {
   #[ignore = "monster"]
   fn test_large_segment() -> Result<()> {
     let mut random = random();
-    let mut iwc = IndexWriterConfig::new();
+    let mut iwc = IndexWriterConfig::new()?;
     // TODO: setCodec 未实现
     // ConfigurableMCodec(128) to make sure to use the ConfigurableMCodec instead
     // of a random one.

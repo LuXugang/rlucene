@@ -33,6 +33,7 @@ use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::util::LATEST;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::collections::HashSet;
 use std::fmt::Display;
@@ -285,30 +286,24 @@ pub struct LiveIndexWriterConfigBase {
   /// [`MergeSchedulerEnum`] to use for running merges.
   pub merge_scheduler: MergeSchedulerEnum,
 }
-impl Default for LiveIndexWriterConfigBase {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
 impl LiveIndexWriterConfigBase {
-  pub fn with_analyzer<T>(analyzer: T) -> Self
+  pub fn with_analyzer<T>(analyzer: T) -> Result<Self>
   where
     T: Into<AnalyzerEnum>,
   {
-    let mut v = Self::new();
+    let mut v = Self::new()?;
     v.analyzer = analyzer.into();
-    v
+    Ok(v)
   }
-  pub fn new() -> Self {
-    Self {
+  pub fn new() -> Result<Self> {
+    Ok(Self {
       analyzer: AnalyzerEnum::default(),
       ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
       max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,
       index_deletion_policy: KeepOnlyLastCommitDeletionPolicy.into(),
       use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
       open_mode: OpenMode::CreateOrAppend,
-      similarity: Arc::new(get_default_similarity()),
+      similarity: Arc::new(get_default_similarity()?),
       codec: Lucene101Codec,
       info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
       merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),
@@ -325,7 +320,7 @@ impl LiveIndexWriterConfigBase {
       index_sort_fields: HashSet::new(),
       // TODO IMPORTANT 这里的默认不对
       merge_scheduler: MergeSchedulerEnum::default(),
-    }
+    })
   }
 
   pub fn get_flush_policy(&self) -> &FlushPolicyEnum {

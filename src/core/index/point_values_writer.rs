@@ -325,11 +325,9 @@ where
     self.input.get_byte_at(i, k)
   }
 
-  fn get_doc_id(&self, i: usize) -> i32 {
-    self
-      .doc_map
-      .old_to_new(self.input.get_doc_id(i))
-      .expect("doc map should return valid mapping")
+  fn get_doc_id(&self, i: usize) -> Result<i32> {
+    let doc_id = self.input.get_doc_id(i)?;
+    self.doc_map.old_to_new(doc_id)
   }
 
   fn swap(&mut self, i: usize, j: usize) {
@@ -466,7 +464,7 @@ impl PointTree for MutablePointTreeImpl {
         &scratch.bytes[scratch.offset..scratch.offset + self.packed_bytes_length],
         0,
       );
-      let doc_id = self.get_doc_id(i);
+      let doc_id = self.get_doc_id(i)?;
       visitor.visit_with_packed_value(doc_id, &packed_value)?;
     }
     Ok(())
@@ -511,8 +509,8 @@ impl MutablePointTree for MutablePointTreeImpl {
     self.bytes_reader.get_byte(offset)
   }
 
-  fn get_doc_id(&self, i: usize) -> i32 {
-    self.doc_ids[self.ords[i]]
+  fn get_doc_id(&self, i: usize) -> Result<i32> {
+    Ok(self.doc_ids[self.ords[i]])
   }
 
   fn swap(&mut self, i: usize, j: usize) {

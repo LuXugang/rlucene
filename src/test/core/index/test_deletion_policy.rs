@@ -93,7 +93,7 @@ fn test_keep_all_deletion_policy() -> Result<()> {
 
     let policy = KeepAllDeletionPolicy::new(dir.clone());
     let mock = MockAnalyzer::new(&mut random);
-    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
     conf
       .set_index_deletion_policy(policy.clone())
       .set_max_buffered_docs(10)
@@ -119,7 +119,7 @@ fn test_keep_all_deletion_policy() -> Result<()> {
 
     if needs_merging {
       let mock = MockAnalyzer::new(&mut random);
-      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
       conf
         .set_open_mode(OpenMode::Append)
         .set_index_deletion_policy(policy.clone());
@@ -157,7 +157,7 @@ fn test_keep_all_deletion_policy() -> Result<()> {
       if generation > 0 {
         let pre_count = dir.list_all()?.len();
         let mock = MockAnalyzer::new(&mut random);
-        let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+        let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
         conf
           .set_open_mode(OpenMode::Append)
           .set_index_deletion_policy(policy.clone());
@@ -179,7 +179,7 @@ fn test_open_prior_snapshot() -> Result<()> {
 
   let policy = KeepAllDeletionPolicy::new(dir.clone());
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf
     .set_index_deletion_policy(policy.clone())
     .set_max_buffered_docs(2)
@@ -209,7 +209,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let last_commit = last_commit.unwrap();
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf.set_index_deletion_policy(policy.clone());
   let writer = IndexWriter::new(dir.clone(), conf)?;
   add_doc(&mut random, &writer, &mut field_types)?;
@@ -221,7 +221,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   assert_eq!(6, directory_reader::list_commits(dir.clone())?.len());
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf
     .set_index_deletion_policy(policy.clone())
     .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
@@ -240,7 +240,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   r.close()?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf
     .set_index_deletion_policy(policy.clone())
     .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
@@ -260,7 +260,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   r.close()?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf.set_index_deletion_policy(policy.clone());
   let writer = IndexWriter::new(dir.clone(), conf)?;
   writer.force_merge(1)?;
@@ -273,7 +273,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   r.close()?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
@@ -309,7 +309,7 @@ fn test_keep_none_on_init_deletion_policy() -> Result<()> {
 
     let policy = KeepNoneOnInitDeletionPolicy::new();
     let mock = MockAnalyzer::new(&mut random);
-    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
     conf
       .set_open_mode(OpenMode::Create)
       .set_index_deletion_policy(policy.clone())
@@ -326,7 +326,7 @@ fn test_keep_none_on_init_deletion_policy() -> Result<()> {
     drop(writer);
 
     let mock = MockAnalyzer::new(&mut random);
-    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
     conf
       .set_open_mode(OpenMode::Append)
       .set_index_deletion_policy(policy.clone());
@@ -362,7 +362,7 @@ fn test_keep_last_n_deletion_policy() -> Result<()> {
     let policy = KeepLastNDeletionPolicy::new(N);
     for _ in 0..(N + 1) {
       let mock = MockAnalyzer::new(&mut random);
-      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
       conf
         .set_open_mode(OpenMode::Create)
         .set_index_deletion_policy(policy.clone())
@@ -421,7 +421,7 @@ fn test_keep_last_n_deletion_policy_with_creates() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let policy = KeepLastNDeletionPolicy::new(N);
     let mock = MockAnalyzer::new(&mut random);
-    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
     conf
       .set_open_mode(OpenMode::Create)
       .set_index_deletion_policy(policy.clone())
@@ -437,7 +437,7 @@ fn test_keep_last_n_deletion_policy_with_creates() -> Result<()> {
 
     for i in 0..(N + 1) {
       let mock = MockAnalyzer::new(&mut random);
-      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
       conf
         .set_open_mode(OpenMode::Append)
         .set_index_deletion_policy(policy.clone())
@@ -459,7 +459,7 @@ fn test_keep_last_n_deletion_policy_with_creates() -> Result<()> {
       drop(writer);
 
       let mock = MockAnalyzer::new(&mut random);
-      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
       conf
         .set_index_deletion_policy(policy.clone())
         .set_merge_policy(NoMergePolicy::default());
@@ -475,7 +475,7 @@ fn test_keep_last_n_deletion_policy_with_creates() -> Result<()> {
       assert_eq!(16, hits.len());
 
       let mock = MockAnalyzer::new(&mut random);
-      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+      let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
       conf
         .set_open_mode(OpenMode::Create)
         .set_index_deletion_policy(policy.clone());

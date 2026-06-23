@@ -145,8 +145,9 @@ where
       heap[1] = Some(sentinel);
       #[allow(clippy::needless_range_loop)]
       for i in 2..heap.len() {
-        heap[i] =
-          Some(sentinel_object_supplier().expect("sentinel_object_supplier must not return None"));
+        heap[i] = Some(sentinel_object_supplier().ok_or_else(|| {
+          LuceneError::illegal_state("sentinel_object_supplier must not return None")
+        })?);
       }
       return Ok(PriorityQueue {
         max_size,
@@ -211,7 +212,7 @@ where
     self.heap[index] = Some(element);
     self.size = index;
     self.up_heap(index)?;
-    Ok(self.heap_value(1))
+    self.heap_value(1)
   }
 
   /// Adds an object to a priority queue in `O(log(size))` time. It returns
@@ -225,16 +226,18 @@ where
     if self.size < self.max_size {
       self.add(element)?;
       Ok(None)
-    } else if self.size > 0
-      && self
-        .compare
-        .less_than(self.heap[1].as_ref().unwrap(), &element)?
-    {
-      let ret = self.heap[1]
-        .replace(element)
-        .expect("priority queue top element should exist");
-      self.update_top()?;
-      Ok(Some(ret))
+    } else if self.size > 0 {
+      if let Some(top) = self.heap[1].as_ref()
+        && self.compare.less_than(top, &element)?
+      {
+        let ret = self.heap[1]
+          .replace(element)
+          .ok_or_else(|| LuceneError::illegal_state("priority queue top element should exist"))?;
+        self.update_top()?;
+        Ok(Some(ret))
+      } else {
+        Ok(Some(element))
+      }
     } else {
       Ok(Some(element))
     }
@@ -269,7 +272,7 @@ where
     self.heap.swap(1, self.size);
     let result = self.heap[self.size]
       .take()
-      .expect("priority queue element should exist");
+      .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))?;
     self.size -= 1;
     self.down_heap(1)?;
     Ok(result)
@@ -295,7 +298,7 @@ where
   /// The new 'top' element.
   pub fn update_top(&mut self) -> Result<&mut T> {
     self.down_heap(1)?;
-    Ok(self.heap_value_mut(1))
+    self.heap_value_mut(1)
   }
 
   /// Replace the top of the pq with `newTop` and run `updateTop()`.
@@ -323,7 +326,7 @@ where
     while j > 0
       && self
         .compare
-        .less_than(self.heap_value(i), self.heap_value(j))?
+        .less_than(self.heap_value(i)?, self.heap_value(j)?)?
     {
       self.heap.swap(i, j);
       i = j;
@@ -341,14 +344,14 @@ where
       if k <= size
         && self
           .compare
-          .less_than(self.heap_value(k), self.heap_value(j))?
+          .less_than(self.heap_value(k)?, self.heap_value(j)?)?
       {
         j = k;
       }
 
       if !self
         .compare
-        .less_than(self.heap_value(j), self.heap_value(i))?
+        .less_than(self.heap_value(j)?, self.heap_value(i)?)?
       {
         break;
       }
@@ -373,23 +376,20 @@ where
     let len = self.heap.len();
     let mut heap = std::mem::take(&mut self.heap);
     self.heap.resize_with(len, || None);
-    let taken = heap
-      .drain(1..=self.size)
-      .map(|opt| opt.expect("all heap elements must be Some"))
-      .collect::<Vec<_>>();
+    let taken = heap.drain(1..=self.size).flatten().collect::<Vec<_>>();
     self.size = 0;
     taken
   }
 
-  fn heap_value(&self, index: usize) -> &T {
+  fn heap_value(&self, index: usize) -> Result<&T> {
     self.heap[index]
       .as_ref()
-      .expect("priority queue element should exist")
+      .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))
   }
-  fn heap_value_mut(&mut self, index: usize) -> &mut T {
+  fn heap_value_mut(&mut self, index: usize) -> Result<&mut T> {
     self.heap[index]
       .as_mut()
-      .expect("priority queue element should exist")
+      .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))
   }
 
   pub fn iter_ref(&'_ self) -> PriorityQueueIterator<'_, T, C> {
@@ -423,12 +423,11 @@ where
   type Item = T;
 
   fn next(&mut self) -> Option<Self::Item> {
-    if self.index < self.pq.size {
+    while self.index < self.pq.size {
       self.index += 1;
-      let result = self.pq.heap[self.index]
-        .take()
-        .expect("priority queue element should exist");
-      return Some(result);
+      if let Some(result) = self.pq.heap[self.index].take() {
+        return Some(result);
+      }
     }
     None
   }
@@ -459,12 +458,11 @@ where
   type Item = &'a T;
 
   fn next(&mut self) -> Option<Self::Item> {
-    if self.index < self.pq.size {
+    while self.index < self.pq.size {
       self.index += 1;
-      let result = self.pq.heap[self.index]
-        .as_ref()
-        .expect("priority queue element should exist");
-      return Some(result);
+      if let Some(result) = self.pq.heap[self.index].as_ref() {
+        return Some(result);
+      }
     }
     None
   }

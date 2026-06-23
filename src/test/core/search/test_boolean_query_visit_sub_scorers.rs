@@ -47,7 +47,7 @@ fn set_up<R: Rng + ?Sized>(
   let analyzer = MockAnalyzer::new(random);
   let dir = new_directory_shared(random)?;
 
-  let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   config.set_merge_policy(new_log_merge_policy(random)?);
 
   let writer = RandomIndexWriter::with_config(random, dir, config);

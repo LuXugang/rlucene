@@ -42,7 +42,7 @@ struct TestEarlyTermination;
 fn test_early_termination() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let num_docs = at_least(&mut random, 100);
   for _ in 0..num_docs {
     writer.add_document(&mut random, Document::new())?;

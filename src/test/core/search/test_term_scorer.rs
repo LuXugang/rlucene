@@ -73,7 +73,7 @@ where
   let directory = new_directory_shared(random)?;
 
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
   iwc.set_similarity(classic_similarity::new());
 
@@ -226,7 +226,7 @@ fn test_does_not_load_norms() -> Result<()> {
 fn test_random_top_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = if is_night_mode() {

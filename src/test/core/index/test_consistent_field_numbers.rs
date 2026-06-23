@@ -48,7 +48,7 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
     {
       let writer_opt = {
         let mock = MockAnalyzer::new(&mut random);
-        let mut conf = new_index_writer_config_with_analyzer(&mut random, mock);
+        let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
         conf.set_merge_policy(NoMergePolicy::default());
         let writer = IndexWriter::new(dir.clone(), conf)?;
 
@@ -68,9 +68,9 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
       let writer = match writer_opt {
         Some(writer) => writer,
         None => {
-          let mut conf = new_index_writer_config(&mut random);
+          let mut conf = new_index_writer_config(&mut random)?;
           conf.set_merge_policy(NoMergePolicy::default());
-          IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?
+          IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?
         },
       };
 
@@ -97,7 +97,7 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
       assert_eq!("f4", fis2.field_info_by_number(3)?.unwrap().name);
     }
 
-    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     writer.force_merge(1)?;
     writer.close()?;
 
@@ -122,7 +122,7 @@ fn test_add_indexes() -> Result<()> {
   let dir2 = new_directory_shared(&mut random)?;
 
   let a = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir1.clone(), iwc)?;
 
@@ -134,7 +134,7 @@ fn test_add_indexes() -> Result<()> {
   drop(writer);
 
   let a = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir2.clone(), iwc)?;
 
@@ -148,7 +148,7 @@ fn test_add_indexes() -> Result<()> {
   drop(writer);
 
   let a = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir1.clone(), iwc)?;
   writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
@@ -179,7 +179,7 @@ fn test_field_number_gaps() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     {
       let a = MockAnalyzer::new(&mut random);
-      let mut config = new_index_writer_config_with_analyzer(&mut random, a);
+      let mut config = new_index_writer_config_with_analyzer(&mut random, a)?;
       config.set_merge_policy(NoMergePolicy::default());
       let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -197,7 +197,7 @@ fn test_field_number_gaps() -> Result<()> {
     }
 
     {
-      let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+      let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
       let mut d = Document::new();
       d.add(TextField::from_string("f1", "d2 first field", Store::Yes)?);
@@ -217,7 +217,7 @@ fn test_field_number_gaps() -> Result<()> {
     }
 
     {
-      let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+      let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
       let mut d = Document::new();
       d.add(TextField::from_string("f1", "d3 first field", Store::Yes)?);
@@ -243,7 +243,7 @@ fn test_field_number_gaps() -> Result<()> {
 
     {
       let a = MockAnalyzer::new(&mut random);
-      let mut config = new_index_writer_config_with_analyzer(&mut random, a);
+      let mut config = new_index_writer_config_with_analyzer(&mut random, a)?;
       config.set_merge_policy(NoMergePolicy::default());
       let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -256,7 +256,7 @@ fn test_field_number_gaps() -> Result<()> {
 
     {
       let a = MockAnalyzer::new(&mut random);
-      let mut config = new_index_writer_config_with_analyzer(&mut random, a);
+      let mut config = new_index_writer_config_with_analyzer(&mut random, a)?;
       config.set_merge_policy(LogMergePolicy::log_bytes_size());
       let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -293,7 +293,7 @@ fn test_many_fields() -> Result<()> {
   let a = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, a),
+    new_index_writer_config_with_analyzer(&mut random, a)?,
   )?;
 
   for doc_fields in &docs {

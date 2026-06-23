@@ -75,9 +75,10 @@ impl FieldComparator for LongComparator {
     self.values[slot1].cmp(&self.values[slot2]) as i32
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     self.base.set_top_value();
     self.top_value = value;
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {

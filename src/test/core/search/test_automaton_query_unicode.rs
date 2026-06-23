@@ -47,7 +47,7 @@ where
 {
   let directory = new_directory_shared(random)?;
   let mut field_to_type = HashMap::new();
-  let writer = RandomIndexWriter::new(random, directory);
+  let writer = RandomIndexWriter::new(random, directory)?;
 
   let title_field = new_text_field(random, "title", "some title", Store::No, &mut field_to_type)?;
   let mut field = new_string_field(random, FN, "", Store::No, &mut field_to_type)?;

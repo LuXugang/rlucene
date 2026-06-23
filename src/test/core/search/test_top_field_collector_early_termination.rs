@@ -100,7 +100,7 @@ where
 
   let _seed: u64 = random.random();
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
 
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
   iwc.set_index_sort(SORT.clone())?;

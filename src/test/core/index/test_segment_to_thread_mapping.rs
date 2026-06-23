@@ -487,7 +487,7 @@ fn test_extreme_segments_partitioning() -> Result<()> {
 fn test_intra_slice_doc_id_order() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir);
+  let w = RandomIndexWriter::new(&mut random, dir)?;
   w.add_document(&mut random, Document::new())?;
   w.add_document(&mut random, Document::new())?;
   w.commit(&mut random)?;
@@ -516,7 +516,7 @@ fn test_intra_slice_doc_id_order() -> Result<()> {
 fn test_intra_slice_doc_id_order_with_partitions() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir);
+  let w = RandomIndexWriter::new(&mut random, dir)?;
   w.add_document(&mut random, Document::new())?;
   w.add_document(&mut random, Document::new())?;
   w.commit(&mut random)?;

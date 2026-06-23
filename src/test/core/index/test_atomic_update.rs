@@ -84,7 +84,7 @@ impl TestAtomicUpdate {
     let search_iterations = if is_night_mode() { 10 } else { 1 };
 
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_max_buffered_docs(7);
     match conf.get_merge_policy_mut() {
       MergePolicyEnum::Tiered(merge_policy) => {

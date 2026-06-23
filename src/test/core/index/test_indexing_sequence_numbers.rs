@@ -63,7 +63,7 @@ pub struct TestIndexingSequenceNumbers;
 fn test_basic() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir, new_index_writer_config(&mut random)?)?;
   let a = w.add_document(Document::new())?;
   let b = w.add_document(Document::new())?;
   assert!(b > a);
@@ -75,7 +75,7 @@ fn test_basic() -> Result<()> {
 fn test_after_refresh() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir, new_index_writer_config(&mut random)?)?;
   let a = w.add_document(Document::new())?;
   directory_reader::open_from_writer(&w)?.close()?;
   let b = w.add_document(Document::new())?;
@@ -88,7 +88,7 @@ fn test_after_refresh() -> Result<()> {
 fn test_after_commit() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir, new_index_writer_config(&mut random)?)?;
   let a = w.add_document(Document::new())?;
   w.commit()?;
   let b = w.add_document(Document::new())?;
@@ -105,7 +105,7 @@ fn test_stress_update_same_id() -> Result<()> {
   let iters = at_least(&mut random, 100);
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
-    let w = Arc::new(RandomIndexWriter::new(&mut random, dir));
+    let w = Arc::new(RandomIndexWriter::new(&mut random, dir)?);
     let num_threads = TestUtil::next_int(&mut random, 2, 5) as usize;
     let starting_gun = Arc::new(Barrier::new(num_threads + 1));
     let seq_nos = Arc::new(Mutex::new(vec![0_i64; num_threads]));
@@ -180,7 +180,7 @@ fn test_stress_concurrent_commit() -> Result<()> {
   let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
 
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
 
@@ -313,7 +313,7 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
 
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
 
@@ -443,7 +443,7 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
 
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
 
@@ -569,7 +569,7 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
 fn test_delete_all() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir, new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir, new_index_writer_config(&mut random)?)?;
   let a = w.add_document(Document::new())?;
   let b = w.delete_all()?;
   assert!(a < b);

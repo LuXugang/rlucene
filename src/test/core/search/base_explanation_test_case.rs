@@ -176,7 +176,7 @@ where
   let directory = new_directory_shared(random)?;
   let analyzer = Arc::new(MockAnalyzer::new(random));
   let shared_analyzer: Box<dyn Analyzer> = Box::new(analyzer.clone());
-  let mut config = new_index_writer_config_with_analyzer(random, shared_analyzer);
+  let mut config = new_index_writer_config_with_analyzer(random, shared_analyzer)?;
   config.set_merge_policy(new_log_merge_policy(random)?);
   let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
 

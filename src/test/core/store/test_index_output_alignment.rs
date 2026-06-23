@@ -86,11 +86,11 @@ pub fn run_test_output_alignment(alignment: usize) -> Result<()> {
     let data = vec![0; length];
     out.write_bytes_with_len(&data, length)?;
 
-    let orig_pos = out.get_file_pointer();
+    let orig_pos = out.get_file_pointer()?;
     // align to next boundary
     let new_pos = out.align_file_pointer(alignment)?;
 
-    assert_eq!(out.get_file_pointer(), new_pos);
+    assert_eq!(out.get_file_pointer()?, new_pos);
     assert_eq!(new_pos % alignment, 0, "not aligned");
     assert!(new_pos >= orig_pos, "newPos >= origPos");
     assert!(

@@ -152,6 +152,7 @@ impl BM25Similarity {
     self.b
   }
 }
+
 impl fmt::Display for BM25Similarity {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "BM25(k1={},b={})", self.k1, self.b)

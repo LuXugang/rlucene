@@ -71,7 +71,7 @@ where
   let index = new_directory_shared(random)?;
 
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   let sim = new_test_similarity();
   iwc.set_similarity(sim.clone());
   iwc.set_merge_policy(new_log_merge_policy(random)?);
@@ -858,7 +858,7 @@ where
 
   let dir = new_directory_shared(random)?;
   let analyzer = StandardAnalyzer::new();
-  let iwc = IndexWriterConfig::with_analyzer(analyzer);
+  let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = if is_night_mode() {

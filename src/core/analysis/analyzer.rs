@@ -588,7 +588,7 @@ impl StringTokenStream {
 
 impl Drop for StringTokenStream {
   fn drop(&mut self) {
-    self.close().expect("should not fail");
+    let _ = self.close();
   }
 }
 

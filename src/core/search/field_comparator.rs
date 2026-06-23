@@ -39,7 +39,7 @@ use crate::core::search::sorted_numeric_sort_field::{
 };
 use crate::core::search::sorted_set_sort_field::SortedDocValuesTermOrdValComparator;
 use crate::core::util::ToInt;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 use std::borrow::Cow;
 use std::cmp::Ordering;
@@ -84,7 +84,7 @@ pub trait FieldComparator {
   /// Record the top value, for future calls to [`LeafFieldComparator::compare_top`].
   /// This is only called for searches that use `search_after` (deep paging),
   /// and is invoked before any calls to [`Self::get_leaf_comparator`].
-  fn set_top_value(&mut self, value: Self::V);
+  fn set_top_value(&mut self, value: Self::V) -> Result<()>;
 
   /// Return the actual value in the slot.
   ///
@@ -185,8 +185,9 @@ impl FieldComparator for RelevanceComparator {
     slot1_v.total_cmp(&slot2_v).to_int()
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
-    self.top_value = value
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
+    self.top_value = value;
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {
@@ -502,92 +503,103 @@ impl FieldComparator for FieldComparatorEnum {
     }
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     match self {
       FieldComparatorEnum::Relevance(comparator) => {
         let v = value
           .into_f32()
-          .expect("expected relevance comparator value");
-        comparator.set_top_value(v);
+          .ok_or_else(|| LuceneError::illegal_state("expected relevance comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::Doc(comparator) => {
-        let v = value.into_i32().expect("expected doc comparator value");
-        comparator.set_top_value(v);
+        let v = value
+          .into_i32()
+          .ok_or_else(|| LuceneError::illegal_state("expected doc comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::Double(comparator) => {
-        let v = value.into_f64().expect("expected double comparator value");
-        comparator.set_top_value(v);
+        let v = value
+          .into_f64()
+          .ok_or_else(|| LuceneError::illegal_state("expected double comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::Float(comparator) => {
-        let v = value.into_f32().expect("expected float comparator value");
-        comparator.set_top_value(v);
+        let v = value
+          .into_f32()
+          .ok_or_else(|| LuceneError::illegal_state("expected float comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::Int(comparator) => {
-        let v = value.into_i32().expect("expected int comparator value");
-        comparator.set_top_value(v);
+        let v = value
+          .into_i32()
+          .ok_or_else(|| LuceneError::illegal_state("expected int comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::Long(comparator) => {
-        let v = value.into_i64().expect("expected long comparator value");
-        comparator.set_top_value(v);
+        let v = value
+          .into_i64()
+          .ok_or_else(|| LuceneError::illegal_state("expected long comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::TermVal(comparator) => {
         let v = value
           .into_term_val()
-          .expect("expected term value comparator value");
-        comparator.set_top_value(v);
+          .ok_or_else(|| LuceneError::illegal_state("expected term value comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::TermOrdValue(comparator) => {
         let v = value
           .into_term_val()
-          .expect("expected term ord value comparator value");
-        comparator.set_top_value(v);
+          .ok_or_else(|| LuceneError::illegal_state("expected term ord value comparator value"))?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::SortedNumericInt(comparator) => {
-        let v = value
-          .into_i32()
-          .expect("expected sorted numeric int comparator value");
-        comparator.set_top_value(v);
+        let v = value.into_i32().ok_or_else(|| {
+          LuceneError::illegal_state("expected sorted numeric int comparator value")
+        })?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::SortedNumericLong(comparator) => {
-        let v = value
-          .into_i64()
-          .expect("expected sorted numeric long comparator value");
-        comparator.set_top_value(v);
+        let v = value.into_i64().ok_or_else(|| {
+          LuceneError::illegal_state("expected sorted numeric long comparator value")
+        })?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::SortedNumericFloat(comparator) => {
-        let v = value
-          .into_f32()
-          .expect("expected sorted numeric float comparator value");
-        comparator.set_top_value(v);
+        let v = value.into_f32().ok_or_else(|| {
+          LuceneError::illegal_state("expected sorted numeric float comparator value")
+        })?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::SortedNumericDouble(comparator) => {
-        let v = value
-          .into_f64()
-          .expect("expected sorted numeric double comparator value");
-        comparator.set_top_value(v);
+        let v = value.into_f64().ok_or_else(|| {
+          LuceneError::illegal_state("expected sorted numeric double comparator value")
+        })?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::SortedDocValuesTermOrdVal(comparator) => {
-        let v = value
-          .into_term_val()
-          .expect("expected sorted doc values term ord val comparator value");
-        comparator.set_top_value(v);
+        let v = value.into_term_val().ok_or_else(|| {
+          LuceneError::illegal_state("expected sorted doc values term ord val comparator value")
+        })?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::LatLonPointDistance(comparator) => {
-        let v = value
-          .into_f64()
-          .expect("expected lat lon point distance comparator value");
-        comparator.set_top_value(v);
+        let v = value.into_f64().ok_or_else(|| {
+          LuceneError::illegal_state("expected lat lon point distance comparator value")
+        })?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::XYPointDistance(comparator) => {
-        let v = value
-          .into_f64()
-          .expect("expected xy point distance comparator value");
-        comparator.set_top_value(v);
+        let v = value.into_f64().ok_or_else(|| {
+          LuceneError::illegal_state("expected xy point distance comparator value")
+        })?;
+        comparator.set_top_value(v)?;
       },
       FieldComparatorEnum::Dummy(_comparator) => {
         dummy_unreachable!()
       },
     }
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {
@@ -773,30 +785,26 @@ impl FieldComparator for FieldComparatorEnum {
 
   fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
     match self {
-      FieldComparatorEnum::Double(comparator) => comparator.fallback_compare(
-        first.as_f64().expect("expected double comparator value"),
-        second.as_f64().expect("expected double comparator value"),
-      ),
-      FieldComparatorEnum::Float(comparator) => comparator.fallback_compare(
-        first.as_f32().expect("expected float comparator value"),
-        second.as_f32().expect("expected float comparator value"),
-      ),
-      FieldComparatorEnum::SortedNumericDouble(comparator) => comparator.fallback_compare(
-        first
-          .as_f64()
-          .expect("expected sorted numeric double comparator value"),
-        second
-          .as_f64()
-          .expect("expected sorted numeric double comparator value"),
-      ),
-      FieldComparatorEnum::SortedNumericFloat(comparator) => comparator.fallback_compare(
-        first
-          .as_f32()
-          .expect("expected sorted numeric float comparator value"),
-        second
-          .as_f32()
-          .expect("expected sorted numeric float comparator value"),
-      ),
+      FieldComparatorEnum::Double(comparator) => match (first.as_f64(), second.as_f64()) {
+        (Some(first), Some(second)) => comparator.fallback_compare(first, second),
+        _ => 0,
+      },
+      FieldComparatorEnum::Float(comparator) => match (first.as_f32(), second.as_f32()) {
+        (Some(first), Some(second)) => comparator.fallback_compare(first, second),
+        _ => 0,
+      },
+      FieldComparatorEnum::SortedNumericDouble(comparator) => {
+        match (first.as_f64(), second.as_f64()) {
+          (Some(first), Some(second)) => comparator.fallback_compare(first, second),
+          _ => 0,
+        }
+      },
+      FieldComparatorEnum::SortedNumericFloat(comparator) => {
+        match (first.as_f32(), second.as_f32()) {
+          (Some(first), Some(second)) => comparator.fallback_compare(first, second),
+          _ => 0,
+        }
+      },
       FieldComparatorEnum::Dummy(_) => {
         dummy_unreachable!()
       },
@@ -893,8 +901,9 @@ impl FieldComparator for TermValComparator {
     self.compare_values(val1, val2)
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     self.top_value = Some(value);
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {

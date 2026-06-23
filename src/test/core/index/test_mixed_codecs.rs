@@ -50,7 +50,7 @@ fn test() -> Result<()> {
     }
     if docs_left_in_this_segment == 0 {
       let mock = MockAnalyzer::new(&mut random);
-      let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+      let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
       if random.random_bool(0.5) {
         // TODO set_codec 未实现
       }

@@ -132,13 +132,13 @@ impl<W: Write> IndexOutput for OutputStreamIndexOutput<W>
 where
   W: Write,
 {
-  fn get_file_pointer(&self) -> usize {
-    self.bytes_written
+  fn get_file_pointer(&self) -> Result<usize> {
+    Ok(self.bytes_written)
   }
 
-  fn get_checksum(&mut self) -> u64 {
+  fn get_checksum(&mut self) -> Result<u64> {
     self.os.checksum = self.os.hasher.clone().finalize();
-    self.os.checksum as u64
+    Ok(self.os.checksum as u64)
   }
 
   fn get_name(&self) -> &str {

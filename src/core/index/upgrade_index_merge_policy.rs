@@ -43,7 +43,7 @@ use std::fmt::{Display, Formatter};
 /// this like any other [`MergePolicy`] and call `IndexWriter::force_merge`:
 ///
 /// ```ignore
-/// let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+/// let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 /// iwc.set_merge_policy(UpgradeIndexMergePolicy::new(iwc.get_merge_policy().clone()));
 /// let w = IndexWriter::new(dir, iwc)?;
 /// w.force_merge(1)?;

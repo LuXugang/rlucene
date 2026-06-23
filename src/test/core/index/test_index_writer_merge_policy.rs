@@ -192,7 +192,7 @@ fn test_normal_case() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_max_buffered_docs(10)
     .set_merge_policy(MockMergePolicy::default());
@@ -213,7 +213,7 @@ fn test_no_over_merge() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_max_buffered_docs(10)
     .set_merge_policy(MockMergePolicy::default());
@@ -241,7 +241,7 @@ fn test_force_flush() -> Result<()> {
   let mut merge_policy = MockMergePolicy::default();
   merge_policy.set_merge_factor(10);
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_max_buffered_docs(10)
     .set_merge_policy(merge_policy);
@@ -262,7 +262,7 @@ fn test_merge_factor_change() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_max_buffered_docs(10)
     .set_merge_policy(MockMergePolicy::default())
@@ -297,7 +297,7 @@ fn test_max_buffered_docs_change() -> Result<()> {
   let mut field_types = HashMap::new();
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_max_buffered_docs(101)
     .set_merge_policy(MockMergePolicy::default())
@@ -312,7 +312,7 @@ fn test_max_buffered_docs_change() -> Result<()> {
     writer.close()?;
 
     let mock = MockAnalyzer::new(&mut random);
-    let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
     config
       .set_open_mode(OpenMode::Append)
       .set_max_buffered_docs(101)
@@ -325,7 +325,7 @@ fn test_max_buffered_docs_change() -> Result<()> {
   let mut merge_policy = MockMergePolicy::default();
   merge_policy.set_merge_factor(10);
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_open_mode(OpenMode::Append)
     .set_max_buffered_docs(10)
@@ -359,7 +359,7 @@ fn test_merge_doc_count_0() -> Result<()> {
   let mut merge_policy = MockMergePolicy::default();
   merge_policy.set_merge_factor(100);
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_max_buffered_docs(10)
     .set_merge_policy(merge_policy);
@@ -372,7 +372,7 @@ fn test_merge_doc_count_0() -> Result<()> {
   writer.close()?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
   writer.delete_documents_with_terms(vec![Term::from_text("content", "aaa")])?;
@@ -381,7 +381,7 @@ fn test_merge_doc_count_0() -> Result<()> {
   let mut merge_policy = MockMergePolicy::default();
   merge_policy.set_merge_factor(5);
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_open_mode(OpenMode::Append)
     .set_max_buffered_docs(10)
@@ -653,7 +653,7 @@ fn test_merge_on_commit() -> Result<()> {
 
   // First writer: no merge policy, add 5 docs (each flushed)
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_merge_policy(NoMergePolicy::default());
   let first_writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -673,7 +673,7 @@ fn test_merge_on_commit() -> Result<()> {
 
   // Second writer: MergeOnX with COMMIT trigger
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config
     .set_merge_policy(MergeOnXMergePolicy::new(
       new_merge_policy(&mut random)?,

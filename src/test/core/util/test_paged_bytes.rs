@@ -222,12 +222,12 @@ fn test_overflow() -> Result<()> {
 
     let mut written = 0;
     while written < num_bytes {
-      assert_eq!(written, out.get_file_pointer());
+      assert_eq!(written, out.get_file_pointer()?);
       let len = std::cmp::min(arr.len(), num_bytes - written) as usize;
       out.write_bytes_range(&arr, 0, len)?;
       written += len;
     }
-    assert_eq!(num_bytes, out.get_file_pointer());
+    assert_eq!(num_bytes, out.get_file_pointer()?);
   }
 
   let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;

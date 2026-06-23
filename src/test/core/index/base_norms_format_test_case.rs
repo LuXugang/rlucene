@@ -478,7 +478,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
       norms.clone(),
     )));
@@ -558,7 +558,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
-    let writer = RandomIndexWriter::new(random, dir.clone());
+    let writer = RandomIndexWriter::new(random, dir.clone())?;
     let num_docs = at_least(random, 500);
     let mut to_delete = Vec::new();
 
@@ -632,7 +632,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(NoMergePolicy::default());
     conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
       norms.clone(),
@@ -693,7 +693,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = Arc::new(new_directory(random)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(vec![
       42, 10, 20,
@@ -742,7 +742,7 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = Arc::new(new_directory(random)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(vec![
       42, 10, 20,

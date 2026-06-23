@@ -133,26 +133,32 @@ where
   }
 
   /// Creates a RandomIndexWriter with a random config: Uses MockAnalyzer.
-  pub fn new<R>(r: &mut R, dir: Arc<D>) -> Self
+  pub fn new<R>(r: &mut R, dir: Arc<D>) -> Result<Self>
   where
     R: Rng + ?Sized,
     D: Directory,
   {
     let a = MockAnalyzer::new(r);
-    let config = new_index_writer_config_with_analyzer(r, a);
+    let config = new_index_writer_config_with_analyzer(r, a)?;
     let use_soft_deletes = r.random();
-    Self::new_with_config(r, dir, config, true, use_soft_deletes)
+    Ok(Self::new_with_config(
+      r,
+      dir,
+      config,
+      true,
+      use_soft_deletes,
+    ))
   }
 
   /// Creates a RandomIndexWriter with a random config.
-  pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Self
+  pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Result<Self>
   where
     R: Rng + ?Sized,
     D: Directory,
     T: Into<AnalyzerEnum>,
   {
-    let config = new_index_writer_config_with_analyzer(r, analyzer);
-    Self::with_config(r, dir, config)
+    let config = new_index_writer_config_with_analyzer(r, analyzer)?;
+    Ok(Self::with_config(r, dir, config))
   }
 
   /// Creates a RandomIndexWriter with the provided config.

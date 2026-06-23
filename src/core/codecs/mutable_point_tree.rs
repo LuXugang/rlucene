@@ -31,7 +31,7 @@ pub trait MutablePointTree: PointTree {
   fn get_byte_at(&self, i: usize, k: usize) -> u8;
 
   /// Return the doc ID of the i-th value.
-  fn get_doc_id(&self, i: usize) -> i32;
+  fn get_doc_id(&self, i: usize) -> lucene_error::Result<i32>;
 
   /// Swap the i-th and j-th values.
   fn swap(&mut self, i: usize, j: usize);
@@ -153,7 +153,7 @@ where
     }
   }
 
-  fn get_doc_id(&self, i: usize) -> i32 {
+  fn get_doc_id(&self, i: usize) -> lucene_error::Result<i32> {
     match self {
       MutablePointTreeEnum2::A(t) => t.get_doc_id(i),
       MutablePointTreeEnum2::B(s) => s.get_doc_id(i),

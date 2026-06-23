@@ -84,7 +84,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
@@ -139,7 +139,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
@@ -194,7 +194,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
@@ -254,7 +254,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
@@ -326,7 +326,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
     let num_docs = 1 + random.random_range(0..100);
 
     let mut written_values: HashMap<i32, BytesRef<Vec<u8>>> = HashMap::new();
@@ -390,7 +390,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
@@ -456,7 +456,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
@@ -533,7 +533,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwriter = RandomIndexWriter::new(random, directory.clone());
+    let iwriter = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     let long_term = "longtermlongtermlongtermlongtermlongtermlongtermlongtermlongterm\
@@ -612,7 +612,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -646,7 +646,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -705,7 +705,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -739,7 +739,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -773,7 +773,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
     let mut doc = Document::new();
@@ -834,7 +834,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -897,7 +897,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -946,7 +946,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
     let mut doc = Document::new();
@@ -1005,7 +1005,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1047,7 +1047,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1099,7 +1099,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1176,7 +1176,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -1231,7 +1231,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1264,7 +1264,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1299,7 +1299,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -1396,7 +1396,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1437,7 +1437,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1477,7 +1477,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1507,7 +1507,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1538,7 +1538,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1568,7 +1568,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     let analyzer = MockAnalyzer::new(random);
 
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let iwriter = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
@@ -1598,7 +1598,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
@@ -1650,7 +1650,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let cfg = new_index_writer_config_with_analyzer(random, analyzer);
+    let cfg = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), cfg);
     let num_docs = at_least(random, 100);
     let mut doc_to_string = HashMap::new();
@@ -1773,7 +1773,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
     let num_docs = at_least(random, (min_docs as f64 * 1.172) as i32);
     assert!(num_docs > 256);
@@ -2013,7 +2013,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
     let num_docs = at_least(random, 300);
     assert!(num_docs > 256);
@@ -2208,7 +2208,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
     let num_docs = at_least(random, 300);
     let mut field_to_type = HashMap::new();
@@ -2380,7 +2380,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
     let mut field_to_type = HashMap::new();
 
@@ -2551,7 +2551,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    let writer = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
@@ -2581,7 +2581,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    let writer = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
@@ -2624,7 +2624,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -2675,7 +2675,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    let writer = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
@@ -2714,7 +2714,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    let writer = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     doc.add(SortedSetDocValuesField::new(
@@ -2754,7 +2754,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -2818,7 +2818,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -2854,7 +2854,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -2891,7 +2891,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -2928,7 +2928,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -2966,7 +2966,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -3018,7 +3018,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -3261,7 +3261,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let mut value_set = HashSet::new();
@@ -3586,7 +3586,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
     let mut field_to_type = HashMap::new();
@@ -3631,7 +3631,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
     let mut field_to_type = HashMap::new();
@@ -3677,7 +3677,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
     let mut field_to_type = HashMap::new();
@@ -3735,7 +3735,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
     let mut field_to_type = HashMap::new();
@@ -3786,7 +3786,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
     let mut field_to_type = HashMap::new();
@@ -3838,7 +3838,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
     let mut field_to_type = HashMap::new();
@@ -3908,7 +3908,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let num_docs = at_least(random, 300);
@@ -4014,7 +4014,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let num_docs = TestUtil::next_int(random, 1025, 2047);
@@ -4179,7 +4179,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_fs_directory(random, create_temp_dir()?)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let num_sorted_sets = random.random_range(0..21);
@@ -4267,7 +4267,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
         break;
       }
       let directory = new_directory_shared(random)?;
-      let writer = RandomIndexWriter::new(random, directory.clone());
+      let writer = RandomIndexWriter::new(random, directory.clone())?;
       let bytes = BytesRef::from_slice(vec![0u8; 1usize << i], 0, 1usize << i);
 
       for _ in 0..4 {
@@ -4299,7 +4299,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    let writer = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("dv", 5));
@@ -4325,7 +4325,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = IndexWriter::new(directory.clone(), conf)?;
 
     let mut doc = Document::new();
@@ -4354,7 +4354,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -4398,7 +4398,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    let writer = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("dv", 11));
@@ -4425,7 +4425,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory.clone());
+    let writer = RandomIndexWriter::new(random, directory.clone())?;
 
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new("dv", 11));
@@ -4453,7 +4453,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = IndexWriter::new(directory.clone(), conf)?;
 
     let mut doc = Document::new();
@@ -4484,7 +4484,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = IndexWriter::new(directory.clone(), iwconfig)?;
 
@@ -4521,7 +4521,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -4566,7 +4566,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -4611,7 +4611,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
 
@@ -4754,7 +4754,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -4804,7 +4804,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -4854,7 +4854,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -4895,7 +4895,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -4936,7 +4936,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwconfig = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwconfig.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwconfig);
     let mut field_to_type = HashMap::new();
@@ -5001,7 +5001,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_ram_buffer_size_mb((8 + random.random_range(0..64)) as f64);
     let writer = IndexWriter::new(directory, iwc)?;
 
@@ -5060,7 +5060,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let analyzer = MockAnalyzer::new(random);
     let directory = new_directory_shared(random)?;
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, directory, conf);
 

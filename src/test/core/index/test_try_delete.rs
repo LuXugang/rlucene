@@ -46,7 +46,7 @@ mod tests {
     let mut random = random();
     let mp = LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size();
     let a = MockAnalyzer::new(&mut random);
-    let mut conf = IndexWriterConfig::with_analyzer(a);
+    let mut conf = IndexWriterConfig::with_analyzer(a)?;
     conf.set_merge_policy(mp);
     conf.set_open_mode(OpenMode::CreateOrAppend);
     IndexWriter::new(directory, conf)

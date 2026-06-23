@@ -600,9 +600,8 @@ where
         for updates in inner.pending_dv_updates.values() {
           if let Some(update) = updates.first() {
             let field = &update.field;
-            if by_name.contains_key(field) {
+            if let Some(fi) = by_name.get(field) {
               // the field already exists in this segment
-              let fi = by_name.get(field).expect("should not fail");
               debug_assert_eq!(*fi.get_doc_values_type(), update.type_);
             } else {
               // the field is not present in this segment so we clone the global field
@@ -668,18 +667,24 @@ where
     }
     // Prune the now-written DV updates:
     let mut bytes_freed: i64 = 0;
-    inner.pending_dv_updates.retain(|_, updates| {
+    let mut empty_fields = Vec::new();
+    for (field, updates) in inner.pending_dv_updates.iter_mut() {
       let mut keep = Vec::with_capacity(updates.len());
       for u in updates.drain(..) {
         if u.del_gen > max_del_gen {
           keep.push(u);
         } else {
-          bytes_freed += u.ram_bytes_used().expect("should not fail");
+          bytes_freed += u.ram_bytes_used()?;
         }
       }
       *updates = keep;
-      !updates.is_empty()
-    });
+      if updates.is_empty() {
+        empty_fields.push(field.clone());
+      }
+    }
+    for field in empty_fields {
+      inner.pending_dv_updates.remove(&field);
+    }
 
     let prev = self.ram_bytes_used.fetch_sub(bytes_freed, Ordering::SeqCst);
     let bytes_now = prev - bytes_freed;

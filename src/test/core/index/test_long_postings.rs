@@ -113,7 +113,7 @@ fn test_long_postings() -> Result<()> {
   }
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_open_mode(OpenMode::Create);
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   iwc.set_ram_buffer_size_mb(16.0 + 16.0 * random.random::<f64>());
@@ -259,7 +259,7 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
   }
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_open_mode(OpenMode::Create);
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   iwc.set_ram_buffer_size_mb(16.0 + 16.0 * random.random::<f64>());

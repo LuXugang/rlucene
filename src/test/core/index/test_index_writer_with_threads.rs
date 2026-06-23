@@ -129,7 +129,7 @@ fn test_open_two_index_writers_on_different_threads() -> Result<()> {
         let analyzer = MockAnalyzer::new(&mut random);
         let writer = IndexWriter::new(
           dir,
-          new_index_writer_config_with_analyzer(&mut random, analyzer),
+          new_index_writer_config_with_analyzer(&mut random, analyzer)?,
         )?;
         writer.add_document(doc)?;
         writer.close()
@@ -169,7 +169,7 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
   analyzer.set_max_token_length(TestUtil::next_int(&mut rng, 1, MAX_TERM_LENGTH));
   let writer = Arc::new(IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut rng, analyzer),
+    new_index_writer_config_with_analyzer(&mut rng, analyzer)?,
   )?);
   writer.commit()?;
 
@@ -207,7 +207,7 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
               let analyzer = MockAnalyzer::new(&mut random);
               let new_writer = Arc::new(IndexWriter::new(
                 dir.clone(),
-                new_index_writer_config_with_analyzer(&mut random, analyzer),
+                new_index_writer_config_with_analyzer(&mut random, analyzer)?,
               )?);
               *writer_ref.lock() = new_writer;
               Ok(())
@@ -281,7 +281,7 @@ where
 {
   let dir = new_directory_shared(random)?;
   let analyzer = MockAnalyzer::new(random);
-  let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   config
     .set_max_buffered_docs(-1)
     .set_ram_buffer_size_mb(0.00001);

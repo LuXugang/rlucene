@@ -57,7 +57,7 @@ struct TestTermInSetQuery;
 fn test_all_docs_in_field_term() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let field = "f";
 
   let dense_term_string = TestUtil::random_analysis_string(&mut random, 10, true);
@@ -95,7 +95,7 @@ fn test_all_docs_in_field_term() -> Result<()> {
   let mut query_terms = other_terms;
   query_terms.push(dense_term);
 
-  let query = TermInSetQuery::new(field, query_terms);
+  let query = TermInSetQuery::new(field, query_terms)?;
   let top_docs = searcher.search(query, num_docs)?;
   assert_eq!(num_docs, top_docs.total_hits().value());
 
@@ -117,7 +117,7 @@ fn test_duel() -> Result<()> {
       all_terms.push(new_bytes_ref_from_string(&mut random, &value)?);
     }
     let dir = new_directory_shared(&mut random)?;
-    let writer = RandomIndexWriter::new(&mut random, dir);
+    let writer = RandomIndexWriter::new(&mut random, dir)?;
     let num_docs = at_least(&mut random, 10_000);
     for _ in 0..num_docs {
       let mut doc = Document::new();
@@ -155,9 +155,9 @@ fn test_duel() -> Result<()> {
         )?;
       }
       let q1: Query = ConstantScoreQuery::new(bq.build()).into();
-      let q2: Query = TermInSetQuery::new(field, query_terms.clone()).into_query();
+      let q2: Query = TermInSetQuery::new(field, query_terms.clone())?.into_query();
       let q3: Query =
-        TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, query_terms)
+        TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, query_terms)?
           .into_query();
       assert_same_matches(
         &searcher,
@@ -180,7 +180,7 @@ fn test_duel() -> Result<()> {
 fn test_returns_null_score_supplier() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir);
+  let writer = RandomIndexWriter::new(&mut random, dir)?;
   for ch in 'a'..='z' {
     let mut doc = Document::new();
     let value = ch.to_string();
@@ -196,7 +196,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
   for ch in 'a'..='z' {
     terms.push(new_bytes_ref_from_string(&mut random, &ch.to_string())?);
   }
-  let query2: Query = TermInSetQuery::new("content", terms).into_query();
+  let query2: Query = TermInSetQuery::new("content", terms)?.into_query();
 
   {
     let query1: Query = TermInSetQuery::new(
@@ -205,7 +205,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
         new_bytes_ref_from_string(&mut random, "aaa")?,
         new_bytes_ref_from_string(&mut random, "bbb")?,
       ],
-    )
+    )?
     .into_query();
     let mut query_builder = BooleanQueryBuilder::new();
     query_builder.add(query1.clone(), Occur::Filter)?;
@@ -231,7 +231,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
         new_bytes_ref_from_string(&mut random, "bbb")?,
         new_bytes_ref_from_string(&mut random, "b")?,
       ],
-    )
+    )?
     .into_query();
     let mut query_builder = BooleanQueryBuilder::new();
     query_builder.add(query1.clone(), Occur::Filter)?;
@@ -256,7 +256,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
 fn test_skipper_optimization_gap_assumption() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir);
+  let writer = RandomIndexWriter::new(&mut random, dir)?;
   for _ in 0..10_000 {
     let mut doc = Document::new();
     let term = new_bytes_ref_from_string(&mut random, "b")?;
@@ -287,10 +287,10 @@ fn test_skipper_optimization_gap_assumption() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "c")?,
   ];
   let q1: Query =
-    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, "field", query_terms.clone())
+    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, "field", query_terms.clone())?
       .into_query();
   let q2: Query =
-    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, "idx_field", query_terms)
+    TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, "idx_field", query_terms)?
       .into_query();
   assert_same_matches(&searcher, q1, q2, false)?;
 
@@ -332,9 +332,9 @@ fn test_hash_code_and_equals() -> Result<()> {
     let string = TestUtil::random_realistic_unicode_string(&mut random);
     terms.push(new_bytes_ref_from_string(&mut random, &string)?);
     unique_terms.insert(new_bytes_ref_from_string(&mut random, &string)?);
-    let left = TermInSetQuery::new("field", unique_terms.iter().cloned().collect());
+    let left = TermInSetQuery::new("field", unique_terms.iter().cloned().collect())?;
     terms.shuffle(&mut random);
-    let right = TermInSetQuery::new("field", terms.clone());
+    let right = TermInSetQuery::new("field", terms.clone())?;
     assert_eq!(right, left);
     assert_eq!(
       CoreHelper::calculate_hash(&right),
@@ -343,7 +343,7 @@ fn test_hash_code_and_equals() -> Result<()> {
     if unique_terms.len() > 1 {
       let mut as_list: Vec<_> = unique_terms.iter().cloned().collect();
       as_list.remove(0);
-      let not_equal = TermInSetQuery::new("field", as_list);
+      let not_equal = TermInSetQuery::new("field", as_list)?;
       assert_ne!(left, not_equal);
       assert_ne!(right, not_equal);
     }
@@ -352,11 +352,11 @@ fn test_hash_code_and_equals() -> Result<()> {
   let mut tq1 = TermInSetQuery::new(
     "thing",
     vec![new_bytes_ref_from_string(&mut random, "apple")?],
-  );
+  )?;
   let mut tq2 = TermInSetQuery::new(
     "thing",
     vec![new_bytes_ref_from_string(&mut random, "orange")?],
-  );
+  )?;
   assert_ne!(
     CoreHelper::calculate_hash(&tq1),
     CoreHelper::calculate_hash(&tq2)
@@ -365,11 +365,11 @@ fn test_hash_code_and_equals() -> Result<()> {
   tq1 = TermInSetQuery::new(
     "thing",
     vec![new_bytes_ref_from_string(&mut random, "apple")?],
-  );
+  )?;
   tq2 = TermInSetQuery::new(
     "thing2",
     vec![new_bytes_ref_from_string(&mut random, "apple")?],
-  );
+  )?;
   assert_ne!(
     CoreHelper::calculate_hash(&tq1),
     CoreHelper::calculate_hash(&tq2)
@@ -386,14 +386,14 @@ fn test_simple_equals() -> Result<()> {
       new_bytes_ref_from_string(&mut random, "AaAaAa")?,
       new_bytes_ref_from_string(&mut random, "AaAaBB")?,
     ],
-  );
+  )?;
   let right = TermInSetQuery::new(
     "id",
     vec![
       new_bytes_ref_from_string(&mut random, "AaAaAa")?,
       new_bytes_ref_from_string(&mut random, "BBBBBB")?,
     ],
-  );
+  )?;
   assert_ne!(left, right);
   Ok(())
 }
@@ -408,7 +408,7 @@ fn test_to_string() -> Result<()> {
       new_bytes_ref_from_string(&mut random, "b")?,
       new_bytes_ref_from_string(&mut random, "c")?,
     ],
-  );
+  )?;
   assert_eq!("field1:(a b c)", terms_query.to_string("")?);
   Ok(())
 }
@@ -416,14 +416,14 @@ fn test_to_string() -> Result<()> {
 #[test]
 fn test_dedup() -> Result<()> {
   let mut random = random();
-  let query1 = TermInSetQuery::new("foo", vec![new_bytes_ref_from_string(&mut random, "bar")?]);
+  let query1 = TermInSetQuery::new("foo", vec![new_bytes_ref_from_string(&mut random, "bar")?])?;
   let query2 = TermInSetQuery::new(
     "foo",
     vec![
       new_bytes_ref_from_string(&mut random, "bar")?,
       new_bytes_ref_from_string(&mut random, "bar")?,
     ],
-  );
+  )?;
   QueryUtils::check_equal(&query1, &query2);
   Ok(())
 }
@@ -437,14 +437,14 @@ fn test_order_does_not_matter() -> Result<()> {
       new_bytes_ref_from_string(&mut random, "bar")?,
       new_bytes_ref_from_string(&mut random, "baz")?,
     ],
-  );
+  )?;
   let query2 = TermInSetQuery::new(
     "foo",
     vec![
       new_bytes_ref_from_string(&mut random, "baz")?,
       new_bytes_ref_from_string(&mut random, "bar")?,
     ],
-  );
+  )?;
   QueryUtils::check_equal(&query1, &query2);
   Ok(())
 }
@@ -467,7 +467,7 @@ fn test_binary_to_string() -> Result<()> {
   let query = TermInSetQuery::new(
     "field",
     vec![new_bytes_ref_from_bytes(&mut random, &[0xff, 0xfe])?],
-  );
+  )?;
   assert_eq!("field:([ff fe])", query.to_string("")?);
   Ok(())
 }
@@ -481,7 +481,7 @@ fn test_is_considered_costly_by_query_cache() -> Result<()> {
       new_bytes_ref_from_string(&mut random, "bar")?,
       new_bytes_ref_from_string(&mut random, "baz")?,
     ],
-  )
+  )?
   .into_query();
   let policy = UsageTrackingQueryCachingPolicy::new()?;
   assert!(!policy.should_cache(&query)?);
@@ -500,7 +500,7 @@ fn test_visitor() -> Result<()> {
 #[test]
 fn test_terms_iterator() -> Result<()> {
   let mut random = random();
-  let empty = TermInSetQuery::new("field", Vec::new());
+  let empty = TermInSetQuery::new("field", Vec::new())?;
   let mut iterator = empty.get_bytes_ref_iterator()?;
   assert!(iterator.next()?.is_none());
 
@@ -511,7 +511,7 @@ fn test_terms_iterator() -> Result<()> {
       new_bytes_ref_from_string(&mut random, "term2")?,
       new_bytes_ref_from_string(&mut random, "term3")?,
     ],
-  );
+  )?;
   iterator = query.get_bytes_ref_iterator()?;
   assert_eq!(
     new_bytes_ref_from_string(&mut random, "term1")?,

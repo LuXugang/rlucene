@@ -31,7 +31,7 @@ struct TestTermStates;
 fn test_to_string_on_null_term_state() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir);
+  let w = RandomIndexWriter::new(&mut random, dir)?;
   w.add_document(&mut random, Document::new())?;
   let reader = w.get_reader(&mut random)?;
   let reader = get_context(reader)?;

@@ -52,13 +52,13 @@ pub struct TermInSetQuery {
 
 impl TermInSetQuery {
   /// Create a new TermInSetQuery that matches documents containing any of the specified terms.
-  pub fn new<T>(field: T, terms: Vec<BytesRef<Vec<u8>>>) -> Self
+  pub fn new<T>(field: T, terms: Vec<BytesRef<Vec<u8>>>) -> Result<Self>
   where
     T: Into<String>,
   {
     let field = field.into();
-    let term_data = Self::pack_terms(&field, terms);
-    Self::from_term_data(field, term_data)
+    let term_data = Self::pack_terms(&field, terms)?;
+    Ok(Self::from_term_data(field, term_data))
   }
 
   /// Create a new TermInSetQuery that matches documents containing any of the specified terms.
@@ -66,14 +66,18 @@ impl TermInSetQuery {
     rewrite_method: R,
     field: T,
     terms: Vec<BytesRef<Vec<u8>>>,
-  ) -> Self
+  ) -> Result<Self>
   where
     R: Into<RewriteMethodEnum>,
     T: Into<String>,
   {
     let field = field.into();
-    let term_data = Self::pack_terms(&field, terms);
-    Self::from_rewrite_method_and_term_data(rewrite_method, field, term_data)
+    let term_data = Self::pack_terms(&field, terms)?;
+    Ok(Self::from_rewrite_method_and_term_data(
+      rewrite_method,
+      field,
+      term_data,
+    ))
   }
 
   fn from_term_data(field: String, term_data: PrefixCodedTermsArc) -> Self {
@@ -100,7 +104,7 @@ impl TermInSetQuery {
     }
   }
 
-  fn pack_terms(field: &str, mut terms: Vec<BytesRef<Vec<u8>>>) -> PrefixCodedTermsArc {
+  fn pack_terms(field: &str, mut terms: Vec<BytesRef<Vec<u8>>>) -> Result<PrefixCodedTermsArc> {
     // TODO IMPORTANT 这里需要判断是否已经有序
     terms.sort();
     let mut builder = PrefixCodedTermsBuilder::new();
@@ -109,12 +113,10 @@ impl TermInSetQuery {
       if previous.as_ref().is_some_and(|previous| previous == &term) {
         continue;
       }
-      builder
-        .add(field.to_string(), &term)
-        .expect("prefix coding in-memory terms should not fail");
+      builder.add(field.to_string(), &term)?;
       previous = Some(BytesRef::deep_copy_of(&term));
     }
-    builder.finish().into()
+    Ok(builder.finish().into())
   }
 
   pub fn get_terms_count(&self) -> i64 {

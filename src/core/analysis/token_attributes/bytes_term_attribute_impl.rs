@@ -80,7 +80,7 @@ impl Attribute for BytesTermAttributeImpl {
 impl Clone for BytesTermAttributeImpl {
   fn clone(&self) -> Self {
     let mut c = BytesTermAttributeImpl::new();
-    self.copy_to(&mut c).expect("copy_to should not fail");
+    let _ = self.copy_to(&mut c);
     c
   }
 }

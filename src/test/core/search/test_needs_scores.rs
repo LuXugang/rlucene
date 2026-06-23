@@ -62,7 +62,7 @@ impl TestNeedsScores {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
     let analyzer = MockAnalyzer::new(&mut random);
-    let iw = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer);
+    let iw = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer)?;
     for i in 0..5 {
       let mut doc = Document::new();
       doc.add(TextField::from_string(

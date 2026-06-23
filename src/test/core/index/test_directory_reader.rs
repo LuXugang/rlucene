@@ -189,7 +189,7 @@ fn add_doc_with_open_mode<R: Rng + ?Sized>(
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()> {
   let mock = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(random, mock)?;
   iwc.set_open_mode(if create {
     OpenMode::Create
   } else {
@@ -212,7 +212,7 @@ fn test_is_current() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     d.clone(),
-    new_index_writer_config_with_analyzer(&mut random, mock),
+    new_index_writer_config_with_analyzer(&mut random, mock)?,
   )?;
   add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
   writer.close()?;
@@ -224,7 +224,7 @@ fn test_is_current() -> Result<()> {
 
   // modify index by adding another document:
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
   let writer = IndexWriter::new(d.clone(), config)?;
   add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
@@ -235,7 +235,7 @@ fn test_is_current() -> Result<()> {
 
   // re-create index:
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Create);
   let writer = IndexWriter::new(d.clone(), config)?;
   add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
@@ -255,7 +255,7 @@ fn test_get_field_names() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     d.clone(),
-    new_index_writer_config_with_analyzer(&mut random, mock),
+    new_index_writer_config_with_analyzer(&mut random, mock)?,
   )?;
 
   let mut custom_type3 = FieldType::new();
@@ -286,7 +286,7 @@ fn test_get_field_names() -> Result<()> {
 
   // add more documents
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
 
   let merge_policy = LogMergePolicy::log_bytes_size();
@@ -442,7 +442,7 @@ fn test_term_vectors() -> Result<()> {
 
   // set up writer
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let merge_policy = new_log_merge_policy(&mut random)?;
   let merge_factor = match &merge_policy {
     MergePolicyEnum::LogBytesSize(v) => v.get_merge_factor(),
@@ -522,7 +522,7 @@ fn test_binary_fields() -> Result<()> {
   let bin = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
 
   let writer = IndexWriter::new(dir.clone(), config)?;
@@ -542,7 +542,7 @@ fn test_binary_fields() -> Result<()> {
   drop(writer);
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
 
@@ -571,7 +571,7 @@ fn test_binary_fields() -> Result<()> {
 
   // force merge
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
 
@@ -785,7 +785,7 @@ fn test_get_index_commit() -> Result<()> {
   let mut field_to_type = HashMap::new();
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_max_buffered_docs(2);
   let mut merge_policy = LogMergePolicy::log_doc();
   merge_policy.set_merge_factor(10)?;
@@ -808,7 +808,7 @@ fn test_get_index_commit() -> Result<()> {
   assert!(c == r.get_index_commit()?);
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
   config.set_max_buffered_docs(2);
   let mut merge_policy = LogMergePolicy::log_doc();
@@ -827,7 +827,7 @@ fn test_get_index_commit() -> Result<()> {
   drop(writer);
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
   let writer = IndexWriter::new(d.clone(), config)?;
   writer.force_merge(1)?;
@@ -879,7 +879,7 @@ fn test_no_dup_commit_file_names() -> Result<()> {
   let mut field_to_type = HashMap::new();
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_max_buffered_docs(2);
   let writer = IndexWriter::new(dir.clone(), config)?;
   writer.add_document(create_document(&mut random, "a", &mut field_to_type)?)?;
@@ -910,7 +910,7 @@ fn test_unique_term_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -954,7 +954,7 @@ fn test_prepare_commit_is_current() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, mock),
+    new_index_writer_config_with_analyzer(&mut random, mock)?,
   )?;
   writer.commit()?;
   let doc = Document::new();
@@ -984,7 +984,7 @@ fn test_total_term_freq_cached() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut d = Document::new();
   d.add(TextField::from_string("f", "a a b", Store::No)?);
@@ -1029,7 +1029,7 @@ fn test_get_sum_doc_freq() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut d = Document::new();
   d.add(TextField::from_string("f", "a", Store::No)?);
@@ -1052,7 +1052,7 @@ fn test_get_doc_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut d = Document::new();
   d.add(TextField::from_string("f", "a", Store::No)?);
@@ -1075,7 +1075,7 @@ fn test_get_sum_total_term_freq() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut d = Document::new();
   d.add(TextField::from_string("f", "a b b", Store::No)?);
@@ -1104,7 +1104,7 @@ fn test_oob_doc_id() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   writer.add_document(Document::new())?;
   let r = directory_reader::open_from_writer(&writer)?;
@@ -1121,7 +1121,7 @@ fn test_try_inc_ref() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
@@ -1139,7 +1139,7 @@ fn test_stress_try_inc_ref() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
@@ -1180,7 +1180,7 @@ fn test_stress_try_inc_ref() -> Result<()> {
 fn test_load_certain_fields() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -1231,7 +1231,7 @@ fn test_open_with_invalid_min_compat_version() -> Result<()> {
   let mut random = random();
   let mut field_to_type = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let mut doc = Document::new();
   doc.add(new_string_field(
     &mut random,

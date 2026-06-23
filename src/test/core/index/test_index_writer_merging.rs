@@ -66,7 +66,7 @@ fn test_lucene() -> Result<()> {
   let merged = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
   let writer = IndexWriter::new(merged.clone(), conf)?;
   writer.add_indexes_from_dir(&[index_a, index_b])?;
@@ -115,7 +115,7 @@ where
   R: Rng + ?Sized,
 {
   let analyzer = MockAnalyzer::new(random);
-  let mut conf = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(2);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(random, 2)?);
@@ -142,7 +142,7 @@ fn test_force_merge_deletes() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_max_buffered_docs(2);
   conf.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
   let writer = IndexWriter::new(dir.clone(), conf)?;
@@ -176,7 +176,7 @@ fn test_force_merge_deletes() -> Result<()> {
   ir.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   dont_merge_config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), dont_merge_config)?;
   writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
@@ -189,7 +189,7 @@ fn test_force_merge_deletes() -> Result<()> {
   ir.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = IndexWriter::new(dir.clone(), conf)?;
   assert_eq!(8, writer.get_doc_stats()?.num_docs);
@@ -211,7 +211,7 @@ fn test_force_merge_deletes2() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_max_buffered_docs(2);
   conf.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 50)?);
@@ -247,7 +247,7 @@ fn test_force_merge_deletes2() -> Result<()> {
   ir.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   dont_merge_config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), dont_merge_config)?;
   for i in (0..98).step_by(2) {
@@ -261,7 +261,7 @@ fn test_force_merge_deletes2() -> Result<()> {
   ir.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 3)?);
   let writer = IndexWriter::new(dir.clone(), conf)?;
   assert_eq!(49, writer.get_doc_stats()?.num_docs);
@@ -281,7 +281,7 @@ fn test_force_merge_deletes3() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_max_buffered_docs(2);
   conf.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 50)?);
@@ -317,7 +317,7 @@ fn test_force_merge_deletes3() -> Result<()> {
   ir.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut dont_merge_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   dont_merge_config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), dont_merge_config)?;
   for i in (0..98).step_by(2) {
@@ -331,7 +331,7 @@ fn test_force_merge_deletes3() -> Result<()> {
   ir.close()?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 3)?);
   let writer = IndexWriter::new(dir.clone(), conf)?;
   writer.force_merge_deletes_with_wait(false)?;
@@ -349,7 +349,7 @@ fn test_set_max_merge_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_scheduler(MergeSchedulerEnum::IndexWriterMerging(MyMergeScheduler));
   conf.set_max_buffered_docs(2);
   let mut lmp = LogMergePolicy::log_doc();
@@ -445,7 +445,7 @@ fn test_no_wait_close() -> Result<()> {
     }
 
     let analyzer = MockAnalyzer::new(&mut random);
-    let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     conf.set_open_mode(OpenMode::Create);
     conf.set_max_buffered_docs(2);
     conf.set_merge_policy(new_log_merge_policy(&mut random)?);
@@ -541,7 +541,7 @@ fn test_no_wait_close() -> Result<()> {
       reader.close()?;
 
       let analyzer = MockAnalyzer::new(&mut random);
-      let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+      let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
       conf.set_open_mode(OpenMode::Append);
       conf.set_merge_policy(new_log_merge_policy(&mut random)?);
       conf.set_commit_on_close(false);

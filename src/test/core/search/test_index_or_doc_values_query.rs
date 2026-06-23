@@ -46,7 +46,7 @@ fn test_use_index_for_selective_queries() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -123,7 +123,7 @@ fn test_use_index_for_selective_multi_value_queries() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = at_least(&mut random, 1000);
@@ -217,7 +217,7 @@ fn test_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = random.random_range(0..5000);

@@ -45,7 +45,7 @@ fn test_read_only_index() -> crate::core::util::error::lucene_error::Result<()> 
 
   {
     let analyzer = MockAnalyzer::new(&mut random);
-    let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     // TODO IMPORTANT setCodec未实现
     let iwriter = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
     let mut doc = Document::new();

@@ -49,7 +49,7 @@ fn test_info_stream_gets_field_name() -> Result<()> {
   let mut c = IndexWriterConfig::with_analyzer(Box::new(ThrowingAnalyzer {
     stored_value: AnalyzerStoredValue::new(),
     seed: random.random(),
-  }) as Box<dyn Analyzer>);
+  }) as Box<dyn Analyzer>)?;
   let print_stream_info_stream = Arc::new(PrintStreamInfoStream::new(Cursor::new(Vec::new())));
   c.set_info_stream(InfoStreamEnum::Custom(Box::new(
     print_stream_info_stream.clone(),
@@ -77,7 +77,7 @@ fn test_no_extra_noise() -> Result<()> {
   let mut c = IndexWriterConfig::with_analyzer(Box::new(ThrowingAnalyzer {
     stored_value: AnalyzerStoredValue::new(),
     seed: random.random(),
-  }) as Box<dyn Analyzer>);
+  }) as Box<dyn Analyzer>)?;
   let print_stream_info_stream = Arc::new(PrintStreamInfoStream::new(Cursor::new(Vec::new())));
   c.set_info_stream(InfoStreamEnum::Custom(Box::new(
     print_stream_info_stream.clone(),

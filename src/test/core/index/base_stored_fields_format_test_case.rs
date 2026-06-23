@@ -66,7 +66,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 5, 20));
     let writer = RandomIndexWriter::with_config(random, directory, iwc);
 
@@ -153,7 +153,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let writer = RandomIndexWriter::with_config(random, directory, iwc);
 
     let mut stored_only = FieldType::new();
@@ -197,7 +197,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let writer = RandomIndexWriter::with_config(random, directory, iwc);
 
     let mut bytes = vec![0u8; 50];
@@ -232,7 +232,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory);
+    let writer = RandomIndexWriter::new(random, directory)?;
     let num_docs = at_least(random, 500) as usize;
     let mut answers = vec![Number::I32(0); num_docs];
     let mut type_answers = vec![""; num_docs];
@@ -317,7 +317,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let directory = new_directory_shared(random)?;
-    let writer = RandomIndexWriter::new(random, directory);
+    let writer = RandomIndexWriter::new(random, directory)?;
 
     let mut only_stored = FieldType::new();
     only_stored.set_stored(true)?;
@@ -354,7 +354,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
     let writer = RandomIndexWriter::with_config(random, directory, iwc);
 
@@ -429,7 +429,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
     let writer = RandomIndexWriter::with_config(random, directory, iwc);
 
@@ -461,7 +461,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
 
@@ -555,7 +555,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
     // TODO: set codec to a different implementation here so we can exercise
     // merging stored fields across codecs once codec switching is wired up.
@@ -672,7 +672,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     // TODO IMPORTANT MMAP未实现
     let dir = new_fs_directory(random, create_temp_dir_with_prefix("testBigDocuments")?)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
     let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
@@ -762,7 +762,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_merge_policy(NoMergePolicy::default());
     let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
@@ -787,7 +787,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close(random)?;
     drop(writer);
 
-    let writer = RandomIndexWriter::new(random, dir.clone());
+    let writer = RandomIndexWriter::new(random, dir.clone())?;
     let max_num_segments = TestUtil::next_int(random, 1, 3);
     writer.force_merge(random, max_num_segments)?;
     writer.commit(random)?;
@@ -822,7 +822,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
 
     {
       let mut docs = LineFileDocs::new(random)?;
-      let w = IndexWriter::new(dir.clone(), IndexWriterConfig::default())?;
+      let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
       let num_docs = at_least(random, 10_000);
 

@@ -134,7 +134,7 @@ where
   }
 
   let dir = new_directory_shared(random)?;
-  let iw = RandomIndexWriter::new(random, dir.clone());
+  let iw = RandomIndexWriter::new(random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let num_docs = at_least(random, 200);

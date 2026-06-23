@@ -17,6 +17,8 @@
 use crate::core::internal::hppc::bit_mixer::BitMixer;
 use crate::core::util::automation::frozen_int_set::FrozenIntSet;
 use crate::core::util::automation::int_set::IntSet;
+use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -53,14 +55,17 @@ impl StateSet {
 
   /// Decrease the reference count of the state.
   /// If it reaches 0, remove the state.
-  pub(crate) fn decr(&mut self, state: i32) {
-    debug_assert!(self.inner.contains_key(&state));
-    let entry = self.inner.get_mut(&state).expect("state must exist");
+  pub(crate) fn decr(&mut self, state: i32) -> Result<()> {
+    let entry = self
+      .inner
+      .get_mut(&state)
+      .ok_or_else(|| LuceneError::illegal_state(format!("state {state} not found")))?;
     *entry -= 1;
     if *entry == 0 {
       self.inner.remove(&state);
       self.key_changed();
     }
+    Ok(())
   }
   pub(crate) fn reset(&mut self) {
     self.inner.clear();

@@ -58,7 +58,7 @@ fn test_numerics() -> Result<()> {
   let mut field = NumericDocValuesField::new("numbers", 0i64);
   doc.add(field.clone());
   let _mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -121,7 +121,7 @@ fn test_binary() -> Result<()> {
   let mut field = BinaryDocValuesField::new("bytes", BytesRef::new());
   doc.add(field.clone());
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
@@ -193,7 +193,7 @@ fn test_sorted() -> Result<()> {
   let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
   doc.add(field.clone());
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -279,7 +279,7 @@ fn test_sorted_with_lots_of_dups() -> Result<()> {
   let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
   doc.add(field.clone());
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -355,7 +355,7 @@ fn test_sorted_set() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -448,7 +448,7 @@ fn test_sorted_set_with_dups() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -546,7 +546,7 @@ fn test_sorted_numeric() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);

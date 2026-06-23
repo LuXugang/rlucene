@@ -263,14 +263,16 @@ impl IndexableField for FloatField {
 
 impl fmt::Display for FloatField {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let v = self.get_value_as_float().expect("should get float value");
-    write!(
-      f,
-      "{} <{}:{}>",
-      std::any::type_name::<Self>(),
-      self.parent_field.name(),
-      v
-    )
+    match self.get_value_as_float() {
+      Ok(v) => write!(
+        f,
+        "{} <{}:{}>",
+        std::any::type_name::<Self>(),
+        self.parent_field.name(),
+        v
+      ),
+      Err(v) => write!(f, "{}", v),
+    }
   }
 }
 

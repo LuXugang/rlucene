@@ -130,7 +130,7 @@ impl Lucene90CompoundFormat {
       CodecUtil::write_be_int(data, CodecUtil::FOOTER_MAGIC)?;
       CodecUtil::write_be_int(data, 0)?;
       CodecUtil::write_be_long(data, checksum)?;
-      let end_offset = data.get_file_pointer();
+      let end_offset = data.get_file_pointer()?;
       let length = end_offset - start_offset;
       // write entry for file
       entries.write_string(IndexFileNames::strip_segment_name(file))?;

@@ -809,12 +809,10 @@ where
     }
 
     for &i in idxs.iter().rev() {
-      let dwpt = inner
-        .blocked_flushes
-        .remove(i)
-        .expect("should never fail to remove blocked DWPT under lock");
-      self.add_flushing_dwpt(dwpt.clone(), inner);
-      inner.flush_queue.push_back(dwpt);
+      if let Some(dwpt) = inner.blocked_flushes.remove(i) {
+        self.add_flushing_dwpt(dwpt.clone(), inner);
+        inner.flush_queue.push_back(dwpt);
+      }
     }
   }
   pub(crate) fn finish_full_flush<L>(&self, config: &L) -> Result<()>

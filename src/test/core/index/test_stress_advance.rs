@@ -49,7 +49,7 @@ fn test_stress_advance() -> Result<()> {
 
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let w = RandomIndexWriter::new(&mut random, dir.clone());
+    let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
     let mut a_docs: HashSet<i32> = HashSet::new();
     let mut field_to_type: HashMap<String, FieldType> = HashMap::new();

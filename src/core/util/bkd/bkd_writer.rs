@@ -391,10 +391,10 @@ where
     self.max_packed_value = max_packed_value;
 
     for i in 0..self.point_count as i32 {
-      self.docs_seen.set(values.get_doc_id(i as usize) as usize);
+      self.docs_seen.set(values.get_doc_id(i as usize)? as usize);
     }
 
-    let data_start_fp = data_out.get_file_pointer();
+    let data_start_fp = data_out.get_file_pointer()?;
     let mut parent_splits = vec![0i32; self.config.num_index_dims];
 
     self.build_with_reader(
@@ -602,7 +602,7 @@ where
       &self.temp_file_name_prefix,
     );
 
-    let data_start_fp = data_out.get_file_pointer();
+    let data_start_fp = data_out.get_file_pointer()?;
 
     let result = (|| -> Result<()> {
       let mut parent_splits = vec![0i32; self.config.num_index_dims];
@@ -941,8 +941,8 @@ where
     let (file_pointer, v) = match &index_out {
       // If metaOut and indexOut are the same file, we account for the fact
       // that writing a long makes the index start 8 bytes later.
-      None => (meta_out.get_file_pointer(), BitUtil::LONG_BYTES),
-      Some(io) => (io.get_file_pointer(), 0),
+      None => (meta_out.get_file_pointer()?, BitUtil::LONG_BYTES),
+      Some(io) => (io.get_file_pointer()?, 0),
     };
 
     meta_out.write_long((file_pointer + v) as i64)?;
@@ -1516,11 +1516,11 @@ where
         }
 
         // Save the block file pointer:
-        leaf_block_fps[leaves_offset] = out.get_file_pointer();
+        leaf_block_fps[leaves_offset] = out.get_file_pointer()?;
 
         // Write doc IDs
         for i in from..to {
-          spare_doc_ids[i - from] = reader.get_doc_id(i);
+          spare_doc_ids[i - from] = reader.get_doc_id(i)?;
         }
         self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
 
@@ -1827,7 +1827,7 @@ where
         PointWriterEnum::Heap(heap_source) => {
           leaf_cardinality =
             heap_source.compute_cardinality(from, to, &self.common_prefix_lengths)?;
-          leaf_block_fps[leaves_offset] = out.get_file_pointer();
+          leaf_block_fps[leaves_offset] = out.get_file_pointer()?;
 
           debug_assert!(count > 0);
           debug_assert!(count <= spare_doc_ids.len());
@@ -2076,7 +2076,7 @@ where
     // Mark that we already finished:
     bkd_writer.finished = true;
 
-    let data_start_fp = data_out.get_file_pointer();
+    let data_start_fp = data_out.get_file_pointer()?;
     let leaf_values = vec![
       0u8;
       bkd_writer.config.max_points_in_leaf_node
@@ -2199,7 +2199,7 @@ where
         .leaf_block_start_values
         .push(self.leaf_values[0..packed_index_bytes_length].to_vec());
     }
-    self.leaf_block_fps.push(self.data_out.get_file_pointer());
+    self.leaf_block_fps.push(self.data_out.get_file_pointer()?);
     self
       .bkd_writer
       .check_max_leaf_node_count(self.leaf_block_fps.len())?;

@@ -38,7 +38,7 @@ fn test_prefix_query() -> Result<()> {
   let directory = new_directory_shared(&mut random)?;
 
   let categories = ["/Computers", "/Computers/Mac", "/Computers/Windows"];
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_to_type = HashMap::new();
 
   for cat in categories {
@@ -80,7 +80,7 @@ fn test_match_all() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -110,7 +110,7 @@ fn test_random_binary_prefix() -> Result<()> {
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let num_terms = at_least(&mut random, 1000);

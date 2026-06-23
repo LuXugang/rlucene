@@ -222,7 +222,7 @@ where
   let query = query.into();
   let directory = new_directory_shared(random)?;
 
-  let mut iwc = new_index_writer_config(random);
+  let mut iwc = new_index_writer_config(random)?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
 
   let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
@@ -276,7 +276,7 @@ fn test_early_termination() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(2);
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 

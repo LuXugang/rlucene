@@ -46,7 +46,7 @@ fn test_demo() -> Result<()> {
   let analyzer = StandardAnalyzer::new();
   let writer = IndexWriter::new(
     dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
   )?;
 
   let mut field_to_type = HashMap::new();

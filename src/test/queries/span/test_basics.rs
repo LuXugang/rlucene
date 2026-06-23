@@ -53,7 +53,7 @@ impl TestBasics {
   fn set_up(random: &mut impl Rng) -> Result<DefaultIndexSearchCR> {
     let dir = new_directory_shared(random)?;
     let a = MockAnalyzer::with_automaton(random, mock_tokenizer::SIMPLE.clone(), true);
-    let mut iwc = new_index_writer_config_with_analyzer(random, a);
+    let mut iwc = new_index_writer_config_with_analyzer(random, a)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 100, 1000));
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, dir, iwc);

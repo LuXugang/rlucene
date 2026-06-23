@@ -137,7 +137,7 @@ impl BaseTermVectorsFormatTestCase for TestCompressingTermVectorsFormat {}
 fn test_no_ords() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir);
+  let iw = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut doc = Document::new();
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;

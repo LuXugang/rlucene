@@ -229,7 +229,7 @@ impl SearchEquivalenceTestBaseMeta {
     let stopword = random_char(random).to_string();
     let stopset = CharacterRunAutomaton::new(Automata::make_string(&stopword)?)?;
     let analyzer = MockAnalyzer::with_filter(random, WHITESPACE.clone(), false, stopset);
-    let iw = RandomIndexWriter::with_analyzer(random, directory.clone(), analyzer);
+    let iw = RandomIndexWriter::with_analyzer(random, directory.clone(), analyzer)?;
 
     let id = StringField::from_string("id", "", Store::No)?;
     let field = TextField::from_string("field", "", Store::No)?;

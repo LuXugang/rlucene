@@ -42,7 +42,7 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let mut lmp = LogMergePolicy::log_doc();
   lmp.set_merge_factor(2)?;
   iwc.set_merge_policy(lmp);
@@ -70,7 +70,7 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
   for name in dir.list_all()? {
     dir.delete_file(&name)?;
   }
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   w.add_document(&mut random, doc)?;
   w.close(&mut random)?;
   r.close()?;

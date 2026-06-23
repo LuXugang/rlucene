@@ -371,10 +371,17 @@ where
   D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let v = self.si.info.max_doc().expect("max_doc should be set")
-      - self.num_docs
-      - self.si.get_del_count();
-    write!(f, "{}", self.si.to_string_with_pending_del_count(v))
+    match self.si.info.max_doc() {
+      Ok(max_doc) => {
+        let pending_del_count = max_doc - self.num_docs - self.si.get_del_count();
+        write!(
+          f,
+          "{}",
+          self.si.to_string_with_pending_del_count(pending_del_count)
+        )
+      },
+      Err(e) => write!(f, "{}", e),
+    }
   }
 }
 

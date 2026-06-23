@@ -49,7 +49,7 @@ fn test_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_buffered_docs(2);
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
@@ -146,7 +146,7 @@ fn test_early_termination() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_max_buffered_docs(2);
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
   let iw = IndexWriter::new(dir.clone(), config)?;

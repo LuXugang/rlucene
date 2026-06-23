@@ -210,7 +210,7 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     // Else seeds may not reproduce:
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     // Else we can get O(N^2) merging

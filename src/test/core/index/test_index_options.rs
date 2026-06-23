@@ -47,7 +47,7 @@ fn do_test_change_index_options_via_add_document(
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut ft1 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
@@ -119,7 +119,7 @@ where
   R: Rng + ?Sized,
 {
   let dir1 = new_directory_shared(random)?;
-  let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random))?;
+  let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random)?)?;
 
   let mut ft1 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft1.set_index_options(from)?;
@@ -128,7 +128,7 @@ where
   w1.add_document(doc1)?;
 
   let dir2 = new_directory_shared(random)?;
-  let w2 = IndexWriter::new(dir2.clone(), new_index_writer_config(random))?;
+  let w2 = IndexWriter::new(dir2.clone(), new_index_writer_config(random)?)?;
 
   let mut ft2 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   ft2.set_index_options(to)?;

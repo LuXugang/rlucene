@@ -67,7 +67,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -98,7 +98,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -132,7 +132,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let w = IndexWriter::new(dir.clone(), iwc)?;
     let mut field_types = HashMap::new();
     let mut point = vec![0u8; 4];
@@ -349,7 +349,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     let num_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
 
     let analyzer = MockAnalyzer::new(random);
-    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
@@ -586,9 +586,9 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     let use_real_writer = num_values > 10000;
     let iwc = if use_real_writer {
       let a = MockAnalyzer::new(random);
-      new_index_writer_config_with_analyzer(random, a)
+      new_index_writer_config_with_analyzer(random, a)?
     } else {
-      new_index_writer_config(random)
+      new_index_writer_config(random)?
     };
     // TODO ConcurrentMergeScheduler 未实现
     let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
@@ -943,7 +943,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_max_buffered_docs(2);
     let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 

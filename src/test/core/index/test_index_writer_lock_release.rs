@@ -32,12 +32,12 @@ fn test_index_writer_lock_release() -> Result<()> {
   let dir = new_fs_directory(&mut random, tmp)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_open_mode(OpenMode::Append);
 
   if IndexWriter::new(dir.clone(), iwc).is_err() {
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     iwc.set_open_mode(OpenMode::Append);
     let _ = IndexWriter::new(dir.clone(), iwc);
   }

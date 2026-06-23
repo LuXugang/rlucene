@@ -30,7 +30,7 @@ struct TestMergeRateLimiter;
 fn test_init_defaults() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   w.add_document(&mut random, Document::new())?;
   w.close(&mut random)?;
 

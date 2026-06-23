@@ -156,23 +156,23 @@ where
   !rarely(random)
 }
 
-pub(crate) fn new_index_writer_config<R>(random: &mut R) -> IndexWriterConfig
+pub(crate) fn new_index_writer_config<R>(random: &mut R) -> Result<IndexWriterConfig>
 where
   R: Rng + ?Sized,
 {
-  // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
+  // TODO: 这里简单返回IndexWriterConfig::new()，后续可以根据random随机生成不同的配置
   let mock = MockAnalyzer::new(random);
   new_index_writer_config_with_analyzer(random, mock)
 }
 pub(crate) fn new_index_writer_config_with_analyzer<T, R>(
   _random: &mut R,
   analyzer: T,
-) -> IndexWriterConfig
+) -> Result<IndexWriterConfig>
 where
   R: Rng + ?Sized,
   T: Into<AnalyzerEnum>,
 {
-  // TODO: 这里简单返回IndexWriterConfig::default()，后续可以根据random随机生成不同的配置
+  // TODO: 这里简单返回IndexWriterConfig::with_analyzer()，后续可以根据random随机生成不同的配置
   IndexWriterConfig::with_analyzer(analyzer)
 }
 pub fn new_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>

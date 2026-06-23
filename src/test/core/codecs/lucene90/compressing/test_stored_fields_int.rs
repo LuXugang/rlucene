@@ -74,7 +74,7 @@ where
   {
     let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
     StoredFieldsInts::write_ints(ints, 0, ints.len() as i32, &mut out)?;
-    len = out.get_file_pointer();
+    len = out.get_file_pointer()?;
     if random.random_bool(0.5) {
       out.write_long(0)?;
     }

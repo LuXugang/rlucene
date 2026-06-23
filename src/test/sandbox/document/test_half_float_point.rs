@@ -198,7 +198,7 @@ fn test_sortable_bytes() {
 fn test_basics() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with an single dimension
   let mut document = Document::new();
@@ -260,7 +260,7 @@ fn test_basics() -> Result<()> {
 fn test_basics_multi_dims() -> Result<()> {
   let mut random = random();
   let mut dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with two dimensions
   let mut document = Document::new();

@@ -43,7 +43,7 @@ fn test_non_flex() -> Result<()> {
 
   const DOC_COUNT: i32 = 177;
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_max_buffered_docs(7);
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
@@ -107,7 +107,7 @@ fn test_term_ord() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 

@@ -51,7 +51,7 @@ fn test_random() -> Result<()> {
   for _ in 0..num {
     let dir = new_directory_shared(&mut random)?;
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     iwc.set_merge_policy(KeepFullyDeletedSegmentsMergePolicy::default());
     let w = IndexWriter::new(dir, iwc)?;
 
@@ -137,7 +137,7 @@ fn test_separate_enums() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let iw = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -188,7 +188,7 @@ fn test_term_docs_enum() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let iw = IndexWriter::new(dir.clone(), iwc)?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut doc = Document::new();

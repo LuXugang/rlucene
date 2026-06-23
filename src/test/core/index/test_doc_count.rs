@@ -43,7 +43,7 @@ pub struct TestDocCount;
 fn test_simple() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let num_docs = at_least(&mut random, 100);
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();

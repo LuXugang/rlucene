@@ -86,7 +86,7 @@ where
 fn test_add_close_open() -> Result<()> {
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
 
   let mut writer = IndexWriter::new(dir1.clone(), iwc)?;
   for i in 0..97 {
@@ -133,7 +133,7 @@ fn test_add_close_open() -> Result<()> {
   writer.close()?;
 
   assert!(reader.is_current(&writer)?);
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   drop(writer);
   writer = IndexWriter::new(dir1.clone(), iwc)?;
   assert!(reader.is_current(&writer)?);
@@ -155,7 +155,7 @@ fn test_update_document() -> Result<()> {
 
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   if iwc.get_max_buffered_docs() < 20 {
     iwc.set_max_buffered_docs(20);
   }
@@ -211,7 +211,7 @@ fn test_update_document() -> Result<()> {
     count(&mut random, &Term::from_text("id", 8000.to_string()), &r3)?
   );
   drop(writer);
-  writer = IndexWriter::new(dir1.clone(), new_index_writer_config(&mut random))?;
+  writer = IndexWriter::new(dir1.clone(), new_index_writer_config(&mut random)?)?;
   let mut doc = Document::new();
   doc.add(new_text_field(
     &mut random,
@@ -238,7 +238,7 @@ fn test_update_document() -> Result<()> {
 fn test_is_current() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   let mut field_to_type = HashMap::new();
   let mut writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
@@ -252,7 +252,7 @@ fn test_is_current() -> Result<()> {
   writer.add_document(doc)?;
   writer.close()?;
   drop(writer);
-  let iwc = new_index_writer_config(&mut random);
+  let iwc = new_index_writer_config(&mut random)?;
   writer = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -292,7 +292,7 @@ fn test_add_indexes() -> Result<()> {
 
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   if iwc.get_max_buffered_docs() < 20 {
     iwc.set_max_buffered_docs(20);
@@ -304,7 +304,7 @@ fn test_add_indexes() -> Result<()> {
   writer.flush()?;
 
   let dir2 = new_directory_shared(&mut random)?;
-  let writer2 = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random))?;
+  let writer2 = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random)?)?;
   create_index_no_close(!do_full_merge, "index2", &writer2)?;
   writer2.close()?;
 
@@ -344,12 +344,12 @@ fn test_add_indexes2() -> Result<()> {
 
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   let writer = IndexWriter::new(dir1.clone(), iwc)?;
 
   let dir2 = new_directory_shared(&mut random)?;
-  let mut iwc2 = new_index_writer_config(&mut random);
+  let mut iwc2 = new_index_writer_config(&mut random)?;
   iwc2.set_max_full_flush_merge_wait_millis(0);
   let writer2 = IndexWriter::new(dir2.clone(), iwc2)?;
   create_index_no_close(!do_full_merge, "index2", &writer2)?;
@@ -392,7 +392,7 @@ fn test_delete_from_index_writer() -> Result<()> {
 
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   let mut writer = IndexWriter::new(dir1.clone(), iwc)?;
 
@@ -466,7 +466,7 @@ fn test_delete_from_index_writer() -> Result<()> {
   writer.close()?;
 
   drop(writer);
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   writer = IndexWriter::new(dir1.clone(), iwc)?;
   let w2r1 = directory_reader::open_from_writer(&writer)?;
@@ -495,7 +495,7 @@ fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
   let mut random = random();
   // TODO MockDirectoryWrapper未实现
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   let mut writer = IndexWriter::new(dir1.clone(), iwc)?;
   let r1 = directory_reader::open_from_writer(&writer)?;
@@ -530,7 +530,7 @@ fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
   writer.close()?;
 
   drop(writer);
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   writer = IndexWriter::new(dir1.clone(), iwc)?;
   let w2r1 = directory_reader::open_from_writer(&writer)?;
@@ -556,7 +556,7 @@ fn test_after_commit() -> Result<()> {
 fn test_after_close() -> Result<()> {
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   let writer = IndexWriter::new(dir1.clone(), iwc)?;
 
@@ -584,7 +584,7 @@ fn test_during_add_indexes() -> Result<()> {
 
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc
     .set_max_full_flush_merge_wait_millis(0)
     .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
@@ -669,7 +669,7 @@ fn test_during_add_indexes() -> Result<()> {
 fn test_during_add_delete() -> Result<()> {
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
   if is_night_mode() {
     iwc.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
@@ -757,7 +757,7 @@ fn test_during_add_delete() -> Result<()> {
 fn test_force_merge_deletes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -810,7 +810,7 @@ fn test_force_merge_deletes() -> Result<()> {
 fn test_deletes_num_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let mut field_to_type = HashMap::new();
 
   let mut id = StringField::from_string("id", "", Store::No)?;
@@ -858,7 +858,7 @@ fn test_deletes_num_docs() -> Result<()> {
 fn test_empty_index() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let r = directory_reader::open_from_writer(&w)?;
   assert_eq!(0, r.num_docs()?);
   r.close()?;
@@ -882,7 +882,7 @@ fn test_simple_merged_segment_warmer() -> Result<()> {
 fn test_reopen_after_no_real_change() -> Result<()> {
   let mut random = random();
   let d = new_directory_shared(&mut random)?;
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
   let w = IndexWriter::new(d.clone(), iwc)?;
 
@@ -925,7 +925,7 @@ fn test_nrt_open_exceptions() -> Result<()> {
 fn test_too_many_segments() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   for i in 0..500 {
     let mut doc = Document::new();
@@ -944,7 +944,7 @@ fn test_too_many_segments() -> Result<()> {
 fn test_reopen_nrt_reader_on_commit() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   w.add_document(Document::new())?;
 
   let r1 = directory_reader::open_from_writer(&w)?;

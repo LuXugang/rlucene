@@ -101,7 +101,7 @@ where
   };
 
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
   let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
@@ -153,7 +153,7 @@ where
   }
 
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   // we need docID order to be preserved:
   // randomized codecs are sometimes too costly for this test:
   iwc.set_merge_policy(new_log_merge_policy(random)?);
@@ -180,7 +180,7 @@ where
     let mut copy = copy_of(random, dir2.as_ref())?;
 
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer);
+    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir2.clone(), iwc);
 
     w.add_indexes_from_dir(random, std::slice::from_ref(&copy))?;
@@ -194,7 +194,7 @@ where
   }
 
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
   // randomized codecs are sometimes too costly for this test:
   let w = RandomIndexWriter::with_config(random, dir2.clone(), iwc);

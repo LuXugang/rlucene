@@ -38,7 +38,7 @@ struct TestTerms;
 fn test_term_min_max_basic() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir);
+  let w = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("field", "a b c cc ddd", No)?);
@@ -63,7 +63,7 @@ fn test_term_min_max_basic() -> Result<()> {
 fn test_term_min_max_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir);
+  let w = RandomIndexWriter::new(&mut random, dir)?;
 
   let num_docs = at_least(&mut random, 100);
   let mut min_term: Option<BytesRef<Vec<u8>>> = None;

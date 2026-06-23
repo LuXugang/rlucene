@@ -485,7 +485,7 @@ fn test_real_terms() -> Result<()> {
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
 
-  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_max_buffered_docs(-1).set_ram_buffer_size_mb(64.0);
   let temp_dir = create_temp_dir_with_prefix("fstlines")?;
   let dir = new_fs_directory(&mut random, temp_dir)?;
@@ -715,7 +715,7 @@ fn test_primary_keys() -> Result<()> {
     }
 
     let analyzer = MockAnalyzer::new(&mut random);
-    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     config.set_open_mode(OpenMode::Create);
     let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
@@ -862,7 +862,7 @@ fn test_random_term_lookup() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   // build writer
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
 
   let mut field = StringField::from_string("field", "", Store::No)?;

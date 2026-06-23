@@ -163,7 +163,7 @@ fn test_constructor_exceptions() -> Result<()> {
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   Field::from_string("name", "value", ft.clone())?;
 
@@ -203,7 +203,7 @@ fn test_get_values_for_indexed_document() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, make_document_with_fields()?)?;
 
   let reader = writer.get_reader(&mut random)?;
@@ -252,7 +252,7 @@ fn test_position_increment_multi_fields() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, make_document_with_fields()?)?;
 
   let reader = writer.get_reader(&mut random)?;
@@ -364,7 +364,7 @@ fn test_field_set_value() -> Result<()> {
   let field2 = StringField::from_string("keyword", "test", Store::Yes)?;
   doc.add(field2.clone());
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, doc.clone())?;
 
   field.set_string_value("id2")?;
@@ -440,7 +440,7 @@ fn test_numeric_field_as_string() -> Result<()> {
   // index it
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir.clone());
+  let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   iw.add_document(&mut random, doc.clone())?;
 
   let ir = iw.get_reader(&mut random)?;

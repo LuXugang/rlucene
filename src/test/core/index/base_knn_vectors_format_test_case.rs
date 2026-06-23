@@ -135,7 +135,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     {
       let dir = new_directory_shared(random)?;
-      let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
 
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -160,7 +160,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     {
       let dir = new_directory_shared(random)?;
-      let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
 
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -199,7 +199,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     {
       let dir = new_directory_shared(random)?;
-      let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
 
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -228,7 +228,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     {
       let dir = new_directory_shared(random)?;
-      let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
 
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -268,7 +268,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
 
     {
-      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random)?)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
         "f",
@@ -280,7 +280,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
         "f",
@@ -311,7 +311,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let ex = Arc::new(AtomicBool::new(false));
     let merge_scheduler = TestMergeScheduler::new(ex.clone());
     // TODO PerFieldKnnVectorsFormat 未实现
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(MergeSchedulerEnum::KnnMergeScheduler(merge_scheduler));
     let mp = iwc.get_merge_policy().clone();
     iwc.set_merge_policy(MergePolicyEnum::Force(ForceMergePolicy::new(mp)));
@@ -351,7 +351,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let ex = Arc::new(AtomicBool::new(false));
     let merge_scheduler = TestMergeScheduler::new(ex.clone());
     // TODO PerFieldKnnVectorsFormat 未实现
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(MergeSchedulerEnum::KnnMergeScheduler(merge_scheduler));
     let mp = iwc.get_merge_policy().clone();
     iwc.set_merge_policy(MergePolicyEnum::Force(ForceMergePolicy::new(mp)));
@@ -395,7 +395,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
 
     {
-      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random)?)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
         "f",
@@ -407,7 +407,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
       let mut doc2 = Document::new();
       doc2.add(KnnFloatVectorField::with_similarity_function(
         "f",
@@ -446,14 +446,14 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir2 = new_directory_shared(random)?;
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
       w.add_document(doc.clone())?;
       w.close()?;
     }
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
       w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
@@ -484,7 +484,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir2 = new_directory_shared(random)?;
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
       w.add_document(doc.clone())?;
       w.close()?;
@@ -497,7 +497,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )?);
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
       w2.add_document(doc)?;
       w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
@@ -540,14 +540,14 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir2 = new_directory_shared(random)?;
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
       w.add_document(doc.clone())?;
       w.close()?;
     }
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
       vector[0] = 1.0;
       vector[1] = 1.0;
@@ -591,7 +591,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir2 = new_directory_shared(random)?;
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -604,7 +604,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -636,7 +636,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir2 = new_directory_shared(random)?;
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -649,7 +649,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
@@ -716,7 +716,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(_random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(_random))?;
+    let w = IndexWriter::new(dir, new_index_writer_config(_random)?)?;
     let mut doc = Document::new();
     doc.add(KnnFloatVectorField::with_similarity_function(
       "f",
@@ -741,7 +741,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(_random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(_random))?;
+    let w = IndexWriter::new(dir, new_index_writer_config(_random)?)?;
     let max_dim = self.get_vectors_max_dimensions("f");
 
     let mut doc = Document::new();
@@ -799,7 +799,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(_random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(_random))?;
+    let w = IndexWriter::new(dir, new_index_writer_config(_random)?)?;
 
     let e = match KnnFloatVectorField::with_similarity_function(
       "f",
@@ -828,7 +828,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
 
     {
-      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random)?)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
         "f",
@@ -840,7 +840,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let iwc = new_index_writer_config(random);
+      let iwc = new_index_writer_config(random)?;
       // TODO set_codec 未实现
       // iwc.set_codec(Codec::for_name("SimpleText")?);
       let w = IndexWriter::new(dir, iwc)?;
@@ -862,7 +862,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     // TODO set_codec 未实现
     // iwc.set_codec(Codec::for_name("SimpleText")?);
 
@@ -881,7 +881,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     {
-      let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
         "f",
@@ -920,7 +920,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(_random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(_random))?;
+    let w = IndexWriter::new(dir, new_index_writer_config(_random)?)?;
 
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "0", Store::No)?);
@@ -967,7 +967,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(_random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(_random))?;
+    let w = IndexWriter::new(dir, new_index_writer_config(_random)?)?;
 
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "0", Store::No)?);
@@ -1013,7 +1013,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let dir = new_directory_shared(random)?;
-    let config = new_index_writer_config(random);
+    let config = new_index_writer_config(random)?;
     let w = RandomIndexWriter::with_config(random, dir, config);
 
     for _ in 0..num_docs {
@@ -1108,7 +1108,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     if random.random_bool(0.5) {
       let index_sort =
         Sort::with_fields(vec![SortField::new(Some("sortkey"), SortFieldType::Int)?])?;
@@ -1198,7 +1198,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     if random.random_bool(0.5) {
       let index_sort =
         Sort::with_fields(vec![SortField::new(Some("sortkey"), SortFieldType::Int)?])?;
@@ -1283,7 +1283,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+    let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
 
     let mut doc1 = Document::new();
     doc1.add(StringField::from_string("id", "0", Store::No)?);
@@ -1319,7 +1319,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(random))?;
+    let w = IndexWriter::new(dir, new_index_writer_config(random)?)?;
 
     let mut doc1 = Document::new();
     doc1.add(StringField::from_string("id", "0", Store::No)?);
@@ -1372,7 +1372,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let mut v = vec![0.0f32, 0.0f32];
     let dir = new_directory_shared(random)?;
 
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_policy(NoMergePolicy::default());
     iwc.set_max_buffered_docs(3);
     iwc.set_ram_buffer_size_mb(-1.0);
@@ -1435,7 +1435,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
       Some("sortkey"),
       SortFieldType::Int,
@@ -1500,7 +1500,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
       Some("sortkey"),
       SortFieldType::Int,
@@ -1566,7 +1566,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let iw = IndexWriter::new(dir, iwc)?;
 
@@ -1646,7 +1646,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     if random.random_bool(0.5) {
       iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
         Some("sortkey"),
@@ -1766,7 +1766,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut iwc = new_index_writer_config(random);
+    let mut iwc = new_index_writer_config(random)?;
     if random.random_bool(0.5) {
       iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
         Some("sortkey"),
@@ -1897,7 +1897,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let field_name = "field";
     let dir = new_directory_shared(random)?;
     let iw = IndexWriter::new(dir, iwc)?;
@@ -1967,7 +1967,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let iwc = new_index_writer_config(random);
+    let iwc = new_index_writer_config(random)?;
     let field_name = "field";
     let dir = new_directory_shared(random)?;
     let iw = IndexWriter::new(dir, iwc)?;
@@ -2268,7 +2268,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
 
     {
-      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random)?)?;
       let mut doc = Document::new();
       doc.add(KnnFloatVectorField::with_similarity_function(
         "v1",
@@ -2311,7 +2311,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
 
     {
-      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random))?;
+      let w = IndexWriter::new(dir.clone(), new_index_writer_config(random)?)?;
       let numdocs = at_least(random, 1500);
       let field_name = "field";
 
@@ -2387,7 +2387,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     let mut field_sum_doc_ids = 0i64;
 
     let dir = new_directory_shared(random)?;
-    let config = new_index_writer_config(random);
+    let config = new_index_writer_config(random)?;
     let w = RandomIndexWriter::with_config(random, dir, config);
 
     for _ in 0..num_docs {

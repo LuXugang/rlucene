@@ -101,7 +101,7 @@ where
     seed: random.random(),
   };
   let writer =
-    RandomIndexWriter::with_analyzer(random, dir.clone(), Box::new(analyzer) as Box<dyn Analyzer>);
+    RandomIndexWriter::with_analyzer(random, dir.clone(), Box::new(analyzer) as Box<dyn Analyzer>)?;
   let mut field_to_type = HashMap::new();
   let mut doc = Document::new();
   doc.add(new_text_field(
@@ -287,7 +287,7 @@ fn test_phrase_query_with_stop_analyzer() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let stop_analyzer =
     MockAnalyzer::with_filter(&mut random, SIMPLE.clone(), true, ENGLISH_STOPSET.clone());
-  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), stop_analyzer);
+  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), stop_analyzer)?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -322,7 +322,7 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_to_type = HashMap::new();
   {
-    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
     let mut doc = Document::new();
     doc.add(new_text_field(
@@ -376,7 +376,7 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
   }
 
   {
-    let writer = RandomIndexWriter::new(&mut random, dir.clone());
+    let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
     let mut doc = Document::new();
     doc.add(new_text_field(
@@ -450,7 +450,7 @@ fn test_slop_scoring() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut iwc = new_index_writer_config(&mut random);
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -731,7 +731,7 @@ fn test_zero_pos_incr() -> Result<()> {
     token::with_pos_inc("b", 1, 3, 4)?,
   ];
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   doc.add(TextField::from_token_stream(
     "field",
@@ -803,7 +803,7 @@ fn test_top_phrases() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut docs = DOCS.to_vec();
@@ -1149,7 +1149,7 @@ impl Impacts for ImpactsImpl {
 fn test_random_top_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let config = new_index_writer_config(&mut random);
+  let config = new_index_writer_config(&mut random)?;
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
   let num_docs = if is_night_mode() {

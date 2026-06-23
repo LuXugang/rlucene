@@ -80,7 +80,7 @@ fn test() -> Result<()> {
   let d = new_directory_shared(&mut random)?;
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
-  let w = RandomIndexWriter::with_analyzer(&mut random, d.clone(), analyzer);
+  let w = RandomIndexWriter::with_analyzer(&mut random, d.clone(), analyzer)?;
   let num_docs = at_least(&mut random, 10);
   for _doc_count in 0..num_docs {
     w.add_document(&mut line_random, docs.next_doc()?)?;
@@ -200,7 +200,7 @@ fn accepts(c: &mut CompiledAutomaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
 fn test_intersect_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let num_terms = at_least(&mut random, 300);
 
@@ -370,7 +370,7 @@ where
 {
   let dir = new_directory_shared(random)?;
   let mock = MockAnalyzer::new(random);
-  let iwc = new_index_writer_config_with_analyzer(random, mock);
+  let iwc = new_index_writer_config_with_analyzer(random, mock)?;
 
   let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -649,7 +649,7 @@ where
 fn test_zero_terms() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   let mut field_to_type = HashMap::new();
@@ -744,7 +744,7 @@ fn test_intersect_basic() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_merge_policy(LogMergePolicy::log_doc());
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -820,7 +820,7 @@ fn test_intersect_start_term() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_merge_policy(LogMergePolicy::log_doc());
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -913,7 +913,7 @@ fn test_intersect_empty_string() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_merge_policy(LogMergePolicy::log_doc());
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -994,7 +994,7 @@ fn test_intersect_empty_string() -> Result<()> {
 fn test_common_prefix_terms() -> Result<()> {
   let mut random = random();
   let d = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, d);
+  let w = RandomIndexWriter::new(&mut random, d)?;
   let mut terms: HashSet<String> = HashSet::new();
   let prefix = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 20);
   let num_terms = at_least(&mut random, 100);
@@ -1098,7 +1098,7 @@ fn test_varying_terms_per_segment() -> Result<()> {
     text.push_str(&terms_list[term_count].utf8_to_string()?);
 
     let mock = MockAnalyzer::new(&mut random);
-    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     iwc.set_open_mode(OpenMode::Create);
     let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
@@ -1145,7 +1145,7 @@ fn test_varying_terms_per_segment() -> Result<()> {
 fn test_intersect_regexp() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_to_type = HashMap::new();
   let mut doc = Document::new();

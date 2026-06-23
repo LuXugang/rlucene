@@ -63,12 +63,12 @@ mod single_instance_lock_factory_tests {
     let dir = Arc::new(dir);
 
     let analyzer = MockAnalyzer::new(&mut random);
-    let config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     let writer = IndexWriter::new(dir.clone(), config)?;
 
     // Create a 2nd IndexWriter. This should fail.
     let analyzer = MockAnalyzer::new(&mut random);
-    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     config.set_open_mode(OpenMode::Append);
     assert!(matches!(
       IndexWriter::new(dir, config),

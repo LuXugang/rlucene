@@ -50,7 +50,7 @@ fn test_term_docs_iterator() -> Result<()> {
   for _ in 0..5 {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
-    let iwc = new_index_writer_config(&mut random);
+    let iwc = new_index_writer_config(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     let duplicates = random.random_bool(0.5);

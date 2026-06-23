@@ -190,9 +190,16 @@ impl Display for Stats {
     let mut compression_summary = Vec::new();
     for (code, &count) in self.compression_algorithms.iter().enumerate() {
       if count > 0 {
-        let v =
-          CompressionAlgorithm::by_code(code as u8).expect("Invalid compression algorithm code");
-        compression_summary.push(format!("{v:?}: {count}"));
+        match CompressionAlgorithm::by_code(code as u8) {
+          Ok(v) => compression_summary.push(format!("{v:?}: {count}")),
+          Err(e) => {
+            writeln!(
+              f,
+              "    failed to decode compression algorithm code {code}: {e}"
+            )?;
+            return Err(fmt::Error);
+          },
+        }
       }
     }
     let compression_ratio = if self.total_uncompressed_block_suffix_bytes > 0 {

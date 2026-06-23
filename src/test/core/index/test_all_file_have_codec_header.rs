@@ -42,7 +42,7 @@ fn test() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   let riw = RandomIndexWriter::with_config(&mut random, dir.clone(), conf);
 

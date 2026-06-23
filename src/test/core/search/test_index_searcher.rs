@@ -67,7 +67,7 @@ impl TestIndexSearcher {
     R: rand::Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iw = RandomIndexWriter::new(random, dir.clone());
+    let iw = RandomIndexWriter::new(random, dir.clone())?;
     let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
     for i in 0..100 {
@@ -178,7 +178,7 @@ fn test_huge_n() -> Result<()> {
 fn test_search_after_passed_max_doc() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   w.add_document(&mut random, Document::new())?;
   let r = w.get_reader(&mut random)?;
   w.close(&mut random)?;
@@ -202,7 +202,7 @@ fn test_search_after_passed_max_doc() -> Result<()> {
 fn test_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let num_docs = at_least(&mut random, 100);
 
   for _ in 0..num_docs {
@@ -305,7 +305,7 @@ fn test_get_slices_no_leaves_with_executor() -> Result<()> {
 fn test_get_slices() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   for _ in 0..10 {
     w.add_document(&mut random, Document::new())?;

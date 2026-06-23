@@ -110,7 +110,7 @@ fn test_mixed_ram() -> Result<()> {
   let mut random = random();
   let ram = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(10);
   let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
   mp.get_base_mut().set_no_cfs_ratio(0.0)?;
@@ -192,7 +192,7 @@ fn test_no_prx_file() -> Result<()> {
   let mut random = random();
   let ram = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(3);
   iwc.set_max_buffered_docs(10);
   let mut mp = new_log_merge_policy_with_merge_factor(&mut random, 2)?;
@@ -228,7 +228,7 @@ fn test_basic() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(2);
   iwc.set_similarity(new_simple_similarity1());
   iwc.set_max_buffered_docs(10);
@@ -315,7 +315,7 @@ fn test_stats() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc = Document::new();

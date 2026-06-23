@@ -172,7 +172,7 @@ where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, dir.clone());
+  let writer = RandomIndexWriter::new(random, dir.clone())?;
 
   let mut d = Document::new();
   d.add(Field::new(
@@ -198,7 +198,7 @@ fn test_boolean_scorer_max() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let riw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let doc_count: i32 = at_least(&mut random, 10_000);

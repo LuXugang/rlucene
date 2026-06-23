@@ -41,7 +41,7 @@ fn test_no_dv_field_on_segment() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   // TODO IMPORTANT setCodec未实现
-  let cfg = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let cfg = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir, cfg);
 
   let mut sdv_exist = false;

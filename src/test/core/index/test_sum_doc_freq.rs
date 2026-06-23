@@ -43,7 +43,7 @@ fn test_sum_doc_freq() -> Result<()> {
   let num_docs = at_least(&mut random, 500);
 
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut doc = Document::new();
   let mut id = new_string_field(&mut random, "id", "", No, &mut field_to_type)?;

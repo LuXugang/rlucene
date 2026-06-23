@@ -387,14 +387,16 @@ impl Closeable for FakeOutput<'_> {
 }
 
 impl IndexOutput for FakeOutput<'_> {
-  fn get_file_pointer(&self) -> usize {
+  fn get_file_pointer(&self) -> Result<usize> {
     self.output.get_file_pointer()
   }
 
-  fn get_checksum(&mut self) -> u64 {
-    self
-      .fake_checksum
-      .load(std::sync::atomic::Ordering::Relaxed) as u64
+  fn get_checksum(&mut self) -> Result<u64> {
+    Ok(
+      self
+        .fake_checksum
+        .load(std::sync::atomic::Ordering::Relaxed) as u64,
+    )
   }
 
   fn get_name(&self) -> &str {

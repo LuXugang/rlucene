@@ -80,7 +80,7 @@ impl TestFileSwitchDirectory {
     // For now we use the default codec because we rely upon its specific impl.
     // TODO setCodec未实现
     let analyzer = MockAnalyzer::new(random);
-    let mut config = new_index_writer_config_with_analyzer(random, analyzer);
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
     config.set_merge_policy(new_log_merge_policy_with_cfs(random, false)?);
     config.set_use_compound_file(false);
     let writer = IndexWriter::new(fsd.clone(), config)?;

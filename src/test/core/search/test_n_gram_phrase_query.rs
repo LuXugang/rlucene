@@ -33,7 +33,7 @@ where
   R: Rng + ?Sized,
 {
   let directory = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, directory.clone());
+  let writer = RandomIndexWriter::new(random, directory.clone())?;
   writer.close(random)?;
 
   let reader = directory_reader::open(directory.clone())?;

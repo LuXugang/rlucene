@@ -66,7 +66,7 @@ fn test() -> Result<()> {
 
   let directory = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
   let writer = IndexWriter::new(directory.clone(), iwc)?;

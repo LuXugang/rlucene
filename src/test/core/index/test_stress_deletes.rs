@@ -51,7 +51,7 @@ fn test() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let iters = at_least(&mut random, 2000);
   let exists = Mutex::new(HashMap::new());

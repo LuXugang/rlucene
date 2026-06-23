@@ -190,7 +190,7 @@ fn test_negative_scores() -> Result<()> {
 
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory.clone());
+  let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
 

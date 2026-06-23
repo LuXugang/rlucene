@@ -92,7 +92,7 @@ where
 fn test_wrapped_2_times() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, directory);
+  let writer = RandomIndexWriter::new(&mut random, directory)?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("field", "term1", Store::No)?);
@@ -135,7 +135,7 @@ fn test_constant_score_query_and_filter() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -192,7 +192,7 @@ fn test_propagates_approximations() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let writer = RandomIndexWriter::new(&mut random, dir.clone());
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();

@@ -51,7 +51,7 @@ fn test_missing_terms() -> Result<()> {
   let mut random = random();
   let field_name = "field1";
   let rd = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, rd.clone());
+  let w = RandomIndexWriter::new(&mut random, rd.clone())?;
   let mut field_to_type = HashMap::new();
   for i in 0..100 {
     let mut doc = Document::new();
@@ -78,7 +78,7 @@ fn test_missing_terms() -> Result<()> {
   let terms = vec![BytesRef::from_string("5")];
   let results = searcher
     .search(
-      SortedDocValuesField::new_slow_set_query(field_name, terms),
+      SortedDocValuesField::new_slow_set_query(field_name, terms)?,
       num_docs,
     )?
     .score_docs;
@@ -87,7 +87,7 @@ fn test_missing_terms() -> Result<()> {
   let terms = vec![BytesRef::from_string("10")];
   let results = searcher
     .search(
-      SortedDocValuesField::new_slow_set_query(field_name, terms),
+      SortedDocValuesField::new_slow_set_query(field_name, terms)?,
       num_docs,
     )?
     .score_docs;
@@ -96,7 +96,7 @@ fn test_missing_terms() -> Result<()> {
   let terms = vec![BytesRef::from_string("10"), BytesRef::from_string("20")];
   let results = searcher
     .search(
-      SortedDocValuesField::new_slow_set_query(field_name, terms),
+      SortedDocValuesField::new_slow_set_query(field_name, terms)?,
       num_docs,
     )?
     .score_docs;
@@ -118,24 +118,24 @@ fn test_equals() -> Result<()> {
   let baz = vec![BytesRef::from_string("baz")];
 
   assert_eq!(
-    SortedDocValuesField::new_slow_set_query("foo", bar.clone()),
-    SortedDocValuesField::new_slow_set_query("foo", bar.clone())
+    SortedDocValuesField::new_slow_set_query("foo", bar.clone())?,
+    SortedDocValuesField::new_slow_set_query("foo", bar.clone())?
   );
   assert_eq!(
-    SortedDocValuesField::new_slow_set_query("foo", bar.clone()),
-    SortedDocValuesField::new_slow_set_query("foo", barbar)
+    SortedDocValuesField::new_slow_set_query("foo", bar.clone())?,
+    SortedDocValuesField::new_slow_set_query("foo", barbar)?
   );
   assert_eq!(
-    SortedDocValuesField::new_slow_set_query("foo", barbaz),
-    SortedDocValuesField::new_slow_set_query("foo", bazbar)
+    SortedDocValuesField::new_slow_set_query("foo", barbaz)?,
+    SortedDocValuesField::new_slow_set_query("foo", bazbar)?
   );
   assert_ne!(
-    SortedDocValuesField::new_slow_set_query("foo", bar.clone()),
-    SortedDocValuesField::new_slow_set_query("foo2", bar.clone())
+    SortedDocValuesField::new_slow_set_query("foo", bar.clone())?,
+    SortedDocValuesField::new_slow_set_query("foo2", bar.clone())?
   );
   assert_ne!(
-    SortedDocValuesField::new_slow_set_query("foo", bar),
-    SortedDocValuesField::new_slow_set_query("foo", baz)
+    SortedDocValuesField::new_slow_set_query("foo", bar)?,
+    SortedDocValuesField::new_slow_set_query("foo", baz)?
   );
 
   Ok(())
@@ -153,7 +153,7 @@ fn test_duel_terms_query() -> Result<()> {
       all_terms.push(Term::from_text("f", value));
     }
     let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = at_least(&mut random, 100);
     for _ in 0..num_docs {
       let mut doc = Document::new();
@@ -202,7 +202,7 @@ fn test_duel_terms_query() -> Result<()> {
         bytes_terms.push(term.bytes().clone());
       }
       let q2 = BoostQuery::new(
-        SortedDocValuesField::new_slow_set_query("f", bytes_terms),
+        SortedDocValuesField::new_slow_set_query("f", bytes_terms)?,
         boost,
       )?;
       assert_same_matches(&searcher, q1, q2, true)?;
@@ -225,7 +225,7 @@ fn test_approximation() -> Result<()> {
       all_terms.push(Term::from_text("f", value));
     }
     let dir = new_directory_shared(&mut random)?;
-    let iw = RandomIndexWriter::new(&mut random, dir.clone());
+    let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = at_least(&mut random, 100);
     for _ in 0..num_docs {
       let mut doc = Document::new();
@@ -271,7 +271,7 @@ fn test_approximation() -> Result<()> {
         bytes_terms.push(term.bytes().clone());
       }
       let q2 = BoostQuery::new(
-        SortedDocValuesField::new_slow_set_query("f", bytes_terms),
+        SortedDocValuesField::new_slow_set_query("f", bytes_terms)?,
         boost,
       )?;
 

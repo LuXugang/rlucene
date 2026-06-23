@@ -1125,7 +1125,7 @@ where
     };
     let info_id = info_id_owned.as_str();
     if let Some(info) = inner.segment_infos.index_of_live(info_id) {
-      let rld_opt = self.get_pooled_instance(SegmentCommitInfoMeta::from(info), false)?;
+      let rld_opt = self.get_pooled_instance(info.to_meta()?, false)?;
       if let Some(rld) = rld_opt {
         let _guard = self.buffered_updates_stream_lock.lock();
         to_apply.run(leaf_doc_id, info_id, &rld, self, inner)?;
@@ -1570,7 +1570,7 @@ where
             let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
               LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
             })?;
-            let rld_opt = self.get_pooled_instance(sci.into(), true)?;
+            let rld_opt = self.get_pooled_instance(sci.to_meta()?, true)?;
             match rld_opt {
               Some(v) => v,
               None => {
@@ -2890,7 +2890,7 @@ where
       self.checkpoint(&mut *inner)?;
       let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
       if packet_any && let Some(sort_map) = sort_map {
-        let _ = self.get_pooled_instance_with_sort_map(new_segment.into(), true, sort_map)?;
+        let _ = self.get_pooled_instance_with_sort_map(new_segment.to_meta()?, true, sort_map)?;
       }
       // this is a corner case where documents delete them-self with soft deletes. This is used to
       // build delete tombstones etc. in this case we haven't seen any updates to the DV in this
@@ -2914,7 +2914,7 @@ where
       // accurate numbers
       // for the soft delete right after we flushed to disk.
       if has_initial_soft_deleted || is_fully_hard_deleted {
-        let rld = self.get_pooled_instance(new_segment.into(), true)?;
+        let rld = self.get_pooled_instance(new_segment.to_meta()?, true)?;
         let result: Result<()> = (|| {
           match rld {
             None => {
@@ -3856,7 +3856,7 @@ where
     let mut to_drop = Vec::new();
 
     for info in inner.segment_infos.iter() {
-      if let Some(rld) = self.reader_pool.get(info.into(), false, None)?
+      if let Some(rld) = self.reader_pool.get(info.to_meta()?, false, None)?
         && self.is_fully_deleted(rld.as_ref(), info, inner)?
       {
         to_drop.push(info.info.get_id_key().to_string());
@@ -3968,7 +3968,7 @@ where
               };
               if self
                 .reader_pool
-                .get((&*info).into(), false, None)?
+                .get(info.to_meta()?, false, None)?
                 .is_none()
               {
                 continue;
@@ -4013,7 +4013,7 @@ where
   pub fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
     self.do_ensure_open(false)?;
     self.validate(info)?;
-    if let Some(rld) = self.get_pooled_instance(info.into(), false)? {
+    if let Some(rld) = self.get_pooled_instance(info.to_meta()?, false)? {
       Ok(rld.get_del_count(info)) // get the full count from here since SCI might change concurrently
     } else {
       let del_count = info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
@@ -4432,9 +4432,11 @@ where
     let sci = merge.info.as_ref().unwrap();
     // Lazy init (only when we find a delete or update to carry over):
     let merged_deletes_and_updates =
-      self.get_pooled_instance(sci.into(), true)?.ok_or_else(|| {
-        LuceneError::illegal_state("failed to get pooled instance for a merged segment")
-      })?;
+      self
+        .get_pooled_instance(sci.to_meta()?, true)?
+        .ok_or_else(|| {
+          LuceneError::illegal_state("failed to get pooled instance for a merged segment")
+        })?;
 
     let _ = merged_deletes_and_updates.get_del_count(sci);
 
@@ -4452,7 +4454,7 @@ where
       let max_doc = info.info.max_doc()?;
 
       let rld = self
-        .get_pooled_instance(info.into(), false)?
+        .get_pooled_instance(info.to_meta()?, false)?
         .ok_or_else(|| {
           LuceneError::illegal_state(format!("seg={} not found in reader pool", info.info.name))
         })?;
@@ -6204,7 +6206,7 @@ where
         let info = inner.segment_infos.index_of(&info_id).unwrap();
         if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(&info_id) {
           let rld = self
-            .get_pooled_instance(info.into(), true)?
+            .get_pooled_instance(info.to_meta()?, true)?
             .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
           let seg_state = SegmentState::new(rld, info)?;
           seg_states.push(seg_state);
@@ -6837,7 +6839,7 @@ where
 
     let merge_policy = self.config.get_merge_policy();
 
-    let num_deletes_to_merge = match self.get_pooled_instance(info.into(), false)? {
+    let num_deletes_to_merge = match self.get_pooled_instance(info.to_meta()?, false)? {
       Some(rld) => rld.num_deletes_to_merge(merge_policy, info)?,
       None => {
         // If we don't have a pooled instance, just return hard deletes; this is safe.
@@ -6862,7 +6864,10 @@ where
     self.do_ensure_open(false).unwrap();
     self.validate(info).unwrap();
 
-    if let Some(rld) = self.get_pooled_instance(info.into(), false).unwrap() {
+    if let Some(rld) = self
+      .get_pooled_instance(info.to_meta().unwrap(), false)
+      .unwrap()
+    {
       // get the full count from here since SCI might change concurrently
       rld.get_del_count(info)
     } else {
@@ -7008,7 +7013,7 @@ where
   ) -> Result<DefaultLeafReader<D>> {
     let rld = self
       .writer
-      .get_pooled_instance(sci.into(), true)?
+      .get_pooled_instance(sci.to_meta()?, true)?
       .ok_or_else(|| LuceneError::illegal_state("should always be able to get pooled instance"))?;
     let mut result = rld
       .get_read_only_clone(&IOContext::default_io_context()?, sci)?

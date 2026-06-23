@@ -57,7 +57,7 @@ where
   ];
 
   let index = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, index.clone());
+  let writer = RandomIndexWriter::new(random, index.clone())?;
 
   let mut field_types = HashMap::new();
 

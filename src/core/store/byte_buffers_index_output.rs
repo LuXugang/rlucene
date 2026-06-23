@@ -213,18 +213,18 @@ impl<C> IndexOutput for ByteBuffersIndexOutput<C>
 where
   C: ByteBuffersIndexOutputOnClose,
 {
-  fn get_file_pointer(&self) -> usize {
-    self.delegate().expect("Already closed.").size()
+  fn get_file_pointer(&self) -> Result<usize> {
+    Ok(self.delegate()?.size())
   }
 
-  fn get_checksum(&mut self) -> u64 {
-    let delegate_size = self.delegate().expect("Already closed.").size();
+  fn get_checksum(&mut self) -> Result<u64> {
+    let delegate_size = self.delegate()?.size();
     if self.last_checksum_position != delegate_size {
       self.last_checksum_position = delegate_size;
       self.checksum.reset();
       let mut checksum = self.checksum.clone();
       self.last_checksum = {
-        let delegate = self.delegate().expect("Already closed.");
+        let delegate = self.delegate()?;
         let (length, mut data) = delegate.to_buffer_list_ref();
         if let Some(last_block) = data.pop() {
           //  block length was limited by
@@ -244,7 +244,7 @@ where
         checksum.finalize() as u64
       };
     }
-    self.last_checksum
+    Ok(self.last_checksum)
   }
 
   fn get_name(&self) -> &str {

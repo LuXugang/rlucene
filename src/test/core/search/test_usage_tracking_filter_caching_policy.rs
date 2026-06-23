@@ -105,7 +105,7 @@ fn test_never_cache_doc_values_field_exists_filter() -> Result<()> {
 fn test_boolean_queries() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir.clone());
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   w.add_document(&mut random, Document::new())?;
   let reader = w.get_reader(&mut random)?;

@@ -89,8 +89,9 @@ impl FieldComparator for XYPointDistanceComparator {
     self.values[slot1].total_cmp(&self.values[slot2]).to_int()
   }
 
-  fn set_top_value(&mut self, value: Self::V) {
+  fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     self.top_value = value;
+    Ok(())
   }
 
   fn value(&self, slot: usize) -> Option<Self::V> {
