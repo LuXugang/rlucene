@@ -48,6 +48,3 @@ members = [
     "libs/derive_getters",
     "xtask",
 ]
-
-[profile.dev]
-overflow-checks = true
