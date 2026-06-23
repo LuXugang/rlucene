@@ -506,13 +506,19 @@ where
   }
 }
 
-impl<T, DM> Clone for TermVectorsReaderImpl<T, DM>
+impl<T, DM> TryClone for TermVectorsReaderImpl<T, DM>
 where
   DM: DocMap + Clone,
   T: TermVectorsReader,
 {
-  fn clone(&self) -> Self {
-    new_term_vectors_reader(self.delegate.clone(), self.doc_map.clone())
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(new_term_vectors_reader(
+      self.delegate.try_clone()?,
+      self.doc_map.clone(),
+    ))
   }
 }
 

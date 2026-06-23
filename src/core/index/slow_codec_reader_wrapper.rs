@@ -298,7 +298,7 @@ where
 
   fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
     self.reader.ensure_open()?;
-    Ok(Some(reader_to_term_vectors_reader(self.reader.clone())))
+    Ok(Some(reader_to_term_vectors_reader(self.reader.clone())?))
   }
 
   fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
@@ -567,13 +567,13 @@ where
     Ok(())
   }
 }
-fn reader_to_term_vectors_reader<LR>(reader: LR) -> TermVectorsReaderImpl<LR>
+fn reader_to_term_vectors_reader<LR>(reader: LR) -> Result<TermVectorsReaderImpl<LR>>
 where
   LR: LeafReader + Clone,
 {
-  let term_vectors = reader.term_vectors().expect("term_vectors() failed");
+  let term_vectors = reader.term_vectors()?;
 
-  TermVectorsReaderImpl::new(reader, term_vectors)
+  Ok(TermVectorsReaderImpl::new(reader, term_vectors))
 }
 
 pub struct TermVectorsReaderImpl<LR>
@@ -636,11 +636,14 @@ where
   }
 }
 
-impl<LR> Clone for TermVectorsReaderImpl<LR>
+impl<LR> TryClone for TermVectorsReaderImpl<LR>
 where
   LR: LeafReader + Clone,
 {
-  fn clone(&self) -> Self {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
     reader_to_term_vectors_reader(self.reader.clone())
   }
 }

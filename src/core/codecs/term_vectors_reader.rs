@@ -19,9 +19,13 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::index::fields::{Fields, FieldsEnum2};
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::TermsEnum2;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
-pub trait TermVectorsReader: TermVectors + Clone {
+///
+/// This uses [`TryClone`] rather than the built-in [`Clone`] because cloning
+/// underlying inputs can fail, and `Clone::clone` cannot return an error.
+pub trait TermVectorsReader: TermVectors + TryClone {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -105,15 +109,18 @@ macro_rules! either_term_vectors_reader {
             }
         }
 
-        impl<$T1, $( $T ),+> Clone for $name<$T1, $( $T ),+>
+        impl<$T1, $( $T ),+> TryClone for $name<$T1, $( $T ),+>
         where
             $T1: TermVectorsReader,
             $( $T: TermVectorsReader ),+
         {
-            fn clone(&self) -> Self {
+            fn try_clone(&self) -> Result<Self>
+            where
+                Self: Sized,
+            {
                 match self {
-                    Self::$Variant1(inner) => Self::$Variant1(inner.clone()),
-                    $( Self::$Variant(inner) => Self::$Variant(inner.clone()), )+
+                    Self::$Variant1(inner) => Ok(Self::$Variant1(inner.try_clone()?)),
+                    $( Self::$Variant(inner) => Ok(Self::$Variant(inner.try_clone()?)), )+
                 }
             }
         }

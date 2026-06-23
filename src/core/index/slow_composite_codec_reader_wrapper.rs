@@ -787,15 +787,22 @@ where
   }
 }
 
-impl<TVR> Clone for SlowCompositeTermVectorsReaderWrapper<TVR>
+impl<TVR> TryClone for SlowCompositeTermVectorsReaderWrapper<TVR>
 where
   TVR: TermVectorsReader,
 {
-  fn clone(&self) -> Self {
-    Self {
-      doc_starts: self.doc_starts.clone(),
-      readers: self.readers.to_vec(),
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    let mut readers = Vec::with_capacity(self.readers.len());
+    for reader in &self.readers {
+      readers.push(reader.as_ref().map(|r| r.try_clone()).transpose()?);
     }
+    Ok(Self {
+      doc_starts: self.doc_starts.clone(),
+      readers,
+    })
   }
 }
 
