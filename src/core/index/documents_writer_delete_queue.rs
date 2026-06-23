@@ -16,7 +16,7 @@
  */
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 
 use parking_lot::Mutex;
 
@@ -79,16 +79,22 @@ use crate::core::util::info_stream::InfoStreamMT;
 /// [`DeleteSlice`](crate::core::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread)
 pub struct DocumentsWriterDeleteQueue {
-  // TODO IMPORTANT 需要 2 个 Mutex
-  pub(crate) inner: Mutex<Inner>,
+  // Java synchronizes several queue operations on `this`; this lock carries
+  // that monitor.
+  queue_lock: Mutex<QueueState>,
+  // The current end (latest delete operation) in the delete queue.
+  tail: Mutex<Arc<Node>>,
+  closed: AtomicBool,
+  // Only acquired to update the global deletes.
+  global_buffer_lock: Mutex<GlobalBufferState>,
   pub(crate) generation: i64,
   /// Generates the sequence number that IW returns to callers changing the
   /// index, showing the effective serialization of all operations.
   next_seq_no: Arc<AtomicI64>,
   info_stream: InfoStreamMT,
+  max_seq_no: AtomicI64,
   start_seq_no: i64,
   previous_max_seq_id: PreviousMaxSeqId,
-  max_seq_no: AtomicI64,
 }
 enum PreviousMaxSeqId {
   Fixed(i64),
@@ -104,32 +110,33 @@ impl PreviousMaxSeqId {
   }
 }
 
-pub(crate) struct Inner {
-  tail: Arc<Node>,
+struct QueueState {
+  advanced: bool,
+}
+
+impl QueueState {
+  fn new() -> Self {
+    Self { advanced: false }
+  }
+}
+
+pub(crate) struct GlobalBufferState {
   /// Used to record deletes against all prior (already written to disk)
   /// segments. Whenever any segment flushes, we bundle up this set of
   /// deletes and insert into the buffered updates stream before the
   /// newly flushed segment(s).
   global_slice: DeleteSlice,
-
-  generation: i64,
   global_buffered_updates: BufferedUpdates,
-  advanced: bool,
-  closed: bool,
 }
-impl Inner {
-  fn new(tail: Arc<Node>, generation: i64) -> Self {
+
+impl GlobalBufferState {
+  fn new(tail: Arc<Node>) -> Self {
     Self {
-      tail: tail.clone(),
       global_slice: DeleteSlice::new(tail),
-      generation,
       global_buffered_updates: BufferedUpdates::new("global"),
-      advanced: false,
-      closed: false,
     }
   }
-}
-impl Inner {
+
   pub(crate) fn apply(&mut self, doc_id_upto: i32) -> Result<()> {
     self
       .global_slice
@@ -166,27 +173,29 @@ impl DocumentsWriterDeleteQueue {
       value <= start_seq_no,
       "illegal max sequence ID: {value} start was: {start_seq_no}"
     );
-    let global_slice = Inner::new(tail, generation);
 
     Self {
-      inner: Mutex::new(global_slice),
+      queue_lock: Mutex::new(QueueState::new()),
+      tail: Mutex::new(tail.clone()),
+      closed: AtomicBool::new(false),
+      global_buffer_lock: Mutex::new(GlobalBufferState::new(tail)),
       generation,
       next_seq_no: Arc::new(AtomicI64::new(start_seq_no)),
       info_stream,
+      max_seq_no: AtomicI64::new(i64::MAX),
       start_seq_no,
       previous_max_seq_id,
-      max_seq_no: AtomicI64::new(i64::MAX),
     }
   }
   pub(crate) fn add_delete_query(&self, queries: Vec<Query>) -> Result<i64> {
     let query_array_node = Node::new(NodeEnum::QueryNodeArray(QueryNodeArray::new(queries)));
-    let seq_no = self.add_node(Arc::new(query_array_node))?;
+    let seq_no = self.add(Arc::new(query_array_node))?;
     self.try_apply_global_slice()?;
     Ok(seq_no)
   }
   pub(crate) fn add_delete_term(&self, terms: Vec<Term>) -> Result<i64> {
     let node = Node::new(NodeEnum::TermNodeArray(TermNodeArray::new(terms)));
-    let seq_no = self.add_node(Arc::new(node))?;
+    let seq_no = self.add(Arc::new(node))?;
     self.try_apply_global_slice()?;
     Ok(seq_no)
   }
@@ -194,7 +203,7 @@ impl DocumentsWriterDeleteQueue {
     let node = Node::new(NodeEnum::DocValuesUpdatesNode(DocValuesUpdatesNode::new(
       updates,
     )));
-    let seq_no = self.add_node(Arc::new(node))?;
+    let seq_no = self.add(Arc::new(node))?;
     self.try_apply_global_slice()?;
     Ok(seq_no)
   }
@@ -217,7 +226,7 @@ impl DocumentsWriterDeleteQueue {
     delete_node: Arc<Node>,
     slice: &mut DeleteSlice,
   ) -> Result<i64> {
-    let seq_no = self.add_node(delete_node.clone())?;
+    let seq_no = self.add(delete_node.clone())?;
     // This is an update request where the term is the updated documents
     // delTerm. In that case we need to guarantee that this insert is atomic
     // with regards to the given delete slice. This means if two threads try
@@ -238,43 +247,47 @@ impl DocumentsWriterDeleteQueue {
     Ok(seq_no)
   }
 
-  pub(crate) fn add_node(&self, new_node: Arc<Node>) -> Result<i64> {
-    let mut global_state = self.inner.lock();
-    self.ensure_open(global_state.closed)?;
+  pub(crate) fn add(&self, new_node: Arc<Node>) -> Result<i64> {
+    let _queue_lock = self.queue_lock.lock();
+    self.ensure_open()?;
     {
-      let mut tail_next_guard = global_state.tail.next.lock();
+      let mut tail = self.tail.lock();
+      let mut tail_next_guard = tail.next.lock();
       *tail_next_guard = Option::from(new_node.clone());
+      drop(tail_next_guard);
+      *tail = new_node;
     }
-    global_state.tail = new_node;
 
     Ok(self.get_next_sequence_number())
   }
 
-  pub(crate) fn any_changes(&self, global_state: Option<&Inner>) -> bool {
+  pub(crate) fn any_changes(&self, global_state: Option<&GlobalBufferState>) -> bool {
     let global_state = match global_state {
-      Some(state) => state,
-      None => &self.inner.lock(),
+      Some(global_state) => global_state,
+      None => &*self.global_buffer_lock.lock(),
     };
+    let current_tail = self.tail.lock().clone();
     //  Check if all items in the global slice were applied,
     //  if the global slice is up-to-date,
     //  and if `global_buffered_updates` has changes.
     global_state.global_buffered_updates.any()
       || !global_state.global_slice.is_empty()
-      || !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail)
-      || global_state.tail.next.lock().is_some()
+      || !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail)
+      || current_tail.next.lock().is_some()
   }
 
   pub(crate) fn try_apply_global_slice(&self) -> Result<()> {
-    match self.inner.try_lock() {
+    match self.global_buffer_lock.try_lock() {
       Some(mut global_state) => {
-        self.ensure_open(global_state.closed)?;
+        self.ensure_open()?;
+        let current_tail = self.tail.lock().clone();
         // The global buffer must be locked, but we don't need to update
         // them if there is an update going on right
         // now. It is sufficient to apply the
         // deletes that have been added after the current in-flight
         // global slices tail the next time we can get
         // the lock!
-        if self.update_slice_no_seq_no(&mut global_state) {
+        if Self::update_slice_no_seq_no(&mut global_state, current_tail) {
           global_state.apply(MAX_INT)?;
         }
       },
@@ -289,13 +302,13 @@ impl DocumentsWriterDeleteQueue {
     &self,
     caller_slice: Option<&mut DeleteSlice>,
   ) -> Result<Option<FrozenBufferedUpdates>> {
-    let mut global_state = self.inner.lock();
-    self.ensure_open(global_state.closed)?;
+    let mut global_state = self.global_buffer_lock.lock();
+    self.ensure_open()?;
     // Here we freeze the global buffer so we need to lock it, apply all
     // deletes in the queue and reset the global slice to let the GC prune
     // the queue.
     // Take the current tail make this local any
-    let current_tail = global_state.tail.clone();
+    let current_tail = self.tail.lock().clone();
     // Changes after this call are applied later
     // and not relevant here
     if let Some(slice) = caller_slice {
@@ -309,13 +322,13 @@ impl DocumentsWriterDeleteQueue {
   /// been closed. If the queue has been closed, this method will return
   /// `None`.
   pub(crate) fn maybe_freeze_global_buffer(&self) -> Result<Option<FrozenBufferedUpdates>> {
-    let mut global_state = self.inner.lock();
+    let mut global_state = self.global_buffer_lock.lock();
 
-    if !global_state.closed {
+    if !self.closed.load(Ordering::SeqCst) {
       // Here we freeze the global buffer so we need to lock it,
       //  apply all deletes in the queue and reset the global slice
       // to let the GC prune the queue.
-      let current_tail = global_state.tail.clone(); // Take the current tail and make this local
+      let current_tail = self.tail.lock().clone(); // Take the current tail and make this local
       self.freeze_global_buffer_internal(&mut global_state, current_tail)
     } else {
       debug_assert!(
@@ -328,10 +341,10 @@ impl DocumentsWriterDeleteQueue {
 
   fn freeze_global_buffer_internal(
     &self,
-    global_state: &mut Inner,
+    global_state: &mut GlobalBufferState,
     current_tail: Arc<Node>,
   ) -> Result<Option<FrozenBufferedUpdates>> {
-    debug_assert!(self.inner.is_locked());
+    debug_assert!(self.global_buffer_lock.is_locked());
     if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
       global_state.global_slice.slice_tail = current_tail;
       global_state.apply(MAX_INT)?;
@@ -351,42 +364,42 @@ impl DocumentsWriterDeleteQueue {
     }
   }
   pub(crate) fn new_slice(&self) -> DeleteSlice {
-    let global_state = self.inner.lock().tail.clone();
-    DeleteSlice::new(global_state)
+    let tail = self.tail.lock().clone();
+    DeleteSlice::new(tail)
   }
   /// Negative result means there were new deletes since we last applied.
   pub(crate) fn update_slice(&self, slice: &mut DeleteSlice) -> Result<i64> {
-    let global_state = self.inner.lock();
-    self.ensure_open(global_state.closed)?;
+    let _queue_lock = self.queue_lock.lock();
+    self.ensure_open()?;
     let mut seq_no = self.get_next_sequence_number();
-    if !Arc::ptr_eq(&slice.slice_tail, &global_state.tail) {
+    let current_tail = self.tail.lock().clone();
+    if !Arc::ptr_eq(&slice.slice_tail, &current_tail) {
       // new deletes arrived since we last checked
-      slice.slice_tail = global_state.tail.clone();
+      slice.slice_tail = current_tail;
       seq_no = -seq_no;
     }
     Ok(seq_no)
   }
 
   /// Just like updateSlice, but does not assign a sequence number.
-  pub(crate) fn update_slice_no_seq_no(&self, global_state: &mut Inner) -> bool {
-    if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &global_state.tail) {
+  fn update_slice_no_seq_no(global_state: &mut GlobalBufferState, current_tail: Arc<Node>) -> bool {
+    if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
       // New deletes arrived since the last check
-      global_state.global_slice.slice_tail = global_state.tail.clone();
+      global_state.global_slice.slice_tail = current_tail;
       true
     } else {
       false
     }
   }
 
-  fn ensure_open(&self, closed: bool) -> Result<()> {
-    if closed {
+  fn ensure_open(&self) -> Result<()> {
+    if self.closed.load(Ordering::SeqCst) {
       return Err(LuceneError::already_closed("already closed."));
     }
     Ok(())
   }
   pub(crate) fn is_open(&self) -> bool {
-    let global_state = self.inner.lock();
-    !global_state.closed
+    !self.closed.load(Ordering::SeqCst)
   }
 
   pub(crate) fn get_next_sequence_number(&self) -> i64 {
@@ -400,14 +413,15 @@ impl DocumentsWriterDeleteQueue {
     seq_no
   }
   pub(crate) fn close(&self) -> Result<()> {
-    let mut global_state = self.inner.lock();
+    let _queue_lock = self.queue_lock.lock();
+    let global_state = self.global_buffer_lock.lock();
 
     if self.any_changes(Some(&global_state)) {
       return Err(LuceneError::illegal_state(
         "Can't close queue unless all changes are applied",
       ));
     }
-    global_state.closed = true;
+    self.closed.store(true, Ordering::SeqCst);
 
     let seq_no = self.next_seq_no.load(Ordering::SeqCst);
     debug_assert!(
@@ -424,19 +438,19 @@ impl DocumentsWriterDeleteQueue {
   }
   #[cfg(debug_assertions)]
   pub(crate) fn num_global_term_deletes(&self) -> i32 {
-    let global_state = self.inner.lock();
+    let global_state = self.global_buffer_lock.lock();
     global_state.global_buffered_updates.delete_terms.size()
   }
   pub(crate) fn clear(&self) {
-    let mut global_state = self.inner.lock();
-    global_state.global_slice.slice_head = global_state.tail.clone();
-    global_state.global_slice.slice_tail = global_state.tail.clone();
+    let mut global_state = self.global_buffer_lock.lock();
+    let current_tail = self.tail.lock().clone();
+    global_state.global_slice.slice_head = current_tail.clone();
+    global_state.global_slice.slice_tail = current_tail;
     global_state.global_buffered_updates.clear();
   }
   pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32> {
-    let mut global_state = self.inner.lock();
-
-    let current_tail = global_state.tail.clone();
+    let mut global_state = self.global_buffer_lock.lock();
+    let current_tail = self.tail.lock().clone();
 
     if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
       global_state.global_slice.slice_tail = current_tail;
@@ -488,11 +502,11 @@ impl DocumentsWriterDeleteQueue {
     &self,
     max_num_pending_ops: i64,
   ) -> Result<DocumentsWriterDeleteQueue> {
-    let mut global_state = self.inner.lock();
-    if global_state.advanced {
+    let mut queue_state = self.queue_lock.lock();
+    if queue_state.advanced {
       return Err(LuceneError::illegal_state("queue was already advanced"));
     }
-    global_state.advanced = true;
+    queue_state.advanced = true;
 
     let seq_no = self.get_last_sequence_number() + max_num_pending_ops + 1;
 
@@ -519,8 +533,7 @@ impl DocumentsWriterDeleteQueue {
 
   /// Returns `true` if the queue has been advanced.
   pub(crate) fn is_advanced(&self) -> bool {
-    let global_state = self.inner.lock();
-    global_state.advanced
+    self.queue_lock.lock().advanced
   }
 }
 
@@ -531,7 +544,7 @@ impl Display for DocumentsWriterDeleteQueue {
 }
 impl Accountable for DocumentsWriterDeleteQueue {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let global_state = self.inner.lock();
+    let global_state = self.global_buffer_lock.lock();
     global_state.global_buffered_updates.ram_bytes_used()
   }
 }
