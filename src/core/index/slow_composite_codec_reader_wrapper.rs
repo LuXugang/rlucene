@@ -591,16 +591,23 @@ where
   }
 }
 
-impl<SFR> Clone for SlowCompositeStoredFieldsReaderWrapper<SFR>
+impl<SFR> TryClone for SlowCompositeStoredFieldsReaderWrapper<SFR>
 where
   SFR: StoredFieldsReader,
 {
-  fn clone(&self) -> Self {
-    SlowCompositeStoredFieldsReaderWrapper::new(
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    let mut readers = Vec::with_capacity(self.readers.len());
+    for reader in &self.readers {
+      readers.push(reader.as_ref().map(|r| r.try_clone()).transpose()?);
+    }
+    Ok(SlowCompositeStoredFieldsReaderWrapper::new(
       self.doc_starts.clone(),
-      self.readers.clone(),
+      readers,
       self.field_infos.clone(),
-    )
+    ))
   }
 }
 

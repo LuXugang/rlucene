@@ -20,6 +20,7 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 
@@ -27,9 +28,12 @@ use std::collections::HashSet;
 ///
 /// You need to implement [`document(int,
 /// StoredFieldVisitor)`](StoredFields::document_with_visitor) to read the
-/// stored fields for a document, implement `clone()`(creating clones of any
+/// stored fields for a document, implement `try_clone()`(creating clones of any
 /// IndexInputs used, etc)
-pub trait StoredFieldsReader: StoredFields + Clone {
+///
+/// This uses [`TryClone`] rather than the built-in [`Clone`] because cloning
+/// underlying inputs can fail, and `Clone::clone` cannot return an error.
+pub trait StoredFieldsReader: StoredFields + TryClone {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -103,15 +107,18 @@ macro_rules! either_stored_fields_reader {
             }
         }
 
-        impl<$First, $( $T ),+> Clone for $name<$First, $( $T ),+>
+        impl<$First, $( $T ),+> TryClone for $name<$First, $( $T ),+>
         where
             $First: StoredFieldsReader,
             $( $T: StoredFieldsReader ),+
         {
-            fn clone(&self) -> Self {
+            fn try_clone(&self) -> Result<Self>
+            where
+                Self: Sized,
+            {
                 match self {
-                    Self::$FirstVariant(inner) => Self::$FirstVariant(inner.clone()),
-                    $( Self::$Variant(inner) => Self::$Variant(inner.clone()), )+
+                    Self::$FirstVariant(inner) => Ok(Self::$FirstVariant(inner.try_clone()?)),
+                    $( Self::$Variant(inner) => Ok(Self::$Variant(inner.try_clone()?)), )+
                 }
             }
         }

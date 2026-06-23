@@ -44,7 +44,6 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{SliceCopyOps, TryIntoInt};
-use std::clone::Clone;
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -514,13 +513,16 @@ where
   }
 }
 
-impl<I> Clone for Lucene90CompressingStoredFieldsReader<I>
+impl<I> OtherClone for Lucene90CompressingStoredFieldsReader<I>
 where
   I: IndexInput,
 {
-  fn clone(&self) -> Self {
-    self.ensure_open().expect("should be open");
-    Lucene90CompressingStoredFieldsReader::with_reader(self, false).expect("should be ok")
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    self.ensure_open()?;
+    Lucene90CompressingStoredFieldsReader::with_reader(self, false)
   }
 }
 

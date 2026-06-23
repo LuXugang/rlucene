@@ -37,6 +37,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
+use crate::core::util::clone::TryClone;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
@@ -292,7 +293,7 @@ where
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     self.reader.ensure_open()?;
-    Ok(Some(reader_to_stored_fields_reader(self.reader.clone())))
+    Ok(Some(reader_to_stored_fields_reader(self.reader.clone())?))
   }
 
   fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
@@ -478,13 +479,13 @@ where
     Ok(())
   }
 }
-fn reader_to_stored_fields_reader<LR>(reader: LR) -> StoredFieldsReaderImpl<LR>
+fn reader_to_stored_fields_reader<LR>(reader: LR) -> Result<StoredFieldsReaderImpl<LR>>
 where
   LR: LeafReader + Clone,
 {
-  let stored_fields = reader.stored_fields().expect("stored_fields() failed");
+  let stored_fields = reader.stored_fields()?;
 
-  StoredFieldsReaderImpl::new(reader, stored_fields)
+  Ok(StoredFieldsReaderImpl::new(reader, stored_fields))
 }
 
 pub struct StoredFieldsReaderImpl<LR>
@@ -546,11 +547,14 @@ where
   }
 }
 
-impl<LR> Clone for StoredFieldsReaderImpl<LR>
+impl<LR> TryClone for StoredFieldsReaderImpl<LR>
 where
   LR: Clone + LeafReader,
 {
-  fn clone(&self) -> Self {
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
     reader_to_stored_fields_reader(self.reader.clone())
   }
 }

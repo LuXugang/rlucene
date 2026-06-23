@@ -15,6 +15,12 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
+
+/// Fallible counterpart to [`Clone`].
+///
+/// Use this when cloning may need to perform fallible work, such as cloning
+/// underlying inputs. The built-in [`Clone`] trait is not used because
+/// `Clone::clone` cannot return an error.
 pub trait TryClone {
   fn try_clone(&self) -> Result<Self>
   where

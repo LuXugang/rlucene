@@ -29,6 +29,7 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::mismatched_leaf_reader::{MismatchedVisitor, shuffle_infos};
 use rand::Rng;
@@ -324,7 +325,6 @@ where
   }
 }
 
-#[derive(Clone)]
 pub struct MismatchedStoredFieldsReader<SFR>
 where
   SFR: StoredFieldsReader + RawStoredFieldsReader,
@@ -339,6 +339,18 @@ where
 {
   fn new(in_: SFR, shuffled: Arc<FieldInfos>) -> Self {
     Self { in_, shuffled }
+  }
+}
+
+impl<SFR> TryClone for MismatchedStoredFieldsReader<SFR>
+where
+  SFR: StoredFieldsReader + RawStoredFieldsReader,
+{
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(Self::new(self.in_.try_clone()?, self.shuffled.clone()))
   }
 }
 

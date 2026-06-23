@@ -47,6 +47,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::ToInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -373,8 +374,6 @@ where
 }
 
 // ---- MigratingStoredFieldsReader ----
-
-#[derive(Clone)]
 pub struct MigratingStoredFieldsReader<SFR>
 where
   SFR: StoredFieldsReader + RawStoredFieldsReader,
@@ -389,6 +388,18 @@ where
 {
   fn new(in_: SFR, field_infos: Arc<FieldInfos>) -> Self {
     Self { in_, field_infos }
+  }
+}
+
+impl<SFR> TryClone for MigratingStoredFieldsReader<SFR>
+where
+  SFR: StoredFieldsReader + RawStoredFieldsReader,
+{
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(Self::new(self.in_.try_clone()?, self.field_infos.clone()))
   }
 }
 

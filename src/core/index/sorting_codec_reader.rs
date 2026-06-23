@@ -1461,13 +1461,19 @@ where
   }
 }
 
-impl<SFR, DM> Clone for StoredFieldsReaderImpl<SFR, DM>
+impl<SFR, DM> TryClone for StoredFieldsReaderImpl<SFR, DM>
 where
   DM: Clone + DocMap,
   SFR: StoredFieldsReader,
 {
-  fn clone(&self) -> Self {
-    new_stored_fields_reader(self.delegate.clone(), self.doc_map.clone())
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(new_stored_fields_reader(
+      self.delegate.try_clone()?,
+      self.doc_map.clone(),
+    ))
   }
 }
 

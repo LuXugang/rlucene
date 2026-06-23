@@ -46,6 +46,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, BitsEnum2};
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -615,7 +616,7 @@ where
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     self.ensure_open()?;
-    Ok(Some(self.core.fields_reader_orig.clone()))
+    Ok(Some(self.core.fields_reader_orig.try_clone()?))
   }
 
   fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
