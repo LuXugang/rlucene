@@ -665,14 +665,15 @@ where
   where
     Self: Sized,
   {
+    let file_pointer = self.get_file_pointer()?;
     Ok(Self {
       buffer_size: self.buffer_size,
       resource_desc: self.resource_desc.clone(),
-      buffer: self.buffer.clone(),
+      buffer: Cursor::new(vec![0u8; self.buffer_size]),
       sub_index_input: self.sub_index_input.try_clone()?,
-      buffer_start: self.buffer_start,
-      pos: self.pos,
-      length: self.length,
+      buffer_start: file_pointer,
+      pos: file_pointer,
+      length: 0,
     })
   }
 }
