@@ -119,8 +119,7 @@ fn test_boolean_queries() -> Result<()> {
     f32::INFINITY,
     PredicateImpl,
   )?);
-  let cache = QueryCacheEnum::LruImpl(cache);
-  searcher.set_query_cache(Some(cache));
+  searcher.set_query_cache(Some(QueryCacheEnum::custom(cache.clone())));
   searcher.set_query_caching_policy(policy);
 
   let q1: Query = DummyQuery1::new(1).into();
@@ -134,10 +133,6 @@ fn test_boolean_queries() -> Result<()> {
   for _ in 0..3 {
     searcher.count(bq.clone())?;
   }
-  let cache = match searcher.get_query_cache().unwrap() {
-    QueryCacheEnum::LruImpl(v) => v,
-    _ => unreachable!("expected LRUQueryCache"),
-  };
   assert_eq!(0, cache.get_cache_size());
 
   searcher.count(bq.clone())?;

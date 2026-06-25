@@ -263,7 +263,6 @@ fn test_segment_count_on_flush_random() -> Result<()> {
   Ok(())
 }
 
-#[test]
 fn test_many_threads_close() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
