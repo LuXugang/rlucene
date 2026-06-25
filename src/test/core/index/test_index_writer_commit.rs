@@ -32,6 +32,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::index::test_index_writer::{
   add_doc, add_doc_with_index, assert_no_unreferenced_files,
 };
@@ -39,6 +40,7 @@ use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, new_searcher_with_reader, random,
 };
+use crate::test::core::util::test_util::TestUtil;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -280,8 +282,10 @@ fn test_commit_thread_safety() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
-  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
-  writer.commit()?;
+  let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+  TestUtil::reduce_open_files(&writer.w)?;
+  writer.commit(&mut random)?;
+  let writer = Arc::new(writer);
 
   let failed = Arc::new(AtomicBool::new(false));
   let mut threads = Vec::new();
@@ -291,6 +295,7 @@ fn test_commit_thread_safety() -> Result<()> {
     let writer = writer.clone();
     let failed = failed.clone();
     threads.push(thread::spawn(move || -> Result<()> {
+      let mut thread_random = crate::test::core::util::lucene_test_case::random();
       let mut reader = directory_reader::open(dir.clone())?;
       let mut iterations = 0;
       let mut count = 0;
@@ -303,10 +308,10 @@ fn test_commit_thread_safety() -> Result<()> {
           count += 1;
           let mut doc = Document::new();
           doc.add(StringField::from_string("f", s.clone(), Store::No)?);
-          writer.add_document(doc)?;
-          writer.commit()?;
+          writer.add_document(&mut thread_random, doc)?;
+          writer.commit(&mut thread_random)?;
 
-          let reader2 = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
+          let reader2 = directory_reader::open_if_changed(&reader, &writer.w)?.unwrap();
           reader.close()?;
           reader = reader2;
           assert_eq!(1, reader.doc_freq(&Term::from_text("f", &s))?);
@@ -337,7 +342,7 @@ fn test_commit_thread_safety() -> Result<()> {
   }
 
   assert!(!failed.load(Ordering::SeqCst));
-  writer.close()?;
+  writer.close(&mut random)?;
 
   Ok(())
 }

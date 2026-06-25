@@ -126,6 +126,7 @@ where
       .set_max_buffered_docs(TestUtil::next_int(random, 50, 1000))
       .set_merge_policy(new_log_merge_policy(random)?);
     let writer = RandomIndexWriter::with_config(random, index.index.clone(), config);
+    TestUtil::reduce_open_files(&writer.w)?;
     let mut field_to_type = HashMap::new();
 
     let mut min_count = 0;

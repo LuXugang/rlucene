@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::OnceLock;
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use crate::core::index::merge_policy::OneMergeProgress;
@@ -37,12 +37,12 @@ pub struct MergeRateLimiter {
   min_pause_check_bytes: AtomicU64, // i64 bits (volatile long)
   last_ns: AtomicI64,
   total_bytes_written: AtomicI64,
-  merge_progress: OneMergeProgress,
+  merge_progress: Arc<OneMergeProgress>,
 }
 
 impl MergeRateLimiter {
   /// Creates a new instance.
-  pub fn new(merge_progress: OneMergeProgress) -> Self {
+  pub fn new(merge_progress: Arc<OneMergeProgress>) -> Self {
     // Initially no IO limit; use setter here so minPauseCheckBytes is set:
     let limiter = Self {
       mb_per_sec: AtomicU64::new(0),

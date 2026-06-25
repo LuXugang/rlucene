@@ -25,6 +25,9 @@ use std::sync::{Arc, LazyLock};
 use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
 use crate::core::index::terms::Terms;
@@ -164,6 +167,31 @@ impl TestUtil {
     R: Rng + ?Sized,
   {
     Self::random_simple_string_range(random, 0, 10)
+  }
+
+  /// Just tries to configure things to keep the open file count lowish.
+  pub fn reduce_open_files<D>(w: &IndexWriter<D>) -> Result<()>
+  where
+    D: Directory,
+  {
+    // Keep number of open files lowish.
+    let merge_policy = w.get_config_mut().get_merge_policy_mut();
+    merge_policy.get_base_mut().set_no_cfs_ratio(1.0)?;
+    match merge_policy {
+      MergePolicyEnum::LogDoc(lmp) => {
+        lmp.set_merge_factor(std::cmp::min(5, lmp.get_merge_factor()))?;
+      },
+      MergePolicyEnum::LogBytesSize(lmp) => {
+        lmp.set_merge_factor(std::cmp::min(5, lmp.get_merge_factor()))?;
+      },
+      MergePolicyEnum::Tiered(tmp) => {
+        tmp.set_max_merge_at_once(std::cmp::min(5, tmp.get_max_merge_at_once()))?;
+        tmp.set_segments_per_tier(tmp.get_segments_per_tier().min(5.0))?;
+      },
+      // TODO IMPORTANT ConcurrentMergeScheduler 未实现
+      _ => {},
+    }
+    Ok(())
   }
 
   pub fn check_index<T>(_dir: T) -> Result<()> {

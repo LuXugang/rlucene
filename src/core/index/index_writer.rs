@@ -1572,7 +1572,7 @@ where
 
     let dir_wrapper = TrackingDirectoryWrapper::new(&merge_directory);
     let mut success = false;
-    let res =
+    let res: Result<i32> =
       (|| {
         merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
           let rld = {
@@ -1845,8 +1845,8 @@ where
             let files = sci.files()?;
             self.delete_new_files(files.iter(), None)?;
           }
-          if let Err(e) = cfs_res {
-            let inner = self.inner.lock();
+          if cfs_res.is_err() {
+            let _inner = self.inner.lock();
             if merge.is_aborted() {
               // This can happen if rollback is called while we were building
               // our CFS -- fall through to logic below to remove the non-CFS
@@ -1859,8 +1859,7 @@ where
               }
               return Ok(0);
             } else {
-              drop(inner);
-              return Err(self.handle_merge_exception(e, merge)?);
+              return cfs_res;
             }
           }
 
@@ -1939,6 +1938,12 @@ where
     }
     res?;
     Ok(max_doc)
+  }
+  fn add_merge_exception(&self, merge: &OneMergeSR<D>) {
+    let mut inner = self.inner.lock();
+    if !inner.merge_exceptions.contains(&merge.stat) && inner.merge_gen == merge.stat.merge_gen {
+      inner.merge_exceptions.push(merge.stat.clone());
+    }
   }
 
   pub(crate) fn new_segment_name(&self, inner: Option<&mut Inner<D>>) -> String {
@@ -2728,7 +2733,7 @@ where
           ),
         )?;
       }
-      // TODO IMPORTANT 需要调用set_aborted方法
+      merge_stat.set_aborted();
     }
 
     // We wait here to make all merges stop. It should not take very long because they
@@ -2963,6 +2968,7 @@ where
     inner.merge_exceptions.clear();
     inner.merge_gen += 1;
   }
+
   pub(crate) fn no_dup_dirs(&self, dirs: &[Arc<D>]) -> Result<()> {
     let mut seen_dir_ids = HashSet::with_capacity(dirs.len());
     let self_dir_id = self.directory_orig.identity().clone();
@@ -4804,9 +4810,38 @@ where
     Ok(true)
   }
 
-  fn handle_merge_exception(&self, t: LuceneError, _merge: &OneMergeSR<D>) -> Result<LuceneError> {
-    // TODO IMPORTANT
-    Ok(t)
+  fn handle_merge_exception(&self, t: LuceneError, merge: &OneMergeSR<D>) -> Result<()> {
+    if self.info_stream.is_enabled("IW") {
+      self.info_stream.message(
+        "IW",
+        &format!(
+          "handleMergeException: merge={} exc={}",
+          merge.seg_string(&self.inner.lock().segment_infos)?,
+          t
+        ),
+      )?;
+    }
+
+    // Set the exception on the merge, so if
+    // forceMerge is waiting on us it sees the root
+    // cause exception:
+    merge.set_exception(t.clone());
+    self.add_merge_exception(merge);
+
+    if matches!(t, LuceneError::MergeAborted(_)) {
+      // We can ignore this exception (it happens when
+      // deleteAll or rollback is called), unless the
+      // merge involves segments from external directories,
+      // in which case we must throw it so, for example, the
+      // rollbackTransaction code in addIndexes* is
+      // executed.
+      if merge.is_external {
+        return Err(t);
+      }
+      Ok(())
+    } else {
+      Err(t)
+    }
   }
 
   /// Merges the indicated segments, replacing them in the stack with a single segment.
@@ -4860,7 +4895,7 @@ where
       match inner_result {
         Ok(()) => {},
         Err(e) => {
-          return Err(self.handle_merge_exception(e, merge)?);
+          self.handle_merge_exception(e, merge)?;
         },
       }
       Ok(())
@@ -4889,8 +4924,11 @@ where
     debug_assert!(!merge.stat.segments.is_empty());
 
     if !inner.merges.are_enabled() {
-      // TODO: self.abort_one_merge(merge)?;
-      return Err(LuceneError::merge_abort("merge is aborted"));
+      self.abort_one_merge(&merge, inner)?;
+      return Err(LuceneError::merge_abort(format!(
+        "merge is aborted: {}",
+        merge.seg_string(&inner.segment_infos)?
+      )));
     }
 
     // TODO IMPORTANT Current Rust implementation, `is_external` is always false
@@ -7945,7 +7983,7 @@ impl MergeSource for AddIndexesMergeSource {
         success = true;
         Ok(())
       },
-      Err(err) => Err(writer.handle_merge_exception(err, merge)?),
+      Err(err) => writer.handle_merge_exception(err, merge),
     };
 
     let mut inner = writer.inner.lock();

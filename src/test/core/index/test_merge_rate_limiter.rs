@@ -22,6 +22,7 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestMergeRateLimiter;
@@ -34,7 +35,7 @@ fn test_init_defaults() -> Result<()> {
   w.add_document(&mut random, Document::new())?;
   w.close(&mut random)?;
 
-  let rate_limiter = MergeRateLimiter::new(OneMergeProgress::new());
+  let rate_limiter = MergeRateLimiter::new(Arc::new(OneMergeProgress::new()));
   assert!(rate_limiter.get_mb_per_sec().is_infinite());
   assert!(rate_limiter.get_min_pause_check_bytes() > 0);
   dir.close()?;

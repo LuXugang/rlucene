@@ -1176,8 +1176,6 @@ where
   /// Sum of sizeInBytes of all SegmentInfos; set by IW.mergeInit
   pub(crate) total_merge_bytes: AtomicI64,
   merge_readers: Mutex<Vec<MergeReader<CR, CR::Bits>>>,
-  /// Control used to pause/stop/resume the merge thread.
-  pub(crate) merge_progress: OneMergeProgress,
   pub(crate) merge_start_ns: Instant,
   /// Total number of documents in segments to be merged, not accounting for deletions.
   pub(crate) total_max_doc: i32,
@@ -1192,6 +1190,7 @@ where
 pub struct MergeStat {
   pub(crate) id: Identity,
   state: Arc<Mutex<MergeStatState>>,
+  merge_progress: Arc<OneMergeProgress>,
   /// Segments to be merged.
   /// `SegmentInfo::name` and `SegmentInfo::id`.
   pub(crate) segments: Vec<String>,
@@ -1258,6 +1257,14 @@ impl MergeStat {
     state.info_id = None;
     state.name = None;
   }
+
+  pub(crate) fn set_aborted(&self) {
+    self.merge_progress.abort();
+  }
+
+  pub(crate) fn set_merge_thread(&self) {
+    self.merge_progress.set_merge_thread();
+  }
 }
 
 impl<D, CR> OneMerge<D, CR>
@@ -1280,6 +1287,7 @@ where
       total_max_doc += s.max_doc
     }
 
+    let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
       register_done: AtomicBool::new(false),
       is_external: false,
@@ -1287,7 +1295,6 @@ where
       estimated_merge_bytes: AtomicI64::new(0),
       total_merge_bytes: AtomicI64::new(0),
       merge_readers: Mutex::new(Vec::new()),
-      merge_progress: OneMergeProgress::new(),
       merge_start_ns: Instant::now(),
       total_max_doc,
       #[cfg(test)]
@@ -1296,6 +1303,7 @@ where
       stat: MergeStat {
         id: Identity::new(),
         state: Arc::new(Mutex::new(MergeStatState::new())),
+        merge_progress,
         segments: v,
         merge_gen: 0,
       },
@@ -1312,12 +1320,14 @@ where
   }
   /// Creates wrapping.
   pub(crate) fn from_other(one_merge: OneMerge<D, CR>) -> Self {
+    let merge_progress = Arc::new(OneMergeProgress::new());
+    let mut stat = one_merge.stat;
+    stat.merge_progress = merge_progress;
     let one_merge = Self {
       merge_readers: Mutex::new(one_merge.merge_readers.into_inner()),
       total_max_doc: one_merge.total_max_doc,
       #[cfg(test)]
       segments: one_merge.segments,
-      merge_progress: OneMergeProgress::new(),
       uses_pooled_readers: one_merge.uses_pooled_readers,
       register_done: AtomicBool::new(false),
       is_external: false,
@@ -1325,7 +1335,7 @@ where
       total_merge_bytes: AtomicI64::new(0),
       merge_start_ns: Instant::now(),
       error: Mutex::new(None),
-      stat: one_merge.stat,
+      stat,
       info: one_merge.info,
       merge_completed: OnceLock::new(),
     };
@@ -1346,6 +1356,7 @@ where
       merge_readers.push(MergeReader::new(r, live_docs));
     }
 
+    let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
       register_done: AtomicBool::new(false),
       is_external: false,
@@ -1353,7 +1364,6 @@ where
       estimated_merge_bytes: AtomicI64::new(0),
       total_merge_bytes: AtomicI64::new(0),
       merge_readers: Mutex::new(merge_readers),
-      merge_progress: OneMergeProgress::new(),
       merge_start_ns: Instant::now(),
       total_max_doc: total_docs,
       #[cfg(test)]
@@ -1362,6 +1372,7 @@ where
       stat: MergeStat {
         id: Identity::new(),
         state: Arc::new(Mutex::new(MergeStatState::new())),
+        merge_progress,
         segments: Vec::new(),
         merge_gen: 0,
       },
@@ -1371,7 +1382,7 @@ where
   }
   /// Called by IndexWriter after the merge started and from the thread that will be executing the merge.
   pub fn merge_init(&self) {
-    self.merge_progress.set_merge_thread()
+    self.stat.set_merge_thread()
   }
   /// Record that an error occurred while executing this merge.
   pub fn set_exception(&self, error: LuceneError) {
@@ -1434,11 +1445,11 @@ where
     )
   }
   pub fn set_aborted(&self) -> Result<()> {
-    self.merge_progress.abort();
+    self.stat.set_aborted();
     Ok(())
   }
   pub fn is_aborted(&self) -> bool {
-    self.merge_progress.is_aborted()
+    self.stat.merge_progress.is_aborted()
   }
   pub fn check_aborted(&self) -> Result<()> {
     if self.is_aborted() {

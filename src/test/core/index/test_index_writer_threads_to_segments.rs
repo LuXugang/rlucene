@@ -271,6 +271,7 @@ fn test_many_threads_close() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_commit_on_close(false);
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
+  TestUtil::reduce_open_files(&writer.w)?;
   writer.set_do_random_force_merge(false);
   let w = Arc::new(writer);
   let num_threads = TestUtil::next_int(&mut random, 4, 30) as usize;
