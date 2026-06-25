@@ -57,7 +57,7 @@ pub struct Inner<D>
 where
   D: Directory,
 {
-  // only with assert
+  // only with
   flush_by_ram_was_disabled: bool,
   // only with assert
   max_configured_ram_buffer: f64,
@@ -764,9 +764,10 @@ where
       // pending and moved to blocked are moved over to the flushQueue. There is
       // a chance that this happens since we marking DWPT for full flush without
       // blocking indexing
+      let delete_queue = self.delete_queue.lock().clone();
       let mut inner = self.inner.lock();
       self.prune_blocked_queue(&flushing_queue, &mut inner);
-      debug_assert!(self.assert_blocked_flushes(&inner));
+      debug_assert!(self.assert_blocked_flushes(&inner, &delete_queue));
       inner.flush_queue.extend(full_flush_buffer);
       self.update_stall_state(&mut inner, config)?;
       inner.full_flush_mark_done = true;
@@ -819,6 +820,7 @@ where
   where
     L: LiveIndexWriterConfig,
   {
+    let delete_queue = self.delete_queue.lock().clone();
     let mut inner = self.inner.lock();
     debug_assert!(inner.full_flush);
     debug_assert!(inner.flush_queue.is_empty());
@@ -829,8 +831,8 @@ where
 
     let result: Result<_> = {
       if !inner.blocked_flushes.is_empty() {
-        debug_assert!(self.assert_blocked_flushes(&inner));
-        self.prune_blocked_queue(&self.delete_queue.lock(), &mut inner);
+        debug_assert!(self.assert_blocked_flushes(&inner, &delete_queue));
+        self.prune_blocked_queue(&delete_queue, &mut inner);
         debug_assert!(
           inner.blocked_flushes.is_empty(),
           "blocked_flushes must be empty after pruning"
@@ -844,10 +846,13 @@ where
     self.update_stall_state(&mut inner, config)?;
     result
   }
-  pub(crate) fn assert_blocked_flushes(&self, inner: &Inner<D>) -> bool {
-    let flushing_queue = self.delete_queue.lock().clone();
+  pub(crate) fn assert_blocked_flushes(
+    &self,
+    inner: &Inner<D>,
+    flushing_queue: &Arc<DocumentsWriterDeleteQueue>,
+  ) -> bool {
     for blocked in inner.blocked_flushes.iter() {
-      debug_assert!(Arc::ptr_eq(&blocked.state.delete_queue, &flushing_queue));
+      debug_assert!(Arc::ptr_eq(&blocked.state.delete_queue, flushing_queue));
     }
     true
   }

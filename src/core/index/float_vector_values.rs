@@ -68,6 +68,10 @@ pub trait FloatVectorValues: KnnVectorValues {
   fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
     Err(LuceneError::unsupported_operation(""))
   }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    Ok(self.get_vectors()?.len())
+  }
 }
 
 #[macro_export]
@@ -177,6 +181,11 @@ macro_rules! either_float_vector_values {
             #[inline]
             fn get_vectors(&self) -> $crate::core::util::error::lucene_error::Result<&[$crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
                 match self { $( Self::$Variant(inner) => inner.get_vectors(), )+ }
+            }
+
+            #[inline]
+            fn get_vectors_capacity(&self) -> $crate::core::util::error::lucene_error::Result<usize> {
+                match self { $( Self::$Variant(inner) => inner.get_vectors_capacity(), )+ }
             }
         }
     };
@@ -297,5 +306,9 @@ impl FloatVectorValues for FloatVectorValuesImpl {
 
   fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
     Ok(&self.vectors)
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    Ok(self.vectors.capacity())
   }
 }

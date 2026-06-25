@@ -185,10 +185,11 @@ where
   }
   /// If buffered deletes are using too much heap, resolve them and write disk and return true.
   fn apply_all_deletes(&self) -> Result<bool> {
+    let delete_queue = self.flush_control.delete_queue.lock().clone();
+
     // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
     // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
     // to index.
-    let delete_queue = &self.flush_control.delete_queue.lock();
     if self.flush_control.get_apply_all_deletes()
             && !self.flush_control.is_full_flush()
             // never apply deletes during full flush this breaks happens before relationship.
@@ -196,7 +197,7 @@ where
             // if it's closed then it's already fully applied and we have a new delete queue
             && self.flush_control.get_and_reset_apply_all_deletes()
     {
-      let supplier = SupplierImpl::new(delete_queue);
+      let supplier = SupplierImpl::new(&delete_queue);
       if self.ticket_queue.add_ticket(supplier)?.is_some() {
         self.flush_notifications.on_deletes_applied()?; // apply deletes event forces a purge
         return Ok(true);

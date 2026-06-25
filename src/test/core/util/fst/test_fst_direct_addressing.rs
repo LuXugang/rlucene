@@ -74,7 +74,6 @@ fn test_de_dup_tails() -> Result<()> {
 #[cfg(feature = "nightly")]
 #[ignore = "nightly"]
 fn test_worst_case_for_direct_addressing() -> Result<()> {
-  // TODO: memory calculation not implement
   const MEMORY_INCREASE_LIMIT_PERCENT: f64 = 1.0;
   const NUM_WORDS: usize = 1000000;
 

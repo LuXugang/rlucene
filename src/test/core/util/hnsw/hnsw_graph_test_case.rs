@@ -35,6 +35,7 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::query::Query;
 use crate::core::search::top_knn_collector::TopKnnCollector;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
@@ -481,24 +482,23 @@ where
     Ok(())
   }
 
-  fn test_ram_usage_estimate<R>(&self, _random: &mut R) -> Result<()>
+  fn test_ram_usage_estimate<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO: memory calculation not implement
-    // let size = at_least_usize(random, 2000);
-    // let dim = random.random_range(100..=1024);
-    // let m = random.random_range(4..=96);
-    //
-    // let vectors = self.vector_values(size, dim, random);
-    // let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
-    // let mut builder = hnsw_graph_builder::create(scorer_supplier, m, m * 2, random.random::<u64>())?;
-    // let hnsw = builder.build(size)?;
-    //
-    // // Rust currently exposes graph memory accounting via Accountable::ram_bytes_used.
-    // let actual = hnsw.ram_bytes_used()?;
-    // assert!(actual > 0, "ram_bytes_used should report a positive size");
+    let size = at_least_usize(random, 200);
+    let dim = random.random_range(32..=128);
+    let m = random.random_range(4..=32);
 
+    self.set_similarity_function(VectorSimilarityFunction::random(random));
+    let vectors = self.vector_values(size, dim, random);
+    let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    let mut builder =
+      hnsw_graph_builder::create(scorer_supplier, m, m * 2, random.random::<u64>())?;
+    let hnsw = builder.build(size)?;
+
+    let actual = hnsw.ram_bytes_used()?;
+    assert!(actual > 0, "ram_bytes_used should report a positive size");
     Ok(())
   }
 

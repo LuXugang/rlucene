@@ -715,8 +715,8 @@ fn test_delete_all_slowly() -> Result<()> {
 
   Ok(())
 }
-// TODO: memory calculation not implement 这个 测试未通过
 #[cfg(feature = "nightly")]
+#[test]
 #[ignore = "nightly"]
 fn test_indexing_then_deleting() -> Result<()> {
   use rand::RngExt;
@@ -840,8 +840,8 @@ fn test_flush_pushed_deletes_by_ram() -> Result<()> {
 
   Ok(())
 }
-// TODO: memory calculation not implement 这个 测试未通过
 #[cfg(feature = "nightly")]
+#[test]
 #[ignore = "nightly"]
 fn test_apply_deletes_on_flush() -> Result<()> {
   use crate::core::index::index_writer::{IndexWriterHooks, IndexWriterHooksEnum};

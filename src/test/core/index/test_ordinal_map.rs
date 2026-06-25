@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
+use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
@@ -23,7 +24,9 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
+use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValuesEnum2;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
@@ -37,7 +40,76 @@ struct TestOrdinalMap;
 
 #[test]
 fn test_ram_bytes_used() -> Result<()> {
-  // TODO: memory calculation not implement
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut cfg = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  cfg.set_merge_policy(NoMergePolicy::default());
+
+  let iw = IndexWriter::new(dir.clone(), cfg)?;
+
+  for value in ["a", "b", "c"] {
+    let mut d = Document::new();
+    d.add(SortedDocValuesField::new(
+      "sdv",
+      BytesRef::from_string(value),
+    ));
+    d.add(SortedSetDocValuesField::new(
+      "ssdv",
+      BytesRef::from_string(value),
+    ));
+    iw.add_document(d)?;
+  }
+  iw.commit()?;
+
+  for value in ["b", "c", "d"] {
+    let mut d = Document::new();
+    d.add(SortedDocValuesField::new(
+      "sdv",
+      BytesRef::from_string(value),
+    ));
+    d.add(SortedSetDocValuesField::new(
+      "ssdv",
+      BytesRef::from_string(value),
+    ));
+    d.add(SortedSetDocValuesField::new(
+      "ssdv",
+      BytesRef::from_string(format!("{}{}", value, value).as_str()),
+    ));
+    iw.add_document(d)?;
+  }
+  iw.commit()?;
+
+  let r = directory_reader::open_from_writer(&iw)?;
+  let sdv = MultiDocValues::get_sorted_values(r, "sdv")?;
+  assert!(sdv.is_some());
+  let sdv = sdv.unwrap();
+
+  if let SortedDocValuesEnum2::B(ref msdv) = sdv {
+    let ram_bytes_used = msdv.mapping.ram_bytes_used()?;
+    // TODO RamUsageTester未实现
+    assert!(ram_bytes_used > 0);
+  } else {
+    unreachable!("sdv should be MultiSortedDocValues");
+  }
+
+  let r = directory_reader::open_from_writer(&iw)?;
+  let ssdv = MultiDocValues::get_sorted_set_values(r, "ssdv")?;
+  assert!(ssdv.is_some());
+  let ssdv = ssdv.unwrap();
+
+  if let SortedSetDocValuesEnum2::B(ref mssdv) = ssdv {
+    let ram_bytes_used = mssdv.mapping.ram_bytes_used()?;
+    // TODO RamUsageTester未实现
+    assert!(ram_bytes_used > 0);
+  } else {
+    unreachable!("ssdv should be MultiSortedSetDocValues");
+  }
+
+  iw.close()?;
+
   Ok(())
 }
 

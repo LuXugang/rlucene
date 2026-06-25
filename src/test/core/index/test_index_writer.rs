@@ -369,7 +369,7 @@ fn test_small_ram_buffer() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), config)?;
   let mut field_types = HashMap::new();
 
-  let mut _last_num_segments = get_segment_count(dir.clone())?;
+  let mut last_num_segments = get_segment_count(dir.clone())?;
   for j in 0..9 {
     let mut doc = Document::new();
     doc.add(new_field(
@@ -382,9 +382,8 @@ fn test_small_ram_buffer() -> Result<()> {
     writer.add_document(doc)?;
     // Verify that with a tiny RAM buffer we see new segment after every doc
     let num_segments = get_segment_count(dir.clone())?;
-    // TODO: memory calculation not implement
-    // assert!(num_segments > last_num_segments);
-    _last_num_segments = num_segments;
+    assert!(num_segments > last_num_segments);
+    last_num_segments = num_segments;
   }
   writer.close()?;
   Ok(())
@@ -404,81 +403,80 @@ where
 
 #[test]
 fn test_changing_ram_buffer() -> Result<()> {
-  // TODO: memory calculation not implement
-  // let mut random = random();
-  // let dir = new_directory_shared(&mut random)?;
-  // let mock = MockAnalyzer::new(&mut random);
-  // let mut writer = IndexWriter::new(
-  //   dir.clone(),
-  //   new_index_writer_config_with_analyzer(&mut random, mock)?,
-  // )?;
-  // writer.get_config_mut().set_max_buffered_docs(10);
-  // writer
-  //   .get_config_mut()
-  //   .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
-  // let mut field_types = HashMap::new();
-  //
-  // let mut last_flush_count = -1;
-  // for j in 1..52 {
-  //   let mut doc = Document::new();
-  //   doc.add(new_field(
-  //     &mut random,
-  //     "field",
-  //     format!("aaa{j}"),
-  //     &STORED_TEXT_TYPE,
-  //     &mut field_types,
-  //   )?);
-  //   writer.add_document(doc)?;
-  //   // TODO IMPORTANT TestUtil.syncConcurrentMerges未实现
-  //   let flush_count = writer.get_flush_count();
-  //   if j == 1 {
-  //     last_flush_count = flush_count;
-  //   } else if j < 10 {
-  //     // No new files should be created
-  //     assert_eq!(flush_count, last_flush_count);
-  //   } else if j == 10 {
-  //     assert!(flush_count > last_flush_count);
-  //     last_flush_count = flush_count;
-  //     writer.get_config_mut().set_ram_buffer_size_mb(0.000001);
-  //     writer
-  //       .get_config_mut()
-  //       .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
-  //   } else if j < 20 {
-  //     assert!(flush_count > last_flush_count);
-  //     last_flush_count = flush_count;
-  //   } else if j == 20 {
-  //     writer.get_config_mut().set_ram_buffer_size_mb(16.0);
-  //     writer
-  //       .get_config_mut()
-  //       .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
-  //     last_flush_count = flush_count;
-  //   } else if j < 30 {
-  //     assert_eq!(flush_count, last_flush_count);
-  //   } else if j == 30 {
-  //     writer.get_config_mut().set_ram_buffer_size_mb(0.000001);
-  //     writer
-  //       .get_config_mut()
-  //       .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
-  //   } else if j < 40 {
-  //     assert!(flush_count > last_flush_count);
-  //     last_flush_count = flush_count;
-  //   } else if j == 40 {
-  //     writer.get_config_mut().set_max_buffered_docs(10);
-  //     writer
-  //       .get_config_mut()
-  //       .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
-  //     last_flush_count = flush_count;
-  //   } else if j < 50 {
-  //     assert_eq!(flush_count, last_flush_count);
-  //     writer.get_config_mut().set_max_buffered_docs(10);
-  //     writer
-  //       .get_config_mut()
-  //       .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
-  //   } else if j == 50 {
-  //     assert!(flush_count > last_flush_count);
-  //   }
-  // }
-  // writer.close()?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, mock)?,
+  )?;
+  writer.get_config_mut().set_max_buffered_docs(10);
+  writer
+    .get_config_mut()
+    .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+  let mut field_types = HashMap::new();
+
+  let mut last_flush_count = -1;
+  for j in 1..52 {
+    let mut doc = Document::new();
+    doc.add(new_field(
+      &mut random,
+      "field",
+      format!("aaa{j}"),
+      &STORED_TEXT_TYPE,
+      &mut field_types,
+    )?);
+    writer.add_document(doc)?;
+    // TODO IMPORTANT TestUtil.syncConcurrentMerges未实现
+    let flush_count = writer.get_flush_count();
+    if j == 1 {
+      last_flush_count = flush_count;
+    } else if j < 10 {
+      // No new files should be created
+      assert_eq!(flush_count, last_flush_count);
+    } else if j == 10 {
+      assert!(flush_count > last_flush_count);
+      last_flush_count = flush_count;
+      writer.get_config_mut().set_ram_buffer_size_mb(0.000001);
+      writer
+        .get_config_mut()
+        .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+    } else if j < 20 {
+      assert!(flush_count > last_flush_count);
+      last_flush_count = flush_count;
+    } else if j == 20 {
+      writer.get_config_mut().set_ram_buffer_size_mb(16.0);
+      writer
+        .get_config_mut()
+        .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+      last_flush_count = flush_count;
+    } else if j < 30 {
+      assert_eq!(flush_count, last_flush_count);
+    } else if j == 30 {
+      writer.get_config_mut().set_ram_buffer_size_mb(0.000001);
+      writer
+        .get_config_mut()
+        .set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+    } else if j < 40 {
+      assert!(flush_count > last_flush_count);
+      last_flush_count = flush_count;
+    } else if j == 40 {
+      writer.get_config_mut().set_max_buffered_docs(10);
+      writer
+        .get_config_mut()
+        .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+      last_flush_count = flush_count;
+    } else if j < 50 {
+      assert_eq!(flush_count, last_flush_count);
+      writer.get_config_mut().set_max_buffered_docs(10);
+      writer
+        .get_config_mut()
+        .set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+    } else if j == 50 {
+      assert!(flush_count > last_flush_count);
+    }
+  }
+  writer.close()?;
   Ok(())
 }
 
@@ -3010,13 +3008,11 @@ fn test_apply_deletes_without_flushes() -> Result<()> {
 
   assert_eq!(0, w.doc_writer.flush_control.get_delete_bytes_used()?);
   w.delete_documents_with_terms(vec![Term::from_text("foo", "bar")])?;
-  let mut _bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
-  // TODO: memory calculation not implement
-  // assert!(bytes_used > 0, "{bytes_used} > 0");
+  let mut bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+  assert!(bytes_used > 0, "{bytes_used} > 0");
   w.delete_documents_with_terms(vec![Term::from_text("foo", "baz")])?;
-  _bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
-  // TODO: memory calculation not implement
-  // assert!(bytes_used > 0, "{bytes_used} > 0");
+  bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+  assert!(bytes_used > 0, "{bytes_used} > 0");
   assert_eq!(2, w.doc_writer.get_buffered_delete_terms_size()?);
   assert_eq!(0, w.get_flush_deletes_count());
   flush_deletes.store(true, SeqCst);
@@ -3044,12 +3040,11 @@ fn test_deletes_applied_on_flush() -> Result<()> {
     )?);
     w.add_document(doc.clone())?;
     w.update_document_with_term(Term::from_text("id", "1"), doc)?;
-    let mut _delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
-    // TODO: memory calculation not implement
-    // assert!(
-    //   delete_bytes_used > 0,
-    //   "deletedBytesUsed: {delete_bytes_used}"
-    // );
+    let mut delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+    assert!(
+      delete_bytes_used > 0,
+      "deletedBytesUsed: {delete_bytes_used}"
+    );
     assert_eq!(0, w.get_flush_deletes_count());
     assert!(w.flush_next_buffer()?);
     assert_eq!(1, w.get_flush_deletes_count());
@@ -3065,12 +3060,11 @@ fn test_deletes_applied_on_flush() -> Result<()> {
         vec![NumericDocValuesField::new("foo", 1).into()],
       )?;
     }
-    _delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
-    // TODO: memory calculation not implement
-    // assert!(
-    //   delete_bytes_used > 0,
-    //   "deletedBytesUsed: {delete_bytes_used}"
-    // );
+    delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
+    assert!(
+      delete_bytes_used > 0,
+      "deletedBytesUsed: {delete_bytes_used}"
+    );
     doc = Document::new();
     doc.add(new_field(
       &mut random,

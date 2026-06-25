@@ -26,6 +26,7 @@ use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::line_file_docs::LineFileDocs;
@@ -43,7 +44,7 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 struct TestFlushByRamOrCountsPolicy;
 
-// TODO: memory calculation not implement
+#[test]
 fn test_flush_by_ram() -> Result<()> {
   let mut random = random();
   let ram_buffer = (if is_night_mode() { 1.0 } else { 10.0 })
@@ -56,7 +57,7 @@ fn test_flush_by_ram() -> Result<()> {
   )
 }
 
-// TODO: memory calculation not implement
+#[test]
 fn test_flush_by_ram_large_buffer() -> Result<()> {
   let mut random = random();
   // with a 256 mb ram buffer we should never stall
@@ -122,7 +123,7 @@ fn run_flush_by_ram(num_threads: i32, max_ram_mb: f64, ensure_not_stalled: bool)
     flush_policy.peak_bytes_without_flush.load(Ordering::SeqCst) <= max_ram_bytes,
     "peak bytes without flush exceeded watermark"
   );
-  assert_active_bytes_after(flush_control);
+  assert_active_bytes_after(flush_control)?;
   if flush_policy.has_marked_pending.load(Ordering::SeqCst) {
     assert!(max_ram_bytes < flush_control.get_peak_active_bytes());
   }
@@ -193,7 +194,7 @@ fn test_flush_doc_count() -> Result<()> {
         <= writer.get_config().get_max_buffered_docs() as i64,
       "peak bytes without flush exceeded watermark"
     );
-    assert_active_bytes_after(flush_control);
+    assert_active_bytes_after(flush_control)?;
     writer.close()?;
     assert_eq!(0, flush_control.active_bytes(None));
   }
@@ -265,7 +266,7 @@ fn test_random() -> Result<()> {
       );
     }
   }
-  assert_active_bytes_after(flush_control);
+  assert_active_bytes_after(flush_control)?;
   writer.commit()?;
   assert_eq!(0, flush_control.active_bytes(None));
   let reader = directory_reader::open_from_writer(&writer)?;
@@ -445,16 +446,16 @@ where
   Ok(())
 }
 
-fn assert_active_bytes_after<D>(flush_control: &DocumentsWriterFlushControl<D>)
+fn assert_active_bytes_after<D>(flush_control: &DocumentsWriterFlushControl<D>) -> Result<()>
 where
   D: Directory,
 {
-  let mut _bytes_used = 0;
+  let mut bytes_used = 0;
   for (_id, next) in flush_control.per_thread_pool.iterator() {
     if !next.state.is_flush_pending() {
-      _bytes_used += next.state.get_last_committed_bytes_used();
+      bytes_used += next.dwpt.lock().ram_bytes_used()?;
     }
   }
-  // TODO: memory calculation not implement
-  // assert_eq!(bytes_used, flush_control.active_bytes(None));
+  assert_eq!(bytes_used, flush_control.active_bytes(None));
+  Ok(())
 }

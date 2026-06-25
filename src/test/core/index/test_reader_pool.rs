@@ -206,9 +206,7 @@ fn test_pool_readers() -> Result<()> {
     .to_string();
   pool.drop(&info_id, segment_infos)?;
 
-  // let mut ram_bytes_used = 0_i64;
-  // TODO: memory calculation not implement
-  // assert_eq!(0, pool.ram_bytes_used());
+  assert_eq!(0, pool.ram_bytes_used());
 
   for idx in 0..segment_infos.segments.len() {
     let rau = {
@@ -222,16 +220,12 @@ fn test_pool_readers() -> Result<()> {
       None,
       &field_numbers.lock(),
     )?;
-    // TODO: memory calculation not implement
-    // assert_eq!(
-    //     0,
-    //     pool.ram_bytes_used(),
-    //     " used: {} actual: {}",
-    //     ram_bytes_used,
-    //     pool.ram_bytes_used()
-    // );
-
-    // ram_bytes_used = pool.ram_bytes_used();
+    assert_eq!(
+      0,
+      pool.ram_bytes_used(),
+      "actual: {}",
+      pool.ram_bytes_used()
+    );
 
     let a = pool
       .get(segment_infos.info(idx).unwrap().to_meta()?, false, None)?
@@ -241,8 +235,7 @@ fn test_pool_readers() -> Result<()> {
       .unwrap();
     assert!(Arc::ptr_eq(&a, &b));
   }
-  // TODO: memory calculation not implement
-  // assert_ne!(0, pool.ram_bytes_used());
+  assert_eq!(0, pool.ram_bytes_used());
 
   pool.drop_all(segment_infos)?;
 
@@ -251,8 +244,7 @@ fn test_pool_readers() -> Result<()> {
     assert!(pool.get(info.to_meta()?, false, None)?.is_none());
   }
 
-  // TODO: memory calculation not implement
-  // assert_eq!(0, pool.ram_bytes_used());
+  assert_eq!(0, pool.ram_bytes_used());
 
   pool.close(segment_infos)?;
   Ok(())
@@ -654,8 +646,66 @@ fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
 
   Ok(())
 }
+#[test]
 fn test_get_reader_by_ram() -> Result<()> {
-  // TODO: memory calculation not implement
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+
+  let (_field_numbers, index_created_version_major) = build_index(directory.clone(), &mut random)?;
+
+  let mut reader = directory_reader::open(directory.clone())?;
+  let segment_infos = &mut reader.segment_infos;
+
+  let lock = directory.obtain_lock("writer_lock")?;
+  let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
+
+  let pool = ReaderPool::new::<String, DummyComparator>(
+    lock_dir,
+    directory.clone(),
+    segment_infos,
+    Arc::new(InfoStreamEnum::default()),
+    None,
+    LongSupplierImpl,
+    None,
+    index_created_version_major,
+  )?;
+  assert_eq!(0, pool.get_readers_by_ram().len());
+
+  for idx in 0..segment_infos.segments.len() {
+    let commit_info = segment_infos.info_idx_mut(idx).unwrap();
+    let readers_and_updates = pool.get(commit_info.to_meta()?, true, None)?.unwrap();
+    let sub_update = NumericDocValuesFieldUpdates::new()?;
+    let mut updates = DocValuesFieldUpdates::new(
+      commit_info.info.max_doc()?,
+      0,
+      "number",
+      sub_update.sub_type(),
+      sub_update,
+    )?;
+    updates.add_value(0, idx as i64)?;
+    updates.finish()?;
+    readers_and_updates.add_dv_update(updates)?;
+  }
+
+  let readers_by_ram = pool.get_readers_by_ram();
+  assert_eq!(segment_infos.segments.len(), readers_by_ram.len());
+  let mut previous_ram = i64::MAX;
+  for rld in readers_by_ram {
+    let ram_bytes_used = rld
+      .ram_bytes_used
+      .load(std::sync::atomic::Ordering::Relaxed);
+    assert!(
+      previous_ram >= ram_bytes_used,
+      "previous: {} now: {}",
+      previous_ram,
+      ram_bytes_used
+    );
+    previous_ram = ram_bytes_used;
+    rld.drop_changes();
+    pool.drop(rld.get_info_id(), segment_infos)?;
+  }
+
+  pool.close(segment_infos)?;
   Ok(())
 }
 

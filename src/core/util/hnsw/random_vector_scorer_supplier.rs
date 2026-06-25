@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::{
   RandomVectorScorer, RandomVectorScorerEnum2, RandomVectorScorerEnum3,
@@ -50,7 +51,28 @@ pub trait RandomVectorScorerSupplier {
   fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     Err(LuceneError::unsupported_operation(""))
   }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(0)
+  }
 }
+
+pub(crate) fn vector_values_ram_bytes_used(
+  vectors: &[VectorValueEnum],
+  capacity: usize,
+) -> Result<i64> {
+  let capacity = if capacity > i64::MAX as usize {
+    i64::MAX
+  } else {
+    capacity as i64
+  };
+  let mut size = (std::mem::size_of::<VectorValueEnum>() as i64).saturating_mul(capacity);
+  for vector in vectors {
+    size = size.saturating_add(vector.ram_bytes_used()?);
+  }
+  Ok(size)
+}
+
 impl<T> RandomVectorScorerSupplier for &T
 where
   T: RandomVectorScorerSupplier,
@@ -75,6 +97,10 @@ where
 
   fn get_vector(&self) -> Result<&[VectorValueEnum]> {
     (**self).get_vector()
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    (**self).ram_bytes_used()
   }
 }
 
@@ -125,6 +151,12 @@ macro_rules! either_random_vector_scorer_supplier {
             fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
                 match self {
                     $( Self::$Variant(inner) => inner.get_vector_mut(), )+
+                }
+            }
+
+            fn ram_bytes_used(&self) -> Result<i64> {
+                match self {
+                    $( Self::$Variant(inner) => inner.ram_bytes_used(), )+
                 }
             }
         }

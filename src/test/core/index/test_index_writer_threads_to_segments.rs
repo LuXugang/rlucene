@@ -323,8 +323,7 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  // TODO: memory calculation not implement
-  iwc.set_max_buffered_docs(1000);
+  iwc.set_ram_buffer_size_mb(0.2);
   iwc.set_merge_policy(NoMergePolicy::default());
   let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
   let starting_gun = Arc::new(Barrier::new(3));

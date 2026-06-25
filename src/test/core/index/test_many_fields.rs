@@ -205,7 +205,7 @@ fn test_diverse_docs() -> Result<()> {
 
   Ok(())
 }
-// TODO memory calculation not implement
+#[test]
 fn test_rotating_field_names() -> Result<()> {
   let mut random = random();
   let dir = new_fs_directory(&mut random, create_temp_dir()?)?;

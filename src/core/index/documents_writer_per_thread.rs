@@ -52,6 +52,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{LATEST, LUCENE_10_0_0, StringHelper, TryIntoInt};
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
@@ -954,8 +955,11 @@ where
   D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO
-    Ok(0)
+    Ok(
+      size_of_vec(&self.delete_doc_ids)
+        .saturating_add(self.pending_updates.ram_bytes_used()?)
+        .saturating_add(self.indexing_chain.ram_bytes_used()?),
+    )
   }
 
   fn get_child_resources<A>(&self) -> Vec<A>

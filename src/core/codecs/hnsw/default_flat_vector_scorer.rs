@@ -26,7 +26,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::{
-  RandomVectorScorerSupplier, RandomVectorScorerSupplierEnum2,
+  RandomVectorScorerSupplier, RandomVectorScorerSupplierEnum2, vector_values_ram_bytes_used,
 };
 use std::fmt::{Display, Formatter};
 
@@ -195,6 +195,14 @@ where
   fn get_vector(&self) -> Result<&[VectorValueEnum]> {
     self.vectors.get_vectors()
   }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let Ok(vectors) = self.vectors.get_vectors() else {
+      return Ok(0);
+    };
+    let capacity = self.vectors.get_vectors_capacity().unwrap_or(vectors.len());
+    vector_values_ram_bytes_used(vectors, capacity)
+  }
 }
 
 pub struct RandomVectorScorerByteImpl<'a, BV>
@@ -331,6 +339,14 @@ where
 
   fn get_vector(&self) -> Result<&[VectorValueEnum]> {
     self.vectors.get_vectors()
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let Ok(vectors) = self.vectors.get_vectors() else {
+      return Ok(0);
+    };
+    let capacity = self.vectors.get_vectors_capacity().unwrap_or(vectors.len());
+    vector_values_ram_bytes_used(vectors, capacity)
   }
 }
 pub struct RandomVectorScorerF32Impl<'a, FV>

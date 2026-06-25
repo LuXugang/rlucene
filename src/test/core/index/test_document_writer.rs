@@ -57,6 +57,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::io_context::IOContext;
 use crate::core::util::LATEST;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
@@ -456,8 +457,7 @@ where
   }
   writer.add_document(doc)?;
   assert!(writer.has_changes_in_ram()?);
-  // TODO: memory calculation not implement
-  // assert!(writer.doc_writer.ram_bytes_used()? < num_fields * 16384);
+  assert!(writer.doc_writer.ram_bytes_used()? < num_fields * 16384);
   writer.close()?;
   Ok(())
 }

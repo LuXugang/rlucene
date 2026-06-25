@@ -150,9 +150,7 @@ fn test_rolling_updates() -> Result<()> {
   w.close()?;
 
   docs.close();
-
-  // TODO IMPORTANT
-  // TODO: memory calculation not implement
+  // TODO IMPORTANT StandardDirectoryReader#do_close 没有正确的删除文件
   // let infos = SegmentInfos::read_latest_commit(dir.clone())?;
   // let mut total_bytes = 0i64;
   // for sipc in infos.iter() {

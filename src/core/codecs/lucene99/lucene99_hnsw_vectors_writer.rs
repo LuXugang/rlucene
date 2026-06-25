@@ -802,7 +802,12 @@ where
   S: RandomVectorScorerSupplier,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    self.hnsw_graph_builder.get_graph().ram_bytes_used()
+    let graph_bytes = self.hnsw_graph_builder.get_graph().ram_bytes_used()?;
+    let vector_bytes = self
+      .hnsw_graph_builder
+      .get_scorer_supplier()
+      .ram_bytes_used()?;
+    Ok(graph_bytes.saturating_add(vector_bytes))
   }
 }
 

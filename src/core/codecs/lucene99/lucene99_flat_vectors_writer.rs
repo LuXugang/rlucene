@@ -754,6 +754,10 @@ where
   fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
     self.supplier.get_vector_mut()
   }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.supplier.ram_bytes_used()
+  }
 }
 
 impl<S, D> Closeable for FlatCloseableRandomVectorScorerSupplier<'_, S, D>

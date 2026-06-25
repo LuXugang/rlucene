@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
+use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::document::Document;
 use crate::core::document::field::FieldBase;
@@ -28,7 +29,12 @@ use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
+use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -42,6 +48,8 @@ use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -56,20 +64,25 @@ use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::directory::Directory;
+use crate::core::util::LATEST;
+use crate::core::util::StringHelper;
 use crate::core::util::ToInt;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test::core::index::force_merge_policy::ForceMergePolicy;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
+  at_least, get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_io_context,
   new_log_merge_policy,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use strum::EnumCount;
@@ -383,8 +396,71 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_writer_ram_estimate<R>(&self, _random: &mut R) -> Result<()> {
-    // TODO: memory calculation not implement
+  fn test_writer_ram_estimate<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let field_infos = Arc::new(FieldInfos::new(vec![])?);
+    let dir = new_directory_shared(random)?;
+    let segment_info = SegmentInfo::new(
+      dir.clone(),
+      Some((*LATEST).clone()),
+      Some((*LATEST).clone()),
+      "0",
+      10000,
+      false,
+      false,
+      HashMap::new(),
+      StringHelper::random_id(),
+      HashMap::new(),
+      None,
+    )?;
+    let io_context = new_io_context(random)?;
+    let state = SegmentWriteState::new(
+      get_default_info_stream(),
+      dir.as_ref(),
+      field_infos,
+      &io_context,
+    );
+    let format = LATEST_CODEC.knn_vectors_format()?;
+    let mut writer = format.fields_writer(&state, &segment_info)?;
+    let ram_bytes_used = writer.ram_bytes_used()?;
+    let mut dim = random.random_range(1..=64);
+    if dim % 2 == 1 {
+      dim += 1;
+    }
+    let num_docs = at_least(random, 100);
+    let field_writer_idx = writer.add_field(Arc::new(FieldInfo::new(
+      "fieldA",
+      0,
+      false,
+      false,
+      false,
+      IndexOptions::None,
+      DocValuesType::None,
+      DocValuesSkipIndexType::None,
+      -1,
+      HashMap::new(),
+      0,
+      0,
+      0,
+      dim,
+      VectorEncoding::FLOAT32(4),
+      VectorSimilarityFunction::DotProduct,
+      false,
+      false,
+    )?))?;
+    for i in 0..num_docs {
+      let vector = VectorValueEnum::Float(Self::random_vector(random, dim as usize));
+      writer.add_value(i, &vector, field_writer_idx)?;
+    }
+    let ram_bytes_used2 = writer.ram_bytes_used()?;
+    assert!(ram_bytes_used2 > ram_bytes_used);
+    assert!(
+      ram_bytes_used2
+        > dim as i64 * num_docs as i64 * VectorEncoding::FLOAT32(4).byte_size() as i64
+    );
+    writer.finish()?;
     Ok(())
   }
 

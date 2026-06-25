@@ -36,6 +36,7 @@ use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
@@ -451,7 +452,25 @@ fn test_order_does_not_matter() -> Result<()> {
 
 #[test]
 fn test_ram_bytes_used() -> Result<()> {
-  // TODO: memory calculation not implement
+  let mut random = random();
+  let num_terms = 10_000 + random.random_range(0..1000);
+  let mut terms = Vec::with_capacity(num_terms);
+  for i in 0..num_terms {
+    terms.push(new_bytes_ref_from_string(
+      &mut random,
+      &format!("term{:05}", i),
+    )?);
+  }
+  let query = TermInSetQuery::new("f", terms)?;
+  let ram_bytes_used = query.ram_bytes_used()?;
+
+  let one_term_query =
+    TermInSetQuery::new("f", vec![new_bytes_ref_from_string(&mut random, "term")?])?;
+
+  assert!(ram_bytes_used > 0);
+  // TODO RamUsageTester 未定义
+  assert!(ram_bytes_used > one_term_query.ram_bytes_used()?);
+  assert_eq!(ram_bytes_used, query.ram_bytes_used()?);
   Ok(())
 }
 
