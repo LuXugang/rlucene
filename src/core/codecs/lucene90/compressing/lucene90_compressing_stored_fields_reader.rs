@@ -641,8 +641,8 @@ where
 
     self.sliced = (token & 1) != 0;
 
-    ArrayUtil::grow_with_len(&mut self.offsets, self.chunk_docs as usize + 1);
-    ArrayUtil::grow_with_len(&mut self.num_stored_fields, self.chunk_docs as usize);
+    ArrayUtil::grow_with_len(&mut self.offsets, self.chunk_docs as usize + 1)?;
+    ArrayUtil::grow_with_len(&mut self.num_stored_fields, self.chunk_docs as usize)?;
 
     if self.chunk_docs == 1 {
       self.num_stored_fields[0] = self.fields_stream.read_vint()? as i64;
@@ -701,7 +701,7 @@ where
           )?;
 
           let new_len = self.spare2.length + self.spare.length;
-          ArrayUtil::grow_with_len(&mut self.spare2.bytes, new_len);
+          ArrayUtil::grow_with_len(&mut self.spare2.bytes, new_len)?;
           self.spare2.bytes.copy_from(
             &self.spare.bytes[self.spare.offset..(self.spare.offset + self.spare.length)],
             self.spare2.length,

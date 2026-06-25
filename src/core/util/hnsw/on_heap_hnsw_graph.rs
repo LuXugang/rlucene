@@ -120,7 +120,7 @@ impl OnHeapHnswGraph {
           "The graph does not expect to grow when an initial size is given",
         ));
       }
-      ArrayUtil::grow_with_len(&mut self.graph, node + 1);
+      ArrayUtil::grow_with_len(&mut self.graph, node + 1)?;
     }
 
     if self.graph[node].is_empty() {

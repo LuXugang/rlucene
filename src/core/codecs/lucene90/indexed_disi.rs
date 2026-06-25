@@ -813,7 +813,7 @@ where
   let mut total_cardinality = 0;
   let mut block_cardinality = 0;
   let mut buffer = FixedBitSet::new(1 << 16);
-  let jumps_len = ArrayUtil::oversize(1, BitUtil::INT_BYTES * 2);
+  let jumps_len = ArrayUtil::oversize(1, BitUtil::INT_BYTES * 2)?;
   let mut jumps: Vec<i32> = vec![0; jumps_len];
   let mut prev_block = -1;
   let mut jump_block_index = 0;

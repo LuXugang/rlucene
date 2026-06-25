@@ -586,7 +586,7 @@ fn test_zero_pos_incr() -> Result<()> {
 }
 fn make_token(text: &str, pos_incr: i32) -> Result<Token> {
   let mut t = token::new()?;
-  CharTermAttribute::append_str(&mut t, Some(text));
+  CharTermAttribute::append_str(&mut t, Some(text))?;
   t.set_position_increment(pos_incr)?;
   Ok(t)
 }

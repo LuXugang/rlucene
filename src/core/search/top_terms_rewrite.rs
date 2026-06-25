@@ -145,11 +145,11 @@ impl TermCollectorImpl {
 }
 impl TermCollectorImpl {
   #[cfg(debug_assertions)]
-  fn compare_to_last_term(&mut self, t: Option<&BytesRef<Vec<u8>>>) -> bool {
+  fn compare_to_last_term(&mut self, t: Option<&BytesRef<Vec<u8>>>) -> Result<bool> {
     match (&mut self.last_term, t) {
       (None, Some(t)) => {
         let mut v = BytesRefBuilder::new();
-        v.append(t);
+        v.append(t)?;
         self.last_term = Some(v);
       },
       (_, None) => {
@@ -157,11 +157,11 @@ impl TermCollectorImpl {
       },
       (Some(last_term), Some(t)) => {
         debug_assert!(last_term.get_bytes_ref().cmp(t).is_lt());
-        last_term.copy_bytes_from_ref(t)
+        last_term.copy_bytes_from_ref(t)?;
       },
     }
 
-    true
+    Ok(true)
   }
 }
 
@@ -197,7 +197,7 @@ impl TermCollector for TermCollectorImpl {
     };
 
     #[cfg(debug_assertions)]
-    debug_assert!(self.compare_to_last_term(Some(&bytes)));
+    debug_assert!(self.compare_to_last_term(Some(&bytes))?);
 
     if self.st_queue.size() == self.max_size {
       let key = self
@@ -286,7 +286,7 @@ impl TermCollector for TermCollectorImpl {
     TE: TermsEnum,
   {
     #[cfg(debug_assertions)]
-    debug_assert!(self.compare_to_last_term(None));
+    debug_assert!(self.compare_to_last_term(None)?);
     Ok(())
   }
 }

@@ -284,7 +284,7 @@ impl IntersectTermsEnumFrame {
     let num_suffix_bytes = (code_l as u64 >> 3) as usize;
 
     if frame.suffixes_reader.bytes.len() < num_suffix_bytes {
-      let new_len = ArrayUtil::oversize(num_suffix_bytes, 1);
+      let new_len = ArrayUtil::oversize(num_suffix_bytes, 1)?;
       frame.suffixes_reader.bytes = vec![0u8; new_len];
     }
 
@@ -314,7 +314,7 @@ impl IntersectTermsEnumFrame {
     let num_suffix_len_bytes = num_suffix_len_bytes as usize;
 
     if frame.suffix_lengths_reader.bytes.len() < num_suffix_len_bytes {
-      let new_len = ArrayUtil::oversize(num_suffix_len_bytes, 1);
+      let new_len = ArrayUtil::oversize(num_suffix_len_bytes, 1)?;
       frame.suffix_lengths_reader.bytes = vec![0u8; new_len];
     }
 
@@ -336,7 +336,7 @@ impl IntersectTermsEnumFrame {
     // stats
     let num_bytes = in_.read_vint()?.try_convert()?;
     if frame.stats_reader.bytes.len() < num_bytes {
-      let new_len = ArrayUtil::oversize(num_bytes, 1);
+      let new_len = ArrayUtil::oversize(num_bytes, 1)?;
       frame.stats_reader.bytes = vec![0u8; new_len];
     }
     in_.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
@@ -350,7 +350,7 @@ impl IntersectTermsEnumFrame {
     // metadata
     let num_bytes = in_.read_vint()?.try_convert()?;
     if frame.bytes_reader.bytes.len() < num_bytes {
-      let new_len = ArrayUtil::oversize(num_bytes, 1);
+      let new_len = ArrayUtil::oversize(num_bytes, 1)?;
       frame.bytes_reader.bytes = vec![0u8; new_len];
     }
     in_.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;

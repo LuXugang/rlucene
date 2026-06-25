@@ -652,18 +652,19 @@ impl BitSet for FixedBitSet {
     self.default_or(iter)
   }
 
-  fn ensure_capacity(&mut self, num_bits: usize) {
+  fn ensure_capacity(&mut self, num_bits: usize) -> Result<()> {
     if num_bits < self.num_bits {
     } else {
       let num_words = Self::bits2words(num_bits);
       let length = self.bits.len();
       if num_words >= length {
-        ArrayUtil::grow_with_len(&mut self.bits, num_words + 1);
+        ArrayUtil::grow_with_len(&mut self.bits, num_words + 1)?;
       }
       debug_assert!(self.bits.len() <= i32::MAX as usize);
       self.num_bits = (self.bits.len()) << 6;
       self.num_words = Self::bits2words(self.num_bits);
     }
+    Ok(())
   }
 }
 /// Immutable of FixedBitSet.

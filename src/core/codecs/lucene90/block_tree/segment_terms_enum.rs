@@ -115,7 +115,7 @@ where
   }
   fn get_frame(&mut self, ord: usize) -> Result<()> {
     if ord >= self.stack.len() {
-      let new_len = ArrayUtil::oversize(ord + 1, 0);
+      let new_len = ArrayUtil::oversize(ord + 1, std::mem::size_of::<SegmentTermsEnumFrame>())?;
 
       for i in self.stack.len()..new_len {
         let frame = SegmentTermsEnumFrame::new(i as i32, &self.fr)?;
@@ -131,14 +131,11 @@ where
     debug_assert_eq!(self.stack[ord].ord, ord as i32, "Frame ord mismatch");
     Ok(())
   }
-  pub(crate) fn get_arc(&mut self, ord: usize) -> usize {
+  pub(crate) fn get_arc(&mut self, ord: usize) -> Result<usize> {
     if ord >= self.arcs.len() {
-      let new_len = ArrayUtil::oversize(ord + 1, 0);
-      for _ in self.arcs.len()..new_len {
-        self.arcs.push(Arc::default())
-      }
+      ArrayUtil::grow_with_len(&mut self.arcs, ord + 1)?;
     }
-    ord
+    Ok(ord)
   }
   pub(crate) fn push_frame_with_data(
     &mut self,
@@ -246,7 +243,7 @@ where
       self.prepare_seek_status = PrepareSeekStatus::NotFound;
       return Ok(None);
     }
-    self.term.grow(1 + target.length);
+    self.term.grow(1 + target.length)?;
     debug_assert!(self.clear_eof());
     let mut target_upto;
     let target_before_current_length = {
@@ -354,7 +351,7 @@ where
     while target_upto < target.length {
       let target_label = target.bytes[target.offset + target_upto] as i32;
 
-      let next_arc_idx = self.get_arc(1 + target_upto);
+      let next_arc_idx = self.get_arc(1 + target_upto)?;
       let fr_index = self.fr.index.as_ref().unwrap();
       let reader = self.fst_reader.as_mut().unwrap();
 
@@ -582,7 +579,7 @@ where
       return Err(LuceneError::illegal_state("terms index was not loaded"));
     }
 
-    self.term.grow(1 + target.length);
+    self.term.grow(1 + target.length)?;
     debug_assert!(self.clear_eof());
 
     let mut target_upto;
@@ -677,7 +674,7 @@ where
     while target_upto < target.length {
       let target_label = target.bytes[target.offset + target_upto] as i32;
 
-      next_arc_idx = self.get_arc(1 + target_upto);
+      next_arc_idx = self.get_arc(1 + target_upto)?;
       let fr_index = self.fr.index.as_ref().unwrap();
 
       let reader = self.fst_reader.as_mut().unwrap();
@@ -705,7 +702,7 @@ where
           SegmentTermsEnumFrame::scan_to_term(self.current_frame_idx, target, false, self)?;
         return if result == SeekStatus::End {
           {
-            self.term.copy_bytes_from_ref(target);
+            self.term.copy_bytes_from_ref(target)?;
             self.term_exists = false;
           }
 
@@ -746,7 +743,7 @@ where
     match result {
       SeekStatus::End => {
         {
-          self.term.copy_bytes_from_ref(target);
+          self.term.copy_bytes_from_ref(target)?;
           self.term_exists = false;
         }
         if self.next()?.is_some() {
@@ -772,7 +769,7 @@ where
     if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
       self.static_frame.state = other_state.clone();
       self.current_frame_idx = self.static_frame_idx;
-      self.term.copy_bytes_from_ref(target);
+      self.term.copy_bytes_from_ref(target)?;
       self.static_frame.meta_data_upto = self.static_frame.get_term_block_ord()?;
       debug_assert!(self.static_frame.meta_data_upto > 0);
       self.valid_index_prefix = 0;

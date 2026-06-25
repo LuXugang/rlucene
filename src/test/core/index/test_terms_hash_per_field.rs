@@ -563,7 +563,7 @@ pub(crate) fn new_terms_hash_per_field_mock(
   let mut field_info = FieldInfo::default();
   field_info.index_options = IndexOptions::DocsAndFreqs;
 
-  let base = FreqProxTermsWriterPerField::new(&writer, Arc::new(field_info), None);
+  let base = FreqProxTermsWriterPerField::new(&writer, Arc::new(field_info), None).unwrap();
 
   TermsHashPerFieldMock {
     field_state,

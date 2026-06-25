@@ -50,7 +50,7 @@ fn test_append() -> Result<()> {
     let init_size = list.size();
     for i in 0..entries {
       let random_realistic_unicode_string = TestUtil::random_realistic_unicode_string(&mut random);
-      spare.copy_chars_from_string(&random_realistic_unicode_string);
+      spare.copy_chars_from_string(&random_realistic_unicode_string)?;
       assert_eq!(i + init_size, list.append(spare.get_bytes_mut_ref())?);
       string_list.push(random_realistic_unicode_string);
     }
@@ -111,7 +111,7 @@ fn test_sort() -> Result<()> {
 
     for i in 0..entries {
       let random_realistic_unicode_string = TestUtil::random_realistic_unicode_string(&mut random);
-      spare.copy_chars_from_string(&random_realistic_unicode_string);
+      spare.copy_chars_from_string(&random_realistic_unicode_string)?;
       assert_eq!(init_size + i, list.append(spare.get_bytes_mut_ref())?);
       string_list.push(random_realistic_unicode_string);
     }
@@ -185,7 +185,7 @@ fn test_stable_sort() -> Result<()> {
     let init_size = list.size();
     for i in 0..entries {
       let random_realistic_unicode_string = values[random.random_range(0..values.len())].clone();
-      spare.copy_chars_from_string(&random_realistic_unicode_string);
+      spare.copy_chars_from_string(&random_realistic_unicode_string)?;
       assert_eq!(init_size + i, list.append(spare.get_bytes_mut_ref())?);
       string_list.push(random_realistic_unicode_string);
     }

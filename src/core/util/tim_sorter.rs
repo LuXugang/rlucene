@@ -199,7 +199,7 @@ impl<T: TimSorterBase> TimSorter<T> {
     debug_assert!(self.delegate.compare(lo, mid)? > 0);
 
     let len1 = mid - lo;
-    self.delegate.save(lo, len1);
+    self.delegate.save(lo, len1)?;
     self.delegate.copy(mid, lo);
 
     let mut i = 0;
@@ -250,7 +250,7 @@ impl<T: TimSorterBase> TimSorter<T> {
     debug_assert!(self.compare(mid - 1, hi - 1)? > 0);
 
     let len2 = hi - mid;
-    self.delegate.save(mid, len2);
+    self.delegate.save(mid, len2)?;
     self.delegate.copy(mid - 1, hi - 1);
 
     let mut i: i32 = mid as i32 - 2;
@@ -422,7 +422,7 @@ where
         mid += 1;
       }
     } else if len2 < len1 && len2 <= self.max_temp_slots {
-      self.delegate.save(mid, len2);
+      self.delegate.save(mid, len2)?;
       let mut i: i32 = (lo + len1) as i32 - 1;
       let mut j: i32 = hi as i32 - 1;
       while i >= lo as i32 {
@@ -438,7 +438,7 @@ where
         j += 1;
       }
     } else if len1 <= self.max_temp_slots {
-      self.delegate.save(lo, len1);
+      self.delegate.save(lo, len1)?;
       let mut i = mid;
       let mut j = lo;
       while i < hi {
@@ -468,7 +468,7 @@ pub trait TimSorterBase: Sorter {
 
   /// Save all elements between slots i and `i+len` into the temporary
   /// storage.
-  fn save(&mut self, i: usize, len: usize);
+  fn save(&mut self, i: usize, len: usize) -> Result<()>;
   /// Restore element `j` from the temporary storage into slot `i`.
   fn restore(&mut self, i: usize, j: usize);
 

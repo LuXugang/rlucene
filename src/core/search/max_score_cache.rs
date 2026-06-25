@@ -65,7 +65,7 @@ where
   fn ensure_cache_size(&mut self, size: usize) -> Result<()> {
     if self.max_score_cache.len() < size {
       let old_len = self.max_score_cache.len();
-      ArrayUtil::grow_with_len(&mut self.max_score_cache, size);
+      ArrayUtil::grow_with_len(&mut self.max_score_cache, size)?;
       let len = self.max_score_cache.len();
       ArrayUtil::grow_exact(&mut self.max_score_cache_upto, len)?;
       self.max_score_cache_upto[old_len..].fill(-1);

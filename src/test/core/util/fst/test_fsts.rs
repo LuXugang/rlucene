@@ -545,7 +545,7 @@ fn test_real_terms() -> Result<()> {
       } else {
         terms_enum.doc_freq()? as i64
       };
-      Util::to_ints_ref(&term, &mut scratch_ints_ref);
+      Util::to_ints_ref(&term, &mut scratch_ints_ref)?;
       fst_compiler.add(scratch_ints_ref.get(), Arc::new(output))?;
       ord += 1;
     }
@@ -594,7 +594,7 @@ fn test_single_string() -> Result<()> {
 
   let mut builder = IntsRefBuilder::new();
   let key: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
-  Util::to_ints_ref(&key, &mut builder);
+  Util::to_ints_ref(&key, &mut builder)?;
   fst_compiler.add(builder.get(), outputs.get_no_output())?;
 
   let metadata = fst_compiler.compile()?.unwrap();
@@ -621,7 +621,7 @@ fn test_duplicate_fsa_string() -> Result<()> {
   let mut builder = IntsRefBuilder::new();
   let key: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, str_key)?;
   for _ in 0..10 {
-    Util::to_ints_ref(&key, &mut builder);
+    Util::to_ints_ref(&key, &mut builder)?;
     fst_compiler.add(builder.get(), outputs.get_no_output())?;
   }
 
@@ -667,13 +667,13 @@ fn test_simple() -> Result<()> {
   let c: BytesRef<Rc<Vec<u8>>> = new_bytes_ref_from_string(&mut random, "c")?;
 
   let mut v = IntsRefBuilder::new();
-  Util::to_ints_ref(&a, &mut v);
+  Util::to_ints_ref(&a, &mut v)?;
   fst_compiler.add(v.get(), Arc::new(17))?;
   let mut v = IntsRefBuilder::new();
-  Util::to_ints_ref(&b, &mut v);
+  Util::to_ints_ref(&b, &mut v)?;
   fst_compiler.add(v.get(), Arc::new(42))?;
   let mut v = IntsRefBuilder::new();
-  Util::to_ints_ref(&c, &mut v);
+  Util::to_ints_ref(&c, &mut v)?;
   fst_compiler.add(v.get(), Arc::new(13824324872317238))?;
 
   let fst_metadata = fst_compiler.compile()?.unwrap();
@@ -930,7 +930,7 @@ fn test_expanded_close_to_root() -> Result<()> {
     for w in lines.iter() {
       let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(w);
       let mut scratch = IntsRefBuilder::new();
-      Util::to_ints_ref(&bytes, &mut scratch);
+      Util::to_ints_ref(&bytes, &mut scratch)?;
       fst_compiler.add(scratch.get(), nothing.clone())?;
     }
 
@@ -1004,9 +1004,9 @@ fn test_final_output_on_end_state() {
     .expect("");
 
   let mut scratch = IntsRefBuilder::new();
-  Util::to_utf32("slat", &mut scratch);
+  let _ = Util::to_utf32("slat", &mut scratch);
   fst_compiler.add(scratch.get(), Arc::new(10)).expect("");
-  Util::to_utf32("st", &mut scratch);
+  let _ = Util::to_utf32("st", &mut scratch);
   fst_compiler.add(scratch.get(), Arc::new(17)).expect("");
 
   let metadata = fst_compiler.compile().expect("").unwrap();
@@ -1030,9 +1030,9 @@ fn test_internal_final_state() -> Result<()> {
   let station: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "station")?;
 
   let mut scratch = IntsRefBuilder::new();
-  Util::to_ints_ref(&stat, &mut scratch);
+  Util::to_ints_ref(&stat, &mut scratch)?;
   fst_compiler.add(scratch.get(), nothing.clone())?;
-  Util::to_ints_ref(&station, &mut scratch);
+  Util::to_ints_ref(&station, &mut scratch)?;
   fst_compiler.add(scratch.get(), nothing.clone())?;
 
   let metadata = fst_compiler.compile()?.unwrap();
@@ -1065,11 +1065,11 @@ fn test_save_different_meta_out() -> Result<()> {
   let key2: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "aac")?;
   let key3: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "ax")?;
 
-  Util::to_ints_ref(&key1, &mut scratch);
+  Util::to_ints_ref(&key1, &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(22))?;
-  Util::to_ints_ref(&key2, &mut scratch);
+  Util::to_ints_ref(&key2, &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(7))?;
-  Util::to_ints_ref(&key3, &mut scratch);
+  Util::to_ints_ref(&key3, &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(17))?;
 
   // Compile and load once
@@ -1103,13 +1103,13 @@ fn test_save_different_meta_out() -> Result<()> {
   let metadata = read_metadata(&mut meta_in, outputs.clone())?;
   let loaded_fst = FST::from_on_heap_store(metadata, &mut data_in)?;
 
-  Util::to_ints_ref(&key1, &mut scratch);
+  Util::to_ints_ref(&key1, &mut scratch)?;
   assert_eq!(*Util::get_from_bytes(&loaded_fst, &key1)?.unwrap(), 22);
 
-  Util::to_ints_ref(&key2, &mut scratch);
+  Util::to_ints_ref(&key2, &mut scratch)?;
   assert_eq!(*Util::get_from_bytes(&loaded_fst, &key2)?.unwrap(), 7);
 
-  Util::to_ints_ref(&key3, &mut scratch);
+  Util::to_ints_ref(&key3, &mut scratch)?;
   assert_eq!(*Util::get_from_bytes(&loaded_fst, &key3)?.unwrap(), 17);
 
   Ok(())
@@ -1248,11 +1248,11 @@ fn test_shortest_paths() -> Result<()> {
   let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
 
   let mut scratch = IntsRefBuilder::new();
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(22))?;
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(7))?;
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(17))?;
 
   let metadata = fst_compiler.compile()?.unwrap();
@@ -1272,15 +1272,15 @@ fn test_shortest_paths() -> Result<()> {
   assert!(res.is_complete);
   assert_eq!(3, res.top_n.len());
 
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch)?;
   assert_eq!(scratch.get(), &res.top_n[0].input);
   assert_eq!(7, *res.top_n[0].output);
 
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch)?;
   assert_eq!(scratch.get(), &res.top_n[1].input);
   assert_eq!(17, *res.top_n[1].output);
 
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch)?;
   assert_eq!(scratch.get(), &res.top_n[2].input);
   assert_eq!(22, *res.top_n[2].output);
 
@@ -1292,15 +1292,15 @@ fn test_reject_no_limits() -> Result<()> {
   let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
 
   let mut scratch = IntsRefBuilder::new();
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aab"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(22))?;
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(7))?;
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("adcd"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("adcd"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(17))?;
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("adcde"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("adcde"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(17))?;
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("ax"), &mut scratch)?;
   fst_compiler.add(scratch.get(), Arc::new(17))?;
 
   let metadata = fst_compiler.compile()?.unwrap();
@@ -1325,7 +1325,7 @@ fn test_reject_no_limits() -> Result<()> {
   assert!(res.is_complete);
 
   assert_eq!(1, res.top_n.len());
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("aac"), &mut scratch)?;
   assert_eq!(scratch.get(), &res.top_n[0].input);
   assert_eq!(7, *res.top_n[0].output);
 
@@ -1379,7 +1379,7 @@ fn test_shortest_paths_random() -> Result<()> {
   }
 
   for (key, value) in &slow_completor {
-    Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string(key), &mut scratch);
+    Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string(key), &mut scratch)?;
     fst_compiler.add(scratch.get(), Arc::new(*value))?;
   }
 
@@ -1417,7 +1417,7 @@ fn test_shortest_paths_random() -> Result<()> {
       if key.starts_with(&prefix) {
         let suffix = &key[prefix.len()..];
         let mut input = IntsRefBuilder::new();
-        Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string(suffix), &mut input);
+        Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string(suffix), &mut input)?;
         matches.push(TopResult::new(
           input.to_ints_ref(),
           Arc::new(value - prefix_output),
@@ -1459,7 +1459,7 @@ fn test_large_outputs_on_array_arcs() -> Result<()> {
 
   let bytes = vec![0u8; 300];
   let mut input = IntsRefBuilder::new();
-  input.append(0);
+  input.append(0)?;
   let mut output = BytesRef::from_bytes(bytes);
 
   for arc in 0..6 {
@@ -1515,7 +1515,7 @@ fn test_illegally_modify_root_arc() -> Result<()> {
 
   let mut input = IntsRefBuilder::new();
   for term in &terms_list {
-    Util::to_ints_ref(term, &mut input);
+    Util::to_ints_ref(term, &mut input)?;
     fst_compiler.add(input.get(), term.clone())?;
   }
 
@@ -1544,13 +1544,13 @@ fn test_simple_depth() -> Result<()> {
   let bd: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "bd")?;
 
   let mut builder = IntsRefBuilder::new();
-  Util::to_ints_ref(&ab, &mut builder);
+  Util::to_ints_ref(&ab, &mut builder)?;
   fst_compiler.add(builder.get(), Arc::new(3))?;
 
-  Util::to_ints_ref(&ac, &mut builder);
+  Util::to_ints_ref(&ac, &mut builder)?;
   fst_compiler.add(builder.get(), Arc::new(5))?;
 
-  Util::to_ints_ref(&bd, &mut builder);
+  Util::to_ints_ref(&bd, &mut builder)?;
   fst_compiler.add(builder.get(), Arc::new(7))?;
 
   let metadata = fst_compiler.compile()?.unwrap();

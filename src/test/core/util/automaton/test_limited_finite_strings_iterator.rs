@@ -81,7 +81,7 @@ fn test_singleton() -> Result<()> {
   assert_eq!(1, actual.len());
 
   let mut scratch = IntsRefBuilder::new();
-  Util::to_utf32_with_slice("foobar", 0, 6, &mut scratch);
+  Util::to_utf32_with_slice("foobar", 0, 6, &mut scratch)?;
   assert!(actual.contains(scratch.get()));
 
   Ok(())

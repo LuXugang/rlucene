@@ -160,7 +160,7 @@ pub fn build_fst(
   for word in words {
     let mut v = IntsRefBuilder::new();
     let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(word);
-    Util::to_ints_ref(&bytes, &mut v);
+    Util::to_ints_ref(&bytes, &mut v)?;
     compiler.add(v.get(), outputs.get_no_output())?;
   }
 

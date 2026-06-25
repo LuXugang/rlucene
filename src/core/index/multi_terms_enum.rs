@@ -304,7 +304,7 @@ where
       seek_opt = true;
     }
 
-    self.last_seek_scratch.copy_bytes_from_ref(term);
+    self.last_seek_scratch.copy_bytes_from_ref(term)?;
     self.last_seek = Some(self.last_seek_scratch.get_bytes_owner());
 
     for i in 0..(self.num_subs as usize) {

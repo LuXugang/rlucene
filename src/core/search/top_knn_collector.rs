@@ -69,7 +69,7 @@ impl KnnCollector for TopKnnCollector {
   }
 
   fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool> {
-    Ok(self.queue.insert_with_overflow(doc_id, similarity))
+    self.queue.insert_with_overflow(doc_id, similarity)
   }
 
   fn min_competitive_similarity(&self) -> Result<f32> {

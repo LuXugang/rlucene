@@ -58,17 +58,18 @@ impl StringsToAutomaton {
     }
   }
   /// Copies `current` into an internal buffer.
-  fn set_previous(&mut self, current: &BytesRef<Vec<u8>>) {
+  fn set_previous(&mut self, current: &BytesRef<Vec<u8>>) -> Result<()> {
     match &mut self.previous {
       Some(prev) => {
-        prev.copy_bytes_from_ref(current);
+        prev.copy_bytes_from_ref(current)?;
       },
       None => {
         let mut builder = BytesRefBuilder::new();
-        builder.copy_bytes_from_ref(current);
+        builder.copy_bytes_from_ref(current)?;
         self.previous = Some(builder);
       },
     }
+    Ok(())
   }
   fn create_state(&mut self) -> usize {
     self.all_states.push(State::new());
@@ -93,7 +94,7 @@ impl StringsToAutomaton {
 
     for (i, &target) in s.states.iter().enumerate() {
       let v = Self::convert(a, target, all_states, visited)?;
-      a.add_transition_label(converted, v, s.labels[i]);
+      a.add_transition_label(converted, v, s.labels[i])?;
     }
 
     Ok(converted)
@@ -161,7 +162,7 @@ impl StringsToAutomaton {
         prev.bytes_ref, current
       )));
     }
-    self.set_previous(current);
+    self.set_previous(current)?;
     let mut code_point = UTF8CodePoint::default();
 
     let bytes = &current.bytes;

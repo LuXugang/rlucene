@@ -31,7 +31,7 @@ pub trait CharTermAttribute: Attribute + Display {
   /// - `buffer`: the source character slice  
   /// - `offset`: index of first character to copy  
   /// - `length`: number of characters to copy  
-  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize);
+  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()>;
 
   /// Returns the internal term buffer which you can directly alter.
   ///
@@ -48,7 +48,7 @@ pub trait CharTermAttribute: Attribute + Display {
   /// # Returns
   ///
   /// A mutable slice to the new buffer (with `len() >= new_size`).
-  fn resize_buffer(&mut self, new_size: usize) -> &mut [char];
+  fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]>;
 
   /// Sets the number of valid characters (length of the term) in the term buffer.
   ///
@@ -81,21 +81,21 @@ pub trait CharTermAttribute: Attribute + Display {
   /// # Returns
   ///
   /// `self` for chaining.
-  fn append_char(&mut self, c: char) -> &mut Self;
+  fn append_char(&mut self, c: char) -> Result<&mut Self>;
 
   /// Appends the specified `&str` to this term.
   ///
   /// # Returns
   ///
   /// `self` for chaining.
-  fn append_str(&mut self, s: Option<&str>) -> &mut Self;
+  fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self>;
 
   /// Appends the contents of another `CharTermAttribute` to this term.
   ///
   /// # Returns
   ///
   /// `self` for chaining.
-  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> &mut Self
+  fn append_term_attribute<C>(&mut self, term_att: Option<&mut C>) -> Result<&mut Self>
   where
     C: CharTermAttribute;
 }

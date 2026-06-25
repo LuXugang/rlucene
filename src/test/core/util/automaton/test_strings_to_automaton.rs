@@ -191,7 +191,7 @@ fn check_automaton(expected: &[BytesRef<Vec<u8>>], a: Automaton, is_binary: bool
 
   // Make sure every term produced by the automaton is expected
   let mut scratch = BytesRefBuilder::new();
-  let mut it = FiniteStringsIterator::new(&c.run_automaton.as_ref().unwrap().base.automaton);
+  let mut it = FiniteStringsIterator::new(&c.run_automaton.as_ref().unwrap().base.automaton)?;
   while let Some(r) = it.next()? {
     let t = Util::to_bytes_ref(&r, &mut scratch)?;
     assert!(

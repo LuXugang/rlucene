@@ -29,7 +29,7 @@ pub trait ByteRunnable {
   ///
   /// # Returns
   /// The next state, or -1 if no such transition.
-  fn step(&mut self, state: i32, c: i32) -> i32;
+  fn step(&mut self, state: i32, c: i32) -> Result<i32>;
 
   /// Returns acceptance status for given state.
   ///
@@ -61,7 +61,7 @@ pub trait ByteRunnable {
     let mut p = 0;
     let end = offset + length;
     for &b in &s[offset..end] {
-      p = self.step(p, b as i32);
+      p = self.step(p, b as i32)?;
       if p == -1 {
         return Ok(false);
       }

@@ -56,13 +56,13 @@ pub struct FiniteStringsIterator<'a> {
 impl<'a> FiniteStringsIterator<'a> {
   /// Constructs an iterator for all finite strings of the automaton starting
   /// from 0
-  pub fn new(a: &'a Automaton) -> Self {
+  pub fn new(a: &'a Automaton) -> Result<Self> {
     Self::with_start_end(a, 0, -1)
   }
 
   /// Constructs an iterator for all finite strings of the automaton starting
   /// from given state
-  pub fn with_start_end(a: &'a Automaton, start_state: i32, end_state: i32) -> Self {
+  pub fn with_start_end(a: &'a Automaton, start_state: i32, end_state: i32) -> Result<Self> {
     let num_states = a.get_num_states();
     let mut nodes = Vec::with_capacity(16);
     for _ in 0..16 {
@@ -77,26 +77,24 @@ impl<'a> FiniteStringsIterator<'a> {
     if num_states > start_state && a.get_num_transitions_with_state(start_state) > 0 {
       path_states.insert(start_state as usize);
       nodes[0].reset_state(a, start_state);
-      string.append(start_state);
+      string.append(start_state)?;
     }
 
-    Self {
+    Ok(Self {
       a,
       end_state,
       path_states,
       string,
       nodes,
       emit_empty_string,
-    }
+    })
   }
 
   /// Grow path stack, if required.
   fn grow_stack(&mut self, depth: usize) -> Result<()> {
     if self.nodes.len() == depth {
       let min_target_size = self.nodes.len() + 1;
-      // TODO: _bytes_per_element `4` currently is a padding value
-      let new_len = ArrayUtil::oversize(min_target_size, 4);
-      ArrayUtil::grow_exact(&mut self.nodes, new_len)?;
+      ArrayUtil::grow_with_len(&mut self.nodes, min_target_size)?;
     }
     Ok(())
   }
@@ -131,7 +129,7 @@ impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
           self.nodes[depth].reset_state(self.a, to);
           depth += 1;
           self.string.set_length(depth);
-          self.string.grow(depth);
+          self.string.grow(depth)?;
         } else if self.end_state == to || self.a.is_accept(to) {
           // This transition leads to an accept state, so we save the current string:
           return Ok(Some(Cow::Borrowed(self.string.get())));

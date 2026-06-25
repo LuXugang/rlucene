@@ -70,10 +70,11 @@ impl PagedBytes {
       bytes_used_per_block,
     }
   }
-  fn add_block(&mut self, block: Vec<u8>) {
-    ArrayUtil::grow_with_len(&mut self.blocks, self.num_blocks + 1);
+  fn add_block(&mut self, block: Vec<u8>) -> Result<()> {
+    ArrayUtil::grow_with_len(&mut self.blocks, self.num_blocks + 1)?;
     self.blocks[self.num_blocks] = block;
     self.num_blocks += 1;
+    Ok(())
   }
   /// Read this many bytes from in
   pub fn copy_with_input(
@@ -85,7 +86,7 @@ impl PagedBytes {
       let mut left = self.block_size - self.upto;
       if left == 0 {
         if let Some(block) = self.current_block.take() {
-          self.add_block(block);
+          self.add_block(block)?;
         }
         self.current_block = Some(vec![0u8; self.block_size]);
         self.upto = 0;
@@ -132,9 +133,9 @@ impl PagedBytes {
       if trim && self.upto < self.block_size {
         block = block[..self.upto].to_vec();
       }
-      self.add_block(block);
+      self.add_block(block)?;
     } else {
-      self.add_block(Vec::new());
+      self.add_block(Vec::new())?;
     }
 
     self.frozen = true;
@@ -172,7 +173,7 @@ impl PagedBytes {
         )));
       }
       if let Some(block) = self.current_block.take() {
-        self.add_block(block);
+        self.add_block(block)?;
       }
       self.current_block = Some(vec![0u8; self.block_size]);
       self.upto = 0;
@@ -458,7 +459,7 @@ impl DataOutput for PagedBytesDataOutput {
   fn write_byte(&mut self, b: u8) -> Result<()> {
     if self.paged_bytes.upto == self.paged_bytes.block_size {
       if let Some(block) = self.paged_bytes.current_block.take() {
-        self.paged_bytes.add_block(block);
+        self.paged_bytes.add_block(block)?;
       }
       self.paged_bytes.current_block = Some(vec![0u8; self.paged_bytes.block_size]);
       self.paged_bytes.upto = 0;
@@ -488,7 +489,7 @@ impl DataOutput for PagedBytesDataOutput {
 
     if self.paged_bytes.upto == self.paged_bytes.block_size {
       if let Some(block) = self.paged_bytes.current_block.take() {
-        self.paged_bytes.add_block(block);
+        self.paged_bytes.add_block(block)?;
       }
       self.paged_bytes.current_block = Some(vec![0u8; self.paged_bytes.block_size]);
       self.paged_bytes.upto = 0;
@@ -507,7 +508,7 @@ impl DataOutput for PagedBytesDataOutput {
       if block_left < left {
         current_block.copy_from(&b[offset..offset + block_left], self.paged_bytes.upto);
         let old_block = std::mem::replace(current_block, vec![0u8; self.paged_bytes.block_size]);
-        self.paged_bytes.add_block(old_block);
+        self.paged_bytes.add_block(old_block)?;
 
         self.paged_bytes.upto = 0;
         offset += block_left;

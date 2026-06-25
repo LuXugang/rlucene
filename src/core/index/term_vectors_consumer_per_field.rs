@@ -51,7 +51,10 @@ pub(crate) struct TermVectorsConsumerPerField {
   base: TermsHashPerField,
 }
 impl TermVectorsConsumerPerField {
-  pub(crate) fn new<D>(terms_hash: &TermVectorsConsumer<D>, field_info: Arc<FieldInfo>) -> Self
+  pub(crate) fn new<D>(
+    terms_hash: &TermVectorsConsumer<D>,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<Self>
   where
     D: Directory,
   {
@@ -62,9 +65,9 @@ impl TermVectorsConsumerPerField {
       postings_array_wrapper,
       field_info.name.clone(),
       field_info.index_options,
-    );
+    )?;
     let field_name = field_info.name.clone();
-    Self {
+    Ok(Self {
       field_info,
       do_vectors: false,
       do_vector_positions: false,
@@ -74,7 +77,7 @@ impl TermVectorsConsumerPerField {
       has_payloads: false,
       field_name,
       base,
-    }
+    })
   }
 
   pub(crate) fn finish_document<D>(
@@ -218,7 +221,7 @@ impl TermVectorsConsumerPerField {
         self.base.reset(byte_pool);
       }
 
-      self.base.reinit_hash();
+      self.base.reinit_hash()?;
 
       self.has_payloads = false;
 
@@ -408,13 +411,14 @@ impl TermVectorsConsumerPerField {
     &self,
     term_vectors_consumer: &mut TermVectorsConsumer<D>,
     meta: PerFieldMeta,
-  ) where
+  ) -> Result<()>
+  where
     D: Directory,
   {
     if !self.do_vectors || self.base.get_num_terms() == 0 {
-      return;
+      return Ok(());
     }
-    term_vectors_consumer.add_field_to_flush(meta);
+    term_vectors_consumer.add_field_to_flush(meta)
   }
 }
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {

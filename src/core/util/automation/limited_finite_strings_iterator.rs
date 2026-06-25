@@ -51,7 +51,7 @@ impl<'a> LimitedFiniteStringsIterator<'a> {
     Ok(Self {
       limit: if limit > 0 { limit } else { i32::MAX },
       count: 0,
-      base: FiniteStringsIterator::new(automaton),
+      base: FiniteStringsIterator::new(automaton)?,
     })
   }
 

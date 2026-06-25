@@ -72,8 +72,8 @@ impl ByteRunAutomaton {
   }
 }
 impl ByteRunnable for ByteRunAutomaton {
-  fn step(&mut self, state: i32, c: i32) -> i32 {
-    self.base.step(state, c)
+  fn step(&mut self, state: i32, c: i32) -> Result<i32> {
+    Ok(self.base.step(state, c))
   }
 
   fn is_accept(&self, state: i32) -> Result<bool> {

@@ -159,7 +159,7 @@ where
       comparator.values_doc_id = self.current_docs.doc_id();
       let count = self.current_docs.doc_value_count()? as usize;
       if count > comparator.current_values.len() {
-        let new_len = ArrayUtil::oversize(count, BitUtil::LONG_BYTES);
+        let new_len = ArrayUtil::oversize(count, BitUtil::LONG_BYTES)?;
         comparator.current_values = vec![0; new_len];
       }
 

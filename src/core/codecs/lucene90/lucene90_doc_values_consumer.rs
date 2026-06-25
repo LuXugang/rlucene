@@ -498,7 +498,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     values: &mut impl SortedNumericDocValues,
     gcd: i64,
   ) -> Result<i64> {
-    let mut offsets: Vec<i64> = vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES)];
+    let mut offsets: Vec<i64> = vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES)?];
     let mut offsets_index: usize = 0;
     const NUMERIC_BLOCK_SIZE: usize = Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize;
     let mut buffer = [0i64; NUMERIC_BLOCK_SIZE];
@@ -512,7 +512,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         upto += 1;
 
         if upto == NUMERIC_BLOCK_SIZE {
-          ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1);
+          ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1)?;
           offsets[offsets_index] = self.data.get_file_pointer()? as i64;
           offsets_index += 1;
           self.write_block(&buffer, NUMERIC_BLOCK_SIZE, gcd, &mut encode_buffer)?;
@@ -522,7 +522,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       doc = values.next_doc()?;
     }
     if upto > 0 {
-      ArrayUtil::grow_with_len(&mut offsets, offsets_index);
+      ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1)?;
       offsets[offsets_index] = self.data.get_file_pointer()? as i64;
       offsets_index += 1;
       self.write_block(&buffer[..upto], upto, gcd, &mut encode_buffer)?;
@@ -690,7 +690,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         }
 
         max_length = max_length.max(length);
-        previous.copy_bytes_from_ref(term.as_ref());
+        previous.copy_bytes_from_ref(term.as_ref())?;
         ord += 1;
       }
       // Compress and write out the last block
@@ -749,7 +749,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
     let original_length = terms_dict_buffer.len();
     if pos + term_length >= original_length - 1 {
-      ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length);
+      ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length)?;
       debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
       let terms_dict_buffer_len = terms_dict_buffer.len();
       buffered_output.reset_with_range(pos, terms_dict_buffer_len - pos)?;
@@ -804,7 +804,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         } else if (ord & Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
           == Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64
         {
-          previous.copy_bytes_from_ref(&term);
+          previous.copy_bytes_from_ref(&term)?;
         }
         ord += 1;
       }
@@ -1394,7 +1394,7 @@ where
     let doc = self.value.next_doc()?;
     if doc != NO_MORE_DOCS {
       self.doc_value_count = self.value.doc_value_count()?;
-      ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count as usize);
+      ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count as usize)?;
       for i in 0..self.doc_value_count {
         self.ords[i as usize] = self.value.next_ord()?;
       }

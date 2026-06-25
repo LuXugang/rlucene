@@ -51,10 +51,10 @@ struct TestAutomaton;
 #[test]
 fn test_basic() -> Result<()> {
   let mut a = Automaton::new();
-  let start = a.create_state();
-  let x = a.create_state();
-  let y = a.create_state();
-  let end = a.create_state();
+  let start = a.create_state()?;
+  let x = a.create_state()?;
+  let y = a.create_state()?;
+  let end = a.create_state()?;
   a.set_accept(end, true);
 
   a.add_transition(start, x, 'a' as i32, 'a' as i32)?;
@@ -68,8 +68,8 @@ fn test_basic() -> Result<()> {
 #[test]
 fn test_reduce_basic() -> Result<()> {
   let mut a = Automaton::new();
-  let start = a.create_state();
-  let end = a.create_state();
+  let start = a.create_state()?;
+  let end = a.create_state()?;
   a.set_accept(end, true);
 
   // Should collapse to a-b:
@@ -244,8 +244,8 @@ fn test_common_prefix_remove_dead_states() -> Result<()> {
 #[test]
 fn test_common_prefix_optional() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let fini = a.create_state();
+  let init = a.create_state()?;
+  let fini = a.create_state()?;
   a.set_accept(init, true);
   a.set_accept(fini, true);
   a.add_transition(init, fini, 'm' as i32, 'm' as i32)?;
@@ -261,9 +261,9 @@ fn test_common_prefix_optional() -> Result<()> {
 #[test]
 fn test_common_prefix_nfa() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let medial = a.create_state();
-  let fini = a.create_state();
+  let init = a.create_state()?;
+  let medial = a.create_state()?;
+  let fini = a.create_state()?;
   a.set_accept(fini, true);
   a.add_transition(init, medial, 'm' as i32, 'm' as i32)?;
   a.add_transition(init, fini, 'm' as i32, 'm' as i32)?;
@@ -279,9 +279,9 @@ fn test_common_prefix_nfa() -> Result<()> {
 #[test]
 fn test_common_prefix_nfa_infinite() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let medial = a.create_state();
-  let fini = a.create_state();
+  let init = a.create_state()?;
+  let medial = a.create_state()?;
+  let fini = a.create_state()?;
   a.set_accept(fini, true);
   a.add_transition(init, medial, 'm' as i32, 'm' as i32)?;
   a.add_transition(init, fini, 'm' as i32, 'm' as i32)?;
@@ -488,8 +488,8 @@ fn test_interval() -> Result<()> {
 #[test]
 fn test_common_suffix() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let fini = a.create_state();
+  let init = a.create_state()?;
+  let fini = a.create_state()?;
   a.set_accept(init, true);
   a.set_accept(fini, true);
   a.add_transition_label(init, fini, 'm' as i32)?;
@@ -627,7 +627,7 @@ fn test_any_string_empty_string() -> Result<()> {
 #[test]
 fn test_basic_is_empty() -> Result<()> {
   let mut a = Automaton::new();
-  a.create_state();
+  a.create_state()?;
   assert!(Operations::is_empty(&a));
   Ok(())
 }
@@ -643,8 +643,8 @@ fn test_remove_dead_transitions_empty() -> Result<()> {
 #[should_panic(expected = "from state")]
 fn test_invalid_add_transition() {
   let mut a = Automaton::new();
-  let s1 = a.create_state();
-  let s2 = a.create_state();
+  let s1 = a.create_state().unwrap();
+  let s2 = a.create_state().unwrap();
   a.add_transition(s1, s2, 'a' as i32, 'a' as i32).unwrap();
   a.add_transition(s2, s2, 'a' as i32, 'a' as i32).unwrap();
   // This should panic because transitions on s1 were already added
@@ -679,7 +679,7 @@ fn test_builder_random() -> Result<()> {
 
     all_trans.shuffle(&mut random1);
     for t in all_trans {
-      builder.add_transition(t.source, t.dest, t.min, t.max);
+      builder.add_transition(t.source, t.dest, t.min, t.max)?;
     }
 
     let v1 = Operations::remove_dead_states(&a)?;
@@ -697,8 +697,8 @@ fn test_is_total() -> Result<()> {
   assert!(!Operations::is_total(&Automaton::new())?);
 
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let fini = a.create_state();
+  let init = a.create_state()?;
+  let fini = a.create_state()?;
   a.set_accept(fini, true);
   a.add_transition(init, fini, char::MIN as i32, char::MAX as i32)?;
   a.finish_state()?;
@@ -720,8 +720,8 @@ fn test_is_total() -> Result<()> {
 #[test]
 fn test_minimize_empty() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let fini = a.create_state();
+  let init = a.create_state()?;
+  let fini = a.create_state()?;
   a.add_transition_label(init, fini, 'a' as i32)?;
   a.finish_state()?;
 
@@ -858,7 +858,7 @@ fn assert_matches(a: &Automaton, strings: &[&str]) -> Result<()> {
   let mut scratch = IntsRefBuilder::new();
 
   for s in strings {
-    Util::to_utf32(s, &mut scratch);
+    Util::to_utf32(s, &mut scratch)?;
     let v = scratch.get_owner();
     expected.insert(v);
   }
@@ -922,8 +922,8 @@ fn test_remove_dead_states_empty2() -> Result<()> {
 #[test]
 fn test_remove_dead_states_empty3() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let fini = a.create_state();
+  let init = a.create_state()?;
+  let fini = a.create_state()?;
   a.add_transition_label(init, fini, 'a' as i32)?;
 
   let a2 = Operations::remove_dead_states(&a)?;
@@ -947,8 +947,8 @@ fn test_concat_empty() -> Result<()> {
 #[test]
 fn test_seems_non_empty_but_is_not1() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let s = a.create_state();
+  let init = a.create_state()?;
+  let s = a.create_state()?;
   a.add_transition_label(init, s, 'a' as i32)?;
   a.finish_state()?;
   assert!(Operations::is_empty(&a));
@@ -958,10 +958,10 @@ fn test_seems_non_empty_but_is_not1() -> Result<()> {
 #[test]
 fn test_seems_non_empty_but_is_not2() -> Result<()> {
   let mut a = Automaton::new();
-  let init = a.create_state();
-  let s = a.create_state();
+  let init = a.create_state()?;
+  let s = a.create_state()?;
   a.add_transition_label(init, s, 'a' as i32)?;
-  let orphan = a.create_state();
+  let orphan = a.create_state()?;
   a.set_accept(orphan, true);
   a.finish_state()?;
   assert!(Operations::is_empty(&a));
@@ -971,7 +971,7 @@ fn test_seems_non_empty_but_is_not2() -> Result<()> {
 fn test_same_language1() -> Result<()> {
   let a = Automata::make_empty_string()?;
   let mut a2 = Automata::make_empty_string()?;
-  let state = a2.create_state();
+  let state = a2.create_state()?;
   a2.add_transition_label(0, state, 'a' as i32)?;
   a2.finish_state()?;
 
@@ -1075,8 +1075,8 @@ fn test_random_finite() -> Result<()> {
         let mut new_terms = BTreeSet::new();
         let mut new_term = BytesRefBuilder::new();
         for term in &terms {
-          new_term.copy_bytes_from_ref(&prefix);
-          new_term.append(term);
+          new_term.copy_bytes_from_ref(&prefix)?;
+          new_term.append(term)?;
           new_terms.insert(new_term.get_bytes_ref_copy());
         }
         terms = new_terms;
@@ -1093,8 +1093,8 @@ fn test_random_finite() -> Result<()> {
         let mut new_terms = BTreeSet::new();
         let mut b = BytesRefBuilder::new();
         for term in &terms {
-          b.copy_bytes_from_ref(term);
-          b.append(&suffix);
+          b.copy_bytes_from_ref(term)?;
+          b.append(&suffix)?;
           new_terms.insert(b.get_bytes_ref_copy());
         }
         terms = new_terms;
@@ -1176,8 +1176,8 @@ fn test_random_finite() -> Result<()> {
 
         for &prefix in &prefixes {
           let mut a2 = Automaton::new();
-          let init = a2.create_state();
-          let state = a2.create_state();
+          let init = a2.create_state()?;
+          let state = a2.create_state()?;
           a2.add_transition_label(init, state, prefix)?;
           a2.set_accept(state, true);
           a2.add_transition(state, state, char::MIN as i32, char::MAX as i32)?;
@@ -1222,8 +1222,8 @@ fn test_random_finite() -> Result<()> {
 
         for &prefix in &prefixes {
           let mut a2 = Automaton::new();
-          let init = a2.create_state();
-          let state = a2.create_state();
+          let init = a2.create_state()?;
+          let state = a2.create_state()?;
           a2.add_transition_label(init, state, prefix)?;
           a2.set_accept(state, true);
           a2.add_transition(state, state, char::MIN as i32, char::MAX as i32)?;
@@ -1345,8 +1345,8 @@ fn test_random_finite() -> Result<()> {
           let mut new_term = BytesRefBuilder::new();
           for term in &terms {
             for suffix in &add_terms {
-              new_term.copy_bytes_from_ref(term);
-              new_term.append(suffix);
+              new_term.copy_bytes_from_ref(term)?;
+              new_term.append(suffix)?;
               new_terms.insert(new_term.get_bytes_ref_copy());
             }
           }
@@ -1361,8 +1361,8 @@ fn test_random_finite() -> Result<()> {
           let mut new_term = BytesRefBuilder::new();
           for term in &terms {
             for prefix in &add_terms {
-              new_term.copy_bytes_from_ref(prefix);
-              new_term.append(term);
+              new_term.copy_bytes_from_ref(prefix)?;
+              new_term.append(term)?;
               new_terms.insert(new_term.get_bytes_ref_copy());
             }
           }
@@ -1397,7 +1397,7 @@ pub fn verify_topo_sort(a: &Automaton) -> Result<Automaton> {
   let mut t = Transition::default();
 
   for &state in &sorted {
-    let new_state = a2.create_state();
+    let new_state = a2.create_state()?;
     let accept = a.is_accept(state);
     a2.set_accept(new_state, accept);
     assert_eq!(state_map[state as usize], -1);
@@ -1434,7 +1434,7 @@ where
   // Make sure all terms are accepted:
   let mut scratch: IntsRefBuilder<Vec<i32>> = IntsRefBuilder::new();
   for term in terms {
-    Util::to_ints_ref(term, &mut scratch);
+    Util::to_ints_ref(term, &mut scratch)?;
     let s = term.utf8_to_string()?;
     assert!(
       Operations::run_str(&det_a, &s),
@@ -1448,7 +1448,7 @@ where
   for term in terms {
     let mut ints_ref = IntsRefBuilder::new();
     let s = term.utf8_to_string()?;
-    Util::to_utf32(&s, &mut ints_ref);
+    Util::to_utf32(&s, &mut ints_ref)?;
     expected.insert(ints_ref.to_ints_ref());
   }
   let actual = TestOperations::get_finite_strings(a)?;
@@ -1482,7 +1482,7 @@ where
   let mut expected2 = HashSet::new();
   for term in terms {
     let mut ints_ref = IntsRefBuilder::new();
-    Util::to_ints_ref(term, &mut ints_ref);
+    Util::to_ints_ref(term, &mut ints_ref)?;
     expected2.insert(ints_ref.to_ints_ref());
   }
 
@@ -1492,7 +1492,7 @@ where
 }
 fn accepts(a: &Automaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
   let mut builder = IntsRefBuilder::new();
-  Util::to_ints_ref(b, &mut builder);
+  Util::to_ints_ref(b, &mut builder)?;
   Ok(Operations::run_ints_ref(a, builder.get()))
 }
 fn make_binary_interval(
@@ -1643,18 +1643,18 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     let prefix = new_bytes_ref_from_string(&mut random, &s)?;
 
     let mut b = BytesRefBuilder::new();
-    b.append(&prefix);
+    b.append(&prefix)?;
     let num_zeros = random.random_range(0..10);
     for _ in 0..num_zeros {
-      b.append_byte(0);
+      b.append_byte(0)?;
     }
     let min_term = b.get_bytes_ref_copy();
 
     let mut b = BytesRefBuilder::new();
-    b.append(&min_term);
+    b.append(&min_term)?;
     let num_zeros = random.random_range(0..10);
     for _ in 0..num_zeros {
-      b.append_byte(0);
+      b.append_byte(0)?;
     }
     let max_term = b.get_bytes_ref_copy();
 
@@ -1687,15 +1687,15 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     }
 
     let mut b = BytesRefBuilder::new();
-    b.append(&min_term);
+    b.append(&min_term)?;
 
     if !min_inclusive {
       assert!(!accepts(&a, &b.get_bytes_ref_copy())?);
-      b.append_byte(0);
+      b.append_byte(0)?;
     }
 
     while b.length() < max_term.length {
-      b.append_byte(0);
+      b.append_byte(0)?;
 
       let expected = if b.length() == max_term.length {
         max_inclusive
@@ -1746,7 +1746,7 @@ fn test_make_binary_interval_random() -> Result<()> {
       };
 
       let mut ints_builder = IntsRefBuilder::new();
-      Util::to_ints_ref(&term, &mut ints_builder);
+      Util::to_ints_ref(&term, &mut ints_builder)?;
       let actual = Operations::run_ints_ref(&a, &ints_builder.to_ints_ref());
       assert_eq!(expected, actual,);
     }
@@ -1760,7 +1760,7 @@ where
 {
   let mut builder = IntsRefBuilder::new();
   let b: BytesRef<Vec<u8>> = new_bytes_ref_from_string(random, s)?;
-  Util::to_ints_ref(&b, &mut builder);
+  Util::to_ints_ref(&b, &mut builder)?;
   Ok(builder.get().clone())
 }
 
@@ -2052,7 +2052,7 @@ fn test_accept_all_empty_string_min() -> Result<()> {
 fn to_ints_ref(s: &str) -> IntsRef<Vec<i32>> {
   let mut builder = IntsRefBuilder::new();
   for ch in s.chars() {
-    builder.append(ch as i32);
+    let _ = builder.append(ch as i32);
   }
   builder.get().clone()
 }
@@ -2072,7 +2072,7 @@ fn test_get_singleton() -> Result<()> {
 #[test]
 fn test_get_singleton_empty_string() -> Result<()> {
   let mut a = Automaton::new();
-  let s = a.create_state();
+  let s = a.create_state()?;
   a.set_accept(s, true);
   a.finish_state()?;
   assert_eq!(IntsRef::new(), Operations::get_singleton(&a)?.unwrap());
@@ -2082,7 +2082,7 @@ fn test_get_singleton_empty_string() -> Result<()> {
 #[test]
 fn test_get_singleton_nothing() -> Result<()> {
   let mut a = Automaton::new();
-  a.create_state();
+  a.create_state()?;
   a.finish_state()?;
   assert!(Operations::get_singleton(&a)?.is_none());
   Ok(())
@@ -2091,11 +2091,11 @@ fn test_get_singleton_nothing() -> Result<()> {
 #[test]
 fn test_get_singleton_two() -> Result<()> {
   let mut a = Automaton::new();
-  let s = a.create_state();
-  let x = a.create_state();
+  let s = a.create_state()?;
+  let x = a.create_state()?;
   a.set_accept(x, true);
   a.add_transition_label(s, x, 55)?;
-  let y = a.create_state();
+  let y = a.create_state()?;
   a.set_accept(y, true);
   a.add_transition_label(s, y, 58)?;
   a.finish_state()?;

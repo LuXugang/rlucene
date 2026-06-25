@@ -283,7 +283,7 @@ impl SegmentTermsEnumFrame {
     let num_suffix_bytes = ((code_l as u64) >> 3) as i32;
 
     if frame.suffixes_reader.bytes.len() < num_suffix_bytes as usize {
-      let new_len = ArrayUtil::oversize(num_suffix_bytes as usize, 1);
+      let new_len = ArrayUtil::oversize(num_suffix_bytes as usize, 1)?;
       frame.suffixes_reader.bytes = vec![0u8; new_len];
     }
 
@@ -303,7 +303,7 @@ impl SegmentTermsEnumFrame {
     frame.all_equal = (num_suffix_length_bytes & 0x01) != 0;
     num_suffix_length_bytes >>= 1;
     if frame.suffix_lengths_reader.bytes.len() < num_suffix_length_bytes {
-      let new_len = ArrayUtil::oversize(num_suffix_length_bytes, 1);
+      let new_len = ArrayUtil::oversize(num_suffix_length_bytes, 1)?;
       frame.suffix_lengths_reader.bytes = vec![0u8; new_len];
     }
 
@@ -328,7 +328,7 @@ impl SegmentTermsEnumFrame {
     // stats
     let mut num_bytes = input.read_vint()?.try_convert()?;
     if frame.stats_reader.bytes.len() < num_bytes {
-      let new_len = ArrayUtil::oversize(num_bytes, 1);
+      let new_len = ArrayUtil::oversize(num_bytes, 1)?;
       frame.stats_reader.bytes = vec![0u8; new_len];
     }
     input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
@@ -342,7 +342,7 @@ impl SegmentTermsEnumFrame {
     // metadata
     num_bytes = input.read_vint()?.try_convert()?;
     if frame.bytes_reader.bytes.len() < num_bytes {
-      let new_len = ArrayUtil::oversize(num_bytes, 1);
+      let new_len = ArrayUtil::oversize(num_bytes, 1)?;
       frame.bytes_reader.bytes = vec![0u8; new_len];
     }
     input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
@@ -411,7 +411,7 @@ impl SegmentTermsEnumFrame {
     let term_len = frame.prefix_length + frame.suffix_length;
     ste.term.set_length(term_len);
     let len = ste.term.length();
-    ste.term.grow(len);
+    ste.term.grow(len)?;
 
     frame.suffixes_reader.read_bytes(
       ste.term.get_bytes_mut_ref().bytes.as_mut(),
@@ -482,7 +482,7 @@ impl SegmentTermsEnumFrame {
       let term_len = frame.prefix_length + frame.suffix_length;
       ste.term.set_length(term_len);
       let len = ste.term.length();
-      ste.term.grow(len);
+      ste.term.grow(len)?;
 
       frame.suffixes_reader.read_bytes(
         ste.term.get_bytes_mut_ref().bytes.as_mut(),
@@ -749,7 +749,7 @@ impl SegmentTermsEnumFrame {
 
       if frame.next_ent == frame.ent_count {
         if exact_only {
-          Self::fill_term(frame_idx, ste);
+          Self::fill_term(frame_idx, ste)?;
         }
         return Ok(SeekStatus::End);
       }
@@ -784,7 +784,7 @@ impl SegmentTermsEnumFrame {
       } else if cmp > 0 {
         // Done!  Current entry is after target --
         // return NOT_FOUND:
-        Self::fill_term(frame_idx, ste);
+        Self::fill_term(frame_idx, ste)?;
         return Ok(SeekStatus::NotFound);
       } else {
         // Exact match!
@@ -792,7 +792,7 @@ impl SegmentTermsEnumFrame {
         // This cannot be a sub-block because we
         // would have followed the index to this
         // sub-block from the start:
-        Self::fill_term(frame_idx, ste);
+        Self::fill_term(frame_idx, ste)?;
         return Ok(SeekStatus::Found);
       }
       if frame.next_ent >= frame.ent_count {
@@ -809,7 +809,7 @@ impl SegmentTermsEnumFrame {
     // was fooz (and, eg, first term in the next block will
     // bee fop).
     if exact_only {
-      Self::fill_term(frame_idx, ste);
+      Self::fill_term(frame_idx, ste)?;
     }
     // TODO: not consistent that in the
     // not-exact case we don't next() into the next
@@ -842,7 +842,7 @@ impl SegmentTermsEnumFrame {
 
       if frame.next_ent == frame.ent_count {
         if exact_only {
-          Self::fill_term(frame_idx, ste);
+          Self::fill_term(frame_idx, ste)?;
         }
         return Ok(SeekStatus::End);
       }
@@ -882,7 +882,7 @@ impl SegmentTermsEnumFrame {
         frame
           .suffixes_reader
           .set_position(frame.start_byte_pos + frame.suffix_length);
-        Self::fill_term(frame_idx, ste);
+        Self::fill_term(frame_idx, ste)?;
         return Ok(SeekStatus::Found);
       }
     }
@@ -906,14 +906,14 @@ impl SegmentTermsEnumFrame {
       frame
         .suffixes_reader
         .set_position(frame.start_byte_pos + frame.suffix_length);
-      Self::fill_term(frame_idx, ste);
+      Self::fill_term(frame_idx, ste)?;
     } else {
       seek_status = SeekStatus::End;
       frame
         .suffixes_reader
         .set_position(frame.start_byte_pos + frame.suffix_length);
       if exact_only {
-        Self::fill_term(frame_idx, ste);
+        Self::fill_term(frame_idx, ste)?;
       }
     }
 
@@ -950,7 +950,7 @@ impl SegmentTermsEnumFrame {
     };
     if v {
       if exact_only {
-        Self::fill_term(frame_idx, ste);
+        Self::fill_term(frame_idx, ste)?;
         let frame = if frame_idx == ste.static_frame_idx {
           &mut ste.static_frame
         } else {
@@ -1008,7 +1008,7 @@ impl SegmentTermsEnumFrame {
         // Current entry is still before the target;
         // keep scanning
       } else if cmp > 0 {
-        Self::fill_term(frame_idx, ste);
+        Self::fill_term(frame_idx, ste)?;
         if !exact_only && !ste.term_exists {
           // TODO this
           // We are on a sub-block, and caller wants
@@ -1053,7 +1053,7 @@ impl SegmentTermsEnumFrame {
         return Ok(SeekStatus::NotFound);
       } else {
         debug_assert!(ste.term_exists);
-        Self::fill_term(frame_idx, ste);
+        Self::fill_term(frame_idx, ste)?;
         return Ok(SeekStatus::Found);
       }
     }
@@ -1067,12 +1067,12 @@ impl SegmentTermsEnumFrame {
     // was fooz (and, eg, first term in the next block will
     // bee fop).
     if exact_only {
-      Self::fill_term(frame_idx, ste);
+      Self::fill_term(frame_idx, ste)?;
     }
 
     Ok(SeekStatus::End)
   }
-  pub(crate) fn fill_term<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>)
+  pub(crate) fn fill_term<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
   where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -1084,12 +1084,13 @@ impl SegmentTermsEnumFrame {
     };
     let term_length = frame.prefix_length + frame.suffix_length;
     ste.term.set_length(term_length);
-    ste.term.grow(term_length);
+    ste.term.grow(term_length)?;
 
     let dest: &mut [u8] = ste.term.get_bytes_mut_ref().bytes.as_mut();
     let src = &frame.suffixes_reader.bytes;
     let start = frame.start_byte_pos;
     let end = start + frame.suffix_length;
     dest.copy_from(&src[start..end], frame.prefix_length);
+    Ok(())
   }
 }

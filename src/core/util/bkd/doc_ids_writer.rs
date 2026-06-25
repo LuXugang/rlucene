@@ -248,7 +248,7 @@ impl DocIdsWriter {
   ) -> Result<impl DocIdSetIterator> {
     let offset_words = input.read_vint()?;
     let long_len = input.read_vint()?.try_convert()?;
-    if let Some(new_array) = ArrayUtil::grow_no_copy(&self.scratch_longs.longs, long_len) {
+    if let Some(new_array) = ArrayUtil::grow_no_copy(&self.scratch_longs.longs, long_len)? {
       self.scratch_longs.longs = new_array
     }
     input.read_longs(&mut self.scratch_longs.longs, 0, long_len)?;

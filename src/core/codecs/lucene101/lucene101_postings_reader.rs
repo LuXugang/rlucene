@@ -1136,7 +1136,7 @@ where
           if payload_length != 0 {
             let need = self.payload_byte_upto + payload_length;
             if need as usize > self.payload_bytes.len() {
-              ArrayUtil::grow_with_len(&mut self.payload_bytes, need as usize);
+              ArrayUtil::grow_with_len(&mut self.payload_bytes, need as usize)?;
             }
 
             pos_in.read_bytes(
@@ -1187,7 +1187,7 @@ where
           .read_vint()?
           .try_convert()?;
         if num_bytes > self.payload_bytes.len() {
-          ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes);
+          ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes)?;
         }
 
         self.pay_in_util.as_mut().unwrap().input.read_bytes(

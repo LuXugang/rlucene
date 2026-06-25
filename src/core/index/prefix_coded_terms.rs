@@ -301,7 +301,7 @@ impl PrefixCodedTermsBuilder {
       0,
       suffix,
     )?;
-    self.last_term_bytes.copy_bytes_from_ref(bytes);
+    self.last_term_bytes.copy_bytes_from_ref(bytes)?;
     self.last_term.bytes = self.last_term_bytes.get_bytes_owner();
     self.last_term.field = field;
     self.size += 1;
@@ -348,7 +348,7 @@ where
   // TODO: maybe we should freeze to FST or automaton instead?
   pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
     let len = (prefix + suffix) as usize;
-    self.builder.grow(len);
+    self.builder.grow(len)?;
     self.builder.bytes_mut().bytes.access_mut(|bytes| {
       DataInput::read_bytes(&mut self.input, bytes, prefix as usize, suffix as usize)?;
       // Help the compiler infer types.

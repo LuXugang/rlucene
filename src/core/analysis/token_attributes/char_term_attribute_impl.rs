@@ -63,8 +63,7 @@ where
       attribute.extend(sub.get_attribute_name()?.clone())
     }
 
-    // TODO: IMPORTANT  _bytes_per_element not Specific
-    let size = ArrayUtil::oversize(Self::MIN_BUFFER_SIZE, 0);
+    let size = ArrayUtil::oversize(Self::MIN_BUFFER_SIZE, std::mem::size_of::<char>())?;
     Ok(Self {
       term_buffer: vec!['\0'; size],
       term_length: 0,
@@ -74,14 +73,18 @@ where
       attribute,
     })
   }
-  fn grow_term_buffer(&mut self, new_size: usize) {
+  fn grow_term_buffer(&mut self, new_size: usize) -> Result<()> {
     if self.term_buffer.len() < new_size {
-      // Not big enough; create a new array with slight
-      // over allocation:
-      // TODO: IMPORTANT  _bytes_per_element not Specific
-      let new_capacity = ArrayUtil::oversize(new_size, 0);
-      self.term_buffer = vec!['\0'; new_capacity];
+      if self.term_buffer.capacity() >= new_size {
+        self.term_buffer.resize(new_size, '\0');
+      } else {
+        // Not big enough; create a new array with slight
+        // over allocation:
+        let new_capacity = ArrayUtil::oversize(new_size, std::mem::size_of::<char>())?;
+        self.term_buffer = vec!['\0'; new_capacity];
+      }
     }
+    Ok(())
   }
 
   pub fn char_at(&self, index: usize) -> Result<char> {
@@ -94,14 +97,14 @@ where
     CoreHelper::check_from_to_index(start, end, self.term_length)?;
     Ok(&self.term_buffer[start..end])
   }
-  fn append_null(&mut self) -> &mut Self {
-    self.resize_buffer(self.term_length + 4);
+  fn append_null(&mut self) -> Result<&mut Self> {
+    self.resize_buffer(self.term_length + 4)?;
     self.term_buffer[self.term_length] = 'n';
     self.term_buffer[self.term_length + 1] = 'u';
     self.term_buffer[self.term_length + 2] = 'l';
     self.term_buffer[self.term_length + 3] = 'l';
     self.term_length += 4;
-    self
+    Ok(self)
   }
 }
 
@@ -123,12 +126,13 @@ where
     self.term_length
   }
 
-  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) {
-    self.grow_term_buffer(length);
+  fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
+    self.grow_term_buffer(length)?;
     self
       .term_buffer
       .copy_from(&buffer[offset..offset + length], 0);
-    self.term_length = length
+    self.term_length = length;
+    Ok(())
   }
 
   fn buffer_mut(&mut self) -> &mut [char] {
@@ -139,15 +143,13 @@ where
     &self.term_buffer
   }
 
-  fn resize_buffer(&mut self, new_size: usize) -> &mut [char] {
+  fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
     if self.term_buffer.len() < new_size {
       // Not big enough; create a new array with slight
       // over allocation:
-      // TODO: IMPORTANT  _bytes_per_element not Specific
-      let new_capacity = ArrayUtil::oversize(new_size, std::mem::size_of::<char>());
-      ArrayUtil::grow_with_len(&mut self.term_buffer, new_capacity);
+      ArrayUtil::grow_with_len(&mut self.term_buffer, new_size)?;
     }
-    &mut self.term_buffer
+    Ok(&mut self.term_buffer)
   }
 
   fn set_length(&mut self, length: usize) -> Result<&mut Self> {
@@ -172,7 +174,7 @@ where
       return Ok(self);
     }
 
-    self.resize_buffer(self.term_length + len);
+    self.resize_buffer(self.term_length + len)?;
     if len > 4 {
       let chars: Vec<char> = csq.chars().skip(start).take(len).collect();
       self.term_buffer.copy_from(&chars, self.term_length);
@@ -186,37 +188,37 @@ where
     Ok(self)
   }
 
-  fn append_char(&mut self, c: char) -> &mut Self {
-    self.resize_buffer(self.term_length + 1);
+  fn append_char(&mut self, c: char) -> Result<&mut Self> {
+    self.resize_buffer(self.term_length + 1)?;
     self.term_buffer[self.term_length] = c;
     self.term_length += 1;
-    self
+    Ok(self)
   }
 
-  fn append_str(&mut self, s: Option<&str>) -> &mut Self {
+  fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
     if s.is_none() {
       return self.append_null();
     }
     let s = s.unwrap();
     let chars: Vec<char> = s.chars().collect();
-    self.resize_buffer(self.term_length + chars.len());
+    self.resize_buffer(self.term_length + chars.len())?;
     self.term_buffer.copy_from(&chars, self.term_length);
     self.term_length += chars.len();
-    self
+    Ok(self)
   }
 
-  fn append_term_attribute<C>(&mut self, ta: Option<&mut C>) -> &mut Self
+  fn append_term_attribute<C>(&mut self, ta: Option<&mut C>) -> Result<&mut Self>
   where
     C: CharTermAttribute,
   {
     if let Some(other) = ta {
       let len = other.length();
-      self.resize_buffer(self.term_length + len);
+      self.resize_buffer(self.term_length + len)?;
       self
         .term_buffer
         .copy_from(&other.buffer()[0..len], self.term_length);
       self.term_length += len;
-      self
+      Ok(self)
     } else {
       self.append_null()
     }
@@ -242,9 +244,7 @@ where
     let mut copy = CharTermAttributeImpl::with_sub(self.sub.clone()).expect("should not failed");
     copy.term_buffer = self.term_buffer.clone();
     copy.term_length = self.term_length;
-    let mut builder = BytesRefBuilder::new();
-    builder.copy_bytes_from_ref(self.builder.get_bytes_ref());
-    copy.builder = builder;
+    copy.builder.bytes_ref = self.builder.bytes_ref.clone();
     copy
   }
 }
@@ -266,7 +266,7 @@ where
   type AttributeImpl = CharTermAttributeImpl<T>;
 
   fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
-    other.copy_buffer(&self.term_buffer, 0, self.term_length);
+    other.copy_buffer(&self.term_buffer, 0, self.term_length)?;
     self.sub.copy_to(&mut other.sub)
   }
 }

@@ -354,7 +354,7 @@ where
       if b == -1 {
         break;
       }
-      self.pivot.append_byte(b as u8);
+      self.pivot.append_byte(b as u8)?;
     }
     Ok(())
   }

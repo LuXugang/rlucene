@@ -276,7 +276,7 @@ fn test_singleton() -> Result<()> {
     Util::to_ints_ref(
       &new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, &s)?,
       &mut ints,
-    );
+    )?;
     let mut set = HashSet::new();
     set.insert(ints.get_owner());
 

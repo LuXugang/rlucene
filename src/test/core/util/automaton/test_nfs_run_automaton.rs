@@ -62,7 +62,7 @@ fn test_with_random_regex() -> Result<()> {
     }
 
     let dfa = Operations::determinize(&nfa, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-    let mut candidate = NFARunAutomaton::new(nfa.clone());
+    let mut candidate = NFARunAutomaton::new(nfa.clone())?;
 
     let generator = match RandomAcceptedStrings::new(&dfa) {
       Ok(g) => g,
@@ -95,8 +95,8 @@ fn test_random_access_transition() -> Result<()> {
     nfa = RegExp::from_str_with_flags(&s, RegExp::NONE)?.to_automaton()?;
   }
 
-  let mut run_automaton1 = NFARunAutomaton::new(nfa.clone());
-  let mut run_automaton2 = NFARunAutomaton::new(nfa);
+  let mut run_automaton1 = NFARunAutomaton::new(nfa.clone())?;
+  let mut run_automaton2 = NFARunAutomaton::new(nfa)?;
 
   let mut visited = HashSet::new();
   assert_random_access_transition(
@@ -262,7 +262,7 @@ where
   for _ in 0..repeat {
     let accepted_string = random_string_gen.get_random_accepted_string(random)?;
     assert!(
-      candidate.run(&accepted_string),
+      candidate.run(&accepted_string)?,
       "regExp: {} testString: {:?}",
       reg_exp,
       accepted_string
@@ -289,7 +289,7 @@ where
       .collect();
 
     let s = format!("{:?}", random_string);
-    let actual = candidate.run(&random_string);
+    let actual = candidate.run(&random_string)?;
     let expected = Operations::run_ints_ref(dfa, &IntsRef::from_slice(random_string, 0, len));
 
     assert_eq!(expected, actual, "regExp: {} testString: {:?}", reg_exp, s);

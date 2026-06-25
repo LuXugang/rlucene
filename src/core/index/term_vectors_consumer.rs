@@ -207,18 +207,21 @@ where
     self.num_vector_fields = 0;
     Ok(())
   }
-  pub(crate) fn add_field(&self, field_info: Arc<FieldInfo>) -> TermVectorsConsumerPerField {
+  pub(crate) fn add_field(
+    &self,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<TermVectorsConsumerPerField> {
     TermVectorsConsumerPerField::new(self, field_info)
   }
-  pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) {
+  pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) -> Result<()> {
     let num_vector_fields = self.num_vector_fields as usize;
     if num_vector_fields == self.per_fields_idxs.len() {
-      let new_size = ArrayUtil::oversize(num_vector_fields + 1, 0);
-      ArrayUtil::grow_with_len(&mut self.per_fields_idxs, new_size);
+      ArrayUtil::grow_with_len(&mut self.per_fields_idxs, num_vector_fields + 1)?;
     }
 
     self.per_fields_idxs[num_vector_fields] = meta;
     self.num_vector_fields += 1;
+    Ok(())
   }
   pub(crate) fn flush<DM, D1>(
     &mut self,

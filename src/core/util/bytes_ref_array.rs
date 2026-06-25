@@ -95,7 +95,7 @@ impl BytesRefArray {
       self.offsets[index + 1] - offset
     };
 
-    spare.grow_no_copy(length);
+    spare.grow_no_copy(length)?;
     spare.set_length(length);
 
     spare.bytes_mut().bytes.access_mut(|bytes| {

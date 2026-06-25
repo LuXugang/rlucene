@@ -357,7 +357,7 @@ where
           if terms_enum.prepare_seek_exact(term.bytes())?.is_some() {
             let ord = ctx.ord;
             if pending_term_lookups.len() <= ord {
-              ArrayUtil::grow_with_len(&mut pending_term_lookups, ord + 1);
+              ArrayUtil::grow_with_len(&mut pending_term_lookups, ord + 1)?;
             }
             pending_term_lookups[ord] = Some(terms_enum);
           }

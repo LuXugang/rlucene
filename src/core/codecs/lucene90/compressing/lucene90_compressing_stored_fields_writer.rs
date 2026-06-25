@@ -477,7 +477,7 @@ where
   }
   fn finish_document(&mut self) -> Result<()> {
     if self.num_buffered_docs as usize == self.num_stored_fields.len() {
-      let new_len = ArrayUtil::oversize(self.num_buffered_docs as usize + 1, 4);
+      let new_len = ArrayUtil::oversize(self.num_buffered_docs as usize + 1, 4)?;
       ArrayUtil::grow_exact(&mut self.num_stored_fields, new_len)?;
       ArrayUtil::grow_exact(&mut self.end_offsets, new_len)?;
     }

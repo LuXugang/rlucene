@@ -777,7 +777,7 @@ impl PostingsEnum for FreqProxPostingsEnum {
       // has a payload
       let payload_len = self.pos_reader.read_vint()? as usize;
       self.payload.set_length(payload_len);
-      self.payload.grow_no_copy(payload_len);
+      self.payload.grow_no_copy(payload_len)?;
 
       debug_assert!(payload_len <= i32::MAX as usize);
       self

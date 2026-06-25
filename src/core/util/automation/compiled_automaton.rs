@@ -123,7 +123,7 @@ impl CompiledAutomaton {
   ) -> Result<Self> {
     if automaton.get_num_states() == 0 {
       automaton = Automaton::new();
-      automaton.create_state();
+      automaton.create_state()?;
     }
     // simplify requires a DFA
     if simplify && automaton.is_deterministic() {
@@ -228,7 +228,7 @@ impl CompiledAutomaton {
         term,
         run_automaton: None,
 
-        nfa_run_automaton: Some(NFARunAutomaton::with_alphabet_size(binary, 0xff)),
+        nfa_run_automaton: Some(NFARunAutomaton::with_alphabet_size(binary, 0xff)?),
         common_suffix_ref,
         finite,
         sink_state: -1,
@@ -285,7 +285,7 @@ impl CompiledAutomaton {
       self.transition.max
     };
 
-    term.grow(idx + 1);
+    term.grow(idx + 1)?;
     term.set_byte_at(idx, floor_label as u8);
     state = self.transition.dest;
     idx += 1;
@@ -300,7 +300,7 @@ impl CompiledAutomaton {
       }
 
       automaton.get_transition(state, num_transitions - 1, &mut self.transition);
-      term.grow(idx + 1);
+      term.grow(idx + 1)?;
       term.set_byte_at(idx, self.transition.max as u8);
       state = self.transition.dest;
       idx += 1;
@@ -357,11 +357,11 @@ impl CompiledAutomaton {
 
     loop {
       let mut label = input.bytes[input.offset + idx] as i32;
-      let mut next_state = run_automaton.step(state, label);
+      let mut next_state = run_automaton.step(state, label)?;
 
       if idx == input.length - 1 {
         if next_state != -1 && run_automaton.is_accept(next_state)? {
-          output.grow(idx + 1);
+          output.grow(idx + 1)?;
           output.set_byte_at(idx, label as u8);
           output.set_length(input.length);
           return Ok(Some(output.get_bytes_owner()));
@@ -399,7 +399,7 @@ impl CompiledAutomaton {
         }
         return Ok(Some(self.add_tail(state, output, idx, label)?));
       } else {
-        output.grow(idx + 1);
+        output.grow(idx + 1)?;
         output.set_byte_at(idx, label as u8);
         stack.push(state);
         state = next_state;
@@ -534,8 +534,8 @@ impl AutomatonEnum {
   // -----Implement ByteRunnable----
   pub fn step(&mut self, state: i32, c: i32) -> Result<i32> {
     match self {
-      AutomatonEnum::Byte(bra) => Ok(bra.step(state, c)),
-      AutomatonEnum::NFA(nfa) => Ok(nfa.step(state, c)),
+      AutomatonEnum::Byte(bra) => bra.step(state, c),
+      AutomatonEnum::NFA(nfa) => nfa.step(state, c),
     }
   }
 

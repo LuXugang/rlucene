@@ -70,7 +70,7 @@ where
   if random.random_bool(0.5) {
     num_bits = TestUtil::next_int(random, num_bits, 32);
   }
-  sorter.sort(num_bits as usize, arr, len);
+  sorter.sort(num_bits as usize, arr, len)?;
   let actual = arr[..len].to_vec();
   assert_eq!(expected, actual);
   Ok(())

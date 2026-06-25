@@ -295,7 +295,7 @@ impl AutomatonTestUtil {
           char::MAX as i32
         };
 
-        result.add_transition(r, q, min, max);
+        result.add_transition(r, q, min, max)?;
       }
     }
 
@@ -349,7 +349,7 @@ impl AutomatonTestUtil {
         return false;
       }
       for label in t.min..=t.max {
-        path.append(label);
+        let _ = path.append(label);
 
         if a.is_accept(t.dest) {
           strings.insert(path.to_ints_ref());

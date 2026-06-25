@@ -198,8 +198,11 @@ where
     self.next_terms_hash.start_document()?;
     Ok(())
   }
-  pub(crate) fn add_field(&self, field_info: Arc<FieldInfo>) -> FreqProxTermsWriterPerField {
-    let next_per_field = self.next_terms_hash.add_field(field_info.clone());
+  pub(crate) fn add_field(
+    &self,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<FreqProxTermsWriterPerField> {
+    let next_per_field = self.next_terms_hash.add_field(field_info.clone())?;
     FreqProxTermsWriterPerField::new(self, field_info, Some(next_per_field))
   }
 }
@@ -577,7 +580,7 @@ where
     // TimSorter it is often still faster for nearly-sorted inputs.
     self
       .sorter
-      .sort(num_bits, &mut self.docs, self.upto as usize);
+      .sort(num_bits, &mut self.docs, self.upto as usize)?;
     self.doc_it = -1;
     self.postings_enum = Some(postings_enum);
     Ok(())
@@ -689,15 +692,16 @@ impl TimSorterBase for DocOffsetSorter<'_> {
     self.offsets[dest] = self.offsets[src];
   }
 
-  fn save(&mut self, i: usize, len: usize) {
+  fn save(&mut self, i: usize, len: usize) -> Result<()> {
     if self.tmp_docs.len() < len {
-      let new_len = ArrayUtil::oversize(len, 0);
+      let new_len = ArrayUtil::oversize(len, std::mem::size_of::<i64>())?;
       self.tmp_docs = vec![0; new_len];
       self.tmp_offsets = vec![0; new_len];
     }
 
     self.tmp_docs.copy_from(&self.docs[i..i + len], 0);
     self.tmp_offsets.copy_from(&self.offsets[i..i + len], 0);
+    Ok(())
   }
 
   fn restore(&mut self, i: usize, j: usize) {
@@ -781,7 +785,7 @@ where
         break;
       }
       if i == self.docs.len() {
-        let new_length = ArrayUtil::oversize(i + 1, 4);
+        let new_length = ArrayUtil::oversize(i + 1, 4)?;
         ArrayUtil::grow_exact(&mut self.docs, new_length)?;
         ArrayUtil::grow_exact(&mut self.offsets, new_length)?;
       }
@@ -919,7 +923,7 @@ where
       self.payload.length = length;
 
       if self.payload.length > self.payload.bytes.len() {
-        let new_length = ArrayUtil::oversize(length, 1);
+        let new_length = ArrayUtil::oversize(length, 1)?;
         self.payload.bytes = vec![0; new_length];
       }
 

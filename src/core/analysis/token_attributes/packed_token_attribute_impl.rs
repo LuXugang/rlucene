@@ -300,8 +300,7 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
   }
 
   fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
-    CharTermAttribute::copy_buffer(self, buffer, offset, length);
-    Ok(())
+    CharTermAttribute::copy_buffer(self, buffer, offset, length)
   }
 
   fn buffer_mut(&mut self) -> Result<&mut [char]> {
@@ -313,7 +312,7 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
   }
 
   fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
-    Ok(CharTermAttribute::resize_buffer(self, new_size))
+    CharTermAttribute::resize_buffer(self, new_size)
   }
 
   fn set_length(&mut self, length: usize) -> Result<&mut Self> {
@@ -332,12 +331,12 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
   }
 
   fn append_char(&mut self, c: char) -> Result<&mut Self> {
-    CharTermAttribute::append_char(self, c);
+    CharTermAttribute::append_char(self, c)?;
     Ok(self)
   }
 
   fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
-    CharTermAttribute::append_str(self, s);
+    CharTermAttribute::append_str(self, s)?;
     Ok(self)
   }
 
@@ -345,7 +344,7 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
   where
     C: CharTermAttribute,
   {
-    CharTermAttribute::append_term_attribute(self, term_att);
+    CharTermAttribute::append_term_attribute(self, term_att)?;
     Ok(self)
   }
 

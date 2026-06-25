@@ -18,6 +18,7 @@ use crate::core::index::BytesRef;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ints_ref::IntsRef;
 
 /// A builder for [`IntsRef`] instances.
@@ -83,21 +84,22 @@ where
   }
 
   /// Appends the provided int to this buffer.
-  pub fn append(&mut self, i: i32) {
+  pub fn append(&mut self, i: i32) -> Result<()> {
     let mut len = self.ints_ref.length;
-    self.grow(len + 1);
+    self.grow(len + 1)?;
     len = self.ints_ref.length;
     self.ints_ref.ints.access_mut(|ints_bytes| {
       ints_bytes[len] = i;
     });
     self.ints_ref.length += 1;
+    Ok(())
   }
 
   /// Grows the reference array to at least `new_length`.
   ///
   /// In general, this should not be used directly, as it does not take offset
   /// into account.
-  pub fn grow(&mut self, new_length: usize) {
+  pub fn grow(&mut self, new_length: usize) -> Result<()> {
     self
       .ints_ref
       .ints
@@ -106,35 +108,43 @@ where
 
   /// Grows the reference array to at least `new_length`, without copying
   /// original data.
-  pub fn grow_no_copy(&mut self, new_length: usize) {
+  pub fn grow_no_copy(&mut self, new_length: usize) -> Result<()> {
     let v = self
       .ints_ref
       .ints
-      .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length));
+      .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length))?;
     if let Some(v) = v {
       self.ints_ref.ints = AV::from_vec(v);
     }
+    Ok(())
   }
 
   /// Copies the given slice into this instance.
-  pub fn copy_ints(&mut self, other: &[i32], other_offset: usize, other_length: usize) {
-    self.grow_no_copy(other_length);
+  pub fn copy_ints(
+    &mut self,
+    other: &[i32],
+    other_offset: usize,
+    other_length: usize,
+  ) -> Result<()> {
+    self.grow_no_copy(other_length)?;
     self.ints_ref.ints.access_mut(|ints_bytes| {
       ints_bytes.copy_from(&other[other_offset..(other_offset + other_length)], 0);
       self.ints_ref.length = other_length;
     });
+    Ok(())
   }
   /// Copies the given [`IntsRef`] into this instance.
-  pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) {
+  pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) -> Result<()> {
     ints
       .ints
       .access(|ints_bytes| self.copy_ints(ints_bytes, ints.offset, ints.length))
   }
 
   /// Copies the given UTF-8 bytes into this builder.
-  pub fn copy_utf8_bytes(&mut self, bytes: &BytesRef<Vec<u8>>) {
-    self.grow_no_copy(bytes.length);
+  pub fn copy_utf8_bytes(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
+    self.grow_no_copy(bytes.length)?;
     self.ints_ref.length = bytes.length;
+    Ok(())
   }
 
   /// Returns a reference to the internal [`IntsRef`] content.

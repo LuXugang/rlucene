@@ -181,7 +181,7 @@ where
       pending_docs: VecDeque::new(),
       cur_doc: 0,
       cur_field: 0,
-      last_term: BytesRef::with_capacity(ArrayUtil::oversize(30, 1))?,
+      last_term: BytesRef::with_capacity(ArrayUtil::oversize(30, 1)?)?,
       positions_buf: vec![0; 1024],
       start_offsets_buf: vec![0; 1024],
       lengths_buf: vec![0; 1024],
@@ -959,7 +959,7 @@ where
       .write_bytes_range(&term.bytes, term.offset + prefix, suffix_len)?;
     // copy last term
     if self.last_term.bytes.len() < term.length {
-      self.last_term.bytes = vec![0; ArrayUtil::oversize(term.length, 1)];
+      self.last_term.bytes = vec![0; ArrayUtil::oversize(term.length, 1)?];
     }
 
     self.last_term.offset = 0;
@@ -1131,7 +1131,7 @@ where
       let off_start = cur_field.off_start + cur_field.total_positions;
       let len = off_start + num_prox;
       if self.start_offsets_buf.len() < len {
-        let new_length = ArrayUtil::oversize(len, 4);
+        let new_length = ArrayUtil::oversize(len, 4)?;
         ArrayUtil::grow_exact(&mut self.start_offsets_buf, new_length)?;
         ArrayUtil::grow_exact(&mut self.lengths_buf, new_length)?;
       }
@@ -1407,7 +1407,7 @@ impl FieldData {
     if self.has_offsets {
       let required = self.off_start + self.total_positions;
       if required == start_offsets_buf.len() {
-        let new_len = ArrayUtil::oversize(required, 4);
+        let new_len = ArrayUtil::oversize(required, 4)?;
         ArrayUtil::grow_exact(start_offsets_buf, new_len)?;
         ArrayUtil::grow_exact(lengths_buf, new_len)?;
       }

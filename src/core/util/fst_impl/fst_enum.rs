@@ -1006,11 +1006,11 @@ where
     sub.grow(self)?;
     debug_assert!(self.upto <= i32::MAX as usize);
     if self.arcs.len() <= self.upto {
-      ArrayUtil::grow_with_len(&mut self.arcs, self.upto + 1);
+      ArrayUtil::grow_with_len(&mut self.arcs, self.upto + 1)?;
     }
 
     if self.output.len() <= self.upto {
-      ArrayUtil::grow_with_len(&mut self.output, self.upto + 1);
+      ArrayUtil::grow_with_len(&mut self.output, self.upto + 1)?;
     }
     Ok(())
   }

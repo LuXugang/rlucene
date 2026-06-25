@@ -560,7 +560,7 @@ fn test_ensure_capacity() -> Result<()> {
   let mut bits = FixedBitSet::new(5);
   bits.set(1);
   bits.set(4);
-  bits.ensure_capacity(8);
+  bits.ensure_capacity(8)?;
   let mut new_bits = bits.clone();
   assert!(bits.get(1)?);
   assert!(bits.get(4)?);
@@ -570,11 +570,11 @@ fn test_ensure_capacity() -> Result<()> {
 
   new_bits.set(1);
   let length = bits.length();
-  new_bits.ensure_capacity(length - 2);
+  new_bits.ensure_capacity(length - 2)?;
   assert!(new_bits.get(1)?);
 
   new_bits.set(1);
-  new_bits.ensure_capacity(72);
+  new_bits.ensure_capacity(72)?;
   assert!(new_bits.get(1)?);
   assert!(new_bits.get(4)?);
   new_bits.clear_with_index(1);

@@ -18,6 +18,7 @@ use crate::core::index::bytes_ref::BytesRef;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::error::lucene_error::Result;
 
 /// A builder for [`BytesRef`] instances.
 pub struct BytesRefBuilder<AV>
@@ -73,45 +74,47 @@ where
       bytes[offset] = value;
     })
   }
-  pub fn grow(&mut self, capacity: usize) {
+  pub fn grow(&mut self, capacity: usize) -> Result<()> {
     self
       .bytes_ref
       .bytes
       .access_mut(|bytes| ArrayUtil::grow_with_len(bytes, capacity))
   }
-  pub fn grow_no_copy(&mut self, capacity: usize) {
+  pub fn grow_no_copy(&mut self, capacity: usize) -> Result<()> {
     self.grow(capacity)
   }
 
   /// Append a single byte to this builder.
-  pub fn append_byte(&mut self, b: u8) {
-    self.grow(self.bytes_ref.length + 1);
+  pub fn append_byte(&mut self, b: u8) -> Result<()> {
+    self.grow(self.bytes_ref.length + 1)?;
     let idx = self.bytes_ref.length;
     self.bytes_ref.bytes.access_mut(|bytes| {
       bytes[idx] = b;
     });
     self.bytes_ref.length += 1;
+    Ok(())
   }
 
   /// Append the provided bytes to this builder.
-  pub fn append_with_range(&mut self, b: &[u8], off: usize, len: usize) {
-    self.grow(self.bytes_ref.length + len);
+  pub fn append_with_range(&mut self, b: &[u8], off: usize, len: usize) -> Result<()> {
+    self.grow(self.bytes_ref.length + len)?;
     let pos = self.bytes_ref.length;
     self
       .bytes_mut()
       .bytes
       .access_mut(|bytes| bytes.copy_from(&b[off..off + len], pos));
     self.bytes_ref.length += len;
+    Ok(())
   }
 
   /// Append the provided bytes to this builder.
-  pub fn append(&mut self, b: &BytesRef<AV>) {
+  pub fn append(&mut self, b: &BytesRef<AV>) -> Result<()> {
     b.bytes
       .access(|bytes| self.append_with_range(bytes, b.offset, b.length))
   }
 
   /// Reset this builder to the empty state.
-  pub fn append_builder(&mut self, b: &mut BytesRefBuilder<AV>) {
+  pub fn append_builder(&mut self, b: &mut BytesRefBuilder<AV>) -> Result<()> {
     self.append(b.get_bytes_mut_ref())
   }
   pub fn clear(&mut self) {
@@ -134,37 +137,39 @@ where
   /// # See Also
   /// - [`clear`](BytesRefBuilder::clear)
   /// - [`append`](BytesRefBuilder::append_with_range)
-  pub fn copy_bytes_from_vec(&mut self, b: &[u8], off: usize, len: usize) {
+  pub fn copy_bytes_from_vec(&mut self, b: &[u8], off: usize, len: usize) -> Result<()> {
     debug_assert_eq!(self.bytes_ref.offset, 0);
     self.bytes_ref.length = len;
-    self.grow_no_copy(len);
+    self.grow_no_copy(len)?;
     self
       .bytes_mut()
       .bytes
-      .access_mut(|bytes| bytes.copy_from(&b[off..off + len], 0))
+      .access_mut(|bytes| bytes.copy_from(&b[off..off + len], 0));
+    Ok(())
   }
-  pub fn copy_bytes_from_ref(&mut self, b: &BytesRef<AV>) {
+  pub fn copy_bytes_from_ref(&mut self, b: &BytesRef<AV>) -> Result<()> {
     b.bytes
       .access(|bytes| self.copy_bytes_from_vec(bytes, b.offset, b.length))
   }
-  pub fn copy_bytes_from_builder(&mut self, b: &mut BytesRefBuilder<AV>) {
+  pub fn copy_bytes_from_builder(&mut self, b: &mut BytesRefBuilder<AV>) -> Result<()> {
     self.copy_bytes_from_ref(b.get_bytes_mut_ref())
   }
-  pub fn copy_chars_from_string(&mut self, s: &str) {
+  pub fn copy_chars_from_string(&mut self, s: &str) -> Result<()> {
     self.copy_chars_range(s, 0, s.len())
   }
-  pub fn copy_chars_range(&mut self, s: &str, off: usize, len: usize) {
+  pub fn copy_chars_range(&mut self, s: &str, off: usize, len: usize) -> Result<()> {
     let sub_bytes = s.as_bytes()[off..(off + len)].to_vec();
     self.copy_chars_from_vec(&sub_bytes, 0, sub_bytes.len())
   }
-  pub fn copy_chars_from_vec(&mut self, s: &[u8], off: usize, len: usize) {
-    self.grow(len);
+  pub fn copy_chars_from_vec(&mut self, s: &[u8], off: usize, len: usize) -> Result<()> {
+    self.grow(len)?;
     self
       .bytes_ref
       .bytes
       .access_mut(|bytes| bytes.copy_from(&s[off..(off + len)], off));
     self.bytes_ref.length = len;
     self.bytes_ref.offset = 0;
+    Ok(())
   }
   pub fn copy_chars_from_chars(&mut self, s: &[char], off: usize, len: usize) {
     let mut bytes = Vec::with_capacity(len);

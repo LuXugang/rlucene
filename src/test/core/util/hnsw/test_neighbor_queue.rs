@@ -26,9 +26,9 @@ struct TestNeighborQueue;
 fn test_neighbors_product() -> Result<()> {
   let mut nn = NeighborQueue::new(2, false)?;
 
-  assert!(nn.insert_with_overflow(2, 0.5));
-  assert!(nn.insert_with_overflow(1, 0.2));
-  assert!(nn.insert_with_overflow(3, 1.0));
+  assert!(nn.insert_with_overflow(2, 0.5)?);
+  assert!(nn.insert_with_overflow(1, 0.2)?);
+  assert!(nn.insert_with_overflow(3, 1.0)?);
 
   assert!((nn.top_score() - 0.5).abs() < f32::EPSILON);
   nn.pop()?;
@@ -40,9 +40,9 @@ fn test_neighbors_product() -> Result<()> {
 fn test_neighbors_max_heap() -> Result<()> {
   let mut nn = NeighborQueue::new(2, true)?;
 
-  assert!(nn.insert_with_overflow(2, 2.0));
-  assert!(nn.insert_with_overflow(1, 1.0));
-  assert!(!nn.insert_with_overflow(3, 3.0));
+  assert!(nn.insert_with_overflow(2, 2.0)?);
+  assert!(nn.insert_with_overflow(1, 1.0)?);
+  assert!(!nn.insert_with_overflow(3, 3.0)?);
 
   assert!((nn.top_score() - 2.0).abs() < f32::EPSILON);
   nn.pop()?;
@@ -54,8 +54,8 @@ fn test_neighbors_max_heap() -> Result<()> {
 fn test_top_max_heap() -> Result<()> {
   let mut nn = NeighborQueue::new(2, true)?;
 
-  nn.add(1, 2.0);
-  nn.add(2, 1.0);
+  nn.add(1, 2.0)?;
+  nn.add(2, 1.0)?;
 
   assert!((nn.top_score() - 2.0).abs() < f32::EPSILON);
   assert_eq!(nn.top_node(), 1);
@@ -66,8 +66,8 @@ fn test_top_max_heap() -> Result<()> {
 fn test_top_min_heap() -> Result<()> {
   let mut nn = NeighborQueue::new(2, false)?;
 
-  nn.add(1, 0.5);
-  nn.add(2, -0.5);
+  nn.add(1, 0.5)?;
+  nn.add(2, -0.5)?;
 
   assert!((nn.top_score() + 0.5).abs() < f32::EPSILON);
   assert_eq!(nn.top_node(), 2);
@@ -87,8 +87,8 @@ fn test_visited_count() -> Result<()> {
 fn test_clear() -> Result<()> {
   let mut nn = NeighborQueue::new(2, false)?;
 
-  nn.add(1, 1.1);
-  nn.add(2, -2.2);
+  nn.add(1, 1.1)?;
+  nn.add(2, -2.2)?;
   nn.set_visited_count(42);
   nn.mark_incomplete();
   nn.clear();
@@ -103,16 +103,16 @@ fn test_clear() -> Result<()> {
 fn test_max_size_queue() -> Result<()> {
   let mut nn = NeighborQueue::new(2, false)?;
 
-  nn.add(1, 1.0);
-  nn.add(2, 2.0);
+  nn.add(1, 1.0)?;
+  nn.add(2, 2.0)?;
   assert_eq!(nn.size(), 2);
   assert_eq!(nn.top_node(), 1);
   // insertWithOverflow does not extend the queue
-  assert!(nn.insert_with_overflow(3, 3.0));
+  assert!(nn.insert_with_overflow(3, 3.0)?);
   assert_eq!(nn.size(), 2);
   assert_eq!(nn.top_node(), 2);
   // add does extend the queue beyond maxSize
-  nn.add(4, 1.0);
+  nn.add(4, 1.0)?;
   assert_eq!(nn.size(), 3);
 
   Ok(())
@@ -132,7 +132,7 @@ fn test_unbounded_queue() -> Result<()> {
       max_score = score;
       max_node = Some(i);
     }
-    nn.add(i, score);
+    nn.add(i, score)?;
   }
 
   assert!((nn.top_score() - max_score).abs() < f32::EPSILON);

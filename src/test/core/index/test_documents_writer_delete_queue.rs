@@ -101,7 +101,7 @@ fn test_update_delete_slices() -> Result<()> {
   let mut frozen_set: HashSet<Term> = HashSet::new();
   let mut bytes_ref = BytesRefBuilder::new();
   while let Some(byte_ref) = iter.next()? {
-    bytes_ref.copy_bytes_from_ref(&byte_ref);
+    bytes_ref.copy_bytes_from_ref(&byte_ref)?;
     let term = Term::new(iter.field().to_string(), bytes_ref.get_bytes_ref_copy());
     frozen_set.insert(term.clone());
   }
@@ -260,7 +260,7 @@ fn test_stress_delete_queue() -> Result<()> {
   let mut iter = frozen.delete_terms.iterator()?;
   let mut builder = BytesRefBuilder::new();
   while let Some(byte_ref) = iter.next()? {
-    builder.copy_bytes_from_ref(&byte_ref);
+    builder.copy_bytes_from_ref(&byte_ref)?;
     let term = Term::new(iter.field().to_string(), builder.get_bytes_ref_copy());
     frozen_set.insert(term);
   }

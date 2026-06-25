@@ -57,7 +57,7 @@ where
   bytes_used: SharedCounter,
 }
 impl BytesRefHash<DirectBytesStartArray> {
-  pub fn new() -> Self {
+  pub fn new() -> Result<Self> {
     let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY as usize);
     BytesRefHash::from_bytes_start_array(16, bytes_start_array)
   }
@@ -69,13 +69,13 @@ impl<BSA> BytesRefHash<BSA>
 where
   BSA: BytesStartArray,
 {
-  pub fn from_bytes_start_array(capacity: i32, mut bytes_start_array: BSA) -> Self {
-    bytes_start_array.init();
+  pub fn from_bytes_start_array(capacity: i32, mut bytes_start_array: BSA) -> Result<Self> {
+    bytes_start_array.init()?;
     let bytes_used = bytes_start_array.bytes_used();
     let ref_pool = BytesRefBlockPool::new();
     let ids = vec![-1; capacity as usize];
     bytes_used.add_and_get(size_of_vec(&ids));
-    BytesRefHash {
+    Ok(BytesRefHash {
       pool: ref_pool,
       hash_size: capacity,
       hash_half_size: capacity >> 1,
@@ -85,7 +85,7 @@ where
       ids,
       bytes_start_array,
       bytes_used,
-    }
+    })
   }
   /// Returns the number of [`BytesRef`] values in this [`BytesRefHash`].
   ///
@@ -425,15 +425,16 @@ where
 
   /// Reinitializes the [`BytesRefHash`] after a previous `clear()` call.
   /// If `clear()` has not been called previously, this method has no effect.
-  pub fn reinit(&mut self) {
+  pub fn reinit(&mut self) -> Result<()> {
     if self.bytes_start_array.need_init() {
-      self.bytes_start_array.init();
+      self.bytes_start_array.init()?;
     }
 
     if self.ids.is_empty() {
       self.ids = vec![-1; self.hash_size as usize];
       self.bytes_used.add_and_get(size_of_vec(&self.ids));
     }
+    Ok(())
   }
   /// Returns the `bytesStart` offset into the internally used
   /// `SingleThreadedByteBlockPool` for the given `bytes_id`.
@@ -480,13 +481,6 @@ where
         .saturating_add(size_of_vec(&self.ids))
         .saturating_add(self.bytes_start_array.ram_bytes_used()?),
     )
-  }
-}
-
-// used for std::mem::take
-impl Default for BytesRefHash<DirectBytesStartArray> {
-  fn default() -> Self {
-    BytesRefHash::new()
   }
 }
 
@@ -640,7 +634,7 @@ pub trait BytesStartArray {
   ///
   /// # Returns
   /// The initialized bytes start array.
-  fn init(&mut self);
+  fn init(&mut self) -> Result<()>;
 
   /// Grows the [`BytesStartArray`].
   ///
@@ -689,9 +683,10 @@ impl DirectBytesStartArray {
 }
 
 impl BytesStartArray for DirectBytesStartArray {
-  fn init(&mut self) {
+  fn init(&mut self) -> Result<()> {
     self.init = true;
-    self.bytes_start = vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES)];
+    self.bytes_start = vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES)?];
+    Ok(())
   }
 
   fn grow(&mut self) -> Result<()> {

@@ -57,7 +57,7 @@ where
   for _ in 0..count {
     let next = random.random();
     sum = sum.wrapping_add(next);
-    pq.push(next);
+    pq.push(next)?;
     check_validity(&pq);
   }
 
@@ -80,9 +80,9 @@ where
 #[test]
 fn test_clear() -> Result<()> {
   let mut pq = LongHeap::new(3)?;
-  pq.push(2);
-  pq.push(3);
-  pq.push(1);
+  pq.push(2)?;
+  pq.push(3)?;
+  pq.push(1)?;
   assert_eq!(3, pq.size());
   pq.clear();
   assert_eq!(0, pq.size());
@@ -91,8 +91,8 @@ fn test_clear() -> Result<()> {
 #[test]
 fn test_exceed_bounds() -> Result<()> {
   let mut pq = LongHeap::new(1)?;
-  pq.push(2);
-  pq.push(0);
+  pq.push(2)?;
+  pq.push(0)?;
   assert_eq!(2, pq.size());
   assert_eq!(0, pq.top());
   Ok(())
@@ -100,12 +100,12 @@ fn test_exceed_bounds() -> Result<()> {
 #[test]
 fn test_fixed_size() -> Result<()> {
   let mut pq = LongHeap::new(3)?;
-  pq.insert_with_overflow(2);
-  pq.insert_with_overflow(3);
-  pq.insert_with_overflow(1);
-  pq.insert_with_overflow(5);
-  pq.insert_with_overflow(7);
-  pq.insert_with_overflow(1);
+  pq.insert_with_overflow(2)?;
+  pq.insert_with_overflow(3)?;
+  pq.insert_with_overflow(1)?;
+  pq.insert_with_overflow(5)?;
+  pq.insert_with_overflow(7)?;
+  pq.insert_with_overflow(1)?;
   assert_eq!(3, pq.size());
   assert_eq!(3, pq.top());
   Ok(())
@@ -114,9 +114,9 @@ fn test_fixed_size() -> Result<()> {
 #[test]
 fn test_duplicate_values() -> Result<()> {
   let mut pq = LongHeap::new(3)?;
-  pq.push(2);
-  pq.push(3);
-  pq.push(1);
+  pq.push(2)?;
+  pq.push(3)?;
+  pq.push(1)?;
   assert_eq!(1, pq.top());
   pq.update_top(3);
   assert_eq!(3, pq.size());
@@ -133,7 +133,7 @@ fn test_insertions() -> Result<()> {
 
   for _ in 0..(num_docs_in_pq * 10) {
     let new_entry = random.random();
-    pq.insert_with_overflow(new_entry);
+    pq.insert_with_overflow(new_entry)?;
     check_validity(&pq);
     let new_least = pq.top();
     if let Some(last) = last_least.filter(|&last| new_least != new_entry && new_least != last) {
@@ -171,11 +171,11 @@ fn test_unbounded() -> Result<()> {
   for _ in 0..num {
     let value: i64 = random.random();
     if random.random_bool(0.5) {
-      pq.push(value);
+      pq.push(value)?;
       count += 1;
     } else {
       let full = pq.size() >= initial_size;
-      if pq.insert_with_overflow(value) && !full {
+      if pq.insert_with_overflow(value)? && !full {
         count += 1;
       }
     }

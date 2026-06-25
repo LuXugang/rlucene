@@ -169,7 +169,7 @@ impl TermState {
   {
     match tei.term() {
       Some(t) => {
-        self.term.copy_bytes_from_ref(t);
+        self.term.copy_bytes_from_ref(t)?;
         self.term_prefix8 = tei.current_term_prefix8;
         Ok(())
       },

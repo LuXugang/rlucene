@@ -662,7 +662,7 @@ where
         {
           let v = self.vector_value(&vectors, j)?;
           let score = self.score(&query, &v);
-          expected.add(j, score);
+          expected.add(j, score)?;
           if expected.size() > top_k {
             let _ = expected.pop()?;
           }

@@ -81,7 +81,7 @@ fn test_random() -> Result<()> {
       if pos > 0 && random.random_range(0..50) == 17 {
         let len = TestUtil::next_usize(&mut random, 1, std::cmp::min(pos, 100));
         pos -= len;
-        bytes.set_position(pos);
+        bytes.set_position(pos)?;
         for v in expected.iter_mut().skip(pos).take(len) {
           *v = 0;
         }

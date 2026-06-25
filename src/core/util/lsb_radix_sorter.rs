@@ -17,6 +17,7 @@
 
 use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::error::lucene_error::Result;
 
 /// A LSB Radix sorter for unsigned int values.
 pub struct LSBRadixSorter {
@@ -97,13 +98,13 @@ impl LSBRadixSorter {
   ///
   /// - `num_bits`: how many bits are required to store any of the values in
   ///   `array[0..len]`. Pass `32` if unknown.
-  pub fn sort(&mut self, num_bits: usize, array: &mut [i32], len: usize) {
+  pub fn sort(&mut self, num_bits: usize, array: &mut [i32], len: usize) -> Result<()> {
     if len < INSERTION_SORT_THRESHOLD {
       Self::insertion_sort(array, 0, len);
-      return;
+      return Ok(());
     }
 
-    if let Some(new_array) = ArrayUtil::grow_no_copy(&self.buffer, len) {
+    if let Some(new_array) = ArrayUtil::grow_no_copy(&self.buffer, len)? {
       self.buffer = new_array;
     }
     let mut swapped = false;
@@ -119,6 +120,7 @@ impl LSBRadixSorter {
     if swapped {
       array.copy_from(&self.buffer[..len], 0);
     }
+    Ok(())
   }
 }
 

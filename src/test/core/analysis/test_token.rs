@@ -50,7 +50,7 @@ fn test_clone() -> Result<()> {
   t.sub.set_offset(0, 5)?;
 
   let content: Vec<char> = "hello".chars().collect();
-  t.copy_buffer(&content, 0, 5);
+  t.copy_buffer(&content, 0, 5)?;
 
   let copy = t.clone();
   assert_eq!(t.to_string(), copy.to_string());
@@ -76,7 +76,7 @@ fn test_copy_to() -> Result<()> {
   t.sub.set_offset(0, 5)?;
 
   let content: Vec<char> = "hello".chars().collect();
-  t.copy_buffer(&content, 0, 5);
+  t.copy_buffer(&content, 0, 5)?;
   copy = token::new()?;
   t.copy_to(&mut copy)?;
   assert_eq!(t.to_string(), copy.to_string());

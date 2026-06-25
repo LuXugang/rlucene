@@ -66,7 +66,7 @@ impl DocsWithFieldSet {
       ));
     }
     if let Some(set) = self.set.as_mut() {
-      set.ensure_capacity(doc_id as usize);
+      set.ensure_capacity(doc_id as usize)?;
       set.set(doc_id as usize);
     } else if doc_id != self.cardinality {
       let mut set = FixedBitSet::new((doc_id + 1) as usize);

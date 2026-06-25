@@ -56,10 +56,10 @@ struct State {
 impl NFARunAutomaton {
   const MISSING: i32 = -1;
   const NOT_COMPUTED: i32 = -2;
-  pub fn new(automaton: Automaton) -> Self {
+  pub fn new(automaton: Automaton) -> Result<Self> {
     Self::with_alphabet_size(automaton, 0x10FFFF + 1)
   }
-  pub fn with_alphabet_size(automaton: Automaton, alphabet_size: i32) -> Self {
+  pub fn with_alphabet_size(automaton: Automaton, alphabet_size: i32) -> Result<Self> {
     let points = automaton.get_start_points();
     let classmap_len = std::cmp::min(256, alphabet_size) as usize;
     let mut classmap = vec![0; classmap_len];
@@ -87,9 +87,9 @@ impl NFARunAutomaton {
     };
 
     let initial_state = DState::new(Arc::new(vec![0]), &automaton_instance);
-    automaton_instance.find_dstate(Some(initial_state));
+    automaton_instance.find_dstate(Some(initial_state))?;
 
-    automaton_instance
+    Ok(automaton_instance)
   }
   /// Runs through a given codepoint array and returns whether it is accepted
   /// by the automaton. This should only be used in tests.
@@ -99,16 +99,16 @@ impl NFARunAutomaton {
   ///
   /// Returns:
   /// - `true` if the input is accepted; `false` otherwise.
-  pub(crate) fn run(&mut self, input: &[i32]) -> bool {
+  pub(crate) fn run(&mut self, input: &[i32]) -> Result<bool> {
     let mut p = 0;
     for &c in input {
-      p = self.step(p, c);
+      p = self.step(p, c)?;
       if p == Self::MISSING {
-        return false;
+        return Ok(false);
       }
     }
 
-    self.dstates[p as usize].is_accept
+    Ok(self.dstates[p as usize].is_accept)
   }
   /// From an existing DFA state, steps to the next DFA state given character
   /// `c`.
@@ -116,13 +116,13 @@ impl NFARunAutomaton {
   /// If the transition was previously computed, this operation will use the
   /// cached result; otherwise, it will call [`Self::step_with_index`] to
   /// compute the next state and then cache it.
-  fn step_with_dstate_index(&mut self, dstate_index: usize, c: i32) -> i32 {
+  fn step_with_dstate_index(&mut self, dstate_index: usize, c: i32) -> Result<i32> {
     let char_class = self.get_char_class(c);
     self.next_state(char_class, dstate_index)
   }
   /// return the ordinal of given DFA state, generate a new ordinal if the
   /// given DFA state is a new one
-  fn find_dstate(&mut self, dstate: Option<DState>) -> i32 {
+  fn find_dstate(&mut self, dstate: Option<DState>) -> Result<i32> {
     match dstate {
       Some(dstate) => {
         let dstate_key = DStateKey {
@@ -130,21 +130,21 @@ impl NFARunAutomaton {
           hash_code: dstate.hash_code as i32,
         };
         if let Some(&ord) = self.state.dstate_to_ord.get(&dstate_key) {
-          return ord;
+          return Ok(ord);
         }
         debug_assert!(self.state.dstate_to_ord.len() <= i32::MAX as usize);
         let ord = self.state.dstate_to_ord.len();
         self.state.dstate_to_ord.insert(dstate_key, ord as i32);
 
         if ord >= self.dstates.len() {
-          ArrayUtil::grow_with_len(&mut self.dstates, ord + 1);
+          ArrayUtil::grow_with_len(&mut self.dstates, ord + 1)?;
         }
 
         self.dstates[ord] = dstate;
 
-        ord as i32
+        Ok(ord as i32)
       },
-      None => Self::MISSING,
+      None => Ok(Self::MISSING),
     }
   }
   /// Gets character class of given codepoint
@@ -183,7 +183,7 @@ impl NFARunAutomaton {
       t.max = self.points[transition_upto + 1] - 1;
     }
   }
-  fn next_state(&mut self, char_class: usize, index: usize) -> i32 {
+  fn next_state(&mut self, char_class: usize, index: usize) -> Result<i32> {
     let v = {
       let len = self.points.len();
       let dstate = &mut self.dstates[index];
@@ -193,7 +193,7 @@ impl NFARunAutomaton {
     };
     if v == NFARunAutomaton::NOT_COMPUTED {
       let next_dstate = self.step_with_index(self.points[char_class], index);
-      let ord = self.find_dstate(next_dstate);
+      let ord = self.find_dstate(next_dstate)?;
       let dstate = &mut self.dstates[index];
       dstate.assign_transition(char_class, ord);
       // we could potentially update more than one char classes
@@ -221,7 +221,7 @@ impl NFARunAutomaton {
         }
       }
     }
-    self.dstates[index].transitions[char_class]
+    Ok(self.dstates[index].transitions[char_class])
   }
   ///  given a list of NFA states and a character c, compute the output list
   /// of NFA state which is wrapped as a DFA state
@@ -285,7 +285,7 @@ impl NFARunAutomaton {
         self
           .automaton
           .get_next_transition(&mut dstate.step_transition);
-        self.state.transition_set.add(&dstate.step_transition);
+        self.state.transition_set.add(&dstate.step_transition)?;
       }
     }
 
@@ -310,7 +310,7 @@ impl NFARunAutomaton {
 
         let v = self.states_set.get_array().clone();
         let new_dstate = DState::new(v, self);
-        let ord = self.find_dstate(Some(new_dstate));
+        let ord = self.find_dstate(Some(new_dstate))?;
         let dstate = &mut self.dstates[index];
 
         while self.points[char_class] < last_point {
@@ -441,7 +441,7 @@ impl ByteRunnable for NFARunAutomaton {
   ///
   /// Returns:
   /// - The next state, or `Self::MISSING` if the transition doesn't exist.
-  fn step(&mut self, state: i32, c: i32) -> i32 {
+  fn step(&mut self, state: i32, c: i32) -> Result<i32> {
     debug_assert!(self.dstates.get(state as usize).is_some());
     self.step_with_dstate_index(state as usize, c)
   }

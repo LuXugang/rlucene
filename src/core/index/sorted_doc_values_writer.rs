@@ -76,7 +76,7 @@ impl SortedDocValuesWriter {
   pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
     let bytes_start_array =
       DirectBytesStartArray::with_counter(DEFAULT_CAPACITY as usize, iw_bytes_used.clone());
-    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array);
+    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array)?;
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
     let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
@@ -246,7 +246,8 @@ impl DocValuesWriter for SortedDocValuesWriter {
         let index = self.hash.ids[ord] as usize;
         ord_map[index] = ord as i32;
       }
-      self.frozen_hash = Some(Arc::new(std::mem::take(&mut self.hash)));
+      let replacement = BytesRefHash::new()?;
+      self.frozen_hash = Some(Arc::new(std::mem::replace(&mut self.hash, replacement)));
       self.final_ords = Some(ords);
       self.final_ord_map = Some(Arc::new(ord_map));
     }

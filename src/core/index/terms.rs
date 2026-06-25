@@ -140,7 +140,7 @@ pub trait Terms {
     }
 
     let mut scratch = BytesRefBuilder::new();
-    scratch.append_byte(0);
+    scratch.append_byte(0)?;
     // Iterates over digits:
     loop {
       let mut low = 0;
@@ -168,7 +168,7 @@ pub trait Terms {
       }
 
       scratch.set_length(scratch.length() + 1);
-      scratch.grow(scratch.length());
+      scratch.grow(scratch.length())?;
     }
   }
 

@@ -28,7 +28,12 @@ use crate::core::util::{
 
 pub struct ArrayUtil;
 impl ArrayUtil {
-  // TODO:: MAX_ARRAY_LENGTH's definition should reconsider
+  /// Maximum number of elements supported by Lucene's array-oriented APIs.
+  ///
+  /// Java Lucene subtracts the JVM array header size from `i32::MAX`. Rust
+  /// vectors do not have a JVM array header, so the Lucene-level limit is
+  /// `i32::MAX`; [`oversize`](Self::oversize) separately enforces Rust's
+  /// allocation-size limit.
   pub const MAX_ARRAY_LENGTH: usize = i32::MAX as usize;
   const MIN_RADIX: i32 = 2;
   const MAX_RADIX: i32 = 36;
@@ -111,32 +116,59 @@ impl ArrayUtil {
     }
     Ok(result)
   }
-  /// Calculates the new capacity after resizing.
+  /// Returns a vector length greater than or equal to `min_target_size`,
+  /// generally over-allocating exponentially to achieve amortized linear-time
+  /// cost as the vector grows.
   ///
-  /// This method simply doubles the `min_target_size` to achieve the new
-  /// capacity. However, this is a basic resizing strategy that may not be
-  /// suitable for all scenarios.
+  /// This follows Java Lucene's growth policy: grow by one eighth, with a
+  /// minimum growth of three elements for small vectors. Unlike Java, no
+  /// element-count rounding is needed for JVM array-header alignment. Rust's
+  /// allocator handles the alignment required by the element type.
   ///
-  /// Currently, `saturating_mul(2)` is used to avoid overflow, but if the new
-  /// capacity exceeds `i32::MAX`, it will return `i32::MAX`.
+  /// `bytes_per_element` is used to ensure that the vector's element storage
+  /// does not exceed Rust's `isize::MAX` byte allocation limit. A value of zero
+  /// is accepted for compatibility with existing Lucene callers that do not
+  /// need an element-size-specific limit.
   ///
-  /// In the future, this resizing strategy can be improved to adapt to
-  /// different element sizes or use a more intelligent growth factor.
+  /// # Errors
   ///
-  /// # Parameters
-  /// - `min_target_size`: The minimum desired target capacity.
-  /// - `_bytes_per_element`: The number of bytes per element (currently
-  ///   unused, reserved for future improvements).
-  ///
-  /// # Returns
-  /// The new capacity after resizing. If the result exceeds `i32::MAX`,
-  /// `i32::MAX` is returned.
-  // TODO IMPORTANT 这里 oversize 逻辑不准确
-  pub fn oversize(min_target_size: usize, _bytes_per_element: usize) -> usize {
-    // TODO: current we limit maxsize to i32::MAX to keep consistency with
-    // Java Lucene
-    let min_target_size: i32 = min_target_size as i32;
-    min_target_size.saturating_mul(2) as usize
+  /// Returns [`LuceneError::IllegalArgument`] when `min_target_size` exceeds
+  /// either Lucene's maximum supported vector length or Rust's maximum
+  /// allocation size for the given element size.
+  pub fn oversize(min_target_size: usize, bytes_per_element: usize) -> Result<usize> {
+    if min_target_size == 0 {
+      // Wait until at least one element is requested.
+      return Ok(0);
+    }
+
+    let max_array_length = (isize::MAX as usize)
+      .checked_div(bytes_per_element)
+      .map(|v| Self::MAX_ARRAY_LENGTH.min(v))
+      .unwrap_or(Self::MAX_ARRAY_LENGTH);
+
+    if min_target_size > max_array_length {
+      return Err(LuceneError::illegal_argument(format!(
+        "requested vector size {min_target_size} exceeds maximum vector length \
+         {max_array_length} for elements of {bytes_per_element} bytes"
+      )));
+    }
+
+    // Asymptotic exponential growth by one eighth favors spending a bit more
+    // CPU in order to avoid tying up too much unused RAM.
+    let mut extra = min_target_size >> 3;
+
+    if extra < 3 {
+      // For very small vectors, where the constant overhead of reallocation is
+      // presumably relatively high, grow faster.
+      extra = 3;
+    }
+
+    Ok(
+      min_target_size
+        .checked_add(extra)
+        .unwrap_or(max_array_length)
+        .min(max_array_length),
+    )
   }
   pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: usize) -> Result<()>
   where
@@ -145,9 +177,8 @@ impl ArrayUtil {
     let current_length = vec.len();
     match new_length.cmp(&current_length) {
       Ordering::Greater => {
-        for _ in 0..(new_length - current_length) {
-          vec.push(T::default());
-        }
+        vec.reserve_exact(new_length - current_length);
+        vec.resize_with(new_length, T::default);
       },
       Ordering::Equal => {
         return Ok(());
@@ -160,30 +191,36 @@ impl ArrayUtil {
     }
     Ok(())
   }
-  pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: usize)
+  pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: usize) -> Result<()>
   where
     T: Default,
   {
     let current_length = vec.len();
-    let min_size = Self::oversize(min_size, BitUtil::LONG_BYTES);
-    if min_size > current_length {
-      let additional = min_size - current_length;
-      vec.reserve(additional);
-      let capacity = vec.capacity();
-      // Fill the new slots with default values.
-      // This ensures that even if reserve_exact doesn't add enough space,
-      // we will push the necessary default values into the Vec.
-      for _ in 0..(capacity - current_length) {
-        vec.push(T::default());
-      }
+    if current_length < min_size {
+      let bytes_per_element = size_of::<T>();
+      let available_capacity = if bytes_per_element == 0 {
+        current_length
+      } else {
+        vec.capacity().min(Self::MAX_ARRAY_LENGTH)
+      };
+      let new_length = if available_capacity >= min_size {
+        available_capacity
+      } else {
+        Self::oversize(min_size, bytes_per_element)?
+      };
+      vec.resize_with(new_length, T::default);
     }
+    Ok(())
   }
   pub fn grow<T>(vec: &mut Vec<T>) -> Result<()>
   where
     T: Default,
   {
-    let bytes_per_element = size_of::<T>();
-    Self::grow_exact(vec, Self::oversize(vec.len() + 1, bytes_per_element))
+    let min_size = vec
+      .len()
+      .checked_add(1)
+      .ok_or_else(|| LuceneError::illegal_argument("requested vector size exceeds usize::MAX"))?;
+    Self::grow_with_len(vec, min_size)
   }
   /// Returns an array whose size is at least `min_length`, generally
   /// over-allocating exponentially, but never allocating more than
@@ -202,7 +239,17 @@ impl ArrayUtil {
       return Ok(());
     }
 
-    let potential_length = Self::oversize(min_length, BitUtil::INT_BYTES);
+    let bytes_per_element = size_of::<T>();
+    let available_capacity = if bytes_per_element == 0 {
+      current_length
+    } else {
+      vec.capacity().min(Self::MAX_ARRAY_LENGTH)
+    };
+    let potential_length = if available_capacity >= min_length {
+      available_capacity
+    } else {
+      Self::oversize(min_length, bytes_per_element)?
+    };
     let final_length = std::cmp::min(max_length, potential_length);
     Self::grow_exact(vec, final_length)?;
 
@@ -220,17 +267,17 @@ impl ArrayUtil {
   /// Returns a vector whose size is at least `min_size`, generally
   /// over-allocating exponentially, and it will not copy the original
   /// data to the new vector.
-  pub fn grow_no_copy<T>(vec: &[T], min_size: usize) -> Option<Vec<T>>
+  pub fn grow_no_copy<T>(vec: &[T], min_size: usize) -> Result<Option<Vec<T>>>
   where
     T: Default + Clone,
   {
     let current_size = vec.len();
     if current_size < min_size {
-      let new_size = Self::oversize(min_size, size_of::<T>());
+      let new_size = Self::oversize(min_size, size_of::<T>())?;
       let new_vec = vec![T::default(); new_size];
-      Option::from(new_vec)
+      Ok(Option::from(new_vec))
     } else {
-      None
+      Ok(None)
     }
   }
   /// Returns the hash of chars in the range from `start` (inclusive) to `end`

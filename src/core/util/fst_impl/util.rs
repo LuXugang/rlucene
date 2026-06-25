@@ -360,12 +360,12 @@ impl Util {
 
   /// Decodes the Unicode codepoints from the provided string and places them
   /// in the provided scratch `IntsRef`, which must not be `None`, returning it.
-  pub fn to_utf32<AV>(s: &str, scratch: &mut IntsRefBuilder<AV>)
+  pub fn to_utf32<AV>(s: &str, scratch: &mut IntsRefBuilder<AV>) -> Result<()>
   where
     AV: SharedAccessVec<i32> + WritableVec<i32>,
   {
     let len = s.len();
-    Self::to_utf32_with_slice(s, 0, len, scratch);
+    Self::to_utf32_with_slice(s, 0, len, scratch)
   }
   /// Decodes the Unicode codepoints from the provided `char[]` and places
   /// them into the provided scratch `IntsRef`, which must not be `None`,
@@ -375,25 +375,30 @@ impl Util {
     offset: usize,
     length: usize,
     scratch: &mut IntsRefBuilder<AV>,
-  ) where
+  ) -> Result<()>
+  where
     AV: SharedAccessVec<i32> + WritableVec<i32>,
   {
     let mut int_idx = 0;
     for c in s[offset..offset + length].chars() {
-      scratch.grow(int_idx + 1);
+      scratch.grow(int_idx + 1)?;
       scratch.set_int_at(int_idx, c as i32);
       int_idx += 1;
     }
     scratch.set_length(int_idx);
+    Ok(())
   }
   /// Just takes unsigned byte values from the BytesRef and converts into an
   /// IntsRef.
-  pub fn to_ints_ref<AV1, AV2>(input: &BytesRef<AV1>, scratch: &mut IntsRefBuilder<AV2>)
+  pub fn to_ints_ref<AV1, AV2>(
+    input: &BytesRef<AV1>,
+    scratch: &mut IntsRefBuilder<AV2>,
+  ) -> Result<()>
   where
     AV1: SharedAccessVec<u8>,
     AV2: SharedAccessVec<i32> + WritableVec<i32>,
   {
-    scratch.grow_no_copy(input.length);
+    scratch.grow_no_copy(input.length)?;
     for i in 0..input.length {
       input.bytes.access(|bytes| {
         let byte = bytes[input.offset + i];
@@ -401,6 +406,7 @@ impl Util {
       })
     }
     scratch.set_length(input.length);
+    Ok(())
   }
   /// Just converts IntsRef to BytesRef; you must ensure the int values fit
   /// into a byte.
@@ -412,7 +418,7 @@ impl Util {
     AV1: SharedAccessVec<i32>,
     AV2: SharedAccessVec<u8> + WritableVec<u8>,
   {
-    scratch.grow(input.length);
+    scratch.grow(input.length)?;
     for i in 0..input.length {
       input.ints.access(|v| {
         let value = v[i + input.offset];
@@ -798,7 +804,7 @@ where
       if comp > 0 {
         return Ok(());
       } else if comp == 0 {
-        path.input.append(path.arc.label());
+        path.input.append(path.arc.label())?;
         let cmp = bottom.input.get().cmp(path.input.get()).to_int();
         path.input.set_length(path.input.length() - 1);
 
@@ -811,8 +817,8 @@ where
     }
 
     let mut new_input = IntsRefBuilder::new();
-    new_input.copy_ints_ref(path.input.get());
-    new_input.append(path.arc.label());
+    new_input.copy_ints_ref(path.input.get())?;
+    new_input.append(path.arc.label())?;
 
     let new_path = path.new_path(output, new_input);
     if self.base.accept_partial_path(&new_path) {
@@ -952,7 +958,7 @@ where
           }
           break;
         } else {
-          path.input.append(path.arc.label());
+          path.input.append(path.arc.label())?;
           path.output = self.fst.outputs.add(&path.output, &path.arc.output());
           if !self.base.accept_partial_path(&path) {
             break;

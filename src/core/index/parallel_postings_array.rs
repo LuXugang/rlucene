@@ -88,7 +88,7 @@ impl PostingsArrayEnum {
       PostingsArrayEnum::TermVectors(t) => t.bytes_per_posting(),
     };
     let size = self.get_size();
-    let new_size = ArrayUtil::oversize(size + 1, bytes_per_posting);
+    let new_size = ArrayUtil::oversize(size + 1, bytes_per_posting)?;
     match self {
       PostingsArrayEnum::Parallel(p) => p.copy_to(new_size)?,
       PostingsArrayEnum::FreqProx(f) => f.copy_to(new_size)?,

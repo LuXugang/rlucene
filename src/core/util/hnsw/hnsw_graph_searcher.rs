@@ -127,7 +127,7 @@ where
     }
     let mut current_ep = *current_ep.as_ref().unwrap();
     let size = get_graph_size(graph);
-    self.prepare_scratch_state(size);
+    self.prepare_scratch_state(size)?;
 
     let mut current_score = scorer.score(current_ep)?;
     collector.inc_visited_count(1);
@@ -192,7 +192,7 @@ where
     S: RandomVectorScorer,
   {
     let size = get_graph_size(graph);
-    self.prepare_scratch_state(size);
+    self.prepare_scratch_state(size)?;
 
     for &ep in eps {
       if !self.visited.get_and_set(ep) {
@@ -201,7 +201,7 @@ where
         }
         let score = scorer.score(ep)?;
         results.inc_visited_count(1);
-        self.candidates.add(ep, score);
+        self.candidates.add(ep, score)?;
         if match accept_ords.as_ref() {
           None => true,
           Some(bits) => bits.get(ep)?,
@@ -240,7 +240,7 @@ where
         results.inc_visited_count(1);
 
         if friend_similarity > min_accepted_similarity {
-          self.candidates.add(friend_ord, friend_similarity);
+          self.candidates.add(friend_ord, friend_similarity)?;
           if (match accept_ords.as_ref() {
             None => true,
             Some(bits) => bits.get(friend_ord)?,
@@ -254,13 +254,14 @@ where
 
     Ok(())
   }
-  fn prepare_scratch_state(&mut self, capacity: usize) {
+  fn prepare_scratch_state(&mut self, capacity: usize) -> Result<()> {
     self.candidates.clear();
     if self.visited.length() < capacity {
       debug_assert!(capacity <= i32::MAX as usize);
-      self.visited.ensure_capacity(capacity);
+      self.visited.ensure_capacity(capacity)?;
     }
     self.visited.clear();
+    Ok(())
   }
 }
 

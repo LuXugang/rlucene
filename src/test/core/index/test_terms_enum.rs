@@ -190,7 +190,7 @@ fn accepts(c: &mut CompiledAutomaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
   for idx in 0..b.length {
     debug_assert!(state != -1);
     let byte = b.bytes[b.offset + idx];
-    state = c.run_automaton.as_mut().unwrap().step(state, byte as i32);
+    state = c.run_automaton.as_mut().unwrap().step(state, byte as i32)?;
   }
 
   c.run_automaton.as_ref().unwrap().is_accept(state)
@@ -306,7 +306,7 @@ fn test_intersect_random() -> Result<()> {
 
         for idx in 0..start_term.length {
           let label = start_term.bytes[start_term.offset + idx] as i32 & 0xff;
-          state = c.run_automaton.as_mut().unwrap().step(state, label);
+          state = c.run_automaton.as_mut().unwrap().step(state, label)?;
           assert_ne!(state, -1);
         }
       }

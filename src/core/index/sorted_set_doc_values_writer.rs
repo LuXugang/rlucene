@@ -90,7 +90,7 @@ impl SortedSetDocValuesWriter {
   pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
     let bytes_start_array =
       DirectBytesStartArray::with_counter(DEFAULT_CAPACITY as usize, iw_bytes_used.clone());
-    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array);
+    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array)?;
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
     let current_values = vec![0i32; 8];
@@ -189,7 +189,7 @@ impl SortedSetDocValuesWriter {
     }
     if self.current_upto == self.current_values.len() {
       let old_cap = self.current_values.len();
-      ArrayUtil::grow_with_len(&mut self.current_values, old_cap + 1);
+      ArrayUtil::grow_with_len(&mut self.current_values, old_cap + 1)?;
     }
     self.current_values[self.current_upto] = term_id;
     self.current_upto += 1;
@@ -358,7 +358,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         let index = self.hash.ids[ord] as usize;
         ord_map[index] = ord as i32;
       }
-      self.frozen_hash = Some(Arc::new(std::mem::take(&mut self.hash)));
+      let replacement = BytesRefHash::new()?;
+      self.frozen_hash = Some(Arc::new(std::mem::replace(&mut self.hash, replacement)));
       self.final_ord_map = Some(Arc::new(ord_map));
     } else {
       debug_assert!(self.is_sorted);

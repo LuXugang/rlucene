@@ -56,9 +56,10 @@ impl NeighborQueue {
   ///
   /// * `new_node` - The neighbor node ID.
   /// * `new_score` - The score of the neighbor, relative to some other node.
-  pub fn add(&mut self, new_node: usize, new_score: f32) {
+  pub fn add(&mut self, new_node: usize, new_score: f32) -> Result<()> {
     let encoded = self.encode(new_node, new_score);
-    self.heap.push(encoded);
+    self.heap.push(encoded)?;
+    Ok(())
   }
   /// If the heap is not full (size is less than the `initial_size` provided
   /// at creation), adds a new node-and-score element. If the heap
@@ -70,7 +71,7 @@ impl NeighborQueue {
   ///
   /// * `new_node` - The neighbor node ID.
   /// * `new_score` - The score of the neighbor, relative to some other node.
-  pub fn insert_with_overflow(&mut self, new_node: usize, new_score: f32) -> bool {
+  pub fn insert_with_overflow(&mut self, new_node: usize, new_score: f32) -> Result<bool> {
     let encoded = self.encode(new_node, new_score);
     self.heap.insert_with_overflow(encoded)
   }

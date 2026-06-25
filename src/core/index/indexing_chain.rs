@@ -749,7 +749,7 @@ where
       for field in &document {
         let field_type = field.field_type();
         let is_reserved = field.is_reserved();
-        let pf_idx = self.get_or_add_per_field(field, is_reserved);
+        let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
         {
           let pf = &mut self.per_fields[pf_idx];
           if pf.reserved != is_reserved {
@@ -768,7 +768,7 @@ where
           }
         }
         if doc_field_idx >= self.doc_fields.len() {
-          self.oversize_doc_fields();
+          self.oversize_doc_fields()?;
         }
         self.doc_fields[doc_field_idx] = pf_idx;
         doc_field_idx += 1;
@@ -844,11 +844,10 @@ where
     }
     result
   }
-  fn oversize_doc_fields(&mut self) {
+  fn oversize_doc_fields(&mut self) -> Result<()> {
     let required = self.doc_fields.len() + 1;
-    // TODO: _bytes_per_element is padding value
-    let new_len = ArrayUtil::oversize(required, 1);
-    ArrayUtil::grow_with_len(&mut self.doc_fields, new_len);
+    ArrayUtil::grow_with_len(&mut self.doc_fields, required)?;
+    Ok(())
   }
   pub(crate) fn initialize_field_info<D1>(
     &mut self,
@@ -1056,7 +1055,7 @@ where
   }
   /// Returns a previously created [`PerField`], absorbing the type information from
   /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
-  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> usize {
+  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> Result<usize> {
     let field_name = field.name();
     let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
@@ -1090,12 +1089,10 @@ where
         self.rehash();
       }
       if self.total_field_count > self.fields.len() {
-        // TODO:_bytes_per_element is padding value
-        let new_len = ArrayUtil::oversize(self.total_field_count, 1);
-        ArrayUtil::grow_with_len(&mut self.fields, new_len);
+        ArrayUtil::grow_with_len(&mut self.fields, self.total_field_count)?;
       }
     }
-    per_field_index as usize
+    Ok(per_field_index as usize)
   }
   // update schema for field as seen in a particular document
   fn update_doc_field_schema<IFT>(
@@ -1453,7 +1450,7 @@ impl PerField {
     );
     self.invert_state = Some(state);
     self.terms_hash_per_field =
-      Some(terms_hash.add_field(self.field_info.as_ref().unwrap().clone()));
+      Some(terms_hash.add_field(self.field_info.as_ref().unwrap().clone())?);
 
     if !fi.omits_norms() {
       // Even if no documents actually succeed in setting a norm, we still write norms for this

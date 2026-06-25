@@ -54,12 +54,12 @@ impl UTF32ToUTF8 {
     end: i32,
     start_code_point: i32,
     end_code_point: i32,
-  ) {
+  ) -> Result<()> {
     self.start_utf8.set(start_code_point);
     self.end_utf8.set(end_code_point);
-    self.build(start, end, 0);
+    self.build(start, end, 0)
   }
-  fn build(&mut self, start: i32, end: i32, upto: usize) {
+  fn build(&mut self, start: i32, end: i32, upto: usize) -> Result<()> {
     if self.start_utf8.byte_at(upto) == self.end_utf8.byte_at(upto) {
       // Degen case: lead with the same byte
       if upto == (self.start_utf8.len - 1) && upto == (self.end_utf8.len - 1) {
@@ -69,7 +69,7 @@ impl UTF32ToUTF8 {
           end,
           self.start_utf8.byte_at(upto),
           self.end_utf8.byte_at(upto),
-        );
+        )?;
       } else {
         debug_assert!(self.start_utf8.len > upto + 1);
         debug_assert!(self.end_utf8.len > upto + 1);
@@ -79,10 +79,10 @@ impl UTF32ToUTF8 {
         // Single value leading edge
         self
           .utf8
-          .add_transition_label(start, n, self.start_utf8.byte_at(upto));
+          .add_transition_label(start, n, self.start_utf8.byte_at(upto))?;
 
         // Recurse for the rest
-        self.build(n, end, upto + 1);
+        self.build(n, end, upto + 1)?;
       }
     } else if self.start_utf8.len == self.end_utf8.len {
       if upto == (self.start_utf8.len - 1) {
@@ -91,9 +91,9 @@ impl UTF32ToUTF8 {
           end,
           self.start_utf8.byte_at(upto),
           self.end_utf8.byte_at(upto),
-        );
+        )?;
       } else {
-        self.start(start, end, upto, false);
+        self.start(start, end, upto, false)?;
 
         if self.end_utf8.byte_at(upto) - self.start_utf8.byte_at(upto) > 1 {
           self.all(
@@ -102,14 +102,14 @@ impl UTF32ToUTF8 {
             self.start_utf8.byte_at(upto) + 1,
             self.end_utf8.byte_at(upto) - 1,
             self.start_utf8.len - upto - 1,
-          );
+          )?;
         }
 
-        self.end(start, end, upto, false);
+        self.end(start, end, upto, false)?;
       }
     } else {
       // start
-      self.start(start, end, upto, true);
+      self.start(start, end, upto, true)?;
 
       // possibly middle, spanning multiple num bytes
       let mut byte_count = 1 + self.start_utf8.len - upto;
@@ -129,27 +129,28 @@ impl UTF32ToUTF8 {
           self.tmp_utf8a.byte_at(0),
           self.tmp_utf8b.byte_at(0),
           self.tmp_utf8a.len - 1,
-        );
+        )?;
 
         byte_count += 1;
       }
 
       // end
-      self.end(start, end, upto, true);
+      self.end(start, end, upto, true)?;
     }
+    Ok(())
   }
-  fn start(&mut self, start: i32, end: i32, upto: usize, do_all: bool) {
+  fn start(&mut self, start: i32, end: i32, upto: usize, do_all: bool) -> Result<()> {
     if upto == (self.start_utf8.len - 1) {
       // Done recursing
       let b = self.start_utf8.byte_at(upto);
       let mask = MASKS[self.start_utf8.num_bits(upto) as usize] as i32;
-      self.utf8.add_transition(start, end, b, b | mask); // type=start
+      self.utf8.add_transition(start, end, b, b | mask)?; // type=start
     } else {
       let n = self.utf8.create_state();
       self
         .utf8
-        .add_transition_label(start, n, self.start_utf8.byte_at(upto));
-      self.start(n, end, upto + 1, true);
+        .add_transition_label(start, n, self.start_utf8.byte_at(upto))?;
+      self.start(n, end, upto + 1, true)?;
 
       let start_byte = self.start_utf8.byte_at(upto);
       let end_code = start_byte | (MASKS[self.start_utf8.num_bits(upto) as usize] as i32);
@@ -160,16 +161,17 @@ impl UTF32ToUTF8 {
           start_byte + 1,
           end_code,
           self.start_utf8.len - upto - 1,
-        );
+        )?;
       }
     }
+    Ok(())
   }
-  fn end(&mut self, start: i32, end: i32, upto: usize, do_all: bool) {
+  fn end(&mut self, start: i32, end: i32, upto: usize, do_all: bool) -> Result<()> {
     if upto == (self.end_utf8.len - 1) {
       // Done recursing
       let b = self.end_utf8.byte_at(upto);
       let mask = MASKS[self.end_utf8.num_bits(upto) as usize] as i32;
-      self.utf8.add_transition(start, end, b & !mask, b);
+      self.utf8.add_transition(start, end, b & !mask, b)?;
     } else {
       let start_code: i32;
 
@@ -202,32 +204,41 @@ impl UTF32ToUTF8 {
           start_code,
           end_byte - 1,
           self.end_utf8.len - upto - 1,
-        );
+        )?;
       }
 
       let n = self.utf8.create_state();
-      self.utf8.add_transition_label(start, n, end_byte);
-      self.end(n, end, upto + 1, true);
+      self.utf8.add_transition_label(start, n, end_byte)?;
+      self.end(n, end, upto + 1, true)?;
     }
+    Ok(())
   }
-  fn all(&mut self, start: i32, end: i32, start_code: i32, end_code: i32, mut left: usize) {
+  fn all(
+    &mut self,
+    start: i32,
+    end: i32,
+    start_code: i32,
+    end_code: i32,
+    mut left: usize,
+  ) -> Result<()> {
     if left == 0 {
-      self.utf8.add_transition(start, end, start_code, end_code);
+      self.utf8.add_transition(start, end, start_code, end_code)?;
     } else {
       let mut last_n = self.utf8.create_state();
       self
         .utf8
-        .add_transition(start, last_n, start_code, end_code);
+        .add_transition(start, last_n, start_code, end_code)?;
 
       while left > 1 {
         let n = self.utf8.create_state();
-        self.utf8.add_transition(last_n, n, 128, 191); // continuation byte range
+        self.utf8.add_transition(last_n, n, 128, 191)?; // continuation byte range
         left -= 1;
         last_n = n;
       }
 
-      self.utf8.add_transition(last_n, end, 128, 191);
+      self.utf8.add_transition(last_n, end, 128, 191)?;
     }
+    Ok(())
   }
   /// Converts an incoming UTF-32 automaton to an equivalent UTF-8 one.
   /// The incoming automaton need not be deterministic.
@@ -273,7 +284,7 @@ impl UTF32ToUTF8 {
           pending.push(dest_utf32);
         }
 
-        self.convert_one_edge(current_utf8, dest_utf8, scratch.min, scratch.max);
+        self.convert_one_edge(current_utf8, dest_utf8, scratch.min, scratch.max)?;
       }
     }
     Ok(Cow::Owned(self.utf8.finish()?))

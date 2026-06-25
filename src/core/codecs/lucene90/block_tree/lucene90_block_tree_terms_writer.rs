@@ -586,7 +586,7 @@ impl PendingBlock {
     let len = bytes.len();
     debug_assert!(!bytes.is_empty());
 
-    Util::to_ints_ref(&blocks[0].prefix, scratch_ints_ref);
+    Util::to_ints_ref(&blocks[0].prefix, scratch_ints_ref)?;
     fst_compiler.add(
       scratch_ints_ref.get(),
       BytesRef::from_slice(Arc::from(bytes), 0, len),
@@ -616,7 +616,7 @@ impl PendingBlock {
     let mut sub_index_enum = BytesRefFSTEnum::new(sub_index)?;
 
     while let Some(index_ent) = sub_index_enum.next_value()? {
-      Util::to_ints_ref(&index_ent.input, scratch_ints_ref);
+      Util::to_ints_ref(&index_ent.input, scratch_ints_ref)?;
       fst_compiler.add(scratch_ints_ref.get(), index_ent.output.clone())?;
     }
 
@@ -934,7 +934,7 @@ where
         self.suffix_lengths_writer.write_vint(suffix as i32)?;
         self
           .suffix_writer
-          .append_with_range(&term.term_bytes, prefix_length, suffix);
+          .append_with_range(&term.term_bytes, prefix_length, suffix)?;
         debug_assert!(
           floor_lead_label == -1 || (term.term_bytes[prefix_length] as i32) >= floor_lead_label
         );
@@ -980,7 +980,7 @@ where
               .write_vint((suffix_len << 1) as i32)?;
             self
               .suffix_writer
-              .append_with_range(&term.term_bytes, prefix_length, suffix_len);
+              .append_with_range(&term.term_bytes, prefix_length, suffix_len)?;
             match state {
               TermStateEnum::Block(block) => {
                 stats_writer.add(block.doc_freq, block.total_term_freq)?;
@@ -1012,7 +1012,7 @@ where
               .write_vint(((suffix << 1) | 1) as i32)?;
             self
               .suffix_writer
-              .append_with_range(&block.prefix.bytes, prefix_length, suffix);
+              .append_with_range(&block.prefix.bytes, prefix_length, suffix)?;
 
             debug_assert!(
               floor_lead_label == -1
@@ -1066,7 +1066,7 @@ where
         self.spare_writer.reset();
 
         if self.spare_bytes.len() < suffix_len {
-          self.spare_bytes = vec![0u8; ArrayUtil::oversize(suffix_len, 1)];
+          self.spare_bytes = vec![0u8; ArrayUtil::oversize(suffix_len, 1)?];
         }
 
         if LowercaseAsciiCompression::compress(
@@ -1099,7 +1099,7 @@ where
 
     // suffix lengths
     let num_suffix_bytes = self.suffix_lengths_writer.size();
-    if let Some(v) = ArrayUtil::grow_no_copy(&self.spare_bytes, num_suffix_bytes) {
+    if let Some(v) = ArrayUtil::grow_no_copy(&self.spare_bytes, num_suffix_bytes)? {
       self.spare_bytes = v
     }
     {
@@ -1222,14 +1222,14 @@ where
     }
 
     if self.prefix_starts.len() < text.length {
-      ArrayUtil::grow_with_len(&mut self.prefix_starts, text.length);
+      ArrayUtil::grow_with_len(&mut self.prefix_starts, text.length)?;
     }
 
     for i in prefix_length as usize..text.length {
       self.prefix_starts[i] = self.pending.len() as i32;
     }
 
-    self.last_term.copy_bytes_from_ref(text);
+    self.last_term.copy_bytes_from_ref(text)?;
     Ok(())
   }
   pub fn finish(&mut self, fields: &mut Vec<ByteBuffersDataOutput>, index_out: &mut O) -> Result<()>

@@ -199,11 +199,15 @@ impl MinimizationOperations {
     let mut state_map = vec![0; states_len];
     let mut state_rep = vec![0; k];
 
-    result.create_state();
+    result.create_state()?;
 
     for states in partition.iter().take(k) {
       let is_initial = states.contains(&0);
-      let new_state = if is_initial { 0 } else { result.create_state() };
+      let new_state = if is_initial {
+        0
+      } else {
+        result.create_state()?
+      };
       for &q in states {
         state_map[q] = new_state;
         result.set_accept(new_state, a.is_accept(q as i32));

@@ -66,31 +66,31 @@ impl LongHeap {
   }
   /// Adds a value in O(log(n)) time. Grows unbounded as needed to accommodate
   /// new values. Returns the new top element.
-  pub fn push(&mut self, element: i64) -> i64 {
+  pub fn push(&mut self, element: i64) -> Result<i64> {
     self.size += 1;
     if self.size == self.heap.len() {
       let new_capacity = (self.size * 3).div_ceil(2);
       debug_assert!(new_capacity <= i32::MAX as usize);
-      ArrayUtil::grow_with_len(&mut self.heap, new_capacity);
+      ArrayUtil::grow_with_len(&mut self.heap, new_capacity)?;
     }
     self.heap[self.size] = element;
     self.up_heap(self.size);
-    self.heap[1]
+    Ok(self.heap[1])
   }
   /// Adds a value in O(log(n)) time. If the number of values would exceed
   /// `max_size`, the least value is discarded.
   ///
   /// Returns whether the value was added.
-  pub fn insert_with_overflow(&mut self, value: i64) -> bool {
+  pub fn insert_with_overflow(&mut self, value: i64) -> Result<bool> {
     if self.size >= self.max_size {
       if value < self.heap[1] {
-        return false;
+        return Ok(false);
       }
       self.update_top(value);
-      return true;
+      return Ok(true);
     }
-    self.push(value);
-    true
+    self.push(value)?;
+    Ok(true)
   }
   /// Returns the least element of the heap in constant time.
   /// The caller must ensure the heap is not empty.
@@ -167,10 +167,11 @@ impl LongHeap {
     self.heap[i] = value;
   }
   /// Pushes all elements from another heap into this heap.
-  pub fn push_all(&mut self, other: &LongHeap) {
+  pub fn push_all(&mut self, other: &LongHeap) -> Result<()> {
     for i in 1..=other.size {
-      self.push(other.heap[i]);
+      self.push(other.heap[i])?;
     }
+    Ok(())
   }
 
   /// Returns the element at the ith location in the heap array.

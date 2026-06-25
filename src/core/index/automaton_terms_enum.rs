@@ -113,15 +113,16 @@ impl AutomatonTermsEnum {
   }
 
   /// Records the given state has been visited.
-  fn set_visited(&mut self, state: i32) {
+  fn set_visited(&mut self, state: i32) -> Result<()> {
     debug_assert!(state >= 0);
     let state = state as usize;
     if !self.finite {
       if state >= self.visited.len() {
-        ArrayUtil::grow_with_len(&mut self.visited, state + 1);
+        ArrayUtil::grow_with_len(&mut self.visited, state + 1)?;
       }
       self.visited[state] = self.cur_gen;
     }
+    Ok(())
   }
   /// Indicates whether the given state has been visited.
   fn is_visited(&self, state: i32) -> bool {
@@ -166,8 +167,7 @@ impl AutomatonTermsEnum {
     let length = position + 1;
 
     if self.linear_upper_bound.bytes.len() < length {
-      let new_len = ArrayUtil::oversize(length, 1);
-      ArrayUtil::grow_with_len(&mut self.linear_upper_bound.bytes, new_len);
+      ArrayUtil::grow_with_len(&mut self.linear_upper_bound.bytes, length)?;
     }
 
     self.linear_upper_bound.bytes[..position]
@@ -192,7 +192,7 @@ impl AutomatonTermsEnum {
     let mut state;
     let mut pos: usize = 0;
 
-    self.saved_states.grow(self.seek_bytes_ref.length() + 1);
+    self.saved_states.grow(self.seek_bytes_ref.length() + 1)?;
     self.saved_states.set_int_at(0, 0);
 
     loop {
@@ -212,7 +212,7 @@ impl AutomatonTermsEnum {
       // walk the automaton until a character is rejected
       state = self.saved_states.int_at(pos);
       while pos < self.seek_bytes_ref.length() {
-        self.set_visited(state);
+        self.set_visited(state)?;
         let byte = self.seek_bytes_ref.byte_at(pos) as i32;
         let next_state = self.automaton.step(state, byte)?;
         if next_state == -1 {
@@ -291,7 +291,7 @@ impl AutomatonTermsEnum {
     }
 
     self.seek_bytes_ref.set_length(position);
-    self.set_visited(state);
+    self.set_visited(state)?;
 
     let num_transitions = self.automaton.get_num_transitions_with_state(state)?;
     self
@@ -305,13 +305,13 @@ impl AutomatonTermsEnum {
       if self.transition.max >= c {
         let next_char = self.transition.min.max(c);
         // append either the next sequential char, or the minimum transition
-        self.seek_bytes_ref.append_byte(next_char as u8);
+        self.seek_bytes_ref.append_byte(next_char as u8)?;
         state = self.transition.dest;
         // as long as is possible, continue down the minimal path in
         // lexicographic order. if a loop or accept state is encountered, stop.
         // descend minimal lex path until loop or accept state
         while !self.is_visited(state) && !self.automaton.is_accept(state)? {
-          self.set_visited(state);
+          self.set_visited(state)?;
           // Note: we work with a DFA with no transitions to dead states.
           // so the below is ok, if it is not an accept state,
           // then there MUST be at least one transition.
@@ -321,7 +321,7 @@ impl AutomatonTermsEnum {
           self.automaton.get_next_transition(&mut self.transition)?;
           state = self.transition.dest;
           // append the minimum transition
-          self.seek_bytes_ref.append_byte(self.transition.min as u8);
+          self.seek_bytes_ref.append_byte(self.transition.min as u8)?;
           // we found a loop, record it for faster enumeration
           if !self.linear && self.is_visited(state) {
             self.set_linear(self.seek_bytes_ref.length() - 1)?;
@@ -392,10 +392,10 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
     term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if let Some(t) = term {
-      self.seek_bytes_ref.copy_bytes_from_ref(t);
+      self.seek_bytes_ref.copy_bytes_from_ref(t)?;
     } else {
       match self.start_term {
-        Some(ref t) => self.seek_bytes_ref.copy_bytes_from_ref(t),
+        Some(ref t) => self.seek_bytes_ref.copy_bytes_from_ref(t)?,
         None => {
           debug_assert_eq!(self.seek_bytes_ref.length(), 0);
           // return the empty term, as it's valid

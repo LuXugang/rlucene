@@ -40,7 +40,7 @@ fn new_pool() -> ByteBlockPool {
   let allocator = DirectAllocatorByte::new();
   ByteBlockPool::new(allocator)
 }
-fn new_hash<R>(random: &mut R) -> DirectBytesRefHash
+fn new_hash<R>(random: &mut R) -> Result<DirectBytesRefHash>
 where
   R: Rng + ?Sized,
 {
@@ -55,7 +55,7 @@ where
 fn test_size() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
-  let mut hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
 
   let num = at_least(&mut random, 2);
@@ -69,7 +69,7 @@ fn test_size() -> Result<()> {
           break;
         }
       }
-      ref_builder.copy_chars_from_string(&str_value);
+      ref_builder.copy_chars_from_string(&str_value)?;
       let count = hash.size();
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
@@ -82,7 +82,7 @@ fn test_size() -> Result<()> {
       if i % mod_val == 0 {
         hash.clear(&mut byte_block_pool);
         assert_eq!(hash.size(), 0);
-        hash.reinit();
+        hash.reinit()?;
       }
     }
   }
@@ -92,7 +92,7 @@ fn test_size() -> Result<()> {
 fn test_get() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
-  let mut hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
   let mut scratch = BytesRef::new();
 
@@ -110,7 +110,7 @@ fn test_get() -> Result<()> {
         }
       }
 
-      ref_builder.copy_chars_from_string(&str_value);
+      ref_builder.copy_chars_from_string(&str_value)?;
       let count = hash.size();
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
@@ -126,14 +126,14 @@ fn test_get() -> Result<()> {
     }
 
     for (key, value) in &strings {
-      ref_builder.copy_chars_from_string(key);
+      ref_builder.copy_chars_from_string(key)?;
       hash.get(*value, &mut scratch, &byte_block_pool);
       assert_eq!(*ref_builder.get_bytes_mut_ref(), scratch);
     }
 
     hash.clear(&mut byte_block_pool);
     assert_eq!(hash.size(), 0);
-    hash.reinit();
+    hash.reinit()?;
   }
   Ok(())
 }
@@ -141,7 +141,7 @@ fn test_get() -> Result<()> {
 fn test_compact() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
-  let mut hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
 
   let num = at_least(&mut random, 2);
@@ -159,7 +159,7 @@ fn test_compact() -> Result<()> {
         }
       }
 
-      ref_builder.copy_chars_from_string(&str_value);
+      ref_builder.copy_chars_from_string(&str_value)?;
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
       if key < 0 {
@@ -185,7 +185,7 @@ fn test_compact() -> Result<()> {
 
     hash.clear(&mut byte_block_pool);
     assert_eq!(hash.size(), 0);
-    hash.reinit();
+    hash.reinit()?;
   }
   Ok(())
 }
@@ -193,7 +193,7 @@ fn test_compact() -> Result<()> {
 fn test_sort() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
-  let mut hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
 
   let num = at_least(&mut random, 2);
@@ -209,7 +209,7 @@ fn test_sort() -> Result<()> {
         }
       }
 
-      ref_builder.copy_chars_from_string(&str_value);
+      ref_builder.copy_chars_from_string(&str_value)?;
       hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
       strings.insert(str_value);
     }
@@ -220,7 +220,7 @@ fn test_sort() -> Result<()> {
       assert!(strings.len() < len);
       let mut scratch = BytesRef::new();
       for (i, string) in strings.iter().enumerate() {
-        ref_builder.copy_chars_from_string(string);
+        ref_builder.copy_chars_from_string(string)?;
         let bytes_id = hash.ids[i];
         hash.get(bytes_id, &mut scratch, &byte_block_pool);
         let sorted_ref = scratch.clone();
@@ -235,7 +235,7 @@ fn test_sort() -> Result<()> {
 
     hash.clear(&mut byte_block_pool);
     assert_eq!(hash.size(), 0, "Hash should be empty after clear.");
-    hash.reinit();
+    hash.reinit()?;
   }
   Ok(())
 }
@@ -244,7 +244,7 @@ fn test_sort() -> Result<()> {
 fn test_add() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
-  let mut hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
   let mut scratch = BytesRef::new();
 
@@ -262,7 +262,7 @@ fn test_add() -> Result<()> {
         }
       }
 
-      ref_builder.copy_chars_from_string(&str_value);
+      ref_builder.copy_chars_from_string(&str_value)?;
       let count = hash.size();
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
@@ -283,7 +283,7 @@ fn test_add() -> Result<()> {
     assert_all_in(&strings, &mut hash, &mut byte_block_pool)?;
     hash.clear(&mut byte_block_pool);
     assert_eq!(hash.size(), 0);
-    hash.reinit();
+    hash.reinit()?;
   }
   Ok(())
 }
@@ -291,7 +291,7 @@ fn test_add() -> Result<()> {
 fn test_find() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
-  let mut hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
   let mut scratch = BytesRef::new();
 
@@ -309,7 +309,7 @@ fn test_find() -> Result<()> {
         }
       }
 
-      ref_builder.copy_chars_from_string(&str_value);
+      ref_builder.copy_chars_from_string(&str_value)?;
       let count = hash.size();
       let key = hash.find(ref_builder.get_bytes_mut_ref(), &byte_block_pool);
 
@@ -331,7 +331,7 @@ fn test_find() -> Result<()> {
     assert_all_in(&strings, &mut hash, &mut byte_block_pool)?;
     hash.clear(&mut byte_block_pool);
     assert_eq!(hash.size(), 0);
-    hash.reinit();
+    hash.reinit()?;
   }
   Ok(())
 }
@@ -344,7 +344,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
     let num_strings = 797;
     let strings = Arc::new(Mutex::new(Vec::with_capacity(num_strings)));
     let byte_block_pool = Arc::new(Mutex::new(new_pool()));
-    let hash = Arc::new(Mutex::new(new_hash(&mut random)));
+    let hash = Arc::new(Mutex::new(new_hash(&mut random)?));
 
     {
       let mut hash_guard = hash.lock();
@@ -428,7 +428,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
 
     hash.lock().clear(&mut byte_block_pool.lock());
     assert_eq!(hash.lock().size(), 0, "Hash should be empty after clear.");
-    hash.lock().reinit();
+    hash.lock().reinit()?;
   }
 
   Ok(())
@@ -437,7 +437,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
 fn test_large_value() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
-  let mut hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
 
   let sizes = [
     random.random_range(0..5),
@@ -470,8 +470,8 @@ fn test_large_value() -> Result<()> {
 fn test_add_by_pool_offset() -> Result<()> {
   let mut random = random();
   let mut pool = new_pool();
-  let mut hash = new_hash(&mut random);
-  let mut offset_hash = new_hash(&mut random);
+  let mut hash = new_hash(&mut random)?;
+  let mut offset_hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
   let mut scratch = BytesRef::new();
 
@@ -489,7 +489,7 @@ fn test_add_by_pool_offset() -> Result<()> {
         }
       }
 
-      ref_builder.copy_chars_from_string(&str_value);
+      ref_builder.copy_chars_from_string(&str_value)?;
       let count = hash.size();
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut pool)?;
 
@@ -520,7 +520,7 @@ fn test_add_by_pool_offset() -> Result<()> {
     assert_all_in(&strings, &mut hash, &mut pool)?;
 
     for string in &strings {
-      ref_builder.copy_chars_from_string(string);
+      ref_builder.copy_chars_from_string(string)?;
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut pool)?;
       offset_hash.get(-key - 1, &mut scratch, &pool);
       let bytes_ref = scratch.clone();
@@ -540,8 +540,8 @@ fn test_add_by_pool_offset() -> Result<()> {
       "Offset hash should be empty after clear."
     );
 
-    hash.reinit();
-    offset_hash.reinit();
+    hash.reinit()?;
+    offset_hash.reinit()?;
   }
   Ok(())
 }
@@ -556,7 +556,7 @@ fn assert_all_in(
   let count = hash.size();
 
   for string in strings {
-    ref_builder.copy_chars_from_string(string);
+    ref_builder.copy_chars_from_string(string)?;
     let key = hash.add(ref_builder.get_bytes_mut_ref(), pool)?; // add again to check duplicates
     hash.get((-key) - 1, &mut scratch, pool);
     assert_eq!(*string, scratch.utf8_to_string()?);

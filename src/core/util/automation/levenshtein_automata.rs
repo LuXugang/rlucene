@@ -179,9 +179,9 @@ impl LevenshteinAutomata {
       (num_states + prefix_states) as usize,
       num_transitions as usize,
     );
-    let mut last_state = a.create_state();
+    let mut last_state = a.create_state()?;
     for cp in prefix.chars().map(|ch| ch as i32) {
-      let state = a.create_state();
+      let state = a.create_state()?;
       a.add_transition_label(last_state, state, cp)?;
       last_state = state;
     }
@@ -190,7 +190,7 @@ impl LevenshteinAutomata {
     a.set_accept(last_state, description.is_accept(0));
 
     for i in 1..num_states {
-      let state = a.create_state();
+      let state = a.create_state()?;
       a.set_accept(state, description.is_accept(i));
     }
 

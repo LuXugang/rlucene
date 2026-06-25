@@ -193,7 +193,7 @@ impl FieldUpdatesBuffer {
     if self.fields[0] != field || fields_len != 1 {
       if fields_len <= ord {
         let old_size = size_of_vec(&self.fields);
-        ArrayUtil::grow_with_len(&mut self.fields, ord + 1);
+        ArrayUtil::grow_with_len(&mut self.fields, ord + 1)?;
         if fields_len == 1 {
           for i in 1..ord {
             self.fields[i] = self.fields[0].clone();
@@ -213,7 +213,7 @@ impl FieldUpdatesBuffer {
     if self.docs_upto[0] != doc_upto || docs_upto_len != 1 {
       if docs_upto_len <= ord {
         let old_size = size_of_vec(&self.docs_upto);
-        ArrayUtil::grow_with_len(&mut self.docs_upto, ord + 1);
+        ArrayUtil::grow_with_len(&mut self.docs_upto, ord + 1)?;
         if docs_upto_len == 1 {
           for i in 1..ord {
             self.docs_upto[i] = self.docs_upto[0];
@@ -230,7 +230,7 @@ impl FieldUpdatesBuffer {
       if let Some(bitset) = self.has_values.as_mut() {
         if bitset.length() <= ord {
           let old_size = bitset.ram_bytes_used()?;
-          bitset.ensure_capacity(ord + 1);
+          bitset.ensure_capacity(ord + 1)?;
           self
             .bytes_used
             .add_and_get(bitset.ram_bytes_used()?.saturating_sub(old_size));
@@ -260,7 +260,7 @@ impl FieldUpdatesBuffer {
     if numeric_values[0] != value || numeric_values_len != 1 {
       if numeric_values_len <= ord {
         let old_size = size_of_vec(numeric_values);
-        ArrayUtil::grow_with_len(numeric_values, ord + 1);
+        ArrayUtil::grow_with_len(numeric_values, ord + 1)?;
         if numeric_values_len == 1 {
           for i in 1..ord {
             numeric_values[i] = numeric_values[0];

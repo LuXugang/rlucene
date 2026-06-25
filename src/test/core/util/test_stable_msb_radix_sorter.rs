@@ -191,7 +191,7 @@ fn test_random2() -> Result<()> {
       for (j, substring) in substrings.iter().enumerate() {
         accum += chance[j];
         if accum >= v {
-          builder.append(substring);
+          builder.append(substring)?;
           break;
         }
       }

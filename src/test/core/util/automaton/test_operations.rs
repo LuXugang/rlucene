@@ -52,7 +52,7 @@ impl TestOperations {
   /// See also:
   /// - [`FiniteStringsIterator`]
   pub fn get_finite_strings(a: &Automaton) -> Result<HashSet<IntsRef<Vec<i32>>>> {
-    let iter = FiniteStringsIterator::new(a);
+    let iter = FiniteStringsIterator::new(a)?;
     Self::get_finite_strings_impl(iter)
   }
   /// Returns the set of accepted strings, up to at most `limit` strings.
@@ -322,7 +322,7 @@ where
 {
   let mut a = Automaton::new();
   let mut last_level_states = vec![];
-  let initial_state = a.create_state();
+  let initial_state = a.create_state()?;
   let max_level = random.random_range(4..10);
   last_level_states.push(initial_state);
 
@@ -331,7 +331,7 @@ where
     let mut next_level_states = vec![];
 
     for _ in 0..num_states {
-      let next_state = a.create_state();
+      let next_state = a.create_state()?;
       next_level_states.push(next_state);
     }
 
@@ -374,7 +374,7 @@ fn test_repeat() -> Result<()> {
 
   let a = Automata::make_char('a' as i32)?;
   let mut as_ = Automaton::new();
-  as_.create_state();
+  as_.create_state()?;
   as_.set_accept(0, true);
   as_.add_transition_label(0, 0, 'a' as i32)?;
   as_.finish_state()?;
@@ -384,9 +384,9 @@ fn test_repeat() -> Result<()> {
   assert_same(r, &as_);
 
   let mut a_or_empty = Automaton::new();
-  a_or_empty.create_state();
+  a_or_empty.create_state()?;
   a_or_empty.set_accept(0, true);
-  a_or_empty.create_state();
+  a_or_empty.create_state()?;
   a_or_empty.set_accept(1, true);
   a_or_empty.add_transition_label(0, 1, 'a' as i32)?;
   let r = Operations::repeat(&a_or_empty)?;
@@ -394,8 +394,8 @@ fn test_repeat() -> Result<()> {
 
   let ab = Automata::make_string("ab")?;
   let mut abs = Automaton::new();
-  abs.create_state();
-  abs.create_state();
+  abs.create_state()?;
+  abs.create_state()?;
   abs.set_accept(0, true);
   abs.add_transition_label(0, 1, 'a' as i32)?;
   abs.finish_state()?;
@@ -408,9 +408,9 @@ fn test_repeat() -> Result<()> {
 
   let abs_then_c = Operations::concatenate(&abs, &Automata::make_char('c' as i32)?)?;
   let mut abs_then_cs = Automaton::new();
-  abs_then_cs.create_state();
-  abs_then_cs.create_state();
-  abs_then_cs.create_state();
+  abs_then_cs.create_state()?;
+  abs_then_cs.create_state()?;
+  abs_then_cs.create_state()?;
   abs_then_cs.set_accept(0, true);
   abs_then_cs.add_transition_label(0, 1, 'a' as i32)?;
   abs_then_cs.add_transition_label(0, 0, 'c' as i32)?;
@@ -426,9 +426,9 @@ fn test_repeat() -> Result<()> {
   assert_same(r, &abs_then_cs);
 
   let mut a_or_ab = Automaton::new();
-  a_or_ab.create_state();
-  a_or_ab.create_state();
-  a_or_ab.create_state();
+  a_or_ab.create_state()?;
+  a_or_ab.create_state()?;
+  a_or_ab.create_state()?;
   a_or_ab.set_accept(1, true);
   a_or_ab.set_accept(2, true);
   a_or_ab.add_transition_label(0, 1, 'a' as i32)?;
@@ -437,8 +437,8 @@ fn test_repeat() -> Result<()> {
   a_or_ab.finish_state()?;
 
   let mut a_or_abs = Automaton::new();
-  a_or_abs.create_state();
-  a_or_abs.create_state();
+  a_or_abs.create_state()?;
+  a_or_abs.create_state()?;
   a_or_abs.set_accept(0, true);
   a_or_abs.add_transition_label(0, 0, 'a' as i32)?;
   a_or_abs.add_transition_label(0, 1, 'a' as i32)?;
@@ -479,13 +479,13 @@ fn naive_repeat(a: &Automaton) -> Result<Cow<'_, Automaton>> {
   // Create the initial state, which is accepted
   builder.create_state();
   builder.set_accept(0, true);
-  builder.copy(a);
+  builder.copy(a)?;
 
   let mut t = Transition::default();
   let count = a.init_transition(0, &mut t);
   for _ in 0..count {
     a.get_next_transition(&mut t);
-    builder.add_transition(0, t.dest + 1, t.min, t.max);
+    builder.add_transition(0, t.dest + 1, t.min, t.max)?;
   }
 
   let num_states = a.get_num_states();
@@ -494,7 +494,7 @@ fn naive_repeat(a: &Automaton) -> Result<Cow<'_, Automaton>> {
       let count = a.init_transition(0, &mut t);
       for _ in 0..count {
         a.get_next_transition(&mut t);
-        builder.add_transition(s + 1, t.dest + 1, t.min, t.max);
+        builder.add_transition(s + 1, t.dest + 1, t.min, t.max)?;
       }
     }
   }
@@ -505,10 +505,10 @@ fn naive_repeat(a: &Automaton) -> Result<Cow<'_, Automaton>> {
 fn test_optional() -> Result<()> {
   let a = Automata::make_char('a' as i32)?;
   let mut optional_a = Automaton::new();
-  optional_a.create_state();
+  optional_a.create_state()?;
   optional_a.set_accept(0, true);
   optional_a.finish_state()?;
-  optional_a.create_state();
+  optional_a.create_state()?;
   optional_a.set_accept(1, true);
   optional_a.add_transition_label(0, 1, 'a' as i32)?;
   optional_a.finish_state()?;
@@ -521,8 +521,8 @@ fn test_optional() -> Result<()> {
 
   // Now test an automaton that has a transition to state 0. a(ba)*
   let mut a = Automaton::new();
-  a.create_state();
-  a.create_state();
+  a.create_state()?;
+  a.create_state()?;
   a.set_accept(1, true);
   a.add_transition_label(0, 1, 'a' as i32)?;
   a.finish_state()?;
@@ -530,10 +530,10 @@ fn test_optional() -> Result<()> {
   a.finish_state()?;
 
   let mut optional_a = Automaton::new();
-  optional_a.create_state();
+  optional_a.create_state()?;
   optional_a.set_accept(0, true);
-  optional_a.create_state();
-  optional_a.create_state();
+  optional_a.create_state()?;
+  optional_a.create_state()?;
   optional_a.set_accept(2, true);
   optional_a.add_transition_label(0, 2, 'a' as i32)?;
   optional_a.finish_state()?;
@@ -570,10 +570,10 @@ fn test_duel_optional() -> Result<()> {
 // improved it to generate simpler automata in some common cases.
 fn naive_optional(a: &Automaton) -> Result<Automaton> {
   let mut result = Automaton::new();
-  result.create_state();
+  result.create_state()?;
   result.set_accept(0, true);
   if a.get_num_states() > 0 {
-    result.copy(a);
+    result.copy(a)?;
     result.add_epsilon(0, 1)?;
   }
   result.finish_state()?;

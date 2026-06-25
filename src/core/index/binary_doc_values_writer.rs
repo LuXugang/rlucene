@@ -158,7 +158,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
           self.max_length as usize,
           get_data_input(&self.bytes_out.paged_bytes)?,
           self.docs_with_field.iterator()?,
-        );
+        )?;
         Some(BinaryDVs::new(
           segment_info.max_doc()?.try_convert()?,
           sort_map,
@@ -187,12 +187,12 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         "must be finished before getting doc values".to_string(),
       ));
     }
-    Ok(BufferedBinaryDocValues::new(
+    BufferedBinaryDocValues::new(
       self.final_lengths.as_ref().unwrap(),
       self.max_length as usize,
       get_data_input(&self.bytes_out.paged_bytes)?,
       self.docs_with_field.iterator()?,
-    ))
+    )
   }
 
   fn finish(&mut self, _pool: Arc<ByteBlockPool>) -> Result<()> {
@@ -252,7 +252,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
         self.max_length as usize,
         get_data_input(&self.paged_bytes)?,
         self.docs_with_field.iterator()?,
-      ))),
+      )?)),
     }
   }
 
@@ -284,15 +284,15 @@ where
     max_length: usize,
     bytes_iter: DI,
     docs_with_field: D,
-  ) -> Self {
+  ) -> Result<Self> {
     let mut value = BytesRefBuilder::new();
-    value.grow(max_length);
-    Self {
+    value.grow(max_length)?;
+    Ok(Self {
       value,
       lengths_iterator: lengths.iterator(),
       docs_with_field,
       bytes_iter,
-    }
+    })
   }
 }
 

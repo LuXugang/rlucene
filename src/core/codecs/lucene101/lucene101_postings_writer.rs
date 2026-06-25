@@ -733,7 +733,7 @@ where
             ArrayUtil::grow_with_len(
               &mut self.payload_bytes,
               self.payload_byte_upto as usize + p.length,
-            );
+            )?;
           }
           let start = p.offset;
           self.payload_bytes.copy_from(

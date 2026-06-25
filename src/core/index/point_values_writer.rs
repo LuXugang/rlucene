@@ -84,7 +84,7 @@ impl PointValuesWriter {
     }
 
     if self.doc_ids.len() == self.num_points {
-      ArrayUtil::grow_with_len(&mut self.doc_ids, self.num_points + 1);
+      ArrayUtil::grow_with_len(&mut self.doc_ids, self.num_points + 1)?;
       self
         .iw_bytes_used
         .add_and_get(((self.doc_ids.len() - self.num_points) * BitUtil::INT_BYTES) as i64);

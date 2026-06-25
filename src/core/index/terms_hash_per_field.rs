@@ -72,15 +72,15 @@ impl TermsHashPerField {
     postings_array_wrapper: PostingsArrayWrapper,
     field_name: String,
     index_options: IndexOptions,
-  ) -> Self {
+  ) -> Result<Self> {
     // In the original Java code, we assert that indexOptions !=
     // IndexOptions.NONE.
     debug_assert!(index_options != IndexOptions::None);
     let slice_pool = ByteSlicePool;
     let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
-    let bytes_hash = BytesRefHash::from_bytes_start_array(HASH_INIT_SIZE, byte_starts);
-    TermsHashPerField {
+    let bytes_hash = BytesRefHash::from_bytes_start_array(HASH_INIT_SIZE, byte_starts)?;
+    Ok(TermsHashPerField {
       slice_pool,
       term_stream_address_buffer_index: 0,
       stream_address_offset: 0,
@@ -90,7 +90,7 @@ impl TermsHashPerField {
       do_next_call: false,
       field_name,
       index_options,
-    }
+    })
   }
   pub(crate) fn init_reader<P>(
     &self,
@@ -240,7 +240,7 @@ impl TermsHashPerField {
     self.bytes_hash.clear_with_reset_pool(false, byte_pool);
   }
 
-  pub(crate) fn reinit_hash(&mut self) {
+  pub(crate) fn reinit_hash(&mut self) -> Result<()> {
     self.bytes_hash.reinit()
   }
 
@@ -396,7 +396,7 @@ impl PostingsBytesStartArray {
   }
 }
 impl BytesStartArray for PostingsBytesStartArray {
-  fn init(&mut self) {
+  fn init(&mut self) -> Result<()> {
     if self.per_field.postings_array.is_none() {
       self.per_field.postings_array =
         Option::from(self.per_field.terms_hash_per_field_type.new_per_field(2));
@@ -405,6 +405,7 @@ impl BytesStartArray for PostingsBytesStartArray {
         let _ = self.bytes_used.add_and_get(byte_used as i64);
       }
     }
+    Ok(())
   }
 
   fn grow(&mut self) -> Result<()> {

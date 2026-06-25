@@ -149,7 +149,7 @@ where
   }
   pub(crate) fn get_frame(&mut self, ord: usize) -> Result<()> {
     if ord >= self.stack.len() {
-      let new_len = ArrayUtil::oversize(ord + 1, 0);
+      let new_len = ArrayUtil::oversize(ord + 1, std::mem::size_of::<IntersectTermsEnumFrame>())?;
 
       for i in self.stack.len()..new_len {
         let frame = IntersectTermsEnumFrame::new(i as i32, &self.fr)?;
@@ -159,14 +159,11 @@ where
     debug_assert!(self.stack[ord].ord == ord as i32);
     Ok(())
   }
-  pub(crate) fn get_arc(&mut self, ord: usize) -> usize {
+  pub(crate) fn get_arc(&mut self, ord: usize) -> Result<usize> {
     if ord >= self.arcs.len() {
-      let new_len = ArrayUtil::oversize(ord + 1, 0);
-      for _ in self.arcs.len()..new_len {
-        self.arcs.push(Arc::default())
-      }
+      ArrayUtil::grow_with_len(&mut self.arcs, ord + 1)?;
     }
-    ord
+    Ok(ord)
   }
   fn push_frame(&mut self, state: i32) -> Result<usize> {
     debug_assert!(self.current_frame < self.stack.len());
@@ -203,7 +200,7 @@ where
 
     while idx < f_prefix {
       let target = self.term.bytes[idx] as i32;
-      let next_idx = self.get_arc(idx + 1);
+      let next_idx = self.get_arc(idx + 1)?;
       let fr_index = self.fr.index.as_ref().unwrap();
       let reader = self.fst_reader.as_mut().unwrap();
 
@@ -257,7 +254,7 @@ where
     debug_assert!(self.stack[self.current_frame].ord == 0);
 
     if self.term.length < target.length {
-      ArrayUtil::grow_with_len(&mut self.term.bytes, target.length);
+      ArrayUtil::grow_with_len(&mut self.term.bytes, target.length)?;
     }
 
     debug_assert!(self.stack[self.current_frame].arc == 0);
@@ -294,7 +291,7 @@ where
           self.term.length = f.prefix + f.suffix;
 
           if self.term.bytes.len() < self.term.length {
-            ArrayUtil::grow_with_len(&mut self.term.bytes, self.term.length);
+            ArrayUtil::grow_with_len(&mut self.term.bytes, self.term.length)?;
           }
 
           let src_start = f.start_byte_pos;
@@ -551,13 +548,13 @@ where
       }
 
       if is_sub_block {
-        self.copy_term();
+        self.copy_term()?;
         let new_ord = self.push_frame(state)?;
         self.current_frame = new_ord;
         self.current_transition = self.current_frame;
         self.stack[new_ord].last_state = last_state;
       } else if self.automaton.is_accept(state)? {
-        self.copy_term();
+        self.copy_term()?;
         debug_assert!(
           self
             .saved_start_term
@@ -571,12 +568,12 @@ where
     }
   }
 
-  fn copy_term(&mut self) {
+  fn copy_term(&mut self) -> Result<()> {
     let current_frame = &self.stack[self.current_frame];
     let len = current_frame.prefix + current_frame.suffix;
 
     if self.term.bytes.len() < len {
-      ArrayUtil::grow_with_len(&mut self.term.bytes, len);
+      ArrayUtil::grow_with_len(&mut self.term.bytes, len)?;
     }
 
     let src_start = current_frame.start_byte_pos;
@@ -588,6 +585,7 @@ where
       .copy_from_slice(&current_frame.suffixes_reader.bytes[src_start..src_end]);
 
     self.term.length = len;
+    Ok(())
   }
 }
 

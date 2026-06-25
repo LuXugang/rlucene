@@ -102,12 +102,12 @@ impl Automaton {
       deterministic: true,
     }
   }
-  pub fn create_state(&mut self) -> i32 {
-    self.grow_states();
+  pub fn create_state(&mut self) -> Result<i32> {
+    self.grow_states()?;
     let state = self.next_state / 2;
     self.states[self.next_state as usize] = -1;
     self.next_state += 2;
-    state
+    Ok(state)
   }
   /// Set or clear this state as an accept state.
   pub fn set_accept(&mut self, state: i32, accept: bool) {
@@ -159,7 +159,7 @@ impl Automaton {
     debug_assert!((0..bounds).contains(&source));
     debug_assert!((0..bounds).contains(&dest));
 
-    self.grow_transitions();
+    self.grow_transitions()?;
 
     if self.cur_state != source {
       if self.cur_state != -1 {
@@ -203,11 +203,11 @@ impl Automaton {
   }
   /// Copies over all states and transitions from another automaton.  
   /// The state numbers are sequentially assigned (appended).
-  pub fn copy(&mut self, other: &Automaton) {
+  pub fn copy(&mut self, other: &Automaton) -> Result<()> {
     // Bulk copy and fix up state pointers
     let state_offset = self.get_num_states();
     let total_states = self.next_state + other.next_state;
-    ArrayUtil::grow_with_len(&mut self.states, total_states as usize);
+    ArrayUtil::grow_with_len(&mut self.states, total_states as usize)?;
     self.states.copy_from(
       &other.states[0..other.next_state as usize],
       self.next_state as usize,
@@ -235,7 +235,7 @@ impl Automaton {
 
     // Bulk copy and then fixup dest for each transition:
     let len = self.next_transition + other.next_transition;
-    ArrayUtil::grow_with_len(&mut self.transitions, len as usize);
+    ArrayUtil::grow_with_len(&mut self.transitions, len as usize)?;
     self.transitions.copy_from(
       &other.transitions[0..other.next_transition as usize],
       self.next_transition as usize,
@@ -250,6 +250,7 @@ impl Automaton {
     if !other.deterministic {
       self.deterministic = false;
     }
+    Ok(())
   }
   /// Freezes the last state, sorting and reducing its transitions.
   fn finish_current_state(&mut self) -> Result<()> {
@@ -369,18 +370,20 @@ impl Automaton {
   pub fn get_num_transitions(&self) -> i32 {
     self.next_transition / 3
   }
-  fn grow_states(&mut self) {
+  fn grow_states(&mut self) -> Result<()> {
     let len = (self.next_state + 2) as usize;
     if len > self.states.len() {
-      ArrayUtil::grow_with_len(&mut self.states, len);
+      ArrayUtil::grow_with_len(&mut self.states, len)?;
     }
+    Ok(())
   }
 
-  fn grow_transitions(&mut self) {
+  fn grow_transitions(&mut self) -> Result<()> {
     let len = (self.next_transition + 3) as usize;
     if len > self.transitions.len() {
-      ArrayUtil::grow_with_len(&mut self.transitions, len);
+      ArrayUtil::grow_with_len(&mut self.transitions, len)?;
     }
+    Ok(())
   }
 
   fn transition_sorted(&self, t: &Transition) -> bool {
@@ -628,14 +631,14 @@ impl Builder {
     }
   }
   /// Add a new transition with min = max = label.
-  pub fn add_transition_label(&mut self, source: i32, dest: i32, label: i32) {
+  pub fn add_transition_label(&mut self, source: i32, dest: i32, label: i32) -> Result<()> {
     self.add_transition(source, dest, label, label)
   }
   /// Add a new transition with the specified source, dest, min, max.
-  pub fn add_transition(&mut self, source: i32, dest: i32, min: i32, max: i32) {
+  pub fn add_transition(&mut self, source: i32, dest: i32, min: i32, max: i32) -> Result<()> {
     let new_len = (self.next_transition + 4) as usize;
     if self.transitions.len() < new_len {
-      ArrayUtil::grow_with_len(&mut self.transitions, new_len);
+      ArrayUtil::grow_with_len(&mut self.transitions, new_len)?;
     }
     let mut next_transition = self.next_transition as usize;
     self.transitions[next_transition] = source;
@@ -647,11 +650,12 @@ impl Builder {
     self.transitions[next_transition] = max;
     next_transition += 1;
     self.next_transition = next_transition as i32;
+    Ok(())
   }
   /// Add a `virtual` epsilon transition between source and dest. Dest state
   /// must already have all transitions added because this method simply
   /// copies those same transitions over to source.
-  pub fn add_epsilon(&mut self, source: i32, dest: i32) {
+  pub fn add_epsilon(&mut self, source: i32, dest: i32) -> Result<()> {
     let mut upto = 0;
     while upto < self.next_transition as usize {
       if self.transitions[upto] == dest {
@@ -660,13 +664,14 @@ impl Builder {
           self.transitions[upto + 1],
           self.transitions[upto + 2],
           self.transitions[upto + 3],
-        );
+        )?;
       }
       upto += 4;
     }
     if self.is_accept(dest) {
       self.set_accept(source, true);
     }
+    Ok(())
   }
   /// Compiles all added states and transitions into a new [`Automaton`] and
   /// returns it.
@@ -676,7 +681,7 @@ impl Builder {
     let mut a = Automaton::with_capacity(num_states as usize, num_transitions as usize);
 
     for state in 0..num_states {
-      a.create_state();
+      a.create_state()?;
       a.set_accept(state, self.is_accept(state));
     }
     let sub = InPlaceMergeSorterImpl {
@@ -730,7 +735,7 @@ impl Builder {
   }
 
   /// Copies over all states/transitions from other.
-  pub fn copy(&mut self, other: &Automaton) {
+  pub fn copy(&mut self, other: &Automaton) -> Result<()> {
     let offset = self.get_num_states();
     let other_num_states = other.get_num_states();
 
@@ -743,9 +748,10 @@ impl Builder {
       let count = other.init_transition(s, &mut t);
       for _ in 0..count {
         other.get_next_transition(&mut t);
-        self.add_transition(offset + s, offset + t.dest, t.min, t.max);
+        self.add_transition(offset + s, offset + t.dest, t.min, t.max)?;
       }
     }
+    Ok(())
   }
 
   /// Copies over all states from other.

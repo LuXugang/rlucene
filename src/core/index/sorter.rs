@@ -260,8 +260,9 @@ where
     self.docs[dest] = self.docs[src];
   }
 
-  fn save(&mut self, i: usize, len: usize) {
+  fn save(&mut self, i: usize, len: usize) -> Result<()> {
     self.tmp.copy_from(&self.docs[i..(i + len)], 0);
+    Ok(())
   }
 
   fn restore(&mut self, i: usize, j: usize) {

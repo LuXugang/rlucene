@@ -71,7 +71,7 @@ impl Operations {
       }
       let num_states = a.get_num_states();
       for _ in 0..num_states {
-        result.create_state();
+        result.create_state()?;
       }
     }
 
@@ -135,7 +135,7 @@ impl Operations {
     }
 
     if result.get_num_states() == 0 {
-      result.create_state();
+      result.create_state()?;
     }
     result.finish_state()?;
     Ok(result)
@@ -167,18 +167,18 @@ impl Operations {
     // If no transitions to initial, just mark initial as accept
     if !has_transitions_to_initial {
       let mut result = Automaton::new();
-      result.copy(a);
+      result.copy(a)?;
       if result.get_num_states() == 0 {
-        result.create_state();
+        result.create_state()?;
       }
       result.set_accept(0, true);
       return Ok(Cow::Owned(result));
     }
     let mut result = Automaton::new();
-    result.create_state();
+    result.create_state()?;
     result.set_accept(0, true);
     if a.get_num_states() > 0 {
-      result.copy(a);
+      result.copy(a)?;
       result.add_epsilon(0, 1)?;
     }
     result.finish_state()?;
@@ -226,7 +226,7 @@ impl Operations {
       for _ in 0..count {
         a.get_next_transition(&mut t);
         let dest = state_map[t.dest as usize];
-        builder.add_transition(src, dest, t.min, t.max);
+        builder.add_transition(src, dest, t.min, t.max)?;
       }
     }
 
@@ -234,7 +234,7 @@ impl Operations {
     let count = a.init_transition(0, &mut t) as usize;
     for _ in 0..count {
       a.get_next_transition(&mut t);
-      builder.add_transition(0, state_map[t.dest as usize], t.min, t.max);
+      builder.add_transition(0, state_map[t.dest as usize], t.min, t.max)?;
     }
 
     // Add transitions from each accept state to repeat the initial transitions
@@ -244,7 +244,7 @@ impl Operations {
         let count = a.init_transition(0, &mut t) as usize;
         for _ in 0..count {
           a.get_next_transition(&mut t);
-          builder.add_transition(state_map[s], state_map[t.dest as usize], t.min, t.max);
+          builder.add_transition(state_map[s], state_map[t.dest as usize], t.min, t.max)?;
         }
       }
     }
@@ -286,7 +286,7 @@ impl Operations {
       Automata::make_empty_string()?
     } else if min == 1 {
       let mut base = Automaton::new();
-      base.copy(a);
+      base.copy(a)?;
       base
     } else {
       let min = min as usize;
@@ -299,13 +299,13 @@ impl Operations {
 
     let mut prev_accept = Operations::get_set(&b, 0);
     let mut builder = Builder::new();
-    builder.copy(&b);
+    builder.copy(&b)?;
 
     for _ in min..max {
       let offset = builder.get_num_states();
-      builder.copy(a);
+      builder.copy(a)?;
       for s in prev_accept.iter() {
-        builder.add_epsilon(*s, offset);
+        builder.add_epsilon(*s, offset)?;
       }
       prev_accept = Operations::get_set(a, offset);
     }
@@ -405,7 +405,7 @@ impl Operations {
     let transitions1 = a1.get_sorted_transitions();
     let transitions2 = a2.get_sorted_transitions();
     let mut c = Automaton::new();
-    c.create_state();
+    c.create_state()?;
 
     let mut worklist = VecDeque::new();
     let mut newstates = HashMap::new();
@@ -434,7 +434,7 @@ impl Operations {
             let r = match newstates.get(&q) {
               Some(r) => r.clone(),
               None => {
-                q.s = c.create_state();
+                q.s = c.create_state()?;
                 let q = Rc::new(q);
                 worklist.push_back(q.clone());
                 newstates.insert(q.clone(), q.clone());
@@ -504,11 +504,11 @@ impl Operations {
   pub fn union_list(l: &[&Automaton]) -> Result<Automaton> {
     let mut result = Automaton::new();
     // Create initial state:
-    result.create_state();
+    result.create_state()?;
 
     // Copy over all automata
     for a in l {
-      result.copy(a);
+      result.copy(a)?;
     }
 
     // Add epsilon transitions from new initial state
@@ -589,7 +589,7 @@ impl Operations {
         a.init_transition(s0, &mut t);
         for _ in 0..num_transitions {
           a.get_next_transition(&mut t);
-          points.add(&t);
+          points.add(&t)?;
         }
       }
 
@@ -631,7 +631,7 @@ impl Operations {
             },
           };
 
-          b.add_transition(r, q, last_point, point - 1);
+          b.add_transition(r, q, last_point, point - 1)?;
         }
         {
           let ends = &mut points.points[i].ends;
@@ -854,7 +854,7 @@ impl Operations {
       let count = a.init_transition(s, &mut t) as usize;
       for _ in 0..count {
         a.get_next_transition(&mut t);
-        builder.add_transition(t.dest, s, t.min, t.max);
+        builder.add_transition(t.dest, s, t.min, t.max)?;
       }
     }
     let a2 = builder.finish()?;
@@ -902,7 +902,7 @@ impl Operations {
 
     for (i, is_live) in (0..num_states).zip((0..num_states).map(|i| live_set.contains(i))) {
       if is_live {
-        let s = result.create_state();
+        let s = result.create_state()?;
         map[i] = s;
         result.set_accept(s, a.is_accept(i as i32));
       }
@@ -1015,7 +1015,7 @@ impl Operations {
       if ch as u32 > 255 {
         return Err(LuceneError::illegal_state("automaton is not binary"));
       }
-      builder.append_byte(ch as u8);
+      builder.append_byte(ch as u8)?;
     }
 
     Ok(builder.get_bytes_owner())
@@ -1039,7 +1039,7 @@ impl Operations {
         if a.get_num_transitions_with_state(s) == 1 {
           a.get_transition(s, 0, &mut t);
           if t.min == t.max && !visited.contains(&t.dest) {
-            builder.append(t.min);
+            builder.append(t.min)?;
             s = t.dest;
             continue;
           }
@@ -1115,7 +1115,7 @@ impl Operations {
       a.init_transition(s, &mut t);
       for _ in 0..num_transitions {
         a.get_next_transition(&mut t);
-        builder.add_transition(t.dest + 1, s + 1, t.min, t.max);
+        builder.add_transition(t.dest + 1, s + 1, t.min, t.max)?;
       }
     }
 
@@ -1144,11 +1144,11 @@ impl Operations {
 
     let num_states = a.get_num_states();
     for i in 0..num_states {
-      result.create_state();
+      result.create_state()?;
       result.set_accept(i, a.is_accept(i));
     }
 
-    let dead_state = result.create_state();
+    let dead_state = result.create_state()?;
     result.add_transition(dead_state, dead_state, char::MIN as i32, char::MAX as i32)?;
 
     let mut t = Transition::default();
@@ -1280,15 +1280,16 @@ impl TransitionList {
     }
   }
 
-  pub(crate) fn add(&mut self, t: &Transition) {
+  pub(crate) fn add(&mut self, t: &Transition) -> Result<()> {
     if self.transitions.len() < self.next + 3 {
-      ArrayUtil::grow_with_len(&mut self.transitions, self.next + 3)
+      ArrayUtil::grow_with_len(&mut self.transitions, self.next + 3)?;
     }
 
     self.transitions[self.next] = t.dest;
     self.transitions[self.next + 1] = t.min;
     self.transitions[self.next + 2] = t.max;
     self.next += 3;
+    Ok(())
   }
 }
 
@@ -1361,34 +1362,32 @@ impl PointTransitionSet {
       use_hash: false,
     }
   }
-  fn next(&mut self, point: i32) -> usize {
+  fn next(&mut self, point: i32) -> Result<usize> {
     if self.count == self.points.len() {
-      // TODO：oversize's bytes_per_element not specific
-      let new_len = ArrayUtil::oversize(1 + self.count, 4);
-      ArrayUtil::grow_with_len(&mut self.points, new_len);
+      ArrayUtil::grow_with_len(&mut self.points, 1 + self.count)?;
     }
     let points0 = &mut self.points[self.count];
     points0.reset(point);
     self.count += 1;
-    self.count - 1
+    Ok(self.count - 1)
   }
-  pub fn find(&mut self, point: i32) -> &mut PointTransitions {
+  pub fn find(&mut self, point: i32) -> Result<&mut PointTransitions> {
     if self.use_hash {
       if !self.map.contains_key(&point) {
-        let p = self.next(point);
+        let p = self.next(point)?;
         self.map.insert(point, p);
-        return &mut self.points[p];
+        return Ok(&mut self.points[p]);
       }
       let v = self.map.get(&point).unwrap();
-      &mut self.points[*v]
+      Ok(&mut self.points[*v])
     } else {
       for i in 0..self.count {
         if self.points[i].point == point {
-          return &mut self.points[i];
+          return Ok(&mut self.points[i]);
         }
       }
 
-      let p = self.next(point);
+      let p = self.next(point)?;
       if self.count == HASHMAP_CUTOVER {
         debug_assert!(self.map.is_empty());
         for i in 0..self.count {
@@ -1396,7 +1395,7 @@ impl PointTransitionSet {
         }
         self.use_hash = true;
       }
-      &mut self.points[p]
+      Ok(&mut self.points[p])
     }
   }
 
@@ -1428,9 +1427,9 @@ impl PointTransitionSet {
     }
     Ok(())
   }
-  pub fn add(&mut self, t: &Transition) {
-    self.find(t.min).starts.add(t);
-    self.find(t.max + 1).ends.add(t);
+  pub fn add(&mut self, t: &Transition) -> Result<()> {
+    self.find(t.min)?.starts.add(t)?;
+    self.find(t.max + 1)?.ends.add(t)
   }
 }
 #[derive(Copy, Clone)]

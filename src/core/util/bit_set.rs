@@ -97,7 +97,9 @@ pub trait BitSet: Bits + Accountable {
     Ok(())
   }
 
-  fn ensure_capacity(&mut self, _num_bits: usize) {}
+  fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
+    Ok(())
+  }
 }
 
 // BitSet
@@ -244,7 +246,7 @@ where
     }
   }
 
-  fn ensure_capacity(&mut self, _num_bits: usize) {
+  fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
     match self {
       BitSetEnum2::A(t) => t.ensure_capacity(_num_bits),
       BitSetEnum2::B(s) => s.ensure_capacity(_num_bits),
@@ -319,7 +321,7 @@ where
     unreachable!()
   }
 
-  fn ensure_capacity(&mut self, _num_bits: usize) {
+  fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
     unreachable!()
   }
 }
@@ -413,7 +415,7 @@ where
     unreachable!()
   }
 
-  fn ensure_capacity(&mut self, _num_bits: usize) {
+  fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
     unreachable!()
   }
 }

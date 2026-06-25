@@ -91,7 +91,7 @@ impl LZ4WithPresetDictDecompressor {
     if let Some(new_array) = ArrayUtil::grow_no_copy(
       &self.compressed_lengths,
       (original_length / block_length + 1) as usize,
-    ) {
+    )? {
       self.compressed_lengths = new_array
     };
     while total_length < original_length {
@@ -132,7 +132,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
 
     // Grow the buffer to fit the dictionary and block length
     if let Some(new_array) =
-      ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)
+      ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)?
     {
       self.buffer = new_array
     }
@@ -167,7 +167,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
     } else {
       // The dictionary contains some bytes we need, copy its content to
       // the BytesRef
-      if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, dict_length as usize) {
+      if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, dict_length as usize)? {
         bytes.bytes = new_array
       }
       bytes
@@ -181,7 +181,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
       ArrayUtil::grow_with_len(
         &mut bytes.bytes,
         bytes.length + (offset + length - offset_in_block) as usize,
-      );
+      )?;
     }
 
     while offset_in_block < offset + length {
@@ -244,7 +244,7 @@ impl Compressor for LZ4WithPresetDictCompressor {
       / LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS;
 
     if let Some(new_array) =
-      ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)
+      ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)?
     {
       self.buffer = new_array
     }

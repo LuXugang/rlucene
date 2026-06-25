@@ -1852,8 +1852,7 @@ impl AttributeSource for RandomTokenStreamAttr {
   }
 
   fn copy_buffer(&mut self, buffer: &[char], offset: usize, length: usize) -> Result<()> {
-    CharTermAttribute::copy_buffer(&mut self.packed, buffer, offset, length);
-    Ok(())
+    CharTermAttribute::copy_buffer(&mut self.packed, buffer, offset, length)
   }
 
   fn buffer_mut(&mut self) -> Result<&mut [char]> {
@@ -1865,7 +1864,7 @@ impl AttributeSource for RandomTokenStreamAttr {
   }
 
   fn resize_buffer(&mut self, new_size: usize) -> Result<&mut [char]> {
-    Ok(CharTermAttribute::resize_buffer(&mut self.packed, new_size))
+    CharTermAttribute::resize_buffer(&mut self.packed, new_size)
   }
 
   fn set_length(&mut self, length: usize) -> Result<&mut Self> {
@@ -1884,12 +1883,12 @@ impl AttributeSource for RandomTokenStreamAttr {
   }
 
   fn append_char(&mut self, c: char) -> Result<&mut Self> {
-    CharTermAttribute::append_char(&mut self.packed, c);
+    CharTermAttribute::append_char(&mut self.packed, c)?;
     Ok(self)
   }
 
   fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
-    CharTermAttribute::append_str(&mut self.packed, s);
+    CharTermAttribute::append_str(&mut self.packed, s)?;
     Ok(self)
   }
 
@@ -1897,7 +1896,7 @@ impl AttributeSource for RandomTokenStreamAttr {
   where
     C: CharTermAttribute,
   {
-    CharTermAttribute::append_term_attribute(&mut self.packed, term_att);
+    CharTermAttribute::append_term_attribute(&mut self.packed, term_att)?;
     Ok(self)
   }
 

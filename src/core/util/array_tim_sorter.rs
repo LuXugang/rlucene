@@ -86,7 +86,7 @@ where
     self.arr[dest] = self.arr[src];
   }
 
-  fn save(&mut self, start: usize, len: usize) {
+  fn save(&mut self, start: usize, len: usize) -> Result<()> {
     let tmp_len = self.tmp.len();
     if tmp_len < self.max_temp_slots {
       for _ in 0..(self.max_temp_slots - tmp_len) {
@@ -94,6 +94,7 @@ where
       }
     }
     self.tmp.copy_from(&self.arr[start..start + len], 0);
+    Ok(())
   }
 
   fn restore(&mut self, src: usize, dest: usize) {

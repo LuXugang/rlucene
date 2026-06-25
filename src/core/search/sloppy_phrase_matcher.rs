@@ -214,7 +214,7 @@ where
       }
       // careful: mark only those currently in the queue
       if k_usize != k0 {
-        FixedBitSet::ensure_capacity(&mut bits, k_usize);
+        FixedBitSet::ensure_capacity(&mut bits, k_usize)?;
         // mark that pp2 need to be re-queued
         bits.set(k_usize);
       }

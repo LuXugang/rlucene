@@ -158,7 +158,7 @@ where
       if arc.label() == END_LABEL {
         break;
       }
-      in_builder.append(arc.label());
+      in_builder.append(arc.label())?;
     }
 
     Ok(output)
@@ -901,7 +901,7 @@ where
 {
   ir.clear();
   for c in s.chars() {
-    ir.append(c as i32);
+    let _ = ir.append(c as i32);
   }
   ir.get().clone()
 }
@@ -914,10 +914,10 @@ where
   AV: SharedAccessVec<i32> + WritableVec<i32>,
 {
   ir.clear();
-  ir.grow_no_copy(br.length);
+  let _ = ir.grow_no_copy(br.length);
   for i in 0..br.length {
     let byte = br.bytes[br.offset + i];
-    ir.append(byte as i32);
+    let _ = ir.append(byte as i32);
   }
   ir.get_owner()
 }
@@ -926,11 +926,11 @@ where
   AV1: SharedAccessVec<u8>,
   AV2: SharedAccessVec<i32> + WritableVec<i32>,
 {
-  ir.grow_no_copy(br.length);
+  let _ = ir.grow_no_copy(br.length);
   ir.clear();
   br.bytes.access(|bytes| {
     for i in 0..br.length {
-      ir.append(bytes[br.offset + i] as i32);
+      let _ = ir.append(bytes[br.offset + i] as i32);
     }
   });
   ir.get_owner()

@@ -58,7 +58,7 @@ where
       return Ok(None);
     }
     let term = self.values.lookup_ord(self.current_ord)?;
-    self.scratch.copy_bytes_from_ref(&term);
+    self.scratch.copy_bytes_from_ref(&term)?;
     Ok(Some(Cow::Borrowed(self.scratch.get_bytes_ref())))
   }
 }
@@ -88,7 +88,7 @@ where
     let ord = self.values.lookup_term(text)?;
     if ord >= 0 {
       self.current_ord = ord;
-      self.scratch.copy_bytes_from_ref(text);
+      self.scratch.copy_bytes_from_ref(text)?;
       Ok(true)
     } else {
       Ok(false)
@@ -107,7 +107,7 @@ where
     let ord = self.values.lookup_term(text)?;
     if ord >= 0 {
       self.current_ord = ord;
-      self.scratch.copy_bytes_from_ref(text);
+      self.scratch.copy_bytes_from_ref(text)?;
       Ok(SeekStatus::Found)
     } else {
       // not found
@@ -117,7 +117,7 @@ where
       } else {
         // perform lookup of next larger term
         let next_term = self.values.lookup_ord(self.current_ord)?;
-        self.scratch.copy_bytes_from_ref(&next_term);
+        self.scratch.copy_bytes_from_ref(&next_term)?;
         Ok(SeekStatus::NotFound)
       }
     }
@@ -130,7 +130,7 @@ where
     );
     self.current_ord = ord;
     let term = self.values.lookup_ord(self.current_ord)?;
-    self.scratch.copy_bytes_from_ref(term.as_ref());
+    self.scratch.copy_bytes_from_ref(term.as_ref())?;
     Ok(())
   }
 

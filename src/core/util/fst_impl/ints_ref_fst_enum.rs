@@ -141,7 +141,7 @@ where
   }
 
   fn grow(&mut self, base: &FSTEnum<O, F>) -> Result<()> {
-    ArrayUtil::grow_with_len(&mut self.result.input.ints, base.upto + 1);
+    ArrayUtil::grow_with_len(&mut self.result.input.ints, base.upto + 1)?;
     Ok(())
   }
 }

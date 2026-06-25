@@ -61,7 +61,7 @@ impl FreqProxTermsWriterPerField {
     terms_hash: &FreqProxTermsWriter<D>,
     field_info: Arc<FieldInfo>,
     next_per_field: Option<TermVectorsConsumerPerField>,
-  ) -> FreqProxTermsWriterPerField
+  ) -> Result<FreqProxTermsWriterPerField>
   where
     D: Directory,
   {
@@ -92,8 +92,8 @@ impl FreqProxTermsWriterPerField {
       postings_array_wrapper,
       name,
       index_options,
-    );
-    FreqProxTermsWriterPerField {
+    )?;
+    Ok(FreqProxTermsWriterPerField {
       field_info,
       has_freq,
       has_prox,
@@ -101,7 +101,7 @@ impl FreqProxTermsWriterPerField {
       saw_payloads,
       next_per_field,
       base,
-    }
+    })
   }
   pub(crate) fn write_prox(
     &mut self,
@@ -233,7 +233,7 @@ impl FreqProxTermsWriterPerField {
     D: Directory,
   {
     if let Some(next_per_field) = self.next_per_field.as_mut() {
-      next_per_field.finish(term_vectors_consumer, meta);
+      next_per_field.finish(term_vectors_consumer, meta)?;
     }
 
     if self.saw_payloads {

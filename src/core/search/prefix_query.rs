@@ -163,9 +163,9 @@ pub fn to_automaton(prefix: &BytesRef<Vec<u8>>) -> Result<Automaton> {
   let mut automaton =
     Automaton::with_capacity(num_states_and_transitions, num_states_and_transitions);
 
-  let mut last_state = automaton.create_state();
+  let mut last_state = automaton.create_state()?;
   for i in 0..prefix.length {
-    let state = automaton.create_state();
+    let state = automaton.create_state()?;
     let b = prefix.bytes[prefix.offset + i];
     automaton.add_transition_label(last_state, state, b as i32)?;
     last_state = state;

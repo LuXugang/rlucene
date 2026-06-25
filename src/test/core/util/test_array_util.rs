@@ -34,12 +34,12 @@ use crate::test::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 pub struct TestArrayUtil;
 #[test]
-fn test_growth() {
+fn test_growth() -> Result<()> {
   let mut current_size = 0;
   let mut copy_cost = 0;
 
   while current_size != ArrayUtil::MAX_ARRAY_LENGTH {
-    let next_size = ArrayUtil::oversize(1 + current_size, 0);
+    let next_size = ArrayUtil::oversize(1 + current_size, size_of::<usize>())?;
     assert!(next_size > current_size);
 
     if current_size > 0 {
@@ -54,45 +54,51 @@ fn test_growth() {
 
     current_size = next_size;
   }
+  Ok(())
 }
+
 #[test]
-fn test_max_size() {
+fn test_max_size() -> Result<()> {
   for elem_size in 0..10 {
     assert_eq!(
       ArrayUtil::MAX_ARRAY_LENGTH,
-      ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH, elem_size)
+      ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH, elem_size)?
     );
     assert_eq!(
       ArrayUtil::MAX_ARRAY_LENGTH,
-      ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH - 1, elem_size)
+      ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH - 1, elem_size)?
     );
   }
+  Ok(())
 }
 
 #[test]
 fn test_too_big() {
-  //TODO: The current implementation of oversize is simple and cannot be
-  // tested for this functionality.
+  let result = ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH + 1, 1);
+  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
 }
 
 #[test]
-fn test_exact_limit() {
+fn test_exact_limit() -> Result<()> {
   assert_eq!(
     ArrayUtil::MAX_ARRAY_LENGTH,
-    ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH, 1)
+    ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH, 1)?
   );
+  Ok(())
 }
 #[test]
-fn test_invalid_element_sizes() {
+fn test_invalid_element_sizes() -> Result<()> {
   let mut random = random();
   let num = at_least(&mut random, 10000);
   for _ in 0..num {
     let min_target_size = random.random_range(0..ArrayUtil::MAX_ARRAY_LENGTH);
     let elem_size = random.random_range(0..11);
-    let v = ArrayUtil::oversize(min_target_size, elem_size);
+    let v = ArrayUtil::oversize(min_target_size, elem_size)?;
     assert!(v >= min_target_size);
   }
+  Ok(())
 }
+
 fn parse_int<R>(random: &mut R, s: &str) -> Result<i32>
 where
   R: Rng + ?Sized,
@@ -254,8 +260,8 @@ impl Display for Item {
 impl Eq for Item {}
 
 impl PartialEq for Item {
-  fn eq(&self, _other: &Self) -> bool {
-    todo!()
+  fn eq(&self, other: &Self) -> bool {
+    self.order == other.order
   }
 }
 
@@ -529,9 +535,6 @@ fn test_grow_exact() -> Result<()> {
 #[test]
 fn test_grow_in_range() -> Result<()> {
   let mut array: Vec<i32> = vec![1, 2, 3];
-  // If minLength is negative, maxLength does not matter
-  // TODO
-
   // If minLength > maxLength, we return an error
   let result = ArrayUtil::grow_in_range(&mut array, 1, 0);
   assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
@@ -553,7 +556,10 @@ fn test_grow_in_range() -> Result<()> {
 
   let mut vec = vec![1, 2, 3];
   ArrayUtil::grow_in_range(&mut vec, min_length, max_length)?;
-  assert_eq!(ArrayUtil::oversize(min_length, size_of::<i32>()), vec.len());
+  assert_eq!(
+    ArrayUtil::oversize(min_length, size_of::<i32>())?,
+    vec.len()
+  );
 
   // The array grows to maxLength if maxLength is limiting
   let mut vec = vec![1, 2, 3];

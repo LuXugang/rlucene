@@ -202,8 +202,8 @@ where
     loop {
       let doc = in_scorer.iterator_mut().next_doc()?;
 
-      ArrayUtil::grow_with_len(&mut tmp_docs, i + 1);
-      ArrayUtil::grow_with_len(&mut tmp_scores, i + 1);
+      ArrayUtil::grow_with_len(&mut tmp_docs, i + 1)?;
+      ArrayUtil::grow_with_len(&mut tmp_scores, i + 1)?;
       tmp_docs[i] = doc;
 
       if doc == NO_MORE_DOCS {

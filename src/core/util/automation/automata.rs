@@ -39,7 +39,7 @@ impl Automata {
   /// string.
   pub fn make_empty_string() -> Result<Automaton> {
     let mut a = Automaton::new();
-    a.create_state();
+    a.create_state()?;
     a.set_accept(0, true);
     Ok(a)
   }
@@ -47,7 +47,7 @@ impl Automata {
   /// strings.
   pub fn make_any_string() -> Result<Automaton> {
     let mut a = Automaton::new();
-    let s = a.create_state();
+    let s = a.create_state()?;
     a.set_accept(s, true);
     a.add_transition(s, s, char::MIN as i32, char::MAX as i32)?;
     a.finish_state()?;
@@ -58,7 +58,7 @@ impl Automata {
   /// (0..=255).
   pub fn make_any_binary() -> Result<Automaton> {
     let mut a = Automaton::new();
-    let s = a.create_state();
+    let s = a.create_state()?;
     a.set_accept(s, true);
     a.add_transition(s, s, 0, 255)?;
     a.finish_state()?;
@@ -69,8 +69,8 @@ impl Automata {
   /// except the empty string.
   pub fn make_non_empty_binary() -> Result<Automaton> {
     let mut a = Automaton::new();
-    let s1 = a.create_state();
-    let s2 = a.create_state();
+    let s1 = a.create_state()?;
+    let s2 = a.create_state()?;
     a.set_accept(s2, true);
     a.add_transition(s1, s2, 0, 255)?;
     a.add_transition(s2, s2, 0, 255)?;
@@ -86,7 +86,7 @@ impl Automata {
   /// Appends a transition accepting any single Unicode codepoint from the
   /// given state, returning the new state.
   pub fn append_any_char(a: &mut Automaton, state: i32) -> Result<i32> {
-    let new_state = a.create_state();
+    let new_state = a.create_state()?;
     a.add_transition(state, new_state, char::MIN as i32, char::MAX as i32)?;
     Ok(new_state)
   }
@@ -100,7 +100,7 @@ impl Automata {
   /// Appends a transition accepting a specific codepoint from the given
   /// state, returning the new state.
   pub fn append_char(a: &mut Automaton, state: i32, c: i32) -> Result<i32> {
-    let new_state = a.create_state();
+    let new_state = a.create_state()?;
     a.add_transition(state, new_state, c, c)?;
     Ok(new_state)
   }
@@ -111,8 +111,8 @@ impl Automata {
       return Self::make_empty();
     }
     let mut a = Automaton::new();
-    let s1 = a.create_state();
-    let s2 = a.create_state();
+    let s1 = a.create_state()?;
+    let s2 = a.create_state()?;
     a.set_accept(s2, true);
     a.add_transition(s1, s2, min, max)?;
     a.finish_state()?;
@@ -126,7 +126,7 @@ impl Automata {
       builder.set_accept(s, true);
     } else {
       let next = Self::any_of_right_length(builder, x, n + 1)?;
-      builder.add_transition(s, next, '0' as i32, '9' as i32);
+      builder.add_transition(s, next, '0' as i32, '9' as i32)?;
     }
     Ok(s)
   }
@@ -148,10 +148,10 @@ impl Automata {
       }
       let c = x.as_bytes()[n] as char;
       let v = Self::at_least(builder, x, n + 1, initials, zeros && c == '0')?;
-      builder.add_transition_label(s, v, c as i32);
+      builder.add_transition_label(s, v, c as i32)?;
       if c < '9' {
         let v = Self::any_of_right_length(builder, x, n + 1)?;
-        builder.add_transition(s, v, (c as u8 + 1) as i32, '9' as i32);
+        builder.add_transition(s, v, (c as u8 + 1) as i32, '9' as i32)?;
       }
     }
     Ok(s)
@@ -165,10 +165,10 @@ impl Automata {
     } else {
       let c = x.as_bytes()[n] as char;
       let v = Self::at_most(builder, x, n + 1)?;
-      builder.add_transition(s, v, c as i32, c as i32);
+      builder.add_transition(s, v, c as i32, c as i32)?;
       if c > '0' {
         let v = Self::any_of_right_length(builder, x, n + 1)?;
-        builder.add_transition(s, v, '0' as i32, (c as u8 - 1) as i32);
+        builder.add_transition(s, v, '0' as i32, (c as u8 - 1) as i32)?;
       }
     }
     Ok(s)
@@ -196,15 +196,15 @@ impl Automata {
 
       if cx == cy {
         let v = Self::between(builder, x, y, n + 1, initials, zeros && cx == '0')?;
-        builder.add_transition(s, v, cx as i32, cx as i32);
+        builder.add_transition(s, v, cx as i32, cx as i32)?;
       } else {
         let v = Self::at_least(builder, x, n + 1, initials, zeros && cx == '0')?;
-        builder.add_transition(s, v, cx as i32, cx as i32);
+        builder.add_transition(s, v, cx as i32, cx as i32)?;
         let v = Self::at_most(builder, y, n + 1)?;
-        builder.add_transition(s, v, cy as i32, cy as i32);
+        builder.add_transition(s, v, cy as i32, cy as i32)?;
         if (cx as u8) + 1 < (cy as u8) {
           let v = Self::any_of_right_length(builder, x, n + 1)?;
-          builder.add_transition(s, v, (cx as u8 + 1) as i32, (cy as u8 - 1) as i32);
+          builder.add_transition(s, v, (cx as u8 + 1) as i32, (cy as u8 - 1) as i32)?;
         }
       }
     }
@@ -299,9 +299,9 @@ impl Automata {
       }
 
       let mut a = Automaton::new();
-      let mut last_state = a.create_state();
+      let mut last_state = a.create_state()?;
       for i in 0..min.length {
-        let state = a.create_state();
+        let state = a.create_state()?;
         let label = min.bytes[min.offset + i] as i32;
         a.add_transition_label(last_state, state, label)?;
         last_state = state;
@@ -312,7 +312,7 @@ impl Automata {
       }
 
       for _ in min.length..max_length {
-        let state = a.create_state();
+        let state = a.create_state()?;
         a.add_transition_label(last_state, state, 0)?;
         a.set_accept(state, true);
         last_state = state;
@@ -324,8 +324,8 @@ impl Automata {
 
     // General case:
     let mut a = Automaton::new();
-    let start_state = a.create_state();
-    let sink_state = a.create_state();
+    let start_state = a.create_state()?;
+    let sink_state = a.create_state()?;
     a.set_accept(sink_state, true);
     a.add_transition(sink_state, sink_state, 0, 255)?;
 
@@ -351,7 +351,7 @@ impl Automata {
         if min_inclusive && i == min.length - 1 && (!equal_prefix || min_label != max_label) {
           sink_state
         } else {
-          a.create_state()
+          a.create_state()?
         };
 
       if equal_prefix {
@@ -371,7 +371,7 @@ impl Automata {
           }
 
           if max_inclusive || i < max_ref.as_ref().unwrap().length - 1 {
-            first_max_state = a.create_state();
+            first_max_state = a.create_state()?;
             if i < max_ref.as_ref().unwrap().length - 1 {
               a.set_accept(first_max_state, true);
             }
@@ -412,7 +412,7 @@ impl Automata {
           a.add_transition(last_state, sink_state, 0, max_label - 1)?;
         }
         if max_inclusive || i < max_ref.length - 1 {
-          let next_state = a.create_state();
+          let next_state = a.create_state()?;
           if i < max_ref.length - 1 {
             a.set_accept(next_state, true);
           }
@@ -496,10 +496,10 @@ impl Automata {
   /// UTF-8 string.
   pub fn make_string(s: &str) -> Result<Automaton> {
     let mut a = Automaton::new();
-    let mut last_state = a.create_state();
+    let mut last_state = a.create_state()?;
 
     for ch in s.chars() {
-      let state = a.create_state();
+      let state = a.create_state()?;
       a.add_transition_label(last_state, state, ch as i32)?;
       last_state = state;
     }
@@ -516,10 +516,10 @@ impl Automata {
   /// binary term.
   pub fn make_binary(term: &BytesRef<Vec<u8>>) -> Result<Automaton> {
     let mut a = Automaton::new();
-    let mut last_state = a.create_state();
+    let mut last_state = a.create_state()?;
 
     for i in 0..term.length {
-      let state = a.create_state();
+      let state = a.create_state()?;
       let label = term.bytes[term.offset + i] as i32;
       a.add_transition_label(last_state, state, label)?;
       last_state = state;
@@ -541,10 +541,10 @@ impl Automata {
     length: usize,
   ) -> Result<Automaton> {
     let mut a = Automaton::new();
-    a.create_state();
+    a.create_state()?;
     let mut s = 0;
     for &label in &word[offset..offset + length] {
-      let s2 = a.create_state();
+      let s2 = a.create_state()?;
       a.add_transition_label(s, s2, label)?;
       s = s2;
     }

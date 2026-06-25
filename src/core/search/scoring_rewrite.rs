@@ -49,7 +49,7 @@ pub trait ScoringRewrite: TermCollectingRewrite {
     let reader = index_searcher.get_index_reader();
     let mut builder = self.get_top_level_builder()?;
 
-    let mut col = ParallelArraysTermCollector::new(|size| self.check_max_clause_count(size));
+    let mut col = ParallelArraysTermCollector::new(|size| self.check_max_clause_count(size))?;
 
     self.collect_terms(index_searcher.get_top_reader_context(), &query, &mut col)?;
 
@@ -167,17 +167,17 @@ impl<F> ParallelArraysTermCollector<F>
 where
   F: FnMut(usize) -> Result<()>,
 {
-  fn new(check_max_clause_count: F) -> Self {
+  fn new(check_max_clause_count: F) -> Result<Self> {
     let allocator = DirectAllocatorByte::new();
     let block_pool = ByteBlockPool::new(allocator);
     let array = TermFreqBoostByteStart::new(16);
-    let terms = BytesRefHash::from_bytes_start_array(16, array);
-    Self {
+    let terms = BytesRefHash::from_bytes_start_array(16, array)?;
+    Ok(Self {
       terms,
       block_pool,
       ord: 0,
       check_max_clause_count,
-    }
+    })
   }
 }
 impl<F> TermCollector for ParallelArraysTermCollector<F>
@@ -280,20 +280,21 @@ impl TermFreqBoostByteStart {
   }
 }
 impl BytesStartArray for TermFreqBoostByteStart {
-  fn init(&mut self) {
-    self.base.init();
+  fn init(&mut self) -> Result<()> {
+    self.base.init()?;
     let len = self.base.bytes_start.as_slice().len();
     self.boost = vec![0.0; len];
     self.term_state = vec![std::default::Default::default(); len];
     debug_assert!(self.term_state.len() >= len);
     debug_assert!(self.boost.len() >= len);
+    Ok(())
   }
 
   fn grow(&mut self) -> Result<()> {
     self.base.grow()?;
     let ord = self.base.bytes_start.as_slice();
     let len = ord.len();
-    ArrayUtil::grow_with_len(&mut self.boost, len);
+    ArrayUtil::grow_with_len(&mut self.boost, len)?;
     if self.term_state.len() < len {
       self
         .term_state

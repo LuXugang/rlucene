@@ -155,7 +155,7 @@ fn test_basic() -> Result<()> {
 #[test]
 fn test_binary_all() -> Result<()> {
   let mut a = Automaton::new();
-  let state = a.create_state();
+  let state = a.create_state()?;
   a.set_accept(state, true);
   a.add_transition(state, state, 0, 0xff)?;
   a.finish_state()?;
@@ -169,7 +169,7 @@ fn test_binary_all() -> Result<()> {
 #[test]
 fn test_unicode_all() -> Result<()> {
   let mut a = Automaton::new();
-  let state = a.create_state();
+  let state = a.create_state()?;
   a.set_accept(state, true);
   a.add_transition(state, state, 0, char::MAX as i32)?;
   a.finish_state()?;

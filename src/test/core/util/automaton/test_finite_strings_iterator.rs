@@ -54,7 +54,7 @@ fn test_random_finite_strings1() -> Result<()> {
 
   for _ in 0..num_strings {
     let s = TestUtil::random_simple_string_range(&mut random, 1, 200);
-    Util::to_utf32_with_slice(&s, 0, s.len(), &mut scratch);
+    Util::to_utf32_with_slice(&s, 0, s.len(), &mut scratch)?;
     if strings.insert(scratch.to_ints_ref()) {
       string_list.push(Automata::make_string(&s)?);
       if cfg!(feature = "test_log_verbose") {
@@ -85,7 +85,7 @@ fn test_random_finite_strings1() -> Result<()> {
     Cow::Owned(a)
   };
 
-  let mut iterator = FiniteStringsIterator::new(&a);
+  let mut iterator = FiniteStringsIterator::new(&a)?;
   let actual = get_finite_strings(&mut iterator)?;
   assert_finite_strings_recursive(&a, actual.clone());
 
@@ -130,18 +130,18 @@ fn test_finite_strings_basic() -> Result<()> {
     &Automata::make_string("duck")?,
   )?;
   let a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-  let mut iterator = FiniteStringsIterator::new(&a);
+  let mut iterator = FiniteStringsIterator::new(&a)?;
   let actual = get_finite_strings(&mut iterator)?;
 
   assert_finite_strings_recursive(&a, actual.clone());
   assert_eq!(actual.len(), 2);
 
   let mut dog = IntsRefBuilder::new();
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("dog"), &mut dog);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("dog"), &mut dog)?;
   assert!(actual.contains(dog.get()));
 
   let mut duck = IntsRefBuilder::new();
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("duck"), &mut duck);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("duck"), &mut duck)?;
   assert!(actual.contains(duck.get()));
 
   Ok(())
@@ -162,15 +162,15 @@ fn test_finite_strings_eats_stack() -> Result<()> {
     &Automata::make_string(&big_string2)?,
   )?;
 
-  let mut iterator = FiniteStringsIterator::new(&a);
+  let mut iterator = FiniteStringsIterator::new(&a)?;
   let actual = get_finite_strings(&mut iterator)?;
   assert_eq!(actual.len(), 2);
 
   let mut scratch = IntsRefBuilder::new();
-  Util::to_utf32_with_slice(&big_string1, 0, big_string1.len(), &mut scratch);
+  Util::to_utf32_with_slice(&big_string1, 0, big_string1.len(), &mut scratch)?;
   assert!(actual.contains(scratch.get()));
 
-  Util::to_utf32_with_slice(&big_string2, 0, big_string2.len(), &mut scratch);
+  Util::to_utf32_with_slice(&big_string2, 0, big_string2.len(), &mut scratch)?;
   assert!(actual.contains(scratch.get()));
 
   Ok(())
@@ -180,7 +180,7 @@ fn test_finite_strings_eats_stack() -> Result<()> {
 fn test_with_cycle() {
   let result = (|| {
     let a = RegExp::from_str_with_flags("abc.*", RegExp::NONE)?.to_automaton()?;
-    let mut iterator = FiniteStringsIterator::new(&a);
+    let mut iterator = FiniteStringsIterator::new(&a)?;
     get_finite_strings(&mut iterator)?;
     Ok::<(), LuceneError>(())
   })();
@@ -190,12 +190,12 @@ fn test_with_cycle() {
 #[test]
 fn test_singleton_no_limit() -> Result<()> {
   let a = Automata::make_string("foobar")?;
-  let mut iterator = FiniteStringsIterator::new(&a);
+  let mut iterator = FiniteStringsIterator::new(&a)?;
   let actual = get_finite_strings(&mut iterator)?;
   assert_eq!(actual.len(), 1);
 
   let mut scratch = IntsRefBuilder::new();
-  Util::to_utf32_with_slice("foobar", 0, 6, &mut scratch);
+  Util::to_utf32_with_slice("foobar", 0, 6, &mut scratch)?;
   assert!(actual.contains(scratch.get()));
 
   Ok(())
@@ -206,16 +206,16 @@ fn test_short_accept() -> Result<()> {
   let a = Operations::union(&Automata::make_string("x")?, &Automata::make_string("xy")?)?;
   let a = MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
-  let mut iterator = FiniteStringsIterator::new(&a);
+  let mut iterator = FiniteStringsIterator::new(&a)?;
   let actual = get_finite_strings(&mut iterator)?;
   assert_eq!(actual.len(), 2);
 
   let mut x = IntsRefBuilder::new();
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("x"), &mut x);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("x"), &mut x)?;
   assert!(actual.contains(x.get()));
 
   let mut xy = IntsRefBuilder::new();
-  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("xy"), &mut xy);
+  Util::to_ints_ref(&BytesRef::<Vec<u8>>::from_string("xy"), &mut xy)?;
   assert!(actual.contains(xy.get()));
   Ok(())
 }
@@ -223,8 +223,8 @@ fn test_short_accept() -> Result<()> {
 #[test]
 fn test_single_string() -> Result<()> {
   let mut a = Automaton::new();
-  let start = a.create_state();
-  let end = a.create_state();
+  let start = a.create_state()?;
+  let end = a.create_state()?;
   a.set_accept(end, true);
   a.add_transition(start, end, 'a' as i32, 'a' as i32)?;
   a.finish_state()?;
@@ -234,7 +234,7 @@ fn test_single_string() -> Result<()> {
   assert_eq!(accepted.len(), 1);
 
   let mut ints_ref = IntsRefBuilder::new();
-  ints_ref.append('a' as i32);
+  ints_ref.append('a' as i32)?;
 
   assert!(accepted.contains(&ints_ref.to_ints_ref()));
   Ok(())

@@ -136,7 +136,7 @@ impl SortedNumericDocValuesWriter {
   fn add_one_value(&mut self, value: i64) -> Result<()> {
     if self.current_upto == self.current_values.len() {
       let len = self.current_values.len();
-      ArrayUtil::grow_with_len(&mut self.current_values, len + 1);
+      ArrayUtil::grow_with_len(&mut self.current_values, len + 1)?;
     }
     self.current_values[self.current_upto] = value;
     self.current_upto += 1;

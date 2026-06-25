@@ -272,7 +272,7 @@ impl DeletedTerms {
     let hash = match self.delete_terms.entry(term.field.clone()) {
       Vacant(vacant) => {
         self.bytes_used.add_and_get(size_of_string(vacant.key()));
-        let new_map = BytesRefIntMap::new(self.bytes_used.clone());
+        let new_map = BytesRefIntMap::new(self.bytes_used.clone())?;
         vacant.insert(new_map)
       },
       Occupied(occupied) => occupied.into_mut(),
@@ -389,12 +389,12 @@ struct BytesRefIntMap {
 }
 
 impl BytesRefIntMap {
-  pub fn new(counter: SharedCounter) -> Self {
+  pub fn new(counter: SharedCounter) -> Result<Self> {
     let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
       DEFAULT_CAPACITY,
       DirectBytesStartArray::with_counter(DEFAULT_CAPACITY as usize, counter.clone()),
-    );
-    BytesRefIntMap::new_impl(counter, bytes_ref_hash)
+    )?;
+    Ok(BytesRefIntMap::new_impl(counter, bytes_ref_hash))
   }
   fn new_impl(counter: SharedCounter, bytes_ref_hash: BytesRefHash<DirectBytesStartArray>) -> Self {
     let values = vec![0; DEFAULT_CAPACITY as usize];
@@ -426,7 +426,7 @@ impl BytesRefIntMap {
     } else {
       if e as usize >= self.values.len() {
         let old_size = size_of_vec(&self.values);
-        ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize);
+        ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize)?;
         self
           .counter
           .add_and_get(size_of_vec(&self.values).saturating_sub(old_size));

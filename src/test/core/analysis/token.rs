@@ -55,7 +55,7 @@ pub fn with_range(
   end: i32,
 ) -> Result<CharTermAttributeImpl<PackedTokenAttributeImpl>> {
   let mut base = PackedTokenAttributeImpl::new()?;
-  base.append_str(text);
+  base.append_str(text)?;
   base.sub.set_offset(start, end)?;
   Ok(base)
 }
@@ -67,7 +67,7 @@ pub fn with_pos_inc(
   end: i32,
 ) -> Result<CharTermAttributeImpl<PackedTokenAttributeImpl>> {
   let mut base = PackedTokenAttributeImpl::new()?;
-  base.append_str(Some(text));
+  base.append_str(Some(text))?;
   base.sub.set_offset(start, end)?;
   base.sub.set_position_increment(pos_inc)?;
   Ok(base)
@@ -81,7 +81,7 @@ pub fn with_all(
   pos_length: i32,
 ) -> Result<CharTermAttributeImpl<PackedTokenAttributeImpl>> {
   let mut base = PackedTokenAttributeImpl::new()?;
-  base.append_str(Some(text));
+  base.append_str(Some(text))?;
   base.sub.set_offset(start, end)?;
   base.sub.set_position_increment(pos_inc)?;
   base.sub.set_position_length(pos_length)?;

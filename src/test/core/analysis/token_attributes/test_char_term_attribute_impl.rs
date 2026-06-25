@@ -27,13 +27,13 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 struct TestCharTermAttributeImpl;
 
 #[test]
-fn test_resize() {
+fn test_resize() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
   let content: Vec<char> = "hello".chars().collect();
-  t.copy_buffer(&content, 0, content.len());
+  t.copy_buffer(&content, 0, content.len())?;
 
   for i in 0..2000 {
-    let buf = t.resize_buffer(i);
+    let buf = t.resize_buffer(i)?;
     assert!(
       i <= buf.len(),
       "buffer.len() = {}, expected >= {}",
@@ -42,18 +42,19 @@ fn test_resize() {
     );
     assert_eq!(t.to_string(), "hello");
   }
+  Ok(())
 }
 #[test]
 fn test_set_length_oob() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 #[test]
-fn test_grow() {
+fn test_grow() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
   let mut buf = String::from("ab");
   for _ in 0..20 {
     let chars: Vec<char> = buf.chars().collect();
-    t.copy_buffer(&chars, 0, chars.len());
+    t.copy_buffer(&chars, 0, chars.len())?;
     assert_eq!(buf.len(), t.length());
     assert_eq!(buf, t.to_string());
     buf.push_str(&buf.clone());
@@ -63,7 +64,7 @@ fn test_grow() {
   let mut t = CharTermAttributeImpl::new().unwrap();
   let mut buf = String::from("ab");
   for _ in 0..20 {
-    t.set_empty().append_str(Some(&buf));
+    t.set_empty().append_str(Some(&buf))?;
     assert_eq!(buf.len(), t.length());
     assert_eq!(buf, t.to_string());
     buf.push_str(&t.to_string());
@@ -73,54 +74,58 @@ fn test_grow() {
   let mut t = CharTermAttributeImpl::new().unwrap();
   let mut buf = String::from("a");
   for _ in 0..20_000 {
-    t.set_empty().append_str(Some(&buf));
+    t.set_empty().append_str(Some(&buf))?;
     assert_eq!(buf.len(), t.length());
     assert_eq!(buf, t.to_string());
     buf.push('a');
   }
   assert_eq!(20_000, t.length());
+  Ok(())
 }
 #[test]
-fn test_to_string() {
+fn test_to_string() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
   let b: Vec<char> = ['a', 'l', 'o', 'h', 'a'].to_vec();
-  t.copy_buffer(&b, 0, 5);
+  t.copy_buffer(&b, 0, 5)?;
   assert_eq!(t.to_string(), "aloha");
 
-  t.set_empty().append_str(Some("hi there"));
+  t.set_empty().append_str(Some("hi there"))?;
   assert_eq!(t.to_string(), "hi there");
+  Ok(())
 }
 
 #[test]
-fn test_clone() {
+fn test_clone() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
   let content: Vec<char> = "hello".chars().collect();
-  t.copy_buffer(&content, 0, 5);
+  t.copy_buffer(&content, 0, 5)?;
 
   let copy = assert_clone_is_equal(&t);
   assert_eq!(t.to_string(), copy.to_string());
+  Ok(())
 }
 
 #[test]
-fn test_equals() {
+fn test_equals() -> Result<()> {
   let mut t1a = CharTermAttributeImpl::new().unwrap();
   let content1a: Vec<char> = "hello".chars().collect();
-  t1a.copy_buffer(&content1a, 0, 5);
+  t1a.copy_buffer(&content1a, 0, 5)?;
 
   let mut t1b = CharTermAttributeImpl::new().unwrap();
   let content1b: Vec<char> = "hello".chars().collect();
-  t1b.copy_buffer(&content1b, 0, 5);
+  t1b.copy_buffer(&content1b, 0, 5)?;
 
   let mut t2 = CharTermAttributeImpl::new().unwrap();
   let content2: Vec<char> = "hello2".chars().collect();
-  t2.copy_buffer(&content2, 0, 6);
+  t2.copy_buffer(&content2, 0, 6)?;
 
   assert!(t1a == t1b);
   assert!(t1a != t2);
   assert!(t2 != t1b);
+  Ok(())
 }
 #[test]
-fn test_copy_to() {
+fn test_copy_to() -> Result<()> {
   let t = CharTermAttributeImpl::new().unwrap();
   let copy = assert_copy_is_equal(&t);
   assert_eq!(t.to_string(), "");
@@ -128,10 +133,11 @@ fn test_copy_to() {
 
   let mut t = CharTermAttributeImpl::new().unwrap();
   let content: Vec<char> = "hello".chars().collect();
-  t.copy_buffer(&content, 0, 5);
+  t.copy_buffer(&content, 0, 5)?;
 
   let copy = assert_copy_is_equal(&t);
   assert_eq!(t.to_string(), copy.to_string());
+  Ok(())
 }
 
 #[test]
@@ -142,7 +148,7 @@ fn test_attribute_reflection() -> Result<()> {
 fn test_char_sequence_interface() -> Result<()> {
   let s = "0123456789";
   let mut t = CharTermAttributeImpl::new().unwrap();
-  t.append_str(Some(s));
+  t.append_str(Some(s))?;
 
   assert_eq!(s.len(), t.length());
 
@@ -175,35 +181,36 @@ fn test_appendable_interface_with_longsequences() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 #[test]
-fn test_non_char_sequence_append() {
+fn test_non_char_sequence_append() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
 
-  t.append_str(Some("0123456789"))
-    .append_str(Some("0123456789"));
+  t.append_str(Some("0123456789"))?
+    .append_str(Some("0123456789"))?;
   assert_eq!(t.to_string(), "01234567890123456789");
 
   let sb = String::from("0123456789");
-  t.append_str(Some(&sb));
+  t.append_str(Some(&sb))?;
   assert_eq!(t.to_string(), "012345678901234567890123456789");
 
   let mut t2 = CharTermAttributeImpl::new().unwrap();
-  t2.append_str(Some("test"));
-  t.append_term_attribute(Some(&mut t2));
+  t2.append_str(Some("test"))?;
+  t.append_term_attribute(Some(&mut t2))?;
   assert_eq!(t.to_string(), "012345678901234567890123456789test");
 
-  t.append_str(None)
-    .append_str(None)
-    .append_term_attribute::<CharTermAttributeImpl<EmptyAttributeImpl>>(None);
+  t.append_str(None)?
+    .append_str(None)?
+    .append_term_attribute::<CharTermAttributeImpl<EmptyAttributeImpl>>(None)?;
   assert_eq!(
     t.to_string(),
     "012345678901234567890123456789testnullnullnull"
   );
+  Ok(())
 }
 
 #[test]
-fn test_exceptions() {
+fn test_exceptions() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
-  t.append_str(Some("test"));
+  t.append_str(Some("test"))?;
   assert_eq!(t.to_string(), "test");
 
   let v = t.char_at(4);
@@ -214,6 +221,7 @@ fn test_exceptions() {
 
   let v = t.sub_sequence(5, 0);
   matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+  Ok(())
 }
 pub fn assert_clone_is_equal<T>(att: &T) -> T
 where
