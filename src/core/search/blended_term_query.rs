@@ -446,3 +446,9 @@ where
   new_ctx.accumulate_statistics(artificial_df, artificial_ttf);
   Ok(new_ctx)
 }
+
+impl crate::core::util::accountable::Accountable for BlendedTermQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}

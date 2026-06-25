@@ -32,6 +32,7 @@ use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::HasIdentity;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
 #[cfg(test)]
@@ -479,6 +480,12 @@ impl QueryBase for MultiTermQuerySet {
     QV: QueryVisitor,
   {
     dispatch_multi_term_query!(self, |q| q.visit(visitor))
+  }
+}
+
+impl Accountable for MultiTermQuerySet {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    dispatch_multi_term_query!(self, |q| q.ram_bytes_used())
   }
 }
 

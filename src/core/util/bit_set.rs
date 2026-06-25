@@ -254,15 +254,6 @@ where
   }
 }
 
-impl<T> Accountable for Arc<T>
-where
-  T: BitSet,
-{
-  fn ram_bytes_used(&self) -> Result<i64> {
-    (**self).ram_bytes_used()
-  }
-}
-
 impl<T> BitSet for Arc<T>
 where
   T: BitSet,
@@ -345,15 +336,6 @@ where
 
   fn length(&self) -> usize {
     (**self).length()
-  }
-}
-
-impl<T> Accountable for Rc<T>
-where
-  T: BitSet,
-{
-  fn ram_bytes_used(&self) -> Result<i64> {
-    (**self).ram_bytes_used()
   }
 }
 

@@ -489,3 +489,9 @@ where
     self.scorer.iterator().cost()
   }
 }
+
+impl crate::core::util::accountable::Accountable for RandomApproximationQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}

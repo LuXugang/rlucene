@@ -49,6 +49,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::predicate::Predicate;
+use crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED;
 use crate::core::util::roaring_doc_id_set::Builder;
 use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
 use crate::core::util::{HasIdentity, TryIntoInt};
@@ -57,8 +58,15 @@ use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
+use std::mem;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+
+const OUTER_CACHE_ENTRY_RAM_BYTES_USED: i64 = mem::size_of::<(CacheKey, LeafCache)>() as i64;
+const LEAF_CACHE_ENTRY_RAM_BYTES_USED: i64 =
+  mem::size_of::<(Identity, Arc<CacheAndCountEnum>)>() as i64;
+const LINKED_QUERY_ENTRY_RAM_BYTES_USED: i64 =
+  mem::size_of::<(Arc<Query>, Arc<Query>, usize, usize)>() as i64;
 
 /// A [`QueryCache`] that evicts queries using an LRU (least-recently-used) eviction policy
 /// in order to remain under a given maximum size and number of bytes used.
@@ -348,8 +356,7 @@ where
         let leaf_cache = LeafCache::new(key);
         let lc_ref = cache.insert(leaf_cache);
         self.ram_bytes_used.fetch_add(
-          // TODO: memory calculation not implement
-          0,
+          OUTER_CACHE_ENTRY_RAM_BYTES_USED,
           std::sync::atomic::Ordering::Relaxed,
         );
         // TODO IMPORTANT 这里没有调用add_close_listener
@@ -382,10 +389,10 @@ where
     let mut inner = self.inner.write();
 
     if let Some(leaf_cache) = inner.cache.remove(core_key) {
-      // TODO: memory calculation not implement
-      self
-        .ram_bytes_used
-        .fetch_sub(0, std::sync::atomic::Ordering::Relaxed);
+      self.ram_bytes_used.fetch_sub(
+        OUTER_CACHE_ENTRY_RAM_BYTES_USED,
+        std::sync::atomic::Ordering::Relaxed,
+      );
 
       let num_entries = leaf_cache.cache.len();
       debug_assert!(num_entries <= i64::MAX as usize);
@@ -434,9 +441,11 @@ where
     inner.unique_queries.lock().clear();
     self.on_clear(&inner);
   }
-  fn get_ram_bytes_used(&self, _query: &Query) -> i64 {
-    // TODO: memory calculation not implement
-    0
+  fn get_ram_bytes_used(&self, query: &Query) -> i64 {
+    let query_ram_bytes_used = query
+      .ram_bytes_used()
+      .unwrap_or(QUERY_DEFAULT_RAM_BYTES_USED);
+    LINKED_QUERY_ENTRY_RAM_BYTES_USED.saturating_add(query_ram_bytes_used)
   }
   /// Return the total number of times that a [`Query`](crate::core::search::query::Query) has been looked up in this [`QueryCache`](crate::core::search::query_cache::QueryCache).
   /// Note that this number is incremented once per segment, so running a cached query only once
@@ -513,8 +522,8 @@ where
     //     }
     // }
 
-    // TODO: memory calculation not implement
-    let mut recomputed_ram_bytes_used = inner.cache.len() as i64;
+    let mut recomputed_ram_bytes_used =
+      OUTER_CACHE_ENTRY_RAM_BYTES_USED.saturating_mul(inner.cache.len() as i64);
 
     {
       let uq = inner.unique_queries.lock();
@@ -524,11 +533,8 @@ where
     }
 
     for leaf_cache in inner.cache.values() {
-      recomputed_ram_bytes_used +=
-                // TODO: memory calculation not implement
-                leaf_cache.cache.len() as i64;
       for cached in leaf_cache.cache.values() {
-        recomputed_ram_bytes_used += cached.ram_bytes_used()?;
+        recomputed_ram_bytes_used += LeafCache::ram_bytes_used_for_cache_entry(cached.as_ref());
       }
     }
 
@@ -562,12 +568,12 @@ where
     uq.keys().cloned().collect()
   }
 }
-impl<P> Accountable for Arc<LRUQueryCache<P>>
+impl<P> Accountable for LRUQueryCache<P>
 where
   P: Predicate<TopParentMeta>,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(self.ram_bytes_used.load(Ordering::Relaxed))
   }
 }
 impl<P, IRC> QueryCache<IRC> for Arc<LRUQueryCache<P>>
@@ -637,11 +643,10 @@ impl LeafCache {
     debug_assert!({ !matches!(query, Query::ConstantScore(_)) });
     match self.cache.entry(query.identity().clone()) {
       Entry::Vacant(e) => {
-        e.insert(Arc::new(cached));
-        self.on_doc_id_set_cache(
-          // TODO: memory calculation not implement
-          0, parent,
-        );
+        let cached = Arc::new(cached);
+        let ram_bytes_used = Self::ram_bytes_used_for_cache_entry(cached.as_ref());
+        e.insert(cached);
+        self.on_doc_id_set_cache(ram_bytes_used, parent);
       },
       Entry::Occupied(_) => {},
     }
@@ -651,17 +656,23 @@ impl LeafCache {
   where
     P: Predicate<TopParentMeta>,
   {
-    if let Some(_removed) = self.cache.remove(query.identity()) {
+    if let Some(removed) = self.cache.remove(query.identity()) {
       self.on_doc_id_set_eviction(
-        // TODO: memory calculation not implement
-        0, parent,
+        Self::ram_bytes_used_for_cache_entry(removed.as_ref()),
+        parent,
       );
     }
+  }
+
+  fn ram_bytes_used_for_cache_entry(cached: &CacheAndCountEnum) -> i64 {
+    LEAF_CACHE_ENTRY_RAM_BYTES_USED
+      .saturating_add(mem::size_of_val(cached) as i64)
+      .saturating_add(cached.ram_bytes_used().unwrap_or(0))
   }
 }
 impl Accountable for LeafCache {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(self.ram_bytes_used.load(Ordering::Relaxed))
   }
 }
 pub struct CachingWrapperWeight<P, IRC>
@@ -1049,7 +1060,7 @@ where
   D: DocIdSet,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    self.cache.ram_bytes_used()
   }
 }
 

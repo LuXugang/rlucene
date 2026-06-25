@@ -360,3 +360,9 @@ pub fn to_automaton(
 
   Automata::make_binary_interval(lower_term, include_lower, upper_term, include_upper)
 }
+
+impl crate::core::util::accountable::Accountable for TermRangeQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}

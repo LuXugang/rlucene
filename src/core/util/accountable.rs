@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
+use std::rc::Rc;
+use std::sync::Arc;
 /// An object whose RAM usage can be computed.
 ///
 /// # Note
@@ -43,5 +45,23 @@ impl EmptyAccountable {
 impl Accountable for EmptyAccountable {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(0)
+  }
+}
+
+impl<T> Accountable for Rc<T>
+where
+  T: Accountable + ?Sized,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    (**self).ram_bytes_used()
+  }
+}
+
+impl<T> Accountable for Arc<T>
+where
+  T: Accountable + ?Sized,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    (**self).ram_bytes_used()
   }
 }

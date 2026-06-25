@@ -412,3 +412,9 @@ impl IntersectVisitor for XYPointInGeometryIntersectVisitor {
       .relate(cell_min_x, cell_max_x, cell_min_y, cell_max_y)
   }
 }
+
+impl crate::core::util::accountable::Accountable for XYPointInGeometryQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}

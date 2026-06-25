@@ -359,3 +359,9 @@ where
     Ok(a)
   }
 }
+
+impl crate::core::util::accountable::Accountable for RegexpQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}

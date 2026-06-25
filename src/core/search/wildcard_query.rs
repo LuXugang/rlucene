@@ -220,3 +220,9 @@ pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Resul
     Cow::Owned(v) => Ok(v),
   }
 }
+
+impl crate::core::util::accountable::Accountable for WildcardQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}

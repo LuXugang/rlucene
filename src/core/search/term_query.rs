@@ -671,3 +671,9 @@ pub type TermScorerEnum<LR, DISI, TPI> = ScorerEnum2<
   TermScorer<LRPosting<LR>, Arc<TermQuerySimScorer>, LRNormNumericDocValues<LR>, LRImpactsEnum<LR>>,
   ConstantScoreScorer<DISI, TPI>,
 >;
+
+impl crate::core::util::accountable::Accountable for TermQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}

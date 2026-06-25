@@ -284,7 +284,7 @@ impl_into_box_query!(
   XYPointInGeometryQuery,
 );
 
-pub trait QueryBase: Debug + HasIdentity {
+pub trait QueryBase: Debug + HasIdentity + Accountable {
   fn to_string(&self, field: &str) -> Result<String>;
 
   fn create_weight<IRC>(
@@ -464,8 +464,7 @@ impl Default for Query {
 
 impl Accountable for Query {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    dispatch_query!(self, |q| q.ram_bytes_used())
   }
 }
 

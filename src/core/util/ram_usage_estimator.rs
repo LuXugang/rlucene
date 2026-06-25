@@ -19,6 +19,10 @@ use std::mem;
 
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
+#[allow(dead_code)] // for quick search
+struct RamUsageEstimator;
+
+pub const QUERY_DEFAULT_RAM_BYTES_USED: i64 = 1024;
 
 fn usize_to_i64_saturating(value: usize) -> i64 {
   if value > i64::MAX as usize {

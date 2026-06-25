@@ -846,3 +846,9 @@ fn get_distance_key_from_encoded(encoded: i64, origin_lat: f64, origin_lon: f64)
   let lon = GeoEncodingUtils::decode_longitude(longitude_bits);
   SloppyMath::haversin_sort_key(origin_lat, origin_lon, lat, lon)
 }
+
+impl crate::core::util::accountable::Accountable for LatLonPointDistanceFeatureQuery {
+  fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}
