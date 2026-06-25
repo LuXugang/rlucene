@@ -201,7 +201,7 @@ impl TestStressNRT {
 
                   let new_reader: DirReader =
                     if thread_rand.random_range(0..100) < soft_commit_percent {
-                      if random().random_bool(0.5) {
+                      if thread_rand.random_bool(0.5) {
                         if cfg!(feature = "test_log_verbose") {
                           println!(
                             "TEST: {}: call writer.getReader",
@@ -319,7 +319,7 @@ impl TestStressNRT {
 
                 // set the lastId before we actually change it sometimes to try and
                 // uncover more race conditions between writing and reading
-                let before = random().random_bool(0.5);
+                let before = thread_rand.random_bool(0.5);
                 if before {
                   slf.last_id.store(id, Ordering::SeqCst);
                 }
