@@ -29,7 +29,7 @@ use crate::core::util::int_block_pool::{
 };
 use crate::core::util::{
   BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter,
-  SliceCopyOps,
+  SliceCopyOps, size_of_slice,
 };
 use std::ops::Deref;
 
@@ -401,7 +401,7 @@ impl BytesStartArray for PostingsBytesStartArray {
       self.per_field.postings_array =
         Option::from(self.per_field.terms_hash_per_field_type.new_per_field(2));
       if let Some(ref mut postings_array) = self.per_field.postings_array {
-        let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
+        let byte_used = postings_array.bytes_per_posting() * postings_array.get_size();
         let _ = self.bytes_used.add_and_get(byte_used as i64);
       }
     }
@@ -420,7 +420,7 @@ impl BytesStartArray for PostingsBytesStartArray {
 
   fn clear(&mut self) {
     if let Some(postings_array) = self.per_field.postings_array.take() {
-      let byte_used = postings_array.bytes_per_posting() + postings_array.get_size();
+      let byte_used = postings_array.bytes_per_posting() * postings_array.get_size();
       debug_assert!(byte_used <= i64::MAX as usize);
       let _ = self.bytes_used.add_and_get(-(byte_used as i64));
     }
@@ -463,6 +463,13 @@ impl BytesStartArray for PostingsBytesStartArray {
 
   fn need_init(&self) -> bool {
     self.per_field.postings_array.is_none()
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self.per_field.postings_array.as_ref() {
+      Some(postings_array) => Ok(size_of_slice(postings_array.get_text_starts())),
+      None => Ok(0),
+    }
   }
 }
 pub(crate) enum TermsHashPerFieldType {

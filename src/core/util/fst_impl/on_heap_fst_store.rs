@@ -24,6 +24,7 @@ use crate::core::util::fst_impl::fst_compiler::get_on_heap_reader_writer;
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadWriteDataOutput};
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 /// Provides storage of finite state machine (FST), using byte array or byte
 /// store allocated on heap.
 pub struct OnHeapFSTStore {
@@ -64,7 +65,16 @@ impl OnHeapFSTStore {
 }
 impl Accountable for OnHeapFSTStore {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(0)
+    if let Some(bytes_array) = &self.bytes_array {
+      Ok(
+        (std::mem::size_of_val(bytes_array.as_ref()) as i64)
+          .saturating_add(size_of_vec(bytes_array.as_ref())),
+      )
+    } else if let Some(data_output) = &self.data_output {
+      data_output.ram_bytes_used()
+    } else {
+      Ok(0)
+    }
   }
 }
 

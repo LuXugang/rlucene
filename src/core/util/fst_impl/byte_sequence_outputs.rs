@@ -22,6 +22,7 @@ use crate::core::index::BytesRef;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, TryIntoInt};
 
 static NO_OUTPUT: LazyLock<BytesRef<Arc<Vec<u8>>>> = LazyLock::new(BytesRef::default);
@@ -148,9 +149,9 @@ impl Outputs for ByteSequenceOutputs {
     output.to_string()
   }
 
-  fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
-    // TODO: memory calculation not implement
-    0
+  fn ram_bytes_used(&self, output: &Self::V) -> i64 {
+    (std::mem::size_of_val(output.bytes.as_ref()) as i64)
+      .saturating_add(size_of_vec(output.bytes.as_ref()))
   }
 }
 impl Display for ByteSequenceOutputs {

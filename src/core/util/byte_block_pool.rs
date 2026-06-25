@@ -20,6 +20,7 @@ use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{SliceCopyOps, TryIntoInt};
 
 /// This struct enables the allocation of fixed-size buffers and their
@@ -365,12 +366,14 @@ impl ByteBlockPool {
 }
 impl Accountable for ByteBlockPool {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    let mut bytes = size_of_vec(&self.buffers);
+    for buffer in &self.buffers {
+      bytes = bytes.saturating_add(size_of_vec(buffer));
+    }
+    Ok(bytes)
   }
 }
 
-//TODO
-const BASE_RAM_BYTES: i64 = 0;
 /// Finds the index of the buffer containing a byte, given an offset to that
 /// byte.
 ///

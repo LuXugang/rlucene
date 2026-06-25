@@ -22,6 +22,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{
   AtomicCounter, ByteBlockPool, BytesRefComparator, Comparator, Counter, GOOD_FAST_HASH_SEED,
   HISTOGRAM_SIZE, LEVEL_THRESHOLD, MSBRadixSorter, MSBRadixSorterBase, Natural, SharedCounter,
@@ -72,6 +73,8 @@ where
     bytes_start_array.init();
     let bytes_used = bytes_start_array.bytes_used();
     let ref_pool = BytesRefBlockPool::new();
+    let ids = vec![-1; capacity as usize];
+    bytes_used.add_and_get(size_of_vec(&ids));
     BytesRefHash {
       pool: ref_pool,
       hash_size: capacity,
@@ -79,7 +82,7 @@ where
       hash_mask: capacity - 1,
       count: 0,
       last_count: -1,
-      ids: vec![-1; capacity as usize],
+      ids,
       bytes_start_array,
       bytes_used,
     }
@@ -179,10 +182,12 @@ where
     }
 
     if new_size != self.hash_size {
-      // TODO: memory calculation not implement
-      self.bytes_used.add_and_get(0);
+      let old_size = size_of_vec(&self.ids);
       self.hash_size = new_size;
       self.ids = vec![-1; self.hash_size as usize];
+      self
+        .bytes_used
+        .add_and_get(size_of_vec(&self.ids).saturating_sub(old_size));
       self.hash_half_size = new_size / 2;
       self.hash_mask = new_size - 1;
       true
@@ -214,9 +219,8 @@ where
   /// Closes the `BytesRefHash` and releases all internally used memory.
   pub fn close(&mut self, byte_block_pool: &mut ByteBlockPool) {
     self.clear_with_reset_pool(true, byte_block_pool);
+    self.bytes_used.add_and_get(-size_of_vec(&self.ids));
     self.ids.clear();
-    // TODO: memory calculation not implement
-    self.bytes_used.add_and_get(0);
   }
   /// Adds a new [`BytesRef`].
   ///
@@ -382,8 +386,7 @@ where
   /// occupied).
   fn rehash(&mut self, new_size: i32, hash_on_data: bool, byte_block_pool: &mut ByteBlockPool) {
     let new_mask = new_size - 1;
-    // TODO: memory calculation not implement
-    self.bytes_used.add_and_get(0);
+    let old_size = size_of_vec(&self.ids);
     let mut new_hash = vec![-1; new_size as usize];
     for i in 0..self.hash_size as usize {
       let e0 = self.ids[i];
@@ -412,8 +415,9 @@ where
       }
     }
     self.hash_mask = new_mask;
-    // TODO: memory calculation not implement
-    self.bytes_used.add_and_get(0);
+    self
+      .bytes_used
+      .add_and_get(size_of_vec(&new_hash).saturating_sub(old_size));
     self.ids = new_hash;
     self.hash_size = new_size;
     self.hash_half_size = new_size / 2;
@@ -428,8 +432,7 @@ where
 
     if self.ids.is_empty() {
       self.ids = vec![-1; self.hash_size as usize];
-      // TODO: memory calculation not implement
-      self.bytes_used.add_and_get(0);
+      self.bytes_used.add_and_get(size_of_vec(&self.ids));
     }
   }
   /// Returns the `bytesStart` offset into the internally used
@@ -450,14 +453,33 @@ where
     debug_assert!(bytes_id >= 0 || bytes_id < self.count);
     self.bytes_start_array.get_value(bytes_id as usize)
   }
+
+  /// Returns the retained heap used by this hash and the byte pool that stores
+  /// its terms.
+  ///
+  /// The `ByteBlockPool` is passed separately because the Rust port keeps it
+  /// outside `BytesRefHash`. Callers should only use this when this hash is the
+  /// accounting owner of `byte_block_pool`.
+  pub fn ram_bytes_used_with_pool(&self, byte_block_pool: &ByteBlockPool) -> Result<i64> {
+    Ok(
+      self
+        .ram_bytes_used()?
+        .saturating_add(byte_block_pool.ram_bytes_used()?),
+    )
+  }
 }
 impl<BSA> Accountable for BytesRefHash<BSA>
 where
   BSA: BytesStartArray,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    Ok(
+      self
+        .pool
+        .ram_bytes_used()?
+        .saturating_add(size_of_vec(&self.ids))
+        .saturating_add(self.bytes_start_array.ram_bytes_used()?),
+    )
   }
 }
 
@@ -642,6 +664,7 @@ pub trait BytesStartArray {
   fn set_value(&mut self, index: usize, value: i32);
   fn len(&self) -> usize;
   fn need_init(&self) -> bool;
+  fn ram_bytes_used(&self) -> Result<i64>;
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private
 /// `Counter` instance.
@@ -701,6 +724,10 @@ impl BytesStartArray for DirectBytesStartArray {
 
   fn need_init(&self) -> bool {
     !self.init
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(size_of_vec(&self.bytes_start))
   }
 }
 

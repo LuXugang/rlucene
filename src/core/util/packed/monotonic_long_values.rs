@@ -14,19 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::monotonic_block_packed_reader::expected;
 use crate::core::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 pub(crate) struct MonotonicLongValues {
   averages: Vec<f32>,
 }
 
 impl MonotonicLongValues {
-  //TODO
-  const BASE_RAM_BYTES_USED: u64 = 0;
-
   pub(crate) fn new(averages: Vec<f32>) -> Self {
     Self { averages }
   }
@@ -44,6 +43,12 @@ impl MonotonicLongValues {
   }
 }
 
+impl Accountable for MonotonicLongValues {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(size_of_vec(&self.averages))
+  }
+}
+
 pub struct MonotonicLongValuesBuilder {
   averages: Vec<f32>,
 }
@@ -55,9 +60,6 @@ impl Default for MonotonicLongValuesBuilder {
 }
 
 impl MonotonicLongValuesBuilder {
-  //TODO
-  const BASE_RAM_BYTES_USED: u64 = 0;
-
   pub(crate) fn new() -> Self {
     Self {
       averages: vec![0.0; INITIAL_PAGE_COUNT as usize],
@@ -67,14 +69,10 @@ impl MonotonicLongValuesBuilder {
   pub(crate) fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
     let _ = self.averages.split_off(values_off as usize);
 
-    // TODO: memory calculation not implement
-    let _ram_bytes_used = 0;
-
     Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
   }
-  pub(crate) fn base_ram_bytes_used(&self) -> u64 {
-    // TODO: memory calculation not implement
-    Self::BASE_RAM_BYTES_USED
+  pub(crate) fn base_ram_bytes_used(&self) -> i64 {
+    size_of_vec(&self.averages)
   }
 
   pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
@@ -92,7 +90,6 @@ impl MonotonicLongValuesBuilder {
   }
 
   pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
-    // TODO: memory calculation not implement
     ArrayUtil::grow_exact(&mut self.averages, new_block_count as usize)
   }
 }

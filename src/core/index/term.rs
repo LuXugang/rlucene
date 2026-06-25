@@ -22,6 +22,7 @@ use std::hash::{Hash, Hasher};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ram_usage_estimator::{size_of_string, size_of_vec};
 /// A `Term` represents a word from text. This is the unit of search.
 /// It is composed of two elements:
 /// - the text of the word, as a string,
@@ -114,7 +115,7 @@ impl Display for Term {
 }
 impl Accountable for Term {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(size_of_string(&self.field).saturating_add(size_of_vec(&self.bytes.bytes)))
   }
 }
 impl PartialEq for Term {

@@ -18,6 +18,7 @@ use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::impl_from_for_enum;
 
 /// Vectors’ writer for a field.
@@ -109,5 +110,14 @@ impl VectorValueEnum {
         Ok(())
       },
     }
+  }
+}
+
+impl Accountable for VectorValueEnum {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(match self {
+      Self::Byte(vector) => size_of_vec(vector),
+      Self::Float(vector) => size_of_vec(vector),
+    })
   }
 }

@@ -87,6 +87,14 @@ impl DocsWithFieldSet {
 
 impl Accountable for DocsWithFieldSet {
   fn ram_bytes_used(&self) -> Result<i64> {
+    if let Some(set) = self.set.as_ref() {
+      return set.ram_bytes_used();
+    }
+    if let Some(set) = self.set_iter.as_ref() {
+      return Ok(
+        (std::mem::size_of_val(set.as_ref()) as i64).saturating_add(set.ram_bytes_used()?),
+      );
+    }
     Ok(0)
   }
 }
@@ -129,6 +137,3 @@ impl DocIdSet for DocsWithFieldSet {
     }
   }
 }
-
-//TODO
-const BASE_RAM_BYTES_USED: i64 = 0;

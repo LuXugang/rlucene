@@ -26,10 +26,12 @@ use crate::core::index::BytesRef;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
+use crate::core::util::accountable::Accountable;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::paged_bytes::{PagedBytes, get_data_input, get_data_output};
 use crate::test::core::util::test_util::TestUtil;
+use std::mem;
 
 #[allow(dead_code)] // for quick search
 struct TestPagedBytes;
@@ -251,6 +253,52 @@ fn test_overflow() -> Result<()> {
 }
 #[test]
 fn test_ram_bytes_used() -> Result<()> {
-  // TODO: memory calculation not implement
+  // TODO 未实现RamUsageTester
+  let mut random = random();
+  let block_bits = TestUtil::next_int(&mut random, 4, 22) as usize;
+  let block_size = 1usize << block_bits;
+  let max_total_bytes = 10_000usize.min(block_size.saturating_mul(8).saturating_sub(12));
+  let total_bytes = random.random_range(0..max_total_bytes);
+  let mut untrimmed = PagedBytes::new(block_bits);
+  let mut trimmed = PagedBytes::new(block_bits);
+
+  let initial_bytes = (16 * mem::size_of::<Vec<u8>>()) as i64;
+  assert_eq!(initial_bytes, untrimmed.ram_bytes_used()?);
+  assert_eq!(initial_bytes, trimmed.ram_bytes_used()?);
+
+  let mut pointer = 0;
+  while pointer < total_bytes as i64 {
+    let bytes = BytesRef::from_string(&TestUtil::random_simple_string_with_len(&mut random, 10));
+    pointer = untrimmed.copy_using_length_prefix(&bytes)?;
+    assert_eq!(pointer, trimmed.copy_using_length_prefix(&bytes)?);
+  }
+
+  let end_pointer = untrimmed.get_pointer();
+  assert_eq!(end_pointer, trimmed.get_pointer());
+  let allocated_blocks = if end_pointer == 0 {
+    0
+  } else {
+    (end_pointer as usize).div_ceil(block_size)
+  };
+  let expected_bytes = initial_bytes + (allocated_blocks * block_size) as i64;
+  assert_eq!(expected_bytes, untrimmed.ram_bytes_used()?);
+  assert_eq!(expected_bytes, trimmed.ram_bytes_used()?);
+
+  let untrimmed_reader = untrimmed.freeze(false)?;
+  let trimmed_reader = trimmed.freeze(true)?;
+  let unused_last_block = if end_pointer == 0 || (end_pointer as usize).is_multiple_of(block_size) {
+    0
+  } else {
+    block_size - end_pointer as usize % block_size
+  } as i64;
+
+  assert_eq!(
+    unused_last_block,
+    untrimmed.ram_bytes_used()? - trimmed.ram_bytes_used()?
+  );
+  assert_eq!(
+    unused_last_block,
+    untrimmed_reader.ram_bytes_used()? - trimmed_reader.ram_bytes_used()?
+  );
   Ok(())
 }

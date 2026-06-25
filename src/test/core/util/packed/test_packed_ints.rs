@@ -35,7 +35,7 @@ use crate::core::util::packed::growable_writer::GrowableWriter;
 use crate::core::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
 use crate::core::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter;
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
-use crate::core::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
+use crate::core::util::packed::packed_long_values::{Builder, PackedLongValues};
 use crate::core::util::packed::packed64::Packed64;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::packed::paged_mutable::PagedMutable;
@@ -1130,7 +1130,7 @@ fn test_packed_long_values() -> Result<()> {
       let acceptable_overhead_ratio =
         ratio_options[TestUtil::next_int(&mut random, 0, ratio_options.len() as i32 - 1) as usize];
 
-      let mut buf: PackedLongValuesBuilder;
+      let mut buf: Builder;
       let inc: i64;
 
       match data_type {

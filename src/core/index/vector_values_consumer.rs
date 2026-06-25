@@ -24,6 +24,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use std::sync::Arc;
@@ -95,7 +96,19 @@ where
   pub(crate) fn abort(&mut self) {
     let _ = self.writer.take();
   }
-  pub(crate) fn get_accountable(&self) {
-    todo!()
+  pub(crate) fn get_accountable(&self) -> &Self {
+    self
+  }
+}
+
+impl<D> Accountable for VectorValuesConsumer<D>
+where
+  D: Directory,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self
+      .writer
+      .as_ref()
+      .map_or(Ok(0), Accountable::ram_bytes_used)
   }
 }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+use std::mem;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -106,9 +107,8 @@ impl Outputs for PositiveIntOutputs {
     output.to_string()
   }
 
-  fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
-    // TODO: memory calculation not implement
-    0
+  fn ram_bytes_used(&self, output: &Self::V) -> i64 {
+    mem::size_of_val(output.as_ref()) as i64
   }
 }
 

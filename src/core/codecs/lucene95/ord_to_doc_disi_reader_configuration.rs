@@ -23,6 +23,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
@@ -275,5 +276,14 @@ impl OrdToDocDISIReaderConfiguration {
   /// is sparse, some documents missing values.
   pub fn is_dense(&self) -> bool {
     self.docs_with_field_offset == -1
+  }
+}
+
+impl Accountable for OrdToDocDISIReaderConfiguration {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self.meta.as_ref() {
+      Some(meta) => meta.ram_bytes_used(),
+      None => Ok(0),
+    }
   }
 }

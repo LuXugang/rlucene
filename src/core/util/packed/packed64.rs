@@ -21,6 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::bulk_operation::of;
 use crate::core::util::packed::format_behavior::{FormatBehavior, PackedImpl};
 use crate::core::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// Space-optimized random access array of values with a fixed number of bits
 /// per value. Values are packed contiguously.
@@ -195,7 +196,7 @@ impl Reader for Packed64 {
 
 impl Accountable for Packed64 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(size_of_vec(&self.blocks))
   }
 }
 

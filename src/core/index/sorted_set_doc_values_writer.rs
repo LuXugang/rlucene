@@ -50,9 +50,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::growable_writer::GrowableWriter;
 use crate::core::util::packed::packed_long_values::{
-  PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
+  Builder, PackedLongValues, PackedLongValuesIterator,
 };
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -62,8 +63,8 @@ use std::sync::Arc;
 pub(crate) struct SortedSetDocValuesWriter {
   hash: DirectBytesRefHash,
   frozen_hash: Option<Arc<DirectBytesRefHash>>,
-  pending: PackedLongValuesBuilder, // stream of all termIDs
-  pending_counts: Option<PackedLongValuesBuilder>, // termIDs per doc
+  pending: Builder,                // stream of all termIDs
+  pending_counts: Option<Builder>, // termIDs per doc
   docs_with_field: DocsWithFieldSet,
   iw_bytes_used: SharedCounter,
   bytes_used: i64, // this only tracks differences in 'pending' and 'pendingCounts'
@@ -92,8 +93,9 @@ impl SortedSetDocValuesWriter {
     let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array);
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
-    // TODO: memory calculation not implement
-    let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
+    let current_values = vec![0i32; 8];
+    let bytes_used =
+      pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()? + size_of_vec(&current_values);
     iw_bytes_used.add_and_get(bytes_used);
     Ok(Self {
       hash,
@@ -102,10 +104,10 @@ impl SortedSetDocValuesWriter {
       pending_counts: None,
       docs_with_field,
       iw_bytes_used,
-      bytes_used: 0,
+      bytes_used,
       field_info,
       current_doc: -1,
-      current_values: Vec::with_capacity(8),
+      current_values,
       current_upto: 0,
       max_count: 0,
       final_ords: None,
@@ -188,9 +190,6 @@ impl SortedSetDocValuesWriter {
     if self.current_upto == self.current_values.len() {
       let old_cap = self.current_values.len();
       ArrayUtil::grow_with_len(&mut self.current_values, old_cap + 1);
-      self
-        .iw_bytes_used
-        .add_and_get(((self.current_values.len() - self.current_upto) * BitUtil::INT_BYTES) as i64);
     }
     self.current_values[self.current_upto] = term_id;
     self.current_upto += 1;
@@ -203,9 +202,10 @@ impl SortedSetDocValuesWriter {
     } else {
       0
     };
-    // TODO: memory calculation not implement
-    let new_used =
-      self.pending.ram_bytes_used()? + pc_used + self.docs_with_field.ram_bytes_used()?;
+    let new_used = self.pending.ram_bytes_used()?
+      + pc_used
+      + self.docs_with_field.ram_bytes_used()?
+      + size_of_vec(&self.current_values);
     self.iw_bytes_used.add_and_get(new_used - self.bytes_used);
     self.bytes_used = new_used;
     Ok(())

@@ -39,7 +39,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
-  PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
+  Builder, PackedLongValues, PackedLongValuesIterator,
 };
 use crate::core::util::paged_bytes::{
   PagedBytes, PagedBytesDataInput, PagedBytesDataOutput, get_data_input, get_data_output,
@@ -57,7 +57,7 @@ pub(crate) struct BinaryDocValuesWriter {
   field_info: Arc<FieldInfo>,
   bytes_out: PagedBytesDataOutput,
   iw_bytes_used: SharedCounter,
-  lengths: PackedLongValuesBuilder,
+  lengths: Builder,
   docs_with_field: DocsWithFieldSet,
   bytes_used: i64,
   last_doc_id: i32,

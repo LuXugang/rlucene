@@ -1009,7 +1009,7 @@ where
 pub(crate) struct NullFSTReader;
 impl Accountable for NullFSTReader {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(0)
   }
 }
 impl FstReader for NullFSTReader {
@@ -1205,7 +1205,10 @@ where
   D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    match self {
+      DataOutputEnum::FromDir(_) => Ok(0),
+      DataOutputEnum::ReadWriter(data_output) => data_output.ram_bytes_used(),
+    }
   }
 }
 

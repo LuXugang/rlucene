@@ -41,7 +41,10 @@ pub trait HnswBuilder {
   fn set_info_stream(&mut self, info_stream: InfoStreamMT);
 
   /// Returns a reference to the current graph under construction.
-  fn get_graph(&mut self) -> &mut OnHeapHnswGraph;
+  fn get_graph(&self) -> &OnHeapHnswGraph;
+
+  /// Returns a mutable reference to the current graph under construction.
+  fn get_graph_mut(&mut self) -> &mut OnHeapHnswGraph;
   /// Once this method is called, no further updates to the graph are
   /// accepted.
   ///

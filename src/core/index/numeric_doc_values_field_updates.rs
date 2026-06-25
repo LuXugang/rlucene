@@ -34,6 +34,7 @@ use crate::core::util::packed::abstract_paged_mutable::{
 };
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::packed::paged_mutable::PagedMutable;
+use std::mem::size_of_val;
 
 /// A `DocValuesFieldUpdates` which holds updates of documents, of a single `NumericDocValuesField`.
 pub(crate) struct NumericDocValuesFieldUpdates {
@@ -141,7 +142,11 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
 
 impl Accountable for NumericDocValuesFieldUpdates {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    if let Some(values) = &self.values_iter {
+      Ok((size_of_val(values.as_ref()) as i64).saturating_add(values.ram_bytes_used()?))
+    } else {
+      self.values.ram_bytes_used()
+    }
   }
 }
 pub(crate) struct AbstractIteratorNumeric {

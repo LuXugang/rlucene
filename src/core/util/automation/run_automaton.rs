@@ -25,6 +25,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 /// Finite-state automaton with fast run operation. The initial state is always
 /// 0.
 #[derive(Clone)]
@@ -182,8 +183,18 @@ impl fmt::Display for RunAutomaton {
 
 impl Accountable for RunAutomaton {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO:memory calculation not Implement
-    Ok(0)
+    Ok(
+      (std::mem::size_of_val(self.automaton.as_ref()) as i64)
+        .saturating_add(self.automaton.ram_bytes_used()?)
+        .saturating_add(std::mem::size_of_val(self.accept.as_ref()) as i64)
+        .saturating_add(self.accept.ram_bytes_used()?)
+        .saturating_add(std::mem::size_of_val(self.transitions.as_ref()) as i64)
+        .saturating_add(size_of_vec(self.transitions.as_ref()))
+        .saturating_add(std::mem::size_of_val(self.points.as_ref()) as i64)
+        .saturating_add(size_of_vec(self.points.as_ref()))
+        .saturating_add(std::mem::size_of_val(self.classmap.as_ref()) as i64)
+        .saturating_add(size_of_vec(self.classmap.as_ref())),
+    )
   }
 }
 impl Hash for RunAutomaton {

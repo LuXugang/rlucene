@@ -43,13 +43,14 @@ use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::search::scorer::Scorer;
 use crate::core::store::directory::Directory;
-use crate::core::util::ToInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::int_consumer::IntConsumer;
+use crate::core::util::ram_usage_estimator::size_of_vec;
+use crate::core::util::{Counter, ToInt};
 use parking_lot::lock_api::ReentrantMutexGuard;
 use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
 use std::collections::HashMap;
@@ -67,8 +68,6 @@ use std::time::Instant;
 // process is heavy, and runs in multiple threads, and this compression
 // is sizable (~8.3% of the original size), so it's important
 // we run this before applying the deletes/updates.
-// Query we often undercount (say 24 bytes), plus int.
-const BYTES_PER_DEL_QUERY: i32 = 0;
 /// Holds buffered deletes and updates by term or query, once pushed.
 ///
 /// Pushed deletes/updates are write-once, so a more memory-efficient data structure is used
@@ -133,8 +132,11 @@ impl FrozenBufferedUpdates {
     let field_updates = std::mem::take(&mut updates.field_updates);
     let field_updates_count = updates.num_field_updates.load(Ordering::Relaxed);
 
-    // TODO: memory calculation not implement
-    let bytes_used = 0;
+    let bytes_used = delete_terms
+      .ram_bytes_used()?
+      .saturating_add(size_of_vec(&delete_queries))
+      .saturating_add(size_of_vec(&delete_query_limits))
+      .saturating_add(updates.field_updates_bytes_used.get()) as i32;
     if info_stream.is_enabled("BD") {
       let private_segment_msg = match private_segment {
         Some(ref v) => {

@@ -706,8 +706,7 @@ impl QueryNode {
 }
 impl NodeBase for QueryNode {
   fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
-    buffered_deletes.add_query(self.item.clone(), doc_id_upto);
-    Ok(())
+    buffered_deletes.add_query(self.item.clone(), doc_id_upto)
   }
 }
 impl Display for QueryNode {
@@ -730,7 +729,7 @@ impl QueryNodeArray {
 impl NodeBase for QueryNodeArray {
   fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
     for query in &self.item {
-      buffered_deletes.add_query(query.clone(), doc_id_upto);
+      buffered_deletes.add_query(query.clone(), doc_id_upto)?;
     }
     Ok(())
   }

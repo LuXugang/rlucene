@@ -24,6 +24,7 @@ use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::{
   Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader,
 };
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 pub(crate) struct Packed64SingleBlock<T>
 where
@@ -249,7 +250,7 @@ where
   T: Packed64SingleBlockBase,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(size_of_vec(&self.blocks))
   }
 }
 

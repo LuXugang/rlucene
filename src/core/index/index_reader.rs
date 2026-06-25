@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_fields::{StoredFields, StoredFieldsEnum2};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{TermVectors, TermVectorsEnum2};
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -779,6 +780,12 @@ impl Identity {
 impl Default for Identity {
   fn default() -> Self {
     Self::new()
+  }
+}
+
+impl Accountable for Identity {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(std::mem::size_of_val(self.0.as_ref()) as i64)
   }
 }
 

@@ -23,6 +23,7 @@ use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::ints_ref::IntsRef;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 
 /// Global NO_OUTPUT singleton shared by all threads, matching Java's
@@ -144,9 +145,9 @@ impl Outputs for IntSequenceOutputs {
     output.to_string()
   }
 
-  fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
-    // TODO: memory calculation not implement
-    0
+  fn ram_bytes_used(&self, output: &Self::V) -> i64 {
+    (std::mem::size_of_val(output.ints.as_ref()) as i64)
+      .saturating_add(size_of_vec(output.ints.as_ref()))
   }
 }
 

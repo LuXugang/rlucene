@@ -64,6 +64,7 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::synonym_query::SynonymQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
@@ -458,6 +459,13 @@ impl Query {
 impl Default for Query {
   fn default() -> Self {
     Query::Dummy(DummyQuery::default())
+  }
+}
+
+impl Accountable for Query {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    // TODO: memory calculation not implement
+    Ok(0)
   }
 }
 

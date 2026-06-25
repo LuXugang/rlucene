@@ -16,6 +16,7 @@
  */
 use std::fmt;
 
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(debug_assertions)]
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
@@ -23,6 +24,7 @@ use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 /// `NeighborArray` encodes the neighbors of a node and their mutual scores in
 /// the HNSW graph as a pair of growable arrays. Nodes are arranged in the
 /// sorted order of their scores in:
@@ -361,6 +363,12 @@ impl NeighborArray {
     }
 
     Ok(false)
+  }
+}
+
+impl Accountable for NeighborArray {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(size_of_vec(&self.scores).saturating_add(size_of_vec(&self.nodes)))
   }
 }
 impl fmt::Display for NeighborArray {

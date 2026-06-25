@@ -21,13 +21,9 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::{BitSet, check_unpositioned};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{HasIdentity, SliceCopyOps, TryIntoInt};
 
-// TODO: memory calculation not implement
-
-const SPARSE_FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
-
-const SINGLE_ELEMENT_ARRAY_BYTES_USED: i64 = 0;
 const MASK_4096: usize = (1 << 12) - 1;
 
 fn block_count(length: usize) -> usize {
@@ -67,11 +63,11 @@ impl SparseFixedBitSet {
     }
     let block_count = block_count(length);
     let indices = vec![0; block_count];
-    // TODO: memory calculation not implement
-    let ram_bytes_used = 0;
+    let bits = vec![None; block_count];
+    let ram_bytes_used = size_of_vec(&indices).saturating_add(size_of_vec(&bits));
     Ok(SparseFixedBitSet {
       indices,
-      bits: vec![None; block_count],
+      bits,
       length,
       non_zero_long_count: 0,
       ram_bytes_used,
@@ -91,10 +87,9 @@ impl SparseFixedBitSet {
     self.indices[i4096] = i64bit;
     debug_assert!(self.bits[i4096].is_none());
     let block: Vec<u64> = vec![1_u64 << (i % 64)];
+    self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_vec(&block));
     self.bits[i4096] = Some(block);
     self.non_zero_long_count += 1;
-    // TODO: memory calculation not implement
-    self.ram_bytes_used = 0;
   }
   fn insert_long(&mut self, i4096: usize, i64bit: usize, i: usize, index: usize) {
     self.indices[i4096] |= i64bit;
@@ -110,14 +105,18 @@ impl SparseFixedBitSet {
       bit_array.copy_within(o..big_array_length - 1, o + 1);
       bit_array[o] = 1_u64 << (i % 64);
     } else {
+      let old_bytes = size_of_vec(bit_array);
       let new_size = oversize(bit_array.len() as i32 + 1);
       let mut new_bit_array = vec![0; new_size as usize];
       new_bit_array.copy_from(&bit_array[..o], 0);
       new_bit_array[o] = 1_u64 << (i % 64);
       new_bit_array.copy_from(&bit_array[o..], o + 1);
+      let new_bytes = size_of_vec(&new_bit_array);
       self.bits[i4096] = Some(new_bit_array);
-      // TODO: memory calculation not implement
-      self.ram_bytes_used = 0;
+      self.ram_bytes_used = self
+        .ram_bytes_used
+        .saturating_sub(old_bytes)
+        .saturating_add(new_bytes);
     }
     self.non_zero_long_count += 1;
   }
@@ -139,7 +138,9 @@ impl SparseFixedBitSet {
     index &= mask;
     self.indices[i4096] = index;
     if index == 0 {
-      self.bits[i4096].take();
+      if let Some(bit_array) = self.bits[i4096].take() {
+        self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
+      }
     } else {
       let length = index.count_ones() as usize;
       let bit_array = self.bits[i4096].as_mut().unwrap();
@@ -263,22 +264,24 @@ impl SparseFixedBitSet {
       // call OR on an empty set
       self.indices[i4096] = index;
       let new_bits = bits[0..non_zero_long_count].to_vec();
+      self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_vec(&new_bits));
       self.bits[i4096] = Some(new_bits);
-      // we may slightly overestimate size here, but keep it cheap
-      // TODO: memory calculation not implement
-      self.ram_bytes_used = 0;
       self.non_zero_long_count += non_zero_long_count;
       return;
     }
-    let mut current_bits = self.bits[i4096].take();
+    let current_bits = self.bits[i4096].take().unwrap();
     let new_index = current_index | index;
     let required_capacity = new_index.count_ones();
-    let mut new_bits = if current_bits.as_ref().unwrap().len() >= required_capacity as usize {
-      current_bits.take().unwrap()
+    let current_bytes = size_of_vec(&current_bits);
+    let (mut new_bits, old_bits) = if current_bits.len() >= required_capacity as usize {
+      (current_bits, None)
     } else {
-      // TODO: memory calculation not implement
-      self.ram_bytes_used = 0;
-      vec![0; oversize(required_capacity as i32) as usize]
+      let new_bits = vec![0; oversize(required_capacity as i32) as usize];
+      self.ram_bytes_used = self
+        .ram_bytes_used
+        .saturating_sub(current_bytes)
+        .saturating_add(size_of_vec(&new_bits));
+      (new_bits, Some(current_bits))
     };
     // we iterate backwards in order to not override data we might need on
     // the next iteration if the array is reused
@@ -293,9 +296,10 @@ impl SparseFixedBitSet {
         new_o as u32,
         (new_index & (1_u64.wrapping_shl(bit_index as u32).wrapping_sub(1))).count_ones()
       );
-      new_bits[new_o as usize] =
-        (long_bits(current_index, current_bits.as_ref().unwrap(), bit_index)
-          | long_bits(index, bits, bit_index)) as u64;
+      let current_bits = old_bits.as_ref().unwrap_or(&new_bits);
+      let merged_bits = (long_bits(current_index, current_bits, bit_index)
+        | long_bits(index, bits, bit_index)) as u64;
+      new_bits[new_o as usize] = merged_bits;
       i += 1 + new_index.wrapping_shl((i + 1) as u32).leading_zeros() as usize;
       new_o -= 1;
     }
@@ -425,16 +429,17 @@ impl Bits for SparseFixedBitSet {
 
 impl Accountable for SparseFixedBitSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(self.ram_bytes_used)
   }
 }
 impl BitSet for SparseFixedBitSet {
   fn clear(&mut self) {
-    self.bits = vec![None; self.bits.len()];
-    self.indices = vec![0; self.indices.len()];
+    for bit_array in &mut self.bits {
+      *bit_array = None;
+    }
+    self.indices.fill(0);
     self.non_zero_long_count = 0;
-    // TODO: memory calculation not implement
-    self.ram_bytes_used = 0;
+    self.ram_bytes_used = size_of_vec(&self.indices).saturating_add(size_of_vec(&self.bits));
   }
 
   fn set(&mut self, i: usize) {
@@ -503,27 +508,25 @@ impl BitSet for SparseFixedBitSet {
     self.and(i4096, i64, !(1_usize << (i % 64)));
   }
 
-  fn clear_range(&mut self, start_index: usize, end_index: usize) {
-    debug_assert!(end_index <= self.length);
-    if start_index >= end_index {
+  fn clear_range(&mut self, from: usize, to: usize) {
+    debug_assert!(to <= self.length);
+    if from >= to {
       return;
     }
-    let first_block = start_index >> 12;
-    let last_block = (end_index - 1) >> 12;
+    let first_block = from >> 12;
+    let last_block = (to - 1) >> 12;
     if first_block == last_block {
-      self.clear_within_block(
-        first_block,
-        start_index & MASK_4096,
-        (end_index - 1) & MASK_4096,
-      );
+      self.clear_within_block(first_block, from & MASK_4096, (to - 1) & MASK_4096);
     } else {
-      self.clear_within_block(first_block, start_index & MASK_4096, MASK_4096);
+      self.clear_within_block(first_block, from & MASK_4096, MASK_4096);
       for i in first_block + 1..last_block {
         self.non_zero_long_count -= self.indices[i].count_ones() as usize;
         self.indices[i] = 0;
-        self.bits[i].take();
+        if let Some(bit_array) = self.bits[i].take() {
+          self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
+        }
       }
-      self.clear_within_block(last_block, 0, (end_index - 1) & MASK_4096);
+      self.clear_within_block(last_block, 0, (to - 1) & MASK_4096);
     }
   }
 
@@ -602,7 +605,7 @@ impl BitSet for SparseFixedBitSet {
   where
     T: DocIdSetIterator,
   {
-    //TODO: this is a naive implementation, we can optimize it from Java
+    //TODO IMPORTANT: this is a naive implementation, we can optimize it from Java
     // Lucene
     check_unpositioned(iter)?;
     let mut doc = iter.next_doc()?.try_convert()?;

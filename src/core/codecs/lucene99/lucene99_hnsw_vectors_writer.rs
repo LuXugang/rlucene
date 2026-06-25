@@ -60,10 +60,9 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSu
 use crate::core::util::incremental_hnsw_graph_merger::IncrementalHnswGraphMerger;
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::sync::Arc;
 
-//TODO: memory calculation not implement
-const SHALLOW_RAM_BYTES_USED: i64 = 0;
 /// Writes vector values and knn graphs to index segments.
 pub struct Lucene99HnswVectorsWriter<F, O>
 where
@@ -523,8 +522,14 @@ where
   O: IndexOutput,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    let mut size = self
+      .flat_vector_writer
+      .ram_bytes_used()?
+      .saturating_add(size_of_vec(&self.fields));
+    for field in &self.fields {
+      size = size.saturating_add(field.ram_bytes_used()?);
+    }
+    Ok(size)
   }
 }
 impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O>
@@ -797,8 +802,7 @@ where
   S: RandomVectorScorerSupplier,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    //TODO: memory calculation not implement
-    Ok(0)
+    self.hnsw_graph_builder.get_graph().ram_bytes_used()
   }
 }
 

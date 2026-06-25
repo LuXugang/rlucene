@@ -33,9 +33,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::paged_bytes::{
-  PagedBytes, PagedBytesDataOutput, PagedBytesReader, get_data_output,
-};
+use crate::core::util::paged_bytes::{PagedBytes, PagedBytesDataOutput, Reader, get_data_output};
 use crate::core::util::{Counter, SharedCounter, SliceCopyOps};
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -421,13 +419,13 @@ struct MutablePointTreeImpl {
   temp: Vec<usize>,
   doc_ids: Vec<i32>,
   packed_bytes_length: usize,
-  bytes_reader: PagedBytesReader,
+  bytes_reader: Reader,
 }
 impl MutablePointTreeImpl {
   pub(crate) fn new(
     num_points: usize,
     doc_ids: Vec<i32>,
-    bytes_reader: PagedBytesReader,
+    bytes_reader: Reader,
     packed_bytes_length: usize,
   ) -> Self {
     let mut ords = vec![0; num_points];

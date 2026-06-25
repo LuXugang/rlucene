@@ -61,6 +61,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::io_utils::IOUtils;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use log::warn;
 use std::sync::Arc;
 
@@ -288,7 +289,11 @@ where
   O: IndexOutput,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    let mut size = size_of_vec(&self.fields);
+    for field in &self.fields {
+      size = size.saturating_add(field.ram_bytes_used()?);
+    }
+    Ok(size)
   }
 }
 
@@ -635,8 +640,7 @@ impl FlatFieldWriter {
 
 impl Accountable for FlatFieldWriter {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    self.docs_with_field.ram_bytes_used()
   }
 }
 

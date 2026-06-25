@@ -24,10 +24,12 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
 use crate::core::util::long_values::{LongValues, LongValuesEnum2, LongValuesEnum3, Zeroes};
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
-use crate::core::util::packed::packed_long_values::{PackedLongValues, PackedLongValuesBuilder};
+use crate::core::util::packed::packed_long_values::{Builder, PackedLongValues};
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{Sorter, ToInt};
+use std::mem;
 use std::rc::Rc;
 
 pub(crate) type SegmentToGlobalOrds =
@@ -212,7 +214,7 @@ impl OrdinalMap {
     let mut first_segment_bits: i64 = 0;
 
     let sub_len = subs.len();
-    let mut ord_deltas: Vec<PackedLongValuesBuilder> = Vec::with_capacity(sub_len);
+    let mut ord_deltas: Vec<Builder> = Vec::with_capacity(sub_len);
     for _ in 0..sub_len {
       ord_deltas.push(PackedLongValues::monotonic_long_values_builder_default(
         acceptable_overhead_ratio,
@@ -296,7 +298,6 @@ impl OrdinalMap {
       global_ord_deltas.add(global_ord_delta)?;
       global_ord += 1;
     }
-    // TODO: memory calculation not implement
     let mut ram_bytes_used = segment_map.ram_bytes_used()?;
     let value_count = global_ord;
 
@@ -318,16 +319,15 @@ impl OrdinalMap {
 
     // ordDeltas is typically the bottleneck, so let's see what we can do to make it faster
     let mut segment_to_global_ords = Vec::with_capacity(sub_len);
-    // TODO: memory calculation not implement
-    // ram_bytes_used += 0;
+    ram_bytes_used += size_of_vec(&segment_to_global_ords);
     for i in 0..ord_deltas.len() {
       let deltas = ord_deltas[i].build()?;
       if ord_delta_bits[i] == 0 {
         // segment ords perfectly match global ordinals
         // likely in case of low cardinalities and large segments
-        segment_to_global_ords.push(Rc::new(LongValuesEnum3::A(
-          crate::core::util::long_values::Identity,
-        )));
+        let global_ords = Rc::new(LongValuesEnum3::A(crate::core::util::long_values::Identity));
+        ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
+        segment_to_global_ords.push(global_ords);
       } else {
         let bits_required = if ord_delta_bits[i] < 0 {
           64
@@ -352,14 +352,18 @@ impl OrdinalMap {
             new_deltas.set(ord, v);
           }
           debug_assert!(!it.has_next());
-          ram_bytes_used += new_deltas.ram_bytes_used()?;
-          segment_to_global_ords.push(Rc::new(LongValuesEnum3::B(LongValuesImpl::new(new_deltas))));
+          let new_deltas_ram_bytes_used = new_deltas.ram_bytes_used()?;
+          let global_ords = Rc::new(LongValuesEnum3::B(LongValuesImpl::new(new_deltas)));
+          ram_bytes_used += new_deltas_ram_bytes_used;
+          ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
+          segment_to_global_ords.push(global_ords);
         } else {
-          ram_bytes_used += deltas.ram_bytes_used()?;
-          segment_to_global_ords.push(Rc::new(LongValuesEnum3::C(LongValuesImpl1::new(deltas))));
+          let deltas_ram_bytes_used = deltas.ram_bytes_used()?;
+          let global_ords = Rc::new(LongValuesEnum3::C(LongValuesImpl1::new(deltas)));
+          ram_bytes_used += deltas_ram_bytes_used;
+          ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
+          segment_to_global_ords.push(global_ords);
         }
-        // TODO: memory calculation not implement
-        // ram_bytes_used += 0;
       }
     }
     Ok(OrdinalMap {
@@ -487,8 +491,7 @@ impl SegmentMap {
 }
 impl Accountable for SegmentMap {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    Ok(size_of_vec(&self.new_to_old).saturating_add(size_of_vec(&self.old_to_new)))
   }
 }
 

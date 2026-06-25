@@ -18,8 +18,10 @@ use crate::test::core::util::lucene_test_case::random;
 use rand::RngExt;
 use rand::prelude::StdRng;
 
-use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{AllDISI, NO_MORE_DOCS};
+use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
+use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
@@ -86,6 +88,62 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
       sfbs.as_ref().unwrap().get_non_zero_long_count() as u32
     );
     BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
+  }
+}
+
+impl TestSparseFixedBitSet {
+  fn copy_of(&self, bit_set: &impl BitSet, length: usize) -> Result<SparseFixedBitSet> {
+    let mut copy = SparseFixedBitSet::new(length)?;
+    let mut doc = bit_set.next_set_bit(0);
+    while doc != NO_MORE_DOCS as usize {
+      copy.set(doc);
+      doc = if doc + 1 >= length {
+        NO_MORE_DOCS as usize
+      } else {
+        bit_set.next_set_bit(doc + 1)
+      };
+    }
+    Ok(copy)
+  }
+
+  fn test_ram_bytes_used(&mut self, random: &mut StdRng) -> Result<()> {
+    let size = 1000 + random.random_range(0..10000);
+
+    let mut original = SparseFixedBitSet::new(size)?;
+    for _ in 0..3 {
+      original.set(random.random_range(0..size));
+    }
+    let original_ram_bytes_used = original.ram_bytes_used()?;
+    assert!(original_ram_bytes_used > 0);
+
+    // Take union with a random sparse iterator, then check memory usage
+    let mut copy = self.copy_of(&original, size)?;
+    let mut other_bit_set = SparseFixedBitSet::new(size)?;
+    let interval = 10 + random.random_range(0..100);
+    for i in (0..size).step_by(interval) {
+      other_bit_set.set(i);
+    }
+    let mut iterator = BitSetIterator::new(other_bit_set, size as i64)?;
+    copy.or(&mut iterator)?;
+    assert!(copy.ram_bytes_used()? > original_ram_bytes_used);
+
+    // Take union with a dense iterator, then check memory usage
+    let mut copy = self.copy_of(&original, size)?;
+    let mut iterator = AllDISI::new(size as i32);
+    copy.or(&mut iterator)?;
+    assert!(copy.ram_bytes_used()? > original_ram_bytes_used);
+    assert!(copy.ram_bytes_used()? > size as i64 / u8::BITS as i64);
+
+    // Check that both "copy" strategies result in bit sets with
+    // (roughly) same memory usage as original
+    let set_copy = self.copy_of(&original, size)?;
+    assert_eq!(set_copy.ram_bytes_used()?, original_ram_bytes_used);
+
+    let mut or_copy = SparseFixedBitSet::new(size)?;
+    let mut iterator = BitSetIterator::new(original, size as i64)?;
+    or_copy.or(&mut iterator)?;
+    assert!(original_ram_bytes_used.abs_diff(or_copy.ram_bytes_used()?) <= 64);
+    Ok(())
   }
 }
 
@@ -220,6 +278,6 @@ fn test_approximate_cardinality_on_dense_set() -> Result<()> {
 }
 
 #[test]
-fn test_ram_bytes_used() {
-  // TODO: memory calculation not implement
+fn test_ram_bytes_used() -> Result<()> {
+  run_case(|case, random| case.test_ram_bytes_used(random))
 }

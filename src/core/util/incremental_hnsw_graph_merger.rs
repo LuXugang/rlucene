@@ -134,7 +134,7 @@ where
         builder.set_info_stream(info_stream);
         builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
-          builder.get_graph(),
+          builder.get_graph_mut(),
           OnHeapHnswGraph::new(self.m, 0),
         ))
       },
@@ -149,7 +149,7 @@ where
         builder.set_info_stream(info_stream);
         builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
-          builder.get_graph(),
+          builder.get_graph_mut(),
           OnHeapHnswGraph::new(self.m, 0),
         ))
       },

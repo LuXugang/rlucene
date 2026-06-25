@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::internal::hppc::bit_mixer::BitMixer;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
@@ -24,8 +25,10 @@ use crate::core::util::automation::state_set::StateSet;
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_vec};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::mem;
 use std::sync::Arc;
 
 /// A [`RunAutomaton`](crate::core::util::automation::run_automaton::RunAutomaton)
@@ -453,6 +456,26 @@ impl ByteRunnable for NFARunAutomaton {
     self.dstates.len() as i32
   }
 }
+
+impl Accountable for NFARunAutomaton {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = (mem::size_of_val(self.automaton.as_ref()) as i64)
+      .saturating_add(self.automaton.ram_bytes_used()?)
+      .saturating_add(mem::size_of_val(self.points.as_ref()) as i64)
+      .saturating_add(size_of_vec(self.points.as_ref()))
+      .saturating_add(mem::size_of_val(self.classmap.as_ref()) as i64)
+      .saturating_add(size_of_vec(self.classmap.as_ref()))
+      .saturating_add(size_of_vec(&self.dstates))
+      .saturating_add(size_of_hash_map(&self.state.dstate_to_ord));
+
+    for dstate in &self.dstates {
+      size = size.saturating_add(dstate.ram_bytes_used()?);
+    }
+
+    Ok(size)
+  }
+}
+
 #[derive(Clone)]
 struct DState {
   nfa_states: Arc<Vec<i32>>,
@@ -525,6 +548,17 @@ impl DState {
     }
   }
 }
+
+impl Accountable for DState {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(
+      (mem::size_of_val(self.nfa_states.as_ref()) as i64)
+        .saturating_add(size_of_vec(self.nfa_states.as_ref()))
+        .saturating_add(size_of_vec(&self.transitions)),
+    )
+  }
+}
+
 #[derive(Clone)]
 struct DStateKey {
   nfa_states: Arc<Vec<i32>>,

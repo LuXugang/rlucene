@@ -24,6 +24,7 @@ use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::core::util::{
   ByteBlockPool, BytesRefComparator, Counter, MSBRadixSorterBase, SharedCounter, SliceCopyOps,
@@ -261,7 +262,7 @@ impl SortState {
 }
 impl Accountable for SortState {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(self.indices.as_ref().map_or(0, size_of_vec))
   }
 }
 

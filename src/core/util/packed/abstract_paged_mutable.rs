@@ -24,6 +24,7 @@ use crate::core::util::packed::mutable_enum::MutableEnum;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::packed::paged_mutable::PagedMutable;
 use crate::core::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 const MIN_BLOCK_SIZE: i32 = 1 << 6;
 const MAX_BLOCK_SIZE: i32 = 1 << 30;
@@ -187,9 +188,11 @@ where
   T: AbstractPagedMutableBase,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut byte_used = self.base_ram_bytes_used();
+    let mut byte_used = self
+      .base_ram_bytes_used()
+      .saturating_add(size_of_vec(&self.sub_mutables));
     for sub_mutable in &self.sub_mutables {
-      byte_used += sub_mutable.ram_bytes_used()?;
+      byte_used = byte_used.saturating_add(sub_mutable.ram_bytes_used()?);
     }
     Ok(byte_used)
   }

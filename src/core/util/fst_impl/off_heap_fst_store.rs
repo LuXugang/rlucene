@@ -51,7 +51,7 @@ where
   I: IndexInput,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(0)
   }
 }
 

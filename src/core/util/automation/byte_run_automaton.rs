@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::accountable::Accountable;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::operations::Operations;
@@ -81,6 +82,12 @@ impl ByteRunnable for ByteRunAutomaton {
 
   fn get_size(&self) -> i32 {
     self.base.size()
+  }
+}
+
+impl Accountable for ByteRunAutomaton {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.base.ram_bytes_used()
   }
 }
 

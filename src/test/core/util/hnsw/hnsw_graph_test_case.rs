@@ -420,7 +420,7 @@ where
     )?;
 
     assert_graph_initialized_from_graph(
-      final_builder.get_graph(),
+      final_builder.get_graph_mut(),
       initializer_graph,
       &initializer_ord_map,
     )?;

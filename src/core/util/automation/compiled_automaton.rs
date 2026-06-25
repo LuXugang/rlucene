@@ -22,6 +22,7 @@ use crate::core::index::terms::{Terms, TermsIntersect, TermsPosting, TermsTE};
 use crate::core::index::terms_enum::{EmptyTermsEnumTermsWrapper, SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::StringHelper;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::attribute_source::AttributeSourceEnum4;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
@@ -33,9 +34,11 @@ use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::unicode_util::UnicodeUtil;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
+use std::mem;
 use std::sync::Arc;
 
 /// Automata are compiled into different internal forms for the most efficient
@@ -429,6 +432,30 @@ impl CompiledAutomaton {
         "Both run_automaton and nfa_run_automaton are None,, should not be called",
       )),
     }
+  }
+}
+
+impl Accountable for CompiledAutomaton {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = 0i64;
+
+    if let Some(term) = &self.term {
+      size = size.saturating_add(size_of_vec(&term.bytes));
+    }
+    if let Some(run_automaton) = &self.run_automaton {
+      size = size.saturating_add(run_automaton.ram_bytes_used()?);
+    }
+    if let Some(nfa_run_automaton) = &self.nfa_run_automaton {
+      size = size.saturating_add(nfa_run_automaton.ram_bytes_used()?);
+    }
+    if let Some(common_suffix_ref) = &self.common_suffix_ref {
+      size = size
+        .saturating_add(mem::size_of_val(common_suffix_ref.as_ref()) as i64)
+        .saturating_add(size_of_vec(&common_suffix_ref.bytes));
+    }
+    size = size.saturating_add(self.transition.ram_bytes_used()?);
+
+    Ok(size)
   }
 }
 impl Hash for CompiledAutomaton {

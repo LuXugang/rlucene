@@ -45,6 +45,7 @@ use crate::core::util::packed::abstract_block_packed_writer::AbstractBlockPacked
 use crate::core::util::packed::block_packed_writer::BlockPackedWriter;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{SliceCopyOps, StringHelper, TryIntoInt};
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
@@ -865,8 +866,16 @@ where
   O: IndexOutput,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    Ok(
+      size_of_vec(&self.positions_buf)
+        .saturating_add(size_of_vec(&self.start_offsets_buf))
+        .saturating_add(size_of_vec(&self.lengths_buf))
+        .saturating_add(size_of_vec(&self.payload_lengths_buf))
+        .saturating_add(self.term_suffixes.ram_bytes_used()?)
+        .saturating_add(self.payload_bytes.ram_bytes_used()?)
+        .saturating_add(size_of_vec(&self.last_term.bytes))
+        .saturating_add(self.scratch_buffer.ram_bytes_used()?),
+    )
   }
 }
 

@@ -19,6 +19,7 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 // Storing a single contiguous byte[] for the current node of the FST we are
 // writing. The byte[] will only grow, never shrink.
 // Note: This is only safe for usage that is bounded in the number of bytes
@@ -93,6 +94,6 @@ impl DataOutput for GrowableByteArrayDataOutput {
 }
 impl Accountable for GrowableByteArrayDataOutput {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(size_of_vec(&self.bytes))
   }
 }

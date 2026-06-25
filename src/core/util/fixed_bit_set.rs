@@ -22,10 +22,9 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::{BitSet, check_unpositioned};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{HasIdentity, TryIntoInt};
 use std::hash::{Hash, Hasher};
-// TODO: memory calculation not implement
-const FIXED_BIT_SET_BASE_RAM_BYTES_USED: i64 = 0;
 
 /// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`)
 /// `long[]`, accessed with an `int` index, implementing [`Bits`] and
@@ -476,8 +475,7 @@ impl Bits for FixedBitSet {
 
 impl Accountable for FixedBitSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    Ok(size_of_vec(&self.bits))
   }
 }
 

@@ -952,10 +952,10 @@ where
 
 impl<T> Accountable for MutableImpl<T>
 where
-  T: Display + Mutable,
+  T: Accountable + Display + Mutable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    self.sub_reader.ram_bytes_used()
   }
 }
 
@@ -998,7 +998,7 @@ impl NullReader {
 }
 impl Accountable for NullReader {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(0)
   }
 }
 impl Reader for NullReader {

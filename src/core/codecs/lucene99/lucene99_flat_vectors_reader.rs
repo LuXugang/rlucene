@@ -46,6 +46,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
+use std::mem;
 use std::sync::Arc;
 
 /// Reads vectors from the index segments.
@@ -331,8 +332,7 @@ where
   I: IndexInput,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO memory calculation not implement
-    Ok(0)
+    self.fields.ram_bytes_used()
   }
 }
 
@@ -469,5 +469,14 @@ impl FieldEntry {
     }
 
     Ok(())
+  }
+}
+
+impl Accountable for FieldEntry {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(
+      (mem::size_of_val(self.ord_to_doc.as_ref()) as i64)
+        .saturating_add(self.ord_to_doc.ram_bytes_used()?),
+    )
   }
 }

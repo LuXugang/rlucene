@@ -23,7 +23,7 @@ use crate::core::util::long_values::LongValuesEnum2;
 use crate::core::util::long_values::{LongValues, Zeroes};
 use crate::core::util::packed::abstract_block_packed_writer::{MAX_BLOCK_SIZE, MIN_BLOCK_SIZE};
 use crate::core::util::packed::{Format, FormatBehavior, PackedImpl, PackedInts};
-use crate::core::util::ram_usage_estimator::RamUsageEstimator;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 const BLOCK_SIZE: i32 = u8::BITS as i32; // #bits in a block
 const BLOCK_BITS: i32 = 3; //The #bits representing BLOCK_SIZE
@@ -186,8 +186,8 @@ impl Display for MonotonicBlockPackedReader {
 impl Accountable for MonotonicBlockPackedReader {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut size_in_bytes = 0;
-    size_in_bytes += RamUsageEstimator::size_of_vec(&self.min_values);
-    size_in_bytes += RamUsageEstimator::size_of_vec(&self.averages);
+    size_in_bytes += size_of_vec(&self.min_values);
+    size_in_bytes += size_of_vec(&self.averages);
     size_in_bytes += self.total_byte_count;
     Ok(size_in_bytes)
   }

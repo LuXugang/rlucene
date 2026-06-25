@@ -500,7 +500,9 @@ impl LongBitSet {
 }
 impl Accountable for LongBitSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(crate::core::util::ram_usage_estimator::size_of_vec(
+      &self.bits,
+    ))
   }
 }
 impl Clone for LongBitSet {

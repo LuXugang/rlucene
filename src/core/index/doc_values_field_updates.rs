@@ -43,6 +43,7 @@ use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::paged_mutable::PagedMutable;
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use crate::core::util::ram_usage_estimator::size_of_string;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{Sorter, ToInt, TryIntoInt};
 use crate::impl_from_for_enum;
@@ -50,6 +51,7 @@ use crate::impl_from_for_enum;
 use crate::test::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldIterator;
 #[cfg(test)]
 use crate::test::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldUpdates;
+use std::mem::size_of_val;
 
 /// Holds updates for a single DocValues field, for a set of documents within
 /// one segment.
@@ -322,8 +324,17 @@ where
   D: DocValuesFieldUpdatesBase,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    let inner = self.inner.lock();
+    let docs_size = if let Some(docs) = &inner.docs_iter {
+      (size_of_val(docs.as_ref()) as i64).saturating_add(docs.ram_bytes_used()?)
+    } else {
+      inner.docs.ram_bytes_used()?
+    };
+    Ok(
+      size_of_string(&self.field)
+        .saturating_add(docs_size)
+        .saturating_add(self.sub_update.ram_bytes_used()?),
+    )
   }
 }
 
@@ -1126,7 +1137,22 @@ impl SingleValueDocValuesFieldUpdates {
 
 impl Accountable for SingleValueDocValuesFieldUpdates {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    let mut size = size_of_val(self.sub_update.as_ref()) as i64;
+    if let Some(bit_set) = &self.bit_set_iter {
+      size = size
+        .saturating_add(size_of_val(bit_set.as_ref()) as i64)
+        .saturating_add(bit_set.ram_bytes_used()?);
+    } else {
+      size = size.saturating_add(self.bit_set.ram_bytes_used()?);
+    }
+    if let Some(has_no_value) = &self.has_no_value_iter {
+      size = size
+        .saturating_add(size_of_val(has_no_value.as_ref()) as i64)
+        .saturating_add(has_no_value.ram_bytes_used()?);
+    } else if let Some(has_no_value) = &self.has_no_value {
+      size = size.saturating_add(has_no_value.ram_bytes_used()?);
+    }
+    Ok(size)
   }
 }
 

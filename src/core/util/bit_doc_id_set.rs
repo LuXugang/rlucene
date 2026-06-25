@@ -19,9 +19,6 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-//TODO
-
-const BASE_RAM_BYTES_USED: i64 = 0;
 
 /// [`DocIdSet`] implementation backed by a [`BitSet`].
 ///

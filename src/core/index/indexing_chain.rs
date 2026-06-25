@@ -1354,10 +1354,22 @@ where
 impl<D> Accountable for IndexingChain<D>
 where
   D: Directory,
+  StoredFieldsConsumer<D>: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    todo!()
+    Ok(
+      self
+        .bytes_used
+        .get()
+        .saturating_add(self.stored_fields_consumer.ram_bytes_used()?)
+        .saturating_add(self.terms_hash.next_terms_hash.ram_bytes_used()?)
+        .saturating_add(
+          self
+            .vector_values_consumer
+            .get_accountable()
+            .ram_bytes_used()?,
+        ),
+    )
   }
 }
 

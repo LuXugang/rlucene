@@ -30,6 +30,8 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
+use crate::core::util::ram_usage_estimator::size_of_vec;
+use std::mem::size_of_val;
 
 /// A [`DocValuesFieldUpdates`](crate::core::index::doc_values_field_updates::DocValuesFieldUpdates) which holds updates for documents of a single `BinaryDocValuesField`.
 ///
@@ -63,7 +65,21 @@ impl BinaryDocValuesFieldUpdates {
 
 impl Accountable for BinaryDocValuesFieldUpdates {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    let offsets_size = if let Some(offsets) = &self.offsets_iter {
+      (size_of_val(offsets.as_ref()) as i64).saturating_add(offsets.ram_bytes_used()?)
+    } else {
+      self.offsets.ram_bytes_used()?
+    };
+    let lengths_size = if let Some(lengths) = &self.lengths_iter {
+      (size_of_val(lengths.as_ref()) as i64).saturating_add(lengths.ram_bytes_used()?)
+    } else {
+      self.lengths.ram_bytes_used()?
+    };
+    Ok(
+      offsets_size
+        .saturating_add(lengths_size)
+        .saturating_add(size_of_vec(&self.values.bytes().bytes)),
+    )
   }
 }
 

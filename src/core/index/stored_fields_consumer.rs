@@ -25,6 +25,7 @@ use crate::core::index::sorter::DocMap;
 use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 
@@ -217,6 +218,25 @@ where
     match self.sub {
       Some(ref mut sub) => sub.abort(),
       None => Ok(()),
+    }
+  }
+}
+
+impl<D> Accountable for StoredFieldsConsumer<D>
+where
+  D: Directory,
+  DefaultStoredFieldsWriter<D::IndexOutput>: Accountable,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self.sub {
+      Some(ref sub) => sub
+        .writer
+        .as_ref()
+        .map_or(Ok(0), Accountable::ram_bytes_used),
+      None => self
+        .writer
+        .as_ref()
+        .map_or(Ok(0), Accountable::ram_bytes_used),
     }
   }
 }

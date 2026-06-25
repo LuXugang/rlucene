@@ -26,8 +26,6 @@ use crate::core::util::{
 
 pub struct BytesRefBlockPool;
 
-// TODO: memory calculation not implement
-const BASE_RAM_BYTES: i32 = 0;
 impl Default for BytesRefBlockPool {
   fn default() -> Self {
     Self::new()
@@ -160,7 +158,10 @@ impl BytesRefBlockPool {
     // Compare slices of bytes
     bytes[offset..offset + length] == b.bytes[b.offset..(b.offset + b.length)]
   }
-  fn ram_bytes_used(&self, pool: &ByteBlockPool) -> Result<i64> {
-    pool.ram_bytes_used()
+}
+
+impl Accountable for BytesRefBlockPool {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(0)
   }
 }

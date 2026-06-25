@@ -38,7 +38,9 @@ use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ram_usage_estimator::size_of_string;
 use std::hash::{Hash, Hasher};
+use std::mem::size_of_val;
 use std::sync::Arc;
 
 /// Similar to SortedNumericDocValuesRangeQuery but for a set
@@ -122,7 +124,14 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
 }
 impl Accountable for SortedNumericDocValuesSetQuery {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(
+      self
+        .id
+        .ram_bytes_used()?
+        .saturating_add(size_of_string(&self.field))
+        .saturating_add(size_of_val(self.numbers.as_ref()) as i64)
+        .saturating_add(self.numbers.ram_bytes_used()?),
+    )
   }
 }
 

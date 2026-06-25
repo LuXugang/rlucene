@@ -30,6 +30,7 @@ use crate::core::store::directory::Directory;
 #[cfg(test)]
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::flush_info::FlushInfo;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
@@ -305,6 +306,24 @@ where
     };
     v.as_mut()
       .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))
+  }
+}
+
+impl<D> Accountable for TermVectorsConsumer<D>
+where
+  D: Directory,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self.sub {
+      Some(ref sub) => sub
+        .writer
+        .as_ref()
+        .map_or(Ok(0), Accountable::ram_bytes_used),
+      None => self
+        .writer
+        .as_ref()
+        .map_or(Ok(0), Accountable::ram_bytes_used),
+    }
   }
 }
 

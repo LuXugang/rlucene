@@ -189,7 +189,10 @@ pub enum DocIdSetBuilderEnum {
 }
 impl Accountable for DocIdSetBuilderEnum {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    match self {
+      Self::BitDoc(set) => set.ram_bytes_used(),
+      Self::IntArray(set) => set.ram_bytes_used(),
+    }
   }
 }
 

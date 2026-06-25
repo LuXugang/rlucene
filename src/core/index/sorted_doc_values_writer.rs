@@ -44,7 +44,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
-  PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
+  Builder, PackedLongValues, PackedLongValuesIterator,
 };
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::borrow::Cow;
@@ -55,7 +55,7 @@ use std::sync::Arc;
 pub(crate) struct SortedDocValuesWriter {
   hash: DirectBytesRefHash,
   frozen_hash: Option<Arc<DirectBytesRefHash>>,
-  pending: PackedLongValuesBuilder,
+  pending: Builder,
   docs_with_field: DocsWithFieldSet,
   iw_bytes_used: SharedCounter,
   bytes_used: i64, // this currently only tracks differences in 'pending'
@@ -79,7 +79,6 @@ impl SortedDocValuesWriter {
     let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array);
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
-    // TODO: memory calculation not implement
     let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
     iw_bytes_used.add_and_get(bytes_used);
 

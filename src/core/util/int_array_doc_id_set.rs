@@ -20,9 +20,9 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
+use std::mem;
 use std::rc::Rc;
-// TODO: memory calculation not implement
-const BASE_RAM_BYTES_USED: i64 = 0;
 
 /// A doc id set based on a sorted `Vec<i32>`.
 ///
@@ -85,7 +85,9 @@ impl DocIdSet for IntArrayDocIdSet {
 
 impl Accountable for IntArrayDocIdSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(
+      (mem::size_of_val(self.docs.as_ref()) as i64).saturating_add(size_of_vec(self.docs.as_ref())),
+    )
   }
 }
 

@@ -28,6 +28,7 @@ use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, CollectionNodesIterator, HnswGraph, NodesIteratorEnum2,
 };
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 /// An [`HnswGraph`] where all nodes and connections are held in memory.
 /// This struct is used to construct the HNSW graph before it's written to the
 /// index.
@@ -410,8 +411,23 @@ impl fmt::Display for OnHeapHnswGraph {
 
 impl Accountable for OnHeapHnswGraph {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    todo!()
+    let mut size = (std::mem::size_of_val(self.entry_node.as_ref()) as i64)
+      .saturating_add(size_of_vec(&self.graph));
+    for levels in &self.graph {
+      size = size.saturating_add(size_of_vec(levels));
+      for neighbors in levels.iter().flatten() {
+        size = size.saturating_add(neighbors.ram_bytes_used()?);
+      }
+    }
+
+    size = size.saturating_add(size_of_vec(&self.level_to_nodes));
+    for nodes in &self.level_to_nodes {
+      size = size.saturating_add(std::mem::size_of_val(nodes.as_ref()) as i64);
+      if let Some(nodes) = nodes.as_ref() {
+        size = size.saturating_add(size_of_vec(nodes));
+      }
+    }
+    Ok(size)
   }
 }
 

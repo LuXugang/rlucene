@@ -21,8 +21,10 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -52,8 +54,7 @@ impl PagedBytes {
     let block_size = 1 << block_bits;
     let block_mask = block_size - 1;
     let upto = block_size;
-    // TODO: memory calculation not implement
-    let bytes_used_per_block = 0;
+    let bytes_used_per_block = block_size as i64;
 
     PagedBytes {
       blocks: Vec::with_capacity(16),
@@ -117,7 +118,7 @@ impl PagedBytes {
     unreachable!("not used in Java Lucene")
   }
   /// Commits final byte[], trimming it if necessary and if trim=true
-  pub fn freeze(&mut self, trim: bool) -> Result<PagedBytesReader> {
+  pub fn freeze(&mut self, trim: bool) -> Result<Reader> {
     if self.frozen {
       return Err(LuceneError::illegal_state("already frozen"));
     }
@@ -129,7 +130,7 @@ impl PagedBytes {
 
     if let Some(mut block) = self.current_block.take() {
       if trim && self.upto < self.block_size {
-        block.truncate(self.upto);
+        block = block[..self.upto].to_vec();
       }
       self.add_block(block);
     } else {
@@ -145,7 +146,7 @@ impl PagedBytes {
     }
     self.frozen_blocks = Some(block);
 
-    PagedBytesReader::new(self)
+    Reader::new(self)
   }
   pub fn get_pointer(&self) -> i64 {
     if self.current_block.is_none() {
@@ -155,19 +156,83 @@ impl PagedBytes {
     }
   }
   /// Copy bytes in, writing the length as a 1 or 2 byte vInt prefix.
-  pub fn copy_using_length_prefix(&mut self, _bytes: &BytesRef<Vec<u8>>) -> Result<i64> {
-    unimplemented!("not used in Java Lucene")
+  pub fn copy_using_length_prefix(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<i64> {
+    if bytes.length >= 32768 {
+      return Err(LuceneError::illegal_argument(format!(
+        "max length is 32767 (got {})",
+        bytes.length
+      )));
+    }
+
+    if self.upto + bytes.length + 2 > self.block_size {
+      if bytes.length + 2 > self.block_size {
+        return Err(LuceneError::illegal_argument(format!(
+          "block size {} is too small to store length {} bytes",
+          self.block_size, bytes.length
+        )));
+      }
+      if let Some(block) = self.current_block.take() {
+        self.add_block(block);
+      }
+      self.current_block = Some(vec![0u8; self.block_size]);
+      self.upto = 0;
+    }
+
+    let pointer = self.get_pointer();
+    let current_block = self
+      .current_block
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("current_block not initialized"))?;
+
+    if bytes.length < 128 {
+      current_block[self.upto] = bytes.length as u8;
+      self.upto += 1;
+    } else {
+      let length = (bytes.length | 0x8000) as u16;
+      current_block[self.upto] = (length >> 8) as u8;
+      current_block[self.upto + 1] = length as u8;
+      self.upto += 2;
+    }
+    current_block.copy_from(
+      &bytes.bytes[bytes.offset..bytes.offset + bytes.length],
+      self.upto,
+    );
+    self.upto += bytes.length;
+
+    Ok(pointer)
   }
 }
 impl Accountable for PagedBytes {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    let mut bytes = size_of_vec(&self.blocks);
+    if let Some(frozen_blocks) = &self.frozen_blocks {
+      bytes = bytes.saturating_add(size_of_vec(frozen_blocks));
+      if let Some(last_block) = frozen_blocks.last() {
+        bytes = bytes
+          .saturating_add(
+            (frozen_blocks.len() as i64).saturating_mul(mem::size_of::<Vec<u8>>() as i64),
+          )
+          .saturating_add(
+            ((frozen_blocks.len() - 1) as i64).saturating_mul(self.bytes_used_per_block),
+          )
+          .saturating_add(size_of_vec(last_block.as_ref()));
+      }
+    } else {
+      if self.num_blocks > 0 {
+        bytes = bytes
+          .saturating_add(((self.num_blocks - 1) as i64).saturating_mul(self.bytes_used_per_block))
+          .saturating_add(size_of_vec(&self.blocks[self.num_blocks - 1]));
+      }
+      if let Some(current_block) = &self.current_block {
+        bytes = bytes.saturating_add(size_of_vec(current_block));
+      }
+    }
+    Ok(bytes)
   }
 }
 /// Provides methods to read BytesRefs from a frozen PagedBytes.
 #[derive(Clone, Default)]
-pub struct PagedBytesReader {
+pub struct Reader {
   blocks: Vec<Arc<Vec<u8>>>,
   block_bits: usize,
   block_mask: usize,
@@ -175,11 +240,11 @@ pub struct PagedBytesReader {
   bytes_used_per_block: i64,
 }
 
-impl PagedBytesReader {
+impl Reader {
   /// 1<<blockBits must be bigger than biggest single BytesRef slice that will
   /// be pulled
   pub fn new(paged_bytes: &PagedBytes) -> Result<Self> {
-    Ok(PagedBytesReader {
+    Ok(Reader {
       blocks: paged_bytes
         .frozen_blocks
         .as_ref()
@@ -210,7 +275,7 @@ impl PagedBytesReader {
     let offset = start & self.block_mask;
 
     if self.block_size - offset >= length {
-      // TODO: always copy here, could we avoid copying
+      // TODO IMPORTANT: always copy here, could we avoid copying
       // Within block
       b.bytes = self.blocks[index].as_ref().clone();
       b.offset = offset;
@@ -238,10 +303,16 @@ impl PagedBytesReader {
     unimplemented!("not used in Java Lucene");
   }
 }
-impl Accountable for PagedBytesReader {
+impl Accountable for Reader {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO:  memory calculation not implement
-    Ok(0)
+    let mut bytes = size_of_vec(&self.blocks);
+    if let Some(last_block) = self.blocks.last() {
+      bytes = bytes
+        .saturating_add((self.blocks.len() as i64).saturating_mul(mem::size_of::<Vec<u8>>() as i64))
+        .saturating_add(((self.blocks.len() - 1) as i64).saturating_mul(self.bytes_used_per_block))
+        .saturating_add(size_of_vec(last_block.as_ref()));
+    }
+    Ok(bytes)
   }
 }
 impl Display for PagedBytes {

@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 use crate::core::store::random_access_input::RandomAccessInput;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::{LongValues, Zeroes};
 use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader, FromSlice};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// Retrieves an instance previously written by
 /// [`DirectMonotonicWriter`](crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
@@ -202,6 +204,17 @@ impl Meta {
   /// properties.
   pub fn single_zero_block() -> Self {
     Meta::new(1, 63)
+  }
+}
+
+impl Accountable for Meta {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(
+      size_of_vec(&self.mins)
+        .saturating_add(size_of_vec(&self.avgs))
+        .saturating_add(size_of_vec(&self.bpvs))
+        .saturating_add(size_of_vec(&self.offsets)),
+    )
   }
 }
 

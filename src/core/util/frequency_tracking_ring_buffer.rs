@@ -16,6 +16,7 @@
  */
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::cmp;
 use std::collections::HashMap;
 /// A ring buffer that tracks the frequency of the integers that it contains.
@@ -82,7 +83,7 @@ impl FrequencyTrackingRingBuffer {
 }
 impl Accountable for FrequencyTrackingRingBuffer {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(size_of_vec(&self.buffer).saturating_add(self.frequencies.ram_bytes_used()?))
   }
 }
 
@@ -197,6 +198,6 @@ impl IntBag {
 }
 impl Accountable for IntBag {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(size_of_vec(&self.keys).saturating_add(size_of_vec(&self.freqs)))
   }
 }

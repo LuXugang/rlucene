@@ -556,6 +556,7 @@ where
     &self.scorer_supplier
   }
 }
+
 impl<B, S, BS, H> HnswBuilder for HnswGraphBuilder<B, S, BS, H>
 where
   S: RandomVectorScorerSupplier,
@@ -722,7 +723,11 @@ where
     self.info_stream = info_stream;
   }
 
-  fn get_graph(&mut self) -> &mut OnHeapHnswGraph {
+  fn get_graph(&self) -> &OnHeapHnswGraph {
+    &self.hnsw
+  }
+
+  fn get_graph_mut(&mut self) -> &mut OnHeapHnswGraph {
     &mut self.hnsw
   }
 
@@ -730,7 +735,7 @@ where
     if !self.frozen {
       self.finish()?;
     }
-    Ok(self.get_graph())
+    Ok(self.get_graph_mut())
   }
 }
 pub trait HnswGraphBuilderBase {

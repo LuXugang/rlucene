@@ -40,7 +40,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
-  PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
+  Builder, PackedLongValues, PackedLongValuesIterator,
 };
 use crate::core::util::{ByteBlockPool, Counter, SharedCounter};
 use std::cell::Cell;
@@ -49,7 +49,7 @@ use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
 pub(crate) struct NumericDocValuesWriter {
-  pending: PackedLongValuesBuilder,
+  pending: Builder,
   final_values: Option<PackedLongValues>,
   iw_bytes_used: SharedCounter,
   bytes_used: i64,

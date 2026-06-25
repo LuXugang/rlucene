@@ -285,7 +285,6 @@ impl BytesStartArray for TermFreqBoostByteStart {
     let len = self.base.bytes_start.as_slice().len();
     self.boost = vec![0.0; len];
     self.term_state = vec![std::default::Default::default(); len];
-
     debug_assert!(self.term_state.len() >= len);
     debug_assert!(self.boost.len() >= len);
   }
@@ -327,5 +326,9 @@ impl BytesStartArray for TermFreqBoostByteStart {
 
   fn need_init(&self) -> bool {
     self.base.need_init()
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.base.ram_bytes_used()
   }
 }

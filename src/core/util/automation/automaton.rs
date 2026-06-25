@@ -26,6 +26,7 @@ use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{BitSetExt, SliceCopyOps, Sorter, TryIntoInt};
 
 /// Struct representing an automaton and all its states and transitions. States
@@ -583,7 +584,11 @@ impl TransitionAccessor for Automaton {
 
 impl Accountable for Automaton {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(
+      size_of_vec(&self.states)
+        .saturating_add(size_of_vec(&self.transitions))
+        .saturating_add((self.is_accept.capacity() / 8) as i64),
+    )
   }
 }
 /// Records new states and transitions, and then [`finish`](Builder::finish)

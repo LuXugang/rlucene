@@ -26,6 +26,7 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::compiled_automaton::{CompiledAutomaton, CompiledAutomatonTE};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -95,8 +96,9 @@ impl AutomatonQuery {
   {
     let rewrite_method = rewrite_method.into();
     let compiled = CompiledAutomaton::with_binary(automaton, false, true, is_binary)?;
-    // TODO: memory calculation not implement
-    let ram_bytes_used = 0;
+    let ram_bytes_used = term
+      .ram_bytes_used()?
+      .saturating_add(compiled.ram_bytes_used()?);
 
     Ok(Self {
       compiled,
@@ -173,6 +175,12 @@ impl Debug for AutomatonQuery {
 impl HasIdentity for AutomatonQuery {
   fn identity(&self) -> &Identity {
     &self.id
+  }
+}
+
+impl Accountable for AutomatonQuery {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(self.ram_bytes_used)
   }
 }
 impl PartialEq for AutomatonQuery {

@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::monotonic_long_values::{
   MonotonicLongValues, MonotonicLongValuesBuilder,
 };
 use crate::core::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 pub(crate) struct DeltaPackedLongValues {
   pub(crate) sub_long_value: Option<MonotonicLongValues>,
@@ -27,7 +29,6 @@ pub(crate) struct DeltaPackedLongValues {
 }
 
 impl DeltaPackedLongValues {
-  const BASE_RAM_BYTES_USED: u64 = 0;
   pub(crate) fn new(mins: Vec<i64>, sub_reader: Option<MonotonicLongValues>) -> Self {
     Self {
       sub_long_value: sub_reader,
@@ -54,6 +55,16 @@ impl DeltaPackedLongValues {
   }
 }
 
+impl Accountable for DeltaPackedLongValues {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = size_of_vec(&self.mins);
+    if let Some(sub_reader) = &self.sub_long_value {
+      size = size.saturating_add(sub_reader.ram_bytes_used()?);
+    }
+    Ok(size)
+  }
+}
+
 pub struct DeltaPackedLongValuesBuilder {
   pub(crate) sub_builder: Option<MonotonicLongValuesBuilder>,
   pub(crate) mins: Vec<i64>,
@@ -65,8 +76,6 @@ impl Default for DeltaPackedLongValuesBuilder {
 }
 
 impl DeltaPackedLongValuesBuilder {
-  // TODO: memory calculation not implement
-  const BASE_RAM_BYTES_USED: u64 = 0;
   pub(crate) fn new() -> DeltaPackedLongValuesBuilder {
     Self::with_sub_builder(None)
   }
@@ -86,8 +95,6 @@ impl DeltaPackedLongValuesBuilder {
     };
 
     self.mins.truncate(values_off as usize);
-    // TODO: memory calculation not implement:
-    let _ram_bytes_used = 0;
 
     Ok(DeltaPackedLongValues::new(self.mins, sub_reader))
   }
@@ -111,10 +118,13 @@ impl DeltaPackedLongValuesBuilder {
       builder.grow(new_block_count)?
     }
     ArrayUtil::grow_exact(&mut self.mins, new_block_count as usize)?;
-    // TODO: memory calculation not implement
     Ok(())
   }
-  fn base_ram_bytes_used(&self) -> u64 {
-    todo!()
+  pub(crate) fn base_ram_bytes_used(&self) -> i64 {
+    let mut size = size_of_vec(&self.mins);
+    if let Some(sub_builder) = &self.sub_builder {
+      size = size.saturating_add(sub_builder.base_ram_bytes_used());
+    }
+    size
   }
 }

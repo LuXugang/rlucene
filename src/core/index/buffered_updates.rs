@@ -25,6 +25,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_hash::DEFAULT_CAPACITY;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_string, size_of_vec};
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter};
 #[cfg(test)]
 use parking_lot::Mutex;
@@ -52,7 +53,7 @@ pub(crate) struct BufferedUpdates {
   pub(crate) delete_queries: HashMap<Query, i32>,
   pub(crate) field_updates: HashMap<String, FieldUpdatesBuffer>,
   bytes_used: SharedCounter,
-  field_updates_bytes_used: SharedCounter,
+  pub(crate) field_updates_bytes_used: SharedCounter,
   verbose_deletes: bool,
   gen_: i64,
 
@@ -158,17 +159,24 @@ impl BufferedUpdates {
     }
     self.delete_terms.put(term, doc_id_upto)
   }
-  pub(crate) fn add_query(&mut self, query: Query, doc_id_upto: i32) {
+  pub(crate) fn add_query(&mut self, query: Query, doc_id_upto: i32) -> Result<()> {
+    let old_size = size_of_hash_map(&self.delete_queries);
+    let query_ram_bytes_used = query.ram_bytes_used()?;
     if self.delete_queries.insert(query, doc_id_upto).is_none() {
-      self.bytes_used.add_and_get(BYTES_PER_DEL_QUERY as i64);
+      self.bytes_used.add_and_get(
+        size_of_hash_map(&self.delete_queries)
+          .saturating_sub(old_size)
+          .saturating_add(query_ram_bytes_used),
+      );
     }
+    Ok(())
   }
   pub(crate) fn clear_delete_terms(&mut self) {
     self.delete_terms.clear()
   }
   pub(crate) fn clear(&mut self) {
     self.delete_terms.clear();
-    self.delete_queries.clear();
+    self.delete_queries = HashMap::new();
     self
       .num_field_updates
       .store(0, std::sync::atomic::Ordering::SeqCst);
@@ -192,8 +200,13 @@ impl BufferedUpdates {
 
 impl Accountable for BufferedUpdates {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    Ok(
+      self
+        .bytes_used
+        .get()
+        .wrapping_add(self.field_updates_bytes_used.get())
+        .wrapping_add(self.delete_terms.ram_bytes_used()?),
+    )
   }
 }
 impl fmt::Display for BufferedUpdates {
@@ -258,8 +271,7 @@ impl DeletedTerms {
   pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
     let hash = match self.delete_terms.entry(term.field.clone()) {
       Vacant(vacant) => {
-        // TODO: memory calculation not implement
-        self.bytes_used.add_and_get(0);
+        self.bytes_used.add_and_get(size_of_string(vacant.key()));
         let new_map = BytesRefIntMap::new(self.bytes_used.clone());
         vacant.insert(new_map)
       },
@@ -355,8 +367,7 @@ pub trait DeletedTermConsumer {
 }
 impl Accountable for DeletedTerms {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    Ok(self.bytes_used.get())
   }
 }
 impl fmt::Display for DeletedTerms {
@@ -388,7 +399,7 @@ impl BytesRefIntMap {
   fn new_impl(counter: SharedCounter, bytes_ref_hash: BytesRefHash<DirectBytesStartArray>) -> Self {
     let values = vec![0; DEFAULT_CAPACITY as usize];
 
-    counter.add_and_get(INIT_RAM_BYTES);
+    counter.add_and_get(size_of_vec(&values));
 
     Self {
       counter,
@@ -414,10 +425,11 @@ impl BytesRefIntMap {
       Ok(false)
     } else {
       if e as usize >= self.values.len() {
-        let origin_length = self.values.len();
+        let old_size = size_of_vec(&self.values);
         ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize);
-        // TODO: memory calculation not implement
-        self.counter.add_and_get(origin_length as i64);
+        self
+          .counter
+          .add_and_get(size_of_vec(&self.values).saturating_sub(old_size));
       }
       self.values[e as usize] = value;
       Ok(true)
@@ -429,11 +441,4 @@ impl BytesRefIntMap {
   }
 }
 
-// TODO: memory calculation not implement
-const INIT_RAM_BYTES: i64 = 0;
-
-/// Rough logic: HashMap has an array with varying load factor.
-/// Entry consists of Query key, Integer value, int hash, and Entry next.
-// TODO: memory calculation not implement
-pub const BYTES_PER_DEL_QUERY: i32 = 0;
 pub const MAX_INT: i32 = i32::MAX;

@@ -26,16 +26,15 @@ use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::either_docidsetiterator_named;
+use std::mem;
 use std::sync::Arc;
 
 // Number of documents in a block
 const BLOCK_SIZE: usize = 1 << 16;
 // The maximum length for an array, beyond that point we switch to a bitset
 const MAX_ARRAY_LENGTH: usize = 1 << 12;
-// TODO: memory calculation not implement
-
-const BASE_RAM_BYTES_USED: i64 = 0;
 /// [`DocIdSet`] implementation inspired by [roaringbitmap.org](http://roaringbitmap.org/)
 ///
 /// The space is divided into blocks of `2^16` bits, and each block is encoded
@@ -49,21 +48,16 @@ const BASE_RAM_BYTES_USED: i64 = 0;
 pub struct RoaringDocIdSet {
   doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
   cardinality: usize,
-
-  ram_bytes_used: i64,
 }
 impl RoaringDocIdSet {
   fn new(doc_id_sets: Vec<Option<DocIdSetEnum>>, cardinality: usize) -> Self {
-    // todo
     let doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>> = doc_id_sets
       .into_iter()
       .map(|opt| opt.map(Arc::new))
       .collect();
-    let ram_bytes_used = 0;
     RoaringDocIdSet {
       doc_id_sets,
       cardinality,
-      ram_bytes_used,
     }
   }
 
@@ -90,7 +84,13 @@ impl DocIdSet for RoaringDocIdSet {
 
 impl Accountable for RoaringDocIdSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    let mut size = size_of_vec(&self.doc_id_sets);
+    for doc_id_set in self.doc_id_sets.iter().flatten() {
+      size = size
+        .saturating_add(mem::size_of_val(doc_id_set.as_ref()) as i64)
+        .saturating_add(doc_id_set.ram_bytes_used()?);
+    }
+    Ok(size)
   }
 }
 pub struct Builder {
@@ -239,10 +239,6 @@ impl Builder {
   }
 }
 
-// TODO: memory calculation not implement
-
-const SHORT_ARRAY_DOC_ID_SET_BASE_RAM_BYTES_USED: i64 = 0;
-
 pub struct ShortArrayDocIdSet {
   doc_ids: Arc<Vec<i16>>,
 }
@@ -256,7 +252,10 @@ impl ShortArrayDocIdSet {
 
 impl Accountable for ShortArrayDocIdSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(
+      (mem::size_of_val(self.doc_ids.as_ref()) as i64)
+        .saturating_add(size_of_vec(self.doc_ids.as_ref())),
+    )
   }
 }
 
@@ -421,7 +420,11 @@ enum DocIdSetEnum {
 }
 impl Accountable for DocIdSetEnum {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    match self {
+      Self::Sparse(set) => set.ram_bytes_used(),
+      Self::Medium(set) => set.ram_bytes_used(),
+      Self::Dense(set) => set.ram_bytes_used(),
+    }
   }
 }
 

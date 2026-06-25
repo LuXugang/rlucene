@@ -24,8 +24,10 @@ use crate::core::index::term_state::TermState;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -272,6 +274,22 @@ impl Hash for TermStates {
     self.top_reader_context_identity.hash(state);
   }
 }
+
+impl Accountable for TermStates {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = size_of_vec(&self.states);
+    for state in self.states.iter().flatten() {
+      size = size.saturating_add(std::mem::size_of_val(state.as_ref()) as i64);
+    }
+    if let Some(term) = self.term.as_ref() {
+      size = size
+        .saturating_add(std::mem::size_of_val(term.as_ref()) as i64)
+        .saturating_add(term.ram_bytes_used()?);
+    }
+    Ok(size)
+  }
+}
+
 pub struct EmptyTermState;
 
 impl Display for EmptyTermState {

@@ -28,11 +28,10 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{SliceCopyOps, TryIntoInt};
 pub type ByteBuffersDataInputRef<'a> = ByteBuffersDataInput<&'a [u8]>;
 pub type ByteBuffersDataInputOwned = ByteBuffersDataInput<Vec<u8>>;
-pub type ByteBuffersDataInputRc = ByteBuffersDataInput<Rc<Vec<u8>>>;
-pub type ByteBuffersDataInputArc = ByteBuffersDataInput<Arc<Vec<u8>>>;
 
 pub trait ByteBuffersDataInputBlock {
   fn as_slice(&self) -> &[u8];
@@ -431,11 +430,42 @@ where
   }
 }
 
-impl<B> Accountable for ByteBuffersDataInput<B>
-where
-  B: ByteBuffersDataInputBlock,
-{
+impl Accountable for ByteBuffersDataInput<Vec<u8>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(0)
+    let mut size = size_of_vec(&self.blocks);
+    for block in &self.blocks {
+      size = size.saturating_add(size_of_vec(block.get_ref()));
+    }
+    Ok(size)
+  }
+}
+
+impl Accountable for ByteBuffersDataInput<&[u8]> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(size_of_vec(&self.blocks))
+  }
+}
+
+impl Accountable for ByteBuffersDataInput<Rc<Vec<u8>>> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = size_of_vec(&self.blocks);
+    for block in &self.blocks {
+      size = size
+        .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)
+        .saturating_add(size_of_vec(block.get_ref().as_ref()));
+    }
+    Ok(size)
+  }
+}
+
+impl Accountable for ByteBuffersDataInput<Arc<Vec<u8>>> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = size_of_vec(&self.blocks);
+    for block in &self.blocks {
+      size = size
+        .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)
+        .saturating_add(size_of_vec(block.get_ref().as_ref()));
+    }
+    Ok(size)
   }
 }

@@ -36,8 +36,7 @@ pub struct Transition {
   /// `init_transition`.
   pub transition_upto: i32,
 }
-/// Static estimation of bytes used by a `Transition` instance.
-// TODO: memory calculation not implement
+/// Inline size of a `Transition` instance.
 pub const BYTES_USED: usize = size_of::<Transition>();
 
 impl Default for Transition {
@@ -56,7 +55,7 @@ impl Default for Transition {
 
 impl Accountable for Transition {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(BYTES_USED as i64)
+    Ok(0)
   }
 }
 

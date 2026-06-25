@@ -28,6 +28,7 @@ use crate::core::util::bits::{Bits, BitsEnum2, MatchAllBits};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::ram_usage_estimator::{size_of_string as ram_size_of_string, size_of_vec};
 use crate::core::util::{
   BytesRefArray, Counter, IndexedBytesRefIterator, IndexedBytesRefIteratorImpl, NaturalOrder,
   SharedCounter, SortState, SortableBytesRefArray,
@@ -75,7 +76,6 @@ pub(crate) struct FieldUpdatesBuffer {
 impl FieldUpdatesBuffer {
   const SELF_SHALLOW_SIZE: i64 = 0;
 
-  const STRING_SHALLOW_SIZE: i64 = 0;
   fn new(
     bytes_used: SharedCounter,
     initial_value: &DocValuesUpdate,
@@ -162,9 +162,8 @@ impl FieldUpdatesBuffer {
     Ok(buffer)
   }
 
-  fn size_of_string(_s: &str) -> i64 {
-    //TODO: memory calculation not implement
-    0
+  fn size_of_string(s: &String) -> i64 {
+    ram_size_of_string(s)
   }
 
   pub(crate) fn get_max_numeric(&self) -> i64 {
@@ -193,17 +192,19 @@ impl FieldUpdatesBuffer {
     let fields_len = self.fields.len();
     if self.fields[0] != field || fields_len != 1 {
       if fields_len <= ord {
+        let old_size = size_of_vec(&self.fields);
         ArrayUtil::grow_with_len(&mut self.fields, ord + 1);
         if fields_len == 1 {
           for i in 1..ord {
             self.fields[i] = self.fields[0].clone();
           }
         }
-        // TODO: memory calculation not implement
-        self.bytes_used.add_and_get(0);
+        self
+          .bytes_used
+          .add_and_get(size_of_vec(&self.fields).saturating_sub(old_size));
       }
       if self.fields[0] != field {
-        self.bytes_used.add_and_get(field.len() as i64);
+        self.bytes_used.add_and_get(Self::size_of_string(&field));
       }
       self.fields[ord] = field;
     }
@@ -211,14 +212,16 @@ impl FieldUpdatesBuffer {
     let docs_upto_len = self.docs_upto.len();
     if self.docs_upto[0] != doc_upto || docs_upto_len != 1 {
       if docs_upto_len <= ord {
+        let old_size = size_of_vec(&self.docs_upto);
         ArrayUtil::grow_with_len(&mut self.docs_upto, ord + 1);
         if docs_upto_len == 1 {
           for i in 1..ord {
             self.docs_upto[i] = self.docs_upto[0];
           }
         }
-        // TODO: memory calculation not implement
-        self.bytes_used.add_and_get(0);
+        self
+          .bytes_used
+          .add_and_get(size_of_vec(&self.docs_upto).saturating_sub(old_size));
       }
       self.docs_upto[ord] = doc_upto;
     }
@@ -226,9 +229,11 @@ impl FieldUpdatesBuffer {
     if !has_value || self.has_values.is_some() {
       if let Some(bitset) = self.has_values.as_mut() {
         if bitset.length() <= ord {
+          let old_size = bitset.ram_bytes_used()?;
           bitset.ensure_capacity(ord + 1);
-          // TODO: memory calculation not implement
-          self.bytes_used.add_and_get(0);
+          self
+            .bytes_used
+            .add_and_get(bitset.ram_bytes_used()?.saturating_sub(old_size));
         }
       } else {
         let mut new_bitset = FixedBitSet::new(ord + 1);
@@ -254,14 +259,16 @@ impl FieldUpdatesBuffer {
     let numeric_values_len = numeric_values.len();
     if numeric_values[0] != value || numeric_values_len != 1 {
       if numeric_values_len <= ord {
+        let old_size = size_of_vec(numeric_values);
         ArrayUtil::grow_with_len(numeric_values, ord + 1);
         if numeric_values_len == 1 {
           for i in 1..ord {
             numeric_values[i] = numeric_values[0];
           }
         }
-        // TODO: memory calculation not implement
-        self.bytes_used.add_and_get(0);
+        self
+          .bytes_used
+          .add_and_get(size_of_vec(numeric_values).saturating_sub(old_size));
       }
       numeric_values[ord] = value;
     }
@@ -305,8 +312,9 @@ impl FieldUpdatesBuffer {
     if sorted_terms {
       self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder, true)?);
       debug_assert!(self.assert_term_and_doc_in_order());
-      // TODO: memory calculation not implement
-      self.bytes_used.add_and_get(0);
+      self
+        .bytes_used
+        .add_and_get(self.term_sort_state.ram_bytes_used()?);
     }
 
     Ok(())

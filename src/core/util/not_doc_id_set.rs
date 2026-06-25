@@ -22,8 +22,6 @@ use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-
-const BASE_RAM_BYTES_USED: i64 = 0;
 /// This [`DocIdSet`] encodes the negation of another
 /// [`DocIdSet`]. It is cacheable and supports random-access
 /// if the underlying set is cacheable and supports random-access.
@@ -35,7 +33,7 @@ where
   T: DocIdSet,
 {
   max_doc: i32,
-  set: T,
+  in_: T,
 }
 
 impl<T> NotDocIdSet<T>
@@ -43,7 +41,7 @@ where
   T: DocIdSet,
 {
   pub fn new(max_doc: i32, set: T) -> Self {
-    NotDocIdSet { max_doc, set }
+    NotDocIdSet { max_doc, in_: set }
   }
 }
 
@@ -52,7 +50,7 @@ where
   T: DocIdSet,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    self.in_.ram_bytes_used()
   }
 }
 
@@ -64,7 +62,7 @@ where
 
   fn iterator(&self) -> Result<Self::DocIdSetIterator> {
     Ok(NotDocDocIdSetIterator::new(
-      self.set.iterator()?,
+      self.in_.iterator()?,
       self.max_doc,
     ))
   }
@@ -72,7 +70,7 @@ where
   type Bits = NotDocIdBits<T::Bits>;
 
   fn bits(&self) -> Option<Self::Bits> {
-    self.set.bits().map(NotDocIdBits::new)
+    self.in_.bits().map(NotDocIdBits::new)
   }
 }
 

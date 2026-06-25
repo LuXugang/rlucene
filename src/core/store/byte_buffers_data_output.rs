@@ -26,6 +26,7 @@ use crate::core::store::byte_buffers_data_input::{
 use crate::core::store::data_output::DataOutput;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::{size_of_vec, size_of_vec_deque};
 use crate::core::util::{ReadableCursorExt, TryIntoInt, WritableCursorExt};
 
 /// A [`DataOutput`] storing data in a list of [`Cursor<Vec<u8>>`](Cursor).
@@ -36,7 +37,6 @@ pub struct ByteBuffersDataOutput {
   blocks: VecDeque<Cursor<Vec<u8>>>,
   max_bits_per_block: i32,
   block_bits: i32,
-  ram_bytes_used: i64,
   // it is necessary when we want to reuse the data output
   current_block_index: usize,
   reuse: bool,
@@ -113,7 +113,6 @@ impl ByteBuffersDataOutput {
       max_bits_per_block,
       block_bits: min_bits_per_block,
       blocks,
-      ram_bytes_used: 0,
       current_block_index: 0,
       reuse,
     })
@@ -150,16 +149,12 @@ impl ByteBuffersDataOutput {
     self
       .blocks
       .push_back(Cursor::new(vec![0u8; required_block_size]));
-    // TODO: self.ramBytesUsed += 0;
-    self.ram_bytes_used += 0;
     self.current_block_index += 1;
     Ok(())
   }
   fn rewrite_to_block_size(&mut self, target_block_bits: i32) -> Result<()> {
     debug_assert!(target_block_bits <= self.max_bits_per_block);
     self.rewrite_blocks(target_block_bits)?;
-    // TODO:
-    self.ram_bytes_used += 0;
     Ok(())
   }
   // create larger blocks and copy data from smaller blocks
@@ -259,7 +254,6 @@ impl ByteBuffersDataOutput {
       }
     }
     self.current_block_index = 0;
-    self.ram_bytes_used = 0;
   }
 
   /// Returns a list of read-only views of [`Cursor<Vec<u8>>`](Cursor) blocks
@@ -474,7 +468,11 @@ impl DataOutput for ByteBuffersDataOutput {
 
 impl Accountable for ByteBuffersDataOutput {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    let mut size = size_of_vec_deque(&self.blocks);
+    for block in &self.blocks {
+      size = size.saturating_add(size_of_vec(block.get_ref()));
+    }
+    Ok(size)
   }
 }
 

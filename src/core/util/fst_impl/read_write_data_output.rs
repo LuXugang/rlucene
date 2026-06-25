@@ -24,6 +24,7 @@ use crate::core::util::fst_impl::fst::{BytesReader, BytesReaderEnum2};
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// An adapter struct to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
@@ -83,6 +84,20 @@ impl ReadWriteDataOutput {
 
 impl Accountable for ReadWriteDataOutput {
   fn ram_bytes_used(&self) -> Result<i64> {
+    if let Some(byte_buffer) = &self.byte_buffer {
+      return Ok(
+        (std::mem::size_of_val(byte_buffer.as_ref()) as i64)
+          .saturating_add(size_of_vec(byte_buffer.as_ref())),
+      );
+    }
+    if let Some(byte_buffers) = &self.byte_buffers {
+      let mut size = (std::mem::size_of_val(byte_buffers.as_ref()) as i64)
+        .saturating_add(size_of_vec(byte_buffers.as_ref()));
+      for byte_buffer in byte_buffers.iter() {
+        size = size.saturating_add(size_of_vec(byte_buffer));
+      }
+      return Ok(size);
+    }
     self.data_output.ram_bytes_used()
   }
 }

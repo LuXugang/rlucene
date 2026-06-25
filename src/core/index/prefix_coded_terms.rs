@@ -33,6 +33,7 @@ use crate::core::util::access::WritableVec;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// Prefix codes term instances (prefixes are shared). This is expected to be
 /// faster to build than an FST and might also be more compact if there are no
@@ -212,13 +213,37 @@ where
 }
 
 impl<B> Eq for PrefixCodedTerms<B> where B: ByteBuffersDataInputBlock + Clone {}
-impl<B> Accountable for PrefixCodedTerms<B>
-where
-  B: ByteBuffersDataInputBlock + Clone,
-{
+impl Accountable for PrefixCodedTerms<Vec<u8>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    //TODO: memory calculation not implement
-    Ok(0)
+    let mut size = size_of_vec(&self.content);
+    for block in &self.content {
+      size = size.saturating_add(size_of_vec(block.get_ref()));
+    }
+    Ok(size)
+  }
+}
+
+impl Accountable for PrefixCodedTerms<Rc<Vec<u8>>> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = size_of_vec(&self.content);
+    for block in &self.content {
+      size = size
+        .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)
+        .saturating_add(size_of_vec(block.get_ref().as_ref()));
+    }
+    Ok(size)
+  }
+}
+
+impl Accountable for PrefixCodedTerms<Arc<Vec<u8>>> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = size_of_vec(&self.content);
+    for block in &self.content {
+      size = size
+        .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)
+        .saturating_add(size_of_vec(block.get_ref().as_ref()));
+    }
+    Ok(size)
   }
 }
 

@@ -46,16 +46,17 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::long_values::LongValues as OtherLongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
-  PackedLongValues, PackedLongValuesBuilder, PackedLongValuesIterator,
+  Builder, PackedLongValues, PackedLongValuesIterator,
 };
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Buffers up pending `[i64]` per doc, sorts, then flushes when segment flushes.
 pub(crate) struct SortedNumericDocValuesWriter {
-  pending: PackedLongValuesBuilder, // stream of all values
-  pending_counts: Option<PackedLongValuesBuilder>, // count of values per doc
+  pending: Builder,                // stream of all values
+  pending_counts: Option<Builder>, // count of values per doc
   docs_with_field: DocsWithFieldSet,
   iw_bytes_used: SharedCounter,
   bytes_used: i64, // this only tracks differences in 'pending' and 'pendingCounts'
@@ -74,8 +75,8 @@ impl SortedNumericDocValuesWriter {
     let docs_with_field = DocsWithFieldSet::new();
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
 
-    // TODO:  memory calculation not implement
-    let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
+    let bytes_used =
+      pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()? + size_of_vec(&current_values);
 
     iw_bytes_used.add_and_get(bytes_used);
 
@@ -147,10 +148,10 @@ impl SortedNumericDocValuesWriter {
       Some(c) => c.ram_bytes_used()?,
       None => 0,
     };
-    // TODO: memory calculation not implement
     let new_bytes_used = self.pending.ram_bytes_used()?
       + pending_counts_usage
-      + self.docs_with_field.ram_bytes_used()?;
+      + self.docs_with_field.ram_bytes_used()?
+      + size_of_vec(&self.current_values);
 
     self
       .iw_bytes_used

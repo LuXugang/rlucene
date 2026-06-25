@@ -50,7 +50,9 @@ use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::collections::HashMap;
+use std::mem;
 use std::sync::Arc;
 
 /// Reads vectors from the index segments along with index data structures supporting KNN search.
@@ -296,8 +298,12 @@ where
   I: IndexInput,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO: memory calculation not implement
-    Ok(0)
+    Ok(
+      self
+        .fields
+        .ram_bytes_used()?
+        .saturating_add(self.flat_vectors_reader.ram_bytes_used()?),
+    )
   }
 }
 
@@ -572,6 +578,22 @@ impl FieldEntry {
 
   pub fn size(&self) -> usize {
     self.size
+  }
+}
+
+impl Accountable for FieldEntry {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    let mut size = (mem::size_of_val(self.nodes_by_level.as_ref()) as i64)
+      .saturating_add(size_of_vec(self.nodes_by_level.as_ref()));
+    for nodes in self.nodes_by_level.iter() {
+      size = size
+        .saturating_add(mem::size_of_val(nodes.as_ref()) as i64)
+        .saturating_add(size_of_vec(nodes.as_ref()));
+    }
+    if let Some(offsets_meta) = self.offsets_meta.as_ref() {
+      size = size.saturating_add(offsets_meta.ram_bytes_used()?);
+    }
+    Ok(size)
   }
 }
 

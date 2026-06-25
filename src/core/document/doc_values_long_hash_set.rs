@@ -17,6 +17,7 @@
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{CoreHelper, TryIntoInt};
 #[cfg(test)]
 use std::collections::HashSet;
@@ -136,7 +137,7 @@ impl DocValuesLongHashSet {
 }
 impl Accountable for DocValuesLongHashSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    todo!()
+    Ok(size_of_vec(&self.table))
   }
 }
 impl fmt::Display for DocValuesLongHashSet {

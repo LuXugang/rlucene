@@ -47,6 +47,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::PackedInts;
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// [`StoredFieldsWriter`] implementation for
 /// [`Lucene90CompressingStoredFieldsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
@@ -690,8 +691,13 @@ where
   O: IndexOutput,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // TODO
-    Ok(0)
+    Ok(
+      self
+        .buffered_docs
+        .ram_bytes_used()?
+        .saturating_add(size_of_vec(&self.num_stored_fields))
+        .saturating_add(size_of_vec(&self.end_offsets)),
+    )
   }
 }
 /// Merge strategy used during stored field merging.
