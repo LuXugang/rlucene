@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::DataOutput;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::Format::Packed;
 use crate::core::util::packed::{Encoder, FormatBehavior, PackedImpl, PackedInts};
@@ -141,44 +142,6 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   pub fn ord(&self) -> usize {
     self.ord
   }
-  /// Encodes and writes the current values to the output stream.
-  ///
-  /// # Arguments
-  ///
-  /// * `bits_required` - The number of bits required for encoding the values.
-  ///
-  /// # Errors
-  ///
-  /// Returns an error if writing to the output stream fails.
-  pub fn write_values(
-    bits_required: i32,
-    out: &mut impl DataOutput,
-    blocks: &mut Vec<u8>,
-    values: &mut [i64],
-    off: i32,
-  ) -> Result<()> {
-    let encoder = PackedInts::get_encoder(
-      Packed(PackedImpl::new(0)),
-      PackedInts::VERSION_CURRENT,
-      bits_required,
-    )?;
-    let iterations = values.len() / Encoder::byte_value_count(encoder) as usize;
-    let block_size = Encoder::byte_value_count(encoder) as usize * iterations;
-    if blocks.len() < block_size {
-      *blocks = vec![0u8; block_size];
-    }
-    if (off as usize) < values.len() {
-      for value in values.iter_mut().skip(off as usize) {
-        *value = 0;
-      }
-    }
-    debug_assert!(iterations <= i32::MAX as usize);
-    encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
-    let block_count =
-      Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
-    out.write_bytes_with_len(blocks, block_count as usize)?;
-    Ok(())
-  }
 }
 /// Encodes and writes the current values to the output stream.
 ///
@@ -203,9 +166,7 @@ pub(crate) fn write_values(
   )?;
   let iterations = values.len() / Encoder::byte_value_count(encoder) as usize;
   let block_size = Encoder::byte_block_count(encoder) as usize * iterations;
-  if blocks.len() < block_size {
-    *blocks = vec![0u8; block_size];
-  }
+  ArrayUtil::grow_no_copy(blocks, block_size)?;
   if (off as usize) < values.len() {
     for value in values.iter_mut().skip(off as usize) {
       *value = 0;

@@ -61,7 +61,7 @@ pub trait ScoringRewrite: TermCollectingRewrite {
       let sort = col.terms.ids.as_slice();
       for i in 0..(size as usize) {
         let pos = sort[i];
-        col.terms.get(pos, &mut br, &col.block_pool);
+        col.terms.get(pos, &mut br, &col.block_pool)?;
         let term = Term::new(query.get_field(), std::mem::take(&mut br));
         let term_state = std::mem::take(&mut col.terms.bytes_start_array.term_state[pos as usize]);
 
@@ -283,8 +283,8 @@ impl BytesStartArray for TermFreqBoostByteStart {
   fn init(&mut self) -> Result<()> {
     self.base.init()?;
     let len = self.base.bytes_start.as_slice().len();
-    self.boost = vec![0.0; len];
-    self.term_state = vec![std::default::Default::default(); len];
+    ArrayUtil::grow_no_copy(&mut self.boost, len)?;
+    ArrayUtil::grow_no_copy(&mut self.term_state, len)?;
     debug_assert!(self.term_state.len() >= len);
     debug_assert!(self.boost.len() >= len);
     Ok(())

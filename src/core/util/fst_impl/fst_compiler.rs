@@ -20,7 +20,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{ByteArrayDataOutput, DataOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
 use crate::core::util::fst_impl::fst::{
@@ -415,9 +414,8 @@ where
 
     let do_fixed_length_arcs = self.should_expand_node_with_fixed_length_arcs(node_in);
     if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs as usize {
-      let new_len = ArrayUtil::oversize(node_in.num_arcs as usize, BitUtil::INT_BYTES)?;
-      self.num_bytes_per_arc = vec![0; new_len];
-      self.num_label_bytes_per_arc = vec![0; new_len];
+      ArrayUtil::grow_no_copy(&mut self.num_bytes_per_arc, node_in.num_arcs as usize)?;
+      ArrayUtil::grow_no_copy(&mut self.num_label_bytes_per_arc, node_in.num_arcs as usize)?;
     }
 
     self.arc_count += node_in.num_arcs as i64;
@@ -1489,7 +1487,7 @@ impl FixedLengthArcsBuffer {
   /// Ensures the capacity of the internal byte array. Enlarges it if needed.
   pub(crate) fn ensure_capacity(&mut self, capacity: i32) -> Result<()> {
     if self.bado.bytes.len() < capacity as usize {
-      ArrayUtil::grow_with_len(&mut self.bado.bytes, capacity as usize)?;
+      ArrayUtil::grow_no_copy(&mut self.bado.bytes, capacity as usize)?;
       self.bado.reset()?;
     }
     Ok(())

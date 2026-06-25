@@ -959,7 +959,7 @@ where
       .write_bytes_range(&term.bytes, term.offset + prefix, suffix_len)?;
     // copy last term
     if self.last_term.bytes.len() < term.length {
-      self.last_term.bytes = vec![0; ArrayUtil::oversize(term.length, 1)?];
+      ArrayUtil::grow_no_copy(&mut self.last_term.bytes, term.length)?;
     }
 
     self.last_term.offset = 0;

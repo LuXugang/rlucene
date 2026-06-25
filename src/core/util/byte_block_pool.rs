@@ -19,6 +19,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum, DirectAllocatorByte};
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{SliceCopyOps, TryIntoInt};
@@ -157,9 +158,9 @@ impl ByteBlockPool {
   where
     AV: SharedAccessVec<u8> + WritableVec<u8>,
   {
-    if result.length < length as usize {
-      result.bytes = AV::from_vec(vec![0; length as usize]);
-    }
+    result
+      .bytes
+      .access_mut(|bytes| ArrayUtil::grow_no_copy(bytes, length as usize))?;
     result.length = length as usize;
     let buffer_index = offset >> BYTE_BLOCK_SHIFT;
     let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;

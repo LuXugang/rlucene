@@ -276,7 +276,7 @@ impl BytesRefIterator for FreqProxTermsEnum {
     let text_start = p.parent.text_starts[term_id as usize];
     self
       .terms_pool
-      .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
+      .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
 
     Ok(Some(Cow::Borrowed(&self.scratch)))
   }
@@ -340,7 +340,7 @@ impl TermsEnum for FreqProxTermsEnum {
 
       self
         .terms_pool
-        .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
+        .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
       let cmp = self.scratch.cmp(text).to_int();
 
       if cmp < 0 {
@@ -364,7 +364,7 @@ impl TermsEnum for FreqProxTermsEnum {
       let text_start = postings_array.parent.text_starts[term_id as usize];
       self
         .terms_pool
-        .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
+        .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
       debug_assert!((*self.term()?).cmp(text).to_int() > 0);
       Ok(SeekStatus::NotFound)
     }
@@ -393,7 +393,7 @@ impl TermsEnum for FreqProxTermsEnum {
     let text_start = p.parent.text_starts[term_id as usize];
     self
       .terms_pool
-      .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref());
+      .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
 
     Ok(())
   }

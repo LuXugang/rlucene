@@ -318,7 +318,10 @@ impl BytesRefIterator for BinaryPointSetBytesRefIterator {
     if self.upto == self.sorted_values.len() {
       Ok(None)
     } else {
-      self.encoded.bytes = self.sorted_values[self.upto].clone();
+      self
+        .encoded
+        .bytes
+        .clone_from(&self.sorted_values[self.upto]);
       self.encoded.offset = 0;
       self.encoded.length = self.encoded.bytes.len();
       self.upto += 1;

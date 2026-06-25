@@ -264,12 +264,12 @@ impl Reader {
   /// sufficient resources and copy the paged data.
   ///
   /// Slices spanning more than two blocks are **not supported**.
-  pub fn fill_slice(&self, b: &mut BytesRef<Vec<u8>>, start: usize, length: usize) {
+  pub fn fill_slice(&self, b: &mut BytesRef<Vec<u8>>, start: usize, length: usize) -> Result<()> {
     debug_assert!(length <= self.block_size + 1, "length={length}");
     b.length = length;
 
     if length == 0 {
-      return;
+      return Ok(());
     }
 
     let index = start >> self.block_bits;
@@ -278,21 +278,21 @@ impl Reader {
     if self.block_size - offset >= length {
       // TODO IMPORTANT: always copy here, could we avoid copying
       // Within block
-      b.bytes = self.blocks[index].as_ref().clone();
+      b.bytes.clone_from(self.blocks[index].as_ref());
       b.offset = offset;
     } else {
       // Split across two blocks
-      let mut new_bytes = vec![0u8; length];
+      ArrayUtil::grow_no_copy(&mut b.bytes, length)?;
       let first_len = self.block_size - offset;
-      new_bytes.copy_from(&self.blocks[index][offset..offset + first_len], 0);
-      new_bytes.copy_from(
+      b.bytes
+        .copy_from(&self.blocks[index][offset..offset + first_len], 0);
+      b.bytes.copy_from(
         &self.blocks[index + 1][..length - first_len],
         self.block_size - offset,
       );
-
-      b.bytes = new_bytes;
       b.offset = 0;
     }
+    Ok(())
   }
   /// Get the byte at the given offset.
   pub fn get_byte(&self, o: usize) -> u8 {

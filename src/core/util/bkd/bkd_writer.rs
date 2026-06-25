@@ -296,7 +296,7 @@ where
     if from == to {
       return Ok(());
     }
-    values.get_value(from, &mut self.scratch_bytes_ref1);
+    values.get_value(from, &mut self.scratch_bytes_ref1)?;
     min_packed_value.copy_from(
       &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
         ..self.scratch_bytes_ref1.offset + self.config.packed_index_bytes_length()],
@@ -309,7 +309,7 @@ where
     );
 
     for i in from + 1..to {
-      values.get_value(i, &mut self.scratch_bytes_ref1);
+      values.get_value(i, &mut self.scratch_bytes_ref1)?;
       let offset = self.scratch_bytes_ref1.offset;
       for dim in 0..self.config.num_index_dims {
         let start_offset = dim * self.config.bytes_per_dim;
@@ -648,7 +648,10 @@ where
       },
     }
 
-    self.scratch_bytes_ref1.bytes = split_packed_values.clone();
+    self
+      .scratch_bytes_ref1
+      .bytes
+      .clone_from(&split_packed_values);
     self.scratch_bytes_ref1.length = self.config.bytes_per_dim;
     let split_packed_values =
       BytesRef::from_slice(split_packed_values, self.config.bytes_per_dim, 0);
@@ -1432,9 +1435,9 @@ where
       let mut sorted_dim = 0;
       let mut leaf_cardinality = 1;
       {
-        reader.get_value(from, &mut self.scratch_bytes_ref1);
+        reader.get_value(from, &mut self.scratch_bytes_ref1)?;
         for i in from + 1..to {
-          reader.get_value(i, &mut self.scratch_bytes_ref2);
+          reader.get_value(i, &mut self.scratch_bytes_ref2)?;
           for dim in 0..self.config.num_dims {
             let offset = dim * self.config.bytes_per_dim;
             let dimension_prefix_length = self.common_prefix_lengths[dim];
@@ -1497,9 +1500,9 @@ where
         // TODO IMPORTANT do we need clone/copy here?
         let mut comparator = self.scratch_bytes_ref1.clone();
         let mut collector = self.scratch_bytes_ref2.clone();
-        reader.get_value(from, &mut comparator);
+        reader.get_value(from, &mut comparator)?;
         for i in from + 1..to {
-          reader.get_value(i, &mut collector);
+          reader.get_value(i, &mut collector)?;
           for dim in 0..self.config.num_dims {
             let start = dim * self.config.bytes_per_dim;
             if !self.equals_predicate.test(
@@ -1525,7 +1528,7 @@ where
         self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
 
         // Write the common prefixes:
-        reader.get_value(from, &mut self.scratch_bytes_ref1);
+        reader.get_value(from, &mut self.scratch_bytes_ref1)?;
         self.scratch.copy_from(
           &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
             ..self.scratch_bytes_ref1.offset + self.config.packed_bytes_length()],
@@ -1615,7 +1618,7 @@ where
       let split_offset = right_offset - 1;
       let address = split_offset * self.config.bytes_per_dim;
       split_dimension_values[split_offset] = split_dim as u8;
-      reader.get_value(mid, &mut self.scratch_bytes_ref1);
+      reader.get_value(mid, &mut self.scratch_bytes_ref1)?;
       let start = self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim);
       split_packed_values.copy_from(
         &self.scratch_bytes_ref1.bytes[start..start + self.config.bytes_per_dim],
@@ -2757,7 +2760,7 @@ where
   M: MutablePointTree,
 {
   fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)> {
-    self.reader.get_value(i + self.from, &mut self.scratch);
+    self.reader.get_value(i + self.from, &mut self.scratch)?;
     Ok((
       self.scratch.bytes.as_slice(),
       self.scratch.offset,
@@ -2783,8 +2786,9 @@ where
         let (v, offset, length) = heap_source
           .get_packed_value_slice(self.from + i)?
           .packed_value();
-        // TODO; could we avoid copy here
-        self.bytes = v[offset..(offset + length)].to_vec();
+        // TODO IMPORTANT could we avoid copy here
+        ArrayUtil::grow_no_copy(&mut self.bytes, length)?;
+        self.bytes.copy_from(&v[offset..(offset + length)], 0);
         Ok((self.bytes.as_slice(), 0, length))
       },
       _ => Err(LuceneError::illegal_argument("heap_source should be Heap")),

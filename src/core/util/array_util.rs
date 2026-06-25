@@ -267,18 +267,26 @@ impl ArrayUtil {
   /// Returns a vector whose size is at least `min_size`, generally
   /// over-allocating exponentially, and it will not copy the original
   /// data to the new vector.
-  pub fn grow_no_copy<T>(vec: &[T], min_size: usize) -> Result<Option<Vec<T>>>
+  pub fn grow_no_copy<T>(vec: &mut Vec<T>, min_size: usize) -> Result<()>
   where
     T: Default + Clone,
   {
     let current_size = vec.len();
     if current_size < min_size {
-      let new_size = Self::oversize(min_size, size_of::<T>())?;
-      let new_vec = vec![T::default(); new_size];
-      Ok(Option::from(new_vec))
-    } else {
-      Ok(None)
+      let bytes_per_element = size_of::<T>();
+      let available_capacity = if bytes_per_element == 0 {
+        current_size
+      } else {
+        vec.capacity().min(Self::MAX_ARRAY_LENGTH)
+      };
+      if available_capacity >= min_size {
+        vec.resize_with(available_capacity, T::default);
+      } else {
+        let new_size = Self::oversize(min_size, bytes_per_element)?;
+        *vec = vec![T::default(); new_size];
+      }
     }
+    Ok(())
   }
   /// Returns the hash of chars in the range from `start` (inclusive) to `end`
   /// (inclusive).

@@ -1833,14 +1833,13 @@ impl TryClone for MutablePointTreeMock1 {
 }
 
 impl MutablePointTree for MutablePointTreeMock1 {
-  fn get_value(&self, _i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
+  fn get_value(&self, _i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
     packed_value.bytes = self.point_value.clone();
+    Ok(())
   }
 
-  fn get_byte_at(&self, i: usize, k: usize) -> u8 {
-    let mut b = BytesRef::new();
-    self.get_value(i, &mut b);
-    b.bytes[b.offset + k]
+  fn get_byte_at(&self, _i: usize, k: usize) -> u8 {
+    self.point_value[k]
   }
 
   fn get_doc_id(&self, _i: usize) -> Result<i32> {
@@ -1929,10 +1928,11 @@ impl TryClone for MutablePointTreeMock2 {
 }
 
 impl MutablePointTree for MutablePointTreeMock2 {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
+  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
     packed_value.bytes = self.point_values[i].clone();
     packed_value.offset = 0;
     packed_value.length = self.num_bytes_per_dim;
+    Ok(())
   }
 
   fn get_byte_at(&self, i: usize, k: usize) -> u8 {

@@ -88,12 +88,10 @@ impl LZ4WithPresetDictDecompressor {
     input.read_vint()?; // Compressed length of the dictionary, unused
     let mut total_length = dict_length;
     let mut i = 0;
-    if let Some(new_array) = ArrayUtil::grow_no_copy(
-      &self.compressed_lengths,
+    ArrayUtil::grow_no_copy(
+      &mut self.compressed_lengths,
       (original_length / block_length + 1) as usize,
-    )? {
-      self.compressed_lengths = new_array
-    };
+    )?;
     while total_length < original_length {
       self.compressed_lengths[i as usize] = input.read_vint()?;
       total_length += block_length;
@@ -131,11 +129,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
       self.read_compressed_lengths(input, original_length, dict_length, block_length)?;
 
     // Grow the buffer to fit the dictionary and block length
-    if let Some(new_array) =
-      ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)?
-    {
-      self.buffer = new_array
-    }
+    ArrayUtil::grow_no_copy(&mut self.buffer, (dict_length + block_length) as usize)?;
     bytes.length = 0;
 
     // Read the dictionary
@@ -167,9 +161,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
     } else {
       // The dictionary contains some bytes we need, copy its content to
       // the BytesRef
-      if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, dict_length as usize)? {
-        bytes.bytes = new_array
-      }
+      ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length as usize)?;
       bytes
         .bytes
         .copy_from(&self.buffer[0..dict_length as usize], 0);
@@ -243,11 +235,7 @@ impl Compressor for LZ4WithPresetDictCompressor {
     let block_length = (len - dict_length + LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS - 1)
       / LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS;
 
-    if let Some(new_array) =
-      ArrayUtil::grow_no_copy(&self.buffer, (dict_length + block_length) as usize)?
-    {
-      self.buffer = new_array
-    }
+    ArrayUtil::grow_no_copy(&mut self.buffer, (dict_length + block_length) as usize)?;
 
     out.write_vint(dict_length)?;
     out.write_vint(block_length)?;

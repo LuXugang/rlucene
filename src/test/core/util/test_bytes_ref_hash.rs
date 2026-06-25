@@ -127,7 +127,7 @@ fn test_get() -> Result<()> {
 
     for (key, value) in &strings {
       ref_builder.copy_chars_from_string(key)?;
-      hash.get(*value, &mut scratch, &byte_block_pool);
+      hash.get(*value, &mut scratch, &byte_block_pool)?;
       assert_eq!(*ref_builder.get_bytes_mut_ref(), scratch);
     }
 
@@ -222,7 +222,7 @@ fn test_sort() -> Result<()> {
       for (i, string) in strings.iter().enumerate() {
         ref_builder.copy_chars_from_string(string)?;
         let bytes_id = hash.ids[i];
-        hash.get(bytes_id, &mut scratch, &byte_block_pool);
+        hash.get(bytes_id, &mut scratch, &byte_block_pool)?;
         let sorted_ref = scratch.clone();
         assert_eq!(
           *ref_builder.get_bytes_mut_ref(),
@@ -274,7 +274,7 @@ fn test_add() -> Result<()> {
       } else {
         assert!(!strings.insert(str_value.clone()));
         assert!((-key - 1) < count);
-        hash.get(-key - 1, &mut scratch, &byte_block_pool);
+        hash.get(-key - 1, &mut scratch, &byte_block_pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
       }
@@ -316,7 +316,7 @@ fn test_find() -> Result<()> {
       if key >= 0 {
         assert!(!strings.insert(str_value.clone()));
         assert!(key < count);
-        hash.get(key, &mut scratch, &byte_block_pool);
+        hash.get(key, &mut scratch, &byte_block_pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
       } else {
@@ -378,7 +378,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
       let loops = at_least(&mut random, 100);
       let byte_block_pool = byte_block_pool.clone();
 
-      let handle = thread::spawn(move || {
+      let handle = thread::spawn(move || -> Result<()> {
         let mut scratch = BytesRef::new();
         barrier_clone.wait();
 
@@ -393,7 +393,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
           if id < 0 {
             not_found_clone.fetch_add(1, Ordering::SeqCst);
           } else {
-            hash_guard.get(id, &mut scratch, &byte_block_pool.lock());
+            hash_guard.get(id, &mut scratch, &byte_block_pool.lock())?;
             if scratch != find {
               not_equals_clone.fetch_add(1, Ordering::SeqCst);
             }
@@ -402,12 +402,13 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
             wrong_size_clone.fetch_add(1, Ordering::SeqCst);
           }
         }
+        Ok(())
       });
       handles.push(handle);
     }
 
     for handle in handles {
-      handle.join().expect("Thread panicked");
+      handle.join().expect("Thread panicked")?;
     }
 
     assert_eq!(
@@ -506,12 +507,12 @@ fn test_add_by_pool_offset() -> Result<()> {
       } else {
         assert!(!strings.insert(str_value.clone()));
         assert!((-key - 1) < count);
-        hash.get(-key - 1, &mut scratch, &pool);
+        hash.get(-key - 1, &mut scratch, &pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
         let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1), &mut pool)?;
         assert!((-offset_key - 1) < count);
-        hash.get(-offset_key - 1, &mut scratch, &pool);
+        hash.get(-offset_key - 1, &mut scratch, &pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
       }
@@ -522,7 +523,7 @@ fn test_add_by_pool_offset() -> Result<()> {
     for string in &strings {
       ref_builder.copy_chars_from_string(string)?;
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut pool)?;
-      offset_hash.get(-key - 1, &mut scratch, &pool);
+      offset_hash.get(-key - 1, &mut scratch, &pool)?;
       let bytes_ref = scratch.clone();
       assert_eq!(
         *ref_builder.get_bytes_mut_ref(),
@@ -558,7 +559,7 @@ fn assert_all_in(
   for string in strings {
     ref_builder.copy_chars_from_string(string)?;
     let key = hash.add(ref_builder.get_bytes_mut_ref(), pool)?; // add again to check duplicates
-    hash.get((-key) - 1, &mut scratch, pool);
+    hash.get((-key) - 1, &mut scratch, pool)?;
     assert_eq!(*string, scratch.utf8_to_string()?);
     assert_eq!(
       count,

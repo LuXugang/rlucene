@@ -73,7 +73,7 @@ impl PointTree for DummyMutablePointTree {
 }
 
 impl MutablePointTree for DummyMutablePointTree {
-  fn get_value(&self, _i: usize, _packed_value: &mut BytesRef<Vec<u8>>) {
+  fn get_value(&self, _i: usize, _packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
     dummy_unreachable!()
   }
 

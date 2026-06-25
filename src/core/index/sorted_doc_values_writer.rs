@@ -406,7 +406,9 @@ where
       index >= 0 && (index as usize) < self.hash.ids.len(),
       "sorted_values[ord] out of range"
     );
-    self.hash.get(index, &mut self.scratch, self.pool.as_ref());
+    self
+      .hash
+      .get(index, &mut self.scratch, self.pool.as_ref())?;
     Ok(Cow::Borrowed(&self.scratch))
   }
 

@@ -315,7 +315,7 @@ where
   M: MutablePointTree,
   DM: DocMap + Clone,
 {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
+  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
     self.input.get_value(i, packed_value)
   }
 
@@ -456,7 +456,7 @@ impl PointTree for MutablePointTreeImpl {
     let mut scratch = BytesRef::new();
     let mut packed_value = vec![0u8; self.packed_bytes_length];
     for i in 0..self.num_points {
-      self.get_value(i, &mut scratch);
+      self.get_value(i, &mut scratch)?;
       debug_assert_eq!(scratch.length, self.packed_bytes_length);
       packed_value.copy_from(
         &scratch.bytes[scratch.offset..scratch.offset + self.packed_bytes_length],
@@ -495,11 +495,11 @@ impl Clone for MutablePointTreeImpl {
 }
 
 impl MutablePointTree for MutablePointTreeImpl {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
+  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
     let offset = self.packed_bytes_length * self.ords[i];
     self
       .bytes_reader
-      .fill_slice(packed_value, offset, self.packed_bytes_length);
+      .fill_slice(packed_value, offset, self.packed_bytes_length)
   }
 
   fn get_byte_at(&self, i: usize, k: usize) -> u8 {

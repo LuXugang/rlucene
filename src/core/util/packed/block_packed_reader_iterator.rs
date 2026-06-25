@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::DataInput;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::longs_ref::LongsRef;
@@ -161,9 +162,7 @@ impl BlockPackedReaderIterator {
       data_input.seek_in_data_input(new_position as usize)?;
     } else {
       // Use a temporary buffer to skip bytes
-      if self.blocks.is_empty() {
-        self.blocks = vec![0u8; self.block_size];
-      }
+      ArrayUtil::grow_no_copy(&mut self.blocks, self.block_size)?;
 
       let mut skipped = 0;
       while skipped < count {
@@ -264,11 +263,9 @@ impl BlockPackedReaderIterator {
       )?;
 
       let iterations = self.block_size as i32 / Decoder::byte_value_count(decoder);
-      let blocks_size = iterations * Decoder::byte_block_count(decoder);
+      let blocks_size = (iterations * Decoder::byte_block_count(decoder)) as usize;
 
-      if self.blocks.len() < blocks_size as usize {
-        self.blocks = vec![0; blocks_size as usize];
-      }
+      ArrayUtil::grow_no_copy(&mut self.blocks, blocks_size)?;
 
       let value_count = std::cmp::min(self.value_count - self.ord, self.block_size);
 

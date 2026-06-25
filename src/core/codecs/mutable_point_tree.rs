@@ -25,7 +25,7 @@ use std::borrow::Cow;
 pub trait MutablePointTree: PointTree {
   /// Set `packed_value` with a reference to the packed bytes of the i-th
   /// value.
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>);
+  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> lucene_error::Result<()>;
 
   /// Get the k-th byte of the i-th value.
   fn get_byte_at(&self, i: usize, k: usize) -> u8;
@@ -139,7 +139,7 @@ where
   A: MutablePointTree,
   B: MutablePointTree,
 {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
+  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> lucene_error::Result<()> {
     match self {
       MutablePointTreeEnum2::A(t) => t.get_value(i, packed_value),
       MutablePointTreeEnum2::B(s) => s.get_value(i, packed_value),

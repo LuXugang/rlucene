@@ -694,9 +694,8 @@ impl TimSorterBase for DocOffsetSorter<'_> {
 
   fn save(&mut self, i: usize, len: usize) -> Result<()> {
     if self.tmp_docs.len() < len {
-      let new_len = ArrayUtil::oversize(len, std::mem::size_of::<i64>())?;
-      self.tmp_docs = vec![0; new_len];
-      self.tmp_offsets = vec![0; new_len];
+      ArrayUtil::grow_no_copy(&mut self.tmp_docs, len)?;
+      ArrayUtil::grow_no_copy(&mut self.tmp_offsets, self.tmp_docs.len())?;
     }
 
     self.tmp_docs.copy_from(&self.docs[i..i + len], 0);
@@ -923,8 +922,7 @@ where
       self.payload.length = length;
 
       if self.payload.length > self.payload.bytes.len() {
-        let new_length = ArrayUtil::oversize(length, 1)?;
-        self.payload.bytes = vec![0; new_length];
+        ArrayUtil::grow_no_copy(&mut self.payload.bytes, length)?;
       }
 
       posting_input.read_bytes(&mut self.payload.bytes, 0, self.payload.length)?;

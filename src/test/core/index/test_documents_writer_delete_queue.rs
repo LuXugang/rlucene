@@ -91,8 +91,8 @@ fn test_update_delete_slices() -> Result<()> {
     assert_eq!(unique_values.len(), num_deletes);
   }
 
-  let bd1_terms_set: HashSet<Term> = bd1.delete_terms.key_set();
-  let bd2_terms_set: HashSet<Term> = bd2.delete_terms.key_set();
+  let bd1_terms_set: HashSet<Term> = bd1.delete_terms.key_set()?;
+  let bd2_terms_set: HashSet<Term> = bd2.delete_terms.key_set()?;
   assert_eq!(unique_values, bd1_terms_set);
   assert_eq!(unique_values, bd2_terms_set);
 
@@ -251,7 +251,7 @@ fn test_stress_delete_queue() -> Result<()> {
     let deletes = guard.deletes.clone();
     let mut deletes_guard = deletes.lock();
     guard.slice.apply(&mut deletes_guard, MAX_INT)?;
-    assert_eq!(unique_values, deletes_guard.delete_terms.key_set());
+    assert_eq!(unique_values, deletes_guard.delete_terms.key_set()?);
   }
 
   queue.try_apply_global_slice()?;

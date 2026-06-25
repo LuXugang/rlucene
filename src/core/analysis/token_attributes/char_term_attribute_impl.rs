@@ -75,14 +75,7 @@ where
   }
   fn grow_term_buffer(&mut self, new_size: usize) -> Result<()> {
     if self.term_buffer.len() < new_size {
-      if self.term_buffer.capacity() >= new_size {
-        self.term_buffer.resize(new_size, '\0');
-      } else {
-        // Not big enough; create a new array with slight
-        // over allocation:
-        let new_capacity = ArrayUtil::oversize(new_size, std::mem::size_of::<char>())?;
-        self.term_buffer = vec!['\0'; new_capacity];
-      }
+      ArrayUtil::grow_no_copy(&mut self.term_buffer, new_size)?;
     }
     Ok(())
   }

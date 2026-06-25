@@ -29,7 +29,6 @@ use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::ToInt;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sloppy_math::SloppyMath;
 
@@ -159,8 +158,7 @@ where
       comparator.values_doc_id = self.current_docs.doc_id();
       let count = self.current_docs.doc_value_count()? as usize;
       if count > comparator.current_values.len() {
-        let new_len = ArrayUtil::oversize(count, BitUtil::LONG_BYTES)?;
-        comparator.current_values = vec![0; new_len];
+        ArrayUtil::grow_no_copy(&mut comparator.current_values, count)?;
       }
 
       for i in 0..count {

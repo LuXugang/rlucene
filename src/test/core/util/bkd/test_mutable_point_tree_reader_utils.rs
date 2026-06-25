@@ -426,11 +426,12 @@ impl PointTree for DummyPointsReader {
   }
 }
 impl MutablePointTree for DummyPointsReader {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) {
+  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
     let point = &self.points[i].packed_value;
     packed_value.bytes = point.bytes.clone();
     packed_value.offset = point.offset;
     packed_value.length = point.length;
+    Ok(())
   }
 
   fn get_byte_at(&self, i: usize, k: usize) -> u8 {

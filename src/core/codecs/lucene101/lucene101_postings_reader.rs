@@ -1187,7 +1187,7 @@ where
           .read_vint()?
           .try_convert()?;
         if num_bytes > self.payload_bytes.len() {
-          ArrayUtil::grow_with_len(&mut self.payload_bytes, num_bytes)?;
+          ArrayUtil::grow_no_copy(&mut self.payload_bytes, num_bytes)?;
         }
 
         self.pay_in_util.as_mut().unwrap().input.read_bytes(
@@ -1269,7 +1269,7 @@ where
       payload.offset = self.payload_byte_upto as usize;
       payload.length = self.payload_length as usize;
       // TODO IMPORTANT could we avoid copying the payload?
-      payload.bytes = self.payload_bytes.clone();
+      payload.bytes.clone_from(&self.payload_bytes);
       self.payload_byte_upto += self.payload_length;
     }
 

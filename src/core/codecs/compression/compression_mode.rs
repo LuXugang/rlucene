@@ -32,6 +32,7 @@ use crate::core::index::sorting_stored_fields_consumer::{
 };
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::{DataInput, DataOutput};
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::compress::lz4::{
   FastCompressionHashTable, HashTableEnum, HighCompressionHashTable, LZ4,
 };
@@ -115,7 +116,7 @@ impl CompressionModeBase for DeflateCompressionMode {
   }
 
   fn new_decompressor(&self) -> DecompressorEnum {
-    DecompressorEnum::Deflate(DeflateDecompressor)
+    DecompressorEnum::Deflate(DeflateDecompressor::new())
   }
 }
 
@@ -237,7 +238,7 @@ impl Decompressor for LZ4Decompressor {
     // Add 7 padding bytes, not necessary but helps with decompression
     // performance
     if bytes.bytes.len() < (original_length + 7) as usize {
-      bytes.bytes = vec![0; (original_length + 7) as usize];
+      ArrayUtil::grow_no_copy(&mut bytes.bytes, (original_length + 7) as usize)?;
     }
     let decompressed_length = LZ4::decompress(input, offset + length, &mut bytes.bytes, 0)?;
     if decompressed_length > original_length {
@@ -344,11 +345,21 @@ impl Compressor for LZ4HighCompressor {
   }
 }
 
-pub struct DeflateDecompressor;
+pub struct DeflateDecompressor {
+  compressed: Vec<u8>,
+}
+
+impl DeflateDecompressor {
+  fn new() -> Self {
+    Self {
+      compressed: Vec::new(),
+    }
+  }
+}
 
 impl Clone for DeflateDecompressor {
   fn clone(&self) -> Self {
-    DeflateDecompressor
+    Self::new()
   }
 }
 
@@ -368,21 +379,21 @@ impl Decompressor for DeflateDecompressor {
     debug_assert!(offset + length <= original_length);
 
     let compressed_length = input.read_vint()?;
-    let mut compressed = vec![0; compressed_length as usize];
-    input.read_bytes(compressed.as_mut_slice(), 0, compressed_length as usize)?;
+    let compressed_length = compressed_length as usize;
+    ArrayUtil::grow_no_copy(&mut self.compressed, compressed_length)?;
+    input.read_bytes(&mut self.compressed, 0, compressed_length)?;
 
-    let mut decoder = DeflateDecoder::new(compressed.as_slice());
-    let mut decompressed = Vec::new();
-    decoder.read_to_end(&mut decompressed)?;
-    if decompressed.len() > original_length as usize {
+    let mut decoder = DeflateDecoder::new(&self.compressed[..compressed_length]);
+    bytes.bytes.clear();
+    decoder.read_to_end(&mut bytes.bytes)?;
+    if bytes.bytes.len() > original_length as usize {
       return Err(LuceneError::corrupt_index(format!(
         "Lengths mismatch: {} != {} (resource={})",
-        decompressed.len(),
+        bytes.bytes.len(),
         original_length,
         input
       )));
     }
-    bytes.bytes = decompressed;
     bytes.offset = offset as usize;
     bytes.length = length as usize;
     Ok(())
@@ -391,11 +402,15 @@ impl Decompressor for DeflateDecompressor {
 
 pub struct DeflateCompressor {
   level: u32,
+  compressed: Vec<u8>,
 }
 
 impl DeflateCompressor {
   fn new(level: u32) -> Self {
-    DeflateCompressor { level }
+    DeflateCompressor {
+      level,
+      compressed: Vec::with_capacity(64),
+    }
   }
 }
 impl Compressor for DeflateCompressor {
@@ -407,12 +422,14 @@ impl Compressor for DeflateCompressor {
     let len = buffers_input.length();
     let mut bytes = vec![0; len];
     DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-    let mut compressor = DeflateEncoder::new(Vec::new(), Compression::new(self.level));
+    self.compressed.clear();
+    let compressed = std::mem::take(&mut self.compressed);
+    let mut compressor = DeflateEncoder::new(compressed, Compression::new(self.level));
     compressor.write_all(&bytes)?;
-    let compressed = compressor.finish()?;
-    debug_assert!(compressed.len() <= i32::MAX as usize);
-    out.write_vint(compressed.len() as i32)?;
-    out.write_bytes_with_len(&compressed, compressed.len())?;
+    self.compressed = compressor.finish()?;
+    debug_assert!(self.compressed.len() <= i32::MAX as usize);
+    out.write_vint(self.compressed.len() as i32)?;
+    out.write_bytes_with_len(&self.compressed, self.compressed.len())?;
     Ok(())
   }
 }

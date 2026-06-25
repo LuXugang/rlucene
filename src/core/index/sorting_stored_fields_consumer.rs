@@ -326,9 +326,7 @@ impl Decompressor for DecompressorImpl {
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
   ) -> Result<()> {
-    if let Some(new_array) = ArrayUtil::grow_no_copy(&bytes.bytes, length as usize)? {
-      bytes.bytes = new_array
-    }
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, length as usize)?;
     input.skip_bytes(offset as i64)?;
     input.read_bytes(&mut bytes.bytes, 0, length as usize)?;
     bytes.offset = 0;

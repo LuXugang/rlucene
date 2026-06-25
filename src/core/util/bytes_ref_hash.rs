@@ -108,7 +108,12 @@ where
   /// # Returns
   /// The given [`BytesRef`] instance populated with the bytes for the given
   /// `bytesID`.
-  pub fn get(&self, bytes_id: i32, ref_: &mut BytesRef<Vec<u8>>, pool: &ByteBlockPool) {
+  pub fn get(
+    &self,
+    bytes_id: i32,
+    ref_: &mut BytesRef<Vec<u8>>,
+    pool: &ByteBlockPool,
+  ) -> Result<()> {
     debug_assert!(
       self.bytes_start_array.len() > 0,
       "bytes_start is null - not initialized"
@@ -612,8 +617,7 @@ where
     let start = self.bytes_start_array.get_value(self.compact[i] as usize);
     self
       .pool
-      .fill_bytes_ref(result, start, self.byte_block_pool);
-    Ok(())
+      .fill_bytes_ref(result, start, self.byte_block_pool)
   }
 
   fn radix_sorter<'b, C1>(&'b mut self, cmp: &'b mut C1) -> impl Sorter + 'b

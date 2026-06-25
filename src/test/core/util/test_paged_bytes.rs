@@ -99,7 +99,7 @@ fn test_data_input_output() -> Result<()> {
       assert_eq!(reader.get_byte(pos), answer[pos]);
 
       let len = random.random_range(0..std::cmp::min(block_size + 1, num_bytes - pos));
-      reader.fill_slice(&mut slice, pos, len);
+      reader.fill_slice(&mut slice, pos, len)?;
 
       for i in 0..len {
         assert_eq!(
@@ -173,7 +173,7 @@ fn test_data_input_output_2() -> Result<()> {
     for _ in 0..100 {
       let pos = random.random_range(0..num_bytes - 1);
       let len = random.random_range(0..std::cmp::min(block_size + 1, num_bytes - pos));
-      reader.fill_slice(&mut slice, pos, len);
+      reader.fill_slice(&mut slice, pos, len)?;
       for byte_upto in 0..len {
         assert_eq!(
           slice.bytes[slice.offset + byte_upto],
@@ -245,7 +245,7 @@ fn test_overflow() -> Result<()> {
 
   let mut b = BytesRef::new();
   for offset in test_offsets.into_iter() {
-    reader.fill_slice(&mut b, offset, 1);
+    reader.fill_slice(&mut b, offset, 1)?;
     let expected = arr[offset % arr.len()];
     assert_eq!(expected, b.bytes[b.offset], "Mismatch at offset {}", offset);
   }

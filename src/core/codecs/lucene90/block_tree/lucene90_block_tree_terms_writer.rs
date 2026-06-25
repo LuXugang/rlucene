@@ -1066,7 +1066,7 @@ where
         self.spare_writer.reset();
 
         if self.spare_bytes.len() < suffix_len {
-          self.spare_bytes = vec![0u8; ArrayUtil::oversize(suffix_len, 1)?];
+          ArrayUtil::grow_no_copy(&mut self.spare_bytes, suffix_len)?;
         }
 
         if LowercaseAsciiCompression::compress(
@@ -1099,9 +1099,7 @@ where
 
     // suffix lengths
     let num_suffix_bytes = self.suffix_lengths_writer.size();
-    if let Some(v) = ArrayUtil::grow_no_copy(&self.spare_bytes, num_suffix_bytes)? {
-      self.spare_bytes = v
-    }
+    ArrayUtil::grow_no_copy(&mut self.spare_bytes, num_suffix_bytes)?;
     {
       let mut data_output = ByteArrayDataOutput::with_bytes(self.spare_bytes.as_slice_mut());
       self.suffix_lengths_writer.copy_to(&mut data_output)?;

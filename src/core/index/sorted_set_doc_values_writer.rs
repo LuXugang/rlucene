@@ -586,7 +586,7 @@ where
     let hash_idx = self.hash.ids[idx as usize];
     self
       .hash
-      .get(hash_idx, &mut self.scratch, self.pool.as_ref());
+      .get(hash_idx, &mut self.scratch, self.pool.as_ref())?;
     Ok(Cow::Borrowed(&self.scratch))
   }
 

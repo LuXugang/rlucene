@@ -129,7 +129,7 @@ impl TermVectorsConsumerPerField {
             &mut flush_term,
             postings.parent.text_starts[term_id as usize],
             byte_pool,
-          );
+          )?;
 
           tv.start_term(&flush_term, freq)?;
 

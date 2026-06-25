@@ -104,9 +104,7 @@ impl LSBRadixSorter {
       return Ok(());
     }
 
-    if let Some(new_array) = ArrayUtil::grow_no_copy(&self.buffer, len)? {
-      self.buffer = new_array;
-    }
+    ArrayUtil::grow_no_copy(&mut self.buffer, len)?;
     let mut swapped = false;
     let mut arr: &mut [i32] = array;
     let mut buf: &mut [i32] = &mut self.buffer;

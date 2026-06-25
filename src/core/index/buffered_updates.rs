@@ -318,14 +318,14 @@ impl DeletedTerms {
     self.terms_size == 0
   }
   /// Just for test, not efficient.
-  pub(crate) fn key_set(&self) -> HashSet<Term> {
+  pub(crate) fn key_set(&self) -> Result<HashSet<Term>> {
     let mut set = HashSet::new();
     for (field, hash) in &self.delete_terms {
-      for bytes in hash.key_set(&self.pool) {
+      for bytes in hash.key_set(&self.pool)? {
         set.insert(Term::new(field.clone(), bytes));
       }
     }
-    set
+    Ok(set)
   }
 
   /// Consume all terms in a sorted order.
@@ -350,7 +350,7 @@ impl DeletedTerms {
         let index = indices[i as usize];
         terms
           .bytes_ref_hash
-          .get(index, &mut scratch.bytes, &self.pool);
+          .get(index, &mut scratch.bytes, &self.pool)?;
         consumer(&scratch, terms.values[index as usize])?;
       }
     }
@@ -374,7 +374,7 @@ impl fmt::Display for DeletedTerms {
   /// Used for `BufferedUpdates::VERBOSE_DELETES`.
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut entries = Vec::new();
-    for term in self.key_set().iter() {
+    for term in self.key_set().map_err(|_| fmt::Error)?.iter() {
       entries.push(format!("{}={}", term, self.get(term)));
     }
 
@@ -407,15 +407,15 @@ impl BytesRefIntMap {
       values,
     }
   }
-  fn key_set(&self, pool: &ByteBlockPool) -> HashSet<BytesRef<Vec<u8>>> {
+  fn key_set(&self, pool: &ByteBlockPool) -> Result<HashSet<BytesRef<Vec<u8>>>> {
     let mut scratch = BytesRef::new();
     let mut set = HashSet::new();
 
     for i in 0..self.bytes_ref_hash.size() {
-      self.bytes_ref_hash.get(i, &mut scratch, pool);
+      self.bytes_ref_hash.get(i, &mut scratch, pool)?;
       set.insert(BytesRef::deep_copy_of(&scratch));
     }
-    set
+    Ok(set)
   }
   fn put(&mut self, key: &BytesRef<Vec<u8>>, value: i32, pool: &mut ByteBlockPool) -> Result<bool> {
     debug_assert!(value >= 0, "Value must be non-negative.");

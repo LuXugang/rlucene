@@ -283,8 +283,7 @@ impl SegmentTermsEnumFrame {
     let num_suffix_bytes = ((code_l as u64) >> 3) as i32;
 
     if frame.suffixes_reader.bytes.len() < num_suffix_bytes as usize {
-      let new_len = ArrayUtil::oversize(num_suffix_bytes as usize, 1)?;
-      frame.suffixes_reader.bytes = vec![0u8; new_len];
+      ArrayUtil::grow_no_copy(&mut frame.suffixes_reader.bytes, num_suffix_bytes as usize)?;
     }
 
     let alg_code = (code_l & 0x03) as u8;
@@ -303,8 +302,10 @@ impl SegmentTermsEnumFrame {
     frame.all_equal = (num_suffix_length_bytes & 0x01) != 0;
     num_suffix_length_bytes >>= 1;
     if frame.suffix_lengths_reader.bytes.len() < num_suffix_length_bytes {
-      let new_len = ArrayUtil::oversize(num_suffix_length_bytes, 1)?;
-      frame.suffix_lengths_reader.bytes = vec![0u8; new_len];
+      ArrayUtil::grow_no_copy(
+        &mut frame.suffix_lengths_reader.bytes,
+        num_suffix_length_bytes,
+      )?;
     }
 
     if frame.all_equal {
@@ -328,8 +329,7 @@ impl SegmentTermsEnumFrame {
     // stats
     let mut num_bytes = input.read_vint()?.try_convert()?;
     if frame.stats_reader.bytes.len() < num_bytes {
-      let new_len = ArrayUtil::oversize(num_bytes, 1)?;
-      frame.stats_reader.bytes = vec![0u8; new_len];
+      ArrayUtil::grow_no_copy(&mut frame.stats_reader.bytes, num_bytes)?;
     }
     input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
     frame.stats_reader.reset_meta(0, num_bytes);
@@ -342,8 +342,7 @@ impl SegmentTermsEnumFrame {
     // metadata
     num_bytes = input.read_vint()?.try_convert()?;
     if frame.bytes_reader.bytes.len() < num_bytes {
-      let new_len = ArrayUtil::oversize(num_bytes, 1)?;
-      frame.bytes_reader.bytes = vec![0u8; new_len];
+      ArrayUtil::grow_no_copy(&mut frame.bytes_reader.bytes, num_bytes)?;
     }
     input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
     frame.bytes_reader.reset_meta(0, num_bytes);

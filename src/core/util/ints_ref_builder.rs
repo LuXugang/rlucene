@@ -109,14 +109,10 @@ where
   /// Grows the reference array to at least `new_length`, without copying
   /// original data.
   pub fn grow_no_copy(&mut self, new_length: usize) -> Result<()> {
-    let v = self
+    self
       .ints_ref
       .ints
-      .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length))?;
-    if let Some(v) = v {
-      self.ints_ref.ints = AV::from_vec(v);
-    }
-    Ok(())
+      .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length))
   }
 
   /// Copies the given slice into this instance.

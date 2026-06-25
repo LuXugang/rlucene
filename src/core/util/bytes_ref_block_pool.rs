@@ -17,6 +17,7 @@
 
 use crate::core::index::BytesRef;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::do_hash;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -47,7 +48,7 @@ impl BytesRefBlockPool {
     term: &mut BytesRef<Vec<u8>>,
     start: i32,
     byte_block_pool: &ByteBlockPool,
-  ) {
+  ) -> Result<()> {
     let block = byte_block_pool.get_buffer((start >> BYTE_BLOCK_SHIFT) as usize);
     let pos = (start & BYTE_BLOCK_MASK) as usize;
 
@@ -61,13 +62,15 @@ impl BytesRefBlockPool {
         (pos + 2) as i32,
       )
     };
-
-    term.bytes = vec![0; length as usize];
+    // TODO IMPORTANT 这里总是需要克隆 term可以优化的
+    let length = length as usize;
+    ArrayUtil::grow_no_copy(&mut term.bytes, length)?;
     term
       .bytes
-      .copy_from(&block[offset as usize..(offset + length) as usize], 0);
+      .copy_from(&block[offset as usize..offset as usize + length], 0);
     term.offset = 0;
-    term.length = length as usize;
+    term.length = length;
+    Ok(())
   }
   /// Add a term, returning the start position on the underlying
   /// `ByteBlockPool`. This can be used to read back the value using
