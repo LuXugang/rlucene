@@ -23,7 +23,9 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 
 pub struct OfflinePointReader<I>
 where
@@ -34,6 +36,7 @@ where
   check_sum_input: Option<BufferedChecksumIndexInput<I>>,
   offset: usize,
   checked: bool,
+  closed: bool,
   config: BKDConfig,
   points_in_buffer: usize,
   max_point_on_heap: usize,
@@ -102,12 +105,52 @@ where
       check_sum_input,
       offset: 0,
       checked: false,
+      closed: false,
       config,
       points_in_buffer: 0,
       max_point_on_heap,
       name,
       point_value,
     })
+  }
+}
+impl<I> Closeable for OfflinePointReader<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    if self.closed {
+      return Ok(());
+    }
+
+    let mut error = None;
+    if self.count_left == 0
+      && let Some(check_sum_input) = self.check_sum_input.as_mut()
+      && !self.checked
+    {
+      self.checked = true;
+      if let Err(e) = CodecUtil::check_footer(check_sum_input) {
+        error = Some(IOUtils::use_or_suppress(error, e));
+      }
+    }
+
+    if let Some(mut input) = self.input.take()
+      && let Err(e) = input.close()
+    {
+      error = Some(IOUtils::use_or_suppress(error, e));
+    }
+    if let Some(mut check_sum_input) = self.check_sum_input.take()
+      && let Err(e) = check_sum_input.close()
+    {
+      error = Some(IOUtils::use_or_suppress(error, e));
+    }
+
+    self.closed = true;
+    if let Some(error) = error {
+      Err(error)
+    } else {
+      Ok(())
+    }
   }
 }
 impl<I> PointReader for OfflinePointReader<I>
@@ -202,15 +245,7 @@ where
   I: IndexInput,
 {
   fn drop(&mut self) {
-    if self.count_left == 0
-      && let Some(check_sum_input) = self.check_sum_input.as_mut()
-      && !self.checked
-    {
-      self.checked = true;
-      if let Err(e) = CodecUtil::check_footer(check_sum_input) {
-        eprintln!("Failed to check footer: {e:?}");
-      }
-    }
+    let _ = self.close();
   }
 }
 

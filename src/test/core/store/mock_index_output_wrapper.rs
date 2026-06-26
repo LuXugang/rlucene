@@ -251,6 +251,17 @@ where
   }
 }
 
+impl<D> Drop for MockIndexOutputWrapper<D>
+where
+  D: Directory,
+{
+  fn drop(&mut self) {
+    if !self.closed {
+      let _ = self.close();
+    }
+  }
+}
+
 impl<D> IndexOutput for MockIndexOutputWrapper<D>
 where
   D: Directory,

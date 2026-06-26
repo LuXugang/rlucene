@@ -26,6 +26,7 @@ use crate::core::util::bkd::bkd_radix_selector::BKDRadixSelector;
 use crate::core::util::bkd::heap_point_write::HeapPointWriter;
 use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps, ToInt};
 use crate::test::core::util::test_util::TestUtil;
@@ -42,7 +43,7 @@ fn test_random() -> Result<()> {
     random.fill(&mut value[..]);
     heap_points.append_bytes(&value, i as i32)?;
   }
-  heap_points.close();
+  heap_points.close()?;
   let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
   verify_sort(&mut random, config, &mut points, 0, num_points)?;
   Ok(())
@@ -59,7 +60,7 @@ fn test_random_all_equals() -> Result<()> {
     let doc_id = random.random_range(0..num_points);
     heap_points.append_bytes(&value, doc_id as i32)?;
   }
-  heap_points.close();
+  heap_points.close()?;
   let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
   verify_sort(&mut random, config, &mut points, 0, num_points)?;
   Ok(())
@@ -79,7 +80,7 @@ fn test_random_last_byte_two_values() -> Result<()> {
       heap_points.append_bytes(&value, 2)?;
     }
   }
-  heap_points.close();
+  heap_points.close()?;
   let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
   verify_sort(&mut random, config, &mut points, 0, num_points)?;
   Ok(())
@@ -102,7 +103,7 @@ fn test_random_few_different_values() -> Result<()> {
     let index = random.random_range(0..number_values);
     heap_points.append_bytes(&different_values[index as usize], i as i32)?;
   }
-  heap_points.close();
+  heap_points.close()?;
   let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
   verify_sort(&mut random, config, &mut points, 0, num_points)?;
   Ok(())
@@ -126,7 +127,7 @@ fn test_random_data_dim_different() -> Result<()> {
     let doc_id = random.random_range(0..num_points);
     heap_points.append_bytes(&value, doc_id as i32)?;
   }
-  heap_points.close();
+  heap_points.close()?;
   let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
   verify_sort(&mut random, config, &mut points, 0, num_points)?;
   Ok(())

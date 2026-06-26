@@ -22,7 +22,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
@@ -43,10 +43,15 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{directory_reader, field_infos, multi_bits, multi_terms};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::core::store::ByteBuffersDirectory;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::term_query::TermQuery;
+use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
+use crate::core::store::{ByteBuffersDirectory, IOContext};
+use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::{
@@ -54,8 +59,11 @@ use crate::test::core::util::lucene_test_case::{
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_string_field, random,
 };
 use rand_chacha::rand_core::Rng;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+use std::io::Error;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestDirectoryReaderReopen;
@@ -686,8 +694,55 @@ fn test_open_if_changed_nrt_to_commit() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_over_dec_ref_during_reopen() -> Result<()> {
-  // TODO IMPORTANT MockDirectoryWrapper未实现
+  let mut random = random();
+  let dir = Arc::new(FailOnLiveDocsDirectory::new(ByteBuffersDirectory::new()));
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "id", Store::No)?);
+  w.add_document(doc)?;
+  doc = Document::new();
+  doc.add(StringField::from_string("id", "id2", Store::No)?);
+  w.add_document(doc)?;
+  w.commit()?;
+
+  // Open reader w/ one segment w/ 2 docs:
+  let r = directory_reader::open(dir.clone())?;
+
+  // Delete 1 doc from the segment:
+  // System.out.println("TEST: now delete");
+  w.delete_documents_with_terms(vec![Term::from_text("id", "id")])?;
+  // System.out.println("TEST: now commit");
+  w.commit()?;
+
+  // Fail when reopen tries to open the live docs file:
+  dir.set_fail_on_live_docs(true);
+
+  // Now reopen:
+  // System.out.println("TEST: now reopen");
+  match directory_reader::open_if_changed(&r, &w) {
+    Ok(_) => panic!("expected FakeIOException"),
+    Err(LuceneError::IoWithPath { source, .. }) => {
+      assert!(
+        source
+          .get_ref()
+          .is_some_and(|source| source.is::<FakeIOException>()),
+        "expected FakeIOException, got {source}"
+      );
+    },
+    Err(err) => return Err(err),
+  }
+
+  let s = IndexSearcher::from_cr(r)?;
+  assert_eq!(1, s.count(TermQuery::new(Term::from_text("id", "id")))?);
+
+  s.get_index_reader().close()?;
+  w.close()?;
   Ok(())
 }
 
@@ -926,4 +981,169 @@ fn test_reuse_unchanged_leaf_reader_on_dv_update() -> Result<()> {
   reader.close()?;
   writer.close()?;
   Ok(())
+}
+
+#[derive(Debug)]
+struct FakeIOException;
+
+impl Display for FakeIOException {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "fake IOException")
+  }
+}
+
+impl std::error::Error for FakeIOException {}
+
+struct FailOnLiveDocsDirectory<D>
+where
+  D: Directory,
+{
+  delegate: D,
+  id: Identity,
+  fail_on_live_docs: AtomicBool,
+  failed: AtomicBool,
+}
+
+impl<D> FailOnLiveDocsDirectory<D>
+where
+  D: Directory,
+{
+  fn new(delegate: D) -> Self {
+    Self {
+      delegate,
+      id: Identity::new(),
+      fail_on_live_docs: AtomicBool::new(false),
+      failed: AtomicBool::new(false),
+    }
+  }
+
+  fn set_fail_on_live_docs(&self, value: bool) {
+    self.fail_on_live_docs.store(value, Ordering::SeqCst);
+    if value {
+      self.failed.store(false, Ordering::SeqCst);
+    }
+  }
+
+  fn maybe_fail_live_docs(&self, name: &str) -> Result<()> {
+    if name.ends_with(".liv")
+      && self.fail_on_live_docs.load(Ordering::SeqCst)
+      && !self.failed.swap(true, Ordering::SeqCst)
+    {
+      return Err(LuceneError::io(Error::other(FakeIOException)));
+    }
+    Ok(())
+  }
+}
+
+impl<D> Display for FailOnLiveDocsDirectory<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "FailOnLiveDocsDirectory({})", self.delegate)
+  }
+}
+
+impl<D> Closeable for FailOnLiveDocsDirectory<D>
+where
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
+impl<D> HasIdentity for FailOnLiveDocsDirectory<D>
+where
+  D: Directory,
+{
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
+}
+
+impl<D> Directory for FailOnLiveDocsDirectory<D>
+where
+  D: Directory,
+{
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.delegate.list_all()
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.delegate.delete_file(name)
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.delegate.file_length(name)
+  }
+
+  type IndexOutput = D::IndexOutput;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.delegate.create_output(name, context)
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.delegate.create_temp_output(prefix, suffix, context)
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.delegate.sync(names)
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    self.delegate.sync_metadata()
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.delegate.rename(source, dest)
+  }
+
+  type IndexInput = D::IndexInput;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.maybe_fail_live_docs(name)?;
+    self.delegate.open_input(name, context)
+  }
+
+  fn open_checksum_input(
+    &self,
+    name: &str,
+  ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
+    self.maybe_fail_live_docs(name)?;
+    self.delegate.open_checksum_input(name)
+  }
+
+  type Lock = D::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.delegate.obtain_lock(name)
+  }
+
+  fn copy_from(&self, from: &impl Directory, src: &str, dest: &str, ctx: &IOContext) -> Result<()> {
+    self.delegate.copy_from(from, src, dest, ctx)
+  }
+
+  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
+    self.delegate.delete_files_ignoring_exceptions(files)
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    self.delegate.get_pending_deletions()
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    self.delegate.is_fs_directory()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.delegate.ensure_open()
+  }
 }

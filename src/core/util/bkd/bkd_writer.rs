@@ -38,6 +38,7 @@ use crate::core::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -559,7 +560,7 @@ where
     let mut point_writer = match self.point_writer.take() {
       None => return Err(LuceneError::illegal_state("point writer is None")),
       Some(mut writer) => {
-        writer.close();
+        writer.close()?;
         writer
       },
     };
@@ -640,10 +641,13 @@ where
     match result {
       Ok(_) => {},
       Err(e) => {
-        IOUtils::delete_files_ignoring_exceptions(
-          &self.temp_dir,
-          &self.temp_dir.get_created_files().lock().created_filenames,
-        );
+        let created_files = self
+          .temp_dir
+          .get_created_files()
+          .lock()
+          .created_filenames
+          .clone();
+        IOUtils::delete_files_ignoring_exceptions(&self.temp_dir, &created_files);
         return Err(e);
       },
     }
@@ -1390,10 +1394,12 @@ where
         debug_assert!(has_next);
         writer.append_point_value(reader.point_value()?)?;
       }
-      writer.close();
+      writer.close()?;
       Ok(())
     })();
+    let close_result = reader.close();
     source.take_data(reader.remove_points());
+    let result = IOUtils::use_or_suppress_result(result, close_result);
     if let Err(err) = result {
       return Err(self.verify_checksum(err, source).unwrap_err());
     }
@@ -1689,54 +1695,57 @@ where
       .writer
       .get_reader(slice.start, slice.count, &self.temp_dir)?;
 
-    if !reader.next()? {
-      slice.writer.take_data(reader.remove_points());
-      return Ok(());
-    }
-    {
-      let point_value = reader.point_value()?;
-      let (value, offset, _length) = point_value.packed_value();
-      min_packed_value.copy_from(
-        &value[offset..(offset + self.config.packed_index_bytes_length())],
-        0,
-      );
-      max_packed_value.copy_from(
-        &value[offset..(offset + self.config.packed_index_bytes_length())],
-        0,
-      );
-    }
+    let result = (|| -> Result<()> {
+      if !reader.next()? {
+        return Ok(());
+      }
+      {
+        let point_value = reader.point_value()?;
+        let (value, offset, _length) = point_value.packed_value();
+        min_packed_value.copy_from(
+          &value[offset..(offset + self.config.packed_index_bytes_length())],
+          0,
+        );
+        max_packed_value.copy_from(
+          &value[offset..(offset + self.config.packed_index_bytes_length())],
+          0,
+        );
+      }
 
-    while reader.next()? {
-      let point_value = reader.point_value()?;
-      let (value, offset, _length) = point_value.packed_value();
-      for dim in 0..self.config.num_index_dims {
-        let start_offset = dim * self.config.bytes_per_dim;
-        if self
-          .comparator
-          .compare(value, offset + start_offset, min_packed_value, start_offset)
-          < 0
-        {
-          min_packed_value.copy_from(
-            &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
+      while reader.next()? {
+        let point_value = reader.point_value()?;
+        let (value, offset, _length) = point_value.packed_value();
+        for dim in 0..self.config.num_index_dims {
+          let start_offset = dim * self.config.bytes_per_dim;
+          if self
+            .comparator
+            .compare(value, offset + start_offset, min_packed_value, start_offset)
+            < 0
+          {
+            min_packed_value.copy_from(
+              &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
+              start_offset,
+            );
+          } else if self.comparator.compare(
+            value,
+            offset + start_offset,
+            max_packed_value,
             start_offset,
-          );
-        } else if self.comparator.compare(
-          value,
-          offset + start_offset,
-          max_packed_value,
-          start_offset,
-        ) > 0
-        {
-          max_packed_value.copy_from(
-            &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
-            start_offset,
-          );
+          ) > 0
+          {
+            max_packed_value.copy_from(
+              &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
+              start_offset,
+            );
+          }
         }
       }
-    }
+      Ok(())
+    })();
+    let close_result = reader.close();
     slice.writer.take_data(reader.remove_points());
 
-    Ok(())
+    IOUtils::use_or_suppress_result(result, close_result)
   }
   /// The point writer contains the data that is going to be splitted using
   /// radix selection. /* This method is used when we are merging

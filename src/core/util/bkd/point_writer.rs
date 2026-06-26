@@ -20,12 +20,13 @@ use crate::core::util::bkd::heap_point_write::HeapPointWriter;
 use crate::core::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::core::util::bkd::point_reader::{PointReader, PointReaderEnum};
 use crate::core::util::bkd::point_value::PointValueEnum;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 /// Appends many points, and then at the end provides a PointReader to iterate
 /// those points. This abstracts away whether we write to disk, or use simple
 /// arrays in heap.
-pub trait PointWriter {
+pub trait PointWriter: Closeable {
   /// Add a new point from the packed value and docId
   fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()>;
 
@@ -53,8 +54,6 @@ pub trait PointWriter {
   fn destroy<D>(&mut self, dir: &D) -> Result<()>
   where
     D: Directory;
-
-  fn close(&mut self);
 }
 
 pub enum PointWriterEnum<O>
@@ -80,6 +79,17 @@ where
     match self {
       PointWriterEnum::Offline(_) => {},
       PointWriterEnum::Heap(heap) => heap.take_data(v),
+    }
+  }
+}
+impl<O> Closeable for PointWriterEnum<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      PointWriterEnum::Offline(offline) => offline.close(),
+      PointWriterEnum::Heap(heap) => heap.close(),
     }
   }
 }
@@ -143,13 +153,6 @@ where
     match self {
       PointWriterEnum::Offline(offline) => offline.destroy(dir),
       PointWriterEnum::Heap(heap) => heap.destroy(dir),
-    }
-  }
-
-  fn close(&mut self) {
-    match self {
-      PointWriterEnum::Offline(offline) => offline.close(),
-      PointWriterEnum::Heap(heap) => heap.close(),
     }
   }
 }

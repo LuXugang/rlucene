@@ -22,7 +22,9 @@ use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::core::util::bkd::point_writer::PointWriter;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 
 /// Writes points to disk in a fixed-width format.
 pub struct OfflinePointWriter<O>
@@ -111,7 +113,7 @@ where
   O: IndexOutput,
 {
   fn drop(&mut self) {
-    self.close();
+    let _ = self.close();
   }
 }
 
@@ -215,21 +217,27 @@ where
   {
     dir.delete_file(&self.name)
   }
-
-  fn close(&mut self) {
+}
+impl<O> Closeable for OfflinePointWriter<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
     if !self.closed {
+      let mut error = None;
+      if let Some(mut out) = self.out.take() {
+        if let Err(e) = CodecUtil::write_footer(&mut out) {
+          error = Some(IOUtils::use_or_suppress(error, e));
+        }
+        if let Err(e) = out.close() {
+          error = Some(IOUtils::use_or_suppress(error, e));
+        }
+      }
       self.closed = true;
-      match self.out.take() {
-        None => eprintln!("Point writer is already closed"),
-        Some(mut out) => {
-          match CodecUtil::write_footer(&mut out) {
-            Ok(_) => {},
-            Err(e) => {
-              eprintln!("Failed to write footer: {e:?}");
-            },
-          };
-        },
-      };
+      if let Some(error) = error {
+        return Err(error);
+      }
     }
+    Ok(())
   }
 }

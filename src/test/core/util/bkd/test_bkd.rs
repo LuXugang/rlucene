@@ -17,6 +17,7 @@
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::merge_state::{DocMap, DocMapEnum};
 use crate::core::index::point_values::{
   IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointValues,
@@ -25,7 +26,8 @@ use crate::core::index::point_values::{
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IOContext, IndexInput, IndexOutput};
+use crate::core::store::{DataInput, IOContext, IndexInput, IndexOutput, IndexOutputEnum2};
+use crate::core::util::HasIdentity;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_reader::BKDReader;
@@ -33,11 +35,13 @@ use crate::core::util::bkd::bkd_writer::{
   BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP, VERSION_META_FILE,
 };
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
+use crate::test::core::store::corrupting_index_output::CorruptingIndexOutput;
 use crate::test::core::util::lucene_test_case::{
-  at_least, new_directory, new_directory_shared, random, random_from_seed,
+  at_least, new_directory, new_directory_shared, new_mock_directory, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use bit_set::BitSet;
@@ -47,6 +51,7 @@ use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 use std::cell::RefCell;
+use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -76,6 +81,7 @@ where
   reader.is_tree_balanced = reader.num_leaves != 1 && reader.is_tree_balanced()?;
   Ok(reader)
 }
+
 #[test]
 fn test_basic_ints_1d() -> Result<()> {
   let mut random = random();
@@ -380,9 +386,72 @@ fn test_big_int_n_dims() -> Result<()> {
   }
   Ok(())
 }
+/// Make sure we close open files, delete temp files, etc., on exception.
 #[test]
-fn test_with_exceptions() {
-  // TODO: MockDirectoryWrapper not implement
+fn test_with_exceptions() -> Result<()> {
+  let mut random = random();
+  let num_docs = at_least(&mut random, 10000) as usize;
+  let num_bytes_per_dim = TestUtil::next_usize(&mut random, 2, 30);
+  let num_data_dims = TestUtil::next_usize(&mut random, 1, MAX_DIMENSIONS);
+  let num_index_dims = std::cmp::min(
+    TestUtil::next_usize(&mut random, 1, num_data_dims),
+    MAX_INDEX_DIMENSIONS,
+  ) as usize;
+
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
+
+  for values in doc_values.iter_mut().take(num_docs) {
+    for value in values.iter_mut().take(num_data_dims) {
+      random.fill_bytes(value);
+    }
+  }
+
+  let mut max_mb_heap = 0.05;
+  // Keep retrying until we 1) we allow a big enough heap, and 2) we hit a
+  // random IOExc from MDW:
+  let mut done = false;
+  while !done {
+    let mut dir = new_mock_directory(&mut random)?;
+    dir.set_random_io_exception_rate(0.05);
+    dir.set_random_io_exception_rate_on_open(0.05);
+
+    match verify_with_max_mb(
+      &mut random,
+      &dir,
+      &doc_values,
+      None,
+      num_data_dims,
+      num_index_dims,
+      num_bytes_per_dim,
+      50,
+      max_mb_heap,
+    ) {
+      Ok(()) => {},
+      Err(LuceneError::IllegalArgument(iae)) => {
+        // This just means we got a too-small maxMB for the
+        // maxPointsInLeafNode; just retry w/ more heap
+        assert!(
+          iae
+            .message
+            .contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode")
+        );
+        max_mb_heap *= 1.25;
+      },
+      Err(ioe) => {
+        if ioe.to_string().contains("a random IOException") {
+          // BKDWriter should fully clean up after itself:
+          done = true;
+        } else {
+          return Err(ioe);
+        }
+      },
+    }
+
+    let files = dir.list_all()?;
+    assert!(files.is_empty(), "files={:?}", files);
+    dir.close()?;
+  }
+  Ok(())
 }
 
 #[test]
@@ -823,6 +892,7 @@ fn verify_with_max_mb<D, R>(
 ) -> Result<()>
 where
   D: Directory,
+  D::IndexInput: Closeable,
   R: Rng + ?Sized,
 {
   let num_values = doc_values.len();
@@ -848,70 +918,123 @@ where
     v
   };
 
-  let mut writer = BKDWriter::new(
-    num_values as i32,
-    dir,
-    &format!("_{}", seg),
-    BKDConfig::new(
-      num_data_dims,
-      num_index_dims,
-      num_bytes_per_dim,
-      max_points_in_leaf_node,
-    )?,
-    max_mb,
-    max_docs,
-  )?;
+  let mut writer: Option<BKDWriter<&D>> = None;
+  let mut out: Option<D::IndexOutput> = None;
+  let mut input: Option<Arc<Mutex<D::IndexInput>>> = None;
 
-  let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+  let result = (|| -> Result<()> {
+    writer = Some(BKDWriter::new(
+      num_values as i32,
+      dir,
+      &format!("_{}", seg),
+      BKDConfig::new(
+        num_data_dims,
+        num_index_dims,
+        num_bytes_per_dim,
+        max_points_in_leaf_node,
+      )?,
+      max_mb,
+      max_docs,
+    )?);
 
-  let mut scratch = vec![0u8; num_bytes_per_dim * num_data_dims];
-  let mut last_doc_id_base = 0;
-  let use_merge = num_data_dims == 1 && num_values >= 10 && random.random_bool(0.5);
-  let mut values_in_this_seg = if use_merge {
-    TestUtil::next_usize(random, num_values / 10, num_values)
-  } else {
-    0
-  };
+    out = Some(dir.create_output("bkd", &IOContext::default_io_context()?)?);
 
-  let mut seg_count = 0;
+    let mut scratch = vec![0u8; num_bytes_per_dim * num_data_dims];
+    let mut last_doc_id_base = 0;
+    let use_merge = num_data_dims == 1 && num_values >= 10 && random.random_bool(0.5);
+    let mut values_in_this_seg = if use_merge {
+      TestUtil::next_usize(random, num_values / 10, num_values)
+    } else {
+      0
+    };
 
-  for ord in 0..num_values {
-    let doc_id = doc_ids.as_ref().map_or(ord as i32, |ids| ids[ord]);
-    for (dim, value) in doc_values[ord].iter().take(num_data_dims).enumerate() {
-      scratch.copy_from(&value[0..num_bytes_per_dim], dim * num_bytes_per_dim);
-    }
-    writer.add(&scratch, doc_id - last_doc_id_base)?;
+    let mut seg_count = 0;
 
-    seg_count += 1;
-
-    if use_merge && seg_count == values_in_this_seg {
-      if to_merge.is_none() {
-        to_merge = Some(Vec::new());
-        doc_maps = Some(Vec::new());
+    for ord in 0..num_values {
+      let doc_id = doc_ids.as_ref().map_or(ord as i32, |ids| ids[ord]);
+      for (dim, value) in doc_values[ord].iter().take(num_data_dims).enumerate() {
+        scratch.copy_from(&value[0..num_bytes_per_dim], dim * num_bytes_per_dim);
       }
-
-      let cur_doc_id_base = last_doc_id_base;
-      doc_maps
+      writer
         .as_mut()
         .unwrap()
-        .push(Rc::new(DocMapEnum::<DummyCodecReader>::Mock(DocMapMock {
-          cur_doc_id_base,
-        })));
+        .add(&scratch, doc_id - last_doc_id_base)?;
 
-      let finalizer = writer.finish(&mut out)?.unwrap();
-      to_merge
-        .as_mut()
-        .unwrap()
-        .push(out.get_file_pointer()? as i64);
-      writer.write_index(&mut out, None, &finalizer)?;
-      values_in_this_seg = TestUtil::next_usize(random, num_values / 10, num_values / 2);
-      seg_count = 0;
+      seg_count += 1;
 
+      if use_merge && seg_count == values_in_this_seg {
+        if to_merge.is_none() {
+          to_merge = Some(Vec::new());
+          doc_maps = Some(Vec::new());
+        }
+
+        let cur_doc_id_base = last_doc_id_base;
+        doc_maps
+          .as_mut()
+          .unwrap()
+          .push(Rc::new(DocMapEnum::<DummyCodecReader>::Mock(DocMapMock {
+            cur_doc_id_base,
+          })));
+
+        let out_ref = out.as_mut().unwrap();
+        let finalizer = writer.as_mut().unwrap().finish(out_ref)?.unwrap();
+        to_merge
+          .as_mut()
+          .unwrap()
+          .push(out_ref.get_file_pointer()? as i64);
+        writer
+          .as_mut()
+          .unwrap()
+          .write_index(out_ref, None, &finalizer)?;
+        values_in_this_seg = TestUtil::next_usize(random, num_values / 10, num_values / 2);
+        seg_count = 0;
+
+        seg += 1;
+        max_points_in_leaf_node = TestUtil::next_usize(random, 50, 1000);
+        max_mb = 3.0 + (3.0 * random.random::<f64>());
+
+        writer = Some(BKDWriter::new(
+          num_values as i32,
+          dir,
+          &format!("_{}", seg),
+          BKDConfig::new(
+            num_data_dims,
+            num_index_dims,
+            num_bytes_per_dim,
+            max_points_in_leaf_node,
+          )?,
+          max_mb,
+          doc_values.len() as i64,
+        )?);
+        last_doc_id_base = doc_id;
+      }
+    }
+
+    let index_fp;
+
+    if let Some(to_merge) = &mut to_merge {
+      if seg_count > 0 {
+        let out_ref = out.as_mut().unwrap();
+        let finalizer = writer.as_mut().unwrap().finish(out_ref)?.unwrap();
+        to_merge.push(out_ref.get_file_pointer()? as i64);
+        writer
+          .as_mut()
+          .unwrap()
+          .write_index(out_ref, None, &finalizer)?;
+        let cur_doc_id_base = last_doc_id_base;
+        doc_maps
+          .as_mut()
+          .unwrap()
+          .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
+      }
+      if let Some(mut output) = out.take() {
+        output.close()?;
+      }
+      input = Some(Arc::new(Mutex::new(
+        dir.open_input("bkd", &IOContext::default_io_context()?)?,
+      )));
       seg += 1;
-      max_points_in_leaf_node = TestUtil::next_usize(random, 50, 1000);
-      max_mb = 3.0 + (3.0 * random.random::<f64>());
-
-      writer = BKDWriter::new(
+      writer = Some(BKDWriter::new(
         num_values as i32,
         dir,
         &format!("_{}", seg),
@@ -923,145 +1046,152 @@ where
         )?,
         max_mb,
         doc_values.len() as i64,
-      )?;
-      last_doc_id_base = doc_id;
-    }
-  }
+      )?);
 
-  let index_fp;
+      let mut readers = Vec::new();
+      for fp in to_merge {
+        let input_ref = input.as_ref().unwrap();
+        input_ref.lock().seek(*fp as usize)?;
+        readers.push(get_point_values(input_ref.clone())?);
+      }
 
-  let mut input;
-  if let Some(to_merge) = &mut to_merge {
-    if seg_count > 0 {
-      let finalizer = writer.finish(&mut out)?.unwrap();
-      to_merge.push(out.get_file_pointer()? as i64);
-      writer.write_index(&mut out, None, &finalizer)?;
-      let cur_doc_id_base = last_doc_id_base;
-      doc_maps
+      out = Some(dir.create_output("bkd2", &IOContext::default_io_context()?)?);
+      {
+        let out_ref = out.as_mut().unwrap();
+        let finalizer = writer
+          .as_mut()
+          .unwrap()
+          .merge(out_ref, doc_maps, readers)?
+          .unwrap();
+        index_fp = out_ref.get_file_pointer()?;
+        writer
+          .as_mut()
+          .unwrap()
+          .write_index(out_ref, None, &finalizer)?;
+      }
+      if let Some(mut output) = out.take() {
+        output.close()?;
+      }
+      if let Some(input_ref) = input.take() {
+        input_ref.lock().close()?;
+      }
+      input = Some(Arc::new(Mutex::new(
+        dir.open_input("bkd2", &IOContext::default_io_context()?)?,
+      )));
+    } else {
+      let out_ref = out.as_mut().unwrap();
+      let finalizer = writer.as_mut().unwrap().finish(out_ref)?.unwrap();
+      index_fp = out_ref.get_file_pointer()?;
+      writer
         .as_mut()
         .unwrap()
-        .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
+        .write_index(out_ref, None, &finalizer)?;
+      if let Some(mut output) = out.take() {
+        output.close()?;
+      }
+      input = Some(Arc::new(Mutex::new(
+        dir.open_input("bkd", &IOContext::default_io_context()?)?,
+      )));
     }
-    drop(out);
-    input = Arc::new(Mutex::new(
-      dir.open_input("bkd", &IOContext::default_io_context()?)?,
-    ));
-    seg += 1;
-    writer = BKDWriter::new(
-      num_values as i32,
-      dir,
-      &format!("_{}", seg),
-      BKDConfig::new(
+
+    let input_ref = input.as_ref().unwrap();
+    input_ref.lock().seek(index_fp)?;
+    let sub_point_values = get_point_values(input_ref.clone())?;
+    assert_size(&mut sub_point_values.get_point_tree()?, random)?;
+    let point_values = sub_point_values;
+
+    let iters = at_least(random, 100);
+    for _ in 0..iters {
+      let mut query_min = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
+      let mut query_max = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
+
+      for dim in 0..num_data_dims {
+        random.fill_bytes(&mut query_min[dim]);
+        random.fill_bytes(&mut query_max[dim]);
+
+        if query_min[dim] > query_max[dim] {
+          std::mem::swap(&mut query_min[dim], &mut query_max[dim]);
+        }
+      }
+
+      let mut expected = BitSet::new();
+      for (ord, value) in doc_values.iter().enumerate().take(num_values) {
+        let mut matches = true;
+        for (dim, (min, max)) in query_min
+          .iter()
+          .zip(query_max.iter())
+          .enumerate()
+          .take(num_index_dims)
+        {
+          let val = &value[dim][0..num_bytes_per_dim];
+          if val.cmp(&min[0..num_bytes_per_dim]).to_int() < 0
+            || val.cmp(&max[0..num_bytes_per_dim]).to_int() > 0
+          {
+            matches = false;
+            break;
+          }
+        }
+        if matches {
+          let doc_id = doc_ids.as_ref().map_or(ord as i32, |ids| ids[ord]);
+          expected.insert(doc_id as usize);
+        }
+      }
+
+      let config = BKDConfig::new(
         num_data_dims,
         num_index_dims,
         num_bytes_per_dim,
         max_points_in_leaf_node,
-      )?,
-      max_mb,
-      doc_values.len() as i64,
-    )?;
-
-    let mut readers = Vec::new();
-    for fp in to_merge {
-      input.lock().seek(*fp as usize)?;
-      readers.push(get_point_values(input.clone())?);
-    }
-
-    {
-      let mut out = dir.create_output("bkd2", &IOContext::default_io_context()?)?;
-      let finalizer = writer.merge(&mut out, doc_maps, readers)?.unwrap();
-      index_fp = out.get_file_pointer()?;
-      writer.write_index(&mut out, None, &finalizer)?;
-    }
-    input = Arc::new(Mutex::new(
-      dir.open_input("bkd2", &IOContext::default_io_context()?)?,
-    ));
-  } else {
-    let finalizer = writer.finish(&mut out)?.unwrap();
-    index_fp = out.get_file_pointer()?;
-    writer.write_index(&mut out, None, &finalizer)?;
-    drop(out);
-    input = Arc::new(Mutex::new(
-      dir.open_input("bkd", &IOContext::default_io_context()?)?,
-    ));
-  }
-
-  input.lock().seek(index_fp)?;
-  let sub_point_values = get_point_values(input.clone())?;
-  assert_size(&mut sub_point_values.get_point_tree()?, random)?;
-  let point_values = sub_point_values;
-
-  let iters = at_least(random, 100);
-  for _ in 0..iters {
-    let mut query_min = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
-    let mut query_max = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
-
-    for dim in 0..num_data_dims {
-      random.fill_bytes(&mut query_min[dim]);
-      random.fill_bytes(&mut query_max[dim]);
-
-      if query_min[dim] > query_max[dim] {
-        std::mem::swap(&mut query_min[dim], &mut query_max[dim]);
-      }
-    }
-
-    let mut expected = BitSet::new();
-    for (ord, value) in doc_values.iter().enumerate().take(num_values) {
-      let mut matches = true;
-      for (dim, (min, max)) in query_min
-        .iter()
-        .zip(query_max.iter())
-        .enumerate()
-        .take(num_index_dims)
-      {
-        let val = &value[dim][0..num_bytes_per_dim];
-        if val.cmp(&min[0..num_bytes_per_dim]).to_int() < 0
-          || val.cmp(&max[0..num_bytes_per_dim]).to_int() > 0
-        {
-          matches = false;
-          break;
-        }
-      }
-      if matches {
-        let doc_id = doc_ids.as_ref().map_or(ord as i32, |ids| ids[ord]);
-        expected.insert(doc_id as usize);
-      }
-    }
-
-    let config = BKDConfig::new(
-      num_data_dims,
-      num_index_dims,
-      num_bytes_per_dim,
-      max_points_in_leaf_node,
-    )?;
-    let mut hits = BitSet::new();
-    point_values.intersect(&mut IntersectVisitorImpl {
-      hits: &mut hits,
-      query_min: &query_min,
-      query_max: &query_max,
-      config: config.clone(),
-      random,
-    })?;
-    assert_hits(&hits, &expected);
-    hits.make_empty();
-    PointTree::visit_doc_values(
-      &mut point_values.get_point_tree()?,
-      &mut IntersectVisitorImpl {
+      )?;
+      let mut hits = BitSet::new();
+      point_values.intersect(&mut IntersectVisitorImpl {
         hits: &mut hits,
         query_min: &query_min,
         query_max: &query_max,
         config: config.clone(),
         random,
-      },
-    )?;
-    assert_hits(&hits, &expected);
-  }
-  dir.delete_file("bkd")?;
-  if to_merge.is_some() {
-    dir.delete_file("bkd2")?;
+      })?;
+      assert_hits(&hits, &expected);
+      hits.make_empty();
+      PointTree::visit_doc_values(
+        &mut point_values.get_point_tree()?,
+        &mut IntersectVisitorImpl {
+          hits: &mut hits,
+          query_min: &query_min,
+          query_max: &query_max,
+          config: config.clone(),
+          random,
+        },
+      )?;
+      assert_hits(&hits, &expected);
+    }
+    drop(point_values);
+    if let Some(input_ref) = input.take() {
+      input_ref.lock().close()?;
+    }
+    dir.delete_file("bkd")?;
+    if to_merge.is_some() {
+      dir.delete_file("bkd2")?;
+    }
+
+    Ok(())
+  })();
+
+  if result.is_err() {
+    if let Some(writer) = writer.as_mut() {
+      let _ = writer.close();
+    }
+    if let Some(input_ref) = input.take() {
+      let _ = input_ref.lock().close();
+    }
+    if let Some(mut output) = out.take() {
+      let _ = output.close();
+    }
+    let files = vec!["bkd".to_string(), "bkd2".to_string()];
+    dir.delete_files_ignoring_exceptions(&files);
   }
 
-  Ok(())
+  result
 }
 fn assert_size<R>(tree: &mut impl PointTree, random: &mut R) -> Result<()>
 where
@@ -1302,14 +1432,125 @@ where
 }
 #[test]
 fn test_bit_flipped_on_partition1() -> Result<()> {
-  // TODO: MockDirectoryWrapper not implement
-  Ok(())
+  let mut random = random();
+
+  // Generate fixed data set:
+  let num_docs = at_least(&mut random, 10000) as usize;
+  let num_bytes_per_dim = 4;
+  let num_dims = 3;
+
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_dims]; num_docs];
+  let mut counter = 0u8;
+
+  for values in doc_values.iter_mut().take(num_docs) {
+    for value in values.iter_mut().take(num_dims) {
+      for byte in value.iter_mut() {
+        *byte = counter;
+        counter = counter.wrapping_add(1);
+      }
+    }
+  }
+
+  let mut dir0 = new_mock_directory(&mut random)?;
+  let result = {
+    let dir = CorruptingTempOutputDirectory::new(&dir0, 22, |prefix, suffix| {
+      prefix == "_0" && suffix == "bkd_left0"
+    });
+
+    verify_with_max_mb(
+      &mut random,
+      &dir,
+      &doc_values,
+      None,
+      num_dims,
+      num_dims,
+      num_bytes_per_dim,
+      50,
+      0.1,
+    )
+  };
+  dir0.close()?;
+  match result {
+    Err(LuceneError::CorruptIndex(e)) => {
+      assert!(e.message.contains("checksum failed (hardware problem?)"));
+      Ok(())
+    },
+    Ok(()) => panic!("expected CorruptIndexException"),
+    Err(e) => Err(e),
+  }
 }
+
+/// Make sure corruption on a recursed partition is caught, when BKDWriter does
+/// get angry.
 #[test]
 fn test_bit_flippedon_partition2() -> Result<()> {
-  // TODO: MockDirectoryWrapper not implement
-  Ok(())
+  let mut random = random();
+
+  // Generate fixed data set:
+  let num_docs = at_least(&mut random, 10000) as usize;
+  let num_bytes_per_dim = 4;
+  let num_dims = 3;
+
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_dims]; num_docs];
+  let mut counter = 0u8;
+
+  for values in doc_values.iter_mut().take(num_docs) {
+    for value in values.iter_mut().take(num_dims) {
+      for byte in value.iter_mut() {
+        *byte = counter;
+        counter = counter.wrapping_add(1);
+      }
+    }
+  }
+
+  let mut dir0 = new_mock_directory(&mut random)?;
+  let result = {
+    let dir = CorruptingTempOutputDirectory::new(&dir0, 22072, |_prefix, suffix| {
+      // System.out.println("prefix=" + prefix + " suffix=" + suffix);
+      if suffix == "bkd_left0" {
+        // System.out.println("now corrupt byte=" + x + " prefix=" + prefix +
+        // " suffix=" + suffix);
+        true
+      } else {
+        false
+      }
+    });
+
+    verify_with_max_mb(
+      &mut random,
+      &dir,
+      &doc_values,
+      None,
+      num_dims,
+      num_dims,
+      num_bytes_per_dim,
+      50,
+      0.1,
+    )
+  };
+  dir0.close()?;
+  match result {
+    Err(t) => assert_corruption_detected(&t),
+    Ok(()) => panic!("expected CorruptIndexException"),
+  }
 }
+
+fn assert_corruption_detected(t: &LuceneError) -> Result<()> {
+  if let LuceneError::CorruptIndex(e) = t
+    && e.message.contains("checksum failed (hardware problem?)")
+  {
+    return Ok(());
+  }
+
+  if let Some(LuceneError::CorruptIndex(e)) = t.get_suppressed()?
+    && e.message.contains("checksum failed (hardware problem?)")
+  {
+    return Ok(());
+  }
+
+  panic!("did not see a suppressed CorruptIndexException");
+}
+
 struct IntersectVisitorMock2 {
   last_doc_id: i32,
 }
@@ -2039,4 +2280,154 @@ fn test_too_many_points_1d() -> Result<()> {
   );
 
   Ok(())
+}
+struct CorruptingTempOutputDirectory<'a, D, F>
+where
+  D: Directory,
+  F: Fn(&str, &str) -> bool,
+{
+  in_: &'a D,
+  byte_to_corrupt: usize,
+  corrupted: RefCell<bool>,
+  should_corrupt: F,
+}
+
+impl<'a, D, F> CorruptingTempOutputDirectory<'a, D, F>
+where
+  D: Directory,
+  F: Fn(&str, &str) -> bool,
+{
+  fn new(in_: &'a D, byte_to_corrupt: usize, should_corrupt: F) -> Self {
+    Self {
+      in_,
+      byte_to_corrupt,
+      corrupted: RefCell::new(false),
+      should_corrupt,
+    }
+  }
+}
+
+impl<D, F> Display for CorruptingTempOutputDirectory<'_, D, F>
+where
+  D: Directory,
+  F: Fn(&str, &str) -> bool,
+{
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "CorruptingTempOutputDirectory({})", self.in_)
+  }
+}
+
+impl<D, F> Closeable for CorruptingTempOutputDirectory<'_, D, F>
+where
+  D: Directory,
+  F: Fn(&str, &str) -> bool,
+{
+  fn close(&mut self) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl<D, F> HasIdentity for CorruptingTempOutputDirectory<'_, D, F>
+where
+  D: Directory,
+  F: Fn(&str, &str) -> bool,
+{
+  fn identity(&self) -> &Identity {
+    self.in_.identity()
+  }
+}
+
+impl<'a, D, F> Directory for CorruptingTempOutputDirectory<'a, D, F>
+where
+  D: Directory,
+  D::IndexInput: Closeable,
+  F: Fn(&str, &str) -> bool,
+{
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.in_.list_all()
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.in_.delete_file(name)
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.in_.file_length(name)
+  }
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    Ok(IndexOutputEnum2::A(self.in_.create_output(name, context)?))
+  }
+
+  type IndexOutput = IndexOutputEnum2<D::IndexOutput, CorruptingIndexOutput<'a, D>>;
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    let out = self.in_.create_temp_output(prefix, suffix, context)?;
+    if !*self.corrupted.borrow() && (self.should_corrupt)(prefix, suffix) {
+      *self.corrupted.borrow_mut() = true;
+      Ok(IndexOutputEnum2::B(CorruptingIndexOutput::new(
+        self.in_,
+        self.byte_to_corrupt,
+        out,
+      )))
+    } else {
+      Ok(IndexOutputEnum2::A(out))
+    }
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.in_.sync(names)
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    self.in_.sync_metadata()
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.in_.rename(source, dest)
+  }
+
+  type IndexInput = D::IndexInput;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.in_.open_input(name, context)
+  }
+
+  type Lock = D::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.in_.obtain_lock(name)
+  }
+
+  fn copy_from(
+    &self,
+    from: &impl Directory,
+    src: &str,
+    dest: &str,
+    context: &IOContext,
+  ) -> Result<()> {
+    self.in_.copy_from(from, src, dest, context)
+  }
+
+  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
+    self.in_.delete_files_ignoring_exceptions(files)
+  }
+
+  fn get_pending_deletions(&self) -> Result<std::collections::HashSet<String>> {
+    self.in_.get_pending_deletions()
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    self.in_.is_fs_directory()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.in_.ensure_open()
+  }
 }

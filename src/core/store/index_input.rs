@@ -42,7 +42,7 @@ use std::sync::Arc;
 /// # See Also
 /// - [`Directory`](crate::core::store::directory::Directory) for file-based
 ///   operations.
-pub trait IndexInput: DataInput + TryClone {
+pub trait IndexInput: DataInput + TryClone + crate::core::util::close::Closeable {
   /// The index input type returned by slicing operations.
   type IndexInput: IndexInput;
   /// Returns the current position in this file, where the next read will

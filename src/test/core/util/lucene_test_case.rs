@@ -38,14 +38,18 @@ use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::store::fs_directory_base::FSDirectoryBaseEnum;
-use crate::core::store::lock_factory::LockFactoryEnum;
+use crate::core::store::lock_factory::{LockFactory, LockFactoryEnum};
 use crate::core::store::merge_info::MergeInfo;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{FSDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext};
+use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+use crate::core::store::{
+  ByteBuffersDirectory, FSDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext,
+};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test::core::util::lucene_test_case::EnvConfig::{Multiplier, NightMode, TestSeed};
 use crate::test::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
@@ -331,6 +335,43 @@ where
   // TODO
   let dir = new_directory(random)?;
   Ok(Arc::new(dir))
+}
+
+pub(crate) fn new_mock_directory<R>(
+  random: &mut R,
+) -> Result<MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>>
+where
+  R: Rng + ?Sized,
+{
+  Ok(MockDirectoryWrapper::new(
+    random,
+    ByteBuffersDirectory::new(),
+  ))
+}
+
+pub(crate) fn new_mock_directory_with_lock_factory<R, LF>(
+  random: &mut R,
+  lock_factory: LF,
+) -> Result<MockDirectoryWrapper<ByteBuffersDirectory<LF>>>
+where
+  R: Rng + ?Sized,
+  LF: LockFactory + Send + Sync + 'static,
+{
+  Ok(MockDirectoryWrapper::new(
+    random,
+    ByteBuffersDirectory::with_lock_factory(lock_factory),
+  ))
+}
+
+pub(crate) fn new_mock_fs_directory<R>(
+  random: &mut R,
+  temp_dir: TempDir,
+) -> Result<MockDirectoryWrapper<DirEnum>>
+where
+  R: Rng + ?Sized,
+{
+  let dir = NIOFSDirectory::new(temp_dir.keep())?;
+  Ok(MockDirectoryWrapper::new(random, dir))
 }
 
 // TODO: When we have implemented multiple directories, we need to select one

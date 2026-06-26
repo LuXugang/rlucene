@@ -19,6 +19,7 @@ pub mod base_data_output_test_case;
 pub mod base_directory_test_case;
 pub mod base_directory_wrapper;
 pub(crate) mod base_lock_factory_test_case;
+pub(crate) mod corrupting_index_output;
 pub(crate) mod mock_directory_wrapper;
 pub mod mock_index_input_wrapper;
 pub(crate) mod mock_index_output_wrapper;

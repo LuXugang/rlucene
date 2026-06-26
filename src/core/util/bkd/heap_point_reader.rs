@@ -17,6 +17,7 @@
 
 use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct HeapPointReader {
@@ -44,6 +45,7 @@ impl HeapPointReader {
     self.points.take()
   }
 }
+impl Closeable for HeapPointReader {}
 impl PointReader for HeapPointReader {
   fn next(&mut self) -> Result<bool> {
     self.cur_read = match self.cur_read {

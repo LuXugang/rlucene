@@ -22,6 +22,7 @@ use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::heap_point_reader::HeapPointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::core::util::bkd::point_writer::PointWriter;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, SliceCopyOps, ToInt};
 use std::fmt;
@@ -455,8 +456,9 @@ impl PointWriter for HeapPointWriter {
   {
     Ok(())
   }
-
-  fn close(&mut self) {
+}
+impl Closeable for HeapPointWriter {
+  fn close(&mut self) -> Result<()> {
     self.closed = true;
     if let Some(ref mut point_value) = self.point_value {
       match point_value {
@@ -470,6 +472,7 @@ impl PointWriter for HeapPointWriter {
         },
       }
     }
+    Ok(())
   }
 }
 impl Display for HeapPointWriter {
@@ -485,7 +488,7 @@ impl Display for HeapPointWriter {
 }
 impl Drop for HeapPointWriter {
   fn drop(&mut self) {
-    self.close();
+    let _ = self.close();
   }
 }
 

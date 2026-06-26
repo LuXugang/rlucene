@@ -80,7 +80,11 @@ where
   }
 }
 
-impl<T: IndexInput> crate::core::util::close::Closeable for BufferedChecksumIndexInput<T> {}
+impl<T: IndexInput> crate::core::util::close::Closeable for BufferedChecksumIndexInput<T> {
+  fn close(&mut self) -> Result<()> {
+    self.main.close()
+  }
+}
 
 // TODO IMPORTANT: readInt/Long not implement
 impl<T> DataInput for BufferedChecksumIndexInput<T>

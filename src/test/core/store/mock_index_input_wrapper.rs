@@ -166,6 +166,18 @@ where
   }
 }
 
+impl<D, I> Drop for MockIndexInputWrapper<D, I>
+where
+  D: Directory,
+  I: IndexInput,
+{
+  fn drop(&mut self) {
+    if !self.closed.load(Ordering::SeqCst) {
+      let _ = self.close();
+    }
+  }
+}
+
 impl<D, I> DataInput for MockIndexInputWrapper<D, I>
 where
   D: Directory,

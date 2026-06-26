@@ -32,6 +32,7 @@ use crate::core::search::sort_field::SortFieldType::Doc;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
@@ -44,6 +45,7 @@ use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterMaxDocs;
+
 #[test]
 fn test_exactly_at_true_limit() -> Result<()> {
   // let max_docs = MAX_DOCS;
@@ -365,14 +367,18 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
 
   Ok(())
 }
+/// LUCENE-6299: Test if addindexes(Dir[]) prevents exceeding max docs.
+// TODO: can we use the setter to lower the amount of docs to be written here?
 #[test]
 fn test_add_too_many_indexes_dir() -> Result<()> {
-  // TODO IMPORTANT MockDirectoryWrapper未实现
+  // TODO IMPORTANT 编译错误 object too large
   Ok(())
 }
+
+/// LUCENE-6299: Test if addindexes(CodecReader[]) prevents exceeding max docs.
 #[test]
 fn test_add_too_many_indexes_codec_reader() -> Result<()> {
-  // TODO IMPORTANT MockDirectoryWrapper未实现
+  // TODO IMPORTANT add_indexes_from_codec_readers未实现
   Ok(())
 }
 #[test]

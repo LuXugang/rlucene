@@ -31,6 +31,7 @@ use crate::core::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps, ToInt};
@@ -67,7 +68,7 @@ fn test_basic() -> Result<()> {
 
   NumericUtils::int_to_sortable_bytes(4, &mut value, 0);
   points.append_bytes(&value, 3)?;
-  points.close();
+  points.close()?;
   let mut copy = copy_points(&mut random, config.clone(), &dir, &mut points)?;
   verify(&mut random, config, &dir, &mut copy, 0, values, middle, 0)?;
   Ok(())
@@ -115,7 +116,7 @@ where
     random.fill(&mut value[..]);
     points.append_bytes(&value, i as i32)?;
   }
-  points.close();
+  points.close()?;
   verify(
     random,
     config,
@@ -153,7 +154,7 @@ fn test_random_all_dimensions_equals() -> Result<()> {
       points.append_bytes(&value, random.random_range(0..values) as i32)?;
     }
   }
-  points.close();
+  points.close()?;
   verify(
     &mut random,
     config.clone(),
@@ -185,7 +186,7 @@ fn test_random_last_byte_two_values() -> Result<()> {
       points.append_bytes(&value, 2)?;
     }
   }
-  points.close();
+  points.close()?;
   verify(
     &mut random,
     config,
@@ -214,7 +215,7 @@ fn test_random_all_docs_equals() -> Result<()> {
   for _ in 0..values {
     points.append_bytes(&value, 0)?;
   }
-  points.close();
+  points.close()?;
   verify(
     &mut random,
     config,
@@ -249,7 +250,7 @@ fn test_random_few_different_values() -> Result<()> {
     let idx = random.random_range(0..number_values) as usize;
     points.append_bytes(&different_values[idx], i as i32)?;
   }
-  points.close();
+  points.close()?;
   verify(
     &mut random,
     config,
@@ -283,7 +284,7 @@ fn test_random_data_dim_diff_values() -> Result<()> {
     value.copy_from(&data_value, start);
     points.append_bytes(&value, i as i32)?;
   }
-  points.close();
+  points.close()?;
   verify(
     &mut random,
     config,
@@ -506,8 +507,9 @@ where
     let point_value_ref = reader.point_value()?;
     copy.append_point_value(point_value_ref)?
   }
+  reader.close()?;
   points.take_data(reader.remove_points());
-  copy.close();
+  copy.close()?;
   Ok(copy)
 }
 
@@ -593,6 +595,7 @@ where
       min.copy_from(&value, 0);
     }
   }
+  reader.close()?;
   path_slice.writer.take_data(reader.remove_points());
   Ok(min)
 }
@@ -637,6 +640,7 @@ where
       }
     }
   }
+  reader.close()?;
   p.writer.take_data(reader.remove_points());
   Ok(doc_id)
 }
@@ -673,6 +677,7 @@ where
       }
     }
   }
+  reader.close()?;
   p.writer.take_data(reader.remove_points());
   Ok(min)
 }
@@ -700,6 +705,7 @@ where
       max.copy_from(&value, 0);
     }
   }
+  reader.close()?;
   p.writer.take_data(reader.remove_points());
   Ok(max)
 }
@@ -737,6 +743,7 @@ where
       }
     }
   }
+  reader.close()?;
   p.writer.take_data(reader.remove_points());
   Ok(max)
 }
@@ -781,6 +788,7 @@ where
       }
     }
   }
+  reader.close()?;
   p.writer.take_data(reader.remove_points());
   Ok(doc_id)
 }

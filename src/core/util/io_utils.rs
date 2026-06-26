@@ -208,6 +208,17 @@ impl IOUtils {
     }
   }
 
+  /// Combines a body result with a following close result using Java
+  /// try-with-resources suppression semantics.
+  pub fn use_or_suppress_result<T>(result: Result<T>, close_result: Result<()>) -> Result<T> {
+    match (result, close_result) {
+      (Ok(value), Ok(())) => Ok(value),
+      (Ok(_), Err(err)) => Err(err),
+      (Err(err), Ok(())) => Err(err),
+      (Err(err), Err(close_err)) => Err(Self::use_or_suppress(Some(err), close_err)),
+    }
+  }
+
   /// Applies the consumer to all elements in the collection even if an error is returned.
   /// The first error returned by the consumer is returned and subsequent errors are suppressed.
   pub fn apply_to_all<T, F>(collection: &[T], consumer: F) -> Result<()>

@@ -19,12 +19,13 @@ use crate::core::store::IndexInput;
 use crate::core::util::bkd::heap_point_reader::HeapPointReader;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::point_value::PointValueEnum;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 /// One-pass iterator through all points previously written with a PointWriter,
 /// abstracting away whether points are read from offline disk or from arrays in
 /// heap.
-pub trait PointReader {
+pub trait PointReader: Closeable {
   /// Advances the iterator.
   ///
   /// Returns `Ok(true)` if there is another point available,
@@ -54,6 +55,17 @@ where
     match self {
       PointReaderEnum::Offline(_) => None,
       PointReaderEnum::Heap(heap) => heap.remove_points(),
+    }
+  }
+}
+impl<I> Closeable for PointReaderEnum<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      PointReaderEnum::Offline(offline) => offline.close(),
+      PointReaderEnum::Heap(heap) => heap.close(),
     }
   }
 }

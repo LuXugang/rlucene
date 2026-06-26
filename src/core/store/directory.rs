@@ -27,6 +27,7 @@ use crate::core::store::{
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use num_bigint::BigInt;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -210,15 +211,45 @@ pub trait Directory: Display + Closeable + HasIdentity {
     dest: &str,
     context: &IOContext,
   ) -> Result<()> {
+    let mut success = false;
     let result = (|| -> Result<()> {
       let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
-      let mut os = self.create_output(dest, context)?;
-      let length = IndexInput::length(&is)?;
-      os.copy_bytes(&mut is, length)?;
-      Ok(())
+      let mut os = match self.create_output(dest, context) {
+        Ok(os) => os,
+        Err(mut error) => {
+          if let Err(close_error) = is.close() {
+            error.add_suppressed(close_error);
+          }
+          return Err(error);
+        },
+      };
+      let copy_result = (|| -> Result<()> {
+        let length = IndexInput::length(&is)?;
+        os.copy_bytes(&mut is, length)?;
+        Ok(())
+      })();
+      let mut close_error = None;
+      if let Err(error) = os.close() {
+        close_error = Some(IOUtils::use_or_suppress(close_error, error));
+      }
+      if let Err(error) = is.close() {
+        close_error = Some(IOUtils::use_or_suppress(close_error, error));
+      }
+      match (copy_result, close_error) {
+        (Ok(()), None) => {
+          success = true;
+          Ok(())
+        },
+        (Ok(()), Some(error)) => Err(error),
+        (Err(mut error), Some(close_error)) => {
+          error.add_suppressed(close_error);
+          Err(error)
+        },
+        (Err(error), None) => Err(error),
+      }
     })();
 
-    if result.is_err() {
+    if !success {
       self.delete_files_ignoring_exceptions(&[dest.to_string()]);
     }
     result
