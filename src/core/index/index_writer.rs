@@ -1879,7 +1879,7 @@ where
               }
               // Safe: these files must exist
               let files = merge.info.as_ref().unwrap().files()?;
-              self.delete_new_files(files.iter(), None)?;
+              self.delete_new_files(files.iter(), Some(&inner))?;
               return Ok(0);
             }
           }
@@ -2782,14 +2782,14 @@ where
       .config
       .get_merge_scheduler()
       .merge(&self.merge_source, MergeTrigger::Closing, self)?;
-    let inner = self.inner.lock();
+    let mut inner = self.inner.lock();
     self.do_ensure_open(false)?;
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "waitForMerges")?;
     }
-    // while !inner.pending_merges.is_empty() || !inner.running_merges.is_empty() {
-    //     self.do_wait(&mut inner);
-    // }
+    while !inner.pending_merges.is_empty() || !inner.running_merges.is_empty() {
+      self.do_wait(&mut inner);
+    }
     debug_assert!(
       inner.merging_segments.is_empty(),
       "mergingSegments should be empty here"
