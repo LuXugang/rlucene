@@ -75,6 +75,7 @@ message_error!(AlreadyClosedError);
 message_error!(ArrayIndexOutOfBoundsError);
 message_error!(BufferAllocationError);
 message_error!(CollectionTerminatedError);
+message_error!(ConcurrentModificationError);
 message_error!(CorruptIndexError);
 message_error!(Eof);
 message_error!(FuzzyTermsError);

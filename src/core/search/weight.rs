@@ -29,7 +29,9 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches::Matches;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryWeightSsBulkScorer, QueryWeightSsScorer};
+use crate::core::search::query::{
+  Query, QueryWeight, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
@@ -234,6 +236,14 @@ where
     Ok(-1)
   }
 
+  fn is_cache_wrapper(&self) -> bool {
+    false
+  }
+
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+    None
+  }
+
   #[cfg(test)]
   fn as_any(&mut self) -> &mut dyn std::any::Any {
     unreachable!("")
@@ -310,6 +320,15 @@ where
   fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
     (**self).default_count(_context)
   }
+
+  fn is_cache_wrapper(&self) -> bool {
+    (**self).is_cache_wrapper()
+  }
+
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+    (*self).into_inner_weight()
+  }
+
   #[cfg(test)]
   fn as_any(&mut self) -> &mut dyn std::any::Any {
     (**self).as_any()

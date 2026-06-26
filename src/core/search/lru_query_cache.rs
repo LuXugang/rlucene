@@ -62,10 +62,10 @@ use std::mem;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 
-const OUTER_CACHE_ENTRY_RAM_BYTES_USED: i64 = mem::size_of::<(CacheKey, LeafCache)>() as i64;
-const LEAF_CACHE_ENTRY_RAM_BYTES_USED: i64 =
+const HASHTABLE_RAM_BYTES_PER_ENTRY: i64 = mem::size_of::<(CacheKey, LeafCache)>() as i64;
+const LEAF_CACHE_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
   mem::size_of::<(Identity, Arc<CacheAndCountEnum>)>() as i64;
-const LINKED_QUERY_ENTRY_RAM_BYTES_USED: i64 =
+const LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
   mem::size_of::<(Arc<Query>, Arc<Query>, usize, usize)>() as i64;
 
 /// A [`QueryCache`] that evicts queries using an LRU (least-recently-used) eviction policy
@@ -322,7 +322,8 @@ where
     query: Arc<Query>,
     cached: CacheAndCountEnum,
     cache_helper: &C,
-  ) where
+  ) -> Result<()>
+  where
     C: CacheHelper,
   {
     debug_assert!({ !matches!(query.as_ref(), Query::Boost(_)) });
@@ -356,7 +357,7 @@ where
         let leaf_cache = LeafCache::new(key);
         let lc_ref = cache.insert(leaf_cache);
         self.ram_bytes_used.fetch_add(
-          OUTER_CACHE_ENTRY_RAM_BYTES_USED,
+          HASHTABLE_RAM_BYTES_PER_ENTRY,
           std::sync::atomic::Ordering::Relaxed,
         );
         // TODO IMPORTANT 这里没有调用add_close_listener
@@ -365,9 +366,9 @@ where
     };
 
     leaf_cache.put_if_absent(singleton.as_ref(), cached, self);
-    self.evict_if_necessary(&mut inner);
+    self.evict_if_necessary(&mut inner)
   }
-  pub(crate) fn evict_if_necessary(&self, guard: &mut RwLockWriteGuard<Inner>) {
+  pub(crate) fn evict_if_necessary(&self, guard: &mut RwLockWriteGuard<Inner>) -> Result<()> {
     loop {
       if !self.requires_eviction(guard) {
         break;
@@ -375,13 +376,31 @@ where
 
       let singleton = {
         let mut unique_queries = guard.unique_queries.lock();
-        match unique_queries.pop_front() {
-          Some((_key, singleton)) => singleton,
-          None => break,
+        let size = unique_queries.len();
+        let (query, singleton) = {
+          let mut iterator = unique_queries.entries();
+          match iterator.next() {
+            Some(entry) => (entry.key().clone(), entry.get().clone()),
+            None => break,
+          }
+        };
+        let _ = unique_queries.remove(query.as_ref());
+        if size == unique_queries.len() {
+          // size did not decrease, because the hash of the query changed since it has been
+          // put into the cache
+          return Err(LuceneError::concurrent_modification(format!(
+            "Removal from the cache failed! This \
+             is probably due to a query which has been modified after having been put into \
+             the cache or a badly implemented clone(). Query class: [{}], query: [{}]",
+            query.name(),
+            query.to_string("").unwrap_or_else(|_| format!("{query:?}"))
+          )));
         }
+        singleton
       };
       self.on_eviction(singleton.as_ref(), guard);
     }
+    Ok(())
   }
 
   /// Remove all cache entries for the given core cache key.
@@ -390,7 +409,7 @@ where
 
     if let Some(leaf_cache) = inner.cache.remove(core_key) {
       self.ram_bytes_used.fetch_sub(
-        OUTER_CACHE_ENTRY_RAM_BYTES_USED,
+        HASHTABLE_RAM_BYTES_PER_ENTRY,
         std::sync::atomic::Ordering::Relaxed,
       );
 
@@ -445,7 +464,7 @@ where
     let query_ram_bytes_used = query
       .ram_bytes_used()
       .unwrap_or(QUERY_DEFAULT_RAM_BYTES_USED);
-    LINKED_QUERY_ENTRY_RAM_BYTES_USED.saturating_add(query_ram_bytes_used)
+    LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY.saturating_add(query_ram_bytes_used)
   }
   /// Return the total number of times that a [`Query`](crate::core::search::query::Query) has been looked up in this [`QueryCache`](crate::core::search::query_cache::QueryCache).
   /// Note that this number is incremented once per segment, so running a cached query only once
@@ -499,31 +518,39 @@ where
     let inner = self.inner.write();
 
     if self.requires_eviction(&inner) {
-      debug_assert!(
-        false,
+      return Err(LuceneError::illegal_state(format!(
         "requires evictions: size={}, maxSize={}, ramBytesUsed={}, maxRamBytesUsed={}",
         inner.unique_queries.lock().len(),
         self.max_size,
         self.ram_bytes_used.load(Ordering::Relaxed),
         self.max_ram_bytes_used
-      );
+      )));
     }
 
-    // TODO
-    // for leaf_cache in inner.cache.values() {
-    //     let mut keys: HashSet<Identity> = leaf_cache.cache.keys().cloned().collect();
-    //     keys.retain(|k| !mru_id_set.contains(k));
-    //     if !keys.is_empty() {
-    //         debug_assert!(
-    //             false,
-    //             "One leaf cache contains more keys than the top-level cache: {:?}",
-    //             keys
-    //         );
-    //     }
-    // }
+    let unique_query_identities = {
+      let uq = inner.unique_queries.lock();
+      uq.values()
+        .map(|singleton| singleton.identity().clone())
+        .collect::<std::collections::HashSet<_>>()
+    };
+
+    for leaf_cache in inner.cache.values() {
+      let keys = leaf_cache
+        .cache
+        .keys()
+        .filter(|key| !unique_query_identities.contains(*key))
+        .cloned()
+        .collect::<Vec<_>>();
+      if !keys.is_empty() {
+        return Err(LuceneError::illegal_state(format!(
+          "One leaf cache contains more keys than the top-level cache: {:?}",
+          keys
+        )));
+      }
+    }
 
     let mut recomputed_ram_bytes_used =
-      OUTER_CACHE_ENTRY_RAM_BYTES_USED.saturating_mul(inner.cache.len() as i64);
+      HASHTABLE_RAM_BYTES_PER_ENTRY.saturating_mul(inner.cache.len() as i64);
 
     {
       let uq = inner.unique_queries.lock();
@@ -540,11 +567,10 @@ where
 
     let current_ram = self.ram_bytes_used.load(Ordering::Relaxed);
     if recomputed_ram_bytes_used != current_ram {
-      debug_assert!(
-        false,
+      return Err(LuceneError::illegal_state(format!(
         "ramBytesUsed mismatch : {} != {}",
         current_ram, recomputed_ram_bytes_used
-      );
+      )));
     }
 
     let mut recomputed_cache_size: i64 = 0;
@@ -583,13 +609,22 @@ where
 {
   fn do_cache(
     &self,
-    weight: QueryWeight<IRC>,
+    mut weight: QueryWeight<IRC>,
     policy: Arc<QueryCachingPolicyEnum>,
-  ) -> QueryWeight<IRC>
+  ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
   {
-    Box::new(CachingWrapperWeight::new(weight, policy, self.clone()))
+    while weight.is_cache_wrapper() {
+      weight = weight.into_inner_weight().ok_or_else(|| {
+        LuceneError::illegal_state("cache wrapper weights must expose their inner weight")
+      })?;
+    }
+    Ok(Box::new(CachingWrapperWeight::new(
+      weight,
+      policy,
+      self.clone(),
+    )))
   }
 }
 
@@ -665,7 +700,7 @@ impl LeafCache {
   }
 
   fn ram_bytes_used_for_cache_entry(cached: &CacheAndCountEnum) -> i64 {
-    LEAF_CACHE_ENTRY_RAM_BYTES_USED
+    LEAF_CACHE_HASHTABLE_RAM_BYTES_PER_ENTRY
       .saturating_add(mem::size_of_val(cached) as i64)
       .saturating_add(cached.ram_bytes_used().unwrap_or(0))
   }
@@ -808,7 +843,7 @@ where
               query,
               CacheAndCountEnum::Empty(CacheAndCount::empty()),
               &cache_helper,
-            );
+            )?;
             return Ok(None);
           };
           let cost = supplier.cost(context, searcher)?;
@@ -880,6 +915,14 @@ where
 
     self.in_.count(context)
   }
+
+  fn is_cache_wrapper(&self) -> bool {
+    true
+  }
+
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+    Some(self.in_)
+  }
 }
 pub struct ScorerSupplierImpl1<C, P, IRC>
 where
@@ -950,7 +993,7 @@ where
     let disi = cached.iterator()?;
     self
       .lru_query_cache
-      .put_if_absent(self.query.clone(), cached, &self.cache_helper);
+      .put_if_absent(self.query.clone(), cached, &self.cache_helper)?;
     let disi = DISI::B(disi);
     Ok(Box::new(ConstantScoreScorer::from_disi(
       0.0,

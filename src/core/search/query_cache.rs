@@ -18,6 +18,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
 use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
+use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A cache for queries.
@@ -34,7 +35,7 @@ where
     &self,
     weight: QueryWeight<IRC>,
     policy: Arc<QueryCachingPolicyEnum>,
-  ) -> QueryWeight<IRC>
+  ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext + 'static;
 }
@@ -65,7 +66,7 @@ where
     &self,
     weight: QueryWeight<IRC>,
     policy: Arc<QueryCachingPolicyEnum>,
-  ) -> QueryWeight<IRC>
+  ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
   {

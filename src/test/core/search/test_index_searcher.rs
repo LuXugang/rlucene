@@ -416,11 +416,11 @@ where
     &self,
     weight: QueryWeight<IRC>,
     _policy: Arc<QueryCachingPolicyEnum>,
-  ) -> QueryWeight<IRC>
+  ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
   {
-    weight
+    Ok(weight)
   }
 }
 

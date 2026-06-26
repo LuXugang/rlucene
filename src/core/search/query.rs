@@ -83,6 +83,8 @@ use crate::test::core::search::test_boolean_rewrites::TestRewriteQuery;
 #[cfg(test)]
 use crate::test::core::search::test_boolean_scorer::CrazyMustUseBulkScorerQuery;
 #[cfg(test)]
+use crate::test::core::search::test_lru_query_cache::{DVCacheQuery, TestLRUQuery};
+#[cfg(test)]
 use crate::test::core::search::test_needs_scores::AssertNeedsScores;
 #[cfg(test)]
 use crate::test::core::search::test_scorer_perf::BitSetQuery;
@@ -173,6 +175,10 @@ macro_rules! dispatch_query {
       #[cfg(test)]
       Query::Dummy1($inner) => $body,
       #[cfg(test)]
+      Query::TestLRU($inner) => $body,
+      #[cfg(test)]
+      Query::DVCache($inner) => $body,
+      #[cfg(test)]
       Query::MaxScoreWrapper($inner) => $body,
       #[cfg(test)]
       Query::Random($inner) => $body,
@@ -238,6 +244,8 @@ impl_from_for_enum!(
     CountingQuery => Counting,
     CrazyMustUseBulkScorerQuery => CrazyMustUseBulkScorer,
     DummyQuery1=> Dummy1,
+    TestLRUQuery => TestLRU,
+    DVCacheQuery => DVCache,
     MaxScoreWrapperQuery => MaxScoreWrapper,
     RandomApproximationQuery => RandomApproximation,
     RandomQuery => Random,
@@ -365,6 +373,10 @@ pub enum Query {
   #[cfg(test)]
   Dummy1(DummyQuery1),
   #[cfg(test)]
+  TestLRU(TestLRUQuery),
+  #[cfg(test)]
+  DVCache(DVCacheQuery),
+  #[cfg(test)]
   MaxScoreWrapper(MaxScoreWrapperQuery),
   #[cfg(test)]
   Random(RandomQuery),
@@ -446,6 +458,8 @@ impl Query {
             Counting,
             CrazyMustUseBulkScorer,
             Dummy1,
+            TestLRU,
+            DVCache,
             MaxScoreWrapper,
             Random,
             RandomApproximation,

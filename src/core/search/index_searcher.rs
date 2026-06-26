@@ -833,7 +833,7 @@ where
     if !score_mode.needs_scores()
       && let Some(query_cache) = self.query_cache.as_ref()
     {
-      weight = query_cache.do_cache(weight, self.query_caching_policy.clone());
+      weight = query_cache.do_cache(weight, self.query_caching_policy.clone())?;
     }
 
     Ok(weight)

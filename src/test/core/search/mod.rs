@@ -86,6 +86,7 @@ mod test_knn_float_vector_query;
 mod test_lat_lon_doc_values_queries;
 mod test_lat_lon_point_queries;
 mod test_long_range_field_queries;
+pub mod test_lru_query_cache;
 mod test_match_all_docs_query;
 mod test_match_no_docs_query;
 pub mod test_max_clause_limit;

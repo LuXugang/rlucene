@@ -24,13 +24,14 @@ use thiserror::Error;
 use crate::core::util::VersionError;
 use crate::core::util::error::{
   AlreadyClosedError, ArrayIndexOutOfBoundsError, BufferAllocationError, CollectionTerminatedError,
-  CorruptIndexError, Eof, FuzzyTermsError, IllegalArgumentError, IllegalStateError,
-  IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound, LockAlreadyHeldError,
-  LockHeldByOtherError, LockObtainFailedError, LockReleaseFailedError, MaxBytesLengthExceededError,
-  MergeAbortedError, MergeError, NeedImplementedError, NoMoreTermsError, NoSuchElementError,
-  NotImplementedError, NotSuchFileError, NumberFormatError, NumberOverflow, TimeExceededError,
-  TooComplexToDeterminizeError, TooManyClausesError, TooManyNestedClausesError, TragedyError,
-  UncheckedIOError, UnreachableError, UnsupportedOperationError,
+  ConcurrentModificationError, CorruptIndexError, Eof, FuzzyTermsError, IllegalArgumentError,
+  IllegalStateError, IndexFormatTooNewError, IndexFormatTooOldError, IndexNotFound,
+  LockAlreadyHeldError, LockHeldByOtherError, LockObtainFailedError, LockReleaseFailedError,
+  MaxBytesLengthExceededError, MergeAbortedError, MergeError, NeedImplementedError,
+  NoMoreTermsError, NoSuchElementError, NotImplementedError, NotSuchFileError, NumberFormatError,
+  NumberOverflow, TimeExceededError, TooComplexToDeterminizeError, TooManyClausesError,
+  TooManyNestedClausesError, TragedyError, UncheckedIOError, UnreachableError,
+  UnsupportedOperationError,
 };
 
 #[derive(Debug, Error)]
@@ -43,6 +44,8 @@ pub enum LuceneError {
   BufferAllocation(#[from] BufferAllocationError),
   #[error("{0}")]
   CollectionTerminated(#[from] CollectionTerminatedError),
+  #[error("{0}")]
+  ConcurrentModification(#[from] ConcurrentModificationError),
   #[error("{0}")]
   CorruptIndex(#[from] CorruptIndexError),
   #[error("{0}")]
@@ -149,6 +152,7 @@ impl Clone for LuceneError {
       LuceneError::ArrayIndexOutOfBounds(err) => LuceneError::ArrayIndexOutOfBounds(err.clone()),
       LuceneError::BufferAllocation(err) => LuceneError::BufferAllocation(err.clone()),
       LuceneError::CollectionTerminated(err) => LuceneError::CollectionTerminated(err.clone()),
+      LuceneError::ConcurrentModification(err) => LuceneError::ConcurrentModification(err.clone()),
       LuceneError::CorruptIndex(err) => LuceneError::CorruptIndex(err.clone()),
       LuceneError::Eof(err) => LuceneError::Eof(err.clone()),
       LuceneError::Fmt { source, suppressed } => LuceneError::Fmt {
@@ -365,6 +369,11 @@ impl LuceneError {
     CollectionTerminated,
     CollectionTerminatedError
   );
+  error_ctor!(
+    concurrent_modification,
+    ConcurrentModification,
+    ConcurrentModificationError
+  );
   error_ctor!(corrupt_index, CorruptIndex, CorruptIndexError);
   error_ctor!(eof, Eof, Eof);
   error_ctor!(fuzzy_terms, FuzzyTerms, FuzzyTermsError);
@@ -430,6 +439,7 @@ impl LuceneError {
     (ArrayIndexOutOfBounds),
     (BufferAllocation),
     (CollectionTerminated),
+    (ConcurrentModification),
     (CorruptIndex),
     (Eof),
     (FuzzyTerms),
