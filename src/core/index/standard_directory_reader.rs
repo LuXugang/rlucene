@@ -608,7 +608,11 @@ where
     IC: IndexCommit<Directory = D>,
   {
     self.ensure_open()?;
-    if self.writer_closed.is_some() {
+    if let Some(ref closed) = self.writer_closed {
+      debug_assert!(
+        Arc::ptr_eq(closed, &writer.closed),
+        "NRT reader must be reopened with the writer it was opened from"
+      );
       self.do_open_from_writer(writer, commit)
     } else {
       self.do_open_no_writer(writer, commit)

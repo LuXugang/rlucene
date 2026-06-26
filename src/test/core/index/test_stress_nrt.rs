@@ -217,7 +217,10 @@ impl TestStressNRT {
                             std::thread::current().name().unwrap_or("unknown")
                           );
                         }
-                        match directory_reader::open_if_changed(&old_reader, &writer_ref.w)? {
+                        match directory_reader::open_if_changed_with_writer(
+                          &old_reader,
+                          &writer_ref.w,
+                        )? {
                           Some(new_r) => Arc::new(new_r),
                           None => {
                             old_reader.inc_ref()?;
