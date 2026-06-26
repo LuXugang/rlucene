@@ -36,10 +36,10 @@ pub struct BaseDirectoryWrapper<D>
 where
   D: Directory,
 {
-  in_: D,
+  pub(crate) in_: D,
   check_index_on_close: bool,
   level_for_check_on_close: i32,
-  is_open: AtomicBool,
+  pub(crate) is_open: AtomicBool,
   id: Identity,
 }
 
