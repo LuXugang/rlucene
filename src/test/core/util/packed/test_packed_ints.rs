@@ -40,9 +40,8 @@ use crate::core::util::packed::packed64::Packed64;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::packed::paged_mutable::PagedMutable;
 use crate::core::util::packed::{
-  Decoder, Encoder, FormatBehavior, MAX_SUPPORTED_BITS_PER_VALUE, Mutable, MutableImpl, NullReader,
-  PackedImpl, PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer, create,
-  is_supported,
+  Decoder, Encoder, FormatBehavior, MAX_SUPPORTED_BITS_PER_VALUE, Mutable, NullReader, PackedImpl,
+  PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer, create, is_supported,
 };
 use crate::core::util::{SliceCopyOps, TryIntoInt};
 use crate::test::core::util::test_util::TestUtil;
@@ -410,8 +409,7 @@ fn assert_random_equality(value_count: i32, bits_per_value: i32, random: u64) ->
 fn create_packed_ints(value_count: i32, bits_per_value: i32) -> Result<Vec<MutablePacked64Enum>> {
   let mut packed_ints: Vec<MutablePacked64Enum> = Vec::new();
   let packed64 = Packed64::new(value_count, bits_per_value);
-  let mutable_impl = MutableImpl::new(packed64);
-  packed_ints.push(MutablePacked64Enum::P64(mutable_impl));
+  packed_ints.push(MutablePacked64Enum::P64(packed64));
 
   for bpv in bits_per_value..=MAX_SUPPORTED_BITS_PER_VALUE {
     if is_supported(bpv) {
@@ -486,7 +484,7 @@ fn assert_list_equality_impl(message: &str, packed_ints: &mut [MutablePacked64En
 }
 #[test]
 fn test_secondary_block_change() -> Result<()> {
-  let mut mutable = MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(26, 5)));
+  let mut mutable = MutablePacked64Enum::P64(Packed64::new(26, 5));
   mutable.set(24, 31);
   assert_eq!(mutable.get(24), 31, "The value #24 should be correct");
   mutable.set(4, 16);

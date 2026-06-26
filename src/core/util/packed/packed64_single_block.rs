@@ -21,9 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::bulk_operation::of;
 use crate::core::util::packed::format_behavior::PackedSingleBlockImpl;
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
-use crate::core::util::packed::{
-  Decoder, Encoder, Format, Mutable, MutableImpl, PackedInts, Reader,
-};
+use crate::core::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 
 pub(crate) struct Packed64SingleBlock<T>
@@ -159,86 +157,72 @@ pub(crate) fn create(value_count: i32, bits_per_value: i32) -> MutablePacked64En
     1 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock1 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock1(reader)
+      MutablePacked64Enum::P64SingleBlock1(sub_reader)
     },
     2 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock2 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock2(reader)
+      MutablePacked64Enum::P64SingleBlock2(sub_reader)
     },
     3 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock3 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock3(reader)
+      MutablePacked64Enum::P64SingleBlock3(sub_reader)
     },
     4 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock4 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock4(reader)
+      MutablePacked64Enum::P64SingleBlock4(sub_reader)
     },
     5 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock5 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock5(reader)
+      MutablePacked64Enum::P64SingleBlock5(sub_reader)
     },
     6 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock6 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock6(reader)
+      MutablePacked64Enum::P64SingleBlock6(sub_reader)
     },
     7 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock7 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock7(reader)
+      MutablePacked64Enum::P64SingleBlock7(sub_reader)
     },
     8 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock8 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock8(reader)
+      MutablePacked64Enum::P64SingleBlock8(sub_reader)
     },
     9 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock9 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock9(reader)
+      MutablePacked64Enum::P64SingleBlock9(sub_reader)
     },
     10 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock10 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock10(reader)
+      MutablePacked64Enum::P64SingleBlock10(sub_reader)
     },
     12 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock12 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock12(reader)
+      MutablePacked64Enum::P64SingleBlock12(sub_reader)
     },
     16 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock16 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock16(reader)
+      MutablePacked64Enum::P64SingleBlock16(sub_reader)
     },
     21 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock21 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock21(reader)
+      MutablePacked64Enum::P64SingleBlock21(sub_reader)
     },
     32 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock32 {});
-      let reader = MutableImpl::new(sub_reader);
-      MutablePacked64Enum::P64SingleBlock32(reader)
+      MutablePacked64Enum::P64SingleBlock32(sub_reader)
     },
     _ => {
       unreachable!("should not be here")

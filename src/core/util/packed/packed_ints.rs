@@ -172,9 +172,7 @@ impl PackedInts {
     debug_assert!(value_count >= 0);
     match format {
       Format::PackedSingleBlock(_) => create(value_count, bits_per_value),
-      Format::Packed(_) => {
-        MutablePacked64Enum::P64(MutableImpl::new(Packed64::new(value_count, bits_per_value)))
-      },
+      Format::Packed(_) => MutablePacked64Enum::P64(Packed64::new(value_count, bits_per_value)),
     }
   }
   /// Expert: Create a packed integer array writer for the given output,
@@ -935,55 +933,10 @@ pub trait Mutable: Reader + Display {
     self.fill(0, self.size(), 0)
   }
 }
-pub struct MutableImpl<T>
-where
-  T: Mutable + Display,
-{
-  pub sub_reader: T,
-}
-impl<T> MutableImpl<T>
-where
-  T: Mutable + Display,
-{
-  pub fn new(sub_reader: T) -> Self {
-    Self { sub_reader }
-  }
-}
-
-impl<T> Accountable for MutableImpl<T>
-where
-  T: Accountable + Display + Mutable,
-{
-  fn ram_bytes_used(&self) -> Result<i64> {
-    self.sub_reader.ram_bytes_used()
-  }
-}
-
-impl<T> Reader for MutableImpl<T>
-where
-  T: Mutable + Display,
-{
-  fn size(&self) -> i32 {
-    self.sub_reader.size()
-  }
-}
-
-impl<T> Mutable for MutableImpl<T>
-where
-  T: Mutable + Display,
-{
-  fn get_bits_per_value(&self) -> i32 {
-    self.sub_reader.get_bits_per_value()
-  }
-}
-impl<T> Display for MutableImpl<T>
-where
-  T: Mutable + Display,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", self.sub_reader)
-  }
-}
+/// # Note
+/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
+#[allow(dead_code)]
+pub struct MutableImpl;
 
 pub struct NullReader {
   value_count: i32,
