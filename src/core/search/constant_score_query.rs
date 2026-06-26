@@ -114,13 +114,16 @@ impl QueryBase for ConstantScoreQuery {
       ScoreMode::TopDocs
     };
     let query = *self.query;
-    let inner_weight = query.create_weight(searcher, &inner_score_mode, 1.0)?;
-    let v: QueryWeight<IRC> = if score_mode.needs_scores() {
-      Box::new(WeightImpl::new(boost, inner_weight, *score_mode))
+    let inner_weight = searcher.create_weight(query, inner_score_mode, 1.0)?;
+    if score_mode.needs_scores() {
+      Ok(Box::new(ConstantScoreQueryWeight::new(
+        boost,
+        inner_weight,
+        *score_mode,
+      )))
     } else {
-      inner_weight
-    };
-    Ok(Box::new(ConstantScoreQueryWeight::new(v)))
+      Ok(inner_weight)
+    }
   }
 
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -157,7 +160,7 @@ impl QueryBase for ConstantScoreQuery {
   }
 }
 
-pub struct WeightImpl<IRC>
+pub struct ConstantScoreQueryWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
@@ -165,7 +168,7 @@ where
   inner_weight: QueryWeight<IRC>,
   score_mode: ScoreMode,
 }
-impl<IRC> WeightImpl<IRC>
+impl<IRC> ConstantScoreQueryWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
@@ -177,7 +180,7 @@ where
     }
   }
 }
-impl<IRC> SegmentCacheable<IRC> for WeightImpl<IRC>
+impl<IRC> SegmentCacheable<IRC> for ConstantScoreQueryWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
@@ -186,7 +189,7 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for WeightImpl<IRC>
+impl<IRC> Weight<IRC> for ConstantScoreQueryWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
@@ -468,92 +471,6 @@ impl<S> crate::core::search::scorable::FixedScore for FilterScorableImpl<'_, S> 
   S: Scorable + ?Sized
 {
 }
-pub struct ConstantScoreQueryWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  inner: QueryWeight<IRC>,
-}
-impl<IRC> ConstantScoreQueryWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  pub fn new(inner: QueryWeight<IRC>) -> Self {
-    Self { inner }
-  }
-}
-impl<IRC> SegmentCacheable<IRC> for ConstantScoreQueryWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    self.inner.is_cacheable(ctx)
-  }
-}
-impl<IRC> Weight<IRC> for ConstantScoreQueryWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.inner.matches(context, doc, searcher)
-  }
-
-  fn default_matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<MatchWithNoTerms>> {
-    self.inner.default_matches(_context, _doc, searcher)
-  }
-
-  fn explain(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
-    self.inner.explain(context, doc, searcher)
-  }
-
-  fn get_query(&self) -> Arc<Query> {
-    self.inner.get_query()
-  }
-
-  type ScorerSupplier = QueryWeightSs<IRC>;
-
-  fn scorer_supplier(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
-    self.inner.scorer_supplier(_context, searcher)
-  }
-
-  fn bulk_scorer(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>> {
-    self.inner.bulk_scorer(_context, searcher)
-  }
-
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    self.inner.count(context)
-  }
-
-  fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    self.inner.default_count(_context)
-  }
-}
-
 impl crate::core::util::accountable::Accountable for ConstantScoreQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
     Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
