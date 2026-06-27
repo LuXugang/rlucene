@@ -57,13 +57,18 @@ use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_string_field, random,
+  random_from_seed,
 };
+use crate::test::core::util::test_util::TestUtil;
+use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::io::Error;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
+use std::thread;
+use std::time::Duration;
 
 #[allow(dead_code)] // for quick search
 struct TestDirectoryReaderReopen;
@@ -74,13 +79,13 @@ fn test_reopen() -> Result<()> {
   let dir1 = new_directory_shared(&mut random)?;
 
   let iw = create_index(&mut random, dir1.clone(), false)?;
-  let test = TestReopen { dir: dir1.clone() };
+  let test = DefaultTestReopen::new(dir1.clone());
   perform_default_tests(&mut random, &test, iw)?;
 
   let dir2 = new_directory_shared(&mut random)?;
 
   let iw = create_index(&mut random, dir2.clone(), true)?;
-  let test = TestReopen { dir: dir2.clone() };
+  let test = DefaultTestReopen::new(dir2.clone());
   perform_default_tests(&mut random, &test, iw)?;
 
   Ok(())
@@ -172,7 +177,262 @@ where
 
 #[test]
 fn test_thread_safety() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  let mut dir = new_directory_shared(&mut random)?;
+  // NOTE: this also controls the number of threads!
+  let n = TestUtil::next_int(&mut random, 20, 40);
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
+  )?;
+  for i in 0..n {
+    writer.add_document(create_document(i, 3)?)?;
+  }
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  let test = ThreadSafetyTestReopen::new(dir.clone(), n);
+  let readers = Arc::new(Mutex::new(Vec::new()));
+  let first_reader = Arc::new(directory_reader::open(dir.clone())?);
+  let mut reader = first_reader.clone();
+
+  let readers_to_close = Arc::new(Mutex::new(Vec::new()));
+  let create_reader_mutex = Arc::new(Mutex::new(()));
+
+  thread::scope(|scope| -> Result<()> {
+    let mut threads = Vec::new();
+    let mut spawn_error = None;
+
+    for i in 0..n {
+      if i % 2 == 0 {
+        match directory_reader::open_if_changed(reader.as_ref(), &writer) {
+          Ok(Some(refreshed)) => {
+            {
+              let mut readers_to_close = readers_to_close
+                .lock()
+                .expect("readersToClose mutex poisoned");
+              if !readers_to_close
+                .iter()
+                .any(|existing| Arc::ptr_eq(existing, &reader))
+              {
+                readers_to_close.push(reader.clone());
+              }
+            }
+            reader = Arc::new(refreshed);
+          },
+          Ok(None) => {},
+          Err(err) => {
+            spawn_error = Some(err);
+            break;
+          },
+        }
+      }
+
+      let r = reader.clone();
+      let index = i;
+      let task = Arc::new(ReaderThreadTask::new());
+
+      if i < 4 || (10..14).contains(&i) || i > 18 {
+        let readers = readers.clone();
+        let readers_to_close = readers_to_close.clone();
+        let create_reader_mutex = create_reader_mutex.clone();
+        let test = &test;
+        let writer_ref = &writer;
+        let seed = random.random();
+        let task_for_thread = task.clone();
+        threads.push(ReaderThread::new(
+          i,
+          scope.spawn(move || -> Result<()> {
+            let mut random = random_from_seed(seed);
+            while !task_for_thread.stopped.load(Ordering::Acquire) {
+              if index % 2 == 0 {
+                // refresh reader synchronized
+                let c = {
+                  let _guard = create_reader_mutex
+                    .lock()
+                    .expect("createReaderMutex mutex poisoned");
+                  let (c, _) =
+                    refresh_reader_with_test(&mut random, &r, Some(test), index, true, None)?;
+                  c
+                };
+                let c = Arc::new(c);
+                {
+                  let mut readers_to_close = readers_to_close
+                    .lock()
+                    .expect("readersToClose mutex poisoned");
+                  let new_reader = c
+                    .new_reader
+                    .as_ref()
+                    .expect("newReader must be set")
+                    .clone();
+                  if !readers_to_close
+                    .iter()
+                    .any(|existing| Arc::ptr_eq(existing, &new_reader))
+                  {
+                    readers_to_close.push(new_reader);
+                  }
+                  if !readers_to_close
+                    .iter()
+                    .any(|existing| Arc::ptr_eq(existing, &c.refreshed_reader))
+                  {
+                    readers_to_close.push(c.refreshed_reader.clone());
+                  }
+                }
+                readers.lock().expect("readers mutex poisoned").push(c);
+                // prevent too many readers
+                break;
+              } else {
+                // not synchronized
+                let refreshed = directory_reader::open_if_changed(r.as_ref(), writer_ref)?
+                  .map(Arc::new)
+                  .unwrap_or_else(|| r.clone());
+
+                let searcher = IndexSearcher::from_cr(refreshed.clone())?;
+                let max_doc = refreshed.max_doc()?;
+                let hits = searcher
+                  .search(
+                    TermQuery::new(Term::from_text(
+                      "field1",
+                      format!("a{}", TestUtil::next_int(&mut random, 0, max_doc - 1)),
+                    )),
+                    1000,
+                  )?
+                  .score_docs;
+                if let Some(hit) = hits.first() {
+                  searcher.stored_fields()?.document(hit.doc)?;
+                }
+                if !Arc::ptr_eq(&refreshed, &r) {
+                  refreshed.close()?;
+                }
+              }
+              {
+                let guard = task_for_thread
+                  .monitor
+                  .lock()
+                  .expect("ReaderThreadTask monitor poisoned");
+                let (_guard, _) = task_for_thread
+                  .cvar
+                  .wait_timeout(
+                    guard,
+                    Duration::from_millis(TestUtil::next_int(&mut random, 1, 100) as u64),
+                  )
+                  .expect("ReaderThreadTask monitor poisoned");
+              }
+            }
+            Ok(())
+          }),
+          task,
+        ));
+      } else {
+        let readers = readers.clone();
+        let seed = random.random();
+        let task_for_thread = task.clone();
+        threads.push(ReaderThread::new(
+          i,
+          scope.spawn(move || -> Result<()> {
+            let mut random = random_from_seed(seed);
+            while !task_for_thread.stopped.load(Ordering::Acquire) {
+              let c = {
+                let readers = readers.lock().expect("readers mutex poisoned");
+                if readers.is_empty() {
+                  None
+                } else {
+                  let index = TestUtil::next_int(&mut random, 0, readers.len() as i32 - 1) as usize;
+                  Some(readers[index].clone())
+                }
+              };
+              if let Some(c) = c {
+                assert_index_equals(
+                  c.new_reader
+                    .as_ref()
+                    .expect("newReader must be set")
+                    .as_ref(),
+                  c.refreshed_reader.as_ref(),
+                )?;
+              }
+
+              {
+                let guard = task_for_thread
+                  .monitor
+                  .lock()
+                  .expect("ReaderThreadTask monitor poisoned");
+                let (_guard, _) = task_for_thread
+                  .cvar
+                  .wait_timeout(
+                    guard,
+                    Duration::from_millis(TestUtil::next_int(&mut random, 1, 100) as u64),
+                  )
+                  .expect("ReaderThreadTask monitor poisoned");
+              }
+            }
+            Ok(())
+          }),
+          task,
+        ));
+      }
+    }
+
+    if spawn_error.is_none() {
+      let lock = Mutex::new(());
+      let cvar = Condvar::new();
+      let guard = lock
+        .lock()
+        .expect("TestDirectoryReaderReopen monitor poisoned");
+      let (_guard, _) = cvar
+        .wait_timeout(guard, Duration::from_millis(1000))
+        .expect("TestDirectoryReaderReopen monitor poisoned");
+    }
+
+    for thread in &threads {
+      thread.stop_thread();
+    }
+
+    for thread in threads {
+      let name = thread.name.clone();
+      match thread.join() {
+        Ok(Ok(())) => {},
+        Ok(Err(err)) => {
+          return Err(LuceneError::illegal_state(format!(
+            "Error occurred in thread {name}:\n{err}"
+          )));
+        },
+        Err(_) => {
+          return Err(LuceneError::illegal_state(format!(
+            "Error occurred in thread {name}: thread panicked"
+          )));
+        },
+      }
+    }
+
+    if let Some(err) = spawn_error {
+      return Err(err);
+    }
+
+    Ok(())
+  })?;
+
+  let readers_to_close_snapshot = readers_to_close
+    .lock()
+    .expect("readersToClose mutex poisoned")
+    .clone();
+
+  for reader_to_close in &readers_to_close_snapshot {
+    reader_to_close.close()?;
+  }
+
+  first_reader.close()?;
+  reader.close()?;
+
+  for reader_to_close in &readers_to_close_snapshot {
+    assert_reader_closed(reader_to_close.as_ref(), true);
+  }
+
+  assert_reader_closed(reader.as_ref(), true);
+  assert_reader_closed(first_reader.as_ref(), true);
+
+  dir.close()?;
   Ok(())
 }
 
@@ -180,26 +440,101 @@ struct ReaderCouple<D>
 where
   D: Directory,
 {
-  new_reader: Option<StandardDirectoryReaderType<D>>,
-  refreshed_reader: RefreshedReader<D>,
+  new_reader: Option<Arc<StandardDirectoryReaderType<D>>>,
+  refreshed_reader: Arc<StandardDirectoryReaderType<D>>,
 }
-#[allow(clippy::large_enum_variant)]
-enum RefreshedReader<D>
+
+impl<D> ReaderCouple<D>
 where
   D: Directory,
 {
-  Same,
-  New(StandardDirectoryReaderType<D>),
+  fn new(
+    new_reader: Option<Arc<StandardDirectoryReaderType<D>>>,
+    refreshed_reader: Arc<StandardDirectoryReaderType<D>>,
+  ) -> Self {
+    Self {
+      new_reader,
+      refreshed_reader,
+    }
+  }
 }
 
-struct TestReopen<D>
+struct ReaderThreadTask {
+  stopped: AtomicBool,
+  monitor: Mutex<()>,
+  cvar: Condvar,
+}
+
+impl ReaderThreadTask {
+  fn new() -> Self {
+    Self {
+      stopped: AtomicBool::new(false),
+      monitor: Mutex::new(()),
+      cvar: Condvar::new(),
+    }
+  }
+
+  fn stop(&self) {
+    self.stopped.store(true, Ordering::Release);
+  }
+}
+
+struct ReaderThread<'scope> {
+  task: Arc<ReaderThreadTask>,
+  handle: thread::ScopedJoinHandle<'scope, Result<()>>,
+  name: String,
+}
+
+impl<'scope> ReaderThread<'scope> {
+  fn new(
+    name: i32,
+    handle: thread::ScopedJoinHandle<'scope, Result<()>>,
+    task: Arc<ReaderThreadTask>,
+  ) -> Self {
+    Self {
+      task,
+      handle,
+      name: name.to_string(),
+    }
+  }
+
+  fn stop_thread(&self) {
+    self.task.stop();
+  }
+
+  fn join(self) -> std::thread::Result<Result<()>> {
+    self.handle.join()
+  }
+}
+
+trait TestReopen<D>
+where
+  D: Directory,
+{
+  fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>>;
+
+  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<IndexWriter<D>>
+  where
+    R: Rng + ?Sized;
+}
+
+struct DefaultTestReopen<D>
 where
   D: Directory,
 {
   dir: Arc<D>,
 }
 
-impl<D> TestReopen<D>
+impl<D> DefaultTestReopen<D>
+where
+  D: Directory + 'static,
+{
+  fn new(dir: Arc<D>) -> Self {
+    Self { dir }
+  }
+}
+
+impl<D> TestReopen<D> for DefaultTestReopen<D>
 where
   D: Directory + 'static,
 {
@@ -207,82 +542,114 @@ where
     directory_reader::open(self.dir.clone())
   }
 
-  fn modify_index<R>(&self, random: &mut R, i: i32, iw: IndexWriter<D>) -> Result<IndexWriter<D>>
+  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<IndexWriter<D>>
   where
     R: Rng + ?Sized,
   {
-    modify_index(random, i, self.dir.clone(), iw)
+    modify_index(random, i, self.dir.clone())
   }
 }
 
-fn perform_default_tests<R, D>(
-  random: &mut R,
-  test: &TestReopen<D>,
-  iw: IndexWriter<D>,
-) -> Result<()>
+struct ThreadSafetyTestReopen<D>
+where
+  D: Directory,
+{
+  dir: Arc<D>,
+  n: i32,
+}
+
+impl<D> ThreadSafetyTestReopen<D>
+where
+  D: Directory + 'static,
+{
+  fn new(dir: Arc<D>, n: i32) -> Self {
+    Self { dir, n }
+  }
+}
+
+impl<D> TestReopen<D> for ThreadSafetyTestReopen<D>
+where
+  D: Directory + 'static,
+{
+  fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
+    directory_reader::open(self.dir.clone())
+  }
+
+  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<IndexWriter<D>>
+  where
+    R: Rng + ?Sized,
+  {
+    let analyzer = MockAnalyzer::new(random);
+    let modifier = IndexWriter::new(
+      self.dir.clone(),
+      new_index_writer_config_with_analyzer(random, analyzer)?,
+    )?;
+    modifier.add_document(create_document(self.n + i, 6)?)?;
+    modifier.close()?;
+    Ok(modifier)
+  }
+}
+
+fn perform_default_tests<R, D, T>(random: &mut R, test: &T, iw: IndexWriter<D>) -> Result<()>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,
+  T: TestReopen<D>,
 {
-  let mut index1 = test.open_reader()?;
-  let mut index2 = test.open_reader()?;
+  let mut index1 = Arc::new(test.open_reader()?);
+  let mut index2 = Arc::new(test.open_reader()?);
 
-  assert_index_equals(&index1, &index2)?;
+  assert_index_equals(index1.as_ref(), index2.as_ref())?;
 
   // verify that reopen() does not return a new reader instance
   // in case the index has no changes
   let (couple, iw) = refresh_reader(random, &index2, false, iw)?;
-  match couple.refreshed_reader {
-    RefreshedReader::Same => {},
-    RefreshedReader::New(_) => panic!(
-      "New DirectoryReader instance created during refresh even though index had no changes."
-    ),
+  if !Arc::ptr_eq(&couple.refreshed_reader, &index2) {
+    panic!("New DirectoryReader instance created during refresh even though index had no changes.");
   }
 
-  let (couple, iw) = refresh_reader_with_test(random, &index2, Some(test), 0, true, iw)?;
+  let (couple, iw) = refresh_reader_with_test(random, &index2, Some(test), 0, true, Some(iw))?;
   index1.close()?;
   index1 = couple.new_reader.unwrap();
 
-  let index2_refreshed = match couple.refreshed_reader {
-    RefreshedReader::New(reader) => reader,
-    RefreshedReader::Same => panic!("No new DirectoryReader instance created during refresh."),
-  };
+  let index2_refreshed = couple.refreshed_reader;
+  if Arc::ptr_eq(&index2_refreshed, &index2) {
+    panic!("No new DirectoryReader instance created during refresh.");
+  }
   index2.close()?;
 
   // test if refreshed reader and newly opened reader return equal results
-  assert_index_equals(&index1, &index2_refreshed)?;
+  assert_index_equals(index1.as_ref(), index2_refreshed.as_ref())?;
 
   index2_refreshed.close()?;
-  assert_reader_closed(&index2, true);
-  assert_reader_closed(&index2_refreshed, true);
+  assert_reader_closed(index2.as_ref(), true);
+  assert_reader_closed(index2_refreshed.as_ref(), true);
 
-  index2 = test.open_reader()?;
+  index2 = Arc::new(test.open_reader()?);
   let mut writer = iw;
   for i in 1..4 {
     index1.close()?;
-    let (couple, iw) = refresh_reader_with_test(random, &index2, Some(test), i, true, writer)?;
+    let (couple, iw) =
+      refresh_reader_with_test(random, &index2, Some(test), i, true, Some(writer))?;
     writer = iw;
     // refresh DirectoryReader
     index2.close()?;
 
-    index2 = match couple.refreshed_reader {
-      RefreshedReader::New(reader) => reader,
-      RefreshedReader::Same => panic!("No new DirectoryReader instance created during refresh."),
-    };
+    index2 = couple.refreshed_reader;
     index1 = couple.new_reader.unwrap();
-    assert_index_equals(&index1, &index2)?;
+    assert_index_equals(index1.as_ref(), index2.as_ref())?;
   }
 
   index1.close()?;
   index2.close()?;
-  assert_reader_closed(&index1, true);
-  assert_reader_closed(&index2, true);
+  assert_reader_closed(index1.as_ref(), true);
+  assert_reader_closed(index2.as_ref(), true);
   Ok(())
 }
 
 fn refresh_reader<R, D>(
   random: &mut R,
-  reader: &StandardDirectoryReaderType<D>,
+  reader: &Arc<StandardDirectoryReaderType<D>>,
   has_changes: bool,
   iw: IndexWriter<D>,
 ) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
@@ -290,30 +657,41 @@ where
   D: Directory + 'static,
   R: Rng + ?Sized,
 {
-  refresh_reader_with_test(random, reader, None, -1, has_changes, iw)
+  refresh_reader_with_test::<R, D, DefaultTestReopen<D>>(
+    random,
+    reader,
+    None,
+    -1,
+    has_changes,
+    Some(iw),
+  )
 }
 
-fn refresh_reader_with_test<R, D>(
+fn refresh_reader_with_test<R, D, T>(
   random: &mut R,
-  reader: &StandardDirectoryReaderType<D>,
-  test: Option<&TestReopen<D>>,
+  reader: &Arc<StandardDirectoryReaderType<D>>,
+  test: Option<&T>,
   modify: i32,
   has_changes: bool,
-  mut iw: IndexWriter<D>,
+  iw: Option<IndexWriter<D>>,
 ) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,
+  T: TestReopen<D>,
 {
   let mut r = None;
-  if let Some(test) = test {
-    iw = test.modify_index(random, modify, iw)?;
-    r = Some(test.open_reader()?);
-  }
+  let iw = if let Some(test) = test {
+    let iw = test.modify_index(random, modify)?;
+    r = Some(Arc::new(test.open_reader()?));
+    iw
+  } else {
+    iw.ok_or_else(|| LuceneError::illegal_state("missing IndexWriter for refreshReader"))?
+  };
 
   let refreshed_reader = match directory_reader::open_if_changed(reader, &iw) {
-    Ok(Some(refreshed)) => RefreshedReader::New(refreshed),
-    Ok(None) => RefreshedReader::Same,
+    Ok(Some(refreshed)) => Arc::new(refreshed),
+    Ok(None) => reader.clone(),
     Err(err) => {
       if let Some(reader) = r.as_ref() {
         let _ = reader.close();
@@ -323,20 +701,14 @@ where
   };
 
   if has_changes {
-    if matches!(refreshed_reader, RefreshedReader::Same) {
+    if Arc::ptr_eq(&refreshed_reader, reader) {
       panic!("No new DirectoryReader instance created during refresh.");
     }
-  } else if matches!(refreshed_reader, RefreshedReader::New(_)) {
+  } else if !Arc::ptr_eq(&refreshed_reader, reader) {
     panic!("New DirectoryReader instance created during refresh even though index had no changes.");
   }
 
-  Ok((
-    ReaderCouple {
-      new_reader: r,
-      refreshed_reader,
-    },
-    iw,
-  ))
+  Ok((ReaderCouple::new(r, refreshed_reader), iw))
 }
 
 fn create_index<R, D>(random: &mut R, dir: Arc<D>, multi_segment: bool) -> Result<IndexWriter<D>>
@@ -372,19 +744,13 @@ where
   Ok(writer)
 }
 
-fn modify_index<D, R>(
-  random: &mut R,
-  i: i32,
-  dir: Arc<D>,
-  iw: IndexWriter<D>,
-) -> Result<IndexWriter<D>>
+fn modify_index<D, R>(random: &mut R, i: i32, dir: Arc<D>) -> Result<IndexWriter<D>>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,
 {
-  let iw = match i {
+  match i {
     0 => {
-      drop(iw);
       let analyzer = MockAnalyzer::new(random);
       let writer = IndexWriter::new(
         dir,
@@ -393,10 +759,9 @@ where
       writer.delete_documents_with_terms(vec![Term::from_text("field2", "a11")])?;
       writer.delete_documents_with_terms(vec![Term::from_text("field2", "b30")])?;
       writer.close()?;
-      writer
+      Ok(writer)
     },
     1 => {
-      drop(iw);
       let analyzer = MockAnalyzer::new(random);
       let writer = IndexWriter::new(
         dir,
@@ -404,10 +769,9 @@ where
       )?;
       writer.force_merge(1)?;
       writer.close()?;
-      writer
+      Ok(writer)
     },
     2 => {
-      drop(iw);
       let analyzer = MockAnalyzer::new(random);
       let writer = IndexWriter::new(
         dir,
@@ -418,10 +782,9 @@ where
       writer.add_document(create_document(102, 4)?)?;
       writer.add_document(create_document(103, 4)?)?;
       writer.close()?;
-      writer
+      Ok(writer)
     },
     3 => {
-      drop(iw);
       let analyzer = MockAnalyzer::new(random);
       let writer = IndexWriter::new(
         dir,
@@ -429,11 +792,18 @@ where
       )?;
       writer.add_document(create_document(101, 4)?)?;
       writer.close()?;
-      writer
+      Ok(writer)
     },
-    _ => iw,
-  };
-  Ok(iw)
+    _ => {
+      let analyzer = MockAnalyzer::new(random);
+      let writer = IndexWriter::new(
+        dir,
+        new_index_writer_config_with_analyzer(random, analyzer)?,
+      )?;
+      writer.close()?;
+      Ok(writer)
+    },
+  }
 }
 
 fn assert_reader_closed<D>(reader: &StandardDirectoryReaderType<D>, _check_sub_readers: bool)
