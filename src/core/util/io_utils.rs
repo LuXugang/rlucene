@@ -45,9 +45,10 @@ impl IOUtils {
   /// Deletes all given files, suppressing all returned errors.
   ///
   /// Note: The `files` collection should not be empty or contain `None`.
-  pub fn delete_files_ignoring_exceptions<'a, T>(dir: &impl Directory, files: T)
+  pub fn delete_files_ignoring_exceptions<'a, T, D>(dir: &D, files: T)
   where
     T: IntoIterator<Item = &'a String>,
+    D: Directory + ?Sized,
   {
     for name in files {
       if dir.delete_file(name).is_err() {
@@ -55,9 +56,10 @@ impl IOUtils {
       }
     }
   }
-  pub fn delete_files<'a, T>(dir: &impl Directory, names: T) -> Result<()>
+  pub fn delete_files<'a, T, D>(dir: &D, names: T) -> Result<()>
   where
     T: IntoIterator<Item = &'a String>,
+    D: Directory + ?Sized,
   {
     for name in names {
       dir.delete_file(name)?;

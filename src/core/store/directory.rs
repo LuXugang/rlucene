@@ -216,50 +216,33 @@ pub trait Directory: Display + Closeable + HasIdentity {
       let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
       let mut os = match self.create_output(dest, context) {
         Ok(os) => os,
-        Err(mut error) => {
+        Err(error) => {
+          let mut result = Err(error);
           if let Err(close_error) = is.close() {
-            error.add_suppressed(close_error);
+            result = Err(IOUtils::use_or_suppress(result.err(), close_error));
           }
-          return Err(error);
+          return result;
         },
       };
-      let copy_result = (|| -> Result<()> {
+      let mut result = (|| -> Result<()> {
         let length = IndexInput::length(&is)?;
         os.copy_bytes(&mut is, length)?;
+        success = true;
         Ok(())
       })();
-      let mut close_error = None;
       if let Err(error) = os.close() {
-        close_error = Some(IOUtils::use_or_suppress(close_error, error));
+        result = Err(IOUtils::use_or_suppress(result.err(), error));
       }
       if let Err(error) = is.close() {
-        close_error = Some(IOUtils::use_or_suppress(close_error, error));
+        result = Err(IOUtils::use_or_suppress(result.err(), error));
       }
-      match (copy_result, close_error) {
-        (Ok(()), None) => {
-          success = true;
-          Ok(())
-        },
-        (Ok(()), Some(error)) => Err(error),
-        (Err(mut error), Some(close_error)) => {
-          error.add_suppressed(close_error);
-          Err(error)
-        },
-        (Err(error), None) => Err(error),
-      }
+      result
     })();
 
     if !success {
-      self.delete_files_ignoring_exceptions(&[dest.to_string()]);
+      IOUtils::delete_files_ignoring_exceptions(self, &[dest.to_string()]);
     }
     result
-  }
-  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-    for name in files {
-      if self.delete_file(name).is_err() {
-        // ignore
-      }
-    }
   }
   /// Returns a set of files currently pending deletion in this directory.
   ///
@@ -416,12 +399,6 @@ macro_rules! either_directory {
                 }
             }
 
-            fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-                match self {
-                    $( Self::$Variant(inner) => inner.delete_files_ignoring_exceptions(files), )+
-                }
-            }
-
             fn get_pending_deletions(&self) -> Result<HashSet<String>> {
                 match self {
                     $( Self::$Variant(inner) => inner.get_pending_deletions(), )+
@@ -499,9 +476,6 @@ impl<D: Directory> Directory for &D {
   fn copy_from(&self, from: &impl Directory, src: &str, dst: &str, ctx: &IOContext) -> Result<()> {
     (**self).copy_from(from, src, dst, ctx)
   }
-  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-    (**self).delete_files_ignoring_exceptions(files)
-  }
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     (**self).get_pending_deletions()
   }
@@ -560,9 +534,6 @@ impl<D: Directory> Directory for Arc<D> {
   }
   fn copy_from(&self, from: &impl Directory, src: &str, dst: &str, ctx: &IOContext) -> Result<()> {
     (**self).copy_from(from, src, dst, ctx)
-  }
-  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-    (**self).delete_files_ignoring_exceptions(files)
   }
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     (**self).get_pending_deletions()

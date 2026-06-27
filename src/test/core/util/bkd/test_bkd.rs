@@ -37,6 +37,7 @@ use crate::core::util::bkd::bkd_writer::{
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use crate::test::core::store::corrupting_index_output::CorruptingIndexOutput;
@@ -1188,7 +1189,7 @@ where
       let _ = output.close();
     }
     let files = vec!["bkd".to_string(), "bkd2".to_string()];
-    dir.delete_files_ignoring_exceptions(&files);
+    IOUtils::delete_files_ignoring_exceptions(dir, &files);
   }
 
   result
@@ -2412,10 +2413,6 @@ where
     context: &IOContext,
   ) -> Result<()> {
     self.in_.copy_from(from, src, dest, context)
-  }
-
-  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-    self.in_.delete_files_ignoring_exceptions(files)
   }
 
   fn get_pending_deletions(&self) -> Result<std::collections::HashSet<String>> {

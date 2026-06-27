@@ -141,10 +141,6 @@ where
     self.in_.copy_from(from, src, dest, context)
   }
 
-  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-    self.in_.delete_files_ignoring_exceptions(files)
-  }
-
   fn get_pending_deletions(&self) -> Result<std::collections::HashSet<String>> {
     self.in_.get_pending_deletions()
   }

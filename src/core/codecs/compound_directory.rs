@@ -312,13 +312,6 @@ where
     }
   }
 
-  fn delete_files_ignoring_exceptions(&self, files: &[String]) {
-    match self {
-      CompoundDirectoryEnum::A(dir) => dir.delete_files_ignoring_exceptions(files),
-      CompoundDirectoryEnum::B(dir) => dir.delete_files_ignoring_exceptions(files),
-    }
-  }
-
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     match self {
       CompoundDirectoryEnum::A(dir) => dir.get_pending_deletions(),
