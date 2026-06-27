@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 #![cfg_attr(debug_assertions, allow(dead_code))]
-
+#![cfg_attr(not(test), forbid(clippy::mutable_key_type))]
 #[macro_export]
 macro_rules! dummy_unreachable {
   () => {

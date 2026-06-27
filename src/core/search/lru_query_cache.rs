@@ -386,6 +386,10 @@ where
         };
         let _ = unique_queries.remove(query.as_ref());
         if size == unique_queries.len() {
+          // Defensive parity with Java Lucene: production Rust query keys are expected to keep
+          // their Hash/Eq state stable after entering the cache. If a future interior-mutable
+          // query violates that invariant, fail fast instead of silently leaving cache state
+          // inconsistent.
           // size did not decrease, because the hash of the query changed since it has been
           // put into the cache
           return Err(LuceneError::concurrent_modification(format!(
