@@ -16,6 +16,7 @@
  */
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::Arc;
 
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
@@ -48,6 +49,7 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   /// Returns `user_data`, previously passed to [`IndexWriter::set_live_commit_data()`](crate::core::index::index_writer::IndexWriter::set_live_commit_data) for this commit. The map is `String` → `String`.
   fn get_user_data(&self) -> &HashMap<String, String>;
 }
+
 use std::cmp::Ordering;
 
 pub fn is_same_commit<T>(a: &T, b: &T) -> bool
@@ -66,4 +68,43 @@ where
   let b_directory = b.get_directory();
   debug_assert!(a_directory.is_same_identity(&b_directory));
   a.get_generation().cmp(&b.get_generation())
+}
+
+impl<IC> IndexCommit for Arc<IC>
+where
+  IC: IndexCommit + ?Sized,
+{
+  fn get_segments_file_name(&self) -> &str {
+    (**self).get_segments_file_name()
+  }
+
+  fn get_file_names(&self) -> Result<&[String]> {
+    (**self).get_file_names()
+  }
+
+  type Directory = IC::Directory;
+
+  fn get_directory(&self) -> Self::Directory {
+    (**self).get_directory()
+  }
+
+  fn delete(&self) -> Result<()> {
+    (**self).delete()
+  }
+
+  fn is_deleted(&self) -> bool {
+    (**self).is_deleted()
+  }
+
+  fn get_segment_count(&self) -> usize {
+    (**self).get_segment_count()
+  }
+
+  fn get_generation(&self) -> i64 {
+    (**self).get_generation()
+  }
+
+  fn get_user_data(&self) -> &HashMap<String, String> {
+    (**self).get_user_data()
+  }
 }

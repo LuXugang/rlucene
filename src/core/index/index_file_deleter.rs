@@ -62,7 +62,7 @@ where
   /// default delete policy (KeepOnlyLastCommitDeletionPolicy).
   /// Other policies may leave commit points live for longer
   /// in which case this list would be longer than 1.
-  commits: Vec<CommitPoint<D>>,
+  commits: Vec<Arc<CommitPoint<D>>>,
 
   /// Holds files we had incref'd from the previous non-commit checkpoint.
   last_files: Vec<String>,
@@ -155,16 +155,15 @@ where
                 .message("IFD", &format!("init: load commit \"{file}\""))?;
             }
             let sis = SegmentInfos::read_commit(directory_orig.clone(), &file)?;
-            let commit_point = CommitPoint::new(
+            let commit_point = Arc::new(CommitPoint::new(
               index_file_deleter.commits_to_delete.clone(),
               directory_orig.clone(),
               &sis,
-            )?;
-            index_file_deleter.commits.push(commit_point);
-            let index = index_file_deleter.commits.len() - 1;
+            )?);
             if sis.get_generation() == current_gen {
-              current_commit_point = Some(index);
+              current_commit_point = Some(Arc::clone(&commit_point));
             }
+            index_file_deleter.commits.push(commit_point);
             index_file_deleter.inc_ref_from_segment(&sis, true)?;
 
             if last_segment_infos.is_none()
@@ -202,13 +201,13 @@ where
           ),
         )?;
       }
-      let commit_point = CommitPoint::new(
+      let commit_point = Arc::new(CommitPoint::new(
         index_file_deleter.commits_to_delete.clone(),
         directory_orig.clone(),
         &sis,
-      )?;
+      )?);
+      current_commit_point = Some(Arc::clone(&commit_point));
       index_file_deleter.commits.push(commit_point);
-      current_commit_point = Some(index_file_deleter.commits.len());
       index_file_deleter.inc_ref_from_segment(&sis, true)?;
     }
 
@@ -264,7 +263,7 @@ where
     index_file_deleter.checkpoint(segment_infos, false, policy)?;
 
     index_file_deleter.starting_commit_deleted = match current_commit_point {
-      Some(index) => index_file_deleter.commits.get(index).unwrap().is_deleted(),
+      Some(commit) => commit.is_deleted(),
       None => false,
     };
 
@@ -316,7 +315,7 @@ where
     // then decref all files that had been referred to by
     // the now-deleted commits:
     let mut first_error = None;
-    for mut commit in removed {
+    for commit in removed {
       if self.info_stream.is_enabled("IFD") {
         self.info_stream.message(
           "IFD",
@@ -326,8 +325,7 @@ where
           ),
         )?;
       }
-      let files = std::mem::take(&mut commit.files);
-      match self.dec_ref(files.iter()) {
+      match self.dec_ref(commit.files.iter()) {
         Ok(_) => {},
         Err(e) => {
           first_error = Some(IOUtils::use_or_suppress(first_error, e));
@@ -384,7 +382,7 @@ where
     }
     Ok(())
   }
-  fn assert_commits_are_not_deleted(&self, commits: &[CommitPoint<D>]) -> bool {
+  fn assert_commits_are_not_deleted(&self, commits: &[Arc<CommitPoint<D>>]) -> bool {
     for commit in commits {
       debug_assert!(
         !commit.is_deleted(),
@@ -450,11 +448,11 @@ where
 
     if is_commit {
       // Append to our commits list:
-      self.commits.push(CommitPoint::new(
+      self.commits.push(Arc::new(CommitPoint::new(
         Arc::clone(&self.commits_to_delete),
         Arc::clone(&self.directory_orig),
         segment_infos,
-      )?);
+      )?));
 
       debug_assert!(self.assert_commits_are_not_deleted(&self.commits));
       policy.on_commit(&self.commits)?;

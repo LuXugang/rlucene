@@ -31,14 +31,14 @@ impl Display for NoDeletionPolicy {
 impl IndexDeletionPolicy for NoDeletionPolicy {
   fn on_init<IC>(&self, _commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     Ok(())
   }
 
   fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     Ok(())
   }

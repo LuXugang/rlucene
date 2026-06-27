@@ -35,12 +35,12 @@ pub trait IndexDeletionPolicy: Display {
   /// Deletes all commits except the most recent one.
   fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit;
+    IC: IndexCommit + Clone;
 
   /// Deletes all commits except the most recent one.
   fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit;
+    IC: IndexCommit + Clone;
 }
 
 pub enum IndexDeletionPolicyEnum {
@@ -101,7 +101,7 @@ impl Display for IndexDeletionPolicyEnum {
 impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
   fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
@@ -123,7 +123,7 @@ impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
 
   fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),

@@ -608,7 +608,7 @@ impl Display for KeepAllDeletionPolicy {
 impl IndexDeletionPolicy for KeepAllDeletionPolicy {
   fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     verify_commit_order(commits);
     self.num_on_init.fetch_add(1, Ordering::SeqCst);
@@ -617,7 +617,7 @@ impl IndexDeletionPolicy for KeepAllDeletionPolicy {
 
   fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     let last_commit = commits.last().unwrap();
     let r = directory_reader::open(self.dir.clone())?;
@@ -667,7 +667,7 @@ impl Display for KeepNoneOnInitDeletionPolicy {
 impl IndexDeletionPolicy for KeepNoneOnInitDeletionPolicy {
   fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     verify_commit_order(commits);
     self.num_on_init.fetch_add(1, Ordering::SeqCst);
@@ -680,7 +680,7 @@ impl IndexDeletionPolicy for KeepNoneOnInitDeletionPolicy {
 
   fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     verify_commit_order(commits);
     let size = commits.len();
@@ -758,7 +758,7 @@ impl Display for KeepLastNDeletionPolicy {
 impl IndexDeletionPolicy for KeepLastNDeletionPolicy {
   fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     verify_commit_order(commits);
     self.num_on_init.fetch_add(1, Ordering::SeqCst);
@@ -767,7 +767,7 @@ impl IndexDeletionPolicy for KeepLastNDeletionPolicy {
 
   fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
-    IC: IndexCommit,
+    IC: IndexCommit + Clone,
   {
     verify_commit_order(commits);
     self.do_deletes(commits, true)
