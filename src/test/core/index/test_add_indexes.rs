@@ -41,6 +41,7 @@ use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_cfs, new_log_merge_policy_with_merge_factor,
@@ -469,8 +470,8 @@ fn test_no_merge_after_copy() -> Result<()> {
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
   let writer_dir = Arc::new(DirectoryEnum2::A(dir.clone()));
   let writer = new_writer(writer_dir, conf)?;
-  // TODO MockDirectoryWrapper 未实现
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
+  let aux_copy = MockDirectoryWrapper::new(&mut random, aux_copy);
   writer.add_indexes_from_dir(&[
     Arc::new(DirectoryEnum2::A(aux.clone())),
     Arc::new(DirectoryEnum2::B(aux_copy)),
@@ -522,8 +523,8 @@ fn test_merge_after_copy() -> Result<()> {
   if cfg!(feature = "test_log_verbose") {
     println!("\nTEST: now addIndexes");
   }
-  // TODO MockDirectoryWrapper 未实现
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
+  let aux_copy = MockDirectoryWrapper::new(&mut random, aux_copy);
   writer.add_indexes_from_dir(&[
     Arc::new(DirectoryEnum2::A(aux.clone())),
     Arc::new(DirectoryEnum2::B(aux_copy)),

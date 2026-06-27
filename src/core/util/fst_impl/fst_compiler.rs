@@ -20,6 +20,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{ByteArrayDataOutput, DataOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::dummy::dummy_bytes_reader::DummyBytesReader;
 use crate::core::util::fst_impl::fst::{
@@ -398,6 +399,11 @@ where
     let v = std::mem::take(&mut self.fst.metadata);
     Ok(Some(v))
   }
+
+  pub fn close_data_output(&mut self) -> Result<()> {
+    self.data_output.close()
+  }
+
   // serializes new node by appending its bytes to the end
   // of the current byte[]
   pub(crate) fn add_node(&mut self, node_in_idx: usize) -> Result<i64> {
@@ -1206,6 +1212,18 @@ where
     match self {
       DataOutputEnum::FromDir(_) => Ok(0),
       DataOutputEnum::ReadWriter(data_output) => data_output.ram_bytes_used(),
+    }
+  }
+}
+
+impl<D> Closeable for DataOutputEnum<D>
+where
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      DataOutputEnum::FromDir(data_output) => data_output.close(),
+      DataOutputEnum::ReadWriter(_) => Ok(()),
     }
   }
 }

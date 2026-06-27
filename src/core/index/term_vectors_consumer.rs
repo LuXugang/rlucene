@@ -32,6 +32,7 @@ use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, TryIntoInt};
@@ -166,30 +167,39 @@ where
         self
           .writer
           .as_mut()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
           .start_document(self.num_vector_fields)?;
       },
     }
     let idxs = std::mem::take(&mut self.per_fields_idxs);
     for per_field_idx in idxs.into_iter().take(self.num_vector_fields as usize) {
       let v = &mut per_fields[per_field_idx.idx as usize];
-      let next_per_field = v
+      let terms_hash_per_field = v
         .terms_hash_per_field
         .as_mut()
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("terms_hash_per_field not initialized"))?;
+      let next_per_field = terms_hash_per_field
         .next_per_field
         .as_mut()
-        .unwrap();
+        .ok_or_else(|| LuceneError::illegal_state("next_per_field not initialized"))?;
       next_per_field.finish_document(self, int_pool, byte_pool)?;
       next_per_field.reset(byte_pool)
     }
 
     match self.sub {
       Some(ref mut sub) => {
-        sub.writer.as_mut().unwrap().finish_document()?;
+        sub
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+          .finish_document()?;
       },
       None => {
-        self.writer.as_mut().unwrap().finish_document()?;
+        self
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+          .finish_document()?;
       },
     }
     debug_assert_eq!(
@@ -234,28 +244,38 @@ where
     DM: DocMap,
     D1: Directory,
   {
-    if self.writer.is_some() || (self.sub.is_some() && self.sub.as_ref().unwrap().writer.is_some())
-    {
+    if self.writer.is_some() || self.sub.as_ref().is_some_and(|sub| sub.writer.is_some()) {
       let num_docs = info.max_doc()?;
       debug_assert!(num_docs > 0);
       // At least one doc in this run had term vectors enabled
-      self.fill(num_docs)?;
+      let fill_result = self.fill(num_docs);
       match self.sub {
         Some(ref mut sub) => {
-          sub
+          let tmp_directory = &sub.tmp_directory;
+          let writer = sub
             .writer
             .as_mut()
-            .unwrap()
-            .finish(num_docs, &sub.tmp_directory)?;
-          let _ = sub.writer.take();
+            .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+          let finish_result = match fill_result {
+            Ok(()) => writer.finish(num_docs, tmp_directory),
+            Err(e) => Err(e),
+          };
+          let close_result = writer.close();
+          close_result?;
+          finish_result?;
         },
         None => {
-          self
+          let writer = self
             .writer
             .as_mut()
-            .unwrap()
-            .finish(num_docs, state.directory)?;
-          let _ = self.writer.take();
+            .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+          let finish_result = match fill_result {
+            Ok(()) => writer.finish(num_docs, state.directory),
+            Err(e) => Err(e),
+          };
+          let close_result = writer.close();
+          close_result?;
+          finish_result?;
         },
       }
 

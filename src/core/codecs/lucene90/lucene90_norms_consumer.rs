@@ -31,6 +31,8 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
+use crate::core::util::IOUtils;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -93,9 +95,20 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
   pub fn close(&mut self) -> Result<()> {
     if !self.closed {
       self.closed = true;
-      self.meta.write_int(-1)?;
-      CodecUtil::write_footer(&mut self.meta)?;
-      CodecUtil::write_footer(&mut self.data)?;
+      let result = (|| -> Result<()> {
+        self.meta.write_int(-1)?;
+        CodecUtil::write_footer(&mut self.meta)?;
+        CodecUtil::write_footer(&mut self.data)
+      })();
+      match result {
+        Ok(()) => {
+          IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?;
+        },
+        Err(err) => {
+          IOUtils::close_while_handling_error([&mut self.data, &mut self.meta], Closeable::close)?;
+          return Err(err);
+        },
+      }
     }
     Ok(())
   }

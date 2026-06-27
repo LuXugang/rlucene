@@ -78,6 +78,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -519,6 +520,16 @@ where
       self.delegate.try_clone()?,
       self.doc_map.clone(),
     ))
+  }
+}
+
+impl<T, DM> Closeable for TermVectorsReaderImpl<T, DM>
+where
+  T: TermVectorsReader,
+  DM: DocMap + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
   }
 }
 
@@ -1480,6 +1491,16 @@ where
       self.delegate.try_clone()?,
       self.doc_map.clone(),
     ))
+  }
+}
+
+impl<SFR, DM> Closeable for StoredFieldsReaderImpl<SFR, DM>
+where
+  SFR: StoredFieldsReader,
+  DM: DocMap + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
   }
 }
 

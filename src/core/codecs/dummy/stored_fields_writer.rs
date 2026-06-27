@@ -21,9 +21,12 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::MergeState;
 use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyStoredFieldsWriter;
+impl Closeable for DummyStoredFieldsWriter {}
+
 impl StoredFieldsWriter for DummyStoredFieldsWriter {
   fn start_document(&mut self) -> Result<()> {
     dummy_unreachable!()

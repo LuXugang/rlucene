@@ -24,6 +24,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::borrow::Cow;
@@ -38,7 +39,7 @@ use std::sync::Arc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
-pub trait PostingsWriterBase {
+pub trait PostingsWriterBase: Closeable {
   /// Called once after startup, before any terms have been added.
   /// Implementations typically write a header to the provided `termsOut`.
   fn init<D1, D2>(

@@ -19,9 +19,9 @@ use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
 use crate::core::index::{BytesRef, directory_reader};
 use crate::test::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string, new_directory,
+  at_least, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string,
   new_directory_shared, new_fs_directory, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, random, random_from_seed, random_multiplier,
+  new_mock_directory, new_searcher_with_reader, random, random_from_seed, random_multiplier,
 };
 
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
@@ -35,9 +35,9 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::core::store::{ByteArrayDataInput, FSDirectory, IOContext, NativeFSLockFactory};
+use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+use crate::core::store::{ByteArrayDataInput, ByteBuffersDirectory, IOContext};
 use crate::core::util::Comparator;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -60,6 +60,7 @@ use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test::core::util::fst::fst_tester::{
   DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, simple_random_string,
   to_ints_ref_from_string,
@@ -76,15 +77,14 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 struct TestFSTs {
-  // TODO: MockDirectoryWrapper not Implement
-  dir: Rc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
+  dir: Rc<MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>>,
 }
 impl TestFSTs {
   fn new<R>(random: &mut R) -> Result<Self>
   where
     R: Rng + ?Sized,
   {
-    let dir = new_directory(random)?;
+    let dir = new_mock_directory(random)?;
     Ok(Self { dir: Rc::new(dir) })
   }
   fn do_test<R>(
@@ -406,7 +406,7 @@ fn test_basic_fsa() -> Result<()> {
 fn test_random_words() -> Result<()> {
   let mut random = random();
   let test = TestFSTs {
-    dir: Rc::new(new_directory(&mut random)?),
+    dir: Rc::new(new_mock_directory(&mut random)?),
   };
   if is_night_mode() {
     let num_iter = at_least(&mut random, 2);

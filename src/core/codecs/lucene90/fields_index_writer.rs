@@ -21,7 +21,9 @@ use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexOutput};
 use crate::core::util::StringHelper;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 
 pub struct FieldsIndexWriter<O>
@@ -140,10 +142,19 @@ where
       .unwrap()
       .get_name()
       .to_string();
-    {
-      let _ = std::mem::take(&mut self.docs_out);
-      let _ = std::mem::take(&mut self.file_pointers_out);
-    }
+    let docs_close_result = if let Some(mut docs_out) = self.docs_out.take() {
+      docs_out.close()
+    } else {
+      Ok(())
+    };
+    let file_pointers_close_result =
+      if let Some(mut file_pointers_out) = self.file_pointers_out.take() {
+        file_pointers_out.close()
+      } else {
+        Ok(())
+      };
+    docs_close_result?;
+    file_pointers_close_result?;
 
     let mut data_out = dir.create_output(
       &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
@@ -248,23 +259,54 @@ where
     meta_out.write_long(data_out.get_file_pointer()? as i64)?;
     meta_out.write_long(max_pointer as i64)?;
     CodecUtil::write_footer(&mut data_out)?;
-    Ok(())
+    data_out.close()
   }
 }
+impl<O> Closeable for FieldsIndexWriter<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    let (close_result, file_names) = match (&mut self.docs_out, &mut self.file_pointers_out) {
+      (None, None) => return Ok(()),
+      (Some(docs_out), Some(file_pointers_out)) => {
+        let close_result =
+          IOUtils::close([&mut *docs_out, &mut *file_pointers_out], Closeable::close);
+
+        let file_names = vec![
+          docs_out.get_name().to_string(),
+          file_pointers_out.get_name().to_string(),
+        ];
+        (close_result, file_names)
+      },
+      (None, Some(_)) | (Some(_), None) => {
+        return Err(LuceneError::illegal_state(
+          "FieldsIndexWriter is partially closed".to_string(),
+        ));
+      },
+    };
+
+    let delete_result = (|| -> Result<()> {
+      // TODO IMPORTANT 要用 Directory 删除
+      for file_name in file_names {
+        fs::remove_file(&file_name).map_err(|e| LuceneError::io_with_path(file_name, e))?;
+      }
+      Ok(())
+    })();
+
+    self.docs_out = None;
+    self.file_pointers_out = None;
+
+    delete_result?;
+    close_result
+  }
+}
+
 impl<O> Drop for FieldsIndexWriter<O>
 where
   O: IndexOutput,
 {
   fn drop(&mut self) {
-    if let Some(docs_out) = self.docs_out.as_ref() {
-      let _ = fs::remove_file(docs_out.get_name());
-    }
-
-    if let Some(file_pointers_out) = self.file_pointers_out.as_ref() {
-      let _ = fs::remove_file(file_pointers_out.get_name());
-    }
-
-    let _ = self.docs_out.take();
-    let _ = self.file_pointers_out.take();
+    let _ = self.close();
   }
 }

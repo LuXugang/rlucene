@@ -247,6 +247,31 @@ where
     self.state.input_clone_count.load(Ordering::SeqCst)
   }
 
+  pub(crate) fn is_open(&self) -> bool {
+    self.state.base.lock().is_open()
+  }
+
+  /// Set whether or not checkindex should be run on close.
+  pub(crate) fn set_check_index_on_close(&self, value: bool) {
+    self.state.base.lock().set_check_index_on_close(value);
+  }
+
+  pub(crate) fn get_check_index_on_close(&self) -> bool {
+    self.state.base.lock().get_check_index_on_close()
+  }
+
+  pub(crate) fn set_cross_check_term_vectors_on_close(&self, value: bool) {
+    self
+      .state
+      .base
+      .lock()
+      .set_cross_check_term_vectors_on_close(value);
+  }
+
+  pub(crate) fn get_level_for_check_on_close(&self) -> i32 {
+    self.state.base.lock().get_level_for_check_on_close()
+  }
+
   /// If set to true, we print a fake exception with filename and stacktrace on
   /// every indexinput clone()
   pub(crate) fn set_verbose_clone(&self, v: bool) {

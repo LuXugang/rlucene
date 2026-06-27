@@ -20,12 +20,14 @@ use crate::core::index::fields::{Fields, FieldsEnum2};
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::TermsEnum2;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 /// Codec API for reading term vectors:
 ///
 /// This uses [`TryClone`] rather than the built-in [`Clone`] because cloning
 /// underlying inputs can fail, and `Clone::clone` cannot return an error.
-pub trait TermVectorsReader: TermVectors + TryClone {
+/// Implementations must also implement [`Closeable::close`].
+pub trait TermVectorsReader: TermVectors + TryClone + Closeable {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -50,6 +52,19 @@ macro_rules! either_term_vectors_reader {
         $vis enum $name<$T1, $( $T ),+> {
             $Variant1($T1),
             $( $Variant($T), )+
+        }
+
+        impl<$T1, $( $T ),+> Closeable for $name<$T1, $( $T ),+>
+        where
+            $T1: TermVectorsReader,
+            $( $T: TermVectorsReader ),+
+        {
+            fn close(&mut self) -> Result<()> {
+                match self {
+                    Self::$Variant1(inner) => inner.close(),
+                    $( Self::$Variant(inner) => inner.close(), )+
+                }
+            }
         }
 
         impl<$T1, $( $T ),+> TermVectors for $name<$T1, $( $T ),+>

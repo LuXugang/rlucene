@@ -24,28 +24,37 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::term::Term;
-use crate::core::store::directory::DirEnum;
+use crate::core::store::ByteBuffersDirectory;
+use crate::core::store::directory::Directory;
+use crate::core::store::index_input::IndexInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test::core::util::english::English;
 use crate::test::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, is_night_mode, new_directory_shared, new_fs_directory,
+  create_temp_dir_with_prefix, is_night_mode, new_fs_directory,
   new_index_writer_config_with_analyzer, random,
 };
 use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 use std::thread;
+
 #[allow(dead_code)] // for quick search
 struct TestAtomicUpdate;
 
 impl TestAtomicUpdate {
-  fn indexer_do_work<R>(
-    writer: &RandomIndexWriter<DirEnum>,
+  fn indexer_do_work<D, R>(
+    writer: &RandomIndexWriter<D>,
     random: &mut R,
     current_iteration: i32,
   ) -> Result<()>
   where
+    D: Directory + Send + Sync + 'static,
+    D::IndexOutput: Send + Sync,
+    D::IndexInput: Send + Sync,
+    <D::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+    D::Lock: Send + Sync,
     R: Rng + ?Sized,
   {
     // Update all 100 docs...
@@ -64,7 +73,12 @@ impl TestAtomicUpdate {
     Ok(())
   }
 
-  fn searcher_do_work(directory: Arc<DirEnum>) -> Result<()> {
+  fn searcher_do_work<D>(directory: Arc<D>) -> Result<()>
+  where
+    D: Directory + Send + Sync + 'static,
+    D::IndexInput: Send + Sync,
+    <D::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+  {
     let r = directory_reader::open(directory)?;
     assert_eq!(100, r.num_docs()?);
     Ok(())
@@ -74,8 +88,13 @@ impl TestAtomicUpdate {
    * Run N indexer and N searchers against single index as
    * stress test.
    */
-  fn run_test<R>(random: &mut R, directory: Arc<DirEnum>) -> Result<()>
+  fn run_test<D, R>(random: &mut R, directory: Arc<D>) -> Result<()>
   where
+    D: Directory + Send + Sync + 'static,
+    D::IndexOutput: Send + Sync,
+    D::IndexInput: Send + Sync,
+    <D::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
+    D::Lock: Send + Sync,
     R: Rng + ?Sized,
   {
     let index_threads = if is_night_mode() { 5 } else { 1 };
@@ -162,9 +181,8 @@ impl TestAtomicUpdate {
     let mut random = random();
 
     // Run against a random directory.
-    // TODO IMPORTANT MockDirectoryWrapper未实现
-    let directory = new_directory_shared(&mut random)?;
-    Self::run_test(&mut random, directory)?;
+    let directory = MockDirectoryWrapper::new(&mut random, ByteBuffersDirectory::new());
+    Self::run_test(&mut random, Arc::new(directory.clone()))?;
 
     // Then against an FSDirectory.
     let dir_path = create_temp_dir_with_prefix("lucene.test.atomic")?;

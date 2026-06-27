@@ -38,6 +38,7 @@ use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
@@ -559,6 +560,8 @@ where
   }
 }
 
+impl<LR> Closeable for StoredFieldsReaderImpl<LR> where LR: LeafReader + Clone {}
+
 impl<LR> StoredFieldsReader for StoredFieldsReaderImpl<LR>
 where
   LR: LeafReader + Clone,
@@ -647,6 +650,8 @@ where
     reader_to_term_vectors_reader(self.reader.clone())
   }
 }
+
+impl<LR> Closeable for TermVectorsReaderImpl<LR> where LR: LeafReader + Clone {}
 
 impl<LR> TermVectorsReader for TermVectorsReaderImpl<LR>
 where

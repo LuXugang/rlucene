@@ -26,6 +26,7 @@ use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsu
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 
@@ -116,10 +117,18 @@ where
   pub(crate) fn write_field(&mut self, info: &FieldInfo, value: &FieldDataEnum) -> Result<()> {
     match self.sub {
       Some(ref mut sub) => {
-        Self::do_write_field(sub.writer.as_mut().unwrap(), info, value)?;
+        let writer = sub
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("sub writer must be initialized"))?;
+        Self::do_write_field(writer, info, value)?;
       },
       None => {
-        Self::do_write_field(self.writer.as_mut().unwrap(), info, value)?;
+        let writer = self
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
+        Self::do_write_field(writer, info, value)?;
       },
     }
 
@@ -194,21 +203,35 @@ where
     D1: Directory,
   {
     match self.sub {
-      // TODO: 如果writer这里实现了closeable 我们需要使用result封装 即使发生错误也要调用
       Some(ref mut sub) => {
-        sub
+        let tmp_directory = &sub.tmp_directory;
+        let writer = sub
           .writer
           .as_mut()
-          .unwrap()
-          .finish(info.max_doc()?, &sub.tmp_directory)?;
-        {
-          let _ = sub.writer.take();
-        }
+          .ok_or_else(|| LuceneError::illegal_state("sub writer must be initialized"))?;
+        let max_doc_result = info.max_doc();
+        let finish_result = match max_doc_result {
+          Ok(max_doc) => writer.finish(max_doc, tmp_directory),
+          Err(e) => Err(e),
+        };
+        let close_result = writer.close();
+        close_result?;
+        finish_result?;
         sub.flush(state, sort_map, info)?;
       },
       None => {
-        self.writer.as_mut().unwrap().finish(info.max_doc()?, dir)?;
-        let _ = self.writer.take();
+        let writer = self
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
+        let max_doc_result = info.max_doc();
+        let finish_result = match max_doc_result {
+          Ok(max_doc) => writer.finish(max_doc, dir),
+          Err(e) => Err(e),
+        };
+        let close_result = writer.close();
+        close_result?;
+        finish_result?;
       },
     }
     Ok(())

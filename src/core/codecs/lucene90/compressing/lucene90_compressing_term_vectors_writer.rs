@@ -39,7 +39,9 @@ use crate::core::store::{
 };
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::Format::Packed;
 use crate::core::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
 use crate::core::util::packed::block_packed_writer::BlockPackedWriter;
@@ -62,6 +64,7 @@ where
   index_writer: FieldsIndexWriter<O>,
   meta_stream: O,
   vectors_stream: O,
+  closed: bool,
   compression_mode: CompressionModeEnum,
   compressor: CompressorEnum,
   chunk_size: i32,
@@ -171,6 +174,7 @@ where
       index_writer,
       meta_stream,
       vectors_stream,
+      closed: false,
       compression_mode,
       compressor,
       chunk_size,
@@ -876,6 +880,27 @@ where
         .saturating_add(size_of_vec(&self.last_term.bytes))
         .saturating_add(self.scratch_buffer.ram_bytes_used()?),
     )
+  }
+}
+
+impl<O> Closeable for Lucene90CompressingTermVectorsWriter<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    if self.closed {
+      return Ok(());
+    }
+
+    let mut close_result = IOUtils::close(
+      [&mut self.meta_stream, &mut self.vectors_stream],
+      Closeable::close,
+    );
+    if let Err(index_error) = self.index_writer.close() {
+      close_result = Err(IOUtils::use_or_suppress(close_result.err(), index_error));
+    }
+    self.closed = true;
+    close_result
   }
 }
 

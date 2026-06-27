@@ -26,6 +26,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::ToInt;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{Arc, END_LABEL, FST, InputType, read_metadata};
 use crate::core::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
@@ -202,6 +203,9 @@ where
     let fst_metadata_opt = fst_compiler.compile()?;
     let node_count = fst_compiler.get_node_count();
     let arc_count = fst_compiler.get_arc_count();
+    if use_off_heap {
+      fst_compiler.close_data_output()?;
+    }
     let fst = if use_off_heap {
       match fst_metadata_opt {
         None => {
@@ -209,8 +213,6 @@ where
           None
         },
         Some(metadata) => {
-          // flush data to file
-          drop(fst_compiler);
           let mut input = self
             .dir
             .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
@@ -228,6 +230,7 @@ where
           if let Some(fst_ref) = &fst {
             fst_ref.save_with_same_data_out(&mut out)?;
           }
+          out.close()?;
         }
         let mut input = self.dir.open_input("fst.bin", &ctx)?;
         let metadata = read_metadata(&mut input, self.outputs.clone())?;

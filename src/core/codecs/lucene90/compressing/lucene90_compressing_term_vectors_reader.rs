@@ -54,6 +54,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
@@ -63,7 +64,7 @@ use crate::core::util::packed::block_packed_reader_iterator::BlockPackedReaderIt
 use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, ReaderIterator};
-use crate::core::util::{ToInt, TryIntoInt};
+use crate::core::util::{IOUtils, ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::io::Cursor;
 use std::rc::Rc;
@@ -317,15 +318,6 @@ where
       Ok(())
     }
   }
-  /// # Note
-  /// `indexReader` and `fieldsStream` will automatically release resource in
-  /// Rust Lucene, but we still keep this method for compatibility with
-  /// Java Lucene.
-  pub fn close(&mut self) {
-    if !self.closed {
-      self.closed = true;
-    }
-  }
   fn slice(input: &mut I) -> Result<ByteBuffersDataInputOwned> {
     let length = input.read_vint()?.try_convert()?;
     let mut buf = vec![0; length];
@@ -424,6 +416,30 @@ where
     Ok(positions)
   }
 }
+
+impl<I> Closeable for Lucene90CompressingTermVectorsReader<I>
+where
+  I: IndexInput,
+{
+  /// Close the underlying [`IndexInput`]s.
+  fn close(&mut self) -> Result<()> {
+    if !self.closed {
+      let mut result = None;
+      if let Err(e) = self.index_reader.close() {
+        result = Some(IOUtils::use_or_suppress(result, e));
+      }
+      if let Err(e) = self.vectors_stream.close() {
+        result = Some(IOUtils::use_or_suppress(result, e));
+      }
+      if let Some(e) = result {
+        return Err(e);
+      }
+      self.closed = true;
+    }
+    Ok(())
+  }
+}
+
 impl<I> TermVectors for Lucene90CompressingTermVectorsReader<I>
 where
   I: IndexInput,

@@ -19,8 +19,8 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
-  new_log_merge_policy_with_merge_factor_cfs, new_string_field, new_text_field, random,
-  slow_file_exists,
+  new_log_merge_policy_with_merge_factor_cfs, new_mock_directory, new_string_field, new_text_field,
+  random, slow_file_exists,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -45,6 +45,7 @@ struct TestIndexFileDeleter;
 
 use crate::core::index::index_file_deleter::inflate_gens;
 use std::collections::HashSet;
+use std::sync::Arc;
 
 #[test]
 fn test_delete_left_over_files() -> Result<()> {
@@ -300,22 +301,52 @@ fn test_no_segments_dot_gen_inflation() -> Result<()> {
 
 #[test]
 fn test_segments_inflation() -> Result<()> {
-  // TODO MockDirectoryWrapper 未实现
+  let mut random = random();
+  let dir = new_mock_directory(&mut random)?;
+  dir.set_check_index_on_close(false); // TODO: allow falling back more than one commit
+
+  // empty commit
+  let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
+  writer.close()?;
+  drop(writer);
+
+  let mut sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
+  assert_eq!(1, sis.get_generation());
+
+  // add trash commit
+  let mut output = dir.create_output(
+    &format!("{}{}", IndexFileNames::SEGMENTS, "_2"),
+    &new_io_context(&mut random)?,
+  )?;
+  output.close()?;
+
+  // ensure inflation
+  inflate_gens_test(&mut sis, dir.list_all()?, &get_default_info_stream())?;
+  assert_eq!(2, sis.get_generation());
+
+  // add another trash commit
+  let mut output = dir.create_output(
+    &format!("{}{}", IndexFileNames::SEGMENTS, "_4"),
+    &new_io_context(&mut random)?,
+  )?;
+  output.close()?;
+  inflate_gens_test(&mut sis, dir.list_all()?, &get_default_info_stream())?;
+  assert_eq!(4, sis.get_generation());
+
   Ok(())
 }
 
 #[test]
 fn test_segment_name_inflation() -> Result<()> {
-  // TODO IMPORTANT MockDirectoryWrapper未实现
   let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
 
   // empty commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
+  let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
   writer.close()?;
   drop(writer);
 
-  let mut sis = SegmentInfos::read_latest_commit(dir.clone())?;
+  let mut sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
   assert_eq!(0, sis.counter);
 
   // no inflation
@@ -343,12 +374,12 @@ fn test_segment_name_inflation() -> Result<()> {
   assert_eq!(4, sis.counter);
 
   // ensure we write _4 segment next
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
+  let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
   writer.close()?;
   drop(writer);
-  sis = SegmentInfos::read_latest_commit(dir.clone())?;
+  sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
   assert_eq!("_4", sis.info(0).unwrap().info.name);
   assert_eq!(5, sis.counter);
 
@@ -357,19 +388,18 @@ fn test_segment_name_inflation() -> Result<()> {
 
 #[test]
 fn test_generation_inflation() -> Result<()> {
-  // TODO IMPORTANT MockDirectoryWrapper未实现
   let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
 
   // initial commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
+  let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
   writer.close()?;
   drop(writer);
 
   // no deletes: start at 1
-  let mut sis = SegmentInfos::read_latest_commit(dir.clone())?;
+  let mut sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
   assert_eq!(1, sis.info(0).unwrap().get_next_del_gen());
 
   // no inflation
@@ -392,25 +422,46 @@ fn test_generation_inflation() -> Result<()> {
 
 #[test]
 fn test_trashy_file() -> Result<()> {
-  // TODO MockDirectoryWrapper未实现
+  let mut random = random();
+  let dir = new_mock_directory(&mut random)?;
+  dir.set_check_index_on_close(false); // TODO: maybe handle such trash better elsewhere...
+
+  // empty commit
+  let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
+  writer.close()?;
+  drop(writer);
+
+  let mut sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
+  assert_eq!(1, sis.get_generation());
+
+  // add trash file
+  let mut output = dir.create_output(
+    &format!("{}{}", IndexFileNames::SEGMENTS, "_"),
+    &new_io_context(&mut random)?,
+  )?;
+  output.close()?;
+
+  // no inflation
+  inflate_gens_test(&mut sis, dir.list_all()?, &get_default_info_stream())?;
+  assert_eq!(1, sis.get_generation());
+
   Ok(())
 }
 
 #[test]
 fn test_trashy_gen_file() -> Result<()> {
-  // TODO MockDirectoryWrapper未实现
   let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
 
   // initial commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
+  let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
   writer.add_document(Document::new())?;
   writer.commit()?;
   writer.close()?;
   drop(writer);
 
   // no deletes: start at 1
-  let mut sis = SegmentInfos::read_latest_commit(dir.clone())?;
+  let mut sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
   assert_eq!(1, sis.info(0).unwrap().get_next_del_gen());
 
   // add trash file

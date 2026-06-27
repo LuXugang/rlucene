@@ -38,6 +38,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::core::util::{IOUtils, ToInt};
@@ -255,8 +256,26 @@ where
       writer.finish(max_doc, state.directory)?;
       Ok(())
     })();
-    let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-    IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+
+    let finally_result: Result<()> = (|| {
+      let mut close_result = reader.close();
+      if let Err(writer_error) = writer.close() {
+        close_result = Err(IOUtils::use_or_suppress(close_result.err(), writer_error));
+      }
+      close_result?;
+
+      let file_names: Vec<String> = self
+        .tmp_directory
+        .get_temporary_files()
+        .borrow()
+        .file_names
+        .values()
+        .cloned()
+        .collect();
+      IOUtils::delete_files(&self.tmp_directory, &file_names)?;
+      Ok(())
+    })();
+    finally_result?;
     result
   }
 
@@ -281,8 +300,15 @@ where
   }
 
   fn abort(&mut self) -> Result<()> {
-    let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-    IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+    let file_names: Vec<String> = self
+      .tmp_directory
+      .get_temporary_files()
+      .borrow()
+      .file_names
+      .values()
+      .cloned()
+      .collect();
+    IOUtils::delete_files(&self.tmp_directory, &file_names)?;
     Ok(())
   }
 }

@@ -30,6 +30,7 @@ use crate::core::index::term::Term;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::index::mismatched_leaf_reader::{MismatchedVisitor, shuffle_infos};
 use rand::Rng;
@@ -386,6 +387,15 @@ where
     self
       .in_
       .document_with_visitor(doc_id, &mut mismatched_visitor, writer)
+  }
+}
+
+impl<SFR> Closeable for MismatchedStoredFieldsReader<SFR>
+where
+  SFR: StoredFieldsReader + RawStoredFieldsReader,
+{
+  fn close(&mut self) -> Result<()> {
+    self.in_.close()
   }
 }
 

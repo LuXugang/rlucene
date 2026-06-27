@@ -68,8 +68,10 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::merged_iterator::MergedIterator;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use parking_lot::Mutex;
@@ -614,6 +616,21 @@ where
   }
 }
 
+impl<SFR> Closeable for SlowCompositeStoredFieldsReaderWrapper<SFR>
+where
+  SFR: StoredFieldsReader,
+{
+  fn close(&mut self) -> Result<()> {
+    let mut result = None;
+    for reader in self.readers.iter_mut().flatten() {
+      if let Err(e) = reader.close() {
+        result = Some(IOUtils::use_or_suppress(result, e));
+      }
+    }
+    if let Some(e) = result { Err(e) } else { Ok(()) }
+  }
+}
+
 impl<SFR> StoredFieldsReader for SlowCompositeStoredFieldsReaderWrapper<SFR>
 where
   SFR: StoredFieldsReader,
@@ -858,6 +875,21 @@ where
       r.check_integrity()?;
     }
     Ok(())
+  }
+}
+
+impl<TVR> Closeable for SlowCompositeTermVectorsReaderWrapper<TVR>
+where
+  TVR: TermVectorsReader,
+{
+  fn close(&mut self) -> Result<()> {
+    let mut result = None;
+    for reader in self.readers.iter_mut().flatten() {
+      if let Err(e) = reader.close() {
+        result = Some(IOUtils::use_or_suppress(result, e));
+      }
+    }
+    if let Some(e) = result { Err(e) } else { Ok(()) }
   }
 }
 

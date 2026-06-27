@@ -39,6 +39,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext};
 use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -141,15 +142,41 @@ where
       Ok(())
     })();
 
-    let names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-    IOUtils::delete_files(&self.tmp_directory, names.values())?;
-    result?;
-    Ok(())
+    let finally_result: Result<()> = (|| {
+      let mut close_result = reader.close();
+      if let Err(sort_writer_error) = sort_writer.close() {
+        close_result = Err(IOUtils::use_or_suppress(
+          close_result.err(),
+          sort_writer_error,
+        ));
+      }
+      close_result?;
+
+      let file_names: Vec<String> = self
+        .tmp_directory
+        .get_temporary_files()
+        .borrow()
+        .file_names
+        .values()
+        .cloned()
+        .collect();
+      IOUtils::delete_files(&self.tmp_directory, &file_names)?;
+      Ok(())
+    })();
+    finally_result?;
+    result
   }
 
   fn abort(&mut self) -> Result<()> {
-    let file_names = &self.tmp_directory.get_temporary_files().borrow().file_names;
-    IOUtils::delete_files(&self.tmp_directory, file_names.values())?;
+    let file_names: Vec<String> = self
+      .tmp_directory
+      .get_temporary_files()
+      .borrow()
+      .file_names
+      .values()
+      .cloned()
+      .collect();
+    IOUtils::delete_files(&self.tmp_directory, &file_names)?;
     Ok(())
   }
 }
@@ -299,6 +326,7 @@ impl CompressionModeBase for NoCompression {
 }
 
 pub struct CompressorImpl;
+
 impl Compressor for CompressorImpl {
   fn compress(
     &mut self,
@@ -309,6 +337,9 @@ impl Compressor for CompressorImpl {
     out.copy_bytes(buffers_input, len)
   }
 }
+
+impl Closeable for CompressorImpl {}
+
 pub struct DecompressorImpl;
 
 impl Clone for DecompressorImpl {

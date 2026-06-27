@@ -39,12 +39,14 @@ use crate::core::index::{BytesRef, BytesRefBuilder, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::{ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexOutput};
+use crate::core::util::IOUtils;
 #[cfg(debug_assertions)]
 use crate::core::util::ToInt;
 use crate::core::util::access::{ByteSourceMut, SharedAccessVec};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::compress::lowercase_ascii_compression::LowercaseAsciiCompression;
 use crate::core::util::compress::lz4::{HashTableEnum, HighCompressionHashTable, LZ4};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -418,20 +420,51 @@ where
       return Ok(());
     }
     self.closed = true;
-    self.meta_out.write_vint(self.fields.len() as i32)?;
-    for field_meta in &self.fields {
-      field_meta.copy_to(&mut self.meta_out)?;
+
+    let result = (|| -> Result<()> {
+      self.meta_out.write_vint(self.fields.len() as i32)?;
+      for field_meta in &self.fields {
+        field_meta.copy_to(&mut self.meta_out)?;
+      }
+      CodecUtil::write_footer(&mut self.index_out)?;
+      self
+        .meta_out
+        .write_long(self.index_out.get_file_pointer()? as i64)?;
+      CodecUtil::write_footer(&mut self.terms_out)?;
+      self
+        .meta_out
+        .write_long(self.terms_out.get_file_pointer()? as i64)?;
+      CodecUtil::write_footer(&mut self.meta_out)
+    })();
+    match result {
+      Ok(()) => {
+        let mut close_result = IOUtils::close(
+          [&mut self.meta_out, &mut self.terms_out, &mut self.index_out],
+          Closeable::close,
+        );
+        if let Err(postings_error) = self.postings_writer.close() {
+          close_result = Err(IOUtils::use_or_suppress(close_result.err(), postings_error));
+        }
+        close_result
+      },
+      Err(err) => {
+        let mut close_error = IOUtils::close_while_handling_error(
+          [&mut self.meta_out, &mut self.terms_out, &mut self.index_out],
+          Closeable::close,
+        )
+        .err();
+        if let Err(postings_error) =
+          IOUtils::close_while_handling_error([&mut self.postings_writer], Closeable::close)
+        {
+          close_error = Some(IOUtils::use_or_suppress(close_error, postings_error));
+        }
+        if let Some(close_error) = close_error {
+          Err(IOUtils::use_or_suppress(Some(err), close_error))
+        } else {
+          Err(err)
+        }
+      },
     }
-    CodecUtil::write_footer(&mut self.index_out)?;
-    self
-      .meta_out
-      .write_long(self.index_out.get_file_pointer()? as i64)?;
-    CodecUtil::write_footer(&mut self.terms_out)?;
-    self
-      .meta_out
-      .write_long(self.terms_out.get_file_pointer()? as i64)?;
-    CodecUtil::write_footer(&mut self.meta_out)?;
-    Ok(())
   }
 }
 impl<O, PW> Drop for Lucene90BlockTreeTermsWriter<O, PW>

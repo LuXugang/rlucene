@@ -107,6 +107,7 @@ use crate::core::util::bit_set::of;
 use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::core::util::int_block_pool::{
@@ -115,7 +116,8 @@ use crate::core::util::int_block_pool::{
 use crate::core::util::number::Number;
 use crate::core::util::paged_bytes::PagedBytesDataInput;
 use crate::core::util::{
-  AtomicCounter, ByteBlockPool, CoreHelper, Counter, LUCENE_10_0_0, SharedCounter, TryIntoInt,
+  AtomicCounter, ByteBlockPool, CoreHelper, Counter, IOUtils, LUCENE_10_0_0, SharedCounter,
+  TryIntoInt,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -529,7 +531,10 @@ where
     }
 
     if let Some(mut w) = points_writer {
-      w.finish()?;
+      let finish_result = w.finish();
+      let close_result = w.close();
+      finish_result?;
+      close_result?;
     }
     Ok(())
   }
@@ -564,46 +569,68 @@ where
   {
     let mut dv_consumer = None;
 
-    // iterate hash buckets
-    let mut per_field_index;
-    debug_assert!(self.field_hash.len() <= i32::MAX as usize);
-    for bucket in 0..self.field_hash.len() {
-      per_field_index = self.field_hash[bucket];
-      while per_field_index >= 0 {
-        let per_field = &mut self.per_fields[per_field_index as usize];
-        if let Some(ref mut writer) = per_field.doc_values_writer {
-          let field_info = per_field.field_info.as_ref().unwrap();
-          if *field_info.get_doc_values_type() == DocValuesType::None {
+    let body_result: Result<()> = (|| {
+      // iterate hash buckets
+      let mut per_field_index;
+      debug_assert!(self.field_hash.len() <= i32::MAX as usize);
+      for bucket in 0..self.field_hash.len() {
+        per_field_index = self.field_hash[bucket];
+        while per_field_index >= 0 {
+          let per_field = &mut self.per_fields[per_field_index as usize];
+          if let Some(ref mut writer) = per_field.doc_values_writer {
+            let field_info = per_field.field_info.as_ref().unwrap();
+            if *field_info.get_doc_values_type() == DocValuesType::None {
+              return Err(LuceneError::illegal_state(format!(
+                "segment= {}: field={} has no docvalues but wrote them",
+                segment_info, field_info.name
+              )));
+            }
+            let consumer = match dv_consumer {
+              Some(ref mut consumer) => consumer,
+              None => {
+                // lazy init
+                let fmt = index_writer_config.get_codec().doc_values_format();
+                dv_consumer.insert(fmt.fields_consumer(state, segment_info)?)
+              },
+            };
+            // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
+            writer.flush(sort_map, consumer, segment_info)?;
+          } else if let Some(field_info) = &per_field.field_info
+            && field_info.get_doc_values_type() != &DocValuesType::None
+          {
             return Err(LuceneError::illegal_state(format!(
-              "segment= {}: field={} has no docvalues but wrote them",
-              segment_info, field_info.name
+              "segment={segment_info}: fieldInfos has docValues but did not write them"
             )));
           }
-          if dv_consumer.is_none() {
-            // lazy init
-            let fmt = index_writer_config.get_codec().doc_values_format();
-            dv_consumer = Some(fmt.fields_consumer(state, segment_info)?);
-          }
-          // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
-          writer.flush(sort_map, dv_consumer.as_mut().unwrap(), segment_info)?;
-        } else if let Some(field_info) = &per_field.field_info
-          && field_info.get_doc_values_type() != &DocValuesType::None
-        {
-          return Err(LuceneError::illegal_state(format!(
-            "segment={segment_info}: fieldInfos has docValues but did not write them"
-          )));
+          per_field.doc_values_writer = None;
+          per_field_index = per_field.next;
         }
-        per_field.doc_values_writer = None;
-        per_field_index = per_field.next;
       }
+      Ok(())
+    })();
+
+    let has_dv_consumer = dv_consumer.is_some();
+    match body_result {
+      Ok(()) => {
+        if let Some(mut consumer) = dv_consumer {
+          consumer.close()?;
+        }
+      },
+      Err(err) => {
+        if let Some(mut consumer) = dv_consumer {
+          IOUtils::close_while_handling_error(std::iter::once(&mut consumer), Closeable::close)?;
+        }
+        return Err(err);
+      },
     }
+
     if !state.field_infos.has_doc_values() {
-      if dv_consumer.is_some() {
+      if has_dv_consumer {
         return Err(LuceneError::illegal_state(format!(
           "segment= {segment_info}: fieldInfos has no docValues but wrote them "
         )));
       }
-    } else if dv_consumer.is_none() {
+    } else if !has_dv_consumer {
       return Err(LuceneError::illegal_state(format!(
         "segment= {segment_info}: fieldInfos has docValues but did not wrote them "
       )));

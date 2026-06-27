@@ -27,13 +27,14 @@ use crate::core::index::point_values::{
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 
 /// Write points
-pub trait PointsWriter {
+pub trait PointsWriter: Closeable {
   /// Write all values contained in the provided reader
   fn write_field<PR, D1, D2>(
     &mut self,

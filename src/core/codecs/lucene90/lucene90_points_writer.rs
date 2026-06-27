@@ -28,10 +28,11 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
-use crate::core::util::TryIntoInt;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_writer::{BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{IOUtils, TryIntoInt};
 use std::sync::Arc;
 
 /// Writes dimensional values
@@ -137,6 +138,18 @@ where
       max_mb_sort_in_heap,
       finish: false,
     })
+  }
+}
+
+impl<O> Closeable for Lucene90PointsWriter<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    IOUtils::close(
+      [&mut self.meta_out, &mut self.index_out, &mut self.data_out],
+      Closeable::close,
+    )
   }
 }
 

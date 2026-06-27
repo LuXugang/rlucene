@@ -198,8 +198,20 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
   }
 
   fn test_with_exceptions(&self) -> Result<()> {
-    // TODO IMPORTANT: MockDirectoryWrapper and random IO error injection are not implemented yet.
+    // TODO IMPORTANT 编译错误 object too large
     Ok(())
+  }
+
+  // TODO: merge w/ BaseIndexFileFormatTestCase.handleFakeIOException
+  fn handle_possibly_fake_exception(&self, e: LuceneError) -> Result<bool> {
+    let message = e.to_string();
+    if message.contains("a random IOException")
+      || message.contains("background merge hit exception")
+    {
+      return Ok(true);
+    }
+
+    Err(e)
   }
 
   fn test_multi_valued<R>(&self, random: &mut R) -> Result<()>

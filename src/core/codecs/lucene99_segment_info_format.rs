@@ -26,8 +26,9 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{StringHelper, Version};
+use crate::core::util::{IOUtils, StringHelper, Version};
 
 /// Lucene 9.9 Segment info format.
 ///
@@ -313,16 +314,19 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
   {
     let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
     let mut output = dir.create_output(&file_name, io_context)?;
-    si.add_file(file_name)?;
-    CodecUtil::write_index_header(
-      &mut output,
-      Lucene99SegmentInfoFormat::CODEC_NAME,
-      Lucene99SegmentInfoFormat::VERSION_CURRENT,
-      si.get_id(),
-      "",
-    )?;
-    Self::write_segment_info(&mut output, si)?;
-    CodecUtil::write_footer(&mut output)?;
-    Ok(())
+    let result = (|| -> Result<()> {
+      si.add_file(file_name)?;
+      CodecUtil::write_index_header(
+        &mut output,
+        Lucene99SegmentInfoFormat::CODEC_NAME,
+        Lucene99SegmentInfoFormat::VERSION_CURRENT,
+        si.get_id(),
+        "",
+      )?;
+      Self::write_segment_info(&mut output, si)?;
+      CodecUtil::write_footer(&mut output)
+    })();
+    let close_result = output.close();
+    IOUtils::use_or_suppress_result(result, close_result)
   }
 }

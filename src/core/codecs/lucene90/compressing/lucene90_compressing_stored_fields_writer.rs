@@ -45,7 +45,9 @@ use crate::core::store::{
 };
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 
@@ -64,6 +66,7 @@ where
   meta_stream: O,
   fields_stream: O,
   compressor: CompressorEnum,
+  closed: bool,
   compression_mode: CompressionModeEnum,
   chunk_size: i32,
   max_docs_per_chunk: i32,
@@ -155,6 +158,7 @@ where
       segment,
       compression_mode,
       compressor,
+      closed: false,
       chunk_size,
       max_docs_per_chunk,
       buffered_docs,
@@ -468,6 +472,33 @@ pub static BULK_MERGE_ENABLED: LazyLock<bool> = LazyLock::new(|| {
     .map(|v| v.parse::<bool>().unwrap_or(true))
     .unwrap_or(true)
 });
+impl<O> Closeable for Lucene90CompressingStoredFieldsWriter<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    if self.closed {
+      return Ok(());
+    }
+
+    let mut close_result = IOUtils::close(
+      [&mut self.meta_stream, &mut self.fields_stream],
+      Closeable::close,
+    );
+    if let Err(index_error) = self.index_writer.close() {
+      close_result = Err(IOUtils::use_or_suppress(close_result.err(), index_error));
+    }
+    if let Err(compressor_error) = self.compressor.close() {
+      close_result = Err(IOUtils::use_or_suppress(
+        close_result.err(),
+        compressor_error,
+      ));
+    }
+    self.closed = true;
+    close_result
+  }
+}
+
 impl<O> StoredFieldsWriter for Lucene90CompressingStoredFieldsWriter<O>
 where
   O: IndexOutput,

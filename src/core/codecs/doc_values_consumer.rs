@@ -50,6 +50,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
@@ -59,7 +60,7 @@ use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub trait DocValuesConsumer {
+pub trait DocValuesConsumer: Closeable {
   fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
   where
     D: DocValuesProducer;

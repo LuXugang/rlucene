@@ -30,10 +30,11 @@ use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 
-pub trait TermVectorsWriter: Accountable {
+pub trait TermVectorsWriter: Accountable + Closeable {
   fn start_document(&mut self, num_vector_fields: i32) -> Result<()>;
 
   fn finish_document(&mut self) -> Result<()> {

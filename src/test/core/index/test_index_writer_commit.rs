@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
@@ -26,24 +28,29 @@ use crate::core::index::index_writer::{IndexCommitWrapper, IndexWriter};
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::standard_directory_reader::EmptyLeafSorter;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::analysis::mock_fixed_length_payload_filter::MockFixedLengthPayloadFilter;
+use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::index::test_index_writer::{
   add_doc, add_doc_with_index, assert_no_unreferenced_files,
 };
 use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, new_searcher_with_reader, random,
+  new_log_merge_policy_with_merge_factor, new_mock_directory, new_searcher_with_reader, random,
 };
 use crate::test::core::util::test_util::TestUtil;
+use rand::prelude::StdRng;
+use rand::{Rng, RngExt, SeedableRng};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[allow(dead_code)] // for quick search
@@ -208,7 +215,82 @@ fn test_commit_on_close_abort() -> Result<()> {
 
 #[test]
 fn test_commit_on_close_disk_usage() -> Result<()> {
-  // TODO MockDirectoryWrapper未实现
+  // MemoryCodec, since it uses FST, is not necessarily
+  // "additive", ie if you add up N small FSTs, then merge
+  // them, the merged result can easily be larger than the
+  // sum because the merged FST may use array encoding for
+  // some arcs (which uses more space):
+
+  let mut random = random();
+  let dir = new_mock_directory(&mut random)?;
+  let analyzer: Arc<dyn Analyzer> = if random.random_bool(0.5) {
+    // no payloads
+    Arc::new(CommitOnCloseDiskUsageNoPayloadAnalyzer::new(&mut random))
+  } else {
+    // fixed length payloads
+    let length = random.random_range(0..200);
+    Arc::new(CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer::new(
+      &mut random,
+      length,
+    ))
+  };
+  let mut iwc = new_index_writer_config_with_analyzer(
+    &mut random,
+    Box::new(analyzer.clone()) as Box<dyn Analyzer>,
+  )?;
+  iwc.set_max_buffered_docs(10);
+  iwc.set_reader_pooling(false);
+  iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
+  let writer = IndexWriter::new(Arc::new(dir.clone()), iwc)?;
+  let mut field_types = HashMap::new();
+  for j in 0..30 {
+    add_doc_with_index(&mut random, &writer, j, &mut field_types)?;
+  }
+  writer.close()?;
+  dir.reset_max_used_size_in_bytes()?;
+
+  dir.set_track_disk_usage(true);
+  let start_disk_usage = dir.get_max_used_size_in_bytes();
+  let mut iwc = new_index_writer_config_with_analyzer(
+    &mut random,
+    Box::new(analyzer.clone()) as Box<dyn Analyzer>,
+  )?;
+  iwc.set_open_mode(OpenMode::Append);
+  iwc.set_max_buffered_docs(10);
+  iwc.set_merge_scheduler(SerialMergeScheduler::new());
+  iwc.set_reader_pooling(false);
+  iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
+  let writer = IndexWriter::new(Arc::new(dir.clone()), iwc)?;
+
+  for j in 0..1470 {
+    add_doc_with_index(&mut random, &writer, j, &mut field_types)?;
+  }
+  let mid_disk_usage = dir.get_max_used_size_in_bytes();
+  dir.reset_max_used_size_in_bytes()?;
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  let reader = directory_reader::open(Arc::new(dir.clone()))?;
+  reader.close()?;
+
+  let end_disk_usage = dir.get_max_used_size_in_bytes();
+
+  // Ending index is 50X as large as starting index; due
+  // to 3X disk usage normally we allow 150X max
+  // transient usage.  If something is wrong w/ deleter
+  // and it doesn't delete intermediate segments then it
+  // will exceed this 150X:
+  assert!(
+    mid_disk_usage < 150 * start_disk_usage,
+    "writer used too much space while adding documents: mid={mid_disk_usage} start={start_disk_usage} end={end_disk_usage} max={}",
+    start_disk_usage * 150
+  );
+  assert!(
+    end_disk_usage < 150 * start_disk_usage,
+    "writer used too much space after close: endDiskUsage={end_disk_usage} startDiskUsage={start_disk_usage} max={}",
+    start_disk_usage * 150
+  );
+
   Ok(())
 }
 #[test]
@@ -736,3 +818,84 @@ fn test_commit_data_is_live() -> Result<()> {
 
   Ok(())
 }
+
+struct CommitOnCloseDiskUsageNoPayloadAnalyzer {
+  random: Mutex<StdRng>,
+  stored_value: AnalyzerStoredValue,
+}
+
+impl CommitOnCloseDiskUsageNoPayloadAnalyzer {
+  fn new<R>(random: &mut R) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    Self {
+      random: Mutex::new(StdRng::seed_from_u64(random.random())),
+      stored_value: AnalyzerStoredValue::new(),
+    }
+  }
+
+  fn next_random(&self) -> StdRng {
+    StdRng::seed_from_u64(self.random.lock().expect("random mutex poisoned").random())
+  }
+}
+
+impl Analyzer for CommitOnCloseDiskUsageNoPayloadAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    Ok(TokenStreamComponents::new(
+      Box::new(MockTokenizer::with_default_max_token_length(
+        self.next_random(),
+        WHITESPACE.clone(),
+        true,
+      )) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+crate::impl_analyzer_close!(CommitOnCloseDiskUsageNoPayloadAnalyzer);
+
+struct CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
+  random: Mutex<StdRng>,
+  length: usize,
+  stored_value: AnalyzerStoredValue,
+}
+
+impl CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
+  fn new<R>(random: &mut R, length: usize) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    Self {
+      random: Mutex::new(StdRng::seed_from_u64(random.random())),
+      length,
+      stored_value: AnalyzerStoredValue::new(),
+    }
+  }
+
+  fn next_random(&self) -> StdRng {
+    StdRng::seed_from_u64(self.random.lock().expect("random mutex poisoned").random())
+  }
+}
+
+impl Analyzer for CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    let tokenizer =
+      MockTokenizer::with_default_max_token_length(self.next_random(), WHITESPACE.clone(), true);
+    let filter = MockFixedLengthPayloadFilter::new(tokenizer, self.next_random(), self.length);
+    Ok(TokenStreamComponents::new(
+      Box::new(filter) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+crate::impl_analyzer_close!(CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer);

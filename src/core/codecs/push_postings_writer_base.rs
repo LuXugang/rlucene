@@ -28,6 +28,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
 use crate::core::util::bit_set::BitSet;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::borrow::Cow;
@@ -91,6 +92,14 @@ where
       options,
       sub,
     }
+  }
+}
+impl<S> Closeable for PushPostingsWriterBase<S>
+where
+  S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
+{
+  fn close(&mut self) -> Result<()> {
+    Closeable::close(&mut self.sub)
   }
 }
 impl<S> PostingsWriterBase for PushPostingsWriterBase<S>

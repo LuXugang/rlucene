@@ -42,9 +42,10 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::{SliceCopyOps, TryIntoInt};
+use crate::core::util::{IOUtils, SliceCopyOps, TryIntoInt};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -58,6 +59,7 @@ where
   pub(crate) doc_out: O,
   pub(crate) pos_out: Option<O>,
   pub(crate) pay_out: Option<O>,
+  closed: bool,
   pub(crate) last_state: IntBlockTermState,
   /// Holds starting file pointers for current term:
   doc_start_fp: i64,
@@ -217,6 +219,7 @@ where
       doc_out,
       pos_out,
       pay_out,
+      closed: false,
       last_state: IntBlockTermState::new(),
       doc_start_fp: 0,
       pos_start_fp: 0,
@@ -417,50 +420,6 @@ where
     debug_assert_eq!(self.doc_out.get_file_pointer()?, level1_end);
     Ok(())
   }
-  pub fn close(&mut self) {
-    let result = (|| -> Result<()> {
-      CodecUtil::write_footer(&mut self.doc_out)?;
-      if let Some(ref mut po) = self.pos_out {
-        CodecUtil::write_footer(po)?;
-      }
-      if let Some(ref mut pay) = self.pay_out {
-        CodecUtil::write_footer(pay)?;
-      }
-      self.meta_out.write_int(self.max_num_impacts_at_level0)?;
-      self
-        .meta_out
-        .write_int(self.max_impact_num_bytes_at_level0)?;
-      self.meta_out.write_int(self.max_num_impacts_at_level1)?;
-      self
-        .meta_out
-        .write_int(self.max_impact_num_bytes_at_level1)?;
-      self
-        .meta_out
-        .write_long(self.doc_out.get_file_pointer()? as i64)?;
-      if let Some(ref po) = self.pos_out {
-        self.meta_out.write_long(po.get_file_pointer()? as i64)?;
-        if let Some(ref pay) = self.pay_out {
-          self.meta_out.write_long(pay.get_file_pointer()? as i64)?;
-        }
-      }
-      CodecUtil::write_footer(&mut self.meta_out)?;
-      Ok(())
-    })();
-    match result {
-      Ok(_) => {},
-      Err(e) => {
-        eprintln!("Failed to close: {e}");
-      },
-    }
-  }
-}
-impl<O> Drop for Lucene101PostingsWriter<O>
-where
-  O: IndexOutput,
-{
-  fn drop(&mut self) {
-    self.close();
-  }
 }
 impl<O> PostingsWriterBase for Lucene101PostingsWriter<O>
 where
@@ -515,6 +474,83 @@ where
   fn set_field(&mut self, field_info: Arc<FieldInfo>) {
     self.last_state = IntBlockTermState::new();
     self.field_has_norms = field_info.has_norms();
+  }
+}
+
+impl<O> Closeable for Lucene101PostingsWriter<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    if self.closed {
+      return Ok(());
+    }
+
+    let result = (|| -> Result<()> {
+      CodecUtil::write_footer(&mut self.doc_out)?;
+      if let Some(ref mut po) = self.pos_out {
+        CodecUtil::write_footer(po)?;
+      }
+      if let Some(ref mut pay) = self.pay_out {
+        CodecUtil::write_footer(pay)?;
+      }
+      self.meta_out.write_int(self.max_num_impacts_at_level0)?;
+      self
+        .meta_out
+        .write_int(self.max_impact_num_bytes_at_level0)?;
+      self.meta_out.write_int(self.max_num_impacts_at_level1)?;
+      self
+        .meta_out
+        .write_int(self.max_impact_num_bytes_at_level1)?;
+      self
+        .meta_out
+        .write_long(self.doc_out.get_file_pointer()? as i64)?;
+      if let Some(ref po) = self.pos_out {
+        self.meta_out.write_long(po.get_file_pointer()? as i64)?;
+        if let Some(ref pay) = self.pay_out {
+          self.meta_out.write_long(pay.get_file_pointer()? as i64)?;
+        }
+      }
+      CodecUtil::write_footer(&mut self.meta_out)?;
+      Ok(())
+    })();
+    match result {
+      Ok(()) => {
+        let mut close_result =
+          IOUtils::close([&mut self.meta_out, &mut self.doc_out], Closeable::close);
+        if let Some(ref mut pos_out) = self.pos_out
+          && let Err(pos_error) = pos_out.close()
+        {
+          close_result = Err(IOUtils::use_or_suppress(close_result.err(), pos_error));
+        }
+        if let Some(ref mut pay_out) = self.pay_out
+          && let Err(pay_error) = pay_out.close()
+        {
+          close_result = Err(IOUtils::use_or_suppress(close_result.err(), pay_error));
+        }
+        close_result?;
+        self.pos_out = None;
+        self.pay_out = None;
+        self.closed = true;
+        Ok(())
+      },
+      Err(err) => {
+        IOUtils::close_while_handling_error(
+          [&mut self.meta_out, &mut self.doc_out],
+          Closeable::close,
+        )?;
+        if let Some(ref mut pos_out) = self.pos_out {
+          IOUtils::close_while_handling_error([pos_out], Closeable::close)?;
+        }
+        if let Some(ref mut pay_out) = self.pay_out {
+          IOUtils::close_while_handling_error([pay_out], Closeable::close)?;
+        }
+        self.pos_out = None;
+        self.pay_out = None;
+        self.closed = true;
+        Err(err)
+      },
+    }
   }
 }
 impl<O> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O>

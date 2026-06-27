@@ -41,9 +41,10 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::Context::Merge;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
-use crate::core::util::{LATEST, StringHelper};
+use crate::core::util::{IOUtils, LATEST, StringHelper};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -149,18 +150,18 @@ where
       .doc_values_format()
       .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
-    consumer.merge(&self.merge_state)?;
-
-    Ok(())
+    let merge_result = consumer.merge(&self.merge_state);
+    let close_result = consumer.close();
+    IOUtils::use_or_suppress_result(merge_result, close_result)
   }
   fn merge_points(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
     let mut writer = LATEST_CODEC
       .points_format()
       .fields_writer(segment_write_state, self.merge_state.segment_info)?;
 
-    writer.merge(&self.merge_state, &self.directory)?;
-
-    Ok(())
+    let merge_result = writer.merge(&self.merge_state, &self.directory);
+    let close_result = writer.close();
+    IOUtils::use_or_suppress_result(merge_result, close_result)
   }
   fn merge_norms(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
     let mut consumer = LATEST_CODEC
@@ -228,7 +229,9 @@ where
       self.context,
     )?;
 
-    fields_writer.merge(&mut self.merge_state, &self.directory)
+    let merge_result = fields_writer.merge(&mut self.merge_state, &self.directory);
+    let close_result = fields_writer.close();
+    IOUtils::use_or_suppress_result(merge_result, close_result)
   }
   /// Merge the term vectors from each of the segments into the new one.
   /// # Errors
@@ -241,7 +244,9 @@ where
       self.context,
     )?;
 
-    let num_merged = term_vectors_writer.merge(&mut self.merge_state, &self.directory)?;
+    let merge_result = term_vectors_writer.merge(&mut self.merge_state, &self.directory);
+    let close_result = term_vectors_writer.close();
+    let num_merged = IOUtils::use_or_suppress_result(merge_result, close_result)?;
 
     debug_assert_eq!(num_merged, self.merge_state.segment_info.max_doc()?);
 

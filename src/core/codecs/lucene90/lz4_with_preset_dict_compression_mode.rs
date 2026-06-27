@@ -25,6 +25,7 @@ use crate::core::index::BytesRef;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{SliceCopyOps, TryIntoInt};
@@ -263,3 +264,5 @@ impl Compressor for LZ4WithPresetDictCompressor {
     Ok(())
   }
 }
+
+impl Closeable for LZ4WithPresetDictCompressor {}

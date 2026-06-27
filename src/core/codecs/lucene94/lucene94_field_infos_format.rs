@@ -27,8 +27,9 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
-use crate::core::util::TryIntoInt;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{IOUtils, TryIntoInt};
 use std::sync::Arc;
 
 /// Lucene 9.0 Field Infos format.
@@ -370,61 +371,64 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
       IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
     let mut output = directory.create_output(&file_name, io_context)?;
 
-    CodecUtil::write_index_header(
-      &mut output,
-      Self::CODEC_NAME,
-      Self::FORMAT_CURRENT,
-      segment_info.get_id(),
-      segment_suffix,
-    )?;
+    let result = (|| -> Result<()> {
+      CodecUtil::write_index_header(
+        &mut output,
+        Self::CODEC_NAME,
+        Self::FORMAT_CURRENT,
+        segment_info.get_id(),
+        segment_suffix,
+      )?;
 
-    output.write_vint(infos.size() as i32)?;
+      output.write_vint(infos.size() as i32)?;
 
-    for fi in infos.iter() {
-      fi.check_consistency()?;
+      for fi in infos.iter() {
+        fi.check_consistency()?;
 
-      output.write_string(&fi.name)?;
-      output.write_vint(fi.number)?;
+        output.write_string(&fi.name)?;
+        output.write_vint(fi.number)?;
 
-      let mut bits: u8 = 0;
-      if fi.has_term_vectors() {
-        bits |= Self::STORE_TERMVECTOR;
+        let mut bits: u8 = 0;
+        if fi.has_term_vectors() {
+          bits |= Self::STORE_TERMVECTOR;
+        }
+        if fi.omits_norms() {
+          bits |= Self::OMIT_NORMS;
+        }
+        if fi.has_payloads() {
+          bits |= Self::STORE_PAYLOADS;
+        }
+        if fi.is_soft_deletes_field() {
+          bits |= Self::SOFT_DELETES_FIELD;
+        }
+        if fi.is_parent_field() {
+          bits |= Self::PARENT_FIELD_FIELD;
+        }
+        output.write_byte(bits)?;
+
+        output.write_byte(Self::index_options_byte(fi.get_index_options()))?;
+
+        output.write_byte(Self::doc_values_byte(fi.get_doc_values_type()))?;
+        output.write_byte(Self::doc_values_skip_index_byte(
+          fi.doc_values_skip_index_type(),
+        ))?;
+
+        output.write_long(fi.get_doc_values_gen())?;
+        output.write_map_of_strings(&fi.attributes().lock().attributes)?;
+
+        output.write_vint(fi.get_point_dimension_count() as i32)?;
+        if fi.get_point_dimension_count() != 0 {
+          output.write_vint(fi.get_point_index_dimension_count() as i32)?;
+          output.write_vint(fi.get_point_num_bytes() as i32)?;
+        }
+        output.write_vint(fi.get_vector_dimension())?;
+        output.write_byte(Self::vector_encoding_byte(fi.get_vector_encoding()))?;
+        output.write_byte(Self::dist_func_to_ord(fi.get_vector_similarity_function()))?;
       }
-      if fi.omits_norms() {
-        bits |= Self::OMIT_NORMS;
-      }
-      if fi.has_payloads() {
-        bits |= Self::STORE_PAYLOADS;
-      }
-      if fi.is_soft_deletes_field() {
-        bits |= Self::SOFT_DELETES_FIELD;
-      }
-      if fi.is_parent_field() {
-        bits |= Self::PARENT_FIELD_FIELD;
-      }
-      output.write_byte(bits)?;
 
-      output.write_byte(Self::index_options_byte(fi.get_index_options()))?;
-
-      output.write_byte(Self::doc_values_byte(fi.get_doc_values_type()))?;
-      output.write_byte(Self::doc_values_skip_index_byte(
-        fi.doc_values_skip_index_type(),
-      ))?;
-
-      output.write_long(fi.get_doc_values_gen())?;
-      output.write_map_of_strings(&fi.attributes().lock().attributes)?;
-
-      output.write_vint(fi.get_point_dimension_count() as i32)?;
-      if fi.get_point_dimension_count() != 0 {
-        output.write_vint(fi.get_point_index_dimension_count() as i32)?;
-        output.write_vint(fi.get_point_num_bytes() as i32)?;
-      }
-      output.write_vint(fi.get_vector_dimension())?;
-      output.write_byte(Self::vector_encoding_byte(fi.get_vector_encoding()))?;
-      output.write_byte(Self::dist_func_to_ord(fi.get_vector_similarity_function()))?;
-    }
-
-    CodecUtil::write_footer(&mut output)?;
-    Ok(())
+      CodecUtil::write_footer(&mut output)
+    })();
+    let close_result = output.close();
+    IOUtils::use_or_suppress_result(result, close_result)
   }
 }

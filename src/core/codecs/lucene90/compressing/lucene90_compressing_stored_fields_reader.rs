@@ -42,8 +42,9 @@ use crate::core::store::{
 };
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone as OtherClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{SliceCopyOps, TryIntoInt};
+use crate::core::util::{IOUtils, SliceCopyOps, TryIntoInt};
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -273,15 +274,6 @@ where
       Ok(())
     }
   }
-  /// # Note
-  /// `indexReader` and `fieldsStream` will automatically release resource in
-  /// Rust Lucene, but we still keep this method for compatibility with
-  /// Java Lucene.
-  pub fn close(&mut self) {
-    if !self.closed {
-      self.closed = true;
-    }
-  }
   pub fn read_field<S>(
     input: &mut impl DataInput,
     visitor: &mut impl StoredFieldVisitor,
@@ -428,6 +420,25 @@ where
     }
     debug_assert!(self.num_chunks >= 0);
     Ok(self.num_chunks)
+  }
+}
+
+impl<I> Closeable for Lucene90CompressingStoredFieldsReader<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    if self.closed {
+      return Ok(());
+    }
+
+    let mut close_result = self.index_reader.close();
+    if let Err(fields_error) = self.get_fields_stream().close() {
+      close_result = Err(IOUtils::use_or_suppress(close_result.err(), fields_error));
+    }
+    close_result?;
+    self.closed = true;
+    Ok(())
   }
 }
 

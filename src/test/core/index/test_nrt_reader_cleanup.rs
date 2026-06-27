@@ -24,9 +24,10 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::random_index_writer::RandomIndexWriter;
 use crate::test::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_text_field, random,
+  new_index_writer_config_with_analyzer, new_mock_directory, new_text_field, random,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestNRTReaderCleanup;
@@ -38,8 +39,7 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
   }
 
   let mut random = random();
-  // TODO IMPORTANT MockDirectoryWrapper未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
@@ -47,7 +47,7 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
   lmp.set_merge_factor(2)?;
   iwc.set_merge_policy(lmp);
 
-  let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+  let w = RandomIndexWriter::with_config(&mut random, Arc::new(dir.clone()), iwc);
   let mut field_types = HashMap::new();
 
   let mut doc = Document::new();
@@ -70,7 +70,7 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
   for name in dir.list_all()? {
     dir.delete_file(&name)?;
   }
-  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
+  let w = RandomIndexWriter::new(&mut random, Arc::new(dir.clone()))?;
   w.add_document(&mut random, doc)?;
   w.close(&mut random)?;
   r.close()?;

@@ -53,12 +53,13 @@ use crate::core::util::access::SharedAccessVec;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::core::util::packed::direct_writer::{DirectWriter, unsigned_bits_required};
-use crate::core::util::{StringHelper, TryIntoInt};
+use crate::core::util::{IOUtils, StringHelper, TryIntoInt};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -900,13 +901,32 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     Ok(true)
   }
-  pub fn close(&mut self) -> Result<()> {
-    if !self.closed {
-      self.closed = true;
+}
+impl<O> Closeable for Lucene90DocValuesConsumer<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    if self.closed {
+      return Ok(());
+    }
+    self.closed = true;
+
+    let result = (|| -> Result<()> {
       self.meta.write_int(-1)?; // write EOF marker
       CodecUtil::write_footer(&mut self.meta)?;
-      CodecUtil::write_footer(&mut self.data)?;
+      CodecUtil::write_footer(&mut self.data)
+    })();
+    match result {
+      Ok(()) => {
+        IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?;
+      },
+      Err(err) => {
+        IOUtils::close_while_handling_error([&mut self.data, &mut self.meta], Closeable::close)?;
+        return Err(err);
+      },
     }
+
     Ok(())
   }
 }
@@ -1074,13 +1094,7 @@ where
   O: IndexOutput,
 {
   fn drop(&mut self) {
-    let result = self.close();
-    match result {
-      Ok(_) => (),
-      Err(e) => {
-        eprintln!("Failed to close Lucene90DocValuesConsumer: {e:?}")
-      },
-    }
+    let _ = Closeable::close(self);
   }
 }
 

@@ -97,8 +97,9 @@ use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::{
   create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
-  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_searcher_with_reader,
-  new_string_field, new_text_field, random, random_from_seed, rarely, slow_file_exists,
+  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_mock_directory,
+  new_searcher_with_reader, new_string_field, new_text_field, random, random_from_seed, rarely,
+  slow_file_exists,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -4532,11 +4533,10 @@ fn test_doc_values_skipping_index_without_doc_values() -> Result<()> {
     field_type.set_doc_values_type(doc_values_type)?;
     field_type.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range)?;
     field_type.freeze();
-    // TODO IMPORTANT newMockDirectory未实现
-    let dir = new_directory_shared(&mut random)?;
+    let dir = new_mock_directory(&mut random)?;
     let mock = MockAnalyzer::new(&mut random);
     let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
-    let writer = IndexWriter::new(dir, iwc)?;
+    let writer = IndexWriter::new(Arc::new(dir.clone()), iwc)?;
 
     let mut doc1 = Document::new();
     doc1.add(Field::from_binary("test", vec![0u8; 10], field_type)?);

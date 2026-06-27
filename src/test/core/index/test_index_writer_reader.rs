@@ -45,7 +45,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
 use crate::test::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_index_writer_config,
-  new_log_merge_policy_with_merge_factor, new_text_field, random, random_from_seed,
+  new_log_merge_policy_with_merge_factor, new_mock_directory, new_text_field, random,
+  random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -492,12 +493,12 @@ fn test_index_writer_reopen_segment() -> Result<()> {
 }
 
 fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
+  // TODO getAssertNoDeletesDirectory未实现
   let mut random = random();
-  // TODO MockDirectoryWrapper未实现
-  let dir1 = new_directory_shared(&mut random)?;
+  let dir1 = new_mock_directory(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
-  let mut writer = IndexWriter::new(dir1.clone(), iwc)?;
+  let mut writer = IndexWriter::new(Arc::new(dir1.clone()), iwc)?;
   let r1 = directory_reader::open_from_writer(&writer)?;
   assert_eq!(0, r1.max_doc()?);
   create_index_no_close(false, "index1", &writer)?;
@@ -532,7 +533,7 @@ fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
   drop(writer);
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
-  writer = IndexWriter::new(dir1.clone(), iwc)?;
+  writer = IndexWriter::new(Arc::new(dir1.clone()), iwc)?;
   let w2r1 = directory_reader::open_from_writer(&writer)?;
   assert_eq!(200, w2r1.max_doc()?);
   w2r1.close()?;

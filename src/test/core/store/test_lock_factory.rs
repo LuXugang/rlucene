@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::core::util::lucene_test_case::{
-  new_directory_with_lock_factory, new_index_writer_config, new_text_field, random,
-};
+use crate::test::core::util::lucene_test_case::{new_index_writer_config, new_text_field, random};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::path::Path;
@@ -27,11 +25,12 @@ use crate::core::document::field::Store;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::store::NoLockFactory;
 use crate::core::store::lock::{Lock, LockEnum};
-use crate::core::store::lock_factory::{LockFactory, LockFactoryEnum};
+use crate::core::store::lock_factory::LockFactory;
+use crate::core::store::{ByteBuffersDirectory, NoLockFactory};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 
 #[allow(dead_code)] // for quick search
 struct TestLockFactory;
@@ -43,9 +42,10 @@ struct TestLockFactory;
 fn test_custom_lock_factory() -> Result<()> {
   let mut random = random();
   let lf = MockLockFactory::new();
-  // TODO IMPORTANT MockDirectoryWrapper 未实现
-  let dir =
-    new_directory_with_lock_factory(&mut random, LockFactoryEnum::Custom(Box::new(lf.clone())))?;
+  let dir = MockDirectoryWrapper::new(
+    &mut random,
+    ByteBuffersDirectory::with_lock_factory(lf.clone()),
+  );
 
   let iwc = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(Arc::new(dir), iwc)?;
@@ -71,8 +71,10 @@ fn test_custom_lock_factory() -> Result<()> {
 #[test]
 fn test_directory_no_locking() -> Result<()> {
   let mut random = random();
-  // TODO IMPORTANT MockDirectoryWrapper 未实现
-  let dir = new_directory_with_lock_factory(&mut random, NoLockFactory)?;
+  let dir = MockDirectoryWrapper::new(
+    &mut random,
+    ByteBuffersDirectory::with_lock_factory(NoLockFactory),
+  );
   let dir = Arc::new(dir);
 
   let iwc = new_index_writer_config(&mut random)?;

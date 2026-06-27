@@ -20,6 +20,7 @@ use crate::core::codecs::lucene90::fields_index_writer::fields_index_writer_cons
 use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, ReadAdvice};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::Meta;
@@ -160,6 +161,15 @@ where
     Self: Sized,
   {
     FieldsIndexReader::with_other(self)
+  }
+}
+
+impl<I> Closeable for FieldsIndexReader<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    self.index_input.close()
   }
 }
 

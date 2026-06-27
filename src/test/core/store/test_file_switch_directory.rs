@@ -46,6 +46,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::test_index_writer_reader::create_index_no_close;
 use crate::test::core::store::base_directory_test_case::BaseDirectoryTestCase;
+use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 
 type NioDirectory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 type SwitchDirectory = FileSwitchDirectory<NioDirectory, NioDirectory>;
@@ -66,9 +67,10 @@ impl TestFileSwitchDirectory {
     file_extensions.insert(INDEX_EXTENSION.to_string());
     file_extensions.insert(META_EXTENSION.to_string());
 
-    // TODO MockDirectoryWrapper未实现
-    let primary_dir = ByteBuffersDirectory::new();
-    let secondary_dir = ByteBuffersDirectory::new();
+    let primary_dir = MockDirectoryWrapper::new(random, ByteBuffersDirectory::new());
+    primary_dir.set_check_index_on_close(false); // only part of an index
+    let secondary_dir = MockDirectoryWrapper::new(random, ByteBuffersDirectory::new());
+    secondary_dir.set_check_index_on_close(false); // only part of an index
 
     let fsd = Arc::new(FileSwitchDirectory::new(
       file_extensions.clone(),

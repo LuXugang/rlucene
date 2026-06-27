@@ -21,6 +21,7 @@ use crate::core::document::document::Document;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 
@@ -29,11 +30,11 @@ use std::collections::HashSet;
 /// You need to implement [`document(int,
 /// StoredFieldVisitor)`](StoredFields::document_with_visitor) to read the
 /// stored fields for a document, implement `try_clone()`(creating clones of any
-/// IndexInputs used, etc)
+/// IndexInputs used, etc), and [`Closeable::close`].
 ///
 /// This uses [`TryClone`] rather than the built-in [`Clone`] because cloning
 /// underlying inputs can fail, and `Clone::clone` cannot return an error.
-pub trait StoredFieldsReader: StoredFields + TryClone {
+pub trait StoredFieldsReader: StoredFields + TryClone + Closeable {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -58,6 +59,19 @@ macro_rules! either_stored_fields_reader {
         $vis enum $name<$First, $( $T ),+> {
             $FirstVariant($First),
             $( $Variant($T), )+
+        }
+
+        impl<$First, $( $T ),+> Closeable for $name<$First, $( $T ),+>
+        where
+            $First: StoredFieldsReader,
+            $( $T: StoredFieldsReader ),+
+        {
+            fn close(&mut self) -> Result<()> {
+                match self {
+                    Self::$FirstVariant(inner) => inner.close(),
+                    $( Self::$Variant(inner) => inner.close(), )+
+                }
+            }
         }
 
         impl<$First, $( $T ),+> StoredFields for $name<$First, $( $T ),+>

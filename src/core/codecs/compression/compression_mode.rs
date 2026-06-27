@@ -33,6 +33,7 @@ use crate::core::index::sorting_stored_fields_consumer::{
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::compress::lz4::{
   FastCompressionHashTable, HashTableEnum, HighCompressionHashTable, LZ4,
 };
@@ -321,6 +322,8 @@ impl Compressor for LZ4FastCompressor {
   }
 }
 
+impl Closeable for LZ4FastCompressor {}
+
 pub struct LZ4HighCompressor {
   ht: HashTableEnum,
 }
@@ -331,6 +334,7 @@ impl LZ4HighCompressor {
     }
   }
 }
+
 impl Compressor for LZ4HighCompressor {
   fn compress(
     &mut self,
@@ -344,6 +348,8 @@ impl Compressor for LZ4HighCompressor {
     Ok(())
   }
 }
+
+impl Closeable for LZ4HighCompressor {}
 
 pub struct DeflateDecompressor {
   compressed: Vec<u8>,
@@ -413,6 +419,7 @@ impl DeflateCompressor {
     }
   }
 }
+
 impl Compressor for DeflateCompressor {
   fn compress(
     &mut self,
@@ -434,6 +441,8 @@ impl Compressor for DeflateCompressor {
   }
 }
 
+impl Closeable for DeflateCompressor {}
+
 pub enum CompressorEnum {
   LZ4Fast(LZ4FastCompressor),
   LZ4High(LZ4HighCompressor),
@@ -441,6 +450,19 @@ pub enum CompressorEnum {
   LZ4Dict(LZ4WithPresetDictCompressor),
   Impl1(CompressorImpl),
 }
+
+impl Closeable for CompressorEnum {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      CompressorEnum::LZ4Fast(compressor) => compressor.close(),
+      CompressorEnum::LZ4High(compressor) => compressor.close(),
+      CompressorEnum::Deflate(compressor) => compressor.close(),
+      CompressorEnum::LZ4Dict(compressor) => compressor.close(),
+      CompressorEnum::Impl1(compressor) => compressor.close(),
+    }
+  }
+}
+
 impl Compressor for CompressorEnum {
   fn compress(
     &mut self,

@@ -61,10 +61,6 @@ where
     &self.in_
   }
 
-  pub fn get_delegate_mut(&mut self) -> &mut D {
-    &mut self.in_
-  }
-
   pub fn is_open(&self) -> bool {
     self.is_open.load(Ordering::SeqCst)
   }
@@ -76,6 +72,15 @@ where
 
   pub fn get_check_index_on_close(&self) -> bool {
     self.check_index_on_close
+  }
+
+  pub fn set_cross_check_term_vectors_on_close(&mut self, value: bool) {
+    // If true, we are enabling slow checks.
+    if value {
+      self.level_for_check_on_close = check_index::Level::MIN_LEVEL_FOR_SLOW_CHECKS;
+    } else {
+      self.level_for_check_on_close = check_index::Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS;
+    }
   }
 
   pub fn get_level_for_check_on_close(&self) -> i32 {
