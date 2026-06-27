@@ -99,7 +99,7 @@ impl Reader for IllegalStateReader {
     Err(LuceneError::illegal_state(
       "TokenStream contract violation: reset()/close() call missing, \
 reset() called multiple times, or subclass does not call super.reset(). \
-Please see Javadocs of TokenStream class for more information about the correct consuming workflow.",
+Please see docs of TokenStream class for more information about the correct consuming workflow.",
     ))
   }
 

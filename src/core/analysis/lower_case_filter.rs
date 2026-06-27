@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::character_utils::CharacterUtils;
+use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -66,6 +67,14 @@ where
 
   fn close(&mut self) -> Result<()> {
     self.token_filter_base.close()
+  }
+
+  fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
+    self.token_filter_base.set_reader(input)
+  }
+
+  fn set_reader_test_point(&mut self) -> Result<()> {
+    self.token_filter_base.set_reader_test_point()
   }
 
   fn get_attribute_source(&self) -> &Attributes {
