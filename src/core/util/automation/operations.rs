@@ -1409,48 +1409,13 @@ impl PointTransitionSet {
 
   pub fn sort(&mut self) -> Result<()> {
     if self.count > 1 {
-      // self.points[0..self.count].sort_by_key(|p| p.point);
-      let mut cost = Vec::with_capacity(self.count);
-      for idx in 0..self.count {
-        cost.push(Cost {
-          idx,
-          point: self.points[idx].point,
-        })
-      }
-
-      ArrayUtil::tim_sort_with_range(&mut cost, 0, self.count)?;
-      let mut new_points = Vec::with_capacity(cost.len());
-      for x in cost {
-        new_points.push(std::mem::take(&mut self.points[x.idx]));
-      }
-      self.points = new_points;
+      self.points[0..self.count].sort_by_key(|p| p.point);
     }
     Ok(())
   }
   pub fn add(&mut self, t: &Transition) -> Result<()> {
     self.find(t.min)?.starts.add(t)?;
     self.find(t.max + 1)?.ends.add(t)
-  }
-}
-#[derive(Copy, Clone)]
-struct Cost {
-  idx: usize,
-  point: i32,
-}
-impl Eq for Cost {}
-impl PartialEq<Self> for Cost {
-  fn eq(&self, other: &Self) -> bool {
-    self.point == other.point && self.idx == other.idx
-  }
-}
-impl PartialOrd<Self> for Cost {
-  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    Some(self.cmp(other))
-  }
-}
-impl Ord for Cost {
-  fn cmp(&self, other: &Self) -> Ordering {
-    self.point.cmp(&other.point)
   }
 }
 impl Display for PointTransitionSet {
