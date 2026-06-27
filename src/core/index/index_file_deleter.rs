@@ -258,7 +258,7 @@ where
       .delete_files_if_no_ref(&unrefed)?;
     // Finally, give policy a chance to remove things on
     // startup:
-    policy.on_init(&mut index_file_deleter.commits)?;
+    policy.on_init(&index_file_deleter.commits)?;
     // Always protect the incoming segmentInfos since
     // sometime it may not be the most recent commit
     index_file_deleter.checkpoint(segment_infos, false, policy)?;
@@ -304,7 +304,7 @@ where
     // Now compact commits to remove deleted ones (preserving the sort):
     let mut write_to = 0;
     for read_from in 0..self.commits.len() {
-      if !self.commits[read_from].deleted {
+      if !self.commits[read_from].is_deleted() {
         if write_to != read_from {
           self.commits.swap(read_from, write_to);
         }
@@ -409,7 +409,7 @@ where
 
     if !self.commits.is_empty() {
       debug_assert!(self.assert_commits_are_not_deleted(&self.commits));
-      policy.on_commit(&mut self.commits)?;
+      policy.on_commit(&self.commits)?;
       self.delete_commits()?;
     }
 
@@ -457,7 +457,7 @@ where
       )?);
 
       debug_assert!(self.assert_commits_are_not_deleted(&self.commits));
-      policy.on_commit(&mut self.commits)?;
+      policy.on_commit(&self.commits)?;
       // Decref files for commits that were deleted by the policy:
       self.delete_commits()?;
     } else {
@@ -545,7 +545,7 @@ where
 pub(crate) struct CommitPoint<D> {
   pub(crate) files: Vec<String>,
   pub(crate) segments_file_name: String,
-  pub(crate) deleted: bool,
+  pub(crate) deleted: AtomicBool,
   pub(crate) directory_orig: Arc<D>,
   pub(crate) generation: i64,
   pub(crate) user_data: HashMap<String, String>,
@@ -573,7 +573,7 @@ where
     Ok(CommitPoint {
       files,
       segments_file_name,
-      deleted: false,
+      deleted: AtomicBool::new(false),
       directory_orig,
       generation,
       user_data,
@@ -638,16 +638,15 @@ where
     Ok(self.files.as_slice())
   }
 
-  type Directory = D;
+  type Directory = Arc<D>;
 
-  fn get_directory(&self) -> Arc<Self::Directory> {
+  fn get_directory(&self) -> Self::Directory {
     self.directory_orig.clone()
   }
 
   /// Called only be the deletion policy, to remove this commit point from the index.
-  fn delete(&mut self) -> Result<()> {
-    if !self.deleted {
-      self.deleted = true;
+  fn delete(&self) -> Result<()> {
+    if !self.deleted.swap(true, SeqCst) {
       self
         .commits_to_delete
         .store(true, std::sync::atomic::Ordering::SeqCst);
@@ -656,7 +655,7 @@ where
   }
 
   fn is_deleted(&self) -> bool {
-    self.deleted
+    self.deleted.load(SeqCst)
   }
 
   fn get_segment_count(&self) -> usize {

@@ -16,7 +16,6 @@
  */
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::sync::Arc;
 
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
@@ -29,7 +28,7 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   fn get_file_names(&self) -> Result<&[String]>;
   type Directory: Directory;
   /// Returns the [`Directory`] for the index.
-  fn get_directory(&self) -> Arc<Self::Directory>;
+  fn get_directory(&self) -> Self::Directory;
   /// Delete this commit point. This only applies when using the commit point in the context of
   /// `IndexWriter`’s `IndexDeletionPolicy`.
   ///
@@ -38,7 +37,7 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   /// Decision that a commit-point should be deleted is taken by the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy)
   /// in effect and therefore this should only be called by its
   /// [`IndexDeletionPolicy::on_init()`](crate::core::index::index_deletion_policy::IndexDeletionPolicy::on_init) or [`IndexDeletionPolicy::on_commit()`](crate::core::index::index_deletion_policy::IndexDeletionPolicy::on_commit) methods.
-  fn delete(&mut self) -> Result<()>;
+  fn delete(&self) -> Result<()>;
   /// Returns `true` if this commit should be deleted; this is only used by [`IndexWriter`](crate::core::index::index_writer::IndexWriter) after
   /// invoking the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy).
   fn is_deleted(&self) -> bool;
@@ -55,12 +54,16 @@ pub fn is_same_commit<T>(a: &T, b: &T) -> bool
 where
   T: IndexCommit,
 {
-  a.get_directory().is_same_identity(&b.get_directory()) && a.get_generation() == b.get_generation()
+  let a_directory = a.get_directory();
+  let b_directory = b.get_directory();
+  a_directory.is_same_identity(&b_directory) && a.get_generation() == b.get_generation()
 }
 pub fn cmp_commit<T>(a: &T, b: &T) -> Ordering
 where
   T: IndexCommit,
 {
-  debug_assert!(a.get_directory().is_same_identity(&b.get_directory()));
+  let a_directory = a.get_directory();
+  let b_directory = b.get_directory();
+  debug_assert!(a_directory.is_same_identity(&b_directory));
   a.get_generation().cmp(&b.get_generation())
 }

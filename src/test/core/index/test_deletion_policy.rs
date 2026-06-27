@@ -606,7 +606,7 @@ impl Display for KeepAllDeletionPolicy {
 }
 
 impl IndexDeletionPolicy for KeepAllDeletionPolicy {
-  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -615,7 +615,7 @@ impl IndexDeletionPolicy for KeepAllDeletionPolicy {
     Ok(())
   }
 
-  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -665,7 +665,7 @@ impl Display for KeepNoneOnInitDeletionPolicy {
 }
 
 impl IndexDeletionPolicy for KeepNoneOnInitDeletionPolicy {
-  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -678,13 +678,13 @@ impl IndexDeletionPolicy for KeepNoneOnInitDeletionPolicy {
     Ok(())
   }
 
-  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
     verify_commit_order(commits);
     let size = commits.len();
-    for commit in commits.iter_mut().take(size.saturating_sub(1)) {
+    for commit in commits.iter().take(size.saturating_sub(1)) {
       commit.delete()?;
     }
     self.num_on_commit.fetch_add(1, Ordering::SeqCst);
@@ -724,7 +724,7 @@ impl KeepLastNDeletionPolicy {
     self.num_delete.load(Ordering::SeqCst)
   }
 
-  fn do_deletes<IC>(&self, commits: &mut [IC], is_commit: bool) -> Result<()>
+  fn do_deletes<IC>(&self, commits: &[IC], is_commit: bool) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -741,7 +741,7 @@ impl KeepLastNDeletionPolicy {
     }
 
     let num_to_delete = commits.len().saturating_sub(self.num_to_keep);
-    for commit in commits.iter_mut().take(num_to_delete) {
+    for commit in commits.iter().take(num_to_delete) {
       commit.delete()?;
       self.num_delete.fetch_add(1, Ordering::SeqCst);
     }
@@ -756,7 +756,7 @@ impl Display for KeepLastNDeletionPolicy {
 }
 
 impl IndexDeletionPolicy for KeepLastNDeletionPolicy {
-  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -765,7 +765,7 @@ impl IndexDeletionPolicy for KeepLastNDeletionPolicy {
     self.do_deletes(commits, false)
   }
 
-  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {

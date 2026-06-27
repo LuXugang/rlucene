@@ -79,13 +79,13 @@ where
     dummy_unreachable!()
   }
 
-  type Directory = D;
+  type Directory = Arc<D>;
 
-  fn get_directory(&self) -> Arc<Self::Directory> {
+  fn get_directory(&self) -> Self::Directory {
     dummy_unreachable!()
   }
 
-  fn delete(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+  fn delete(&self) -> crate::core::util::error::lucene_error::Result<()> {
     dummy_unreachable!()
   }
 

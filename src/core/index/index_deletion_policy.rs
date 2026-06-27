@@ -33,12 +33,12 @@ use std::fmt::{Display, Formatter};
 /// policy.
 pub trait IndexDeletionPolicy: Display {
   /// Deletes all commits except the most recent one.
-  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit;
 
   /// Deletes all commits except the most recent one.
-  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit;
 }
@@ -99,7 +99,7 @@ impl Display for IndexDeletionPolicyEnum {
 }
 
 impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
-  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -121,7 +121,7 @@ impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
     }
   }
 
-  fn on_commit<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {

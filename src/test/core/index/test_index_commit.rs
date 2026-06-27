@@ -93,13 +93,13 @@ impl IndexCommit for TestIndexCommit {
     Ok(self.file_names.as_slice())
   }
 
-  type Directory = DirEnum;
+  type Directory = Arc<DirEnum>;
 
-  fn get_directory(&self) -> Arc<Self::Directory> {
+  fn get_directory(&self) -> Self::Directory {
     self.directory.clone()
   }
 
-  fn delete(&mut self) -> Result<()> {
+  fn delete(&self) -> Result<()> {
     Ok(())
   }
 

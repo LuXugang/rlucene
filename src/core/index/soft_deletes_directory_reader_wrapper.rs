@@ -273,7 +273,7 @@ where
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: IndexCommit<Directory = Self::Directory>,
+    IC: IndexCommit<Directory = Arc<Self::Directory>>,
   {
     match self.in_.do_open_if_changed_with_commit(writer, commit)? {
       Some(reader) => Ok(Some(self.do_wrap_directory_reader_impl(reader)?)),

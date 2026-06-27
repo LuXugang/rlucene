@@ -85,7 +85,7 @@ pub trait DirectoryReader: BaseCompositeReader {
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: IndexCommit<Directory = Self::Directory>;
+    IC: IndexCommit<Directory = Arc<Self::Directory>>;
   /// If this reader does not support reopen from an [`IndexWriter`],
   /// this method should return an [`unsupported_operation`](crate::core::util::error::lucene_error::LuceneError::unsupported_operation) error.
   ///
@@ -264,7 +264,7 @@ pub fn open_from_commit<D, C, IC>(commit: &IC) -> Result<StandardDirectoryReader
 where
   D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
-  IC: IndexCommit<Directory = D>,
+  IC: IndexCommit<Directory = Arc<D>>,
 {
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
 }
@@ -312,7 +312,7 @@ pub fn open_if_changed_with_commit<D, C, IC>(
 where
   D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
-  IC: IndexCommit<Directory = D>,
+  IC: IndexCommit<Directory = Arc<D>>,
 {
   old_reader.do_open_if_changed_with_commit(writer, commit)
 }
@@ -499,7 +499,7 @@ pub fn open_with_version<D, C, IC>(
 where
   D: Directory + 'static,
   C: Comparator<DefaultLeafReader<D>> + Clone,
-  IC: IndexCommit<Directory = D>,
+  IC: IndexCommit<Directory = Arc<D>>,
 {
   StandardDirectoryReader::open_with_version(
     commit.get_directory(),
@@ -541,7 +541,7 @@ where
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: IndexCommit<Directory = Self::Directory>,
+    IC: IndexCommit<Directory = Arc<Self::Directory>>,
   {
     (**self).do_open_if_changed_with_commit(writer, commit)
   }

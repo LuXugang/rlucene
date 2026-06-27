@@ -105,7 +105,7 @@ where
   where
     D: Directory,
     C: Comparator<DefaultLeafReader<D>> + Clone,
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
   {
     Self::open_with_version(directory, *MIN_SUPPORTED_MAJOR, commit, leaf_sorter)
   }
@@ -119,7 +119,7 @@ where
   where
     D: Directory,
     C: Comparator<DefaultLeafReader<D>> + Clone,
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
   {
     let mut finder =
       FindSegmentsFileImpl1::new(min_supported_major_version, directory.clone(), leaf_sorter);
@@ -131,7 +131,7 @@ where
 
   fn do_open_from_commit<IC>(&self, commit: Option<&IC>) -> Result<Self>
   where
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
   {
     let mut leaf_reads = Vec::new();
     for v in self.get_sequential_sub_readers() {
@@ -160,7 +160,7 @@ where
     commit: Option<&IC>,
   ) -> Result<Option<Self>>
   where
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
   {
     if let Some(commit) = commit {
       return Ok(Some(self.do_open_from_commit(Some(commit))?));
@@ -191,13 +191,13 @@ where
     commit: Option<&IC>,
   ) -> Result<Option<Self>>
   where
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
   {
     if let Some(commit) = commit {
       if !self
         .directory()
         .directory
-        .is_same_identity(&commit.get_directory())
+        .is_same_identity(&*commit.get_directory())
       {
         return Err(
           std::io::Error::other("the specified commit does not match the specified Directory")
@@ -605,7 +605,7 @@ where
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
   {
     self.ensure_open()?;
     if let Some(ref closed) = self.writer_closed {
@@ -951,13 +951,13 @@ where
     Ok(&self.files)
   }
 
-  type Directory = D;
+  type Directory = Arc<D>;
 
-  fn get_directory(&self) -> Arc<Self::Directory> {
+  fn get_directory(&self) -> Self::Directory {
     self.dir.clone()
   }
 
-  fn delete(&mut self) -> Result<()> {
+  fn delete(&self) -> Result<()> {
     Err(LuceneError::unsupported_operation(
       "This IndexCommit does not support deletions",
     ))

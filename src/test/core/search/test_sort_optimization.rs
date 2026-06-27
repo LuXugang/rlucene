@@ -2033,7 +2033,7 @@ where
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
-    IC: crate::core::index::index_commit::IndexCommit<Directory = Self::Directory>,
+    IC: crate::core::index::index_commit::IndexCommit<Directory = Arc<Self::Directory>>,
   {
     let v = self.in_.do_open_if_changed_with_commit(writer, commit)?;
     self.wrap_directory_reader(v)

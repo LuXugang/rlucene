@@ -276,7 +276,7 @@ where
     index_commit: IndexCommitWrapper<IC, C, D>,
   ) -> Result<Self>
   where
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
     C: Comparator<DefaultLeafReader<D>> + Clone,
     D: 'static,
   {
@@ -290,7 +290,7 @@ where
     mut index_commit_wrapper: IndexCommitWrapper<IC, C, D>,
   ) -> Result<Self>
   where
-    IC: IndexCommit<Directory = D>,
+    IC: IndexCommit<Directory = Arc<D>>,
     C: Comparator<DefaultLeafReader<D>> + Clone,
     D: 'static,
   {
@@ -375,7 +375,7 @@ where
         if !reader
           .directory()
           .directory
-          .is_same_identity(&commit.get_directory())
+          .is_same_identity(&*commit.get_directory())
         {
           return Err(LuceneError::illegal_argument(
             "IndexCommit's reader must have the same directory as the IndexCommit",
@@ -458,11 +458,11 @@ where
         // retrying it does is not necessary here (we hold the write lock):
         segment_infos = SegmentInfos::read_commit(directory_orig.clone(), &last_segments_file)?;
         if let Some(commit) = index_commit_wrapper.commit {
-          if !commit.get_directory().is_same_identity(&directory_orig) {
+          if !commit.get_directory().is_same_identity(&*directory_orig) {
             return Err(LuceneError::illegal_argument(format!(
               "IndexCommit's directory doesn't match my directory, expected={}, got={}",
               directory_orig,
-              commit.get_directory()
+              &*commit.get_directory()
             )));
           }
 
@@ -6657,7 +6657,7 @@ where
 }
 pub struct IndexCommitWrapper<IC, C, D>
 where
-  IC: IndexCommit<Directory = D>,
+  IC: IndexCommit<Directory = Arc<D>>,
   C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
@@ -6669,7 +6669,7 @@ where
 }
 impl<IC, C, D> IndexCommitWrapper<IC, C, D>
 where
-  IC: IndexCommit<Directory = D>,
+  IC: IndexCommit<Directory = Arc<D>>,
   C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {

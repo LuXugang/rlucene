@@ -172,7 +172,7 @@ impl Display for RollbackDeletionPolicy {
 }
 
 impl IndexDeletionPolicy for RollbackDeletionPolicy {
-  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -189,7 +189,7 @@ impl IndexDeletionPolicy for RollbackDeletionPolicy {
     Ok(())
   }
 
-  fn on_commit<IC>(&self, _commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -207,14 +207,14 @@ impl Display for DeleteLastCommitPolicy {
 }
 
 impl IndexDeletionPolicy for DeleteLastCommitPolicy {
-  fn on_init<IC>(&self, commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
-    commits.last_mut().unwrap().delete()
+    commits.last().unwrap().delete()
   }
 
-  fn on_commit<IC>(&self, _commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
@@ -250,14 +250,14 @@ impl Display for KeepAllTransactionDeletionPolicy {
 }
 
 impl IndexDeletionPolicy for KeepAllTransactionDeletionPolicy {
-  fn on_init<IC>(&self, _commits: &mut [IC]) -> Result<()>
+  fn on_init<IC>(&self, _commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
     Ok(())
   }
 
-  fn on_commit<IC>(&self, _commits: &mut [IC]) -> Result<()>
+  fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
   where
     IC: IndexCommit,
   {
