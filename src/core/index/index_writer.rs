@@ -2709,7 +2709,7 @@ where
           "IW",
           &format!(
             "now abort pending merge {}",
-            merge.seg_string(&inner.segment_infos)?
+            Self::segment_ids_to_string(&merge.stat.segments)
           ),
         )?;
       }
@@ -2729,7 +2729,7 @@ where
           "IW",
           &format!(
             "now abort running merge {}",
-            self.seg_string_from_ids(&merge_stat.segments, &inner.segment_infos)?
+            Self::segment_ids_to_string(&merge_stat.segments)
           ),
         )?;
       }
@@ -2761,14 +2761,8 @@ where
     Ok(())
   }
 
-  fn seg_string_from_ids(&self, ids: &[String], segment_infos: &SegmentInfos<D>) -> Result<String> {
-    let mut infos = Vec::with_capacity(ids.len());
-    for id in ids {
-      infos.push(segment_infos.index_of(id).ok_or_else(|| {
-        LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", id))
-      })?);
-    }
-    self.seg_string_from_infos(infos)
+  fn segment_ids_to_string(ids: &[String]) -> String {
+    ids.join(" ")
   }
   /// Waits for any currently outstanding merges to finish.
   ///
@@ -4816,7 +4810,7 @@ where
         "IW",
         &format!(
           "handleMergeException: merge={} exc={}",
-          merge.seg_string(&self.inner.lock().segment_infos)?,
+          Self::segment_ids_to_string(&merge.stat.segments),
           t
         ),
       )?;
@@ -4927,7 +4921,7 @@ where
       self.abort_one_merge(&merge, inner)?;
       return Err(LuceneError::merge_abort(format!(
         "merge is aborted: {}",
-        merge.seg_string(&inner.segment_infos)?
+        Self::segment_ids_to_string(&merge.stat.segments)
       )));
     }
 

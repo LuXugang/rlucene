@@ -1395,47 +1395,6 @@ where
     let mut guard = self.error.lock();
     guard.take()
   }
-  /// Returns a readable description of the current merge state.
-  pub fn seg_string(&self, segments: &SegmentInfos<D>) -> Result<String> {
-    let mut s = String::new();
-
-    for (i, seg) in self.stat.segments.iter().enumerate() {
-      if i > 0 {
-        s.push(' ');
-      }
-      let v = segments.index_of(seg).ok_or_else(|| {
-        LuceneError::illegal_state("merge's segment could find from IndexWriter's SegmentInfos")
-      })?;
-      s.push_str(&v.to_string_with_pending_del_count(0));
-    }
-
-    if let Some(info_id) = self.stat.info_id() {
-      s.push_str(" into ");
-      let name = match self.stat.name() {
-        Some(name) => name,
-        None => {
-          let v = segments.index_of(&info_id).ok_or_else(|| {
-            LuceneError::illegal_state("merge's segment could find from IndexWriter's SegmentInfos")
-          })?;
-          v.info.name.clone()
-        },
-      };
-      s.push_str(&name);
-    }
-
-    let max_num_segments = self.stat.max_num_segments();
-    if max_num_segments != -1 {
-      s.push_str(" [maxNumSegments=");
-      s.push_str(&max_num_segments.to_string());
-      s.push(']');
-    }
-
-    if self.is_aborted() {
-      s.push_str(" [ABORTED]");
-    }
-
-    Ok(s)
-  }
   pub fn get_store_merge_info(&self) -> MergeInfo {
     MergeInfo::new(
       self.total_max_doc,
