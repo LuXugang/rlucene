@@ -165,7 +165,7 @@ where
   buffered_updates_stream: Arc<BufferedUpdatesStream>,
   buffered_updates_stream_lock: Mutex<()>,
   merge_finished_gen: AtomicI64,
-  pub(crate) config: IndexWriterConfig,
+  pub(crate) config: IndexWriterConfig<D>,
   pub(crate) pending_num_docs: Arc<AtomicI64>,
   soft_deletes_enabled: bool,
   info_stream: InfoStreamMT,
@@ -226,7 +226,7 @@ impl<D> IndexWriter<D>
 where
   D: Directory,
 {
-  pub fn new(d: Arc<D>, conf: IndexWriterConfig) -> Result<Self>
+  pub fn new(d: Arc<D>, conf: IndexWriterConfig<D>) -> Result<Self>
   where
     D: 'static,
   {
@@ -262,7 +262,7 @@ where
 {
   pub fn with_hooks(
     d: Arc<D>,
-    conf: IndexWriterConfig,
+    conf: IndexWriterConfig<D>,
     sub: Option<IndexWriterHooksEnum>,
   ) -> Result<Self>
   where
@@ -272,7 +272,7 @@ where
   }
   pub fn with_index_commit<IC, C>(
     d: Arc<D>,
-    conf: IndexWriterConfig,
+    conf: IndexWriterConfig<D>,
     index_commit: IndexCommitWrapper<IC, C, D>,
   ) -> Result<Self>
   where
@@ -285,7 +285,7 @@ where
 
   pub fn with_index_commit_and_hook<IC, C>(
     d: Arc<D>,
-    conf: IndexWriterConfig,
+    conf: IndexWriterConfig<D>,
     hooks: Option<IndexWriterHooksEnum>,
     mut index_commit_wrapper: IndexCommitWrapper<IC, C, D>,
   ) -> Result<Self>
@@ -641,7 +641,7 @@ where
 
   /// Confirms that the incoming index sort (if any) matches the existing index sort (if any).
   fn validate_index_sort(
-    config: &IndexWriterConfig,
+    config: &IndexWriterConfig<D>,
     segment_infos: &SegmentInfos<D>,
   ) -> Result<()> {
     if let Some(index_sort) = config.get_index_sort() {
@@ -666,7 +666,7 @@ where
   /// Loads or returns the already loaded the global field number map for this [`SegmentInfos`].
   /// If this [`SegmentInfos`] has no global field number map the returned instance is empty
   fn get_field_number_map(
-    config: &IndexWriterConfig,
+    config: &IndexWriterConfig<D>,
     segment_infos: &SegmentInfos<D>,
   ) -> Result<FieldNumbers> {
     let mut map = FieldNumbers::new(config.get_soft_deletes_field(), config.get_parent_field())?;
@@ -681,15 +681,15 @@ where
   }
   /// Returns the [`IndexWriterConfig`] that was passed to [`IndexWriter::new`]. This returns
   /// a live reference; changes to the config affect this writer instance.
-  pub fn get_config(&self) -> &IndexWriterConfig {
+  pub fn get_config(&self) -> &IndexWriterConfig<D> {
     &self.config
   }
   /// Mutable version of [`Self::get_config`].
   #[cfg(test)]
   #[allow(invalid_reference_casting)]
   #[allow(clippy::mut_from_ref)]
-  pub(crate) fn get_config_mut(&self) -> &mut IndexWriterConfig {
-    unsafe { &mut *(&self.config as *const IndexWriterConfig as *mut IndexWriterConfig) }
+  pub(crate) fn get_config_mut(&self) -> &mut IndexWriterConfig<D> {
+    unsafe { &mut *(&self.config as *const IndexWriterConfig<D> as *mut IndexWriterConfig<D>) }
   }
   /// Gracefully closes (commits, waits for merges), but calls rollback if there's an error so the
   /// [`IndexWriter`] is always closed. This is called from [`close`] when

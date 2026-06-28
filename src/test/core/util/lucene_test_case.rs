@@ -160,19 +160,21 @@ where
   !rarely(random)
 }
 
-pub(crate) fn new_index_writer_config<R>(random: &mut R) -> Result<IndexWriterConfig>
+pub(crate) fn new_index_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   // TODO: 这里简单返回IndexWriterConfig::new()，后续可以根据random随机生成不同的配置
   let mock = MockAnalyzer::new(random);
   new_index_writer_config_with_analyzer(random, mock)
 }
-pub(crate) fn new_index_writer_config_with_analyzer<T, R>(
+pub(crate) fn new_index_writer_config_with_analyzer<D, T, R>(
   _random: &mut R,
   analyzer: T,
-) -> Result<IndexWriterConfig>
+) -> Result<IndexWriterConfig<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
   T: Into<AnalyzerEnum>,
 {
@@ -788,7 +790,10 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool>
   }
 }
 /// Ensures that the MergePolicy has sane values for tests that test with lots of documents.
-pub(crate) fn ensure_sane_iwc_on_nightly(conf: &mut IndexWriterConfig) -> Result<()> {
+pub(crate) fn ensure_sane_iwc_on_nightly<D>(conf: &mut IndexWriterConfig<D>) -> Result<()>
+where
+  D: Directory,
+{
   if is_night_mode() {
     conf.set_use_compound_file(true);
     let mp = conf.get_merge_policy_mut();

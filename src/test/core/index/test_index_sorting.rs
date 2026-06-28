@@ -74,6 +74,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -132,7 +133,7 @@ fn test_basic_string() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut iwc = new_index_writer_config_with_analyzer::<DirEnum, _, _>(&mut random, analyzer)?;
   let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::String)?])?;
   iwc.set_index_sort(index_sort)?;
 
@@ -2595,7 +2596,7 @@ fn test_add_indexes_with_deletions_and_directory() -> Result<()> {
 fn test_bad_sort() -> Result<()> {
   let mut random = random();
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut iwc = new_index_writer_config_with_analyzer::<DirEnum, _, _>(&mut random, analyzer)?;
 
   let err = iwc.set_index_sort(Sort::get_relevance()?).err().unwrap();
   match err {

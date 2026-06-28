@@ -29,6 +29,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::{
@@ -68,7 +69,7 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
       let writer = match writer_opt {
         Some(writer) => writer,
         None => {
-          let mut conf = new_index_writer_config(&mut random)?;
+          let mut conf = new_index_writer_config::<DirEnum, _>(&mut random)?;
           conf.set_merge_policy(NoMergePolicy::default());
           IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?
         },

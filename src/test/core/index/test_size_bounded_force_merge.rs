@@ -59,8 +59,9 @@ where
   Ok(())
 }
 
-fn new_writer_config<R>(random: &mut R) -> Result<IndexWriterConfig>
+fn new_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   let mut conf = new_index_writer_config(random)?;

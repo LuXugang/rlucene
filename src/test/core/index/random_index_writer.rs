@@ -78,7 +78,7 @@ where
   /// Returns an indexwriter that randomly mixes up thread scheduling (by yielding at test points).
   pub fn mock_index_writer<R>(
     dir: Arc<D>,
-    conf: IndexWriterConfig,
+    conf: IndexWriterConfig<D>,
     r: &mut R,
   ) -> Result<IndexWriter<D>>
   where
@@ -94,7 +94,7 @@ where
   pub fn mock_index_writer_with_test_point<R, TP>(
     r: &mut R,
     dir: Arc<D>,
-    mut conf: IndexWriterConfig,
+    mut conf: IndexWriterConfig<D>,
     test_point: TP,
   ) -> Result<IndexWriter<D>>
   where
@@ -162,7 +162,7 @@ where
   }
 
   /// Creates a RandomIndexWriter with the provided config.
-  pub fn with_config<R>(r: &mut R, dir: Arc<D>, config: IndexWriterConfig) -> Self
+  pub fn with_config<R>(r: &mut R, dir: Arc<D>, config: IndexWriterConfig<D>) -> Self
   where
     R: Rng + ?Sized,
     D: Directory,
@@ -175,7 +175,7 @@ where
   pub fn with_soft_deletes<R>(
     r: &mut R,
     dir: Arc<D>,
-    config: IndexWriterConfig,
+    config: IndexWriterConfig<D>,
     use_soft_deletes: bool,
   ) -> Self
   where
@@ -188,7 +188,7 @@ where
   fn new_with_config<R>(
     r: &mut R,
     dir: Arc<D>,
-    mut c: IndexWriterConfig,
+    mut c: IndexWriterConfig<D>,
     _close_analyzer: bool,
     use_soft_deletes: bool,
   ) -> Self

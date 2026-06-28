@@ -22,6 +22,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::{
@@ -136,7 +137,7 @@ fn test_diverse_docs() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
-  let _iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  let _iwc = new_index_writer_config_with_analyzer::<DirEnum, _, _>(&mut random, mock)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_ram_buffer_size_mb(0.5);
   let writer = IndexWriter::new(dir.clone(), iwc)?;

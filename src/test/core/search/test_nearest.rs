@@ -35,6 +35,7 @@ use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
 use crate::core::search::top_docs::TopDocsLike;
+use crate::core::store::directory::Directory;
 use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
 use crate::test::core::geo::geo_test_util::GeoTestUtil;
@@ -348,8 +349,9 @@ fn test_nearest_neighbor_random() -> Result<()> {
   w.close(&mut random)?;
   Ok(())
 }
-fn get_index_writer_config<R>(random: &mut R) -> Result<IndexWriterConfig>
+fn get_index_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   let iwc = new_index_writer_config(random)?;

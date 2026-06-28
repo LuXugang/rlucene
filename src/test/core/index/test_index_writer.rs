@@ -2144,7 +2144,7 @@ fn test_get_commit_data() -> Result<()> {
   drop(writer);
 
   // Validate that it's also visible when opening a new IndexWriter.
-  let mut iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config::<DirEnum, _>(&mut random)?;
   iwc.set_open_mode(OpenMode::Append);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -3720,7 +3720,7 @@ fn test_abort_fully_deleted_segment() -> Result<()> {
 fn test_set_index_created_version() -> Result<()> {
   let mut random = random();
 
-  let mut iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config::<DirEnum, _>(&mut random)?;
   let err = iwc.set_index_created_version_major(LATEST.major + 1);
   match err {
     Ok(_) => unreachable!("expected IllegalArgument error"),
@@ -3737,7 +3737,7 @@ fn test_set_index_created_version() -> Result<()> {
     },
   }
 
-  let mut iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config::<DirEnum, _>(&mut random)?;
   let err = iwc.set_index_created_version_major(LATEST.major - 2);
   match err {
     Ok(_) => unreachable!("expected IllegalArgument error"),

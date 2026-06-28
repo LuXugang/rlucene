@@ -604,7 +604,7 @@ fn test_more_merges() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-fn new_writer<D>(dir: Arc<D>, mut conf: IndexWriterConfig) -> Result<IndexWriter<D>>
+fn new_writer<D>(dir: Arc<D>, mut conf: IndexWriterConfig<D>) -> Result<IndexWriter<D>>
 where
   D: Directory + 'static,
 {

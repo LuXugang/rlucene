@@ -32,16 +32,20 @@ use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
+use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Holds all configuration used by `IndexWriter`, with a small set of setters
 /// for settings that can be changed on an `IndexWriter` instance live.
 pub trait LiveIndexWriterConfig: Display {
+  type Directory: Directory;
+
   /// Returns the default analyzer to use for indexing documents.
   fn get_analyzer(&self) -> &AnalyzerEnum;
 
@@ -126,7 +130,7 @@ pub trait LiveIndexWriterConfig: Display {
   fn get_reader_pooling(&self) -> bool;
 
   /// Returns mutable access to the base live configuration storage.
-  fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase;
+  fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase<Self::Directory>;
 
   /// Determines the amount of RAM that may be used for buffering added
   /// documents and deletions before they are flushed to the directory.
@@ -238,7 +242,12 @@ pub trait LiveIndexWriterConfig: Display {
 ///
 /// These fields mirror the live configuration state that an `IndexWriter` reads
 /// while indexing and merging.
-pub struct LiveIndexWriterConfigBase {
+pub struct LiveIndexWriterConfigBase<D>
+where
+  D: Directory,
+{
+  /// Directory type marker for the `IndexWriter` using this configuration.
+  _mark: PhantomData<D>,
   /// Default analyzer to use for indexing documents.
   pub analyzer: AnalyzerEnum,
   /// RAM buffer size in MB for added documents and deletions before flushing.
@@ -286,7 +295,10 @@ pub struct LiveIndexWriterConfigBase {
   /// [`MergeSchedulerEnum`] to use for running merges.
   pub merge_scheduler: MergeSchedulerEnum,
 }
-impl LiveIndexWriterConfigBase {
+impl<D> LiveIndexWriterConfigBase<D>
+where
+  D: Directory,
+{
   pub fn with_analyzer<T>(analyzer: T) -> Result<Self>
   where
     T: Into<AnalyzerEnum>,
@@ -297,6 +309,7 @@ impl LiveIndexWriterConfigBase {
   }
   pub fn new() -> Result<Self> {
     Ok(Self {
+      _mark: PhantomData,
       analyzer: AnalyzerEnum::default(),
       ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
       max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,

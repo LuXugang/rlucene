@@ -27,6 +27,7 @@ use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
+use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
@@ -42,11 +43,17 @@ use std::sync::Arc;
 ///
 /// All setter methods return [`IndexWriterConfig`] to allow settings to be
 /// chained conveniently.
-pub struct IndexWriterConfig {
-  pub(crate) base: LiveIndexWriterConfigBase,
+pub struct IndexWriterConfig<D>
+where
+  D: Directory,
+{
+  pub(crate) base: LiveIndexWriterConfigBase<D>,
 }
 
-impl IndexWriterConfig {
+impl<D> IndexWriterConfig<D>
+where
+  D: Directory,
+{
   /// Creates a new config using the default analyzer.
   ///
   /// By default, [`TieredMergePolicy`](crate::core::index::tiered_merge_policy::TieredMergePolicy)
@@ -271,13 +278,21 @@ impl IndexWriterConfig {
   }
 }
 
-impl Display for IndexWriterConfig {
+impl<D> Display for IndexWriterConfig<D>
+where
+  D: Directory,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
-impl LiveIndexWriterConfig for IndexWriterConfig {
+impl<D> LiveIndexWriterConfig for IndexWriterConfig<D>
+where
+  D: Directory,
+{
+  type Directory = D;
+
   fn get_analyzer(&self) -> &AnalyzerEnum {
     &self.base.analyzer
   }
@@ -370,7 +385,7 @@ impl LiveIndexWriterConfig for IndexWriterConfig {
     self.base.reader_pooling
   }
 
-  fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase {
+  fn get_base_mut(&mut self) -> &mut LiveIndexWriterConfigBase<D> {
     &mut self.base
   }
 }
