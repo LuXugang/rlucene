@@ -49,7 +49,10 @@ use std::fmt::{Display, Formatter};
 /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) removes the old commits. Note that
 /// doing so will increase the storage requirements of the index. See
 /// [LUCENE-710](http://issues.apache.org/jira/browse/LUCENE-710) for details.
-pub trait IndexDeletionPolicy: Display {
+pub trait IndexDeletionPolicy<IC>: Display
+where
+  IC: IndexCommit + Clone,
+{
   /// This is called once when a writer is first instantiated to give the policy a chance to remove
   /// old commit points.
   ///
@@ -66,9 +69,7 @@ pub trait IndexDeletionPolicy: Display {
   /// * `commits` - List of current [`IndexCommit`] point-in-time commits, sorted by age (the 0th
   ///   one is the oldest commit). Note that for a new index this method is invoked with an empty
   ///   list.
-  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone;
+  fn on_init(&self, commits: &[IC]) -> Result<()>;
 
   /// This is called each time the writer completed a commit. This gives the policy a chance to
   /// remove old commit points with each commit.
@@ -89,9 +90,7 @@ pub trait IndexDeletionPolicy: Display {
   /// # Parameters
   ///
   /// * `commits` - List of [`IndexCommit`], sorted by age (the 0th one is the oldest commit).
-  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone;
+  fn on_commit(&self, commits: &[IC]) -> Result<()>;
 }
 
 pub enum IndexDeletionPolicyEnum {
@@ -154,11 +153,11 @@ impl Display for IndexDeletionPolicyEnum {
   }
 }
 
-impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
-  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+impl<IC> IndexDeletionPolicy<IC> for IndexDeletionPolicyEnum
+where
+  IC: IndexCommit + Clone,
+{
+  fn on_init(&self, commits: &[IC]) -> Result<()> {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
       Self::No(policy) => policy.on_init(commits),
@@ -179,10 +178,7 @@ impl IndexDeletionPolicy for IndexDeletionPolicyEnum {
     }
   }
 
-  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+  fn on_commit(&self, commits: &[IC]) -> Result<()> {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
       Self::No(policy) => policy.on_commit(commits),

@@ -98,7 +98,7 @@ where
     is_reader_init: bool,
   ) -> Result<Self>
   where
-    P: IndexDeletionPolicy,
+    P: IndexDeletionPolicy<Arc<CommitPoint<D>>>,
   {
     // init fields
     let commits = Vec::new();
@@ -397,7 +397,7 @@ where
   /// which will attempt to delete those unused commits again.
   pub(crate) fn revisit_policy<P>(&mut self, policy: &P) -> Result<()>
   where
-    P: IndexDeletionPolicy,
+    P: IndexDeletionPolicy<Arc<CommitPoint<D>>>,
   {
     {
       if self.info_stream.is_enabled("IFD") {
@@ -432,7 +432,7 @@ where
     policy: &P,
   ) -> Result<()>
   where
-    P: IndexDeletionPolicy,
+    P: IndexDeletionPolicy<Arc<CommitPoint<D>>>,
   {
     // In Java Lucene, this method should be called while synchronized on IndexWriter instance.
     // In Rust Lucene, IndexFileDeleter under IndexWriter's Inner Mutex, So it is similar to Java Lucene's `assert Thread.holdsLock(IndexWriter);`

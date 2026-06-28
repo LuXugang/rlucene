@@ -27,19 +27,16 @@ impl Display for KeepOnlyLastCommitDeletionPolicy {
   }
 }
 
-impl IndexDeletionPolicy for KeepOnlyLastCommitDeletionPolicy {
-  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+impl<IC> IndexDeletionPolicy<IC> for KeepOnlyLastCommitDeletionPolicy
+where
+  IC: IndexCommit + Clone,
+{
+  fn on_init(&self, commits: &[IC]) -> Result<()> {
     self.on_commit(commits)
   }
 
   /// Deletes all commits except the most recent one.
-  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+  fn on_commit(&self, commits: &[IC]) -> Result<()> {
     let size = commits.len().saturating_sub(1);
     for commit in commits.iter().take(size) {
       commit.delete()?;

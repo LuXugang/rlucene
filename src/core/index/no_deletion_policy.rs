@@ -28,18 +28,15 @@ impl Display for NoDeletionPolicy {
   }
 }
 
-impl IndexDeletionPolicy for NoDeletionPolicy {
-  fn on_init<IC>(&self, _commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+impl<IC> IndexDeletionPolicy<IC> for NoDeletionPolicy
+where
+  IC: IndexCommit + Clone,
+{
+  fn on_init(&self, _commits: &[IC]) -> Result<()> {
     Ok(())
   }
 
-  fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+  fn on_commit(&self, _commits: &[IC]) -> Result<()> {
     Ok(())
   }
 }

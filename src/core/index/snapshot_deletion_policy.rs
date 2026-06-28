@@ -61,7 +61,6 @@ struct Inner<P, IC> {
 
 impl<P, IC> SnapshotDeletionPolicy<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   /// Sole constructor, taking the incoming [`IndexDeletionPolicy`] to wrap.
@@ -75,32 +74,6 @@ where
         init_called: false,
       })),
     }
-  }
-
-  pub fn on_commit(&self, commits: &[IC]) -> Result<()> {
-    let mut inner = self.inner.lock();
-    let wrapped_commits = self.wrap_commits(commits);
-    inner.primary.on_commit(&wrapped_commits)?;
-    inner.last_commit = commits.last().cloned();
-    Ok(())
-  }
-
-  pub fn on_init(&self, commits: &[IC]) -> Result<()> {
-    let mut inner = self.inner.lock();
-    inner.init_called = true;
-    let wrapped_commits = self.wrap_commits(commits);
-    inner.primary.on_init(&wrapped_commits)?;
-    for commit in commits {
-      if inner.ref_counts.contains_key(&commit.get_generation()) {
-        inner
-          .index_commits
-          .insert(commit.get_generation(), commit.clone());
-      }
-    }
-    if let Some(last_commit) = commits.last() {
-      inner.last_commit = Some(last_commit.clone());
-    }
-    Ok(())
   }
 
   /// Release a snapshotted commit.
@@ -199,6 +172,37 @@ where
     wrapped_commits
   }
 }
+impl<P, IC> IndexDeletionPolicy<IC> for SnapshotDeletionPolicy<P, IC>
+where
+  P: IndexDeletionPolicy<SnapshotCommitPoint<P, IC>>,
+  IC: IndexCommit + Clone,
+{
+  fn on_init(&self, commits: &[IC]) -> Result<()> {
+    let mut inner = self.inner.lock();
+    inner.init_called = true;
+    let wrapped_commits = self.wrap_commits(commits);
+    inner.primary.on_init(&wrapped_commits)?;
+    for commit in commits {
+      if inner.ref_counts.contains_key(&commit.get_generation()) {
+        inner
+          .index_commits
+          .insert(commit.get_generation(), commit.clone());
+      }
+    }
+    if let Some(last_commit) = commits.last() {
+      inner.last_commit = Some(last_commit.clone());
+    }
+    Ok(())
+  }
+
+  fn on_commit(&self, commits: &[IC]) -> Result<()> {
+    let mut inner = self.inner.lock();
+    let wrapped_commits = self.wrap_commits(commits);
+    inner.primary.on_commit(&wrapped_commits)?;
+    inner.last_commit = commits.last().cloned();
+    Ok(())
+  }
+}
 
 impl<P, IC> Display for SnapshotDeletionPolicy<P, IC> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -215,7 +219,6 @@ struct SnapshotCommitPoint<P, IC> {
 
 impl<P, IC> SnapshotCommitPoint<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   /// Creates a [`SnapshotCommitPoint`] wrapping the provided [`IndexCommit`].
@@ -229,7 +232,6 @@ where
 
 impl<P, IC> Clone for SnapshotCommitPoint<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   fn clone(&self) -> Self {
@@ -242,7 +244,6 @@ where
 
 impl<P, IC> PartialEq for SnapshotCommitPoint<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   fn eq(&self, other: &Self) -> bool {
@@ -250,16 +251,10 @@ where
   }
 }
 
-impl<P, IC> Eq for SnapshotCommitPoint<P, IC>
-where
-  P: IndexDeletionPolicy,
-  IC: IndexCommit + Clone,
-{
-}
+impl<P, IC> Eq for SnapshotCommitPoint<P, IC> where IC: IndexCommit + Clone {}
 
 impl<P, IC> PartialOrd for SnapshotCommitPoint<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -269,7 +264,6 @@ where
 
 impl<P, IC> Ord for SnapshotCommitPoint<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   fn cmp(&self, other: &Self) -> Ordering {
@@ -279,7 +273,6 @@ where
 
 impl<P, IC> Display for SnapshotCommitPoint<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -289,7 +282,6 @@ where
 
 impl<P, IC> IndexCommit for SnapshotCommitPoint<P, IC>
 where
-  P: IndexDeletionPolicy,
   IC: IndexCommit + Clone,
 {
   fn get_segments_file_name(&self) -> &str {

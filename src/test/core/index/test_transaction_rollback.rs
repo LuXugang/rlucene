@@ -171,11 +171,11 @@ impl Display for RollbackDeletionPolicy {
   }
 }
 
-impl IndexDeletionPolicy for RollbackDeletionPolicy {
-  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+impl<IC> IndexDeletionPolicy<IC> for RollbackDeletionPolicy
+where
+  IC: IndexCommit + Clone,
+{
+  fn on_init(&self, commits: &[IC]) -> Result<()> {
     for commit in commits {
       let user_data = commit.get_user_data();
       if !user_data.is_empty() {
@@ -189,10 +189,7 @@ impl IndexDeletionPolicy for RollbackDeletionPolicy {
     Ok(())
   }
 
-  fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+  fn on_commit(&self, _commits: &[IC]) -> Result<()> {
     Ok(())
   }
 }
@@ -206,18 +203,15 @@ impl Display for DeleteLastCommitPolicy {
   }
 }
 
-impl IndexDeletionPolicy for DeleteLastCommitPolicy {
-  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+impl<IC> IndexDeletionPolicy<IC> for DeleteLastCommitPolicy
+where
+  IC: IndexCommit + Clone,
+{
+  fn on_init(&self, commits: &[IC]) -> Result<()> {
     commits.last().unwrap().delete()
   }
 
-  fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+  fn on_commit(&self, _commits: &[IC]) -> Result<()> {
     Ok(())
   }
 }
@@ -249,18 +243,15 @@ impl Display for KeepAllTransactionDeletionPolicy {
   }
 }
 
-impl IndexDeletionPolicy for KeepAllTransactionDeletionPolicy {
-  fn on_init<IC>(&self, _commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+impl<IC> IndexDeletionPolicy<IC> for KeepAllTransactionDeletionPolicy
+where
+  IC: IndexCommit + Clone,
+{
+  fn on_init(&self, _commits: &[IC]) -> Result<()> {
     Ok(())
   }
 
-  fn on_commit<IC>(&self, _commits: &[IC]) -> Result<()>
-  where
-    IC: IndexCommit + Clone,
-  {
+  fn on_commit(&self, _commits: &[IC]) -> Result<()> {
     Ok(())
   }
 }
