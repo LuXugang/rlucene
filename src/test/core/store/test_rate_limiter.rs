@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::core::util::lucene_test_case::random as new_random;
+use crate::test::core::util::lucene_test_case::{random as new_random, random_from_seed};
 use rand::RngExt;
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Barrier};
@@ -41,15 +41,16 @@ fn test_threads() -> Result<()> {
   let limiter = Arc::new(SimpleRateLimiter::new(target_mb_per_sec));
 
   let num_threads = random.random_range(3..=6);
-  let barrier = Arc::new(Barrier::new(num_threads));
+  let barrier = Arc::new(Barrier::new(num_threads + 1));
   let tot_bytes = Arc::new(AtomicI64::new(0));
 
   let mut handles = Vec::new();
   for _ in 0..num_threads {
+    let seed = random.random();
     let limiter = Arc::clone(&limiter);
     let barrier = Arc::clone(&barrier);
     let tot_bytes = Arc::clone(&tot_bytes);
-    let mut thread_random = new_random();
+    let mut thread_random = random_from_seed(seed);
 
     handles.push(std::thread::spawn(move || {
       barrier.wait();
@@ -67,6 +68,7 @@ fn test_threads() -> Result<()> {
   }
 
   let start = Instant::now();
+  barrier.wait();
   for handle in handles {
     handle.join().unwrap();
   }
@@ -80,10 +82,10 @@ fn test_threads() -> Result<()> {
 
   // Only enforce that it wasn't too fast; if machine is bogged down (can't schedule threads /
   // sleep properly) then it may falsely be too slow:
-  assert!(
-    ratio >= 0.9,
-    "actualMBPerSec={actual_mb_per_sec} targetMBPerSec={target_mb_per_sec}"
-  );
+  if ratio < 0.9 {
+    // mock Java's assumeTrue
+    return Ok(());
+  }
   assert!(
     ratio <= 1.1,
     "targetMBPerSec={target_mb_per_sec} actualMBPerSec={actual_mb_per_sec}"
