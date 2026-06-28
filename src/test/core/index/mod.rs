@@ -139,6 +139,7 @@ mod test_payloads_on_vectors;
 mod test_pending_deletes;
 pub(crate) mod test_pending_soft_deletes;
 pub(crate) mod test_per_segment_deletes;
+mod test_persistent_snapshot_deletion_policy;
 mod test_point_values;
 mod test_postings_offsets;
 mod test_prefix_coded_terms;

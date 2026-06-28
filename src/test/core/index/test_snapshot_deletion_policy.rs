@@ -58,7 +58,7 @@ fn get_config(
   Ok(conf)
 }
 
-fn check_snapshot_exists(dir: &impl Directory, c: &impl IndexCommit) -> Result<()> {
+pub(crate) fn check_snapshot_exists(dir: &impl Directory, c: &impl IndexCommit) -> Result<()> {
   let seg_file_name = c.get_segments_file_name();
   assert!(
     slow_file_exists(dir, seg_file_name)?,
@@ -67,23 +67,30 @@ fn check_snapshot_exists(dir: &impl Directory, c: &impl IndexCommit) -> Result<(
   Ok(())
 }
 
-fn check_max_doc(commit: &Arc<CommitPoint<DirEnum>>, expected_max_doc: i32) -> Result<()> {
+pub(crate) fn check_max_doc<D>(commit: &Arc<CommitPoint<D>>, expected_max_doc: i32) -> Result<()>
+where
+  D: Directory + 'static,
+{
   let reader = directory_reader::open_from_commit::<_, DummyComparator, _>(commit)?;
   assert_eq!(expected_max_doc, reader.max_doc()?);
   reader.close()
 }
 
-fn prepare_index_and_snapshots(
-  sdp: &SnapshotDeletionPolicy<DirEnum>,
-  writer: &IndexWriter<DirEnum>,
+pub(crate) fn prepare_index_and_snapshots<D, F>(
+  mut snapshot: F,
+  writer: &IndexWriter<D>,
   num_snapshots: usize,
-) -> Result<Vec<Arc<CommitPoint<DirEnum>>>> {
+) -> Result<Vec<Arc<CommitPoint<D>>>>
+where
+  D: Directory + 'static,
+  F: FnMut() -> Result<Arc<CommitPoint<D>>>,
+{
   let mut snapshots = Vec::new();
   for _ in 0..num_snapshots {
     // create dummy document to trigger commit.
     writer.add_document(Document::new())?;
     writer.commit()?;
-    snapshots.push(sdp.snapshot()?);
+    snapshots.push(snapshot()?);
   }
   Ok(snapshots)
 }
@@ -92,19 +99,22 @@ fn get_deletion_policy() -> SnapshotDeletionPolicy<DirEnum> {
   SnapshotDeletionPolicy::new(KeepOnlyLastCommitDeletionPolicy)
 }
 
-fn assert_snapshot_exists(
-  dir: &Arc<DirEnum>,
-  sdp: &SnapshotDeletionPolicy<DirEnum>,
-  snapshots: &[Arc<CommitPoint<DirEnum>>],
+pub(crate) fn assert_snapshot_exists<D, F>(
+  dir: &Arc<D>,
+  get_index_commit: F,
+  snapshots: &[Arc<CommitPoint<D>>],
   num_snapshots: usize,
   check_index_commit_same: bool,
-) -> Result<()> {
+) -> Result<()>
+where
+  D: Directory + 'static,
+  F: Fn(i64) -> Option<Arc<CommitPoint<D>>>,
+{
   for (i, snapshot) in snapshots.iter().take(num_snapshots).enumerate() {
     check_max_doc(snapshot, i as i32 + 1)?;
     check_snapshot_exists(dir.as_ref(), snapshot)?;
-    let index_commit = sdp
-      .get_index_commit(snapshot.get_generation())
-      .expect("snapshot generation should be held");
+    let index_commit =
+      get_index_commit(snapshot.get_generation()).expect("snapshot generation should be held");
     if check_index_commit_same {
       assert!(Arc::ptr_eq(snapshot, &index_commit));
     } else {
@@ -289,12 +299,18 @@ fn test_basic_snapshots() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let sdp = get_deletion_policy();
   let writer = IndexWriter::new(dir.clone(), get_config(&mut random, Some(sdp.clone()))?)?;
-  let snapshots = prepare_index_and_snapshots(&sdp, &writer, num_snapshots)?;
+  let snapshots = prepare_index_and_snapshots(|| sdp.snapshot(), &writer, num_snapshots)?;
   writer.close()?;
 
   assert_eq!(num_snapshots, sdp.get_snapshots().len());
   assert_eq!(num_snapshots as i32, sdp.get_snapshot_count());
-  assert_snapshot_exists(&dir, &sdp, &snapshots, num_snapshots, true)?;
+  assert_snapshot_exists(
+    &dir,
+    |generation| sdp.get_index_commit(generation),
+    &snapshots,
+    num_snapshots,
+    true,
+  )?;
 
   // open a reader on a snapshot - should succeed.
   directory_reader::open_from_commit::<_, DummyComparator, _>(&snapshots[0])?.close()?;
@@ -371,7 +387,7 @@ fn test_rollback_to_old_snapshot() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let sdp = get_deletion_policy();
   let writer = IndexWriter::new(dir.clone(), get_config(&mut random, Some(sdp.clone()))?)?;
-  let snapshots = prepare_index_and_snapshots(&sdp, &writer, 2)?;
+  let snapshots = prepare_index_and_snapshots(|| sdp.snapshot(), &writer, 2)?;
   writer.close()?;
 
   // now open the writer on "snapshot0" - make sure it succeeds
@@ -389,7 +405,13 @@ fn test_rollback_to_old_snapshot() -> Result<()> {
   writer.delete_unused_files()?;
 
   // but 'snapshot1' files will still exist, since it was snapshotted.
-  assert_snapshot_exists(&dir, &sdp, &snapshots, 1, false)?;
+  assert_snapshot_exists(
+    &dir,
+    |generation| sdp.get_index_commit(generation),
+    &snapshots,
+    1,
+    false,
+  )?;
   check_snapshot_exists(dir.as_ref(), snapshots[1].as_ref())?;
 
   writer.close()?;
@@ -402,7 +424,7 @@ fn test_release_snapshot() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let sdp = get_deletion_policy();
   let writer = IndexWriter::new(dir.clone(), get_config(&mut random, Some(sdp.clone()))?)?;
-  let snapshots = prepare_index_and_snapshots(&sdp, &writer, 1)?;
+  let snapshots = prepare_index_and_snapshots(|| sdp.snapshot(), &writer, 1)?;
 
   // Create another commit - we must do that, because otherwise the "snapshot"
   // files will still remain in the index, since it's the last commit.

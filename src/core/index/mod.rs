@@ -132,6 +132,7 @@ pub mod ordinal_map;
 pub(crate) mod parallel_postings_array;
 pub(crate) mod pending_deletes;
 pub(crate) mod pending_soft_deletes;
+pub mod persistent_snapshot_deletion_policy;
 pub mod point_values;
 pub(crate) mod point_values_writer;
 pub mod postings_enum;

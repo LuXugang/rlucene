@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-use parking_lot::Mutex;
+use parking_lot::{Mutex, MutexGuard};
 
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_deletion_policy::{IndexDeletionPolicy, IndexDeletionPolicyEnum};
@@ -48,6 +48,10 @@ where
   primary: Arc<IndexDeletionPolicyEnum<D>>,
   inner: Arc<Mutex<Inner<D>>>,
   op_lock: Arc<Mutex<()>>,
+}
+
+pub(crate) struct SnapshotDeletionPolicyLock<'a> {
+  _guard: MutexGuard<'a, ()>,
 }
 
 struct Inner<D>
@@ -101,20 +105,44 @@ where
     }
   }
 
+  pub(crate) fn lock(&self) -> SnapshotDeletionPolicyLock<'_> {
+    SnapshotDeletionPolicyLock {
+      _guard: self.op_lock.lock(),
+    }
+  }
+
   /// Release a snapshotted commit.
   ///
   /// # Parameters
   ///
   /// * `commit` - the commit previously returned by [`Self::snapshot`].
   pub fn release(&self, commit: &Arc<CommitPoint<D>>) -> Result<()> {
-    let _op_lock = self.op_lock.lock();
+    self.release_with_lock(commit, None)
+  }
+
+  pub(crate) fn release_with_lock(
+    &self,
+    commit: &Arc<CommitPoint<D>>,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) -> Result<()> {
     let generation = commit.get_generation();
-    self.release_gen_locked(generation)
+    self.release_gen_with_lock(generation, op_lock)
   }
 
   /// Release a snapshot by generation.
   pub fn release_gen(&self, generation: i64) -> Result<()> {
-    let _op_lock = self.op_lock.lock();
+    self.release_gen_with_lock(generation, None)
+  }
+
+  pub(crate) fn release_gen_with_lock(
+    &self,
+    generation: i64,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) -> Result<()> {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      return self.release_gen_with_lock(generation, Some(&op_lock));
+    }
     self.release_gen_locked(generation)
   }
 
@@ -137,7 +165,21 @@ where
     Ok(())
   }
 
-  fn inc_ref(&self, ic: &Arc<CommitPoint<D>>, inner: &mut Inner<D>) {
+  pub(crate) fn inc_ref_with_lock(
+    &self,
+    ic: &Arc<CommitPoint<D>>,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      self.inc_ref_with_lock(ic, Some(&op_lock));
+      return;
+    }
+    let mut inner = self.inner.lock();
+    self.inc_ref_locked(ic, &mut inner);
+  }
+
+  fn inc_ref_locked(&self, ic: &Arc<CommitPoint<D>>, inner: &mut Inner<D>) {
     let generation = ic.get_generation();
     let ref_count = inner.ref_counts.get(&generation).copied().unwrap_or(0);
     if ref_count == 0 {
@@ -161,7 +203,17 @@ where
   /// Returns an [`IllegalState`](LuceneError::IllegalState) error if this index does not have any
   /// commits yet.
   pub fn snapshot(&self) -> Result<Arc<CommitPoint<D>>> {
-    let _op_lock = self.op_lock.lock();
+    self.snapshot_with_lock(None)
+  }
+
+  pub(crate) fn snapshot_with_lock(
+    &self,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) -> Result<Arc<CommitPoint<D>>> {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      return self.snapshot_with_lock(Some(&op_lock));
+    }
     let mut inner = self.inner.lock();
     if !inner.init_called {
       return Err(LuceneError::illegal_state(MISUSE_MESSAGE));
@@ -171,21 +223,43 @@ where
       .clone()
       .ok_or_else(|| LuceneError::illegal_state("No index commit to snapshot"))?;
 
-    self.inc_ref(&last_commit, &mut inner);
+    self.inc_ref_locked(&last_commit, &mut inner);
 
     Ok(last_commit)
   }
 
   /// Returns all IndexCommits held by at least one snapshot.
   pub fn get_snapshots(&self) -> Vec<Arc<CommitPoint<D>>> {
-    let _op_lock = self.op_lock.lock();
+    let op_lock = self.lock();
+    self.get_snapshots_with_lock(Some(&op_lock))
+  }
+
+  pub(crate) fn get_snapshots_with_lock(
+    &self,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) -> Vec<Arc<CommitPoint<D>>> {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      return self.get_snapshots_with_lock(Some(&op_lock));
+    }
     let inner = self.inner.lock();
     inner.index_commits.values().cloned().collect()
   }
 
   /// Returns the total number of snapshots currently held.
   pub fn get_snapshot_count(&self) -> i32 {
-    let _op_lock = self.op_lock.lock();
+    let op_lock = self.lock();
+    self.get_snapshot_count_with_lock(Some(&op_lock))
+  }
+
+  pub(crate) fn get_snapshot_count_with_lock(
+    &self,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) -> i32 {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      return self.get_snapshot_count_with_lock(Some(&op_lock));
+    }
     let inner = self.inner.lock();
     inner.ref_counts.values().sum()
   }
@@ -193,9 +267,48 @@ where
   /// Retrieve an [`IndexCommit`] from its generation; returns `None` if this IndexCommit is not
   /// currently snapshotted.
   pub fn get_index_commit(&self, generation: i64) -> Option<Arc<CommitPoint<D>>> {
-    let _op_lock = self.op_lock.lock();
+    let op_lock = self.lock();
+    self.get_index_commit_with_lock(generation, Some(&op_lock))
+  }
+
+  pub(crate) fn get_index_commit_with_lock(
+    &self,
+    generation: i64,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) -> Option<Arc<CommitPoint<D>>> {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      return self.get_index_commit_with_lock(generation, Some(&op_lock));
+    }
     let inner = self.inner.lock();
     inner.index_commits.get(&generation).cloned()
+  }
+
+  pub(crate) fn ref_counts_with_lock(
+    &self,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) -> HashMap<i64, i32> {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      return self.ref_counts_with_lock(Some(&op_lock));
+    }
+    let inner = self.inner.lock();
+    inner.ref_counts.clone()
+  }
+
+  pub(crate) fn set_ref_counts_with_lock(
+    &self,
+    ref_counts: HashMap<i64, i32>,
+    op_lock: Option<&SnapshotDeletionPolicyLock<'_>>,
+  ) {
+    if op_lock.is_none() {
+      let op_lock = self.lock();
+      self.set_ref_counts_with_lock(ref_counts, Some(&op_lock));
+      return;
+    }
+    let mut inner = self.inner.lock();
+    inner.ref_counts = ref_counts;
+    inner.index_commits.clear();
   }
 
   /// Wraps each [`IndexCommit`] as a [`SnapshotCommitPoint`].

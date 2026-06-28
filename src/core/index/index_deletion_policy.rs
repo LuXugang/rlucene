@@ -18,6 +18,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
+use crate::core::index::persistent_snapshot_deletion_policy::PersistentSnapshotDeletionPolicy;
 use crate::core::index::snapshot_deletion_policy::{SnapshotCommitPoint, SnapshotDeletionPolicy};
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -103,6 +104,7 @@ where
   KeepOnlyLastCommit(KeepOnlyLastCommitDeletionPolicy),
   No(NoDeletionPolicy),
   Snapshot(Box<SnapshotDeletionPolicy<D>>),
+  PersistentSnapshot(Box<PersistentSnapshotDeletionPolicy<D>>),
   #[cfg(test)]
   KeepAll(KeepAllDeletionPolicy),
   #[cfg(test)]
@@ -143,6 +145,15 @@ where
 {
   fn from(policy: SnapshotDeletionPolicy<D>) -> Self {
     Self::Snapshot(Box::new(policy))
+  }
+}
+
+impl<D> From<PersistentSnapshotDeletionPolicy<D>> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: PersistentSnapshotDeletionPolicy<D>) -> Self {
+    Self::PersistentSnapshot(Box::new(policy))
   }
 }
 
@@ -225,6 +236,7 @@ where
       Self::KeepOnlyLastCommit(policy) => write!(f, "{policy}"),
       Self::No(policy) => write!(f, "{policy}"),
       Self::Snapshot(policy) => write!(f, "{policy}"),
+      Self::PersistentSnapshot(policy) => write!(f, "{policy}"),
       #[cfg(test)]
       Self::KeepAll(policy) => write!(f, "{policy}"),
       #[cfg(test)]
@@ -252,6 +264,7 @@ where
       Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
       Self::No(policy) => policy.on_init(commits),
       Self::Snapshot(policy) => policy.on_init(commits),
+      Self::PersistentSnapshot(policy) => policy.on_init(commits),
       #[cfg(test)]
       Self::KeepAll(policy) => policy.on_init(commits),
       #[cfg(test)]
@@ -274,6 +287,7 @@ where
       Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
       Self::No(policy) => policy.on_commit(commits),
       Self::Snapshot(policy) => policy.on_commit(commits),
+      Self::PersistentSnapshot(policy) => policy.on_commit(commits),
       #[cfg(test)]
       Self::KeepAll(policy) => policy.on_commit(commits),
       #[cfg(test)]
@@ -303,6 +317,9 @@ where
       Self::Snapshot(_) => Err(LuceneError::illegal_argument(
         "SnapshotDeletionPolicy cannot wrap another SnapshotDeletionPolicy",
       )),
+      Self::PersistentSnapshot(_) => Err(LuceneError::illegal_argument(
+        "SnapshotDeletionPolicy cannot wrap another SnapshotDeletionPolicy",
+      )),
       #[cfg(test)]
       Self::KeepAll(policy) => policy.on_init(commits),
       #[cfg(test)]
@@ -325,6 +342,9 @@ where
       Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
       Self::No(policy) => policy.on_commit(commits),
       Self::Snapshot(_) => Err(LuceneError::illegal_argument(
+        "SnapshotDeletionPolicy cannot wrap another SnapshotDeletionPolicy",
+      )),
+      Self::PersistentSnapshot(_) => Err(LuceneError::illegal_argument(
         "SnapshotDeletionPolicy cannot wrap another SnapshotDeletionPolicy",
       )),
       #[cfg(test)]
