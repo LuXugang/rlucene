@@ -29,11 +29,6 @@ use std::thread;
 
 static NEXT_HANDLE_ID: AtomicUsize = AtomicUsize::new(0);
 
-enum DiskFullSource<'a> {
-  Bytes(&'a [u8], usize),
-  Input(&'a mut dyn DataInput),
-}
-
 /// Used to create an output stream that will throw an IOException on fake disk
 /// full, track max disk space actually used, and maybe throw random
 /// IOExceptions.
@@ -91,7 +86,10 @@ where
     Ok(())
   }
 
-  fn check_disk_full(&mut self, source: DiskFullSource<'_>, len: usize) -> Result<()> {
+  fn check_disk_full<F>(&mut self, len: usize, write_free_space: F) -> Result<()>
+  where
+    F: FnOnce(&mut Self, usize) -> Result<()>,
+  {
     let max_size = self.dir.state.max_size.load(Ordering::SeqCst);
     let len = len as i64;
     let mut free_space = if max_size == 0 {
@@ -113,14 +111,7 @@ where
       if free_space > 0 {
         let free_space = free_space as usize;
         real_usage += free_space as i64;
-        match source {
-          DiskFullSource::Bytes(bytes, offset) => {
-            self.out.write_bytes_range(bytes, offset, free_space)?;
-          },
-          DiskFullSource::Input(input) => {
-            self.out.copy_bytes_dyn(input, free_space)?;
-          },
-        }
+        write_free_space(self, free_space)?;
       }
       if real_usage > self.dir.state.max_used_size.load(Ordering::SeqCst) {
         self
@@ -171,7 +162,9 @@ where
   fn write_bytes_range(&mut self, b: &[u8], offset: usize, len: usize) -> Result<()> {
     self.ensure_open()?;
     self.check_crashed()?;
-    self.check_disk_full(DiskFullSource::Bytes(b, offset), len)?;
+    self.check_disk_full(len, |this, free_space| {
+      this.out.write_bytes_range(b, offset, free_space)
+    })?;
 
     if self.dir.state.random_state.lock().random_range(0..200) == 0 {
       let half = len / 2;
@@ -193,19 +186,26 @@ where
     Ok(())
   }
 
-  fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()>
+  fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
   where
     Self: Sized,
+    I: DataInput + ?Sized,
   {
-    self.copy_bytes_dyn(input, num_bytes)
-  }
-
-  fn copy_bytes_dyn(&mut self, input: &mut dyn DataInput, num_bytes: usize) -> Result<()> {
     self.ensure_open()?;
     self.check_crashed()?;
-    self.check_disk_full(DiskFullSource::Input(input), num_bytes)?;
+    self.check_disk_full(num_bytes, |this, free_space| {
+      let mut buffer = vec![0u8; 16384];
+      let mut left = free_space;
+      while left > 0 {
+        let to_copy = left.min(buffer.len());
+        input.read_bytes(&mut buffer, 0, to_copy)?;
+        this.out.write_bytes_with_len(&buffer, to_copy)?;
+        left -= to_copy;
+      }
+      Ok(())
+    })?;
 
-    self.out.copy_bytes_dyn(input, num_bytes)?;
+    self.out.copy_bytes(input, num_bytes)?;
     self.dir.maybe_throw_deterministic_exception()
   }
 }

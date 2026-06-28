@@ -207,16 +207,14 @@ pub trait DataOutput {
   }
 
   /// Copy numBytes bytes from input to ourselves.
-  fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()>
+  fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
   where
     Self: Sized,
+    I: DataInput + ?Sized,
   {
     copy_bytes_impl(self, input, num_bytes)
   }
 
-  fn copy_bytes_dyn(&mut self, input: &mut dyn DataInput, num_bytes: usize) -> Result<()> {
-    copy_bytes_impl(self, input, num_bytes)
-  }
   /// Writes a `HashMap<String, String>`.
   ///
   /// First, the size is written with [`write_vint`](Self::write_vint),
@@ -400,7 +398,10 @@ where
     }
   }
 
-  fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
+  fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
+  where
+    I: DataInput + ?Sized,
+  {
     match self {
       DataOutputEnum2::A(f) => f.copy_bytes(input, num_bytes),
       DataOutputEnum2::B(s) => s.copy_bytes(input, num_bytes),

@@ -169,7 +169,10 @@ where
     self.delegate_mut()?.write_string(s)
   }
 
-  fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
+  fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
+  where
+    I: DataInput + ?Sized,
+  {
     self.delegate_mut()?.copy_bytes(input, num_bytes)
   }
 

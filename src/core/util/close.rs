@@ -29,6 +29,12 @@ impl<T: ?Sized + Closeable> Closeable for Arc<T> {
   }
 }
 
+impl<T: ?Sized + Closeable> Closeable for &mut T {
+  fn close(&mut self) -> Result<()> {
+    (**self).close()
+  }
+}
+
 pub trait CloseableRef {
   fn close(&self) -> Result<()> {
     Ok(())

@@ -65,7 +65,21 @@ pub trait IndexOutput: DataOutput + Display + Closeable {
     Ok(aligned_offset)
   }
 }
-pub type DynIndexOutput = dyn IndexOutput + Send + Sync;
+
+pub trait ErasedIndexOutput: IndexOutput {
+  fn copy_bytes_erased(&mut self, input: &mut dyn DataInput, num_bytes: usize) -> Result<()>;
+}
+
+impl<T> ErasedIndexOutput for T
+where
+  T: IndexOutput,
+{
+  fn copy_bytes_erased(&mut self, input: &mut dyn DataInput, num_bytes: usize) -> Result<()> {
+    self.copy_bytes(input, num_bytes)
+  }
+}
+
+pub type DynIndexOutput = dyn ErasedIndexOutput + Send + Sync;
 pub type CustomIndexOutput = Box<DynIndexOutput>;
 pub enum IndexOutputEnum {
   Fs(OutputStreamIndexOutput<File>),
@@ -165,18 +179,18 @@ impl DataOutput for IndexOutputEnum {
     }
   }
 
-  fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()>
+  fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
   where
     Self: Sized,
+    I: DataInput + ?Sized,
   {
     match self {
       Self::Fs(inner) => inner.copy_bytes(input, num_bytes),
-      Self::Custom(inner) => inner.copy_bytes_dyn(input, num_bytes),
+      Self::Custom(inner) => {
+        let mut input_ref = input;
+        inner.copy_bytes_erased(&mut input_ref, num_bytes)
+      },
     }
-  }
-
-  fn copy_bytes_dyn(&mut self, _input: &mut dyn DataInput, _num_bytes: usize) -> Result<()> {
-    Err(LuceneError::unsupported_operation(""))
   }
 
   fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
@@ -340,7 +354,10 @@ macro_rules! either_index_output {
                 }
             }
 
-            fn copy_bytes(&mut self, input: &mut impl DataInput, num_bytes: usize) -> Result<()> {
+            fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
+            where
+                I: DataInput + ?Sized,
+            {
                 match self {
                     $( Self::$Variant(inner) => inner.copy_bytes(input, num_bytes), )+
                 }

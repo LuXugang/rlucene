@@ -445,7 +445,10 @@ impl DataOutput for ByteBuffersDataOutput {
     self.write_bytes_range(bytes, 0, length)
   }
 
-  fn copy_bytes(&mut self, input: &mut impl DataInput, mut num_bytes: usize) -> Result<()> {
+  fn copy_bytes<I>(&mut self, input: &mut I, mut num_bytes: usize) -> Result<()>
+  where
+    I: DataInput + ?Sized,
+  {
     while num_bytes > 0 {
       let available_space = self.append_block_if_needed()?;
       let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
