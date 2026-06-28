@@ -22,7 +22,9 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
-use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
+use crate::core::index::index_deletion_policy::{IndexDeletionPolicy, IndexDeletionPolicyEnum};
+use crate::core::index::index_file_deleter::CommitPoint;
+use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be sure to use the instance returned from writer.getConfig().getIndexDeletionPolicy()";
@@ -39,40 +41,63 @@ const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be
 /// `PersistentSnapshotDeletionPolicy`.
 ///
 /// # Experimental
-#[derive(Clone)]
-pub struct SnapshotDeletionPolicy<P, IC> {
-  inner: Arc<Mutex<Inner<P, IC>>>,
+pub struct SnapshotDeletionPolicy<D>
+where
+  D: Directory,
+{
+  primary: Arc<IndexDeletionPolicyEnum<D>>,
+  inner: Arc<Mutex<Inner<D>>>,
+  op_lock: Arc<Mutex<()>>,
 }
 
-struct Inner<P, IC> {
-  primary: P,
+struct Inner<D>
+where
+  D: Directory,
+{
   /// Records how many snapshots are held against each commit generation.
   ref_counts: HashMap<i64, i32>,
 
   /// Used to map gen to IndexCommit.
-  index_commits: HashMap<i64, IC>,
+  index_commits: HashMap<i64, Arc<CommitPoint<D>>>,
 
   /// Most recently committed IndexCommit.
-  last_commit: Option<IC>,
+  last_commit: Option<Arc<CommitPoint<D>>>,
 
   /// Used to detect misuse.
   init_called: bool,
 }
 
-impl<P, IC> SnapshotDeletionPolicy<P, IC>
+impl<D> Clone for SnapshotDeletionPolicy<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      primary: self.primary.clone(),
+      inner: self.inner.clone(),
+      op_lock: self.op_lock.clone(),
+    }
+  }
+}
+
+impl<D> SnapshotDeletionPolicy<D>
+where
+  D: Directory,
 {
   /// Sole constructor, taking the incoming [`IndexDeletionPolicy`] to wrap.
-  pub fn new(primary: P) -> Self {
+  pub fn new<T>(primary: T) -> Self
+  where
+    T: Into<IndexDeletionPolicyEnum<D>>,
+  {
     SnapshotDeletionPolicy {
+      primary: Arc::new(primary.into()),
       inner: Arc::new(Mutex::new(Inner {
-        primary,
         ref_counts: HashMap::new(),
         index_commits: HashMap::new(),
         last_commit: None,
         init_called: false,
       })),
+      op_lock: Arc::new(Mutex::new(())),
     }
   }
 
@@ -81,13 +106,19 @@ where
   /// # Parameters
   ///
   /// * `commit` - the commit previously returned by [`Self::snapshot`].
-  pub fn release(&self, commit: &IC) -> Result<()> {
+  pub fn release(&self, commit: &Arc<CommitPoint<D>>) -> Result<()> {
+    let _op_lock = self.op_lock.lock();
     let generation = commit.get_generation();
-    self.release_gen(generation)
+    self.release_gen_locked(generation)
   }
 
   /// Release a snapshot by generation.
   pub fn release_gen(&self, generation: i64) -> Result<()> {
+    let _op_lock = self.op_lock.lock();
+    self.release_gen_locked(generation)
+  }
+
+  fn release_gen_locked(&self, generation: i64) -> Result<()> {
     let mut inner = self.inner.lock();
     if !inner.init_called {
       return Err(LuceneError::illegal_state(MISUSE_MESSAGE));
@@ -106,7 +137,7 @@ where
     Ok(())
   }
 
-  fn inc_ref(&self, ic: &IC, inner: &mut Inner<P, IC>) {
+  fn inc_ref(&self, ic: &Arc<CommitPoint<D>>, inner: &mut Inner<D>) {
     let generation = ic.get_generation();
     let ref_count = inner.ref_counts.get(&generation).copied().unwrap_or(0);
     if ref_count == 0 {
@@ -129,7 +160,8 @@ where
   ///
   /// Returns an [`IllegalState`](LuceneError::IllegalState) error if this index does not have any
   /// commits yet.
-  pub fn snapshot(&self) -> Result<IC> {
+  pub fn snapshot(&self) -> Result<Arc<CommitPoint<D>>> {
+    let _op_lock = self.op_lock.lock();
     let mut inner = self.inner.lock();
     if !inner.init_called {
       return Err(LuceneError::illegal_state(MISUSE_MESSAGE));
@@ -145,26 +177,29 @@ where
   }
 
   /// Returns all IndexCommits held by at least one snapshot.
-  pub fn get_snapshots(&self) -> Vec<IC> {
+  pub fn get_snapshots(&self) -> Vec<Arc<CommitPoint<D>>> {
+    let _op_lock = self.op_lock.lock();
     let inner = self.inner.lock();
     inner.index_commits.values().cloned().collect()
   }
 
   /// Returns the total number of snapshots currently held.
   pub fn get_snapshot_count(&self) -> i32 {
+    let _op_lock = self.op_lock.lock();
     let inner = self.inner.lock();
     inner.ref_counts.values().sum()
   }
 
   /// Retrieve an [`IndexCommit`] from its generation; returns `None` if this IndexCommit is not
   /// currently snapshotted.
-  pub fn get_index_commit(&self, generation: i64) -> Option<IC> {
+  pub fn get_index_commit(&self, generation: i64) -> Option<Arc<CommitPoint<D>>> {
+    let _op_lock = self.op_lock.lock();
     let inner = self.inner.lock();
     inner.index_commits.get(&generation).cloned()
   }
 
   /// Wraps each [`IndexCommit`] as a [`SnapshotCommitPoint`].
-  fn wrap_commits(&self, commits: &[IC]) -> Vec<SnapshotCommitPoint<P, IC>> {
+  fn wrap_commits(&self, commits: &[Arc<CommitPoint<D>>]) -> Vec<SnapshotCommitPoint<D>> {
     let mut wrapped_commits = Vec::with_capacity(commits.len());
     for ic in commits {
       wrapped_commits.push(SnapshotCommitPoint::new(self.inner.clone(), ic.clone()));
@@ -172,16 +207,19 @@ where
     wrapped_commits
   }
 }
-impl<P, IC> IndexDeletionPolicy<IC> for SnapshotDeletionPolicy<P, IC>
+impl<D> IndexDeletionPolicy<Arc<CommitPoint<D>>> for SnapshotDeletionPolicy<D>
 where
-  P: IndexDeletionPolicy<SnapshotCommitPoint<P, IC>>,
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
-  fn on_init(&self, commits: &[IC]) -> Result<()> {
-    let mut inner = self.inner.lock();
-    inner.init_called = true;
+  fn on_init(&self, commits: &[Arc<CommitPoint<D>>]) -> Result<()> {
+    let _op_lock = self.op_lock.lock();
     let wrapped_commits = self.wrap_commits(commits);
-    inner.primary.on_init(&wrapped_commits)?;
+    {
+      let mut inner = self.inner.lock();
+      inner.init_called = true;
+    }
+    self.primary.on_init(&wrapped_commits)?;
+    let mut inner = self.inner.lock();
     for commit in commits {
       if inner.ref_counts.contains_key(&commit.get_generation()) {
         inner
@@ -195,34 +233,41 @@ where
     Ok(())
   }
 
-  fn on_commit(&self, commits: &[IC]) -> Result<()> {
-    let mut inner = self.inner.lock();
+  fn on_commit(&self, commits: &[Arc<CommitPoint<D>>]) -> Result<()> {
+    let _op_lock = self.op_lock.lock();
     let wrapped_commits = self.wrap_commits(commits);
-    inner.primary.on_commit(&wrapped_commits)?;
+    self.primary.on_commit(&wrapped_commits)?;
+    let mut inner = self.inner.lock();
     inner.last_commit = commits.last().cloned();
     Ok(())
   }
 }
 
-impl<P, IC> Display for SnapshotDeletionPolicy<P, IC> {
+impl<D> Display for SnapshotDeletionPolicy<D>
+where
+  D: Directory,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
 /// Wraps a provided [`IndexCommit`] and prevents it from being deleted.
-struct SnapshotCommitPoint<P, IC> {
+pub struct SnapshotCommitPoint<D>
+where
+  D: Directory,
+{
   /// The [`IndexCommit`] we are preventing from deletion.
-  cp: IC,
-  snapshot_policy: Arc<Mutex<Inner<P, IC>>>,
+  cp: Arc<CommitPoint<D>>,
+  snapshot_policy: Arc<Mutex<Inner<D>>>,
 }
 
-impl<P, IC> SnapshotCommitPoint<P, IC>
+impl<D> SnapshotCommitPoint<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
   /// Creates a [`SnapshotCommitPoint`] wrapping the provided [`IndexCommit`].
-  fn new(policy: Arc<Mutex<Inner<P, IC>>>, cp: IC) -> Self {
+  fn new(policy: Arc<Mutex<Inner<D>>>, cp: Arc<CommitPoint<D>>) -> Self {
     SnapshotCommitPoint {
       cp,
       snapshot_policy: policy,
@@ -230,9 +275,9 @@ where
   }
 }
 
-impl<P, IC> Clone for SnapshotCommitPoint<P, IC>
+impl<D> Clone for SnapshotCommitPoint<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
   fn clone(&self) -> Self {
     SnapshotCommitPoint {
@@ -242,47 +287,47 @@ where
   }
 }
 
-impl<P, IC> PartialEq for SnapshotCommitPoint<P, IC>
+impl<D> PartialEq for SnapshotCommitPoint<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
   fn eq(&self, other: &Self) -> bool {
     is_same_commit(self, other)
   }
 }
 
-impl<P, IC> Eq for SnapshotCommitPoint<P, IC> where IC: IndexCommit + Clone {}
+impl<D> Eq for SnapshotCommitPoint<D> where D: Directory {}
 
-impl<P, IC> PartialOrd for SnapshotCommitPoint<P, IC>
+impl<D> PartialOrd for SnapshotCommitPoint<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(other))
   }
 }
 
-impl<P, IC> Ord for SnapshotCommitPoint<P, IC>
+impl<D> Ord for SnapshotCommitPoint<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
   fn cmp(&self, other: &Self) -> Ordering {
     cmp_commit(self, other)
   }
 }
 
-impl<P, IC> Display for SnapshotCommitPoint<P, IC>
+impl<D> Display for SnapshotCommitPoint<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SnapshotDeletionPolicy.SnapshotCommitPoint({})", self.cp)
   }
 }
 
-impl<P, IC> IndexCommit for SnapshotCommitPoint<P, IC>
+impl<D> IndexCommit for SnapshotCommitPoint<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
   fn get_segments_file_name(&self) -> &str {
     self.cp.get_segments_file_name()
@@ -292,7 +337,7 @@ where
     self.cp.get_file_names()
   }
 
-  type Directory = IC::Directory;
+  type Directory = Arc<D>;
 
   fn get_directory(&self) -> Self::Directory {
     self.cp.get_directory()

@@ -540,7 +540,7 @@ where
 }
 /// Holds details for each commit point. This struct is also passed to the deletion policy.
 /// Note: This struct has a natural ordering that is inconsistent with equals.
-pub(crate) struct CommitPoint<D> {
+pub struct CommitPoint<D> {
   pub(crate) files: Vec<String>,
   pub(crate) segments_file_name: String,
   pub(crate) deleted: AtomicBool,

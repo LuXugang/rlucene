@@ -2795,6 +2795,21 @@ where
     Ok(())
   }
 
+  /// Revisits the configured deletion policy and removes any now-unused commit files.
+  ///
+  /// This is useful for deletion policies that keep commits alive until application state changes,
+  /// such as [`SnapshotDeletionPolicy`](crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy).
+  pub fn delete_unused_files(&self) -> Result<()>
+  where
+    D: 'static,
+  {
+    let mut inner = self.inner.lock();
+    self.do_ensure_open(true)?;
+    inner
+      .deleter
+      .revisit_policy(self.config.get_index_deletion_policy())
+  }
+
   fn checkpoint(&self, inner: &mut Inner<D>) -> Result<()> {
     changed(&mut inner.change_count, &mut inner.segment_infos);
     let (deleter, segment_infos) = {

@@ -106,7 +106,7 @@ pub trait LiveIndexWriterConfig: Display {
 
   /// Returns the [`IndexDeletionPolicyEnum`] specified on this configuration, or
   /// the default keep-only-last-commit deletion policy.
-  fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum;
+  fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum<Self::Directory>;
 
   /// Expert: returns the amount of time to wait for merges returned by
   /// `MergePolicy::find_full_flush_merges`.
@@ -255,7 +255,7 @@ where
   /// Number of buffered added documents that triggers a flush.
   pub max_buffered_docs: i32,
   /// [`IndexDeletionPolicyEnum`] controlling when commit points are deleted.
-  pub index_deletion_policy: IndexDeletionPolicyEnum,
+  pub index_deletion_policy: IndexDeletionPolicyEnum<D>,
   /// True if newly written segment flushes should use compound file format.
   pub use_compound_file: bool,
   /// [`OpenMode`] that `IndexWriter` is opened with.

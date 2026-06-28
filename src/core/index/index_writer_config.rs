@@ -173,7 +173,7 @@ where
   /// Only takes effect when `IndexWriter` is first created.
   pub fn set_index_deletion_policy<T>(&mut self, deletion_policy: T) -> &mut Self
   where
-    T: Into<IndexDeletionPolicyEnum>,
+    T: Into<IndexDeletionPolicyEnum<D>>,
   {
     self.base.index_deletion_policy = deletion_policy.into();
     self
@@ -361,7 +361,7 @@ where
     self.base.check_pending_flush_on_update
   }
 
-  fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum {
+  fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum<D> {
     &self.base.index_deletion_policy
   }
 

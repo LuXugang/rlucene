@@ -157,6 +157,7 @@ mod test_segment_term_docs;
 mod test_segment_term_enum;
 mod test_segment_to_thread_mapping;
 mod test_size_bounded_force_merge;
+mod test_snapshot_deletion_policy;
 mod test_sorting_codec_reader;
 mod test_stress_advance;
 mod test_stress_deletes;

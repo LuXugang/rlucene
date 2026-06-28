@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 use crate::core::index::index_commit::IndexCommit;
+use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
-use crate::core::util::error::lucene_error::Result;
-use crate::impl_from_for_enum;
+use crate::core::index::snapshot_deletion_policy::{SnapshotCommitPoint, SnapshotDeletionPolicy};
+use crate::core::store::directory::Directory;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::test::core::index::test_deletion_policy::{
   ExpirationTimeDeletionPolicy, KeepAllDeletionPolicy, KeepLastNDeletionPolicy,
@@ -29,6 +31,7 @@ use crate::test::core::index::test_transaction_rollback::{
   DeleteLastCommitPolicy, KeepAllTransactionDeletionPolicy, RollbackDeletionPolicy,
 };
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// Expert: policy for deletion of stale [`IndexCommit`] index commits.
 ///
@@ -93,9 +96,13 @@ where
   fn on_commit(&self, commits: &[IC]) -> Result<()>;
 }
 
-pub enum IndexDeletionPolicyEnum {
+pub enum IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
   KeepOnlyLastCommit(KeepOnlyLastCommitDeletionPolicy),
   No(NoDeletionPolicy),
+  Snapshot(Box<SnapshotDeletionPolicy<D>>),
   #[cfg(test)]
   KeepAll(KeepAllDeletionPolicy),
   #[cfg(test)]
@@ -112,29 +119,112 @@ pub enum IndexDeletionPolicyEnum {
   DeleteLastCommit(DeleteLastCommitPolicy),
 }
 
-impl_from_for_enum!(
-  IndexDeletionPolicyEnum,
-  KeepOnlyLastCommitDeletionPolicy => KeepOnlyLastCommit,
-  NoDeletionPolicy => No,
-);
+impl<D> From<KeepOnlyLastCommitDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: KeepOnlyLastCommitDeletionPolicy) -> Self {
+    Self::KeepOnlyLastCommit(policy)
+  }
+}
+
+impl<D> From<NoDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: NoDeletionPolicy) -> Self {
+    Self::No(policy)
+  }
+}
+
+impl<D> From<SnapshotDeletionPolicy<D>> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: SnapshotDeletionPolicy<D>) -> Self {
+    Self::Snapshot(Box::new(policy))
+  }
+}
 
 #[cfg(test)]
-impl_from_for_enum!(
-  IndexDeletionPolicyEnum,
-  KeepAllDeletionPolicy => KeepAll,
-  KeepNoneOnInitDeletionPolicy => KeepNoneOnInit,
-  KeepLastNDeletionPolicy => KeepLastN,
-  ExpirationTimeDeletionPolicy => ExpirationTime,
-  KeepAllTransactionDeletionPolicy => KeepAllTransaction,
-  RollbackDeletionPolicy => Rollback,
-  DeleteLastCommitPolicy => DeleteLastCommit,
-);
+impl<D> From<KeepAllDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: KeepAllDeletionPolicy) -> Self {
+    Self::KeepAll(policy)
+  }
+}
 
-impl Display for IndexDeletionPolicyEnum {
+#[cfg(test)]
+impl<D> From<KeepNoneOnInitDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: KeepNoneOnInitDeletionPolicy) -> Self {
+    Self::KeepNoneOnInit(policy)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<KeepLastNDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: KeepLastNDeletionPolicy) -> Self {
+    Self::KeepLastN(policy)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<ExpirationTimeDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: ExpirationTimeDeletionPolicy) -> Self {
+    Self::ExpirationTime(policy)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<KeepAllTransactionDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: KeepAllTransactionDeletionPolicy) -> Self {
+    Self::KeepAllTransaction(policy)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<RollbackDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: RollbackDeletionPolicy) -> Self {
+    Self::Rollback(policy)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<DeleteLastCommitPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: DeleteLastCommitPolicy) -> Self {
+    Self::DeleteLastCommit(policy)
+  }
+}
+
+impl<D> Display for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::KeepOnlyLastCommit(policy) => write!(f, "{policy}"),
       Self::No(policy) => write!(f, "{policy}"),
+      Self::Snapshot(policy) => write!(f, "{policy}"),
       #[cfg(test)]
       Self::KeepAll(policy) => write!(f, "{policy}"),
       #[cfg(test)]
@@ -153,14 +243,15 @@ impl Display for IndexDeletionPolicyEnum {
   }
 }
 
-impl<IC> IndexDeletionPolicy<IC> for IndexDeletionPolicyEnum
+impl<D> IndexDeletionPolicy<Arc<CommitPoint<D>>> for IndexDeletionPolicyEnum<D>
 where
-  IC: IndexCommit + Clone,
+  D: Directory,
 {
-  fn on_init(&self, commits: &[IC]) -> Result<()> {
+  fn on_init(&self, commits: &[Arc<CommitPoint<D>>]) -> Result<()> {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
       Self::No(policy) => policy.on_init(commits),
+      Self::Snapshot(policy) => policy.on_init(commits),
       #[cfg(test)]
       Self::KeepAll(policy) => policy.on_init(commits),
       #[cfg(test)]
@@ -178,10 +269,64 @@ where
     }
   }
 
-  fn on_commit(&self, commits: &[IC]) -> Result<()> {
+  fn on_commit(&self, commits: &[Arc<CommitPoint<D>>]) -> Result<()> {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
       Self::No(policy) => policy.on_commit(commits),
+      Self::Snapshot(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::KeepAll(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::KeepNoneOnInit(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::KeepLastN(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::ExpirationTime(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::KeepAllTransaction(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::Rollback(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::DeleteLastCommit(policy) => policy.on_commit(commits),
+    }
+  }
+}
+
+impl<D> IndexDeletionPolicy<SnapshotCommitPoint<D>> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn on_init(&self, commits: &[SnapshotCommitPoint<D>]) -> Result<()> {
+    match self {
+      Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
+      Self::No(policy) => policy.on_init(commits),
+      Self::Snapshot(_) => Err(LuceneError::illegal_argument(
+        "SnapshotDeletionPolicy cannot wrap another SnapshotDeletionPolicy",
+      )),
+      #[cfg(test)]
+      Self::KeepAll(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::KeepNoneOnInit(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::KeepLastN(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::ExpirationTime(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::KeepAllTransaction(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::Rollback(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::DeleteLastCommit(policy) => policy.on_init(commits),
+    }
+  }
+
+  fn on_commit(&self, commits: &[SnapshotCommitPoint<D>]) -> Result<()> {
+    match self {
+      Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
+      Self::No(policy) => policy.on_commit(commits),
+      Self::Snapshot(_) => Err(LuceneError::illegal_argument(
+        "SnapshotDeletionPolicy cannot wrap another SnapshotDeletionPolicy",
+      )),
       #[cfg(test)]
       Self::KeepAll(policy) => policy.on_commit(commits),
       #[cfg(test)]
