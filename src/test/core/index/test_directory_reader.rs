@@ -30,10 +30,12 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_commit::IndexCommit;
+use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
@@ -45,6 +47,7 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::standard_directory_reader::EmptyLeafSorter;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term_vectors::TermVectors;
@@ -975,7 +978,44 @@ fn test_prepare_commit_is_current() -> Result<()> {
 
 #[test]
 fn test_list_commits() -> Result<()> {
-  // TODO SnapshotDeletionPolicy未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_index_deletion_policy(SnapshotDeletionPolicy::new(
+    KeepOnlyLastCommitDeletionPolicy,
+  ));
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let sdp = match writer.get_config().get_index_deletion_policy() {
+    IndexDeletionPolicyEnum::Snapshot(policy) => policy.as_ref(),
+    policy => {
+      return Err(LuceneError::illegal_state(format!(
+        "expected SnapshotDeletionPolicy but got {policy}"
+      )));
+    },
+  };
+
+  writer.add_document(Document::new())?;
+  writer.commit()?;
+  sdp.snapshot()?;
+  writer.add_document(Document::new())?;
+  writer.commit()?;
+  sdp.snapshot()?;
+  writer.add_document(Document::new())?;
+  writer.commit()?;
+  sdp.snapshot()?;
+  writer.close()?;
+
+  let mut current_gen = 0;
+  for commit in directory_reader::list_commits(dir.clone())? {
+    assert!(
+      current_gen < commit.get_generation(),
+      "currentGen={} commitGen={}",
+      current_gen,
+      commit.get_generation()
+    );
+    current_gen = commit.get_generation();
+  }
+
   Ok(())
 }
 

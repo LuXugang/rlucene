@@ -38,14 +38,16 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::fields::Fields;
 use crate::core::index::flush_policy::ApplyDeletesFlushPolicy;
 use crate::core::index::index_commit::IndexCommit;
+use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
+use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::{
-  EventEnum, EventImplTest, EventQueue, IndexWriter, IndexWriterHooks, IndexWriterHooksEnum,
-  WRITE_LOCK_NAME, read_field_infos,
+  EventEnum, EventImplTest, EventQueue, IndexCommitWrapper, IndexWriter, IndexWriterHooks,
+  IndexWriterHooksEnum, WRITE_LOCK_NAME, read_field_infos,
 };
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
@@ -86,6 +88,7 @@ use crate::core::util::automation::character_run_automaton::CharacterRunAutomato
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
@@ -98,8 +101,8 @@ use crate::test::core::util::lucene_test_case::{
   create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_mock_directory,
-  new_searcher_with_reader, new_string_field, new_text_field, random, random_from_seed, rarely,
-  slow_file_exists,
+  new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field, new_text_field,
+  random, random_from_seed, rarely, slow_file_exists,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -2161,7 +2164,61 @@ fn test_get_commit_data() -> Result<()> {
 
 #[test]
 fn test_get_commit_data_from_old_snapshot() -> Result<()> {
-  // TODO IMPORTANT SnapshotDeletionPolicy未实现
+  let dir = new_directory_shared(&mut random())?;
+  let mut random = random();
+
+  let iwc = new_snapshot_index_writer_config(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut data = HashMap::new();
+  data.insert("key".to_string(), "value".to_string());
+  writer.set_live_commit_data(data);
+  assert_eq!(
+    Some("value"),
+    get_live_commit_data(&writer).get("key").map(String::as_str)
+  );
+  writer.commit()?;
+  // Snapshot this commit to open later.
+  let index_commit = match writer.get_config().get_index_deletion_policy() {
+    IndexDeletionPolicyEnum::Snapshot(policy) => policy.snapshot()?,
+    policy => {
+      return Err(LuceneError::illegal_state(format!(
+        "expected SnapshotDeletionPolicy but got {policy}"
+      )));
+    },
+  };
+  writer.close()?;
+  drop(writer);
+
+  // Modify the commit data and commit on close so the most recent commit data is different.
+  let iwc = new_snapshot_index_writer_config(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut data = HashMap::new();
+  data.insert("key".to_string(), "value2".to_string());
+  writer.set_live_commit_data(data);
+  assert_eq!(
+    Some("value2"),
+    get_live_commit_data(&writer).get("key").map(String::as_str)
+  );
+  writer.close()?;
+  drop(writer);
+
+  // Validate that when opening writer from older snapshotted index commit,
+  // the old commit data is visible.
+  let mut iwc = new_snapshot_index_writer_config(&mut random)?;
+  iwc.set_open_mode(OpenMode::Append);
+  let index_commit_wrapper = IndexCommitWrapper::<
+    Arc<CommitPoint<DirEnum>>,
+    DummyComparator,
+    DirEnum,
+  >::new(Some(index_commit), None, None)?;
+  let writer = IndexWriter::with_index_commit(dir.clone(), iwc, index_commit_wrapper)?;
+  assert_eq!(
+    Some("value"),
+    get_live_commit_data(&writer).get("key").map(String::as_str)
+  );
+  writer.close()?;
+
   Ok(())
 }
 

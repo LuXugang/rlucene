@@ -215,7 +215,7 @@ fn run_test(rng: &mut impl rand::Rng, dir: Arc<DirEnum>) -> Result<()> {
         "content",
         "aaa",
         &custom_type,
-        &mut *field_to_type,
+        &mut field_to_type,
       )?);
     }
     let mut iterations = 0;
@@ -264,7 +264,7 @@ fn run_test(rng: &mut impl rand::Rng, dir: Arc<DirEnum>) -> Result<()> {
       "content",
       "aaa",
       &custom_type,
-      &mut *field_to_type,
+      &mut field_to_type,
     )?);
   }
   writer.add_document(doc)?;

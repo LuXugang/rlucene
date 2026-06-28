@@ -33,6 +33,8 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase};
 use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
+use crate::core::index::no_deletion_policy::NoDeletionPolicy;
+use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::store::directory::{DirEnum, Directory};
@@ -181,6 +183,18 @@ where
   // TODO: 这里简单返回IndexWriterConfig::with_analyzer()，后续可以根据random随机生成不同的配置
   IndexWriterConfig::with_analyzer(analyzer)
 }
+
+/// Creates a new index writer config with a snapshot deletion policy.
+pub(crate) fn new_snapshot_index_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let mut config = new_index_writer_config(random)?;
+  config.set_index_deletion_policy(SnapshotDeletionPolicy::new(NoDeletionPolicy));
+  Ok(config)
+}
+
 pub fn new_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>
 where
   R: Rng + ?Sized,

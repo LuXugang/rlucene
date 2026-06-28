@@ -22,30 +22,36 @@ use crate::test::core::util::lucene_test_case::{
   new_log_merge_policy_with_merge_factor_cfs, new_mock_directory, new_string_field, new_text_field,
   random, slow_file_exists,
 };
-use rand::Rng;
+use rand::{Rng, RngExt};
 use std::collections::HashMap;
 
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
+use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IndexInput};
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 #[allow(dead_code)] // for quick search
 struct TestIndexFileDeleter;
 
 use crate::core::index::index_file_deleter::inflate_gens;
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+use std::io::Error;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[test]
 fn test_delete_left_over_files() -> Result<()> {
@@ -509,6 +515,91 @@ fn test_exc_in_delete_file() -> Result<()> {
 
 #[test]
 fn test_throw_exception_while_delete_commits() -> Result<()> {
-  // TODO IMPORTANT SnapshotDeletionPolicy未实现
+  let mut random = random();
+  let dir = new_mock_directory(&mut random)?;
+  let fail_on_delete_commits = Arc::new(AtomicBool::new(false));
+  dir.fail_on(Box::new(FailOnDeleteCommits::new(
+    fail_on_delete_commits.clone(),
+  )));
+
+  let snapshot_deletion_policy = SnapshotDeletionPolicy::new(KeepOnlyLastCommitDeletionPolicy);
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config.set_index_deletion_policy(snapshot_deletion_policy.clone());
+
+  let writer = IndexWriter::new(Arc::new(dir.clone()), config)?;
+  writer.add_document(Document::new())?;
+  writer.commit()?;
+
+  let snapshot_commit = snapshot_deletion_policy.snapshot()?;
+  let commits = random.random_range(1..=3);
+  for _ in 0..commits {
+    writer.add_document(Document::new())?;
+    writer.commit()?;
+  }
+  snapshot_deletion_policy.release(&snapshot_commit)?;
+  fail_on_delete_commits.store(true, Ordering::SeqCst);
+  if let Err(error) = writer.delete_unused_files() {
+    match error {
+      LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+        assert!(
+          source
+            .get_ref()
+            .is_some_and(|source| source.is::<FakeDeleteCommitsIOException>()),
+          "expected FakeDeleteCommitsIOException, got {source}"
+        );
+      },
+      other => return Err(other),
+    }
+  }
+  fail_on_delete_commits.store(false, Ordering::SeqCst);
+  for _ in 0..commits {
+    writer.add_document(Document::new())?;
+    writer.commit()?;
+  }
+  writer.close()?;
   Ok(())
+}
+#[derive(Debug)]
+struct FakeDeleteCommitsIOException;
+
+impl Display for FakeDeleteCommitsIOException {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "fake delete commits IO exception")
+  }
+}
+
+impl std::error::Error for FakeDeleteCommitsIOException {}
+
+struct FailOnDeleteCommits {
+  do_fail: bool,
+  fail_on_delete_commits: Arc<AtomicBool>,
+  thrown: bool,
+}
+
+impl FailOnDeleteCommits {
+  fn new(fail_on_delete_commits: Arc<AtomicBool>) -> Self {
+    Self {
+      do_fail: true,
+      fail_on_delete_commits,
+      thrown: false,
+    }
+  }
+}
+
+impl<D> Failure<D> for FailOnDeleteCommits
+where
+  D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.do_fail && self.fail_on_delete_commits.load(Ordering::SeqCst) && !self.thrown {
+      self.thrown = true;
+      return Err(LuceneError::io(Error::other(FakeDeleteCommitsIOException)));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
 }

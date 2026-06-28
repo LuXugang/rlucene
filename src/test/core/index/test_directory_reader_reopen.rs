@@ -22,11 +22,13 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::{Identity, IndexReader};
+use crate::core::index::index_reader::{CacheHelper, Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::multi_doc_values::MultiDocValues;
@@ -35,6 +37,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{ALL, PostingsEnum};
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
+use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
@@ -52,12 +55,13 @@ use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_string_field, random,
-  random_from_seed,
+  get_only_leaf_reader, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_log_merge_policy_with_merge_factor, new_string_field, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -1228,25 +1232,262 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
 
 #[test]
 fn test_nrt_mdeletes() -> Result<()> {
-  // TODO IMPORTANT SnapshotDeletionPolicy未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let snapshotter = SnapshotDeletionPolicy::new(KeepOnlyLastCommitDeletionPolicy);
+  iwc.set_index_deletion_policy(snapshotter.clone());
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  writer.commit()?; // make sure all index metadata is written out
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("key", "value1", Store::Yes)?);
+  writer.add_document(doc)?;
+
+  doc = Document::new();
+  doc.add(StringField::from_string("key", "value2", Store::Yes)?);
+  writer.add_document(doc)?;
+
+  writer.commit()?;
+
+  let ic1 = snapshotter.snapshot()?;
+
+  doc = Document::new();
+  doc.add(StringField::from_string("key", "value3", Store::Yes)?);
+  writer.update_document_with_term(Term::from_text("key", "value1"), doc)?;
+
+  writer.commit()?;
+
+  let ic2 = snapshotter.snapshot()?;
+  let latest = directory_reader::open_from_commit::<_, DummyComparator, _>(&ic2)?;
+  assert_eq!(2, get_context(&latest)?.leaves()?.len());
+
+  // This reader will be used for searching against commit point 1
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+    .expect("reader should change");
+  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+
+  // sharing same core
+  assert_eq!(
+    get_context(&latest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key(),
+    get_context(&oldest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key()
+  );
+
+  latest.close()?;
+  oldest.close()?;
+
+  snapshotter.release(&ic1)?;
+  snapshotter.release(&ic2)?;
+  writer.close()?;
   Ok(())
 }
 
 #[test]
 fn test_nrt_mdeletes2() -> Result<()> {
-  // TODO IMPORTANT SnapshotDeletionPolicy未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_policy(NoMergePolicy::default());
+  let snapshotter = SnapshotDeletionPolicy::new(KeepOnlyLastCommitDeletionPolicy);
+  iwc.set_index_deletion_policy(snapshotter.clone());
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  writer.commit()?; // make sure all index metadata is written out
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("key", "value1", Store::Yes)?);
+  writer.add_document(doc)?;
+
+  doc = Document::new();
+  doc.add(StringField::from_string("key", "value2", Store::Yes)?);
+  writer.add_document(doc)?;
+
+  writer.commit()?;
+
+  let ic1 = snapshotter.snapshot()?;
+
+  doc = Document::new();
+  doc.add(StringField::from_string("key", "value3", Store::Yes)?);
+  writer.update_document_with_term(Term::from_text("key", "value1"), doc)?;
+
+  let latest = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(2, get_context(&latest)?.leaves()?.len());
+
+  // This reader will be used for searching against commit point 1
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+    .expect("reader should change");
+
+  // This reader should not see the deletion:
+  assert_eq!(2, oldest.num_docs()?);
+  assert!(!oldest.has_deletions()?);
+
+  snapshotter.release(&ic1)?;
+  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+
+  // sharing same core
+  assert_eq!(
+    get_context(&latest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key(),
+    get_context(&oldest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key()
+  );
+
+  latest.close()?;
+  oldest.close()?;
+
+  writer.close()?;
   Ok(())
 }
 
 #[test]
 fn test_nrt_mupdates() -> Result<()> {
-  // TODO IMPORTANT SnapshotDeletionPolicy未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let snapshotter = SnapshotDeletionPolicy::new(KeepOnlyLastCommitDeletionPolicy);
+  iwc.set_index_deletion_policy(snapshotter.clone());
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  writer.commit()?; // make sure all index metadata is written out
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("key", "value1", Store::Yes)?);
+  doc.add(NumericDocValuesField::new("dv", 1));
+  writer.add_document(doc)?;
+
+  writer.commit()?;
+
+  let ic1 = snapshotter.snapshot()?;
+
+  writer.update_numeric_doc_value(Term::from_text("key", "value1"), "dv", 2)?;
+
+  writer.commit()?;
+
+  let ic2 = snapshotter.snapshot()?;
+  let latest = directory_reader::open_from_commit::<_, DummyComparator, _>(&ic2)?;
+  assert_eq!(1, get_context(&latest)?.leaves()?.len());
+
+  // This reader will be used for searching against commit point 1
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+    .expect("reader should change");
+  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+
+  // sharing same core
+  assert_eq!(
+    get_context(&latest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key(),
+    get_context(&oldest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key()
+  );
+
+  let oldest_leaf = get_only_leaf_reader(&oldest)?;
+  let mut values = oldest_leaf
+    .get_numeric_doc_values("dv")?
+    .expect("numeric doc values should exist");
+  assert_eq!(0, values.next_doc()?);
+  assert_eq!(1, values.long_value()?);
+
+  let latest_leaf = get_only_leaf_reader(&latest)?;
+  values = latest_leaf
+    .get_numeric_doc_values("dv")?
+    .expect("numeric doc values should exist");
+  assert_eq!(0, values.next_doc()?);
+  assert_eq!(2, values.long_value()?);
+
+  latest.close()?;
+  oldest.close()?;
+
+  snapshotter.release(&ic1)?;
+  snapshotter.release(&ic2)?;
+  writer.close()?;
   Ok(())
 }
 
 #[test]
 fn test_nrt_mupdates2() -> Result<()> {
-  // TODO IMPORTANT SnapshotDeletionPolicy未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let snapshotter = SnapshotDeletionPolicy::new(KeepOnlyLastCommitDeletionPolicy);
+  iwc.set_index_deletion_policy(snapshotter.clone());
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  writer.commit()?; // make sure all index metadata is written out
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("key", "value1", Store::Yes)?);
+  doc.add(NumericDocValuesField::new("dv", 1));
+  writer.add_document(doc)?;
+
+  writer.commit()?;
+
+  let ic1 = snapshotter.snapshot()?;
+
+  writer.update_numeric_doc_value(Term::from_text("key", "value1"), "dv", 2)?;
+
+  let latest = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(1, get_context(&latest)?.leaves()?.len());
+
+  // This reader will be used for searching against commit point 1
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+    .expect("reader should change");
+  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+
+  // sharing same core
+  assert_eq!(
+    get_context(&latest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key(),
+    get_context(&oldest)?.leaves()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .expect("core cache helper should exist")
+      .get_key()
+  );
+
+  let oldest_leaf = get_only_leaf_reader(&oldest)?;
+  let mut values = oldest_leaf
+    .get_numeric_doc_values("dv")?
+    .expect("numeric doc values should exist");
+  assert_eq!(0, values.next_doc()?);
+  assert_eq!(1, values.long_value()?);
+
+  let latest_leaf = get_only_leaf_reader(&latest)?;
+  values = latest_leaf
+    .get_numeric_doc_values("dv")?
+    .expect("numeric doc values should exist");
+  assert_eq!(0, values.next_doc()?);
+  assert_eq!(2, values.long_value()?);
+
+  latest.close()?;
+  oldest.close()?;
+
+  snapshotter.release(&ic1)?;
+  writer.close()?;
   Ok(())
 }
 
