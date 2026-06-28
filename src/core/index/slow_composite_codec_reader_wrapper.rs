@@ -936,6 +936,17 @@ where
   }
 }
 
+impl<CR> Closeable for SlowCompositeNormsProducer<CR>
+where
+  CR: CodecReader + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    IOUtils::close(self.producers.iter_mut().flatten(), |producer| {
+      producer.close()
+    })
+  }
+}
+
 impl<CR> NormsProducer for SlowCompositeNormsProducer<CR>
 where
   CR: CodecReader + Clone,

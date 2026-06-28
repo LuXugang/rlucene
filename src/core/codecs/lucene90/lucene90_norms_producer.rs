@@ -39,6 +39,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use parking_lot::Mutex;
@@ -462,6 +463,15 @@ where
     Ok(())
   }
 }
+impl<I> Closeable for Lucene90NormsProducer<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    self.data.close()
+  }
+}
+
 impl<I> NormsProducer for Lucene90NormsProducer<I>
 where
   I: IndexInput,

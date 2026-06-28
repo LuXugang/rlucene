@@ -385,6 +385,15 @@ where
   }
 }
 
+impl<LR> Closeable for NormsProducerImpl<LR>
+where
+  LR: LeafReader,
+{
+  fn close(&mut self) -> Result<()> {
+    Ok(())
+  }
+}
+
 impl<LR> NormsProducer for NormsProducerImpl<LR>
 where
   LR: LeafReader,

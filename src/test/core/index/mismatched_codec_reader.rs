@@ -523,6 +523,15 @@ where
   }
 }
 
+impl<NP> Closeable for MismatchedNormsProducer<NP>
+where
+  NP: NormsProducer,
+{
+  fn close(&mut self) -> Result<()> {
+    self.in_.close()
+  }
+}
+
 impl<NP> NormsProducer for MismatchedNormsProducer<NP>
 where
   NP: NormsProducer,

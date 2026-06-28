@@ -424,7 +424,7 @@ where
       &io_context,
       &state.segment_suffix,
     );
-    let norms = if read_state.field_infos.has_norms() {
+    let mut norms = if read_state.field_infos.has_norms() {
       Some(
         index_writer_config
           .get_codec()
@@ -434,30 +434,34 @@ where
     } else {
       None
     };
-    let norms_merge_instance = match norms {
-      // Use the merge instance in order to reuse the same IndexInput for all terms
-      Some(norms) => match norms.get_merge_instance()? {
-        Some(norms_merge_instance) => Some(norms_merge_instance),
-        None => Some(norms),
-      },
-      None => None,
-    };
+    let result = (|| -> Result<()> {
+      let norms_merge_instance = match norms.as_ref() {
+        // Use the merge instance in order to reuse the same IndexInput for all terms
+        Some(norms) => norms.get_merge_instance()?,
+        None => None,
+      };
+      let norms_for_flush = norms_merge_instance.as_ref().or(norms.as_ref());
 
-    // flush postings + vectors
-    let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
-    let byte_pool = std::mem::take(&mut self.context.byte_pool);
-    let t0 = Instant::now();
-    self.terms_hash.flush(
-      fields_to_flush,
-      state,
-      sort_map.as_ref(),
-      norms_merge_instance.as_ref(),
-      index_writer_config.get_codec(),
-      segment_info,
-      seg_updates,
-      int_pool,
-      byte_pool,
-    )?;
+      // flush postings + vectors
+      let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
+      let byte_pool = std::mem::take(&mut self.context.byte_pool);
+      self.terms_hash.flush(
+        fields_to_flush,
+        state,
+        sort_map.as_ref(),
+        norms_for_flush,
+        index_writer_config.get_codec(),
+        segment_info,
+        seg_updates,
+        int_pool,
+        byte_pool,
+      )
+    })();
+    let close_result = match norms.as_mut() {
+      Some(norms) => norms.close(),
+      None => Ok(()),
+    };
+    IOUtils::use_or_suppress_result(result, close_result)?;
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
@@ -503,38 +507,51 @@ where
     let mut points_writer = None;
     debug_assert!(self.field_hash.len() <= i32::MAX as usize);
 
-    for bucket in 0..self.field_hash.len() {
-      let mut per_field_index = self.field_hash[bucket];
-      while per_field_index >= 0 {
-        let per_field = &mut self.per_fields[per_field_index as usize];
-        if let Some(point_values_writer) = per_field.point_values_writer.as_mut() {
-          let field_info = per_field.field_info.as_ref().unwrap();
-          // We could have initialized pointValuesWriter, but failed to write even a single doc
-          if field_info.get_point_dimension_count() > 0 {
-            if points_writer.is_none() {
-              // lazy init
-              let fmt = index_writer_config.get_codec().points_format();
-              points_writer = Some(fmt.fields_writer(state, info)?);
+    let body_result = (|| -> Result<()> {
+      for bucket in 0..self.field_hash.len() {
+        let mut per_field_index = self.field_hash[bucket];
+        while per_field_index >= 0 {
+          let per_field = &mut self.per_fields[per_field_index as usize];
+          if let Some(point_values_writer) = per_field.point_values_writer.as_mut() {
+            let field_info = per_field.field_info.as_ref().unwrap();
+            // We could have initialized pointValuesWriter, but failed to write even a single doc
+            if field_info.get_point_dimension_count() > 0 {
+              if points_writer.is_none() {
+                // lazy init
+                let fmt = index_writer_config.get_codec().points_format();
+                points_writer = Some(fmt.fields_writer(state, info)?);
+              }
+              point_values_writer.flush(
+                state.directory,
+                sort_map,
+                points_writer.as_mut().unwrap(),
+                info,
+              )?;
             }
-            point_values_writer.flush(
-              state.directory,
-              sort_map,
-              points_writer.as_mut().unwrap(),
-              info,
-            )?;
           }
+
+          per_field.point_values_writer = None;
+          per_field_index = per_field.next;
         }
-
-        per_field.point_values_writer = None;
-        per_field_index = per_field.next;
       }
-    }
 
-    if let Some(mut w) = points_writer {
-      let finish_result = w.finish();
-      let close_result = w.close();
-      finish_result?;
-      close_result?;
+      if let Some(w) = points_writer.as_mut() {
+        w.finish()?;
+      }
+      Ok(())
+    })();
+    match body_result {
+      Ok(()) => {
+        if let Some(mut w) = points_writer {
+          w.close()?;
+        }
+      },
+      Err(err) => {
+        if let Some(mut w) = points_writer {
+          IOUtils::close_while_handling_error(std::iter::once(&mut w), Closeable::close)?;
+        }
+        return Err(err);
+      },
     }
     Ok(())
   }
@@ -659,28 +676,45 @@ where
       norm_format.norms_consumer(state, segment_info)?
     };
 
-    let max_doc = segment_info.max_doc()?;
-    for fi in state.field_infos.iter() {
-      let per_field_index = self.get_per_field(&fi.name);
-      debug_assert!(per_field_index.is_some());
-      // we must check the final value of omitNorms for the fieldinfo: it could have
-      // changed for this field since the first time we added it.
-      if !fi.omits_norms() && *fi.get_index_options() != IndexOptions::None {
-        let per_field = &mut self.per_fields[per_field_index.unwrap()];
-        let norms = per_field.norms.as_mut().unwrap();
-        norms.finish(max_doc);
-        norms.flush(sort_map, &mut norms_consumer, segment_info)?;
+    let body_result = (|| -> Result<()> {
+      let max_doc = segment_info.max_doc()?;
+      for fi in state.field_infos.iter() {
+        let per_field_index = self.get_per_field(&fi.name);
+        debug_assert!(per_field_index.is_some());
+        // we must check the final value of omitNorms for the fieldinfo: it could have
+        // changed for this field since the first time we added it.
+        if !fi.omits_norms() && *fi.get_index_options() != IndexOptions::None {
+          let per_field = &mut self.per_fields[per_field_index.unwrap()];
+          let norms = per_field.norms.as_mut().unwrap();
+          norms.finish(max_doc);
+          norms.flush(sort_map, &mut norms_consumer, segment_info)?;
+        }
       }
+      Ok(())
+    })();
+    match body_result {
+      Ok(()) => norms_consumer.close()?,
+      Err(err) => {
+        IOUtils::close_while_handling_error(
+          std::iter::once(&mut norms_consumer),
+          Closeable::close,
+        )?;
+        return Err(err);
+      },
     }
     Ok(())
   }
 
   pub(crate) fn abort(&mut self) -> Result<()> {
     self.context.reset();
-    self.terms_hash.abort()?;
-    self.stored_fields_consumer.abort()?;
-    self.vector_values_consumer.abort();
-    Ok(())
+    let result = (|| -> Result<()> {
+      self.stored_fields_consumer.abort()?;
+      self.vector_values_consumer.abort();
+      Ok(())
+    })();
+    let close_result = self.terms_hash.abort();
+    self.field_hash.fill(-1);
+    IOUtils::use_or_suppress_result(result, close_result)
   }
 
   fn rehash(&mut self) {
@@ -1735,9 +1769,9 @@ impl PerField {
         // TODO
         invert_state.position += stream.get_attribute_source().get_position_increment()?;
         invert_state.offset += stream.get_attribute_source().end_offset()?;
-        stream.close()?;
         Ok(())
       })();
+      let result = IOUtils::use_or_suppress_result(result, stream.close());
 
       if result.is_err() && info_stream.is_enabled("DW") {
         info_stream.message(

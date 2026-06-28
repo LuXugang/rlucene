@@ -24,6 +24,7 @@ use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -42,7 +43,7 @@ use std::sync::Arc;
 ///    *push*-based; the implementation is free to iterate over the values
 ///    multiple times.
 /// 3. After all fields are added, the consumer is closed.
-pub trait NormsConsumer {
+pub trait NormsConsumer: Closeable {
   /// Writes normalization values for a field.
   ///
   /// # Arguments
@@ -113,6 +114,13 @@ where
 {
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MergeState<'a, D, CR>,
+}
+
+impl<D, CR> Closeable for NormsProducerMerge<'_, D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
 }
 
 impl<D, CR> NormsProducer for NormsProducerMerge<'_, D, CR>

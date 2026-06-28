@@ -55,6 +55,7 @@ use crate::core::util::automation::compiled_automaton::AutomatonType;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -1574,6 +1575,9 @@ impl NormsProducerImpl {
     }
   }
 }
+
+impl Closeable for NormsProducerImpl {}
+
 impl NormsProducer for NormsProducerImpl {
   type NumericDocValues = NumericDocValuesImpl;
 

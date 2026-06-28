@@ -7372,7 +7372,7 @@ thread_local! {
   static ACTUAL_MAX_DOCS: Cell<i32> = const { Cell::new(MAX_DOCS) };
 }
 
-pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 1;
+pub const MAX_TERM_LENGTH: i32 = BYTE_BLOCK_SIZE - 2;
 const UNBOUNDED_MAX_MERGE_SEGMENTS: i32 = -1;
 pub const WRITE_LOCK_NAME: &str = "write.lock";
 /// Key for the source of a segment in [`SegmentInfo::get_diagnostics`].

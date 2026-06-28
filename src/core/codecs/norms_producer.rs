@@ -18,11 +18,12 @@ use crate::core::codecs::DefaultNormsFormat;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A trait that produces field normalization values.
-pub trait NormsProducer {
+pub trait NormsProducer: Closeable {
   type NumericDocValues: NumericDocValues;
   /// Returns `NumericDocValues` for the given field.
   ///
@@ -125,6 +126,19 @@ macro_rules! either_normsproducer {
                         Some(instance) => Ok(Some(Self::B(instance))),
                         None => Ok(None),
                     },
+                }
+            }
+        }
+
+        impl<$A, $B> Closeable for $name<$A, $B>
+        where
+            $A: NormsProducer,
+            $B: NormsProducer,
+        {
+            fn close(&mut self) -> Result<()> {
+                match self {
+                    Self::A(inner) => inner.close(),
+                    Self::B(inner) => inner.close(),
                 }
             }
         }

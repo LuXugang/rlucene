@@ -52,6 +52,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::IOContext;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::get_default_info_stream;
@@ -614,6 +615,8 @@ fn make_random_terms<R: Rng + ?Sized>(
 struct NormsProducerImpl {
   max_doc: i32,
 }
+
+impl Closeable for NormsProducerImpl {}
 
 impl NormsProducer for NormsProducerImpl {
   type NumericDocValues = NumericDocValuesImpl;

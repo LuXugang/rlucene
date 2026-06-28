@@ -148,15 +148,19 @@ where
   O: IndexOutput,
 {
   fn drop(&mut self) {
-    let result = self.close();
-    match result {
-      Ok(_) => (),
-      Err(e) => {
-        eprintln!("Failed to close Lucene90NormsConsumer: {e:?}")
-      },
-    }
+    let _ = self.close();
   }
 }
+
+impl<O> Closeable for Lucene90NormsConsumer<O>
+where
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    Lucene90NormsConsumer::close(self)
+  }
+}
+
 impl<O> NormsConsumer for Lucene90NormsConsumer<O>
 where
   O: IndexOutput,

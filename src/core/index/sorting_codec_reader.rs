@@ -568,6 +568,16 @@ where
   }
 }
 
+impl<NP, DM> Closeable for NormsProducerImpl<NP, DM>
+where
+  NP: NormsProducer,
+  DM: DocMap,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
 impl<NP, DM> NormsProducer for NormsProducerImpl<NP, DM>
 where
   NP: NormsProducer,
