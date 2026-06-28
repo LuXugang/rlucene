@@ -27,7 +27,7 @@ use crate::core::store::{
 };
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use num_bigint::BigInt;
 use std::collections::HashSet;
@@ -205,18 +205,49 @@ pub trait Directory: Display + Closeable + HasIdentity {
   /// * `from` - The directory containing the source file.
   /// * `dest` - The destination file in this directory.
   /// * `io_context` - The I/O context used for opening the destination file.
-  fn copy_from(
-    &self,
-    from: &impl Directory,
-    src: &str,
-    dest: &str,
-    context: &IOContext,
-  ) -> Result<()>
+  fn copy_from<D>(&self, from: &D, src: &str, dest: &str, context: &IOContext) -> Result<()>
   where
     Self: Sized,
+    D: Directory + ?Sized,
   {
-    copy_from_directory(self, from, src, dest, context)
+    let mut success = false;
+    let result = (|| -> Result<()> {
+      let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
+      let mut os = match self.create_output(dest, context) {
+        Ok(os) => os,
+        Err(error) => {
+          let mut result = Err(error);
+          if let Err(close_error) = is.close() {
+            result = Err(IOUtils::use_or_suppress(result.err(), close_error));
+          }
+          return result;
+        },
+      };
+      let mut result = (|| -> Result<()> {
+        let length = IndexInput::length(&is)?;
+        os.copy_bytes(&mut is, length)?;
+        success = true;
+        Ok(())
+      })();
+      if let Err(error) = os.close() {
+        result = Err(IOUtils::use_or_suppress(result.err(), error));
+      }
+      if let Err(error) = is.close() {
+        result = Err(IOUtils::use_or_suppress(result.err(), error));
+      }
+      result
+    })();
+
+    if !success {
+      IOUtils::delete_files_ignoring_exceptions(self, &[dest.to_string()]);
+    }
+    result
   }
+
+  fn as_erased_directory(&self) -> Option<&dyn ErasedDirectory> {
+    None
+  }
+
   /// Returns a set of files currently pending deletion in this directory.
   ///
   /// # Note
@@ -244,54 +275,36 @@ pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
   IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
 }
 
-fn copy_from_directory<T, F>(
-  to: &T,
-  from: &F,
-  src: &str,
-  dest: &str,
-  context: &IOContext,
-) -> Result<()>
-where
-  T: Directory + ?Sized,
-  F: Directory + ?Sized,
+pub trait ErasedDirectory:
+  Directory<IndexOutput = IndexOutputEnum, IndexInput = IndexInputEnum, Lock = LockEnum> + Send + Sync
 {
-  let mut success = false;
-  let result = (|| -> Result<()> {
-    let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
-    let mut os = match to.create_output(dest, context) {
-      Ok(os) => os,
-      Err(error) => {
-        let mut result = Err(error);
-        if let Err(close_error) = is.close() {
-          result = Err(IOUtils::use_or_suppress(result.err(), close_error));
-        }
-        return result;
-      },
-    };
-    let mut result = (|| -> Result<()> {
-      let length = IndexInput::length(&is)?;
-      os.copy_bytes(&mut is, length)?;
-      success = true;
-      Ok(())
-    })();
-    if let Err(error) = os.close() {
-      result = Err(IOUtils::use_or_suppress(result.err(), error));
-    }
-    if let Err(error) = is.close() {
-      result = Err(IOUtils::use_or_suppress(result.err(), error));
-    }
-    result
-  })();
-
-  if !success {
-    IOUtils::delete_files_ignoring_exceptions(to, &[dest.to_string()]);
-  }
-  result
+  fn copy_from_erased(
+    &self,
+    from: &dyn ErasedDirectory,
+    src: &str,
+    dest: &str,
+    context: &IOContext,
+  ) -> Result<()>;
 }
 
-pub type DynDirectory = dyn Directory<IndexOutput = IndexOutputEnum, IndexInput = IndexInputEnum, Lock = LockEnum>
-  + Send
-  + Sync;
+impl<T> ErasedDirectory for T
+where
+  T: Directory<IndexOutput = IndexOutputEnum, IndexInput = IndexInputEnum, Lock = LockEnum>
+    + Send
+    + Sync,
+{
+  fn copy_from_erased(
+    &self,
+    from: &dyn ErasedDirectory,
+    src: &str,
+    dest: &str,
+    context: &IOContext,
+  ) -> Result<()> {
+    self.copy_from(from, src, dest, context)
+  }
+}
+
+pub type DynDirectory = dyn ErasedDirectory;
 pub type CustomDirectory = Box<DynDirectory>;
 
 pub enum DirectoryEnum {
@@ -302,10 +315,7 @@ pub enum DirectoryEnum {
 impl DirectoryEnum {
   pub fn custom<D>(directory: D) -> Self
   where
-    D: Directory<IndexOutput = IndexOutputEnum, IndexInput = IndexInputEnum, Lock = LockEnum>
-      + Send
-      + Sync
-      + 'static,
+    D: ErasedDirectory + 'static,
   {
     Self::Custom(Box::new(directory))
   }
@@ -419,14 +429,26 @@ impl Directory for DirectoryEnum {
     }
   }
 
-  fn copy_from(
-    &self,
-    from: &impl Directory,
-    src: &str,
-    dest: &str,
-    context: &IOContext,
-  ) -> Result<()> {
-    copy_from_directory(self, from, src, dest, context)
+  fn copy_from<D>(&self, from: &D, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    D: Directory + ?Sized,
+  {
+    match self {
+      Self::Fs(inner) => inner.copy_from(from, src, dest, context),
+      Self::Custom(inner) => {
+        if let Some(from) = from.as_erased_directory() {
+          inner.copy_from_erased(from, src, dest, context)
+        } else {
+          Err(LuceneError::unsupported_operation(
+            "custom Directory copy_from requires an erased source Directory",
+          ))
+        }
+      },
+    }
+  }
+
+  fn as_erased_directory(&self) -> Option<&dyn ErasedDirectory> {
+    Some(self)
   }
 
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
@@ -577,13 +599,16 @@ macro_rules! either_directory {
                 }
             }
 
-            fn copy_from(
+            fn copy_from<D>(
                 &self,
-                from: &impl Directory,
+                from: &D,
                 src: &str,
                 dest: &str,
                 context: &IOContext,
-            ) -> Result<()> {
+            ) -> Result<()>
+            where
+                D: Directory + ?Sized,
+            {
                 match self {
                     $( Self::$Variant(inner) => inner.copy_from(from, src, dest, context), )+
                 }
@@ -663,8 +688,14 @@ impl<D: Directory> Directory for &D {
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
     (**self).obtain_lock(name)
   }
-  fn copy_from(&self, from: &impl Directory, src: &str, dst: &str, ctx: &IOContext) -> Result<()> {
+  fn copy_from<F>(&self, from: &F, src: &str, dst: &str, ctx: &IOContext) -> Result<()>
+  where
+    F: Directory + ?Sized,
+  {
     (**self).copy_from(from, src, dst, ctx)
+  }
+  fn as_erased_directory(&self) -> Option<&dyn ErasedDirectory> {
+    (**self).as_erased_directory()
   }
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     (**self).get_pending_deletions()
@@ -722,8 +753,14 @@ impl<D: Directory> Directory for Arc<D> {
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
     (**self).obtain_lock(name)
   }
-  fn copy_from(&self, from: &impl Directory, src: &str, dst: &str, ctx: &IOContext) -> Result<()> {
+  fn copy_from<F>(&self, from: &F, src: &str, dst: &str, ctx: &IOContext) -> Result<()>
+  where
+    F: Directory + ?Sized,
+  {
     (**self).copy_from(from, src, dst, ctx)
+  }
+  fn as_erased_directory(&self) -> Option<&dyn ErasedDirectory> {
+    (**self).as_erased_directory()
   }
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     (**self).get_pending_deletions()

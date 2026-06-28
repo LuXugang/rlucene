@@ -1496,7 +1496,10 @@ where
     self.delegate.obtain_lock(name)
   }
 
-  fn copy_from(&self, from: &impl Directory, src: &str, dest: &str, ctx: &IOContext) -> Result<()> {
+  fn copy_from<T>(&self, from: &T, src: &str, dest: &str, ctx: &IOContext) -> Result<()>
+  where
+    T: Directory + ?Sized,
+  {
     self.delegate.copy_from(from, src, dest, ctx)
   }
 

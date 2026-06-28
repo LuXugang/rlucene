@@ -199,13 +199,10 @@ where
     Err(error)
   }
 
-  fn copy_from(
-    &self,
-    from: &impl Directory,
-    src: &str,
-    dest: &str,
-    context: &IOContext,
-  ) -> Result<()> {
+  fn copy_from<T>(&self, from: &T, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    T: Directory + ?Sized,
+  {
     self.in_.copy_from(from, src, dest, context)
   }
 

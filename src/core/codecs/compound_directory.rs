@@ -299,13 +299,10 @@ where
     }
   }
 
-  fn copy_from(
-    &self,
-    from: &impl Directory,
-    src: &str,
-    dest: &str,
-    context: &IOContext,
-  ) -> Result<()> {
+  fn copy_from<T>(&self, from: &T, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    T: Directory + ?Sized,
+  {
     match self {
       CompoundDirectoryEnum::A(dir) => dir.copy_from(from, src, dest, context),
       CompoundDirectoryEnum::B(dir) => dir.copy_from(from, src, dest, context),
