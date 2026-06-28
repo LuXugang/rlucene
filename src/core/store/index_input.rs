@@ -141,33 +141,14 @@ pub trait IndexInput: DataInput + TryClone + crate::core::util::close::Closeable
   fn update_read_advice(&self, _read_advice: ReadAdvice) -> Result<()> {
     Ok(())
   }
-
-  // for dynamic dispatch
-  fn slice_dyn(
-    &self,
-    _slice_description: &str,
-    _offset: usize,
-    _length: usize,
-  ) -> Result<CustomIndexInput> {
-    Err(LuceneError::unsupported_operation("not support slicing"))
-  }
-  fn slice_with_read_advice_dyn(
-    &self,
-    description: &str,
-    offset: usize,
-    length: usize,
-    _read_advice: &ReadAdvice,
-  ) -> Result<CustomIndexInput> {
-    self.slice_dyn(description, offset, length)
-  }
 }
-pub trait TryCloneIndexInput:
+pub trait ErasedIndexInput:
   IndexInput<RandomAccessSlice = BoxRandomAccessInput, IndexInput = IndexInputEnum>
 {
   fn try_clone_index_input(&self) -> Result<IndexInputEnum>;
 }
 
-pub type DynIndexInput = dyn TryCloneIndexInput + Send + Sync;
+pub type DynIndexInput = dyn ErasedIndexInput + Send + Sync;
 pub type CustomIndexInput = Box<DynIndexInput>;
 
 pub type IndexInputEnumRandomAccessSlice =
@@ -181,7 +162,7 @@ pub enum IndexInputEnum {
 impl IndexInputEnum {
   pub fn custom<I>(input: I) -> Self
   where
-    I: TryCloneIndexInput + Send + Sync + 'static,
+    I: ErasedIndexInput + Send + Sync + 'static,
   {
     Self::Custom(Box::new(input))
   }
@@ -407,11 +388,7 @@ impl IndexInput for IndexInputEnum {
         offset,
         length,
       )?)),
-      IndexInputEnum::Custom(inner) => Ok(IndexInputEnum::Custom(inner.slice_dyn(
-        slice_description,
-        offset,
-        length,
-      )?)),
+      IndexInputEnum::Custom(inner) => inner.slice(slice_description, offset, length),
     }
   }
 
@@ -429,9 +406,9 @@ impl IndexInput for IndexInputEnum {
         length,
         _read_advice,
       )?)),
-      IndexInputEnum::Custom(inner) => Ok(IndexInputEnum::Custom(
-        inner.slice_with_read_advice_dyn(description, offset, length, _read_advice)?,
-      )),
+      IndexInputEnum::Custom(inner) => {
+        inner.slice_with_read_advice(description, offset, length, _read_advice)
+      },
     }
   }
 
@@ -459,33 +436,6 @@ impl IndexInput for IndexInputEnum {
     match self {
       IndexInputEnum::Fs(inner) => inner.update_read_advice(read_advice),
       IndexInputEnum::Custom(inner) => inner.update_read_advice(read_advice),
-    }
-  }
-
-  fn slice_dyn(
-    &self,
-    _slice_description: &str,
-    _offset: usize,
-    _length: usize,
-  ) -> Result<CustomIndexInput> {
-    match self {
-      IndexInputEnum::Fs(_v) => Err(LuceneError::unsupported_operation("not support slicing")),
-      IndexInputEnum::Custom(inner) => inner.slice_dyn(_slice_description, _offset, _length),
-    }
-  }
-
-  fn slice_with_read_advice_dyn(
-    &self,
-    description: &str,
-    offset: usize,
-    length: usize,
-    _read_advice: &ReadAdvice,
-  ) -> Result<CustomIndexInput> {
-    match self {
-      IndexInputEnum::Fs(_) => Err(LuceneError::unsupported_operation("not support slicing")),
-      IndexInputEnum::Custom(inner) => {
-        inner.slice_with_read_advice_dyn(description, offset, length, _read_advice)
-      },
     }
   }
 }
@@ -980,29 +930,6 @@ where
 
   fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
     self.as_ref().update_read_advice(read_advice)
-  }
-
-  fn slice_dyn(
-    &self,
-    _slice_description: &str,
-    _offset: usize,
-    _length: usize,
-  ) -> Result<CustomIndexInput> {
-    self
-      .as_ref()
-      .slice_dyn(_slice_description, _offset, _length)
-  }
-
-  fn slice_with_read_advice_dyn(
-    &self,
-    description: &str,
-    offset: usize,
-    length: usize,
-    _read_advice: &ReadAdvice,
-  ) -> Result<CustomIndexInput> {
-    self
-      .as_ref()
-      .slice_with_read_advice_dyn(description, offset, length, _read_advice)
   }
 }
 either_index_input!(pub IndexInputEnum2, RandomAccessInputEnum2 { A: A, B: B });
