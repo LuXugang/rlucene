@@ -29,6 +29,8 @@ use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
+#[cfg(feature = "nightly")]
+use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_infos::{
   generation_from_segments_file_name, get_last_commit_generation_from_directory,
 };
@@ -40,6 +42,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(feature = "nightly")]
+use crate::core::util::version::LATEST;
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer,
@@ -47,10 +51,16 @@ use crate::test::core::util::lucene_test_case::{
   new_text_field, random,
 };
 use rand::Rng;
+#[cfg(feature = "nightly")]
+use rand::RngExt;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+#[cfg(feature = "nightly")]
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
+#[cfg(feature = "nightly")]
+use std::time::{Duration, Instant};
 
 #[allow(dead_code)] // for quick search
 struct TestDeletionPolicy;
@@ -75,10 +85,114 @@ where
 }
 
 #[cfg(feature = "nightly")]
+fn current_time_nanos() -> i64 {
+  static START: OnceLock<Instant> = OnceLock::new();
+  START
+    .get_or_init(Instant::now)
+    .elapsed()
+    .as_nanos()
+    .min(i64::MAX as u128) as i64
+}
+
+#[cfg(feature = "nightly")]
 #[test]
 #[ignore = "nightly"]
 fn test_expiration_time_deletion_policy() -> Result<()> {
-  // TODO IMPORTANT
+  const SECONDS: f64 = 2.0;
+
+  let mut random = random();
+  let mut field_types = HashMap::new();
+  let dir = new_directory_shared(&mut random)?;
+  let policy = ExpirationTimeDeletionPolicy::new(dir.clone(), SECONDS);
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  conf.set_index_deletion_policy(policy.clone());
+  conf
+    .get_merge_policy_mut()
+    .get_base_mut()
+    .set_no_cfs_ratio(1.0)?;
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+  let mut commit_data = HashMap::new();
+  commit_data.insert("commitTime".to_string(), current_time_nanos().to_string());
+  writer.set_live_commit_data(commit_data);
+  writer.commit()?;
+  writer.close()?;
+  drop(writer);
+
+  let mut last_delete_time = 0;
+  let target_num_delete = random.random_range(1..=5);
+  while policy.num_delete() < target_num_delete {
+    // Record last time when writer performed deletes of
+    // past commits
+    last_delete_time = current_time_nanos();
+    let mock = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
+    conf
+      .set_open_mode(OpenMode::Append)
+      .set_index_deletion_policy(policy.clone());
+    conf
+      .get_merge_policy_mut()
+      .get_base_mut()
+      .set_no_cfs_ratio(1.0)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    for _ in 0..17 {
+      add_doc(&mut random, &writer, &mut field_types)?;
+    }
+    let mut commit_data = HashMap::new();
+    commit_data.insert("commitTime".to_string(), current_time_nanos().to_string());
+    writer.set_live_commit_data(commit_data);
+    writer.commit()?;
+    writer.close()?;
+    drop(writer);
+
+    std::thread::sleep(Duration::from_millis((1000.0 * (SECONDS / 5.0)) as u64));
+  }
+
+  // Then simplistic check: just verify that the
+  // segments_N's that still exist are in fact within SECONDS
+  // seconds of the last one's mod time, and, that I can
+  // open a reader on each:
+  let mut generation = get_last_commit_generation_from_directory(dir.as_ref())?;
+  let mut one_second_resolution = true;
+
+  while generation > 0 {
+    let reader = match directory_reader::open(dir.clone()) {
+      Ok(reader) => reader,
+      Err(_) => break,
+    };
+    if reader.close().is_err() {
+      break;
+    }
+
+    let file_name =
+      IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", generation).unwrap();
+    let sis = match SegmentInfos::read_commit(dir.clone(), &file_name) {
+      Ok(sis) => sis,
+      Err(_) => break,
+    };
+    assert_eq!(Some(&*LATEST), sis.get_commit_lucene_version());
+    assert_eq!(Some(&*LATEST), sis.get_min_segment_lucene_version());
+    let mod_time = sis
+      .get_user_data()
+      .get("commitTime")
+      .ok_or_else(|| LuceneError::illegal_state("missing commitTime"))?
+      .parse::<i64>()?;
+    one_second_resolution &= (mod_time % 1000) == 0;
+    let leeway = ((SECONDS + if one_second_resolution { 1.0 } else { 0.0 }) * 1000.0) as i64;
+
+    assert!(
+      last_delete_time - mod_time <= leeway,
+      "commit point was older than {SECONDS} seconds ({} ms) but did not get deleted ",
+      last_delete_time - mod_time
+    );
+
+    dir.delete_file(
+      &IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", generation).unwrap(),
+    )?;
+    generation -= 1;
+  }
+
   Ok(())
 }
 
@@ -771,5 +885,80 @@ impl IndexDeletionPolicy for KeepLastNDeletionPolicy {
   {
     verify_commit_order(commits);
     self.do_deletes(commits, true)
+  }
+}
+
+fn get_commit_time<IC>(commit: &IC) -> Result<i64>
+where
+  IC: IndexCommit,
+{
+  Ok(
+    commit
+      .get_user_data()
+      .get("commitTime")
+      .ok_or_else(|| LuceneError::illegal_state("missing commitTime"))?
+      .parse::<i64>()?,
+  )
+}
+
+#[derive(Clone)]
+pub struct ExpirationTimeDeletionPolicy {
+  #[allow(dead_code)]
+  dir: Arc<DirEnum>,
+  expiration_time_seconds: f64,
+  num_delete: Arc<AtomicUsize>,
+}
+
+impl ExpirationTimeDeletionPolicy {
+  fn new(dir: Arc<DirEnum>, seconds: f64) -> Self {
+    Self {
+      dir,
+      expiration_time_seconds: seconds,
+      num_delete: Arc::new(AtomicUsize::new(0)),
+    }
+  }
+
+  fn num_delete(&self) -> usize {
+    self.num_delete.load(Ordering::SeqCst)
+  }
+}
+
+impl Display for ExpirationTimeDeletionPolicy {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl IndexDeletionPolicy for ExpirationTimeDeletionPolicy {
+  fn on_init<IC>(&self, commits: &[IC]) -> Result<()>
+  where
+    IC: IndexCommit + Clone,
+  {
+    if commits.is_empty() {
+      return Ok(());
+    }
+    verify_commit_order(commits);
+    self.on_commit(commits)
+  }
+
+  fn on_commit<IC>(&self, commits: &[IC]) -> Result<()>
+  where
+    IC: IndexCommit + Clone,
+  {
+    verify_commit_order(commits);
+
+    let last_commit = commits.last().unwrap();
+
+    // Any commit older than expireTime should be deleted:
+    let expire_time = get_commit_time(last_commit)? as f64 / 1000.0 - self.expiration_time_seconds;
+
+    for commit in commits {
+      let mod_time = get_commit_time(commit)? as f64 / 1000.0;
+      if commit != last_commit && mod_time < expire_time {
+        commit.delete()?;
+        self.num_delete.fetch_add(1, Ordering::SeqCst);
+      }
+    }
+    Ok(())
   }
 }
