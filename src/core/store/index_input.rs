@@ -168,7 +168,14 @@ impl IndexInputEnum {
   }
 }
 
-impl crate::core::util::close::Closeable for IndexInputEnum {}
+impl crate::core::util::close::Closeable for IndexInputEnum {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      IndexInputEnum::Fs(inner) => crate::core::util::close::Closeable::close(inner),
+      IndexInputEnum::Custom(inner) => crate::core::util::close::Closeable::close(inner.as_mut()),
+    }
+  }
+}
 
 impl DataInput for IndexInputEnum {
   fn read_byte(&mut self) -> Result<u8> {

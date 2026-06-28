@@ -48,7 +48,9 @@ use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VECTOR_UTIL;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -362,6 +364,33 @@ where
     Ok(())
   }
 }
+
+impl<I> Closeable for Lucene101PostingsReader<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    let mut error = None;
+    if let Err(e) = self.doc_in.close() {
+      error = Some(IOUtils::use_or_suppress(error, e));
+    }
+    if let Some(ref mut pos_in) = self.pos_in
+      && let Err(e) = pos_in.close() {
+        error = Some(IOUtils::use_or_suppress(error, e));
+      }
+    if let Some(ref mut pay_in) = self.pay_in
+      && let Err(e) = pay_in.close() {
+        error = Some(IOUtils::use_or_suppress(error, e));
+      }
+
+    if let Some(error) = error {
+      Err(error)
+    } else {
+      Ok(())
+    }
+  }
+}
+
 pub struct BlockPostingsEnum<I>
 where
   I: IndexInput,

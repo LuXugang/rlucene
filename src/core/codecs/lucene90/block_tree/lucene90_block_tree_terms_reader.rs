@@ -26,7 +26,9 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -76,6 +78,28 @@ where
   pub(crate) postings_reader: PR,
   pub(crate) segment: String,
   pub(crate) version: i32,
+}
+
+impl<I, PR> Closeable for TermsReader<I, PR>
+where
+  I: IndexInput,
+  PR: PostingsReaderBase,
+{
+  fn close(&mut self) -> Result<()> {
+    let mut error = None;
+    if let Err(e) = self.terms_in.close() {
+      error = Some(IOUtils::use_or_suppress(error, e));
+    }
+    if let Err(e) = self.postings_reader.close() {
+      error = Some(IOUtils::use_or_suppress(error, e));
+    }
+
+    if let Some(error) = error {
+      Err(error)
+    } else {
+      Ok(())
+    }
+  }
 }
 
 impl<I, PR> Lucene90BlockTreeTermsReader<I, PR>
@@ -315,6 +339,57 @@ where
       self.field_map.len(),
       self.terms_reader.postings_reader
     )
+  }
+}
+
+impl<I, PR> Closeable for Lucene90BlockTreeTermsReader<I, PR>
+where
+  I: IndexInput,
+  PR: PostingsReaderBase,
+{
+  fn close(&mut self) -> Result<()> {
+    // Drop this reader's FieldReader references so the shared inputs become
+    // uniquely owned and can be closed explicitly.
+    self.field_map.clear();
+
+    let mut error = None;
+    match Arc::get_mut(&mut self.index_in) {
+      Some(index_in) => {
+        if let Err(e) = index_in.close() {
+          error = Some(IOUtils::use_or_suppress(error, e));
+        }
+      },
+      None => {
+        error = Some(IOUtils::use_or_suppress(
+          error,
+          LuceneError::illegal_state(
+            "cannot close Lucene90BlockTreeTermsReader index input while it is shared",
+          ),
+        ));
+      },
+    }
+
+    match Arc::get_mut(&mut self.terms_reader) {
+      Some(terms_reader) => {
+        if let Err(e) = terms_reader.close() {
+          error = Some(IOUtils::use_or_suppress(error, e));
+        }
+      },
+      None => {
+        error = Some(IOUtils::use_or_suppress(
+          error,
+          LuceneError::illegal_state(
+            "cannot close Lucene90BlockTreeTermsReader terms reader while it is shared",
+          ),
+        ));
+      },
+    }
+
+    if let Some(error) = error {
+      Err(error)
+    } else {
+      Ok(())
+    }
   }
 }
 
