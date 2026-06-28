@@ -19,10 +19,11 @@ use crate::core::index::index_reader::Identity;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
-use crate::core::store::lock::{Lock, LockEnum2};
+use crate::core::store::lock::{Lock, LockEnum, LockEnum2};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{
-  FSDirectory, IOContext, IndexInputEnum2, IndexOutput, IndexOutputEnum2, NativeFSLockFactory,
+  FSDirectory, IOContext, IndexInputEnum, IndexInputEnum2, IndexOutput, IndexOutputEnum,
+  IndexOutputEnum2, NativeFSLockFactory,
 };
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
@@ -210,39 +211,11 @@ pub trait Directory: Display + Closeable + HasIdentity {
     src: &str,
     dest: &str,
     context: &IOContext,
-  ) -> Result<()> {
-    let mut success = false;
-    let result = (|| -> Result<()> {
-      let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
-      let mut os = match self.create_output(dest, context) {
-        Ok(os) => os,
-        Err(error) => {
-          let mut result = Err(error);
-          if let Err(close_error) = is.close() {
-            result = Err(IOUtils::use_or_suppress(result.err(), close_error));
-          }
-          return result;
-        },
-      };
-      let mut result = (|| -> Result<()> {
-        let length = IndexInput::length(&is)?;
-        os.copy_bytes(&mut is, length)?;
-        success = true;
-        Ok(())
-      })();
-      if let Err(error) = os.close() {
-        result = Err(IOUtils::use_or_suppress(result.err(), error));
-      }
-      if let Err(error) = is.close() {
-        result = Err(IOUtils::use_or_suppress(result.err(), error));
-      }
-      result
-    })();
-
-    if !success {
-      IOUtils::delete_files_ignoring_exceptions(self, &[dest.to_string()]);
-    }
-    result
+  ) -> Result<()>
+  where
+    Self: Sized,
+  {
+    copy_from_directory(self, from, src, dest, context)
   }
   /// Returns a set of files currently pending deletion in this directory.
   ///
@@ -269,6 +242,223 @@ pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
   let counter_str = BigInt::from(counter).to_str_radix(36);
   let full_suffix = format!("{suffix}_{counter_str}");
   IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
+}
+
+fn copy_from_directory<T, F>(
+  to: &T,
+  from: &F,
+  src: &str,
+  dest: &str,
+  context: &IOContext,
+) -> Result<()>
+where
+  T: Directory + ?Sized,
+  F: Directory + ?Sized,
+{
+  let mut success = false;
+  let result = (|| -> Result<()> {
+    let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
+    let mut os = match to.create_output(dest, context) {
+      Ok(os) => os,
+      Err(error) => {
+        let mut result = Err(error);
+        if let Err(close_error) = is.close() {
+          result = Err(IOUtils::use_or_suppress(result.err(), close_error));
+        }
+        return result;
+      },
+    };
+    let mut result = (|| -> Result<()> {
+      let length = IndexInput::length(&is)?;
+      os.copy_bytes(&mut is, length)?;
+      success = true;
+      Ok(())
+    })();
+    if let Err(error) = os.close() {
+      result = Err(IOUtils::use_or_suppress(result.err(), error));
+    }
+    if let Err(error) = is.close() {
+      result = Err(IOUtils::use_or_suppress(result.err(), error));
+    }
+    result
+  })();
+
+  if !success {
+    IOUtils::delete_files_ignoring_exceptions(to, &[dest.to_string()]);
+  }
+  result
+}
+
+pub type DynDirectory = dyn Directory<IndexOutput = IndexOutputEnum, IndexInput = IndexInputEnum, Lock = LockEnum>
+  + Send
+  + Sync;
+pub type CustomDirectory = Box<DynDirectory>;
+
+pub enum DirectoryEnum {
+  Fs(FSDirectory<NativeFSLockFactory, NIOFSDirectory>),
+  Custom(CustomDirectory),
+}
+
+impl DirectoryEnum {
+  pub fn custom<D>(directory: D) -> Self
+  where
+    D: Directory<IndexOutput = IndexOutputEnum, IndexInput = IndexInputEnum, Lock = LockEnum>
+      + Send
+      + Sync
+      + 'static,
+  {
+    Self::Custom(Box::new(directory))
+  }
+}
+
+impl From<FSDirectory<NativeFSLockFactory, NIOFSDirectory>> for DirectoryEnum {
+  fn from(directory: FSDirectory<NativeFSLockFactory, NIOFSDirectory>) -> Self {
+    Self::Fs(directory)
+  }
+}
+
+impl Display for DirectoryEnum {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Fs(inner) => inner.fmt(f),
+      Self::Custom(inner) => inner.fmt(f),
+    }
+  }
+}
+
+impl HasIdentity for DirectoryEnum {
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::Fs(inner) => inner.identity(),
+      Self::Custom(inner) => inner.identity(),
+    }
+  }
+}
+
+impl Directory for DirectoryEnum {
+  fn list_all(&self) -> Result<Vec<String>> {
+    match self {
+      Self::Fs(inner) => inner.list_all(),
+      Self::Custom(inner) => inner.list_all(),
+    }
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.delete_file(name),
+      Self::Custom(inner) => inner.delete_file(name),
+    }
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    match self {
+      Self::Fs(inner) => inner.file_length(name),
+      Self::Custom(inner) => inner.file_length(name),
+    }
+  }
+
+  type IndexOutput = IndexOutputEnum;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    match self {
+      Self::Fs(inner) => Ok(IndexOutputEnum::Fs(inner.create_output(name, context)?)),
+      Self::Custom(inner) => inner.create_output(name, context),
+    }
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    match self {
+      Self::Fs(inner) => Ok(IndexOutputEnum::Fs(
+        inner.create_temp_output(prefix, suffix, context)?,
+      )),
+      Self::Custom(inner) => inner.create_temp_output(prefix, suffix, context),
+    }
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.sync(names),
+      Self::Custom(inner) => inner.sync(names),
+    }
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.sync_metadata(),
+      Self::Custom(inner) => inner.sync_metadata(),
+    }
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.rename(source, dest),
+      Self::Custom(inner) => inner.rename(source, dest),
+    }
+  }
+
+  type IndexInput = IndexInputEnum;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    match self {
+      Self::Fs(inner) => Ok(IndexInputEnum::Fs(inner.open_input(name, context)?)),
+      Self::Custom(inner) => inner.open_input(name, context),
+    }
+  }
+
+  type Lock = LockEnum;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    match self {
+      Self::Fs(inner) => Ok(LockEnum::Native(inner.obtain_lock(name)?)),
+      Self::Custom(inner) => inner.obtain_lock(name),
+    }
+  }
+
+  fn copy_from(
+    &self,
+    from: &impl Directory,
+    src: &str,
+    dest: &str,
+    context: &IOContext,
+  ) -> Result<()> {
+    copy_from_directory(self, from, src, dest, context)
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    match self {
+      Self::Fs(inner) => inner.get_pending_deletions(),
+      Self::Custom(inner) => inner.get_pending_deletions(),
+    }
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    match self {
+      Self::Fs(inner) => inner.is_fs_directory(),
+      Self::Custom(inner) => inner.is_fs_directory(),
+    }
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.ensure_open(),
+      Self::Custom(inner) => inner.ensure_open(),
+    }
+  }
+}
+
+impl Closeable for DirectoryEnum {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.close(),
+      Self::Custom(inner) => inner.close(),
+    }
+  }
 }
 
 macro_rules! either_directory {

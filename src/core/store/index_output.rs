@@ -175,6 +175,10 @@ impl DataOutput for IndexOutputEnum {
     }
   }
 
+  fn copy_bytes_dyn(&mut self, _input: &mut dyn DataInput, _num_bytes: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
     match self {
       Self::Fs(inner) => inner.write_map_of_strings(map),
