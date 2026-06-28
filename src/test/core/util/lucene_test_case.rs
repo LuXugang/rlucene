@@ -16,6 +16,7 @@
  */
 use std::collections::HashMap;
 use std::fmt;
+use std::io::ErrorKind;
 use std::sync::Arc;
 
 use crate::core::analysis::analyzer::AnalyzerEnum;
@@ -49,6 +50,7 @@ use crate::core::store::{
 };
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::store::mock_directory_wrapper::MockDirectoryWrapper;
@@ -797,10 +799,17 @@ where
 }
 
 pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
-  let result = dir.open_input(name, &IOContext::default_io_context()?);
-  match result {
-    Ok(_) => Ok(true),
-    Err(_) => Ok(false),
+  match dir.open_input(name, &IOContext::read_once_io_context()?) {
+    Ok(mut input) => {
+      input.close()?;
+      Ok(true)
+    },
+    Err(LuceneError::IoWithPath { source, .. }) if source.kind() == ErrorKind::NotFound => {
+      Ok(false)
+    },
+    Err(LuceneError::Io { source, .. }) if source.kind() == ErrorKind::NotFound => Ok(false),
+    Err(LuceneError::NoSuchFile(_)) => Ok(false),
+    Err(error) => Err(error),
   }
 }
 /// Ensures that the MergePolicy has sane values for tests that test with lots of documents.

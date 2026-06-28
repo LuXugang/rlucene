@@ -33,6 +33,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::output_enum::OutputEnum;
 use crate::core::util::{HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, Version};
@@ -277,29 +278,28 @@ where
     min_supported_major_version: i32,
   ) -> Result<SegmentInfos<D>> {
     let generation = generation_from_segments_file_name(segment_file_name)?;
-    let mut input;
-    {
-      input = match directory.open_checksum_input(segment_file_name) {
-        Ok(input) => input,
-        Err(e) => {
-          return Err(LuceneError::corrupt_index(format!(
-            "Unexpected file read error while opening index: {e}"
-          )));
-        },
-      };
-    }
+    let mut input = match directory.open_checksum_input(segment_file_name) {
+      Ok(input) => input,
+      Err(e) => {
+        return Err(LuceneError::corrupt_index(format!(
+          "Unexpected file read error while opening index: {e}"
+        )));
+      },
+    };
 
-    match SegmentInfos::read_commit_impl(
+    let read_result = SegmentInfos::read_commit_impl(
       directory.clone(),
       &mut input,
       generation,
       min_supported_major_version,
-    ) {
-      Ok(commit) => Ok(commit),
-      Err(e) => Err(LuceneError::corrupt_index(format!(
+    )
+    .map_err(|e| {
+      LuceneError::corrupt_index(format!(
         "Unexpected file read error while reading index: {e:?}"
-      ))),
-    }
+      ))
+    });
+    let close_result = input.close();
+    IOUtils::use_or_suppress_result(read_result, close_result)
   }
 
   /// Read the commit from the provided [`ChecksumIndexInput`].
@@ -598,13 +598,12 @@ where
     let mut success = false;
     {
       let result = (|| {
-        {
-          let mut segn_output =
-            Some(directory.create_output(&segment_file_name, &IO_CONTEXT_DEFAULT)?);
-          if let Some(ref mut output) = segn_output {
-            self.write(output)?;
-          }
+        let mut segn_output = directory.create_output(&segment_file_name, &IO_CONTEXT_DEFAULT)?;
+        if let Err(error) = self.write(&mut segn_output) {
+          let _ = segn_output.close();
+          return Err(error);
         }
+        segn_output.close()?;
         let segment_files = vec![segment_file_name.clone()];
         directory.sync(&segment_files)?;
         success = true;
