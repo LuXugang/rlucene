@@ -29,12 +29,13 @@ use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
 /// numeric doc values.
-pub trait DocValuesProducer {
+pub trait DocValuesProducer: Closeable {
   type NumericDocValues: NumericDocValues;
   /// Returns [`NumericDocValues`] for this field. The returned instance need
   /// not be thread-safe: it will only be used by a single thread. The
@@ -178,6 +179,19 @@ macro_rules! either_docvaluesproducer {
         $vis enum $name<$A, $B> {
             A($A),
             B($B),
+        }
+
+        impl<$A, $B> Closeable for $name<$A, $B>
+        where
+            $A: DocValuesProducer,
+            $B: DocValuesProducer,
+        {
+            fn close(&mut self) -> Result<()> {
+                match self {
+                    $name::A(inner) => inner.close(),
+                    $name::B(inner) => inner.close(),
+                }
+            }
         }
 
         impl<$A, $B> DocValuesProducer for $name<$A, $B>

@@ -55,6 +55,7 @@ use crate::core::store::flush_info::FlushInfo;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::function::Function;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
@@ -1230,6 +1231,9 @@ where
   reader: &'a SegmentReader<D>,
   field_info: Arc<FieldInfo>,
 }
+
+impl<D> Closeable for DocValuesProducerBinary<'_, D> where D: Directory {}
+
 impl<'a, D> DocValuesProducerBinary<'a, D>
 where
   D: Directory,
@@ -1286,6 +1290,8 @@ where
   reader: &'a SegmentReader<D>,
   field_info: Arc<FieldInfo>,
 }
+
+impl<D> Closeable for DocValuesProducerNumeric<'_, D> where D: Directory {}
 
 impl<'a, D> DocValuesProducerNumeric<'a, D>
 where

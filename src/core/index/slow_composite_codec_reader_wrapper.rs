@@ -999,6 +999,16 @@ where
     })
   }
 }
+
+impl<CR> Closeable for SlowCompositeDocValuesProducerWrapper<CR>
+where
+  CR: CodecReader + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    IOUtils::close(self.producers.iter_mut().flatten(), Closeable::close)
+  }
+}
+
 impl<CR> DocValuesProducer for SlowCompositeDocValuesProducerWrapper<CR>
 where
   CR: CodecReader + Clone,
@@ -1194,6 +1204,15 @@ where
   }
 }
 
+impl<FP> Closeable for SlowCompositeFieldsProducerWrapper<FP>
+where
+  FP: FieldsProducer,
+{
+  fn close(&mut self) -> Result<()> {
+    IOUtils::close(self.fields.subs.iter_mut(), Closeable::close)
+  }
+}
+
 impl<FP> Fields for SlowCompositeFieldsProducerWrapper<FP>
 where
   FP: FieldsProducer,
@@ -1271,6 +1290,16 @@ where
     })
   }
 }
+
+impl<CR> Closeable for SlowCompositeKnnVectorsReaderWrapper<CR>
+where
+  CR: CodecReader + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    IOUtils::close(self.readers.iter_mut().flatten(), Closeable::close)
+  }
+}
+
 impl<CR> HnswGraphProvider for SlowCompositeKnnVectorsReaderWrapper<CR>
 where
   CR: CodecReader + Clone,
@@ -1464,6 +1493,16 @@ where
     })
   }
 }
+
+impl<CR> Closeable for SlowCompositePointsReaderWrapper<CR>
+where
+  CR: CodecReader + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    IOUtils::close(self.readers.iter_mut().flatten(), Closeable::close)
+  }
+}
+
 impl<CR> PointsReader for SlowCompositePointsReaderWrapper<CR>
 where
   CR: CodecReader + Clone,

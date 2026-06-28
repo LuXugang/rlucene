@@ -347,6 +347,9 @@ where
     Self { reader }
   }
 }
+
+impl<LR> Closeable for PointsReaderImpl<LR> where LR: LeafReader {}
+
 impl<LR> PointsReader for PointsReaderImpl<LR>
 where
   LR: LeafReader,
@@ -434,6 +437,8 @@ where
     Self { reader }
   }
 }
+
+impl<LR> Closeable for DocValuesProducerImpl<LR> where LR: LeafReader {}
 
 impl<LR> DocValuesProducer for DocValuesProducerImpl<LR>
 where
@@ -708,6 +713,8 @@ where
   }
 }
 
+impl<LR> Closeable for FieldsProducerImpl<LR> where LR: LeafReader {}
+
 impl<LR> Fields for FieldsProducerImpl<LR>
 where
   LR: LeafReader,
@@ -759,6 +766,9 @@ where
     Self { reader }
   }
 }
+
+impl<LR> Closeable for KnnVectorsReaderImpl<LR> where LR: LeafReader {}
+
 impl<LR> HnswGraphProvider for KnnVectorsReaderImpl<LR>
 where
   LR: LeafReader,

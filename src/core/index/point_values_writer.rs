@@ -32,6 +32,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::paged_bytes::{PagedBytes, PagedBytesDataOutput, Reader, get_data_output};
 use crate::core::util::{Counter, SharedCounter, SliceCopyOps};
@@ -154,6 +155,9 @@ where
   >,
   field_info: Arc<FieldInfo>,
 }
+
+impl<DM> Closeable for PointsReaderImpl<DM> where DM: DocMap + Clone {}
+
 impl<DM> PointsReaderImpl<DM>
 where
   DM: DocMap + Clone,

@@ -24,7 +24,9 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::bkd::bkd_reader::BKDReader;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -162,6 +164,26 @@ where
       readers,
       field_infos: read_state.field_infos.clone(),
     })
+  }
+}
+
+impl<I> Closeable for Lucene90PointsReader<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    let mut first_error = None;
+    if let Err(e) = Closeable::close(&mut self.index_in) {
+      first_error = Some(e);
+    }
+    if let Err(e) = Closeable::close(&mut *self.data_in.lock()) {
+      first_error = Some(IOUtils::use_or_suppress(first_error, e));
+    }
+    self.readers.clear();
+    match first_error {
+      Some(e) => Err(e),
+      None => Ok(()),
+    }
   }
 }
 

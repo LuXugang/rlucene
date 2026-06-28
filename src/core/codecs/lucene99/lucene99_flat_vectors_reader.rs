@@ -43,6 +43,7 @@ use crate::core::store::{IOContext, IndexInput, ReadAdvice};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
@@ -227,6 +228,16 @@ where
     }
 
     Ok(field_entry)
+  }
+}
+
+impl<I, F> Closeable for Lucene99FlatVectorsReader<I, F>
+where
+  I: IndexInput,
+  F: FlatVectorsScorer,
+{
+  fn close(&mut self) -> Result<()> {
+    Closeable::close(&mut self.vector_data)
   }
 }
 

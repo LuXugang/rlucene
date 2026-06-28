@@ -1234,6 +1234,8 @@ where
   values_producer: &'a D,
 }
 
+impl<D> Closeable for EmptyDocValuesProducerSub1<'_, D> where D: DocValuesProducer {}
+
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<'_, D>
 where
   D: DocValuesProducer,
@@ -1256,6 +1258,8 @@ where
 {
   values_producer: &'a D,
 }
+
+impl<D> Closeable for EmptyDocValuesProducerSub2<'_, D> where D: DocValuesProducer {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<'_, D>
 where
@@ -1284,6 +1288,8 @@ where
   values_producer: &'a D,
 }
 
+impl<D> Closeable for EmptyDocValuesProducerSub3<'_, D> where D: DocValuesProducer {}
+
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub3<'_, D>
 where
   D: DocValuesProducer,
@@ -1308,6 +1314,8 @@ where
 {
   values_producer: &'a D,
 }
+
+impl<D> Closeable for EmptyDocValuesProducerSub4<'_, D> where D: DocValuesProducer {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<'_, D>
 where

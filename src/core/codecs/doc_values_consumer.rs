@@ -465,6 +465,13 @@ where
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
+impl<D, CR> Closeable for EmptyDocValuesProducerMerge1<'_, D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+}
+
 impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, D, CR>
 where
   D: Directory,
@@ -622,6 +629,13 @@ where
 {
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MergeState<'a, D, CR>,
+}
+
+impl<D, CR> Closeable for EmptyDocValuesProducerMerge2<'_, D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
 }
 
 impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, D, CR>
@@ -806,6 +820,13 @@ where
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
+impl<D, CR> Closeable for EmptyDocValuesProducerMerge3<'_, D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+}
+
 pub type MergeSortedNumeric<CR> =
   <CRDocValuesProducer<CR> as DocValuesProducer>::SortedNumericDocValues;
 pub type MergeNumeric<CR> = <MergeSortedNumeric<CR> as SortedNumericDocValues>::NumericDocValues;
@@ -976,6 +997,13 @@ where
   field_info: Arc<FieldInfo>,
   merge_state: &'a MergeState<'a, D, CR>,
   map: Rc<OrdinalMap>,
+}
+
+impl<D, CR> Closeable for EmptyDocValuesProducerMerge4<'_, D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
 }
 
 impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, D, CR>
@@ -1447,6 +1475,13 @@ where
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MergeState<'a, D, CR>,
   map: Rc<OrdinalMap>,
+}
+
+impl<D, CR> Closeable for EmptyDocValuesProducerMerge5<'_, D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
 }
 
 pub type CRSortedSetDocValues<CR> =

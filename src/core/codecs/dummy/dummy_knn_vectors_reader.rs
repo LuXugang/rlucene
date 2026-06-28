@@ -20,9 +20,11 @@ use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 
 pub struct DummyKnnVectorsReader;
+impl Closeable for DummyKnnVectorsReader {}
 impl HnswGraphProvider for DummyKnnVectorsReader {
   type HnswGraph = DummyHnswGraph;
 }

@@ -25,13 +25,14 @@ use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
 use std::sync::Arc;
 
 /// Reads vectors from an index.
-pub trait KnnVectorsReader: HnswGraphProvider {
+pub trait KnnVectorsReader: HnswGraphProvider + Closeable {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing a checksum value
@@ -156,6 +157,17 @@ macro_rules! either_knn_vectors_reader {
             $( $Variant($T), )+
         }
 
+        impl<$( $T ),+> $crate::core::util::close::Closeable for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
+        {
+            fn close(&mut self) -> $crate::core::util::error::lucene_error::Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.close(), )+
+                }
+            }
+        }
+
         impl<$( $T ),+> $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider for $name<$( $T ),+>
         where
             $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
@@ -266,6 +278,7 @@ either_knn_vectors_reader!(
 );
 
 pub enum KnnVectorsReaderEnum {}
+impl Closeable for KnnVectorsReaderEnum {}
 impl HnswGraphProvider for KnnVectorsReaderEnum {
   type HnswGraph = DummyHnswGraph;
 }

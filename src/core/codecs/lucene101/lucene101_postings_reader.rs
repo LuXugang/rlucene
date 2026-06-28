@@ -375,13 +375,15 @@ where
       error = Some(IOUtils::use_or_suppress(error, e));
     }
     if let Some(ref mut pos_in) = self.pos_in
-      && let Err(e) = pos_in.close() {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
+      && let Err(e) = pos_in.close()
+    {
+      error = Some(IOUtils::use_or_suppress(error, e));
+    }
     if let Some(ref mut pay_in) = self.pay_in
-      && let Err(e) = pay_in.close() {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
+      && let Err(e) = pay_in.close()
+    {
+      error = Some(IOUtils::use_or_suppress(error, e));
+    }
 
     if let Some(error) = error {
       Err(error)

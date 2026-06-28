@@ -443,6 +443,15 @@ where
   }
 }
 
+impl<DVP> Closeable for MismatchedDocValuesProducer<DVP>
+where
+  DVP: DocValuesProducer,
+{
+  fn close(&mut self) -> Result<()> {
+    self.in_.close()
+  }
+}
+
 impl<DVP> DocValuesProducer for MismatchedDocValuesProducer<DVP>
 where
   DVP: DocValuesProducer,

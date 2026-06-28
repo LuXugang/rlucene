@@ -60,6 +60,7 @@ use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::compress::lz4::LZ4;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -761,6 +762,15 @@ where
         SpareSortedNumericDocValues::new(disi, values, addresses),
       ))
     }
+  }
+}
+
+impl<I> Closeable for Lucene90DocValuesProducer<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    Closeable::close(&mut self.data)
   }
 }
 

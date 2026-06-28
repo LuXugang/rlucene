@@ -25,7 +25,8 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::store::directory::Directory;
 use crate::core::util::IdentityArc;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::Closeable;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -105,6 +106,15 @@ where
       dv_producers,
       dv_gens,
     })
+  }
+}
+
+impl<D> Closeable for SegmentDocValuesProducer<D>
+where
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
   }
 }
 

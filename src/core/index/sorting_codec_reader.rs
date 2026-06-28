@@ -641,6 +641,16 @@ where
   }
 }
 
+impl<DVP, DM> Closeable for DocValuesProducerImpl<DVP, DM>
+where
+  DVP: DocValuesProducer,
+  DM: DocMap + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
 impl<DVP, DM> DocValuesProducer for DocValuesProducerImpl<DVP, DM>
 where
   DVP: DocValuesProducer,
@@ -937,6 +947,17 @@ where
     Self { delegate, doc_map }
   }
 }
+
+impl<PR, DM> Closeable for PointsReaderImpl<PR, DM>
+where
+  PR: PointsReader,
+  DM: DocMap + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
 impl<PR, DM> PointsReader for PointsReaderImpl<PR, DM>
 where
   PR: PointsReader,
@@ -975,6 +996,17 @@ where
     Self { delegate, doc_map }
   }
 }
+
+impl<KVR, DM> Closeable for KnnVectorsReaderImpl<KVR, DM>
+where
+  KVR: KnnVectorsReader,
+  DM: DocMap,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
 impl<KVR, DM> HnswGraphProvider for KnnVectorsReaderImpl<KVR, DM>
 where
   KVR: KnnVectorsReader,
@@ -1561,6 +1593,16 @@ where
       doc_map,
       field_infos,
     }
+  }
+}
+
+impl<FP, DM> Closeable for FieldsProducerImpl<FP, DM>
+where
+  FP: FieldsProducer,
+  DM: DocMap + Clone,
+{
+  fn close(&mut self) -> Result<()> {
+    self.postings_reader.close()
   }
 }
 

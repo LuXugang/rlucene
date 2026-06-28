@@ -132,6 +132,14 @@ where
   point_value: Vec<P>,
   doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
 }
+
+impl<P, CR> Closeable for PointsReaderImpl<P, CR>
+where
+  P: PointValues,
+  CR: CodecReader,
+{
+}
+
 impl<P, CR> PointsReaderImpl<P, CR>
 where
   P: PointValues,

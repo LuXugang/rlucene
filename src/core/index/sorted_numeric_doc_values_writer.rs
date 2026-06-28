@@ -41,6 +41,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::long_values::LongValues as OtherLongValues;
@@ -294,6 +295,9 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
 pub(crate) struct DocValuesProducerImpl1 {
   single_value_producer: DocValuesProducerImpl,
 }
+
+impl Closeable for DocValuesProducerImpl1 {}
+
 impl DocValuesProducerImpl1 {
   pub(crate) fn new(single_value_producer: DocValuesProducerImpl) -> Result<Self> {
     Ok(Self {
@@ -329,6 +333,9 @@ pub(crate) struct DocValuesProducerImpl2 {
   sorted: Option<LongValues>,
   value_counts: Option<PackedLongValues>,
 }
+
+impl Closeable for DocValuesProducerImpl2 {}
+
 impl DocValuesProducerImpl2 {
   fn new(
     field_info: Arc<FieldInfo>,

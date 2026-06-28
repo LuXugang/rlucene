@@ -485,6 +485,15 @@ where
   }
 }
 
+impl<FP> Closeable for MigratingFieldsProducer<FP>
+where
+  FP: FieldsProducer,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
 /// Iterator over field names from FieldInfos.
 pub struct FieldInfosIter<'a> {
   values: &'a [Arc<FieldInfo>],
