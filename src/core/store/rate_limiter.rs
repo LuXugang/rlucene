@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -53,6 +53,27 @@ pub trait RateLimiter {
    * this method to ensure consistency.
    */
   fn get_min_pause_check_bytes(&self) -> i64;
+}
+
+impl<R> RateLimiter for Arc<R>
+where
+  R: RateLimiter + ?Sized,
+{
+  fn set_mb_per_sec(&self, mb_per_sec: f64) -> Result<()> {
+    (**self).set_mb_per_sec(mb_per_sec)
+  }
+
+  fn get_mb_per_sec(&self) -> f64 {
+    (**self).get_mb_per_sec()
+  }
+
+  fn pause(&self, bytes: i64) -> Result<i64> {
+    (**self).pause(bytes)
+  }
+
+  fn get_min_pause_check_bytes(&self) -> i64 {
+    (**self).get_min_pause_check_bytes()
+  }
 }
 
 const MIN_PAUSE_CHECK_MSEC: i64 = 5;
