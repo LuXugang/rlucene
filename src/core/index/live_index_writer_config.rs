@@ -331,7 +331,6 @@ where
       parent_field: None,
       index_sort: None,
       index_sort_fields: HashSet::new(),
-      // TODO IMPORTANT 这里的默认不对
       merge_scheduler: MergeSchedulerEnum::default(),
     })
   }

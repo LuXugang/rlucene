@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
@@ -32,13 +31,13 @@ impl CloseableRef for DummyMergeScheduler {
 impl MergeScheduler for DummyMergeScheduler {
   fn merge<MS, D>(
     &self,
-    _merge_source: &MS,
+    _merge_source: MS,
     _trigger: MergeTrigger,
-    _writer: &IndexWriter<D>,
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
-    MS: MergeSource,
+    MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
+    crate::core::index::merge_policy::OneMergeSR<D>: Send + 'static,
   {
     dummy_unreachable!()
   }

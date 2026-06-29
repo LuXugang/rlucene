@@ -1168,15 +1168,14 @@ where
   D: Directory,
   CR: CodecReader,
 {
-  pub(crate) register_done: AtomicBool,
   pub(crate) is_external: bool,
   pub(crate) uses_pooled_readers: bool,
   /// Estimated size in bytes of the merged segment.
-  pub estimated_merge_bytes: AtomicI64,
+  pub estimated_merge_bytes: Arc<AtomicI64>,
   /// Sum of sizeInBytes of all SegmentInfos; set by IW.mergeInit
   pub(crate) total_merge_bytes: AtomicI64,
   merge_readers: Mutex<Vec<MergeReader<CR, CR::Bits>>>,
-  pub(crate) merge_start_ns: Instant,
+  pub(crate) merge_start_ns: Arc<Mutex<Instant>>,
   /// Total number of documents in segments to be merged, not accounting for deletions.
   pub(crate) total_max_doc: i32,
   #[cfg(test)]
@@ -1186,9 +1185,18 @@ where
   pub(crate) info: Option<SegmentCommitInfo<D>>,
   pub(crate) merge_completed: OnceLock<bool>,
 }
+
+unsafe impl<D, CR> Send for OneMerge<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+}
+
 #[derive(Clone)]
 pub struct MergeStat {
   pub(crate) id: Identity,
+  pub(crate) register_done: Arc<AtomicBool>,
   state: Arc<Mutex<MergeStatState>>,
   merge_progress: Arc<OneMergeProgress>,
   /// Segments to be merged.
@@ -1289,19 +1297,19 @@ where
 
     let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
-      register_done: AtomicBool::new(false),
       is_external: false,
       uses_pooled_readers: true,
-      estimated_merge_bytes: AtomicI64::new(0),
+      estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
       total_merge_bytes: AtomicI64::new(0),
       merge_readers: Mutex::new(Vec::new()),
-      merge_start_ns: Instant::now(),
+      merge_start_ns: Arc::new(Mutex::new(Instant::now())),
       total_max_doc,
       #[cfg(test)]
       segments: original_segments,
       error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
+        register_done: Arc::new(AtomicBool::new(false)),
         state: Arc::new(Mutex::new(MergeStatState::new())),
         merge_progress,
         segments: v,
@@ -1323,17 +1331,17 @@ where
     let merge_progress = Arc::new(OneMergeProgress::new());
     let mut stat = one_merge.stat;
     stat.merge_progress = merge_progress;
+    stat.register_done.store(false, Ordering::Release);
     let one_merge = Self {
       merge_readers: Mutex::new(one_merge.merge_readers.into_inner()),
       total_max_doc: one_merge.total_max_doc,
       #[cfg(test)]
       segments: one_merge.segments,
       uses_pooled_readers: one_merge.uses_pooled_readers,
-      register_done: AtomicBool::new(false),
       is_external: false,
-      estimated_merge_bytes: AtomicI64::new(0),
+      estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
       total_merge_bytes: AtomicI64::new(0),
-      merge_start_ns: Instant::now(),
+      merge_start_ns: Arc::new(Mutex::new(Instant::now())),
       error: Mutex::new(None),
       stat,
       info: one_merge.info,
@@ -1358,19 +1366,19 @@ where
 
     let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
-      register_done: AtomicBool::new(false),
       is_external: false,
       uses_pooled_readers: false,
-      estimated_merge_bytes: AtomicI64::new(0),
+      estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
       total_merge_bytes: AtomicI64::new(0),
       merge_readers: Mutex::new(merge_readers),
-      merge_start_ns: Instant::now(),
+      merge_start_ns: Arc::new(Mutex::new(Instant::now())),
       total_max_doc: total_docs,
       #[cfg(test)]
       segments: Vec::new(),
       error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
+        register_done: Arc::new(AtomicBool::new(false)),
         state: Arc::new(Mutex::new(MergeStatState::new())),
         merge_progress,
         segments: Vec::new(),
@@ -1403,6 +1411,18 @@ where
       self.stat.max_num_segments(),
     )
   }
+  pub fn get_merge_progress(&self) -> Arc<OneMergeProgress> {
+    self.stat.merge_progress.clone()
+  }
+
+  pub(crate) fn merge_start_time(&self) -> Instant {
+    *self.merge_start_ns.lock()
+  }
+
+  pub(crate) fn set_merge_start_time(&self, merge_start_time: Instant) {
+    *self.merge_start_ns.lock() = merge_start_time;
+  }
+
   pub fn set_aborted(&self) -> Result<()> {
     self.stat.set_aborted();
     Ok(())

@@ -23,8 +23,8 @@ use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicyEnum, MergeReaderSR, MergeSpecificationNoReader, OneMergeBase,
-  OneMergeSR,
+  MergeContext, MergePolicyEnum, MergeReaderSR, MergeSpecificationNoReader, MergeStat,
+  OneMergeBase, OneMergeSR,
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
@@ -40,7 +40,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
 use parking_lot::{Condvar, Mutex, MutexGuard};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, OnceLock, Weak};
 /// An `IndexWriter` creates and maintains an index.
 ///
 /// The [`OpenMode`] option on [`IndexWriterConfig::set_open_mode`] determines whether a new index
@@ -156,8 +156,8 @@ where
   pub(crate) closed: Arc<AtomicBool>,
   closing: AtomicBool,
 
+  self_ref: OnceLock<Weak<IndexWriter<D>>>,
   maybe_merge: AtomicBool,
-  merge_source: IndexWriterMergeSource,
 
   flush_count: AtomicI32,
   flush_deletes_count: AtomicI32,
@@ -174,7 +174,6 @@ where
   pub(crate) hooks: Option<IndexWriterHooksEnum>,
   commit_lock: Mutex<CommitInner<D>>,
   full_flush_lock: Mutex<()>,
-  add_indexes_merge_source: AddIndexesMergeSource,
 }
 pub type IndexWriterDir<D> = LockValidatingDirectoryWrapper<Arc<D>>;
 
@@ -212,6 +211,11 @@ where
   files_to_commit: Option<Vec<String>>,
   start_commit_time: Instant,
 }
+
+unsafe impl<D> Send for IndexWriter<D> where D: Directory {}
+
+unsafe impl<D> Sync for IndexWriter<D> where D: Directory {}
+
 impl<D> Drop for IndexWriter<D>
 where
   D: Directory,
@@ -231,6 +235,13 @@ where
     D: 'static,
   {
     Self::with_hooks(d, conf, Some(EmptyIndexWriterHooks.into()))
+  }
+
+  pub fn new_arc(d: Arc<D>, conf: IndexWriterConfig<D>) -> Result<Arc<Self>>
+  where
+    D: 'static,
+  {
+    Ok(Self::new(d, conf)?.into_arc())
   }
 }
 
@@ -260,6 +271,34 @@ impl<D> IndexWriter<D>
 where
   D: Directory,
 {
+  fn arc_self(&self) -> Option<Arc<Self>> {
+    self.self_ref.get().and_then(Weak::upgrade)
+  }
+
+  fn new_merge_source(&self) -> Result<IndexWriterMergeSource<D>> {
+    let writer = self.arc_self().ok_or_else(|| {
+      LuceneError::illegal_state(
+        "background merges require IndexWriter to be constructed with IndexWriter::new_arc",
+      )
+    })?;
+    Ok(IndexWriterMergeSource::new(writer))
+  }
+
+  fn new_add_indexes_merge_source(&self) -> Result<AddIndexesMergeSource<D>> {
+    let writer = self.arc_self().ok_or_else(|| {
+      LuceneError::illegal_state(
+        "background addIndexes merges require IndexWriter to be constructed with IndexWriter::new_arc",
+      )
+    })?;
+    Ok(AddIndexesMergeSource::new(writer))
+  }
+
+  fn into_arc(self) -> Arc<Self> {
+    let writer = Arc::new(self);
+    let _ = writer.self_ref.set(Arc::downgrade(&writer));
+    writer
+  }
+
   pub fn with_hooks(
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
@@ -270,6 +309,18 @@ where
   {
     Self::with_index_commit_and_hook(d, conf, sub, IndexCommitWrapper::default())
   }
+
+  pub fn with_hooks_arc(
+    d: Arc<D>,
+    conf: IndexWriterConfig<D>,
+    sub: Option<IndexWriterHooksEnum>,
+  ) -> Result<Arc<Self>>
+  where
+    D: 'static,
+  {
+    Ok(Self::with_hooks(d, conf, sub)?.into_arc())
+  }
+
   pub fn with_index_commit<IC, C>(
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
@@ -281,6 +332,33 @@ where
     D: 'static,
   {
     Self::with_index_commit_and_hook(d, conf, Some(EmptyIndexWriterHooks.into()), index_commit)
+  }
+
+  pub fn with_index_commit_arc<IC, C>(
+    d: Arc<D>,
+    conf: IndexWriterConfig<D>,
+    index_commit: IndexCommitWrapper<IC, C, D>,
+  ) -> Result<Arc<Self>>
+  where
+    IC: IndexCommit<Directory = Arc<D>>,
+    C: Comparator<DefaultLeafReader<D>> + Clone,
+    D: 'static,
+  {
+    Ok(Self::with_index_commit(d, conf, index_commit)?.into_arc())
+  }
+
+  pub fn with_index_commit_and_hook_arc<IC, C>(
+    d: Arc<D>,
+    conf: IndexWriterConfig<D>,
+    hooks: Option<IndexWriterHooksEnum>,
+    index_commit_wrapper: IndexCommitWrapper<IC, C, D>,
+  ) -> Result<Arc<Self>>
+  where
+    IC: IndexCommit<Directory = Arc<D>>,
+    C: Comparator<DefaultLeafReader<D>> + Clone,
+    D: 'static,
+  {
+    Ok(Self::with_index_commit_and_hook(d, conf, hooks, index_commit_wrapper)?.into_arc())
   }
 
   pub fn with_index_commit_and_hook<IC, C>(
@@ -561,7 +639,7 @@ where
         changed(&mut change_count, &mut segment_infos);
       }
 
-      let iw = Self {
+      let mut iw = Self {
         enable_test_points,
         tragedy: Arc::new(OnceLock::new()),
         directory_orig,
@@ -575,8 +653,8 @@ where
         write_doc_values_lock: Mutex::new(()),
         closed: Arc::new(AtomicBool::new(false)),
         closing: AtomicBool::new(false),
+        self_ref: OnceLock::new(),
         maybe_merge: AtomicBool::new(false),
-        merge_source: IndexWriterMergeSource,
         flush_count: AtomicI32::new(0),
         flush_deletes_count: AtomicI32::new(0),
         reader_pool,
@@ -612,8 +690,11 @@ where
           start_commit_time: Instant::now(),
         }),
         full_flush_lock: Mutex::new(()),
-        add_indexes_merge_source: AddIndexesMergeSource,
       };
+      iw.config
+        .base
+        .merge_scheduler
+        .initialize(iw.directory.as_ref())?;
       Ok(iw)
     })();
     if result.is_err() && info_stream.is_enabled("IW") {
@@ -781,6 +862,7 @@ where
       }
     }
   }
+
   /// Returns the [`Directory`] used by this index.
   pub fn get_directory(&self) -> Arc<D> {
     self.directory_orig.clone()
@@ -2077,10 +2159,11 @@ where
       }
     };
 
+    let merge_source = self.new_merge_source()?;
     self
       .config
       .get_merge_scheduler()
-      .merge(&self.merge_source, MergeTrigger::Explicit, self)?;
+      .merge(merge_source, MergeTrigger::Explicit)?;
 
     if let Some(requested_merges) = requested_merges.filter(|_| do_wait) {
       let mut inner = self.inner.lock();
@@ -2284,10 +2367,11 @@ where
   where
     D: 'static,
   {
+    let merge_source = self.new_merge_source()?;
     self
       .config
       .get_merge_scheduler()
-      .merge(&self.merge_source, trigger, self)
+      .merge(merge_source, trigger)
   }
   fn update_pending_merges(
     &self,
@@ -2714,14 +2798,14 @@ where
         )?;
       }
       self.abort_one_merge(merge, inner)?;
-      self.merge_finish(merge, Some(inner));
+      self.merge_finish(&merge.stat, Some(inner));
       Ok(())
     })?;
 
     // abort any merges pending from addIndexes(CodecReader...)
     self
-      .add_indexes_merge_source
-      .abort_pending_merges(self, inner)?;
+      .new_add_indexes_merge_source()?
+      .abort_pending_merges(inner)?;
 
     for merge_stat in &inner.running_merges {
       if self.info_stream.is_enabled("IW") {
@@ -2772,10 +2856,11 @@ where
   where
     D: 'static,
   {
+    let merge_source = self.new_merge_source()?;
     self
       .config
       .get_merge_scheduler()
-      .merge(&self.merge_source, MergeTrigger::Closing, self)?;
+      .merge(merge_source, MergeTrigger::Closing)?;
     let mut inner = self.inner.lock();
     self.do_ensure_open(false)?;
     if self.info_stream.is_enabled("IW") {
@@ -3511,7 +3596,7 @@ where
       let mut inner = self.inner.lock();
       inner.running_add_indexes_merges.insert(merger.id.clone());
     }
-    merge.merge_start_ns = Instant::now();
+    merge.set_merge_start_time(Instant::now());
     let result: Result<()> = (|| {
       merger.merge()?;
       Ok(())
@@ -4661,7 +4746,7 @@ where
       )));
     }
 
-    debug_assert!(merge.register_done.load(Ordering::Acquire));
+    debug_assert!(merge.stat.register_done.load(Ordering::Acquire));
 
     // If merge was explicitly aborted, or, if rollback() or
     // rollbackTransaction() had been called since our merge
@@ -4876,7 +4961,7 @@ where
         if !success {
           self.close_merge_readers(merge, true, false, Some(&mut inner))?;
         }
-        self.merge_finish(merge, Some(&mut inner));
+        self.merge_finish(&merge.stat, Some(&mut inner));
 
         if !success {
           if self.info_stream.is_enabled("IW") {
@@ -4922,7 +5007,7 @@ where
   /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
   /// and true is returned. Else (the merge conflicts) false is returned.
   fn register_merge(&self, mut merge: OneMergeSR<D>, inner: &mut Inner<D>) -> Result<bool> {
-    if merge.register_done.load(Ordering::Acquire) {
+    if merge.stat.register_done.load(Ordering::Acquire) {
       return Ok(true);
     }
     debug_assert!(!merge.stat.segments.is_empty());
@@ -5004,7 +5089,7 @@ where
       .total_merge_bytes
       .store(total_bytes, Ordering::Release);
     // Merge is now registered
-    merge.register_done.store(true, Ordering::Release);
+    merge.stat.register_done.store(true, Ordering::Release);
     inner.pending_merges.push_back(merge);
     Ok(true)
   }
@@ -5028,7 +5113,7 @@ where
           .info_stream
           .message("IW", "hit exception in mergeInit")?;
       }
-      self.merge_finish(merge, None);
+      self.merge_finish(&merge.stat, None);
     }
     result
   }
@@ -5037,7 +5122,7 @@ where
     let mut inner = self.inner.lock();
     self.test_point("startMergeInit")?;
 
-    debug_assert!(merge.register_done.load(Ordering::Acquire));
+    debug_assert!(merge.stat.register_done.load(Ordering::Acquire));
     debug_assert!(
       merge.stat.max_num_segments() == UNBOUNDED_MAX_MERGE_SEGMENTS
         || merge.stat.max_num_segments() > 0
@@ -5128,7 +5213,7 @@ where
   }
 
   /// Performs fast merge finalization while holding the `IndexWriter` lock.
-  fn merge_finish(&self, merge: &OneMergeSR<D>, inner: Option<&mut Inner<D>>) {
+  fn merge_finish(&self, merge: &MergeStat, inner: Option<&mut Inner<D>>) {
     let inner = match inner {
       Some(i) => i,
       None => &mut *self.inner.lock(),
@@ -5140,13 +5225,13 @@ where
     // It's possible we are called twice, e.g. if there was an
     // error inside mergeInit
     if merge.register_done.load(Ordering::Acquire) {
-      for seg_id in &merge.stat.segments {
+      for seg_id in &merge.segments {
         inner.merging_segments.remove(seg_id);
       }
       merge.register_done.store(false, Ordering::Release);
     }
 
-    inner.running_merges.remove(&merge.stat);
+    inner.running_merges.remove(merge);
   }
 
   fn close_merge_readers(
@@ -7294,7 +7379,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::{LeafReader, get_context};
-use crate::core::index::merge_policy::{MergePolicy, MergeStat, OneMerge};
+use crate::core::index::merge_policy::{MergePolicy, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
 use crate::core::index::pending_soft_deletes::count_soft_deletes;
@@ -7824,113 +7909,136 @@ where
     }
   }
 }
-#[derive(Default)]
-struct IndexWriterMergeSource;
-impl MergeSource for IndexWriterMergeSource {
-  type OneMerge<D>
-    = OneMergeSR<D>
-  where
-    D: Directory;
+struct IndexWriterMergeSource<D>
+where
+  D: Directory,
+{
+  writer: Arc<IndexWriter<D>>,
+}
 
-  fn get_next_merge<D>(&self, writer: &IndexWriter<D>) -> Result<Option<Self::OneMerge<D>>>
-  where
-    D: Directory,
-  {
-    writer.get_next_merge()
-  }
-
-  fn on_merge_finished<D>(
-    &self,
-    merge: &Self::OneMerge<D>,
-    writer: &IndexWriter<D>,
-    inner: Option<&mut Inner<D>>,
-  ) where
-    D: Directory,
-  {
-    writer.merge_finish(merge, inner)
-  }
-
-  fn has_pending_merges<D>(
-    &self,
-    _inner: Option<&MutexGuard<'_, Inner<D>>>,
-    writer: Option<&IndexWriter<D>>,
-  ) -> Result<bool>
-  where
-    D: Directory,
-  {
-    writer
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("writer is not set"))?
-      .has_pending_merges()
-  }
-
-  fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
-  where
-    D: Directory + 'static,
-  {
-    writer.merge(merge)
-  }
-
-  fn merge_segment_ids<'a, D>(&self, merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
-  where
-    D: Directory,
-  {
-    Some(&merge.stat.segments)
-  }
-
-  fn merge_info_max_doc<D>(&self, merge: &Self::OneMerge<D>) -> Result<Option<i32>>
-  where
-    D: Directory,
-  {
-    match merge.info.as_ref() {
-      Some(info) => Ok(Some(info.info.max_doc()?)),
-      None => Ok(None),
+impl<D> Clone for IndexWriterMergeSource<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      writer: self.writer.clone(),
     }
   }
 }
-#[derive(Default)]
-struct AddIndexesMergeSource;
 
-impl AddIndexesMergeSource {
-  fn register_merge<D>(&self, merge: OneMergeSR<D>, inner: &mut MutexGuard<'_, Inner<D>>)
+impl<D> IndexWriterMergeSource<D>
+where
+  D: Directory,
+{
+  fn new(writer: Arc<IndexWriter<D>>) -> Self {
+    Self { writer }
+  }
+
+  fn writer(&self) -> &IndexWriter<D> {
+    self.writer.as_ref()
+  }
+}
+
+impl<D> MergeSource<D> for IndexWriterMergeSource<D>
+where
+  D: Directory,
+{
+  fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>> {
+    self.writer().get_next_merge()
+  }
+
+  fn on_merge_finished(&self, merge: &MergeStat, inner: Option<&mut Inner<D>>) {
+    self.writer().merge_finish(merge, inner)
+  }
+
+  fn has_pending_merges(&self, inner: Option<&mut Inner<D>>) -> Result<bool> {
+    if let Some(t) = self.writer().tragedy.get() {
+      return Err(LuceneError::illegal_state(format!(
+        "this writer hit an unrecoverable error; cannot merge: {}",
+        t
+      )));
+    }
+    match inner {
+      Some(inner) => Ok(!inner.pending_merges.is_empty()),
+      None => self.writer().has_pending_merges(),
+    }
+  }
+
+  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()>
   where
-    D: Directory,
+    D: 'static,
   {
+    self.writer().merge(merge)
+  }
+}
+struct AddIndexesMergeSource<D>
+where
+  D: Directory,
+{
+  writer: Arc<IndexWriter<D>>,
+}
+
+impl<D> Clone for AddIndexesMergeSource<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      writer: self.writer.clone(),
+    }
+  }
+}
+
+impl<D> AddIndexesMergeSource<D>
+where
+  D: Directory,
+{
+  fn new(writer: Arc<IndexWriter<D>>) -> Self {
+    Self { writer }
+  }
+
+  fn writer(&self) -> &IndexWriter<D> {
+    self.writer.as_ref()
+  }
+
+  fn register_merge(&self, merge: OneMergeSR<D>, inner: &mut MutexGuard<'_, Inner<D>>) {
     inner.pending_add_indexes_merges.push_back(merge);
   }
 
-  fn abort_pending_merges<D>(&self, writer: &IndexWriter<D>, inner: &mut Inner<D>) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn abort_pending_merges(&self, inner: &mut Inner<D>) -> Result<()> {
     let mut pending_add_indexes_merges = std::mem::take(&mut inner.pending_add_indexes_merges);
     IOUtils::apply_to_all(pending_add_indexes_merges.make_contiguous(), |merge| {
-      if writer.info_stream.is_enabled("IW") {
-        writer
+      if self.writer().info_stream.is_enabled("IW") {
+        self
+          .writer()
           .info_stream
           .message("IW", "now abort pending addIndexes merge")?;
       }
       merge.set_aborted()?;
       merge.close(false, false, |_| Ok(()))?;
-      <Self as MergeSource>::on_merge_finished(self, merge, writer, Some(&mut *inner));
+      self.on_merge_finished(&merge.stat, Some(inner));
       Ok(())
     })?;
 
     Ok(())
   }
-}
-impl MergeSource for AddIndexesMergeSource {
-  type OneMerge<D>
-    = OneMergeSR<D>
-  where
-    D: Directory;
 
-  fn get_next_merge<D>(&self, writer: &IndexWriter<D>) -> Result<Option<Self::OneMerge<D>>>
-  where
-    D: Directory,
-  {
-    let mut inner = writer.inner.lock();
-    if !self.has_pending_merges::<D>(Some(&inner), None)? {
+  fn has_pending_merges_locked(inner: &Inner<D>) -> bool {
+    !inner.pending_add_indexes_merges.is_empty()
+  }
+
+  fn on_merge_finished_locked(&self, merge: &MergeStat, inner: &mut Inner<D>) {
+    inner.running_merges.remove(merge);
+  }
+}
+impl<D> MergeSource<D> for AddIndexesMergeSource<D>
+where
+  D: Directory,
+{
+  fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>> {
+    let mut inner = self.writer().inner.lock();
+    if !Self::has_pending_merges_locked(&inner) {
       return Ok(None);
     }
     let merge = inner
@@ -7941,71 +8049,43 @@ impl MergeSource for AddIndexesMergeSource {
     Ok(Some(merge))
   }
 
-  fn on_merge_finished<D>(
-    &self,
-    merge: &Self::OneMerge<D>,
-    writer: &IndexWriter<D>,
-    inner: Option<&mut Inner<D>>,
-  ) where
-    D: Directory,
-  {
-    let inner = match inner {
-      Some(inner) => inner,
-      None => &mut *writer.inner.lock(),
-    };
-    inner.running_merges.remove(&merge.stat);
+  fn on_merge_finished(&self, merge: &MergeStat, inner: Option<&mut Inner<D>>) {
+    match inner {
+      Some(inner) => self.on_merge_finished_locked(merge, inner),
+      None => {
+        let mut inner = self.writer().inner.lock();
+        self.on_merge_finished_locked(merge, &mut inner);
+      },
+    }
   }
 
-  fn has_pending_merges<D>(
-    &self,
-    inner: Option<&MutexGuard<'_, Inner<D>>>,
-    _writer: Option<&IndexWriter<D>>,
-  ) -> Result<bool>
-  where
-    D: Directory,
-  {
-    Ok(
-      !inner
-        .ok_or_else(|| LuceneError::illegal_state("IndexWriter's Inner is not set"))?
-        .pending_add_indexes_merges
-        .is_empty(),
-    )
+  fn has_pending_merges(&self, inner: Option<&mut Inner<D>>) -> Result<bool> {
+    match inner {
+      Some(inner) => Ok(Self::has_pending_merges_locked(inner)),
+      None => {
+        let inner = self.writer().inner.lock();
+        Ok(Self::has_pending_merges_locked(&inner))
+      },
+    }
   }
 
-  fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
+  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()>
   where
-    D: Directory + 'static,
+    D: 'static,
   {
     let mut success = false;
-    let result = match writer.add_indexes_reader_merge(merge) {
+    let result = match self.writer().add_indexes_reader_merge(merge) {
       Ok(()) => {
         success = true;
         Ok(())
       },
-      Err(err) => writer.handle_merge_exception(err, merge),
+      Err(err) => self.writer().handle_merge_exception(err, merge),
     };
 
-    let mut inner = writer.inner.lock();
+    let mut inner = self.writer().inner.lock();
     merge.close(success, false, |_| Ok(()))?;
-    <Self as MergeSource>::on_merge_finished(self, merge, writer, Some(&mut inner));
+    self.on_merge_finished(&merge.stat, Some(&mut *inner));
     result
-  }
-
-  fn merge_segment_ids<'a, D>(&self, merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
-  where
-    D: Directory,
-  {
-    Some(&merge.stat.segments)
-  }
-
-  fn merge_info_max_doc<D>(&self, merge: &Self::OneMerge<D>) -> Result<Option<i32>>
-  where
-    D: Directory,
-  {
-    match merge.info.as_ref() {
-      Some(info) => Ok(Some(info.info.max_doc()?)),
-      None => Ok(None),
-    }
   }
 }
 /// DocModifier trait — equivalent to Java's private interface `DocModifier`

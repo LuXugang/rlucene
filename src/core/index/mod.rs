@@ -37,6 +37,7 @@ pub mod codec_reader;
 pub mod composite_reader;
 pub mod composite_reader_context;
 pub(crate) mod concurrent_approximate_priority_queue;
+pub mod concurrent_merge_scheduler;
 pub mod directory_reader;
 pub mod doc_id_merger;
 pub mod doc_values;

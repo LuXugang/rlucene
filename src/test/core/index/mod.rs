@@ -52,6 +52,7 @@ mod test_caching_merge_context;
 mod test_codec_holds_open_files;
 mod test_codecs;
 mod test_concurrent_approximate_priority_queue;
+mod test_concurrent_merge_scheduler;
 mod test_consistent_field_numbers;
 mod test_custom_norms;
 mod test_custom_term_freq;

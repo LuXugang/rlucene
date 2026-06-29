@@ -20,6 +20,7 @@ use std::fmt::{Display, Formatter};
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::store::rate_limiter::RateLimiter;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
@@ -90,19 +91,19 @@ where
   }
 
   fn write_int(&mut self, i: i32) -> Result<()> {
-    self.bytes_since_last_pause += std::mem::size_of::<i32>() as i64;
+    self.bytes_since_last_pause += BitUtil::INT_BYTES as i64;
     self.check_rate()?;
     self.out.write_int(i)
   }
 
   fn write_short(&mut self, i: i16) -> Result<()> {
-    self.bytes_since_last_pause += std::mem::size_of::<i16>() as i64;
+    self.bytes_since_last_pause += BitUtil::SHORT_BYTES as i64;
     self.check_rate()?;
     self.out.write_short(i)
   }
 
   fn write_long(&mut self, i: i64) -> Result<()> {
-    self.bytes_since_last_pause += std::mem::size_of::<i64>() as i64;
+    self.bytes_since_last_pause += BitUtil::LONG_BYTES as i64;
     self.check_rate()?;
     self.out.write_long(i)
   }

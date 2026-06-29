@@ -81,6 +81,11 @@ impl MergeRateLimiter {
       .ok_or_else(|| LuceneError::illegal_state("Paused pause time not found"))
   }
 
+  /// Returns true if the merge associated with this limiter has been aborted.
+  pub fn is_aborted(&self) -> bool {
+    self.merge_progress.is_aborted()
+  }
+
   /**
    * Returns the number of nanoseconds spent in a paused state or <code>-1</code> if no pause was
    * applied. If the thread needs pausing, this method delegates to the linked [`OneMergeProgress`].

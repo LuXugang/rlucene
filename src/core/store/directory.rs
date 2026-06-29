@@ -19,11 +19,11 @@ use crate::core::index::index_reader::Identity;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
-use crate::core::store::lock::{Lock, LockEnum, LockEnum2};
+use crate::core::store::lock::{Lock, LockEnum, LockEnum2, LockEnum3};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{
-  FSDirectory, IOContext, IndexInputEnum, IndexInputEnum2, IndexOutput, IndexOutputEnum,
-  IndexOutputEnum2, NativeFSLockFactory,
+  FSDirectory, IOContext, IndexInputEnum, IndexInputEnum2, IndexInputEnum3, IndexOutput,
+  IndexOutputEnum, IndexOutputEnum2, IndexOutputEnum3, NativeFSLockFactory,
 };
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
@@ -650,6 +650,12 @@ either_directory!(
     IndexOutputEnum2,
     IndexInputEnum2,
     LockEnum2 { A: A, B: B }
+);
+either_directory!(
+    pub DirectoryEnum3,
+    IndexOutputEnum3,
+    IndexInputEnum3,
+    LockEnum3 { A: A, B: B, C: C }
 );
 impl<D: Directory> Directory for &D {
   fn list_all(&self) -> Result<Vec<String>> {

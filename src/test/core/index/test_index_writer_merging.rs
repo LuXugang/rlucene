@@ -380,39 +380,20 @@ impl CloseableRef for MyMergeScheduler {
 }
 
 impl MergeScheduler for MyMergeScheduler {
-  fn merge<MS, D>(
-    &self,
-    merge_source: &MS,
-    _trigger: MergeTrigger,
-    writer: &IndexWriter<D>,
-  ) -> Result<()>
+  fn merge<MS, D>(&self, merge_source: MS, _trigger: MergeTrigger) -> Result<()>
   where
-    MS: MergeSource,
+    MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
+    crate::core::index::merge_policy::OneMergeSR<D>: Send + 'static,
   {
     loop {
-      let mut merge = match merge_source.get_next_merge(writer)? {
+      let mut merge = match merge_source.get_next_merge()? {
         Some(merge) => merge,
         None => break,
       };
-      let mut num_docs = 0;
-      let segment_infos = writer.clone_segment_infos()?;
-      if let Some(segment_ids) = merge_source.merge_segment_ids(&merge) {
-        for segment_id in segment_ids {
-          let max_doc = segment_infos
-            .index_of(segment_id)
-            .ok_or_else(|| {
-              LuceneError::illegal_state("merge segment is missing from SegmentInfos")
-            })?
-            .info
-            .max_doc()?;
-          num_docs += max_doc;
-          assert!(max_doc < 20);
-        }
-      }
-      merge_source.merge(&mut merge, writer)?;
-      if let Some(max_doc) = merge_source.merge_info_max_doc(&merge)? {
-        assert_eq!(num_docs, max_doc);
+      merge_source.merge(&mut merge)?;
+      if let Some(info) = merge.info.as_ref() {
+        assert!(info.info.max_doc()? > 0);
       }
     }
     Ok(())

@@ -19,10 +19,10 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
 use crate::core::index::index_reader::Identity;
-use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::rate_limited_index_output::RateLimitedIndexOutput;
 use crate::core::store::rate_limiter::RateLimiter;
+use crate::core::store::{Context, IOContext};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -102,6 +102,12 @@ where
   type IndexOutput = RateLimitedIndexOutput<D::IndexOutput, R>;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.ensure_open()?;
+    debug_assert!(
+      matches!(context.get_context(), &Context::Merge),
+      "got context={:?}",
+      context.get_context()
+    );
     Ok(RateLimitedIndexOutput::new(
       self.rate_limiter.clone(),
       self.in_.create_output(name, context)?,
@@ -114,6 +120,12 @@ where
     suffix: &str,
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
+    self.ensure_open()?;
+    debug_assert!(
+      matches!(context.get_context(), &Context::Merge),
+      "got context={:?}",
+      context.get_context()
+    );
     Ok(RateLimitedIndexOutput::new(
       self.rate_limiter.clone(),
       self.in_.create_temp_output(prefix, suffix, context)?,

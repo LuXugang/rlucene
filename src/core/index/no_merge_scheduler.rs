@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
@@ -47,15 +46,11 @@ impl NoMergeScheduler {
 impl CloseableRef for NoMergeScheduler {}
 
 impl MergeScheduler for NoMergeScheduler {
-  fn merge<MS, D>(
-    &self,
-    _merge_source: &MS,
-    _trigger: MergeTrigger,
-    _index_writer: &IndexWriter<D>,
-  ) -> Result<()>
+  fn merge<MS, D>(&self, _merge_source: MS, _trigger: MergeTrigger) -> Result<()>
   where
-    MS: MergeSource,
+    MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
+    crate::core::index::merge_policy::OneMergeSR<D>: Send + 'static,
   {
     Ok(())
   }

@@ -2634,18 +2634,14 @@ impl TestMergeScheduler {
 impl CloseableRef for TestMergeScheduler {}
 
 impl MergeScheduler for TestMergeScheduler {
-  fn merge<MS, D>(
-    &self,
-    merge_source: &MS,
-    _trigger: MergeTrigger,
-    writer: &IndexWriter<D>,
-  ) -> Result<()>
+  fn merge<MS, D>(&self, merge_source: MS, _trigger: MergeTrigger) -> Result<()>
   where
-    MS: MergeSource,
+    MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
+    crate::core::index::merge_policy::OneMergeSR<D>: Send + 'static,
   {
-    while let Some(mut merge) = merge_source.get_next_merge(writer)? {
-      let result: Result<()> = merge_source.merge(&mut merge, writer);
+    while let Some(mut merge) = merge_source.get_next_merge()? {
+      let result: Result<()> = merge_source.merge(&mut merge);
       if result.is_err() {
         self.ex.store(true, Ordering::Relaxed);
         return result;

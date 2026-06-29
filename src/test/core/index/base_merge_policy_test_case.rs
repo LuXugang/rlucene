@@ -784,25 +784,21 @@ impl CloseableRef for SerialMergeSchedulerImpl {
 }
 
 impl MergeScheduler for SerialMergeSchedulerImpl {
-  fn merge<MS, D>(
-    &self,
-    merge_source: &MS,
-    trigger: MergeTrigger,
-    writer: &IndexWriter<D>,
-  ) -> Result<()>
+  fn merge<MS, D>(&self, merge_source: MS, trigger: MergeTrigger) -> Result<()>
   where
-    MS: MergeSource,
+    MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
+    crate::core::index::merge_policy::OneMergeSR<D>: Send + 'static,
   {
     if !self.may_merge.load(Ordering::SeqCst) {
-      let merge = merge_source.get_next_merge(writer)?;
+      let merge = merge_source.get_next_merge()?;
       if merge.is_some() {
         return Err(LuceneError::illegal_argument(
           "TEST: we should not need any merging, yet merge policy returned merge",
         ));
       }
     }
-    self.base.merge(merge_source, trigger, writer)
+    self.base.merge(merge_source, trigger)
   }
 
   type Directory<D>

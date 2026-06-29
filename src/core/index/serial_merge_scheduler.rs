@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
@@ -45,23 +44,19 @@ impl CloseableRef for SerialMergeScheduler {}
 /// A lock ensures that even if the application uses multiple threads,
 /// only one merge may run at a time.
 impl MergeScheduler for SerialMergeScheduler {
-  fn merge<MS, D>(
-    &self,
-    merge_source: &MS,
-    _trigger: MergeTrigger,
-    index_writer: &IndexWriter<D>,
-  ) -> Result<()>
+  fn merge<MS, D>(&self, merge_source: MS, _trigger: MergeTrigger) -> Result<()>
   where
-    MS: MergeSource,
+    MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
+    crate::core::index::merge_policy::OneMergeSR<D>: Send + 'static,
   {
     let _guard = self.merge_lock.lock();
     loop {
-      let mut merge = match merge_source.get_next_merge(index_writer)? {
+      let mut merge = match merge_source.get_next_merge()? {
         Some(merge) => merge,
         None => break,
       };
-      merge_source.merge(&mut merge, index_writer)?;
+      merge_source.merge(&mut merge)?;
     }
     Ok(())
   }

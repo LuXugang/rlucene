@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_writer::{IndexWriter, Inner};
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
+use crate::core::index::index_writer::Inner;
+use crate::core::index::merge_policy::{MergeStat, OneMergeSR};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
-use crate::core::store::directory::{Directory, DirectoryEnum2};
+use crate::core::store::directory::{Directory, DirectoryEnum3};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
@@ -28,11 +30,10 @@ use crate::test::core::index::base_knn_vectors_format_test_case::TestMergeSchedu
 use crate::test::core::index::base_merge_policy_test_case::SerialMergeSchedulerImpl;
 #[cfg(test)]
 use crate::test::core::index::test_index_writer_merging::MyMergeScheduler;
-use parking_lot::MutexGuard;
 
 /// Expert: [IndexWriter] uses an instance implementing this
 /// trait to execute the merges selected by a [MergePolicy].
-/// The default MergeScheduler is [SerialMergeScheduler].
+/// The default MergeScheduler is [ConcurrentMergeScheduler].
 ///
 /// @lucene.experimental
 pub trait MergeScheduler: CloseableRef {
@@ -40,15 +41,11 @@ pub trait MergeScheduler: CloseableRef {
   ///
   /// * `merge_source` - the [IndexWriter] to obtain the merges from.
   /// * `trigger` - the [MergeTrigger] that caused this merge to happen
-  fn merge<MS, D>(
-    &self,
-    merge_source: &MS,
-    trigger: MergeTrigger,
-    writer: &IndexWriter<D>,
-  ) -> Result<()>
+  fn merge<MS, D>(&self, merge_source: MS, trigger: MergeTrigger) -> Result<()>
   where
-    MS: MergeSource,
-    D: Directory + 'static;
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMergeSR<D>: Send + 'static;
   type Directory<D>: Directory
   where
     D: Directory;
@@ -68,59 +65,30 @@ pub trait MergeScheduler: CloseableRef {
 }
 
 /// Provides access to new merges and executes the actual merge
-pub trait MergeSource {
-  /// The merge type produced by this source.
-  type OneMerge<D>
-  where
-    D: Directory;
-
+pub trait MergeSource<D>: Send
+where
+  D: Directory,
+{
   /// The `MergeScheduler` calls this method to retrieve the next merge
   /// requested by the `MergePolicy`.
-  fn get_next_merge<D>(&self, writer: &IndexWriter<D>) -> Result<Option<Self::OneMerge<D>>>
-  where
-    D: Directory;
+  fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>>;
 
   /// Does finishing for a merge.
-  fn on_merge_finished<D>(
-    &self,
-    merge: &Self::OneMerge<D>,
-    writer: &IndexWriter<D>,
-    inner: Option<&mut Inner<D>>,
-  ) where
-    D: Directory;
+  fn on_merge_finished(&self, merge: &MergeStat, inner: Option<&mut Inner<D>>);
 
   /// Expert: returns true if there are merges waiting to be scheduled.
-  fn has_pending_merges<D>(
-    &self,
-    inner: Option<&MutexGuard<'_, Inner<D>>>,
-    writer: Option<&IndexWriter<D>>,
-  ) -> Result<bool>
-  where
-    D: Directory;
+  fn has_pending_merges(&self, inner: Option<&mut Inner<D>>) -> Result<bool>;
 
   /// Merges the indicated segments, replacing them in the stack
   /// with a single segment.
-  fn merge<D>(&self, merge: &mut Self::OneMerge<D>, writer: &IndexWriter<D>) -> Result<()>
+  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()>
   where
-    D: Directory + 'static;
-
-  fn merge_segment_ids<'a, D>(&self, _merge: &'a Self::OneMerge<D>) -> Option<&'a [String]>
-  where
-    D: Directory,
-  {
-    None
-  }
-
-  fn merge_info_max_doc<D>(&self, _merge: &Self::OneMerge<D>) -> Result<Option<i32>>
-  where
-    D: Directory,
-  {
-    Ok(None)
-  }
+    D: 'static;
 }
 pub enum MergeSchedulerEnum {
   Serial(SerialMergeScheduler),
   No(NoMergeScheduler),
+  Concurrent(ConcurrentMergeScheduler),
   #[cfg(test)]
   SerialTest(SerialMergeSchedulerImpl),
   #[cfg(test)]
@@ -132,10 +100,11 @@ impl_from_for_enum!(
     MergeSchedulerEnum,
     SerialMergeScheduler => Serial,
     NoMergeScheduler => No,
+    ConcurrentMergeScheduler => Concurrent,
 );
 impl Default for MergeSchedulerEnum {
   fn default() -> Self {
-    Self::Serial(SerialMergeScheduler::new())
+    Self::Concurrent(ConcurrentMergeScheduler::new())
   }
 }
 
@@ -144,6 +113,7 @@ impl CloseableRef for MergeSchedulerEnum {
     match self {
       MergeSchedulerEnum::Serial(s) => s.close(),
       MergeSchedulerEnum::No(n) => n.close(),
+      MergeSchedulerEnum::Concurrent(c) => c.close(),
       #[cfg(test)]
       MergeSchedulerEnum::SerialTest(s) => s.close(),
       #[cfg(test)]
@@ -155,32 +125,30 @@ impl CloseableRef for MergeSchedulerEnum {
 }
 
 impl MergeScheduler for MergeSchedulerEnum {
-  fn merge<MS, D>(
-    &self,
-    merge_source: &MS,
-    trigger: MergeTrigger,
-    index_writer: &IndexWriter<D>,
-  ) -> Result<()>
+  fn merge<MS, D>(&self, merge_source: MS, trigger: MergeTrigger) -> Result<()>
   where
-    MS: MergeSource,
+    MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
+    OneMergeSR<D>: Send + 'static,
   {
     match self {
-      MergeSchedulerEnum::Serial(s) => s.merge(merge_source, trigger, index_writer),
-      MergeSchedulerEnum::No(n) => n.merge(merge_source, trigger, index_writer),
+      MergeSchedulerEnum::Serial(s) => s.merge(merge_source, trigger),
+      MergeSchedulerEnum::No(n) => n.merge(merge_source, trigger),
+      MergeSchedulerEnum::Concurrent(c) => c.merge(merge_source, trigger),
       #[cfg(test)]
-      MergeSchedulerEnum::SerialTest(s) => s.merge(merge_source, trigger, index_writer),
+      MergeSchedulerEnum::SerialTest(s) => s.merge(merge_source, trigger),
       #[cfg(test)]
-      MergeSchedulerEnum::KnnMergeScheduler(s) => s.merge(merge_source, trigger, index_writer),
+      MergeSchedulerEnum::KnnMergeScheduler(s) => s.merge(merge_source, trigger),
       #[cfg(test)]
-      MergeSchedulerEnum::IndexWriterMerging(s) => s.merge(merge_source, trigger, index_writer),
+      MergeSchedulerEnum::IndexWriterMerging(s) => s.merge(merge_source, trigger),
     }
   }
 
   type Directory<D>
-    = DirectoryEnum2<
+    = DirectoryEnum3<
     <SerialMergeScheduler as MergeScheduler>::Directory<D>,
     <NoMergeScheduler as MergeScheduler>::Directory<D>,
+    <ConcurrentMergeScheduler as MergeScheduler>::Directory<D>,
   >
   where
     D: Directory;
@@ -190,14 +158,32 @@ impl MergeScheduler for MergeSchedulerEnum {
     D: Directory,
   {
     match self {
-      MergeSchedulerEnum::Serial(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
-      MergeSchedulerEnum::No(n) => Ok(DirectoryEnum2::B(n.wrap_for_merge(in_)?)),
+      MergeSchedulerEnum::Serial(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
+      MergeSchedulerEnum::No(n) => Ok(DirectoryEnum3::B(n.wrap_for_merge(in_)?)),
+      MergeSchedulerEnum::Concurrent(c) => Ok(DirectoryEnum3::C(c.wrap_for_merge(in_)?)),
       #[cfg(test)]
-      MergeSchedulerEnum::SerialTest(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
+      MergeSchedulerEnum::SerialTest(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
       #[cfg(test)]
-      MergeSchedulerEnum::KnnMergeScheduler(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
+      MergeSchedulerEnum::KnnMergeScheduler(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
       #[cfg(test)]
-      MergeSchedulerEnum::IndexWriterMerging(s) => Ok(DirectoryEnum2::A(s.wrap_for_merge(in_)?)),
+      MergeSchedulerEnum::IndexWriterMerging(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
+    }
+  }
+
+  fn initialize<D>(&mut self, directory: &D) -> Result<()>
+  where
+    D: Directory,
+  {
+    match self {
+      MergeSchedulerEnum::Serial(s) => s.initialize(directory),
+      MergeSchedulerEnum::No(n) => n.initialize(directory),
+      MergeSchedulerEnum::Concurrent(c) => c.initialize(directory),
+      #[cfg(test)]
+      MergeSchedulerEnum::SerialTest(s) => s.initialize(directory),
+      #[cfg(test)]
+      MergeSchedulerEnum::KnnMergeScheduler(s) => s.initialize(directory),
+      #[cfg(test)]
+      MergeSchedulerEnum::IndexWriterMerging(s) => s.initialize(directory),
     }
   }
 }
