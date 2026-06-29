@@ -195,6 +195,7 @@ impl TestUtil {
   }
 
   pub fn check_index<T>(_dir: T) -> Result<()> {
+    // TODO
     Ok(())
   }
   pub fn check_index_with_level<T>(_dir: T, _level: i32) -> Result<()> {

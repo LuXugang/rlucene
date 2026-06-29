@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
-use crate::core::analysis::reader::StringReader;
+use crate::core::analysis::reader::{Reader, StringReader};
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
@@ -45,6 +46,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
+use crate::core::index::index_writer::MAX_TERM_LENGTH;
 use crate::core::index::index_writer::{
   EventEnum, EventImplTest, EventQueue, IndexCommitWrapper, IndexWriter, IndexWriterHooks,
   IndexWriterHooksEnum, WRITE_LOCK_NAME, read_field_infos,
@@ -52,6 +54,7 @@ use crate::core::index::index_writer::{
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
@@ -66,6 +69,7 @@ use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
@@ -75,6 +79,7 @@ use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::phrase_query::Builder as PhraseQueryBuilder;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
@@ -87,15 +92,16 @@ use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::{LATEST, StringHelper};
 use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test::core::analysis::mock_analyzer::{ENGLISH_STOPSET, MockAnalyzer, MockTokenFilter};
 use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test::core::analysis::token;
-use crate::test::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
 use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test::core::util::lucene_test_case::{
   create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
@@ -112,7 +118,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
-use std::sync::{Arc, Barrier, LazyLock};
+use std::sync::{Arc, Barrier, Condvar, LazyLock, Mutex, mpsc};
 use std::thread;
 use std::vec;
 
@@ -1359,13 +1365,84 @@ fn test_delete_unused_files() -> Result<()> {
 
 #[test]
 fn test_delete_unused_files2() -> Result<()> {
-  // TODO SnapshotDeletionPolicy未实现
+  // Validates that iw.deleteUnusedFiles() also deletes unused index commits
+  // in case a deletion policy which holds onto commits is used.
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config.set_index_deletion_policy(SnapshotDeletionPolicy::new(
+    KeepOnlyLastCommitDeletionPolicy,
+  ));
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  let sdp = match writer.get_config().get_index_deletion_policy() {
+    IndexDeletionPolicyEnum::Snapshot(policy) => policy.as_ref(),
+    policy => {
+      return Err(LuceneError::illegal_state(format!(
+        "expected SnapshotDeletionPolicy but got {policy}"
+      )));
+    },
+  };
+
+  // First commit
+  let mut doc = Document::new();
+
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
+  custom_type.set_store_term_vectors(true)?;
+  custom_type.set_store_term_vector_positions(true)?;
+  custom_type.set_store_term_vector_offsets(true)?;
+
+  let mut field_types = HashMap::new();
+  doc.add(new_field(
+    &mut random,
+    "c",
+    "val",
+    &custom_type,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+  writer.commit()?;
+  assert_eq!(1, directory_reader::list_commits(dir.clone())?.len());
+
+  // Keep that commit
+  let id = sdp.snapshot()?;
+
+  // Second commit - now KeepOnlyLastCommit cannot delete the prev commit.
+  let mut doc = Document::new();
+  doc.add(new_field(
+    &mut random,
+    "c",
+    "val",
+    &custom_type,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+  writer.commit()?;
+  assert_eq!(2, directory_reader::list_commits(dir.clone())?.len());
+
+  // Should delete the unreferenced commit
+  sdp.release(&id)?;
+  writer.delete_unused_files()?;
+  assert_eq!(1, directory_reader::list_commits(dir.clone())?.len());
+
+  writer.close()?;
   Ok(())
 }
 
 #[test]
 fn test_empty_fs_dir_with_no_lock() -> Result<()> {
-  // TODO NoLockFactory未实现
+  // TODO IMPORTANT 编译错误 object too large
+  // Tests that if FSDir is opened w/ a NoLockFactory (or SingleInstanceLF),
+  // then IndexWriter ctor succeeds. Previously (LUCENE-2386) it failed
+  // when listAll() was called in IndexFileDeleter.
+  // let mut random = random();
+  // let temp_dir = create_temp_dir()?;
+  // let dir = Arc::new(NIOFSDirectory::with_lock_factory(
+  //   temp_dir.keep(),
+  //   NoLockFactory,
+  // )?);
+  // let a = MockAnalyzer::new(&mut random);
+  // IndexWriter::new(dir, new_index_writer_config_with_analyzer(&mut random, a)?)?.close()?;
   Ok(())
 }
 
@@ -1527,9 +1604,196 @@ fn test_no_unwanted_tv_files() -> Result<()> {
   Ok(())
 }
 
+struct StringSplitAnalyzer {
+  stored_value: AnalyzerStoredValue,
+}
+
+impl Analyzer for StringSplitAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    Ok(TokenStreamComponents::new(
+      Box::new(StringSplitTokenizer::new()) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+crate::impl_analyzer_close!(StringSplitAnalyzer);
+
+struct StringSplitTokenizer {
+  tokenizer_base: TokenizerBase,
+  tokens: Vec<String>,
+  upto: usize,
+}
+
+impl StringSplitTokenizer {
+  fn new() -> Self {
+    Self {
+      tokenizer_base: TokenizerBase::new(Attributes::default()),
+      tokens: Vec::new(),
+      upto: 0,
+    }
+  }
+}
+
+impl Closeable for StringSplitTokenizer {
+  fn close(&mut self) -> Result<()> {
+    self.tokenizer_base.close()
+  }
+}
+
+impl TokenStream for StringSplitTokenizer {
+  fn increment_token(&mut self) -> Result<bool> {
+    if self.upto == self.tokens.len() {
+      return Ok(false);
+    }
+    let term = &self.tokens[self.upto];
+    self.tokenizer_base.token_stream_base.att.clear_attributes();
+    self.tokenizer_base.token_stream_base.att.set_empty()?;
+    self
+      .tokenizer_base
+      .token_stream_base
+      .att
+      .append_str(Some(term))?;
+    self.upto += 1;
+    Ok(true)
+  }
+
+  fn end(&mut self) -> Result<()> {
+    self.tokenizer_base.end()
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    self.tokenizer_base.reset()?;
+    self.upto = 0;
+    let mut text = String::new();
+    let mut buffer = ['\0'; 1024];
+    loop {
+      let count = self.tokenizer_base.input.read_range(&mut buffer, 0, 1024)?;
+      if count == -1 {
+        break;
+      }
+      for ch in &buffer[..count as usize] {
+        text.push(*ch);
+      }
+    }
+    self.tokens = text.split(' ').map(str::to_string).collect();
+    if !text.is_empty() {
+      while self.tokens.last().is_some_and(String::is_empty) {
+        self.tokens.pop();
+      }
+    }
+    Ok(())
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    self.tokenizer_base.get_attribute_source()
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    self.tokenizer_base.get_attribute_source_mut()
+  }
+
+  fn set_reader(&mut self, input: crate::core::analysis::reader::ReaderEnum) -> Result<()> {
+    self.tokenizer_base.set_reader(input)
+  }
+}
+
+impl Tokenizer for StringSplitTokenizer {
+  fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase {
+    &mut self.tokenizer_base
+  }
+
+  fn get_tokenizer_base(&self) -> &TokenizerBase {
+    &self.tokenizer_base
+  }
+}
+
 #[test]
 fn test_wicked_long_term() -> Result<()> {
-  // TODO StringSplitAnalyzer未实现
+  // Make sure we skip wicked long terms.
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = StringSplitAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+  };
+  let w = RandomIndexWriter::with_analyzer(
+    &mut random,
+    dir.clone(),
+    Box::new(analyzer) as Box<dyn Analyzer>,
+  )?;
+
+  let big_term = "x".repeat(MAX_TERM_LENGTH as usize);
+  let mut huge_doc = Document::new();
+
+  // This contents produces a too-long term:
+  let contents = format!("abc xyz x{big_term} another term");
+  huge_doc.add(TextField::from_string("content", contents, Store::No)?);
+  let err = w.add_document(&mut random, huge_doc);
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+  // Make sure we can add another normal document
+  let mut doc = Document::new();
+  doc.add(TextField::from_string("content", "abc bbb ccc", Store::No)?);
+  w.add_document(&mut random, doc)?;
+
+  // So we remove the deleted doc:
+  w.w.force_merge(1)?;
+
+  let reader = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
+
+  // Make sure all terms < max size were indexed
+  assert_eq!(1, reader.doc_freq(&Term::from_text("content", "abc"))?);
+  assert_eq!(1, reader.doc_freq(&Term::from_text("content", "bbb"))?);
+  assert_eq!(0, reader.doc_freq(&Term::from_text("content", "term"))?);
+
+  // Make sure the doc that has the massive term is NOT in the index:
+  assert_eq!(
+    1,
+    reader.num_docs()?,
+    "document with wicked long term is in the index!"
+  );
+
+  reader.close()?;
+  let dir = new_directory_shared(&mut random)?;
+
+  // Make sure we can add a document with exactly the maximum length term,
+  // and search on that term:
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+  custom_type.set_tokenized(false)?;
+
+  let iwc = new_index_writer_config(&mut random)?;
+  let w2 = RandomIndexWriter::with_config(&mut random, dir, iwc);
+
+  let mut doc = Document::new();
+  doc.add(Field::from_string("content", "other", custom_type.clone())?);
+  w2.add_document(&mut random, doc)?;
+
+  let mut doc = Document::new();
+  doc.add(Field::from_string("content", "term", custom_type.clone())?);
+  w2.add_document(&mut random, doc)?;
+
+  let mut doc = Document::new();
+  doc.add(Field::from_string(
+    "content",
+    big_term.clone(),
+    custom_type.clone(),
+  )?);
+  w2.add_document(&mut random, doc)?;
+
+  let mut doc = Document::new();
+  doc.add(Field::from_string("content", "zzz", custom_type)?);
+  w2.add_document(&mut random, doc)?;
+
+  let reader = w2.get_reader(&mut random)?;
+  w2.close(&mut random)?;
+  assert_eq!(1, reader.doc_freq(&Term::from_text("content", big_term))?);
+
+  reader.close()?;
   Ok(())
 }
 
@@ -2239,25 +2503,64 @@ fn test_null_documents() -> Result<()> {
 
 #[test]
 fn test_iterable_field_throws_exception() -> Result<()> {
-  // TODO
+  // TODO RandomFailingIterable未实现
   Ok(())
 }
 
 #[test]
 fn test_iterable_throws_exception() -> Result<()> {
-  // TODO
+  // TODO RandomFailingIterable未实现
   Ok(())
 }
 
 #[test]
 fn test_iterable_throws_exception2() -> Result<()> {
-  // TODO
+  // TODO RandomFailingIterable未实现
   Ok(())
 }
 
 #[test]
 fn test_corrupt_first_commit() -> Result<()> {
-  // TODO
+  // LUCENE-2727/LUCENE-2812/LUCENE-4738:
+  let mut random = random();
+  for i in 0..6 {
+    let dir = new_directory_shared(&mut random)?;
+
+    // Create a corrupt first commit:
+    let pending_segments =
+      IndexFileNames::file_name_from_generation(IndexFileNames::PENDING_SEGMENTS, "", 0)
+        .expect("generation 0 should produce a file name");
+    dir
+      .create_output(&pending_segments, &IOContext::default_io_context()?)?
+      .close()?;
+
+    let mock = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+    let mode = i / 2;
+    if mode == 0 {
+      iwc.set_open_mode(OpenMode::Create);
+    } else if mode == 1 {
+      iwc.set_open_mode(OpenMode::Append);
+    } else if mode == 2 {
+      iwc.set_open_mode(OpenMode::CreateOrAppend);
+    }
+
+    let result = (|| -> Result<()> {
+      let writer = IndexWriter::new(dir.clone(), iwc)?;
+      if (i & 1) == 0 {
+        writer.close()
+      } else {
+        writer.rollback()
+      }
+    })();
+
+    if let Err(error) = result {
+      // OpenMode.APPEND should throw an exception since no index exists:
+      if mode == 0 {
+        return Err(error);
+      }
+    }
+  }
   Ok(())
 }
 
@@ -2313,9 +2616,51 @@ fn test_has_uncommitted_changes() -> Result<()> {
   Ok(())
 }
 
+struct MergeAllDeletedTestPoint {
+  keep_fully_deleted_segments: Arc<AtomicBool>,
+}
+
+impl TestPoint for MergeAllDeletedTestPoint {
+  fn apply(&self, message: &str) -> Result<()> {
+    if message == "startCommitMerge" {
+      self.keep_fully_deleted_segments.store(false, SeqCst);
+    } else if message == "startMergeInit" {
+      self.keep_fully_deleted_segments.store(true, SeqCst);
+    }
+    Ok(())
+  }
+}
+
 #[test]
 fn test_merge_all_deleted() -> Result<()> {
-  // TODO
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  let keep_fully_deleted_segments = Arc::new(AtomicBool::new(false));
+  iwc.set_merge_policy(
+    KeepFullyDeletedSegmentsMergePolicy::with_keep_fully_deleted_segments(
+      keep_fully_deleted_segments.clone(),
+    ),
+  );
+  let evil_writer = RandomIndexWriter::mock_index_writer_with_test_point(
+    &mut random,
+    dir,
+    iwc,
+    MergeAllDeletedTestPoint {
+      keep_fully_deleted_segments,
+    },
+  )?;
+  let mut field_types = HashMap::new();
+  for _ in 0..1000 {
+    add_doc(&mut random, &evil_writer, &mut field_types)?;
+    if random.random_range(0..17) == 0 {
+      evil_writer.commit()?;
+    }
+  }
+  evil_writer.delete_documents_with_queries(vec![MatchAllDocsQuery::new().into()])?;
+  evil_writer.force_merge(1)?;
+  evil_writer.close()?;
   Ok(())
 }
 
@@ -2442,14 +2787,66 @@ fn test_close_then_rollback() -> Result<()> {
 
 #[test]
 fn test_close_while_merge_is_running() -> Result<()> {
-  // TODO
+  // TODO ConcurrentMergeScheduler未实现
   Ok(())
 }
 
 #[test]
 fn test_close_during_commit() -> Result<()> {
-  // TODO
+  // Make sure that close waits for any still-running commits.
+  let mut random = random();
+  let (start_commit_sender, start_commit_receiver) = mpsc::channel();
+  let (finish_commit_sender, finish_commit_receiver) = mpsc::channel();
+
+  let dir = new_directory_shared(&mut random)?;
+  let iwc = IndexWriterConfig::new()?;
+  // use an InfoStream that "takes a long time" to commit
+  let iw = Arc::new(RandomIndexWriter::mock_index_writer_with_test_point(
+    &mut random,
+    dir,
+    iwc,
+    CloseDuringCommitTestPoint {
+      start_commit: start_commit_sender,
+    },
+  )?);
+  let commit_writer = iw.clone();
+  let commit_thread = thread::spawn(move || -> Result<()> {
+    commit_writer.commit()?;
+    let _ = finish_commit_sender.send(());
+    Ok(())
+  });
+
+  start_commit_receiver
+    .recv()
+    .expect("commit should reach finishStartCommit");
+  let close_result = iw.close();
+  finish_commit_receiver
+    .recv()
+    .expect("commit thread should finish");
+  commit_thread
+    .join()
+    .expect("commit thread should not panic")?;
+  if let Err(error) = close_result
+    && !matches!(error, LuceneError::IllegalState(_))
+  {
+    return Err(error);
+  }
+  iw.close()?;
   Ok(())
+}
+
+struct CloseDuringCommitTestPoint {
+  start_commit: mpsc::Sender<()>,
+}
+
+impl TestPoint for CloseDuringCommitTestPoint {
+  fn apply(&self, message: &str) -> Result<()> {
+    if message == "finishStartCommit" {
+      let _ = self.start_commit.send(());
+      thread::sleep(std::time::Duration::from_millis(10));
+    }
+    Ok(())
+  }
 }
 
 #[test]
@@ -2478,8 +2875,7 @@ fn test_ids() -> Result<()> {
     .ok_or_else(|| LuceneError::illegal_state("missing segment commit info id"))?;
   assert_eq!(StringHelper::ID_LENGTH, id2.len());
   assert_eq!(StringHelper::ID_LENGTH, sci_id2.len());
-  // TODO IMPORTANT CheckIndex未实现
-  //   TestUtil::check_index(d.clone())?;
+  TestUtil::check_index(d.clone())?;
 
   let id1 = StringHelper::id_to_string(Some(id1));
   assert_ne!("(null)", id1);
@@ -2826,13 +3222,13 @@ fn test_pending_deletions_rollback_with_reader() -> Result<()> {
 
 #[test]
 fn test_with_pending_deletions() -> Result<()> {
-  // TODO
+  // TODO WindowsFS未实现
   Ok(())
 }
 
 #[test]
 fn test_pending_deletes_already_written_files() -> Result<()> {
-  // TODO
+  // TODO WindowsFS未实现
   Ok(())
 }
 
@@ -3452,21 +3848,22 @@ fn test_soft_update_documents() -> Result<()> {
 
 #[test]
 fn test_soft_updates_concurrently() -> Result<()> {
-  // TODO
+  // TODO OneMergeWrappingMergePolicy未实现
   Ok(())
 }
 
 #[test]
 fn test_soft_updates_concurrently_mixed_deletes() -> Result<()> {
-  // TODO
+  // TODO OneMergeWrappingMergePolicy未实现
   Ok(())
 }
 
 #[test]
 fn test_delete_happens_before_while_flush() -> Result<()> {
-  // TODO
+  // TODO callStackContains未实现
   Ok(())
 }
+
 fn assert_files<D>(writer: &IndexWriter<D>) -> Result<()>
 where
   D: Directory,
@@ -3969,9 +4366,151 @@ fn test_max_completed_sequence_number() -> Result<()> {
   Ok(())
 }
 
+struct CountDownLatch {
+  count: Mutex<usize>,
+  condvar: Condvar,
+}
+
+impl CountDownLatch {
+  fn new(count: usize) -> Self {
+    Self {
+      count: Mutex::new(count),
+      condvar: Condvar::new(),
+    }
+  }
+
+  fn count_down(&self) {
+    let mut count = self.count.lock().expect("latch mutex poisoned");
+    if *count > 0 {
+      *count -= 1;
+      if *count == 0 {
+        self.condvar.notify_all();
+      }
+    }
+  }
+
+  fn wait(&self) {
+    let mut count = self.count.lock().expect("latch mutex poisoned");
+    while *count > 0 {
+      count = self.condvar.wait(count).expect("latch mutex poisoned");
+    }
+  }
+}
+
+struct EnsureMaxSeqNoInfoStream {
+  wait_ref: Arc<Mutex<Arc<CountDownLatch>>>,
+  arrived_ref: Arc<Mutex<Arc<CountDownLatch>>>,
+}
+
+impl CloseableRef for EnsureMaxSeqNoInfoStream {
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl InfoStream for EnsureMaxSeqNoInfoStream {
+  fn message(&self, component: &str, message: &str) -> Result<()> {
+    if component == "TP" && message == "DocumentsWriterPerThread addDocuments start" {
+      let arrived = self
+        .arrived_ref
+        .lock()
+        .expect("arrived latch mutex poisoned")
+        .clone();
+      let wait = self
+        .wait_ref
+        .lock()
+        .expect("wait latch mutex poisoned")
+        .clone();
+      arrived.count_down();
+      wait.wait();
+    }
+    Ok(())
+  }
+
+  fn is_enabled(&self, component: &str) -> bool {
+    component == "TP"
+  }
+}
+
+struct EnableTestPointsIndexWriterHooks;
+
+impl IndexWriterHooks for EnableTestPointsIndexWriterHooks {
+  fn is_enable_test_points(&self) -> bool {
+    true
+  }
+}
+
 #[test]
 fn test_ensure_max_seq_no_is_accurate_during_flush() -> Result<()> {
-  // TODO IMPORTANT 多线程未实现
+  let mut random = random();
+  let wait_ref = Arc::new(Mutex::new(Arc::new(CountDownLatch::new(0))));
+  let arrived_ref = Arc::new(Mutex::new(Arc::new(CountDownLatch::new(0))));
+  let stream = EnsureMaxSeqNoInfoStream {
+    wait_ref: wait_ref.clone(),
+    arrived_ref: arrived_ref.clone(),
+  };
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
+  index_writer_config.set_info_stream(InfoStreamEnum::Custom(Box::new(stream)));
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::with_hooks(
+    dir,
+    index_writer_config,
+    Some(IndexWriterHooksEnum::custom(
+      EnableTestPointsIndexWriterHooks,
+    )),
+  )?;
+
+  // we produce once DWPT with 1 doc
+  writer.add_document(Document::new())?;
+  assert_eq!(1, writer.doc_writer.flush_control.per_thread_pool.size());
+  let max_completed_sequence_number = writer.get_max_completed_sequence_number()?;
+  // safe the seqNo and use the latches to block this DWPT such that a refresh must wait for it
+  let wait_latch = Arc::new(CountDownLatch::new(1));
+  let arrived_latch = Arc::new(CountDownLatch::new(1));
+  *wait_ref.lock().expect("wait latch mutex poisoned") = wait_latch.clone();
+  *arrived_ref.lock().expect("arrived latch mutex poisoned") = arrived_latch.clone();
+
+  thread::scope(|scope| -> Result<()> {
+    let waiter_thread = scope.spawn(|| writer.add_document(Document::new()));
+    arrived_latch.wait();
+
+    let delete_queue = writer.doc_writer.flush_control.delete_queue.lock().clone();
+    let refresh_thread = scope.spawn(|| -> Result<()> {
+      let reader = directory_reader::open_from_writer(&writer)?;
+      reader.close()
+    });
+
+    // now we wait until the refresh has swapped the deleted queue and assert that
+    // we see an accurate seqId
+    while {
+      let current_delete_queue = writer.doc_writer.flush_control.delete_queue.lock().clone();
+      Arc::ptr_eq(&current_delete_queue, &delete_queue)
+    } {
+      thread::yield_now(); // busy wait for refresh to swap the queue
+    }
+
+    let assertion_result = match writer.get_max_completed_sequence_number() {
+      Ok(actual) if actual == max_completed_sequence_number => Ok(()),
+      Ok(actual) => Err(LuceneError::illegal_state(format!(
+        "expected max completed sequence number {max_completed_sequence_number}, got {actual}"
+      ))),
+      Err(error) => Err(error),
+    };
+
+    wait_latch.count_down();
+    let waiter_result = waiter_thread.join().expect("waiter thread panicked");
+    let refresh_result = refresh_thread.join().expect("refresh thread panicked");
+    assertion_result?;
+    waiter_result?;
+    refresh_result?;
+    Ok(())
+  })?;
+
+  assert_eq!(
+    max_completed_sequence_number + 2,
+    writer.get_max_completed_sequence_number()?
+  );
+  writer.close()?;
   Ok(())
 }
 
@@ -4756,6 +5295,7 @@ where
 pub struct KeepFullyDeletedSegmentsMergePolicy {
   in_: NoMergePolicy,
   merge_fully_deleted_on_full_flush: bool,
+  keep_fully_deleted_segments: Option<Arc<AtomicBool>>,
 }
 
 impl KeepFullyDeletedSegmentsMergePolicy {
@@ -4763,6 +5303,15 @@ impl KeepFullyDeletedSegmentsMergePolicy {
     Self {
       in_: NoMergePolicy::default(),
       merge_fully_deleted_on_full_flush: true,
+      keep_fully_deleted_segments: None,
+    }
+  }
+
+  fn with_keep_fully_deleted_segments(keep_fully_deleted_segments: Arc<AtomicBool>) -> Self {
+    Self {
+      in_: NoMergePolicy::default(),
+      merge_fully_deleted_on_full_flush: false,
+      keep_fully_deleted_segments: Some(keep_fully_deleted_segments),
     }
   }
 }
@@ -4921,7 +5470,13 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
-    Ok(true)
+    Ok(
+      self
+        .keep_fully_deleted_segments
+        .as_ref()
+        .map(|keep_fully_deleted_segments| keep_fully_deleted_segments.load(SeqCst))
+        .unwrap_or(true),
+    )
   }
 
   fn num_deletes_to_merge<D, F>(
