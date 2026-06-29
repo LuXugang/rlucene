@@ -45,6 +45,7 @@ use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
@@ -59,6 +60,7 @@ use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::incremental_hnsw_graph_merger::IncrementalHnswGraphMerger;
 use crate::core::util::info_stream::InfoStreamMT;
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::sync::Arc;
@@ -532,6 +534,19 @@ where
     Ok(size)
   }
 }
+
+impl<F, O> Closeable for Lucene99HnswVectorsWriter<F, O>
+where
+  F: FlatVectorsWriter,
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    let output_close_result =
+      IOUtils::close([&mut self.meta, &mut self.vector_index], Closeable::close);
+    IOUtils::use_or_suppress_result(output_close_result, self.flat_vector_writer.close())
+  }
+}
+
 impl<F, O> KnnVectorsWriter for Lucene99HnswVectorsWriter<F, O>
 where
   F: FlatVectorsWriter,

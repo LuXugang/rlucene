@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_fields::{StoredFields, StoredFieldsEnum2};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{TermVectors, TermVectorsEnum2};
+use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
@@ -130,8 +131,11 @@ pub trait IndexReader: Display {
     let rc = base.ref_count.fetch_sub(1, Ordering::AcqRel) - 1;
     if rc == 0 {
       base.closed.store(true, Ordering::Release);
-      // TODO: 这里要通知parent Rust Lucene 需要吗
-      self.do_close()?;
+      let close_result = {
+        let notify_result = self.notify_reader_closed_listeners();
+        IOUtils::use_or_suppress_result(notify_result, self.report_close_to_parent_readers())
+      };
+      IOUtils::use_or_suppress_result(self.do_close(), close_result)?;
     } else if rc < 0 {
       return Err(LuceneError::illegal_state(format!(
         "too many decRef calls: refCount is {} after decrement",
@@ -193,6 +197,15 @@ pub trait IndexReader: Display {
 
   /// Implements close.
   fn do_close(&self) -> Result<()> {
+    Ok(())
+  }
+
+  fn notify_reader_closed_listeners(&self) -> Result<()> {
+    Ok(())
+  }
+
+  fn report_close_to_parent_readers(&self) -> Result<()> {
+    // TODO IMPORTANT 未实现
     Ok(())
   }
 

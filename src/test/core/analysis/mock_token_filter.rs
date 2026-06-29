@@ -108,6 +108,15 @@ where
   }
 }
 
+impl<TS> crate::core::util::close::Closeable for MockTokenFilter<TS>
+where
+  TS: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.token_filter_base)
+  }
+}
+
 impl<TS> TokenStream for MockTokenFilter<TS>
 where
   TS: TokenStream,
@@ -138,10 +147,6 @@ where
     self.token_filter_base.reset()?;
     self.skipped_positions = 0;
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.token_filter_base.close()
   }
 
   fn set_reader(&mut self, input: crate::core::analysis::reader::ReaderEnum) -> Result<()> {

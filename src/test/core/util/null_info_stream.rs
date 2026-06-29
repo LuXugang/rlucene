@@ -24,6 +24,12 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NullInfoStream;
 
+impl crate::core::util::close::CloseableRef for NullInfoStream {
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
+}
+
 impl InfoStream for NullInfoStream {
   fn message(&self, _component: &str, _message: &str) -> Result<()> {
     Ok(())
@@ -32,10 +38,6 @@ impl InfoStream for NullInfoStream {
   fn is_enabled(&self, _component: &str) -> bool {
     // To actually enable logging, we just ignore on message().
     true
-  }
-
-  fn close(&self) -> Result<()> {
-    Ok(())
   }
 }
 

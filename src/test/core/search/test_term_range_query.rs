@@ -592,6 +592,12 @@ impl SingleCharTokenizer {
   }
 }
 
+impl crate::core::util::close::Closeable for SingleCharTokenizer {
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.tokenizer_base)
+  }
+}
+
 impl TokenStream for SingleCharTokenizer {
   fn increment_token(&mut self) -> Result<bool> {
     if self.done {
@@ -619,10 +625,6 @@ impl TokenStream for SingleCharTokenizer {
     self.tokenizer_base.reset()?;
     self.done = false;
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.tokenizer_base.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {

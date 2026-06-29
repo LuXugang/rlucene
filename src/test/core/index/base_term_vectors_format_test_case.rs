@@ -1757,6 +1757,9 @@ impl RandomTokenStream {
     Some(new_bytes_ref_from_bytes(random, bytes.as_slice()).expect("valid bytes"))
   }
 }
+
+impl crate::core::util::close::Closeable for RandomTokenStream {}
+
 impl TokenStream for RandomTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.i < self.terms.len() {

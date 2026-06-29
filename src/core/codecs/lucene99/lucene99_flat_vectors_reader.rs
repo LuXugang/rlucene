@@ -40,6 +40,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, ReadAdvice};
+use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
@@ -130,10 +131,10 @@ where
       },
       Err(e) => {
         let err = CodecUtil::check_footer_with_error(&mut meta, e);
-        return Err(err);
+        Err(err)
       },
     };
-    result?;
+    IOUtils::use_or_suppress_result(result, meta.close())?;
 
     Ok(version_meta)
   }

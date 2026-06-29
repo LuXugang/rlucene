@@ -19,6 +19,7 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 /// Normalizes token text to lower case.
 pub struct LowerCaseFilter<TS>
@@ -39,6 +40,15 @@ where
   pub fn new(input: TS) -> Self {
     let token_filter_base = TokenFilterBase::new(input);
     Self { token_filter_base }
+  }
+}
+
+impl<TS> Closeable for LowerCaseFilter<TS>
+where
+  TS: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    self.token_filter_base.close()
   }
 }
 
@@ -63,10 +73,6 @@ where
 
   fn reset(&mut self) -> Result<()> {
     self.token_filter_base.reset()
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.token_filter_base.close()
   }
 
   fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {

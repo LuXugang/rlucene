@@ -21,11 +21,12 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzerTS;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 use std::cell::RefMut;
 
-pub trait TokenStream {
+pub trait TokenStream: Closeable {
   fn increment_token(&mut self) -> Result<bool> {
     Err(LuceneError::unsupported_operation(
       "must be implemented by sub",
@@ -40,9 +41,6 @@ pub trait TokenStream {
     Ok(())
   }
   fn default_reset(&mut self) -> Result<()> {
-    Ok(())
-  }
-  fn close(&mut self) -> Result<()> {
     Ok(())
   }
   fn get_attribute_source(&self) -> &Attributes;
@@ -76,6 +74,16 @@ macro_rules! either_token_stream {
             $( $Variant($T), )+
         }
 
+        impl<$( $T ),+> Closeable for $name<$( $T ),+>
+        where
+            $( $T: TokenStream ),+
+        {
+            #[inline]
+            fn close(&mut self) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.close(), )+ }
+            }
+        }
+
         impl<$( $T ),+> TokenStream for $name<$( $T ),+>
         where
             $( $T: TokenStream ),+
@@ -103,11 +111,6 @@ macro_rules! either_token_stream {
             #[inline]
             fn default_reset(&mut self) -> Result<()> {
                 match self { $( Self::$Variant(inner) => TokenStream::default_reset(inner), )+ }
-            }
-
-            #[inline]
-            fn close(&mut self) -> Result<()> {
-                match self { $( Self::$Variant(inner) => inner.close(), )+ }
             }
 
             #[inline]
@@ -203,10 +206,6 @@ where
     (**self).default_reset()
   }
 
-  fn close(&mut self) -> Result<()> {
-    (**self).close()
-  }
-
   fn get_attribute_source(&self) -> &Attributes {
     (**self).get_attribute_source()
   }
@@ -221,6 +220,12 @@ where
 
   fn set_reader_test_point(&mut self) -> Result<()> {
     (**self).set_reader_test_point()
+  }
+}
+
+impl Closeable for NormalizeTokenStream {
+  fn close(&mut self) -> Result<()> {
+    self.0.close()
   }
 }
 
@@ -243,10 +248,6 @@ impl TokenStream for NormalizeTokenStream {
 
   fn default_reset(&mut self) -> Result<()> {
     self.0.default_reset()
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.0.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {
@@ -289,10 +290,6 @@ where
     (**self).default_reset()
   }
 
-  fn close(&mut self) -> Result<()> {
-    (**self).close()
-  }
-
   fn get_attribute_source(&self) -> &Attributes {
     (**self).get_attribute_source()
   }
@@ -307,6 +304,15 @@ where
 
   fn set_reader_test_point(&mut self) -> Result<()> {
     (**self).set_reader_test_point()
+  }
+}
+
+impl<T> Closeable for RefMut<'_, T>
+where
+  T: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    (**self).close()
   }
 }
 
@@ -332,10 +338,6 @@ where
 
   fn default_reset(&mut self) -> Result<()> {
     (**self).default_reset()
-  }
-
-  fn close(&mut self) -> Result<()> {
-    (**self).close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {

@@ -297,6 +297,16 @@ where
   }
 }
 
+impl<O, F> Closeable for Lucene99FlatVectorsWriter<O, F>
+where
+  F: FlatVectorsScorer,
+  O: IndexOutput,
+{
+  fn close(&mut self) -> Result<()> {
+    IOUtils::close([&mut self.meta, &mut self.vector_data], Closeable::close)
+  }
+}
+
 impl<O, F> KnnVectorsWriter for Lucene99FlatVectorsWriter<O, F>
 where
   O: IndexOutput,

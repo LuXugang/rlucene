@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use chrono::Utc;
@@ -79,6 +80,18 @@ impl PrintStreamInfoStream<io::Stderr> {
   }
 }
 
+impl<W> CloseableRef for PrintStreamInfoStream<W>
+where
+  W: Write + Send + 'static,
+{
+  fn close(&self) -> Result<()> {
+    if !self.is_system_stream() {
+      self.stream.lock().flush()?;
+    }
+    Ok(())
+  }
+}
+
 impl<W> InfoStream for PrintStreamInfoStream<W>
 where
   W: Write + Send + 'static,
@@ -99,13 +112,6 @@ where
 
   fn is_enabled(&self, _component: &str) -> bool {
     true
-  }
-
-  fn close(&self) -> Result<()> {
-    if !self.is_system_stream() {
-      self.stream.lock().flush()?;
-    }
-    Ok(())
   }
 }
 

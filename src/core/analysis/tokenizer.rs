@@ -17,6 +17,7 @@
 use crate::core::analysis::reader::{Reader, ReaderEnum};
 use crate::core::analysis::token_stream::{TokenStream, TokenStreamBase};
 use crate::core::util::attribute_source::Attributes;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A `Tokenizer` is a `TokenStream` whose input is a `Reader`.
 pub trait Tokenizer: TokenStream {
@@ -53,6 +54,16 @@ impl Drop for TokenizerBase {
   }
 }
 
+impl Closeable for TokenizerBase {
+  /// Releases resources associated with this stream.
+  fn close(&mut self) -> Result<()> {
+    self.input.close()?;
+    self.input = ReaderEnum::IllegalState(IllegalStateReader);
+    self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
+    Ok(())
+  }
+}
+
 impl TokenStream for TokenizerBase {
   fn end(&mut self) -> Result<()> {
     self.default_end()
@@ -61,14 +72,6 @@ impl TokenStream for TokenizerBase {
   fn reset(&mut self) -> Result<()> {
     self.default_reset()?;
     self.input = std::mem::take(&mut self.input_pending);
-    self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
-    Ok(())
-  }
-
-  /// Releases resources associated with this stream.
-  fn close(&mut self) -> Result<()> {
-    self.input.close()?;
-    self.input = ReaderEnum::IllegalState(IllegalStateReader);
     self.input_pending = ReaderEnum::IllegalState(IllegalStateReader);
     Ok(())
   }

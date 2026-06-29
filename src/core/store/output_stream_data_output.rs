@@ -19,6 +19,7 @@ use std::io::{BufWriter, Write};
 use byteorder::WriteBytesExt;
 
 use crate::core::store::data_output::DataOutput;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 /// A [`DataOutput`] wrapping a plain [`OutputStream`](Write).
 pub struct OutputStreamDataOutput<W: Write> {
@@ -31,6 +32,14 @@ impl<W: Write> OutputStreamDataOutput<W> {
     }
   }
 }
+
+impl<W: Write> Closeable for OutputStreamDataOutput<W> {
+  fn close(&mut self) -> Result<()> {
+    self.os.flush()?;
+    Ok(())
+  }
+}
+
 impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
   fn write_byte(&mut self, b: u8) -> Result<()> {
     Ok(self.os.write_u8(b)?)

@@ -220,11 +220,12 @@ impl CloseableRef for NativeFSLock {
   fn close(&self) -> Result<()> {
     let _guard = self.close_lock.lock();
     if !self.closed.load(Ordering::SeqCst) {
-      let _ = self.file.unlock();
+      let unlock_result = self.file.unlock();
       self.closed.store(true, Ordering::SeqCst);
       let real_path_str = self.path.to_string_lossy().to_string();
       let locks = get_lock_held();
       locks.lock().remove(&real_path_str);
+      unlock_result?;
     }
     Ok(())
   }

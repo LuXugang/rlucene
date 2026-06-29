@@ -468,20 +468,27 @@ where
       {
         let mut fields_consumer = dv_format.fields_consumer(&state, &info.info)?;
 
-        let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
+        let write_result = (|| {
+          let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
 
-        inner.pending_deletes.on_doc_values_update(
-          &field_info,
-          update_supplier.apply(&field_info)?,
-          info,
-        )?;
-        if ty == DocValuesType::Binary {
-          let v = DocValuesProducerBinary::new(update_supplier, field, reader, field_info.clone());
-          fields_consumer.add_binary_field(&field_info, &v)?
-        } else {
-          let v = DocValuesProducerNumeric::new(update_supplier, field, reader, field_info.clone());
-          fields_consumer.add_numeric_field(&field_info, &v)?;
-        }
+          inner.pending_deletes.on_doc_values_update(
+            &field_info,
+            update_supplier.apply(&field_info)?,
+            info,
+          )?;
+          if ty == DocValuesType::Binary {
+            let v =
+              DocValuesProducerBinary::new(update_supplier, field, reader, field_info.clone());
+            fields_consumer.add_binary_field(&field_info, &v)?
+          } else {
+            let v =
+              DocValuesProducerNumeric::new(update_supplier, field, reader, field_info.clone());
+            fields_consumer.add_numeric_field(&field_info, &v)?;
+          }
+          Ok(())
+        })();
+        let close_result = fields_consumer.close();
+        IOUtils::use_or_suppress_result(write_result, close_result)?;
       }
 
       info.advance_doc_values_gen();

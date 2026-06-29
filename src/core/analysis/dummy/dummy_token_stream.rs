@@ -16,9 +16,16 @@
  */
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
+use crate::core::util::close::Closeable;
 
 #[derive(Debug)]
 pub struct DummyTokenStream;
+
+impl Closeable for DummyTokenStream {
+  fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
+    dummy_unreachable!()
+  }
+}
 
 impl TokenStream for DummyTokenStream {
   fn increment_token(&mut self) -> crate::core::util::error::lucene_error::Result<bool> {
@@ -38,10 +45,6 @@ impl TokenStream for DummyTokenStream {
   }
 
   fn default_reset(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
-    dummy_unreachable!()
-  }
-
-  fn close(&mut self) -> crate::core::util::error::lucene_error::Result<()> {
     dummy_unreachable!()
   }
 

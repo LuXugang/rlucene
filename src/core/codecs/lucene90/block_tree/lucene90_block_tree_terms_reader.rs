@@ -158,7 +158,6 @@ where
     let mut index_length = -1i64;
     let mut terms_length = -1i64;
 
-    let mut prior_error = None;
     let mut meta_in = state.directory.open_checksum_input(&meta_name)?;
     let mut terms_reader = TermsReader {
       terms_in,
@@ -269,18 +268,11 @@ where
       Ok(())
     })();
 
-    match result {
-      Ok(_) => {},
-      Err(e) => {
-        prior_error = Some(e);
-      },
-    }
-
-    if let Some(e) = prior_error {
-      return Err(CodecUtil::check_footer_with_error(&mut meta_in, e));
-    } else {
-      CodecUtil::check_footer(&mut meta_in)?;
-    }
+    let footer_result = match result {
+      Ok(()) => CodecUtil::check_footer(&mut meta_in).map(|_| ()),
+      Err(e) => Err(CodecUtil::check_footer_with_error(&mut meta_in, e)),
+    };
+    IOUtils::use_or_suppress_result(footer_result, meta_in.close())?;
     // At this point the checksum of the meta file has been verified so the lengths
     // are likely correct
     CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length as usize)?;

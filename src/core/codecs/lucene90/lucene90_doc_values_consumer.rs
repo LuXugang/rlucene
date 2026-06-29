@@ -633,6 +633,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     let mut start = data.get_file_pointer()?;
     let mut max_length = 0;
     let mut max_block_length = 0;
+
     {
       let mut iterator = values.terms_enum()?;
 
@@ -704,19 +705,19 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         )?;
         max_block_length = max_block_length.max(uncompressed_length);
       }
-
-      writer.finish()?;
-      drop(writer);
-      meta.write_int(max_length as i32)?;
-      // Write one more int for storing max block length.
-      meta.write_int(max_block_length)?;
-      meta.write_long(start as i64)?;
-      meta.write_long((data.get_file_pointer()? - start) as i64)?;
-      start = data.get_file_pointer()?;
-      address_output.delegate()?.copy_to(data)?;
-      meta.write_long(start as i64)?;
-      meta.write_long((data.get_file_pointer()? - start) as i64)?;
     }
+
+    writer.finish()?;
+    drop(writer);
+    meta.write_int(max_length as i32)?;
+    // Write one more int for storing max block length.
+    meta.write_int(max_block_length)?;
+    meta.write_long(start as i64)?;
+    meta.write_long((data.get_file_pointer()? - start) as i64)?;
+    start = data.get_file_pointer()?;
+    address_output.delegate()?.copy_to(data)?;
+    meta.write_long(start as i64)?;
+    meta.write_long((data.get_file_pointer()? - start) as i64)?;
     self.write_terms_index(values)?;
     Ok(())
   }
@@ -769,12 +770,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       + ((size + Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
         >> Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_SHIFT);
 
-    let mut writer;
-
-    {
-      let mut address_output =
-        ByteBuffersIndexOutput::new(ByteBuffersDataOutput::new(), "temp", "temp");
-      writer = DirectMonotonicWriter::get_instance(
+    let mut address_output =
+      ByteBuffersIndexOutput::new(ByteBuffersDataOutput::new(), "temp", "temp");
+    let result = (|| -> Result<()> {
+      let mut writer = DirectMonotonicWriter::get_instance(
         &mut self.meta,
         &mut address_output,
         num_blocks,
@@ -825,8 +824,9 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       self
         .meta
         .write_long((self.data.get_file_pointer()? - start) as i64)?;
-    }
-    Ok(())
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(result, address_output.close())
   }
   fn do_add_sorted_numeric_field(
     &mut self,

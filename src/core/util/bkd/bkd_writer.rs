@@ -1298,10 +1298,8 @@ where
         .contains(&writer.name)
       {
         let mut input = self.temp_dir.open_checksum_input(&writer.name)?;
-        return Err(CodecUtil::check_footer_with_error(
-          &mut input,
-          prior_exception,
-        ));
+        let footer_error = CodecUtil::check_footer_with_error(&mut input, prior_exception);
+        return IOUtils::use_or_suppress_result(Err(footer_error), input.close());
       }
     }
     Err(prior_exception)
@@ -1394,17 +1392,19 @@ where
         debug_assert!(has_next);
         writer.append_point_value(reader.point_value()?)?;
       }
-      writer.close()?;
+      source.destroy(&self.temp_dir)?;
       Ok(())
     })();
-    let close_result = reader.close();
+    let mut close_result = writer.close();
+    if let Err(reader_error) = reader.close() {
+      close_result = Err(IOUtils::use_or_suppress(close_result.err(), reader_error));
+    }
     source.take_data(reader.remove_points());
     let result = IOUtils::use_or_suppress_result(result, close_result);
     if let Err(err) = result {
       return Err(self.verify_checksum(err, source).unwrap_err());
     }
 
-    source.destroy(&self.temp_dir)?;
     Ok(PointWriterEnum::Heap(writer))
   }
 
@@ -2041,6 +2041,15 @@ where
       self.temp_dir.delete_file(out.get_name())?;
     }
     Ok(())
+  }
+}
+
+impl<D> Closeable for BKDWriter<D>
+where
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    BKDWriter::close(self)
   }
 }
 

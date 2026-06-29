@@ -139,15 +139,11 @@ where
         Ok(())
       })();
 
-      match result {
-        Ok(_) => {
-          CodecUtil::check_footer(&mut meta_in)?;
-        },
-        Err(e) => {
-          let e = CodecUtil::check_footer_with_error(&mut meta_in, e);
-          return Err(e);
-        },
-      }
+      let footer_result = match result {
+        Ok(()) => CodecUtil::check_footer(&mut meta_in).map(|_| ()),
+        Err(e) => Err(CodecUtil::check_footer_with_error(&mut meta_in, e)),
+      };
+      IOUtils::use_or_suppress_result(footer_result, meta_in.close())?;
     }
 
     CodecUtil::retrieve_checksum_with_expected(&mut index_in, index_length as usize)?;

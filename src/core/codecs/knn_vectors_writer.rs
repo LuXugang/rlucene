@@ -40,6 +40,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStream;
 use parking_lot::Mutex;
@@ -49,7 +50,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub trait KnnVectorsWriter: Accountable {
+pub trait KnnVectorsWriter: Accountable + Closeable {
   /// Adds a new field for indexing.
   fn add_field(&mut self, _field_info: Arc<FieldInfo>) -> Result<usize> {
     Err(LuceneError::unsupported_operation(""))

@@ -144,6 +144,15 @@ where
   }
 }
 
+impl<T> crate::core::util::close::Closeable for ThrowingTokenFilter<T>
+where
+  T: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.base)
+  }
+}
+
 impl<T> TokenStream for ThrowingTokenFilter<T>
 where
   T: TokenStream,
@@ -158,10 +167,6 @@ where
 
   fn reset(&mut self) -> Result<()> {
     self.base.reset()
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.base.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {

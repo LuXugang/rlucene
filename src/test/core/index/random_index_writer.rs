@@ -748,11 +748,13 @@ impl TestPointInfoStream {
   }
 }
 
-impl InfoStream for TestPointInfoStream {
+impl crate::core::util::close::CloseableRef for TestPointInfoStream {
   fn close(&self) -> Result<()> {
-    self.delegate.close()
+    crate::core::util::close::CloseableRef::close(self.delegate.as_ref())
   }
+}
 
+impl InfoStream for TestPointInfoStream {
   fn message(&self, component: &str, message: &str) -> Result<()> {
     if component == TEST_POINT_COMPONENT {
       self.test_point.apply(message)?;

@@ -187,7 +187,7 @@ where
       self.max_mb_sort_in_heap,
       values.size()?.try_convert()?,
     )?;
-    match values {
+    let result = match values {
       PointTreeEnum::Mutable(ref mut mutable_tree) => {
         match writer.write_field(&mut self.data_out, mutable_tree, &field_info.name)? {
           Some(finalizer) => {
@@ -208,7 +208,8 @@ where
           None => Ok(()),
         }
       },
-    }
+    };
+    IOUtils::use_or_suppress_result(result, writer.close())
   }
 
   fn finish(&mut self) -> Result<()> {

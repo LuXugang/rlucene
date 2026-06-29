@@ -663,6 +663,8 @@ impl TermFreqTokenStream {
   }
 }
 
+impl crate::core::util::close::Closeable for TermFreqTokenStream {}
+
 impl TokenStream for TermFreqTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.finish {

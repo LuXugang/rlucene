@@ -37,11 +37,11 @@ where
   id: [u8; StringHelper::ID_LENGTH],
   block_shift: i32,
   io_context: IOContext,
-  // Using Option to wrap the IndexOutput makes it easier to release the
-  // resource, which avoids the need to implement the IndexOutput's
-  // Default trait.
-  docs_out: Option<O>,
-  file_pointers_out: Option<O>,
+  docs_out: O,
+  file_pointers_out: O,
+  docs_out_pending_delete: bool,
+  file_pointers_out_pending_delete: bool,
+  temp_outputs_closed: bool,
   total_docs: i32,
   total_chunks: i32,
   previous_fp: usize,
@@ -93,8 +93,11 @@ where
       id,
       block_shift,
       io_context,
-      docs_out: Option::from(docs_out),
-      file_pointers_out: Option::from(file_pointers_out),
+      docs_out,
+      file_pointers_out,
+      docs_out_pending_delete: true,
+      file_pointers_out_pending_delete: true,
+      temp_outputs_closed: false,
       total_docs: 0,
       total_chunks: 0,
       previous_fp: 0,
@@ -102,13 +105,12 @@ where
   }
   pub(crate) fn write_index(&mut self, num_docs: i32, start_pointer: usize) -> Result<()> {
     debug_assert!(start_pointer >= self.previous_fp);
-    debug_assert!(self.docs_out.is_some());
-    debug_assert!(self.file_pointers_out.is_some());
-    self.docs_out.as_mut().unwrap().write_vint(num_docs)?;
+    debug_assert!(self.docs_out_pending_delete);
+    debug_assert!(self.file_pointers_out_pending_delete);
+    debug_assert!(!self.temp_outputs_closed);
+    self.docs_out.write_vint(num_docs)?;
     self
       .file_pointers_out
-      .as_mut()
-      .unwrap()
       .write_vlong((start_pointer - self.previous_fp) as i64)?;
     self.previous_fp = start_pointer;
     self.total_docs += num_docs;
@@ -133,133 +135,122 @@ where
       )));
     }
 
-    CodecUtil::write_footer(self.docs_out.as_mut().unwrap())?;
-    CodecUtil::write_footer(self.file_pointers_out.as_mut().unwrap())?;
-    let docs_out_file_name = self.docs_out.as_ref().unwrap().get_name().to_string();
-    let file_pointers_out_file_name = self
-      .file_pointers_out
-      .as_ref()
-      .unwrap()
-      .get_name()
-      .to_string();
-    let docs_close_result = if let Some(mut docs_out) = self.docs_out.take() {
-      docs_out.close()
-    } else {
-      Ok(())
-    };
-    let file_pointers_close_result =
-      if let Some(mut file_pointers_out) = self.file_pointers_out.take() {
-        file_pointers_out.close()
-      } else {
-        Ok(())
-      };
-    docs_close_result?;
-    file_pointers_close_result?;
+    CodecUtil::write_footer(&mut self.docs_out)?;
+    CodecUtil::write_footer(&mut self.file_pointers_out)?;
+    let docs_out_file_name = self.docs_out.get_name().to_string();
+    let file_pointers_out_file_name = self.file_pointers_out.get_name().to_string();
+    let close_result = IOUtils::close(
+      [&mut self.docs_out, &mut self.file_pointers_out],
+      Closeable::close,
+    );
+    if close_result.is_ok() {
+      self.temp_outputs_closed = true;
+    }
+    close_result?;
 
     let mut data_out = dir.create_output(
       &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
       &self.io_context,
     )?;
-    CodecUtil::write_index_header(
-      &mut data_out,
-      &format!("{}Idx", self.codec_name),
-      fields_index_writer_const::VERSION_CURRENT,
-      &self.id,
-      &self.suffix,
-    )?;
+    let result = (|| -> Result<()> {
+      CodecUtil::write_index_header(
+        &mut data_out,
+        &format!("{}Idx", self.codec_name),
+        fields_index_writer_const::VERSION_CURRENT,
+        &self.id,
+        &self.suffix,
+      )?;
 
-    meta_out.write_int(num_docs)?;
-    meta_out.write_int(self.block_shift)?;
-    meta_out.write_int(self.total_chunks + 1)?;
-    meta_out.write_long(data_out.get_file_pointer()? as i64)?;
+      meta_out.write_int(num_docs)?;
+      meta_out.write_int(self.block_shift)?;
+      meta_out.write_int(self.total_chunks + 1)?;
+      meta_out.write_long(data_out.get_file_pointer()? as i64)?;
 
-    {
-      let mut docs_in = dir.open_checksum_input(&docs_out_file_name)?;
-      let mut prior_e = None;
-      let result: Result<()> = (|| {
-        CodecUtil::check_header(
-          &mut docs_in,
-          &format!("{}Docs", self.codec_name),
-          fields_index_writer_const::VERSION_CURRENT,
-          fields_index_writer_const::VERSION_CURRENT,
-        )?;
+      {
+        let mut docs_in = dir.open_checksum_input(&docs_out_file_name)?;
+        let result: Result<()> = (|| {
+          CodecUtil::check_header(
+            &mut docs_in,
+            &format!("{}Docs", self.codec_name),
+            fields_index_writer_const::VERSION_CURRENT,
+            fields_index_writer_const::VERSION_CURRENT,
+          )?;
 
-        let mut docs = DirectMonotonicWriter::get_instance(
-          meta_out,
-          &mut data_out,
-          (self.total_chunks + 1) as i64,
-          self.block_shift,
-        )?;
-        let mut doc = 0;
-        docs.add(doc)?;
-        for _ in 0..self.total_chunks {
-          doc += docs_in.read_vint()? as i64;
-          docs.add(doc)?;
-        }
-        docs.finish()?;
+          let body_result: Result<()> = (|| {
+            let mut docs = DirectMonotonicWriter::get_instance(
+              meta_out,
+              &mut data_out,
+              (self.total_chunks + 1) as i64,
+              self.block_shift,
+            )?;
+            let mut doc = 0;
+            docs.add(doc)?;
+            for _ in 0..self.total_chunks {
+              doc += docs_in.read_vint()? as i64;
+              docs.add(doc)?;
+            }
+            docs.finish()?;
 
-        if doc != self.total_docs as i64 {
-          return Err(LuceneError::corrupt_index("Docs don't add up".to_string()));
-        }
-        Ok(())
-      })();
-      if let Err(e) = result {
-        prior_e = Some(e);
+            if doc != self.total_docs as i64 {
+              return Err(LuceneError::corrupt_index("Docs don't add up".to_string()));
+            }
+            Ok(())
+          })();
+          match body_result {
+            Ok(()) => CodecUtil::check_footer(&mut docs_in).map(|_| ()),
+            Err(e) => Err(CodecUtil::check_footer_with_error(&mut docs_in, e)),
+          }
+        })();
+        IOUtils::use_or_suppress_result(result, docs_in.close())?;
       }
+      dir.delete_file(&docs_out_file_name)?;
+      self.docs_out_pending_delete = false;
+      meta_out.write_long(data_out.get_file_pointer()? as i64)?;
+      {
+        let mut file_pointers_in = dir.open_checksum_input(&file_pointers_out_file_name)?;
+        let result: Result<()> = (|| {
+          CodecUtil::check_header(
+            &mut file_pointers_in,
+            &format!("{}FilePointers", self.codec_name),
+            fields_index_writer_const::VERSION_CURRENT,
+            fields_index_writer_const::VERSION_CURRENT,
+          )?;
 
-      if let Some(e) = prior_e {
-        return Err(CodecUtil::check_footer_with_error(&mut docs_in, e));
-      } else {
-        CodecUtil::check_footer(&mut docs_in)?;
+          let body_result: Result<()> = (|| {
+            let mut file_pointers = DirectMonotonicWriter::get_instance(
+              meta_out,
+              &mut data_out,
+              (self.total_chunks + 1) as i64,
+              self.block_shift,
+            )?;
+            let mut fp = 0;
+            for _ in 0..self.total_chunks {
+              fp += file_pointers_in.read_vlong()?;
+              file_pointers.add(fp)?;
+            }
+            if max_pointer < fp as usize {
+              return Err(LuceneError::corrupt_index(
+                "File pointers don't add up".to_string(),
+              ));
+            }
+            file_pointers.add(max_pointer as i64)?;
+            file_pointers.finish()?;
+            Ok(())
+          })();
+          match body_result {
+            Ok(()) => CodecUtil::check_footer(&mut file_pointers_in).map(|_| ()),
+            Err(e) => Err(CodecUtil::check_footer_with_error(&mut file_pointers_in, e)),
+          }
+        })();
+        IOUtils::use_or_suppress_result(result, file_pointers_in.close())?;
       }
-    }
-    dir.delete_file(&docs_out_file_name)?;
-    meta_out.write_long(data_out.get_file_pointer()? as i64)?;
-    {
-      let mut file_pointers_in = dir.open_checksum_input(&file_pointers_out_file_name)?;
-      let mut prior_e = None;
-      let result = (|| {
-        CodecUtil::check_header(
-          &mut file_pointers_in,
-          &format!("{}FilePointers", self.codec_name),
-          fields_index_writer_const::VERSION_CURRENT,
-          fields_index_writer_const::VERSION_CURRENT,
-        )?;
-
-        let mut file_pointers = DirectMonotonicWriter::get_instance(
-          meta_out,
-          &mut data_out,
-          (self.total_chunks + 1) as i64,
-          self.block_shift,
-        )?;
-        let mut fp = 0;
-        for _ in 0..self.total_chunks {
-          fp += file_pointers_in.read_vlong()?;
-          file_pointers.add(fp)?;
-        }
-        if max_pointer < fp as usize {
-          return Err(LuceneError::corrupt_index(
-            "File pointers don't add up".to_string(),
-          ));
-        }
-        file_pointers.add(max_pointer as i64)?;
-        file_pointers.finish()?;
-        Ok(())
-      })();
-      if let Err(e) = result {
-        prior_e = Some(e);
-      }
-      if let Some(e) = prior_e {
-        return Err(CodecUtil::check_footer_with_error(&mut file_pointers_in, e));
-      } else {
-        CodecUtil::check_footer(&mut file_pointers_in)?;
-      }
-    }
-    dir.delete_file(&file_pointers_out_file_name)?;
-    meta_out.write_long(data_out.get_file_pointer()? as i64)?;
-    meta_out.write_long(max_pointer as i64)?;
-    CodecUtil::write_footer(&mut data_out)?;
-    data_out.close()
+      dir.delete_file(&file_pointers_out_file_name)?;
+      self.file_pointers_out_pending_delete = false;
+      meta_out.write_long(data_out.get_file_pointer()? as i64)?;
+      meta_out.write_long(max_pointer as i64)?;
+      CodecUtil::write_footer(&mut data_out)
+    })();
+    IOUtils::use_or_suppress_result(result, data_out.close())
   }
 }
 impl<O> Closeable for FieldsIndexWriter<O>
@@ -267,24 +258,26 @@ where
   O: IndexOutput,
 {
   fn close(&mut self) -> Result<()> {
-    let (close_result, file_names) = match (&mut self.docs_out, &mut self.file_pointers_out) {
-      (None, None) => return Ok(()),
-      (Some(docs_out), Some(file_pointers_out)) => {
-        let close_result =
-          IOUtils::close([&mut *docs_out, &mut *file_pointers_out], Closeable::close);
+    if !self.docs_out_pending_delete && !self.file_pointers_out_pending_delete {
+      return Ok(());
+    }
 
-        let file_names = vec![
-          docs_out.get_name().to_string(),
-          file_pointers_out.get_name().to_string(),
-        ];
-        (close_result, file_names)
-      },
-      (None, Some(_)) | (Some(_), None) => {
-        return Err(LuceneError::illegal_state(
-          "FieldsIndexWriter is partially closed".to_string(),
-        ));
-      },
+    let close_result = if self.temp_outputs_closed {
+      Ok(())
+    } else {
+      IOUtils::close(
+        [&mut self.docs_out, &mut self.file_pointers_out],
+        Closeable::close,
+      )
     };
+
+    let mut file_names = Vec::new();
+    if self.docs_out_pending_delete {
+      file_names.push(self.docs_out.get_name().to_string());
+    }
+    if self.file_pointers_out_pending_delete {
+      file_names.push(self.file_pointers_out.get_name().to_string());
+    }
 
     let delete_result = (|| -> Result<()> {
       // TODO IMPORTANT 要用 Directory 删除
@@ -294,8 +287,9 @@ where
       Ok(())
     })();
 
-    self.docs_out = None;
-    self.file_pointers_out = None;
+    self.docs_out_pending_delete = false;
+    self.file_pointers_out_pending_delete = false;
+    self.temp_outputs_closed = true;
 
     delete_result?;
     close_result

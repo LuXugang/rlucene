@@ -17,6 +17,8 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::core::util::IOUtils;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
 use crate::core::util::fst_impl::fst_reader::FstReader;
@@ -106,8 +108,8 @@ where
   pub fn save_to_path(&mut self, path: &PathBuf) -> Result<()> {
     let file = File::create(path)?; // or: path.as_path()
     let mut out = OutputStreamDataOutput::new(file);
-    self.save_with_same_data_out(&mut out)?;
-    Ok(())
+    let result = self.save_with_same_data_out(&mut out);
+    IOUtils::use_or_suppress_result(result, out.close())
   }
   /// Reads the automaton from a file.
   pub fn read_from_path(_path: &Path, _outputs: Rc<RefCell<O>>) -> Result<Self> {

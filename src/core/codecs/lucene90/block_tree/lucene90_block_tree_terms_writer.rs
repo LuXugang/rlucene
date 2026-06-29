@@ -414,7 +414,13 @@ where
     }
     Ok(())
   }
+}
 
+impl<O, PW> Closeable for Lucene90BlockTreeTermsWriter<O, PW>
+where
+  O: IndexOutput,
+  PW: PostingsWriterBase,
+{
   fn close(&mut self) -> Result<()> {
     if self.closed {
       return Ok(());

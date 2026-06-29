@@ -17,6 +17,7 @@
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 /// A `TokenFilter` is a `TokenStream` whose input is another `TokenStream`.
 /// See also: [`TokenStream`].
@@ -37,6 +38,15 @@ where
   }
 }
 
+impl<T> Closeable for TokenFilterBase<T>
+where
+  T: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    self.input.close()
+  }
+}
+
 impl<T> TokenStream for TokenFilterBase<T>
 where
   T: TokenStream,
@@ -47,10 +57,6 @@ where
 
   fn reset(&mut self) -> Result<()> {
     self.input.reset()
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.input.close()
   }
 
   fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {

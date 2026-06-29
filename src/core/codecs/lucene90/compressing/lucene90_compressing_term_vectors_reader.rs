@@ -50,6 +50,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IOContext, IndexInput, ReadAdvice,
 };
+use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -64,7 +65,7 @@ use crate::core::util::packed::block_packed_reader_iterator::BlockPackedReaderIt
 use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, ReaderIterator};
-use crate::core::util::{IOUtils, ToInt, TryIntoInt};
+use crate::core::util::{ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::io::Cursor;
 use std::rc::Rc;
@@ -144,10 +145,11 @@ where
 
       let meta_stream_fn =
         IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_META_EXTENSION);
-      let mut meta = dir.open_checksum_input(&meta_stream_fn)?;
+      meta_in = Some(dir.open_checksum_input(&meta_stream_fn)?);
+      let meta = meta_in.as_mut().unwrap();
 
       CodecUtil::check_index_header(
-        &mut meta,
+        meta,
         &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
         META_VERSION_START,
         version,
@@ -170,7 +172,7 @@ where
         VECTORS_INDEX_EXTENSION,
         VECTORS_INDEX_CODEC_NAME,
         si.get_id(),
-        &mut meta,
+        meta,
         context,
       )?;
       let max_pointer = fields_index_reader.get_max_pointer();
@@ -197,12 +199,9 @@ where
 
       let decompressor = compression_mode.new_decompressor();
 
-      CodecUtil::check_footer(&mut meta)?;
-      meta_in = Some(meta);
-
       let prefetched_block_id_cache = [-1i64; PREFETCH_CACHE_SIZE];
 
-      Ok(Self {
+      let reader = Self {
         field_infos,
         compression_mode,
         version,
@@ -220,17 +219,25 @@ where
         prefetched_block_id_cache_index: 0,
         closed: false,
         block_state: BlockState::new(None, None, 0),
-      })
+      };
+      CodecUtil::check_footer(meta)?;
+      Ok(reader)
     })();
 
-    match result {
+    let result = match result {
       Ok(reader) => Ok(reader),
       Err(e) => {
         if let Some(ref mut meta) = meta_in {
-          return Err(CodecUtil::check_footer_with_error(meta, e));
+          Err(CodecUtil::check_footer_with_error(meta, e))
+        } else {
+          Err(e)
         }
-        Err(e)
       },
+    };
+    if let Some(mut meta) = meta_in {
+      IOUtils::use_or_suppress_result(result, meta.close())
+    } else {
+      result
     }
   }
 

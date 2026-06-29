@@ -27,7 +27,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IO_CONTEXT_DEFAULT, IOContext, IndexInput, ReadAdvice};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{HasIdentity, StringHelper, TryIntoInt};
+use crate::core::util::{HasIdentity, IOUtils, StringHelper, TryIntoInt};
 
 /// Offset/Length for a slice inside of a compound file
 pub struct FileEntry {
@@ -132,13 +132,14 @@ where
       Ok((version, mapping))
     })();
 
-    match result {
+    let result = match result {
       Ok((version, mapping)) => {
         CodecUtil::check_footer(&mut entries_stream)?;
         Ok((version, mapping))
       },
       Err(e) => Err(CodecUtil::check_footer_with_error(&mut entries_stream, e)),
-    }
+    };
+    IOUtils::use_or_suppress_result(result, entries_stream.close())
   }
   fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {
     let num_entries = entries_stream.read_vint()?;

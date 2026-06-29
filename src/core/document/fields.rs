@@ -65,6 +65,7 @@ use crate::core::index::indexable_field::{
 use crate::core::index::indexable_field_type::IndexableFieldTypeEnum;
 use crate::core::index::indexing_chain::ReservedField;
 use crate::core::util::attribute_source::Attributes;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::impl_from_for_enum;
@@ -336,6 +337,16 @@ impl FieldTokenStreamEnum {
     FieldTokenStreamEnum::Custom(Box::new(sim))
   }
 }
+
+impl Closeable for FieldTokenStreamEnum {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      FieldTokenStreamEnum::Dummy(dummy) => dummy.close(),
+      FieldTokenStreamEnum::Custom(custom) => custom.close(),
+    }
+  }
+}
+
 impl TokenStream for FieldTokenStreamEnum {
   fn increment_token(&mut self) -> Result<bool> {
     match self {
@@ -369,13 +380,6 @@ impl TokenStream for FieldTokenStreamEnum {
     match self {
       FieldTokenStreamEnum::Dummy(dummy) => dummy.default_reset(),
       FieldTokenStreamEnum::Custom(custom) => custom.default_reset(),
-    }
-  }
-
-  fn close(&mut self) -> Result<()> {
-    match self {
-      FieldTokenStreamEnum::Dummy(dummy) => dummy.close(),
-      FieldTokenStreamEnum::Custom(custom) => custom.close(),
     }
   }
 

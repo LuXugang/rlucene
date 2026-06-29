@@ -46,6 +46,8 @@ impl CannedTokenStream {
     }
   }
 }
+impl crate::core::util::close::Closeable for CannedTokenStream {}
+
 impl TokenStream for CannedTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.upto < self.tokens.len() {

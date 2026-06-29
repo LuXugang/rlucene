@@ -263,44 +263,26 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
     let mut input = dir.open_checksum_input(&file_name)?;
 
-    let mut prior_e: Option<LuceneError> = None;
-    let mut si: Option<SegmentInfo<D>> = None;
-    {
-      let result = {
-        let check_result = CodecUtil::check_index_header(
-          &mut input,
-          Lucene99SegmentInfoFormat::CODEC_NAME,
-          Lucene99SegmentInfoFormat::VERSION_START,
-          Lucene99SegmentInfoFormat::VERSION_CURRENT,
-          segment_id,
-          "",
-        );
-        match check_result {
-          Ok(_) => match Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id) {
-            Ok(parsed_info) => {
-              si = Some(parsed_info);
-              Ok(())
-            },
-            Err(e) => Err(e),
-          },
-          Err(e) => Err(e),
-        }
-      };
+    let result = (|| -> Result<SegmentInfo<D>> {
+      CodecUtil::check_index_header(
+        &mut input,
+        Lucene99SegmentInfoFormat::CODEC_NAME,
+        Lucene99SegmentInfoFormat::VERSION_START,
+        Lucene99SegmentInfoFormat::VERSION_CURRENT,
+        segment_id,
+        "",
+      )?;
+      Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
+    })();
 
-      // Catch the error if there was one during the reading process
-      if let Err(exception) = result {
-        prior_e = Some(exception);
-      }
-    }
-    if let Some(e) = prior_e {
-      return Err(CodecUtil::check_footer_with_error(&mut input, e));
-    } else {
-      CodecUtil::check_footer(&mut input)?;
-    }
-
-    si.ok_or_else(|| {
-      LuceneError::corrupt_index(format!("Failed to parse segment info for {segment}"))
-    })
+    let result = match result {
+      Ok(si) => {
+        CodecUtil::check_footer(&mut input)?;
+        Ok(si)
+      },
+      Err(e) => Err(CodecUtil::check_footer_with_error(&mut input, e)),
+    };
+    IOUtils::use_or_suppress_result(result, input.close())
   }
 
   fn write<D>(

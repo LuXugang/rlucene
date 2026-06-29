@@ -347,13 +347,14 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
       }
       Ok(infos)
     })();
-    match result {
+    let result = match result {
       Ok(infos) => {
         CodecUtil::check_footer(&mut input)?;
-        Ok(FieldInfos::new(infos)?)
+        FieldInfos::new(infos)
       },
       Err(e) => Err(CodecUtil::check_footer_with_error(&mut input, e)),
-    }
+    };
+    IOUtils::use_or_suppress_result(result, input.close())
   }
 
   fn write<D>(

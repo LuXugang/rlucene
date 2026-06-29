@@ -64,11 +64,13 @@ fn test_test_points_on() -> Result<()> {
 
 struct NoTestPointsInfoStream;
 
-impl InfoStream for NoTestPointsInfoStream {
+impl crate::core::util::close::CloseableRef for NoTestPointsInfoStream {
   fn close(&self) -> Result<()> {
     Ok(())
   }
+}
 
+impl InfoStream for NoTestPointsInfoStream {
   fn message(&self, component: &str, _message: &str) -> Result<()> {
     assert_ne!("TP", component);
     Ok(())
@@ -84,11 +86,13 @@ struct TestPointsInfoStream {
   seen_test_point: Arc<AtomicBool>,
 }
 
-impl InfoStream for TestPointsInfoStream {
+impl crate::core::util::close::CloseableRef for TestPointsInfoStream {
   fn close(&self) -> Result<()> {
     Ok(())
   }
+}
 
+impl InfoStream for TestPointsInfoStream {
   fn message(&self, component: &str, _message: &str) -> Result<()> {
     if component == "TP" {
       self.seen_test_point.store(true, Ordering::SeqCst);

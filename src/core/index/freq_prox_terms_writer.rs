@@ -47,6 +47,7 @@ use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::Closeable;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -54,7 +55,7 @@ use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::lsb_radix_sorter::LSBRadixSorter;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::{
-  ByteBlockPool, SharedCounter, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt,
+  ByteBlockPool, IOUtils, SharedCounter, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt,
 };
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -169,14 +170,18 @@ where
     let mut consumer = LATEST_CODEC
       .postings_format()
       .fields_consumer(state, info)?;
-    if let Some(doc_map) = sort_map {
-      let mut filter_fields =
-        FilterFieldsImpl::new(fields, state.field_infos.clone(), doc_map.clone());
-      consumer.write(&mut filter_fields, norms)?;
-    } else {
-      consumer.write(&mut fields, norms)?;
-    }
-    Ok(())
+    let write_result = (|| {
+      if let Some(doc_map) = sort_map {
+        let mut filter_fields =
+          FilterFieldsImpl::new(fields, state.field_infos.clone(), doc_map.clone());
+        consumer.write(&mut filter_fields, norms)?;
+      } else {
+        consumer.write(&mut fields, norms)?;
+      }
+      Ok(())
+    })();
+    let close_result = consumer.close();
+    IOUtils::use_or_suppress_result(write_result, close_result)
   }
   pub(crate) fn finish_document<D1>(
     &mut self,

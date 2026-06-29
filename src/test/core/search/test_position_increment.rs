@@ -203,6 +203,12 @@ impl PositionIncrementTokenizer {
   }
 }
 
+impl crate::core::util::close::Closeable for PositionIncrementTokenizer {
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.tokenizer_base)
+  }
+}
+
 impl TokenStream for PositionIncrementTokenizer {
   fn increment_token(&mut self) -> Result<bool> {
     if self.i == Self::TOKENS.len() {
@@ -226,10 +232,6 @@ impl TokenStream for PositionIncrementTokenizer {
     self.tokenizer_base.reset()?;
     self.i = 0;
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.tokenizer_base.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {

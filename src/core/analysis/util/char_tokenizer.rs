@@ -20,6 +20,7 @@ use crate::core::analysis::standard::standard_tokenizer::MAX_TOKEN_LENGTH_LIMIT;
 use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct CharTokenizer<S>
@@ -71,6 +72,15 @@ where
 {
   fn drop(&mut self) {
     let _ = self.close();
+  }
+}
+
+impl<S> Closeable for CharTokenizer<S>
+where
+  S: CharTokenizerBase,
+{
+  fn close(&mut self) -> Result<()> {
+    self.tokenizer_base.close()
   }
 }
 
@@ -169,10 +179,6 @@ where
     self.final_offset = 0;
     self.io_buffer.reset();
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.tokenizer_base.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {

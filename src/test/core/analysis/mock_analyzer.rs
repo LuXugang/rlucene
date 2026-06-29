@@ -184,6 +184,16 @@ where
     Self { filter }
   }
 }
+
+impl<TS> crate::core::util::close::Closeable for MockFilterWrap<TS>
+where
+  TS: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.filter)
+  }
+}
+
 impl<TS> TokenStream for MockFilterWrap<TS>
 where
   TS: TokenStream,
@@ -206,10 +216,6 @@ where
 
   fn default_reset(&mut self) -> Result<()> {
     self.filter.default_end()
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.filter.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {

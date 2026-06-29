@@ -27,8 +27,10 @@ use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::{FixedBit, FixedBitSet};
+use crate::core::util::io_utils::IOUtils;
 
 /// Lucene 9.0 live docs format
 ///
@@ -141,13 +143,14 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
       }
       Ok(fbs.to_read_only_bits())
     })();
-    match result {
+    let result = match result {
       Ok(_) => {
         CodecUtil::check_footer(&mut input)?;
         result
       },
       Err(e) => Err(CodecUtil::check_footer_with_error(&mut input, e)),
-    }
+    };
+    IOUtils::use_or_suppress_result(result, input.close())
   }
 
   fn write_live_docs<D>(
@@ -171,17 +174,21 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     let del_count: i32;
     {
       let mut output = directory.create_output(name.as_ref().unwrap().as_str(), context)?;
-      CodecUtil::write_index_header(
-        &mut output,
-        Lucene90LiveDocsFormat::CODEC_NAME,
-        Lucene90LiveDocsFormat::VERSION_CURRENT,
-        info.info.get_id(),
-        &BigInt::from(gen_).to_str_radix(36).to_string(),
-      )?;
+      let result = (|| -> Result<i32> {
+        CodecUtil::write_index_header(
+          &mut output,
+          Lucene90LiveDocsFormat::CODEC_NAME,
+          Lucene90LiveDocsFormat::VERSION_CURRENT,
+          info.info.get_id(),
+          &BigInt::from(gen_).to_str_radix(36).to_string(),
+        )?;
 
-      del_count = Self::write_bits(&mut output, bits)?;
+        let del_count = Self::write_bits(&mut output, bits)?;
 
-      CodecUtil::write_footer(&mut output)?;
+        CodecUtil::write_footer(&mut output)?;
+        Ok(del_count)
+      })();
+      del_count = IOUtils::use_or_suppress_result(result, output.close())?;
     }
 
     if del_count != info.get_del_count() + new_del_count {

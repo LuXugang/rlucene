@@ -553,6 +553,15 @@ where
   }
 }
 
+impl<TS> crate::core::util::close::Closeable for PayloadFilter<TS>
+where
+  TS: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.token_filter_base)
+  }
+}
+
 impl<TS> TokenStream for PayloadFilter<TS>
 where
   TS: TokenStream,
@@ -596,10 +605,6 @@ where
       .ok_or_else(|| LuceneError::illegal_state("payload data is not set"))?
       .offset;
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.token_filter_base.close()
   }
 
   fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
@@ -715,6 +720,15 @@ impl PoolingPayloadTokenStream {
   }
 }
 
+impl crate::core::util::close::Closeable for PoolingPayloadTokenStream {
+  fn close(&mut self) -> Result<()> {
+    if let Some(payload) = self.payload.take() {
+      self.pool.release(payload);
+    }
+    Ok(())
+  }
+}
+
 impl TokenStream for PoolingPayloadTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if !self.first {
@@ -731,13 +745,6 @@ impl TokenStream for PoolingPayloadTokenStream {
 
   fn end(&mut self) -> Result<()> {
     self.default_end()
-  }
-
-  fn close(&mut self) -> Result<()> {
-    if let Some(payload) = self.payload.take() {
-      self.pool.release(payload);
-    }
-    Ok(())
   }
 
   fn get_attribute_source(&self) -> &Attributes {

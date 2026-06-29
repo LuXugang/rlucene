@@ -168,9 +168,9 @@ where
       .norms_format()
       .norms_consumer(segment_write_state, self.merge_state.segment_info)?;
 
-    consumer.merge(&self.merge_state)?;
-
-    Ok(())
+    let merge_result = consumer.merge(&self.merge_state);
+    let close_result = consumer.close();
+    IOUtils::use_or_suppress_result(merge_result, close_result)
   }
   fn merge_terms(
     &self,
@@ -187,21 +187,30 @@ where
       None
     };
 
-    let mut norms_merge_instance = None;
-    if let Some(ref mut norms) = norms {
-      // Use the merge instance in order to reuse the same IndexInput for all terms
-      norms_merge_instance = norms.get_merge_instance()?;
-    }
+    let result = (|| {
+      let mut norms_merge_instance = None;
+      if let Some(ref mut norms) = norms {
+        // Use the merge instance in order to reuse the same IndexInput for all terms
+        norms_merge_instance = norms.get_merge_instance()?;
+      }
 
-    if self.merge_state.merge_field_infos.has_postings() {
-      let mut consumer = LATEST_CODEC
-        .postings_format()
-        .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
+      if self.merge_state.merge_field_infos.has_postings() {
+        let mut consumer = LATEST_CODEC
+          .postings_format()
+          .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
-      consumer.merge(&self.merge_state, norms_merge_instance.as_ref())?;
-    }
+        let merge_result = consumer.merge(&self.merge_state, norms_merge_instance.as_ref());
+        let close_result = consumer.close();
+        IOUtils::use_or_suppress_result(merge_result, close_result)?;
+      }
 
-    Ok(())
+      Ok(())
+    })();
+    let close_result = match norms.as_mut() {
+      Some(norms) => norms.close(),
+      None => Ok(()),
+    };
+    IOUtils::use_or_suppress_result(result, close_result)
   }
   fn merge_field_infos(&mut self) -> Result<()> {
     for reader_field_infos in &self.merge_state.field_infos {
@@ -257,9 +266,11 @@ where
       .knn_vectors_format()?
       .fields_writer(segment_write_state, self.merge_state.segment_info)?;
 
-    writer.merge(&self.merge_state, segment_write_state)?;
-
-    Ok(())
+    let merge_result = writer
+      .merge(&self.merge_state, segment_write_state)
+      .map(|_| ());
+    let close_result = writer.close();
+    IOUtils::use_or_suppress_result(merge_result, close_result)
   }
   fn merge_with_logging<F, I>(merger: F, format_name: &str, info_stream: &I) -> Result<i32>
   where

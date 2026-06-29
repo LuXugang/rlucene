@@ -34,6 +34,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexInput, ReadAdvice};
+use crate::core::util::IOUtils;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
@@ -91,35 +92,21 @@ where
     let mut meta = state.directory.open_checksum_input(&meta_file_name)?;
 
     let result = (|| -> Result<()> {
-      let mut prior_e: Option<LuceneError> = None;
-      let inner = (|| -> Result<()> {
-        version_meta = CodecUtil::check_index_header(
-          &mut meta,
-          META_CODEC_NAME,
-          VERSION_START,
-          VERSION_CURRENT,
-          segment_info.get_id(),
-          &state.segment_suffix,
-        )?;
-        read_fields(&mut meta, field_infos.as_ref(), &mut fields)?;
-        Ok(())
-      })();
-
-      if let Err(e) = inner {
-        prior_e = Some(e);
-      }
-      match prior_e {
-        Some(e) => {
-          let new_error = CodecUtil::check_footer_with_error(&mut meta, e);
-          return Err(new_error);
-        },
-        None => {
-          CodecUtil::check_footer(&mut meta)?;
-        },
-      }
-      Ok(())
+      version_meta = CodecUtil::check_index_header(
+        &mut meta,
+        META_CODEC_NAME,
+        VERSION_START,
+        VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
+      read_fields(&mut meta, field_infos.as_ref(), &mut fields)
     })();
-    result?;
+    let footer_result = match result {
+      Ok(()) => CodecUtil::check_footer(&mut meta).map(|_| ()),
+      Err(e) => Err(CodecUtil::check_footer_with_error(&mut meta, e)),
+    };
+    IOUtils::use_or_suppress_result(footer_result, meta.close())?;
 
     let vector_index = Self::open_data_input(
       state,

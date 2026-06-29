@@ -17,20 +17,27 @@
 use std::sync::LazyLock;
 use std::{fmt, sync::Arc};
 
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 
 /// Debugging API for Lucene components such as
 /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter)
 /// and [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos).
-pub trait InfoStream: Send + Sync {
+pub trait InfoStream: Send + Sync + CloseableRef {
   /// Prints a message.
   fn message(&self, component: &str, message: &str) -> Result<()>;
 
   /// Returns true if messages are enabled and should be posted to `message`.
   fn is_enabled(&self, component: &str) -> bool;
+}
 
-  /// Closes the stream.
-  fn close(&self) -> Result<()>;
+impl<T> CloseableRef for Arc<T>
+where
+  T: InfoStream + ?Sized,
+{
+  fn close(&self) -> Result<()> {
+    CloseableRef::close(self.as_ref())
+  }
 }
 
 impl<T> InfoStream for Arc<T>
@@ -44,10 +51,6 @@ where
   fn is_enabled(&self, component: &str) -> bool {
     self.as_ref().is_enabled(component)
   }
-
-  fn close(&self) -> Result<()> {
-    self.as_ref().close()
-  }
 }
 
 /// A global, thread-safe reference to a default `InfoStream`,
@@ -58,6 +61,13 @@ static DEFAULT_INFO_STREAM: LazyLock<Arc<InfoStreamEnum>> =
 /// Instance of InfoStream that does no logging at all.
 #[derive(Clone, Debug, Default)]
 pub struct NoOutput;
+
+impl CloseableRef for NoOutput {
+  fn close(&self) -> Result<()> {
+    // Nothing to do.
+    Ok(())
+  }
+}
 
 impl InfoStream for NoOutput {
   fn message(&self, _component: &str, _message: &str) -> Result<()> {
@@ -70,11 +80,6 @@ impl InfoStream for NoOutput {
 
   fn is_enabled(&self, _component: &str) -> bool {
     false
-  }
-
-  fn close(&self) -> Result<()> {
-    // Nothing to do.
-    Ok(())
   }
 }
 
@@ -104,6 +109,14 @@ impl Default for InfoStreamEnum {
     InfoStreamEnum::NoOutput(NoOutput)
   }
 }
+impl CloseableRef for InfoStreamEnum {
+  fn close(&self) -> Result<()> {
+    match self {
+      InfoStreamEnum::NoOutput(output) => output.close(),
+      InfoStreamEnum::Custom(output) => CloseableRef::close(output.as_ref()),
+    }
+  }
+}
 impl InfoStream for InfoStreamEnum {
   fn message(&self, component: &str, message: &str) -> Result<()> {
     match self {
@@ -116,13 +129,6 @@ impl InfoStream for InfoStreamEnum {
     match self {
       InfoStreamEnum::NoOutput(output) => output.is_enabled(component),
       InfoStreamEnum::Custom(output) => output.is_enabled(component),
-    }
-  }
-
-  fn close(&self) -> Result<()> {
-    match self {
-      InfoStreamEnum::NoOutput(output) => output.close(),
-      InfoStreamEnum::Custom(output) => output.close(),
     }
   }
 }

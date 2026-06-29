@@ -270,6 +270,12 @@ struct TokenReuseFilter {
   state: bool,
 }
 
+impl crate::core::util::close::Closeable for TokenReuseFilter {
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.token_filter_base)
+  }
+}
+
 impl TokenStream for TokenReuseFilter {
   fn increment_token(&mut self) -> Result<bool> {
     if self.state {
@@ -312,10 +318,6 @@ impl TokenStream for TokenReuseFilter {
     self.first = true;
     self.state = false;
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.token_filter_base.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {
@@ -730,6 +732,8 @@ impl PreAnalyzedTokenStream {
     }
   }
 }
+
+impl crate::core::util::close::Closeable for PreAnalyzedTokenStream {}
 
 impl TokenStream for PreAnalyzedTokenStream {
   fn increment_token(&mut self) -> Result<bool> {

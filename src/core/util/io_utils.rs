@@ -212,6 +212,7 @@ impl IOUtils {
 
   /// Combines a body result with a following close result using Java
   /// try-with-resources suppression semantics.
+  #[inline]
   pub fn use_or_suppress_result<T>(result: Result<T>, close_result: Result<()>) -> Result<T> {
     match (result, close_result) {
       (Ok(value), Ok(())) => Ok(value),

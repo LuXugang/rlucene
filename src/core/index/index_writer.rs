@@ -34,7 +34,7 @@ use crate::core::index::segment_info::named_for_this_segment;
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::util::close::CloseableRef;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::counter::{Counter, new_counter};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -4198,20 +4198,16 @@ where
             Ok(())
           })();
 
-          {
-            self.pausing.notify_all();
-            commit_lock.pending_commit = None;
+          let close_res = commit_lock
+            .files_to_commit
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("no files"))
+            .and_then(|files| inner.deleter.dec_ref(files.iter()));
+          body_res = IOUtils::use_or_suppress_result(body_res, close_res);
 
-            let files = commit_lock
-              .files_to_commit
-              .take()
-              .ok_or_else(|| LuceneError::illegal_state("no files"))?;
-
-            body_res = match inner.deleter.dec_ref(files.iter()) {
-              Ok(()) => body_res,
-              Err(e) => return Err(e),
-            };
-          }
+          self.pausing.notify_all();
+          commit_lock.pending_commit = None;
+          commit_lock.files_to_commit = None;
 
           body_res?;
         },
@@ -4797,8 +4793,7 @@ where
       // readers:
       let close_result = self.close_merge_readers(merge, false, drop_segment, Some(&mut inner));
       let checkpoint_result = self.checkpoint(&mut inner);
-      close_result?;
-      checkpoint_result?;
+      IOUtils::use_or_suppress_result(close_result, checkpoint_result)?;
     }
 
     if self.info_stream.is_enabled("IW") {
@@ -5982,16 +5977,11 @@ where
           success = true;
           Ok(())
         })();
-        {
+        let close_result = {
           let mut inner = self.inner.lock();
-          self.finish_apply(&mut seg_states, success, del_files, &mut inner)?;
-        }
-        match result {
-          Ok(_) => {},
-          Err(e) => {
-            return Err(e);
-          },
-        }
+          self.finish_apply(&mut seg_states, success, del_files, &mut inner)
+        };
+        IOUtils::use_or_suppress_result(result, close_result)?;
       }
       // Since we just resolved some more deletes/updates, now is a good time to write them:
       self.write_some_doc_values_updates()?;
@@ -7480,11 +7470,11 @@ where
     )
   } else if si.info.get_use_compound_file() {
     // cfs
-    let cfs = codec
+    let mut cfs = codec
       .compound_format()
       .get_compound_reader(si.info.dir.as_ref(), &si.info)?;
-    let fis = reader.read(&cfs, &si.info, "", &IOContext::read_once_io_context()?)?;
-    Ok(fis)
+    let result = (|| reader.read(&cfs, &si.info, "", &IOContext::read_once_io_context()?))();
+    IOUtils::use_or_suppress_result(result, cfs.close())
   } else {
     // no cfs
     reader.read(

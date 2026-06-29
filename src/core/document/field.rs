@@ -30,6 +30,7 @@ use crate::core::index::indexable_field::{
 };
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::{either_token_stream, impl_from_for_enum};
@@ -875,6 +876,13 @@ impl Drop for BinaryTokenStream {
   }
 }
 
+impl Closeable for BinaryTokenStream {
+  fn close(&mut self) -> Result<()> {
+    let _ = self.value.take();
+    Ok(())
+  }
+}
+
 impl TokenStream for BinaryTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.used {
@@ -893,11 +901,6 @@ impl TokenStream for BinaryTokenStream {
 
   fn reset(&mut self) -> Result<()> {
     self.used = false;
-    Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    let _ = self.value.take();
     Ok(())
   }
 
@@ -935,6 +938,13 @@ impl Drop for StringTokenStream {
   }
 }
 
+impl Closeable for StringTokenStream {
+  fn close(&mut self) -> Result<()> {
+    let _ = self.value.take();
+    Ok(())
+  }
+}
+
 impl TokenStream for StringTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.used {
@@ -966,11 +976,6 @@ impl TokenStream for StringTokenStream {
 
   fn reset(&mut self) -> Result<()> {
     self.used = false;
-    Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    let _ = self.value.take();
     Ok(())
   }
 

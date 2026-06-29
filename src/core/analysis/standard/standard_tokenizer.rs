@@ -20,6 +20,7 @@ use crate::core::analysis::standard::standard_tokenizer_impl::{StandardTokenizer
 use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A grammar-based tokenizer constructed with JFlex.
 ///
@@ -134,6 +135,14 @@ impl Default for StandardTokenizer {
   }
 }
 
+impl Closeable for StandardTokenizer {
+  fn close(&mut self) -> Result<()> {
+    self.tokenizer_base.close()?;
+    self.scanner.yyreset(self.tokenizer_base.input.clone());
+    Ok(())
+  }
+}
+
 impl TokenStream for StandardTokenizer {
   fn increment_token(&mut self) -> Result<bool> {
     self.tokenizer_base.token_stream_base.att.clear_attributes();
@@ -182,12 +191,6 @@ impl TokenStream for StandardTokenizer {
     self.tokenizer_base.reset()?;
     self.scanner.yyreset(self.tokenizer_base.input.clone());
     self.skipped_positions = 0;
-    Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.tokenizer_base.close()?;
-    self.scanner.yyreset(self.tokenizer_base.input.clone());
     Ok(())
   }
 

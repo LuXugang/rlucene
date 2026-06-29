@@ -71,6 +71,12 @@ impl RepeatingTokenizer {
   }
 }
 
+impl crate::core::util::close::Closeable for RepeatingTokenizer {
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.tokenizer_base)
+  }
+}
+
 impl TokenStream for RepeatingTokenizer {
   fn increment_token(&mut self) -> Result<bool> {
     self.num -= 1;
@@ -98,10 +104,6 @@ impl TokenStream for RepeatingTokenizer {
       self.num = 0;
     }
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.tokenizer_base.close()
   }
 
   fn get_attribute_source(&self) -> &Attributes {

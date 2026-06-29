@@ -22,6 +22,7 @@ use crate::core::analysis::token_stream::{
   AnalyzerTokenStreams, NormalizeTokenStream, TokenStream,
 };
 use crate::core::index::BytesRef;
+use crate::core::util::IOUtils;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -157,18 +158,22 @@ pub trait Analyzer: Closeable + Send + Sync {
     let mut reader =
       self.init_reader_for_normalization(field_name, ReaderEnum::ReusedString(str_reader));
 
-    let mut buf = ['\0'; 64];
-    let mut filtered = String::new();
-    loop {
-      let len = buf.len();
-      let read = reader.read_range(&mut buf, 0, len)?;
-      if read == -1 {
-        break;
+    let filtered_result = (|| -> Result<String> {
+      let mut buf = ['\0'; 64];
+      let mut filtered = String::new();
+      loop {
+        let len = buf.len();
+        let read = reader.read_range(&mut buf, 0, len)?;
+        if read == -1 {
+          break;
+        }
+        for &ch in &buf[..read as usize] {
+          filtered.push(ch);
+        }
       }
-      for &ch in &buf[..read as usize] {
-        filtered.push(ch);
-      }
-    }
+      Ok(filtered)
+    })();
+    let filtered = IOUtils::use_or_suppress_result(filtered_result, reader.close())?;
 
     let att = self.attribute_factory(field_name);
     debug_assert!(text.len() <= i32::MAX as usize);
@@ -177,31 +182,34 @@ pub trait Analyzer: Closeable + Send + Sync {
       StringTokenStream::new(att, &filtered, text.len() as i32).into(),
     )?;
 
-    ts.reset()?;
-    if !ts.increment_token()? {
-      return Err(LuceneError::illegal_state(format!(
-        "expected 1 token but got 0 for analyzer and input \"{}\"",
-        text
-      )));
-    }
-    let term_att = ts.get_attribute_source_mut();
-    let term = match term_att.get_bytes_ref()? {
-      Some(t) => BytesRef::deep_copy_of(&*t),
-      None => {
+    let result = (|| -> Result<BytesRef<Vec<u8>>> {
+      ts.reset()?;
+      if !ts.increment_token()? {
         return Err(LuceneError::illegal_state(format!(
-          "CharTermAttribute is missing for analyzer and input \"{}\"",
+          "expected 1 token but got 0 for analyzer and input \"{}\"",
           text
         )));
-      },
-    };
-    if ts.increment_token()? {
-      return Err(LuceneError::illegal_state(format!(
-        "expected 1 token but got more for analyzer and input \"{}\"",
-        text
-      )));
-    }
-    ts.end()?;
-    Ok(term)
+      }
+      let term_att = ts.get_attribute_source_mut();
+      let term = match term_att.get_bytes_ref()? {
+        Some(t) => BytesRef::deep_copy_of(&*t),
+        None => {
+          return Err(LuceneError::illegal_state(format!(
+            "CharTermAttribute is missing for analyzer and input \"{}\"",
+            text
+          )));
+        },
+      };
+      if ts.increment_token()? {
+        return Err(LuceneError::illegal_state(format!(
+          "expected 1 token but got more for analyzer and input \"{}\"",
+          text
+        )));
+      }
+      ts.end()?;
+      Ok(term)
+    })();
+    IOUtils::use_or_suppress_result(result, ts.close())
   }
 
   fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {
@@ -591,6 +599,8 @@ impl Drop for StringTokenStream {
     let _ = self.close();
   }
 }
+
+impl Closeable for StringTokenStream {}
 
 impl TokenStream for StringTokenStream {
   fn increment_token(&mut self) -> Result<bool> {

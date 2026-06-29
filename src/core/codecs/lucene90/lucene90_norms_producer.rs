@@ -37,6 +37,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
+use crate::core::util::IOUtils;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::Closeable;
@@ -88,33 +89,26 @@ where
 
     // Read in the entries from the metadata file
     let mut norms = HashMap::new();
-    {
-      let mut input = state.directory.open_checksum_input(&meta_name)?;
+    let mut input = state.directory.open_checksum_input(&meta_name)?;
 
-      let mut prior_error = None;
-
-      match CodecUtil::check_index_header(
+    let result = (|| -> Result<()> {
+      version = CodecUtil::check_index_header(
         &mut input,
         meta_codec,
         Lucene90NormsFormat::VERSION_START,
         Lucene90NormsFormat::VERSION_CURRENT,
         segment_info.get_id(),
         &state.segment_suffix,
-      ) {
-        Ok(v) => {
-          version = v;
-          norms = Self::read_fields(&mut input, &state.field_infos)?;
-        },
-        Err(e) => {
-          prior_error = Some(e);
-        },
-      }
-      if let Some(e) = prior_error {
-        return Err(CodecUtil::check_footer_with_error(&mut input, e));
-      } else {
-        CodecUtil::check_footer(&mut input)?;
-      }
-    }
+      )?;
+      norms = Self::read_fields(&mut input, &state.field_infos)?;
+      Ok(())
+    })();
+
+    let footer_result = match result {
+      Ok(()) => CodecUtil::check_footer(&mut input).map(|_| ()),
+      Err(e) => Err(CodecUtil::check_footer_with_error(&mut input, e)),
+    };
+    IOUtils::use_or_suppress_result(footer_result, input.close())?;
 
     let data_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, data_extension);

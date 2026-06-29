@@ -64,6 +64,9 @@ impl CannedTermFreqs {
     }
   }
 }
+
+impl crate::core::util::close::Closeable for CannedTermFreqs {}
+
 impl TokenStream for CannedTermFreqs {
   fn increment_token(&mut self) -> Result<bool> {
     if self.upto == self.terms.len() {

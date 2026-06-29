@@ -334,7 +334,11 @@ pub trait DataInput: Display + Closeable {
   }
 }
 
-impl<T: ?Sized> Closeable for Box<T> {}
+impl<T: ?Sized + Closeable> Closeable for Box<T> {
+  fn close(&mut self) -> Result<()> {
+    (**self).close()
+  }
+}
 
 impl<T: ?Sized + DataInput> DataInput for &mut T {
   fn read_byte(&mut self) -> Result<u8> {

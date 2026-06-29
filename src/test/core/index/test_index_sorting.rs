@@ -2712,6 +2712,8 @@ impl PositionsTokenStream {
   }
 }
 
+impl crate::core::util::close::Closeable for PositionsTokenStream {}
+
 impl TokenStream for PositionsTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.pos == 0 {

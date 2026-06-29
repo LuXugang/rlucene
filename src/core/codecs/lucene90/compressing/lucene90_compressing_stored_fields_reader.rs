@@ -140,10 +140,11 @@ where
 
       let meta_stream_fm =
         IndexFileNames::segment_file_name(segment, segment_suffix, META_EXTENSION);
-      let mut meta = dir.open_checksum_input(&meta_stream_fm)?;
+      meta_in = Some(dir.open_checksum_input(&meta_stream_fm)?);
+      let meta = meta_in.as_mut().unwrap();
 
       CodecUtil::check_index_header(
-        &mut meta,
+        meta,
         &format!("{}Meta", INDEX_CODEC_NAME),
         META_VERSION_START,
         version,
@@ -176,7 +177,7 @@ where
         INDEX_EXTENSION,
         INDEX_CODEC_NAME,
         si.get_id(),
-        &mut meta,
+        meta,
         context,
       )?;
       let max_pointer = fields_index_reader.get_max_pointer();
@@ -200,9 +201,7 @@ where
           "Cannot have more dirty chunks than documents within dirty chunks: numDirtyChunks={num_dirty_chunks}, numDirtyDocs={num_dirty_docs} (resource={meta})"
         )));
       };
-      CodecUtil::check_footer(&mut meta)?;
-      meta_in = Some(meta);
-      Ok(Self {
+      let reader = Self {
         version,
         field_infos,
         index_reader: fields_index_reader,
@@ -219,16 +218,24 @@ where
         prefetched_block_id_cache,
         prefetched_block_id_cache_index: 0,
         closed: false,
-      })
+      };
+      CodecUtil::check_footer(meta)?;
+      Ok(reader)
     })();
-    match result {
+    let result = match result {
       Ok(reader) => Ok(reader),
       Err(e) => {
         if let Some(ref mut meta) = meta_in {
-          return Err(CodecUtil::check_footer_with_error(meta, e));
+          Err(CodecUtil::check_footer_with_error(meta, e))
+        } else {
+          Err(e)
         }
-        Err(e)
       },
+    };
+    if let Some(mut meta) = meta_in {
+      IOUtils::use_or_suppress_result(result, meta.close())
+    } else {
+      result
     }
   }
 

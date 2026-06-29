@@ -26,13 +26,14 @@ use crate::core::index::merge_state::MergeState;
 use crate::core::index::multi_fields::MultiFields;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::store::directory::Directory;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
 
 /// Abstract API that consumes terms, doc, freq, prox, offset and payloads postings. Concrete
 /// implementations of this actually do "something" with the postings (write it into the index in a
 /// specific format).
-pub trait FieldsConsumer {
+pub trait FieldsConsumer: Closeable {
   /// Write all fields, terms and postings. This is the "pull" API, allowing you to iterate more than
   /// once over the postings, somewhat analogous to using a DOM API to traverse an XML tree.
   ///
@@ -90,8 +91,6 @@ pub trait FieldsConsumer {
 
     self.write(&mut merged_fields, norms)
   }
-
-  fn close(&mut self) -> Result<()>;
 }
 pub type FieldsConsumerEnum<O> =
   Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;

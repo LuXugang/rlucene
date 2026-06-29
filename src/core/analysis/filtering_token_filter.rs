@@ -18,6 +18,7 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct FilteringTokenFilter<T, V>
@@ -50,6 +51,16 @@ where
 {
   fn drop(&mut self) {
     let _ = self.close();
+  }
+}
+
+impl<T, V> Closeable for FilteringTokenFilter<T, V>
+where
+  T: TokenStream,
+  V: FilteringTokenFilterBase,
+{
+  fn close(&mut self) -> Result<()> {
+    self.base.close()
   }
 }
 
@@ -97,10 +108,6 @@ where
     self.base.reset()?;
     self.skipped_positions = 0;
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.base.close()
   }
 
   fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {

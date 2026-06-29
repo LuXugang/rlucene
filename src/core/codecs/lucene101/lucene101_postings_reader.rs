@@ -125,14 +125,17 @@ where
       }
       Ok(())
     })();
-    match result {
-      Ok(_) => {},
-      Err(e) => {
-        return match meta_in_opt {
-          Some(ref mut meta_in) => Err(CodecUtil::check_footer_with_error(meta_in, e)),
-          None => Err(e),
-        };
+    let result = match result {
+      Ok(()) => Ok(()),
+      Err(e) => match meta_in_opt.as_mut() {
+        Some(meta_in) => Err(CodecUtil::check_footer_with_error(meta_in, e)),
+        None => Err(e),
       },
+    };
+    if let Some(mut meta_in) = meta_in_opt {
+      IOUtils::use_or_suppress_result(result, meta_in.close())?;
+    } else {
+      result?;
     }
     // NOTE: these data files are too costly to verify checksum against all
     // the bytes on open, but for now we at least verify proper
@@ -426,8 +429,6 @@ where
   doc_in_util: Option<PostingDecodingUtil<I>>,
 
   freq_buffer: [i32; ForUtil::BLOCK_SIZE],
-  // TODO:To be safe, pos/payload/offset were not allocated on the stack. Is
-  // this really necessary?
   pos_delta_buffer: Vec<i32>,
   payload_length_buffer: Vec<i32>,
   payload_bytes: Vec<u8>,

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::IndexInput;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::math_util::MathUtil;
 
@@ -24,7 +25,6 @@ use crate::core::util::math_util::MathUtil;
 ///
 /// Implementors must provide the `read_skip_data(&mut self, level: i32, input:
 /// &mut I)` method to define the actual format of the skip data.
-#[allow(dead_code)]
 pub struct MultiLevelSkipListReader<I>
 where
   I: IndexInput,
@@ -259,6 +259,18 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
       .as_mut()
       .unwrap()
       .read_vlong()
+  }
+}
+
+impl<I> Closeable for MultiLevelSkipListReader<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    for skip_stream in self.skip_stream.iter_mut().skip(1).flatten() {
+      skip_stream.close()?;
+    }
+    Ok(())
   }
 }
 impl<I> MultiLevelSkipListReaderAbstract for MultiLevelSkipListReader<I>

@@ -231,6 +231,27 @@ where
     }
   }
 }
+
+impl<R> crate::core::util::close::Closeable for MockTokenizer<R>
+where
+  R: Rng,
+{
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.tokenizer_base)?;
+    let result: Result<()> = (|| {
+      if self.stream_state != State::End && self.stream_state != State::Close {
+        self.fail(format!(
+          "close() called in wrong state: {:?}",
+          self.stream_state
+        ))?;
+      }
+      Ok(())
+    })();
+    self.stream_state = State::Close;
+    result
+  }
+}
+
 impl<R> TokenStream for MockTokenizer<R>
 where
   R: Rng,
@@ -361,21 +382,6 @@ where
       Ok(())
     })();
     self.stream_state = State::Reset;
-    result
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.tokenizer_base.close()?;
-    let result: Result<()> = (|| {
-      if self.stream_state != State::End && self.stream_state != State::Close {
-        self.fail(format!(
-          "close() called in wrong state: {:?}",
-          self.stream_state
-        ))?;
-      }
-      Ok(())
-    })();
-    self.stream_state = State::Close;
     result
   }
 

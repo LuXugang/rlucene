@@ -93,6 +93,15 @@ where
   }
 }
 
+impl<TS> crate::core::util::close::Closeable for MockPayloadFilter<TS>
+where
+  TS: TokenStream,
+{
+  fn close(&mut self) -> Result<()> {
+    crate::core::util::close::Closeable::close(&mut self.token_filter_base)
+  }
+}
+
 impl<TS> TokenStream for MockPayloadFilter<TS>
 where
   TS: TokenStream,
@@ -124,10 +133,6 @@ where
     self.i = 0;
     self.pos = 0;
     Ok(())
-  }
-
-  fn close(&mut self) -> Result<()> {
-    self.token_filter_base.close()
   }
 
   fn set_reader(&mut self, input: ReaderEnum) -> Result<()> {
