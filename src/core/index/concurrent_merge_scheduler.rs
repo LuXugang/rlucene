@@ -73,18 +73,30 @@ const MIN_BIG_MERGE_MB: f64 = 50.0;
 ///
 /// Specify the max number of threads that may run at once, and the maximum number of simultaneous
 /// merges with [`ConcurrentMergeScheduler::set_max_merges_and_threads`].
+///
+/// If the number of merges exceeds the max number of threads then the largest merges are paused
+/// until one of the smaller merges completes.
+///
+/// If more than [`ConcurrentMergeScheduler::get_max_merge_count`] merges are requested then this
+/// scheduler will forcefully throttle the incoming threads by pausing until one or more merges
+/// complete.
+///
+/// This scheduler sets defaults based on Rust's view of the CPU count, and it assumes a solid state
+/// disk (or similar). If you have a spinning disk and want to maximize performance, use
+/// [`ConcurrentMergeScheduler::set_default_max_merges_and_threads`].
 #[derive(Clone)]
 pub struct ConcurrentMergeScheduler {
   inner: Arc<Mutex<Inner>>,
   changed: Arc<Condvar>,
 }
 
-/** List of currently active merge work. */
 struct Inner {
+  /** List of currently active merge work. */
   merge_threads: Vec<Arc<MergeThreadState>>,
   // Max number of merge threads allowed to be running at once. When there are more merges then
   // this, we forcefully pause the larger ones, letting the smaller ones run, up until
-  // max_merge_count merges at which point we forcefully pause incoming threads.
+  // max_merge_count merges at which point we forcefully pause incoming threads (that presumably
+  // are the ones causing so much merging).
   max_thread_count: i32,
   // Max number of merges we accept before forcefully throttling the incoming threads.
   max_merge_count: i32,
@@ -300,6 +312,8 @@ impl ConcurrentMergeScheduler {
    * first to last -- that way, smaller merges are guaranteed to run before larger ones.
    */
   fn update_merge_threads(inner: &mut Inner) -> Result<()> {
+    // Only look at threads that are alive and not in the process of stopping (i.e. have an active
+    // merge):
     let mut thread_idx = 0;
     while thread_idx < inner.merge_threads.len() {
       if !inner.merge_threads[thread_idx].is_alive() {
@@ -804,7 +818,7 @@ where
 }
 
 impl ConcurrentMergeScheduler {
-  /** Called when an exception is hit in a merge. */
+  /** Called when an exception is hit in a background merge thread. */
   fn handle_merge_exception(exc: LuceneError) -> LuceneError {
     let mut merge_error = crate::core::util::error::MergeError::new(format!("merge failed: {exc}"));
     merge_error.add_suppressed(exc);
