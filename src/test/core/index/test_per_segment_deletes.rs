@@ -25,6 +25,7 @@ use crate::core::index::multi_terms::get_term_postings_enum_with_flag;
 use crate::core::index::postings_enum::{NONE, PostingsEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -49,6 +50,7 @@ fn test_deletes1() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_scheduler(SerialMergeScheduler::new());
   iwc.set_max_buffered_docs(5000);
   iwc.set_ram_buffer_size_mb(100.0);
   iwc.set_merge_policy(MergePolicyEnum::Range(RangeMergePolicy::new(false)));
