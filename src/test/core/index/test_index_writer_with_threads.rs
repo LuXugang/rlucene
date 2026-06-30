@@ -167,10 +167,10 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
 
   let mut analyzer = MockAnalyzer::new(&mut rng);
   analyzer.set_max_token_length(TestUtil::next_int(&mut rng, 1, MAX_TERM_LENGTH));
-  let writer = Arc::new(IndexWriter::new(
+  let writer = IndexWriter::new(
     dir.clone(),
     new_index_writer_config_with_analyzer(&mut rng, analyzer)?,
-  )?);
+  )?;
   writer.commit()?;
 
   let writer_ref = Arc::new(Mutex::new(writer));
@@ -205,10 +205,10 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
               writer.rollback()?;
 
               let analyzer = MockAnalyzer::new(&mut random);
-              let new_writer = Arc::new(IndexWriter::new(
+              let new_writer = IndexWriter::new(
                 dir.clone(),
                 new_index_writer_config_with_analyzer(&mut random, analyzer)?,
-              )?);
+              )?;
               *writer_ref.lock() = new_writer;
               Ok(())
             },

@@ -21,7 +21,7 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
+use crate::core::index::index_writer::{DefaultIndexWriter, IndexWriter};
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
@@ -57,10 +57,7 @@ impl TestThreadedForceMerge {
     self.failed = true;
   }
 
-  fn set_merge_factor(
-    writer: &mut DefaultIndexWriterType<DirEnum>,
-    merge_factor: usize,
-  ) -> Result<()> {
+  fn set_merge_factor(writer: &DefaultIndexWriter<DirEnum>, merge_factor: usize) -> Result<()> {
     match writer.get_config_mut().get_merge_policy_mut() {
       MergePolicyEnum::LogDoc(mp) => mp.set_merge_factor(merge_factor),
       MergePolicyEnum::LogBytesSize(mp) => mp.set_merge_factor(merge_factor),
@@ -83,7 +80,7 @@ impl TestThreadedForceMerge {
     let field_to_type = Mutex::new(HashMap::new());
 
     for iter in 0..NUM_ITER {
-      Self::set_merge_factor(&mut writer, 1000)?;
+      Self::set_merge_factor(&writer, 1000)?;
 
       let mut custom_type = FieldType::from_ref(&*TYPE_STORED)?;
       custom_type.set_omit_norms(true)?;
@@ -109,7 +106,7 @@ impl TestThreadedForceMerge {
         writer.add_document(doc)?;
       }
 
-      Self::set_merge_factor(&mut writer, 4)?;
+      Self::set_merge_factor(&writer, 4)?;
 
       let thread_results = thread::scope(|scope| {
         let mut handles = Vec::new();

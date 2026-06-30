@@ -37,14 +37,14 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestSizeBoundedForceMerge;
 
-fn add_docs<D>(writer: &mut IndexWriter<D>, num_docs: i32) -> Result<()>
+fn add_docs<D>(writer: &IndexWriter<D>, num_docs: i32) -> Result<()>
 where
   D: Directory + 'static,
 {
   add_docs_with_id(writer, num_docs, false)
 }
 
-fn add_docs_with_id<D>(writer: &mut IndexWriter<D>, num_docs: i32, with_id: bool) -> Result<()>
+fn add_docs_with_id<D>(writer: &IndexWriter<D>, num_docs: i32, with_id: bool) -> Result<()>
 where
   D: Directory + 'static,
 {
@@ -79,11 +79,11 @@ fn test_byte_size_limit() -> Result<()> {
   let conf = new_writer_config(&mut random)?;
   let num_segments = 15;
   {
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
 
     for i in 0..num_segments {
       let num_docs = if i == 7 { 30 } else { 1 };
-      add_docs(&mut writer, num_docs)?;
+      add_docs(&writer, num_docs)?;
     }
     writer.close()?;
   }
@@ -121,14 +121,14 @@ fn test_num_docs_limit() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 5)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 5)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
     writer.close()?;
   }
 
@@ -153,11 +153,11 @@ fn test_last_segment_too_large() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 5)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 5)?;
     writer.close()?;
   }
 
@@ -182,11 +182,11 @@ fn test_first_segment_too_large() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs(&mut writer, 5)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs(&writer, 5)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
     writer.close()?;
   }
 
@@ -211,11 +211,11 @@ fn test_all_segments_small() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
     writer.close()?;
   }
 
@@ -240,10 +240,10 @@ fn test_all_segments_large() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
     writer.close()?;
   }
 
@@ -268,11 +268,11 @@ fn test_one_large_one_small() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 5)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 5)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 5)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 5)?;
     writer.close()?;
   }
 
@@ -297,14 +297,14 @@ fn test_merge_factor() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 5)?;
-    add_docs(&mut writer, 3)?;
-    add_docs(&mut writer, 3)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 5)?;
+    add_docs(&writer, 3)?;
+    add_docs(&writer, 3)?;
     writer.close()?;
   }
 
@@ -330,10 +330,10 @@ fn test_single_mergeable_segment() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs_with_id(&mut writer, 3, true)?;
-    add_docs_with_id(&mut writer, 5, true)?;
-    add_docs_with_id(&mut writer, 3, true)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs_with_id(&writer, 3, true)?;
+    add_docs_with_id(&writer, 5, true)?;
+    add_docs_with_id(&writer, 3, true)?;
     writer.delete_documents_with_terms(vec![Term::from_text("id", "10")])?;
     writer.close()?;
   }
@@ -360,8 +360,8 @@ fn test_single_non_mergeable_segment() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs_with_id(&mut writer, 3, true)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs_with_id(&writer, 3, true)?;
     writer.close()?;
   }
 
@@ -386,8 +386,8 @@ fn test_single_mergeable_too_large_segment() -> Result<()> {
 
   {
     let conf = new_writer_config(&mut random)?;
-    let mut writer = IndexWriter::new(dir.clone(), conf)?;
-    add_docs_with_id(&mut writer, 5, true)?;
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    add_docs_with_id(&writer, 5, true)?;
     writer.delete_documents_with_terms(vec![Term::from_text("id", "4")])?;
     writer.close()?;
   }

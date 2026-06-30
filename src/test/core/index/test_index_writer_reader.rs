@@ -590,7 +590,7 @@ fn test_during_add_indexes() -> Result<()> {
     .set_max_full_flush_merge_wait_millis(0)
     .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
   let writer_dir = Arc::new(DirectoryEnum2::A(dir1.clone()));
-  let writer = Arc::new(IndexWriter::new(writer_dir, iwc)?);
+  let writer = IndexWriter::new(writer_dir, iwc)?;
 
   create_index_no_close(false, "test", writer.as_ref())?;
   writer.commit()?;
@@ -676,7 +676,7 @@ fn test_during_add_delete() -> Result<()> {
     iwc.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
     iwc.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
   }
-  let writer = Arc::new(IndexWriter::new(dir1.clone(), iwc)?);
+  let writer = IndexWriter::new(dir1.clone(), iwc)?;
 
   create_index_no_close(false, "test", writer.as_ref())?;
   writer.commit()?;

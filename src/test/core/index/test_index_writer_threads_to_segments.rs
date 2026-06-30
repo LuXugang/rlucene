@@ -58,10 +58,10 @@ fn test_segment_count_on_flush_basic() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let w = Arc::new(IndexWriter::new(
+  let w = IndexWriter::new(
     dir,
     new_index_writer_config_with_analyzer(&mut random, analyzer)?,
-  )?);
+  )?;
   let starting_gun = Arc::new(Barrier::new(3));
   let start_done = Arc::new(Barrier::new(3));
   let middle_gun = Arc::new(Barrier::new(3));
@@ -192,7 +192,7 @@ fn test_segment_count_on_flush_random() -> Result<()> {
   // Never trigger merges (so we can simplistically count flushed segments).
   iwc.set_merge_policy(NoMergePolicy::default());
 
-  let w = Arc::new(IndexWriter::new(dir, iwc)?);
+  let w = IndexWriter::new(dir, iwc)?;
 
   // How many threads are indexing in the current cycle.
   let indexing_count = Arc::new(AtomicUsize::new(0));
@@ -325,7 +325,7 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_ram_buffer_size_mb(0.2);
   iwc.set_merge_policy(NoMergePolicy::default());
-  let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
   let starting_gun = Arc::new(Barrier::new(3));
 
   thread::scope(|scope| -> Result<()> {

@@ -72,12 +72,12 @@ fn test_delete_left_over_files() -> Result<()> {
     .set_max_buffered_docs(10)
     .set_merge_policy(merge_policy)
     .set_use_compound_file(true);
-  let mut writer = IndexWriter::new(dir.clone(), config)?;
+  let writer = IndexWriter::new(dir.clone(), config)?;
 
   let mut field_types = HashMap::new();
   let mut i = 0;
   while i < 35 {
-    add_doc(&mut random, &mut writer, i, &mut field_types)?;
+    add_doc(&mut random, &writer, i, &mut field_types)?;
     i += 1;
   }
   writer
@@ -87,7 +87,7 @@ fn test_delete_left_over_files() -> Result<()> {
     .set_no_cfs_ratio(0.0)?;
   writer.get_config_mut().set_use_compound_file(false);
   while i < 45 {
-    add_doc(&mut random, &mut writer, i, &mut field_types)?;
+    add_doc(&mut random, &writer, i, &mut field_types)?;
     i += 1;
   }
   writer.close()?;
@@ -251,7 +251,7 @@ where
 }
 fn add_doc<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   id: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>

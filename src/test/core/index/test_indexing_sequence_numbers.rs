@@ -182,7 +182,7 @@ fn test_stress_concurrent_commit() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
-  let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_threads = TestUtil::next_int(&mut random, 2, 10) as usize;
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
@@ -315,7 +315,7 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
-  let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_threads = TestUtil::next_int(&mut random, 2, 10) as usize;
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
@@ -445,7 +445,7 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
-  let w = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_threads = TestUtil::next_int(&mut random, 2, 5) as usize;
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));

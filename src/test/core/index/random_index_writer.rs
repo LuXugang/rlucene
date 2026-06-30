@@ -22,7 +22,8 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_writer::tests::INDEX_WRITER_ACCESS;
 use crate::core::index::index_writer::{
-  DocStats, IndexCommitWrapper, IndexWriter, IndexWriterHooks, IndexWriterHooksEnum,
+  DefaultIndexWriter, DocStats, IndexCommitWrapper, IndexWriter, IndexWriterHooks,
+  IndexWriterHooksEnum,
 };
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -56,7 +57,7 @@ pub struct RandomIndexWriter<D>
 where
   D: Directory + 'static,
 {
-  pub(crate) w: IndexWriter<D>,
+  pub(crate) w: DefaultIndexWriter<D>,
   flush_state: Mutex<FlushState>,
   get_reader_called: AtomicBool,
   soft_deletes_ratio: f64,
@@ -80,7 +81,7 @@ where
     dir: Arc<D>,
     conf: IndexWriterConfig<D>,
     r: &mut R,
-  ) -> Result<IndexWriter<D>>
+  ) -> Result<DefaultIndexWriter<D>>
   where
     R: Rng + ?Sized,
     D: Directory,
@@ -96,7 +97,7 @@ where
     dir: Arc<D>,
     mut conf: IndexWriterConfig<D>,
     test_point: TP,
-  ) -> Result<IndexWriter<D>>
+  ) -> Result<DefaultIndexWriter<D>>
   where
     R: Rng + ?Sized,
     D: Directory,

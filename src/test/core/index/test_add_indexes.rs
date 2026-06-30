@@ -66,8 +66,8 @@ fn test_simple_case() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
-  let mut writer = new_writer(dir.clone(), conf)?;
-  add_docs(&mut random, &mut writer, 100, &mut field_types)?;
+  let writer = new_writer(dir.clone(), conf)?;
+  add_docs(&mut random, &writer, 100, &mut field_types)?;
   assert_eq!(100, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
@@ -77,8 +77,8 @@ fn test_simple_case() -> Result<()> {
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, false)?);
-  let mut writer = new_writer(aux.clone(), conf)?;
-  add_docs(&mut random, &mut writer, 40, &mut field_types)?;
+  let writer = new_writer(aux.clone(), conf)?;
+  add_docs(&mut random, &writer, 40, &mut field_types)?;
   assert_eq!(40, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
@@ -86,8 +86,8 @@ fn test_simple_case() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
-  let mut writer = new_writer(aux2.clone(), conf)?;
-  add_docs2(&mut random, &mut writer, 50, &mut field_types)?;
+  let writer = new_writer(aux2.clone(), conf)?;
+  add_docs2(&mut random, &writer, 50, &mut field_types)?;
   assert_eq!(50, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
@@ -109,8 +109,8 @@ fn test_simple_case() -> Result<()> {
   let aux3 = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  let mut writer = new_writer(aux3.clone(), conf)?;
-  add_docs(&mut random, &mut writer, 40, &mut field_types)?;
+  let writer = new_writer(aux3.clone(), conf)?;
+  add_docs(&mut random, &writer, 40, &mut field_types)?;
   assert_eq!(40, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
@@ -164,8 +164,8 @@ fn test_simple_case() -> Result<()> {
   let aux4 = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  let mut writer = new_writer(aux4.clone(), conf)?;
-  add_docs2(&mut random, &mut writer, 1, &mut field_types)?;
+  let writer = new_writer(aux4.clone(), conf)?;
+  add_docs2(&mut random, &writer, 1, &mut field_types)?;
   writer.close()?;
   drop(writer);
 
@@ -384,8 +384,8 @@ fn test_add_self() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  let mut writer = new_writer(dir.clone(), conf)?;
-  add_docs(&mut random, &mut writer, 100, &mut field_types)?;
+  let writer = new_writer(dir.clone(), conf)?;
+  add_docs(&mut random, &writer, 100, &mut field_types)?;
   assert_eq!(100, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
@@ -395,8 +395,8 @@ fn test_add_self() -> Result<()> {
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(1000);
   conf.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, false)?);
-  let mut writer = new_writer(aux.clone(), conf)?;
-  add_docs(&mut random, &mut writer, 40, &mut field_types)?;
+  let writer = new_writer(aux.clone(), conf)?;
+  add_docs(&mut random, &writer, 40, &mut field_types)?;
   writer.close()?;
   drop(writer);
 
@@ -405,8 +405,8 @@ fn test_add_self() -> Result<()> {
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(1000);
   conf.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, false)?);
-  let mut writer = new_writer(aux.clone(), conf)?;
-  add_docs(&mut random, &mut writer, 100, &mut field_types)?;
+  let writer = new_writer(aux.clone(), conf)?;
+  add_docs(&mut random, &writer, 100, &mut field_types)?;
   writer.close()?;
   drop(writer);
 
@@ -442,8 +442,8 @@ fn test_no_tail_segments() -> Result<()> {
   conf.set_open_mode(OpenMode::Append);
   conf.set_max_buffered_docs(10);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
-  let mut writer = new_writer(dir.clone(), conf)?;
-  add_docs(&mut random, &mut writer, 10, &mut field_types)?;
+  let writer = new_writer(dir.clone(), conf)?;
+  add_docs(&mut random, &writer, 10, &mut field_types)?;
 
   writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
   assert_eq!(1040, writer.get_doc_stats()?.max_doc);
@@ -604,7 +604,7 @@ fn test_more_merges() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-fn new_writer<D>(dir: Arc<D>, mut conf: IndexWriterConfig<D>) -> Result<IndexWriter<D>>
+fn new_writer<D>(dir: Arc<D>, mut conf: IndexWriterConfig<D>) -> Result<Arc<IndexWriter<D>>>
 where
   D: Directory + 'static,
 {
@@ -613,7 +613,7 @@ where
 }
 fn add_docs<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   num_docs: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
@@ -640,7 +640,7 @@ where
 
 fn add_docs2<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   num_docs: i32,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
@@ -766,12 +766,12 @@ where
   let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
   conf.set_open_mode(OpenMode::Create);
   conf.set_max_buffered_docs(1000);
-  let mut writer = new_writer(dir.clone(), conf)?;
+  let writer = new_writer(dir.clone(), conf)?;
 
   if with_id {
     add_docs_with_id(random, &writer, 1000, 0, field_types)?;
   } else {
-    add_docs(random, &mut writer, 1000, field_types)?;
+    add_docs(random, &writer, 1000, field_types)?;
   }
   assert_eq!(1000, writer.get_doc_stats()?.max_doc);
   assert_eq!(1, writer.get_segment_count());
@@ -792,7 +792,7 @@ where
     if with_id {
       add_docs_with_id(random, &writer, 10, 10 * i, field_types)?;
     } else {
-      add_docs(random, &mut writer, 10, field_types)?;
+      add_docs(random, &writer, 10, field_types)?;
     }
     writer.close()?;
     drop(writer);
@@ -899,7 +899,7 @@ fn test_hang_on_close() -> Result<()> {
 }
 fn add_doc<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>
 where

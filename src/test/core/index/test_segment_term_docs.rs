@@ -139,36 +139,21 @@ fn test_skip_to() -> Result<()> {
   let mut field_types = HashMap::new();
   let mock = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let ta = Term::from_text("content", "aaa");
   for _ in 0..10 {
-    add_doc(
-      &mut random,
-      &mut writer,
-      "aaa aaa aaa aaa",
-      &mut field_types,
-    )?;
+    add_doc(&mut random, &writer, "aaa aaa aaa aaa", &mut field_types)?;
   }
 
   let tb = Term::from_text("content", "bbb");
   for _ in 0..16 {
-    add_doc(
-      &mut random,
-      &mut writer,
-      "bbb bbb bbb bbb",
-      &mut field_types,
-    )?;
+    add_doc(&mut random, &writer, "bbb bbb bbb bbb", &mut field_types)?;
   }
 
   let tc = Term::from_text("content", "ccc");
   for _ in 0..50 {
-    add_doc(
-      &mut random,
-      &mut writer,
-      "ccc ccc ccc ccc",
-      &mut field_types,
-    )?;
+    add_doc(&mut random, &writer, "ccc ccc ccc ccc", &mut field_types)?;
   }
   writer.force_merge(1)?;
   writer.close()?;
@@ -352,7 +337,7 @@ fn test_skip_to() -> Result<()> {
 }
 fn add_doc<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   value: &str,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>

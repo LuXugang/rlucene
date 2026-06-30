@@ -365,11 +365,11 @@ where
   let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   config.set_open_mode(OpenMode::Create);
 
-  let mut writer = IndexWriter::new(dir, config)?;
+  let writer = IndexWriter::new(dir, config)?;
   let mut doc_count: i32 = 0;
 
   for v in values {
-    insert_doc(random, &mut writer, &mut doc_count, v, field_to_type)?;
+    insert_doc(random, &writer, &mut doc_count, v, field_to_type)?;
   }
 
   writer.close()?;
@@ -390,15 +390,15 @@ where
   let a = MockAnalyzer::with_automaton(random, mock_tokenizer::WHITESPACE.clone(), false);
   let mut config = new_index_writer_config_with_analyzer(random, a)?;
   config.set_open_mode(OpenMode::Append);
-  let mut writer = IndexWriter::new(dir, config)?;
-  insert_doc(random, &mut writer, doc_count, content, field_to_type)?;
+  let writer = IndexWriter::new(dir, config)?;
+  insert_doc(random, &writer, doc_count, content, field_to_type)?;
   writer.close()?;
   Ok(())
 }
 
 fn insert_doc<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   doc_count: &mut i32,
   content: &str,
   field_to_type: &mut HashMap<String, FieldType>,

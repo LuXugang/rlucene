@@ -193,7 +193,7 @@ fn test_stress_multi_threading() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  let writer = Arc::new(IndexWriter::new(dir.clone(), conf)?);
+  let writer = IndexWriter::new(dir.clone(), conf)?;
 
   // create index
   let num_fields = TestUtil::next_int(&mut random, 2, 4);
@@ -311,9 +311,7 @@ fn test_stress_multi_threading() -> Result<()> {
     Ok(())
   })?;
 
-  Arc::try_unwrap(writer)
-    .map_err(|_| LuceneError::illegal_state("writer still shared"))?
-    .close()?;
+  writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
   let reader = get_context(reader)?;
@@ -554,7 +552,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let conf = new_index_writer_config(&mut random)?;
-  let writer = Arc::new(IndexWriter::new(dir.clone(), conf)?);
+  let writer = IndexWriter::new(dir.clone(), conf)?;
   let num_locks = 25 + random.random_range(0..50);
   let mut values = Vec::new();
 
@@ -666,9 +664,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
     }
   }
   reader.close()?;
-  Arc::try_unwrap(writer)
-    .map_err(|_| LuceneError::illegal_state("writer still shared"))?
-    .close()?;
+  writer.close()?;
   Ok(())
 }
 

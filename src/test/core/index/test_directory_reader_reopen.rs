@@ -517,7 +517,7 @@ where
 {
   fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>>;
 
-  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<IndexWriter<D>>
+  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<Arc<IndexWriter<D>>>
   where
     R: Rng + ?Sized;
 }
@@ -546,7 +546,7 @@ where
     directory_reader::open(self.dir.clone())
   }
 
-  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<IndexWriter<D>>
+  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<Arc<IndexWriter<D>>>
   where
     R: Rng + ?Sized,
   {
@@ -579,7 +579,7 @@ where
     directory_reader::open(self.dir.clone())
   }
 
-  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<IndexWriter<D>>
+  fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<Arc<IndexWriter<D>>>
   where
     R: Rng + ?Sized,
   {
@@ -594,7 +594,7 @@ where
   }
 }
 
-fn perform_default_tests<R, D, T>(random: &mut R, test: &T, iw: IndexWriter<D>) -> Result<()>
+fn perform_default_tests<R, D, T>(random: &mut R, test: &T, iw: Arc<IndexWriter<D>>) -> Result<()>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,
@@ -655,8 +655,8 @@ fn refresh_reader<R, D>(
   random: &mut R,
   reader: &Arc<StandardDirectoryReaderType<D>>,
   has_changes: bool,
-  iw: IndexWriter<D>,
-) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
+  iw: Arc<IndexWriter<D>>,
+) -> Result<(ReaderCouple<D>, Arc<IndexWriter<D>>)>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,
@@ -677,8 +677,8 @@ fn refresh_reader_with_test<R, D, T>(
   test: Option<&T>,
   modify: i32,
   has_changes: bool,
-  iw: Option<IndexWriter<D>>,
-) -> Result<(ReaderCouple<D>, IndexWriter<D>)>
+  iw: Option<Arc<IndexWriter<D>>>,
+) -> Result<(ReaderCouple<D>, Arc<IndexWriter<D>>)>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,
@@ -715,7 +715,11 @@ where
   Ok((ReaderCouple::new(r, refreshed_reader), iw))
 }
 
-fn create_index<R, D>(random: &mut R, dir: Arc<D>, multi_segment: bool) -> Result<IndexWriter<D>>
+fn create_index<R, D>(
+  random: &mut R,
+  dir: Arc<D>,
+  multi_segment: bool,
+) -> Result<Arc<IndexWriter<D>>>
 where
   R: rand::Rng + ?Sized,
   D: Directory + 'static,
@@ -748,7 +752,7 @@ where
   Ok(writer)
 }
 
-fn modify_index<D, R>(random: &mut R, i: i32, dir: Arc<D>) -> Result<IndexWriter<D>>
+fn modify_index<D, R>(random: &mut R, i: i32, dir: Arc<D>) -> Result<Arc<IndexWriter<D>>>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,

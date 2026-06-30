@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
+use crate::core::index::index_writer::{DefaultIndexWriter, IndexWriter};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::store::directory::Directory;
@@ -34,7 +34,7 @@ use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestTermVectors;
-fn create_writer<D, R>(random: &mut R, dir: Arc<D>) -> Result<DefaultIndexWriterType<D>>
+fn create_writer<D, R>(random: &mut R, dir: Arc<D>) -> Result<DefaultIndexWriter<D>>
 where
   D: Directory + 'static,
   R: Rng + ?Sized,

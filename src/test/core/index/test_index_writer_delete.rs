@@ -118,14 +118,14 @@ fn test_non_ram_delete() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_max_buffered_docs(2);
 
-  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+  let modifier = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut id = 0;
   let value = 100;
 
   for _ in 0..7 {
     id += 1;
-    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
   }
 
   modifier.commit()?;
@@ -168,7 +168,7 @@ fn test_both_deletes() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_max_buffered_docs(100);
 
-  let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut id = 0;
   let mut value = 100;
@@ -176,20 +176,20 @@ fn test_both_deletes() -> Result<()> {
   // First 5 docs, value=100
   for _ in 0..5 {
     id += 1;
-    add_doc(&mut random, &mut writer, id, value, &mut field_types)?;
+    add_doc(&mut random, &writer, id, value, &mut field_types)?;
   }
 
   value = 200;
   for _ in 0..5 {
     id += 1;
-    add_doc(&mut random, &mut writer, id, value, &mut field_types)?;
+    add_doc(&mut random, &writer, id, value, &mut field_types)?;
   }
 
   writer.commit()?;
 
   for _ in 0..5 {
     id += 1;
-    add_doc(&mut random, &mut writer, id, value, &mut field_types)?;
+    add_doc(&mut random, &writer, id, value, &mut field_types)?;
   }
 
   writer.delete_documents_with_terms(vec![Term::from_text("value", value.to_string())])?;
@@ -214,14 +214,14 @@ fn test_batch_deletes() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_max_buffered_docs(2);
 
-  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+  let modifier = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut id = 0;
   let value = 100;
 
   for _ in 0..7 {
     id += 1;
-    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
   }
 
   modifier.commit()?;
@@ -273,14 +273,14 @@ fn test_delete_all_simple() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_max_buffered_docs(2);
 
-  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+  let modifier = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut id = 0;
   let value = 100;
 
   for _ in 0..7 {
     id += 1;
-    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
   }
   modifier.commit()?;
 
@@ -288,7 +288,7 @@ fn test_delete_all_simple() -> Result<()> {
   assert_eq!(7, reader.num_docs()?);
   reader.close()?;
 
-  add_doc(&mut random, &mut modifier, 99, value, &mut field_types)?;
+  add_doc(&mut random, &modifier, 99, value, &mut field_types)?;
 
   modifier.delete_all()?;
 
@@ -296,8 +296,8 @@ fn test_delete_all_simple() -> Result<()> {
   assert_eq!(7, reader.num_docs()?);
   reader.close()?;
 
-  add_doc(&mut random, &mut modifier, 101, value, &mut field_types)?;
-  update_doc(&mut random, &mut modifier, 102, value, &mut field_types)?;
+  add_doc(&mut random, &modifier, 101, value, &mut field_types)?;
+  update_doc(&mut random, &modifier, 102, value, &mut field_types)?;
 
   modifier.commit()?;
 
@@ -403,19 +403,19 @@ fn test_delete_all_rollback() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_max_buffered_docs(2);
 
-  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+  let modifier = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut id = 0;
   let value = 100;
 
   for _ in 0..7 {
     id += 1;
-    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
   }
   modifier.commit()?;
 
   id += 1;
-  add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+  add_doc(&mut random, &modifier, id, value, &mut field_types)?;
 
   let reader = directory_reader::open(dir.clone())?;
   assert_eq!(7, reader.num_docs()?);
@@ -442,14 +442,14 @@ fn test_delete_all_nrt() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_max_buffered_docs(2);
 
-  let mut modifier = IndexWriter::new(dir.clone(), iwc)?;
+  let modifier = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut id = 0;
   let value = 100;
 
   for _ in 0..7 {
     id += 1;
-    add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
   }
   modifier.commit()?;
 
@@ -458,9 +458,9 @@ fn test_delete_all_nrt() -> Result<()> {
   reader.close()?;
 
   id += 1;
-  add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+  add_doc(&mut random, &modifier, id, value, &mut field_types)?;
   id += 1;
-  add_doc(&mut random, &mut modifier, id, value, &mut field_types)?;
+  add_doc(&mut random, &modifier, id, value, &mut field_types)?;
 
   modifier.delete_all()?;
 
@@ -490,7 +490,7 @@ fn test_delete_all_repeated() -> Result<()> {
   conf.get_base_mut().per_thread_hard_limit_mb = 1000;
   conf.get_base_mut().check_pending_flush_on_update = false;
 
-  let modifier = Arc::new(IndexWriter::new(dir.clone(), conf)?);
+  let modifier = IndexWriter::new(dir.clone(), conf)?;
   let fields_per_doc = 1_000_i64;
   let num_fields = Arc::new(AtomicI64::new(0));
   let n_threads = at_least(&mut random, 8) as usize;
@@ -531,7 +531,7 @@ fn test_delete_all_repeated() -> Result<()> {
 }
 fn update_doc<D, R>(
   random: &mut R,
-  modifier: &mut IndexWriter<D>,
+  modifier: &IndexWriter<D>,
   id: i32,
   value: i32,
   field_types: &mut HashMap<String, FieldType>,
@@ -571,7 +571,7 @@ where
 
 fn add_doc<D, R>(
   random: &mut R,
-  modifier: &mut IndexWriter<D>,
+  modifier: &IndexWriter<D>,
   id: i32,
   value: i32,
   field_types: &mut HashMap<String, FieldType>,
@@ -650,11 +650,11 @@ fn test_delete_null_query() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
   let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
-  let mut modifier = IndexWriter::new(dir, iwc)?;
+  let modifier = IndexWriter::new(dir, iwc)?;
   let mut field_types = HashMap::new();
 
   for i in 0..5 {
-    add_doc(&mut random, &mut modifier, i, 2 * i, &mut field_types)?;
+    add_doc(&mut random, &modifier, i, 2 * i, &mut field_types)?;
   }
 
   modifier

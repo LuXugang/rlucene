@@ -47,14 +47,14 @@ fn test_term_enum() -> Result<()> {
   {
     let mock = MockAnalyzer::new(&mut random);
     let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
-    let mut writer = IndexWriter::new(dir.clone(), iwc)?;
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     // ADD 100 documents with term : aaa
     // ADD 100 documents with terms: aaa bbb
     // => term "aaa" docFreq = 200, term "bbb" docFreq = 100
     for _ in 0..100 {
-      add_doc(&mut random, &mut writer, "aaa", &mut field_types)?;
-      add_doc(&mut random, &mut writer, "aaa bbb", &mut field_types)?;
+      add_doc(&mut random, &writer, "aaa", &mut field_types)?;
+      add_doc(&mut random, &writer, "aaa bbb", &mut field_types)?;
     }
 
     writer.close()?;
@@ -79,8 +79,8 @@ fn test_prev_term_at_end() -> Result<()> {
 
   let mock = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  let mut writer = IndexWriter::new(dir.clone(), iwc)?;
-  add_doc(&mut random, &mut writer, "aaa bbb", &mut field_types)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  add_doc(&mut random, &writer, "aaa bbb", &mut field_types)?;
   writer.close()?;
 
   let reader = get_only_leaf_reader(directory_reader::open(dir.clone())?)?;
@@ -141,7 +141,7 @@ fn verify_doc_freq(dir: Arc<DirEnum>) -> Result<()> {
 
 fn add_doc<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   value: &str,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>

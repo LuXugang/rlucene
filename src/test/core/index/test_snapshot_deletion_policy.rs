@@ -197,7 +197,7 @@ fn run_test(rng: &mut impl rand::Rng, dir: Arc<DirEnum>) -> Result<()> {
   config
     .set_index_deletion_policy(dp.clone())
     .set_max_buffered_docs(2);
-  let writer = Arc::new(IndexWriter::new(dir.clone(), config)?);
+  let writer = IndexWriter::new(dir.clone(), config)?;
 
   // Verify we catch misuse:
   assert!(
@@ -334,10 +334,7 @@ fn test_multi_threaded_snapshotting() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let sdp = get_deletion_policy();
-  let writer = Arc::new(IndexWriter::new(
-    dir.clone(),
-    get_config(&mut random, Some(sdp.clone()))?,
-  )?);
+  let writer = IndexWriter::new(dir.clone(), get_config(&mut random, Some(sdp.clone()))?)?;
 
   let snapshots = Arc::new(Mutex::new(vec![None; NUM_THREADS]));
   let starting_gun = Arc::new(Barrier::new(1 + NUM_THREADS));

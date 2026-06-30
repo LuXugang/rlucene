@@ -81,11 +81,11 @@ fn test_query() -> Result<()> {
   iwc.set_max_buffered_docs(2);
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
 
-  let mut iw = IndexWriter::new(dir.clone(), iwc)?;
+  let iw = IndexWriter::new(dir.clone(), iwc)?;
   let mut field_to_type = HashMap::new();
-  add_doc("one", &mut iw, &mut random, &mut field_to_type)?;
-  add_doc("two", &mut iw, &mut random, &mut field_to_type)?;
-  add_doc("three", &mut iw, &mut random, &mut field_to_type)?;
+  add_doc("one", &iw, &mut random, &mut field_to_type)?;
+  add_doc("two", &iw, &mut random, &mut field_to_type)?;
+  add_doc("three", &iw, &mut random, &mut field_to_type)?;
 
   let reader = directory_reader::open_from_writer(&iw)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -158,7 +158,7 @@ fn test_equals() -> Result<()> {
 
 fn add_doc<R, D>(
   text: &str,
-  iw: &mut IndexWriter<D>,
+  iw: &IndexWriter<D>,
   random: &mut R,
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<()>

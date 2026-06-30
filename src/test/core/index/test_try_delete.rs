@@ -42,7 +42,7 @@ mod tests {
   use rand::RngExt;
   use std::sync::Arc;
 
-  fn get_writer(directory: Arc<DirEnum>) -> Result<IndexWriter<DirEnum>> {
+  fn get_writer(directory: Arc<DirEnum>) -> Result<Arc<IndexWriter<DirEnum>>> {
     let mut random = random();
     let mp = LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size();
     let a = MockAnalyzer::new(&mut random);

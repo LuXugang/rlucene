@@ -225,23 +225,16 @@ where
   }
 }
 
-pub type DefaultIndexWriterType<D> = IndexWriter<D>;
+pub type DefaultIndexWriter<D> = Arc<IndexWriter<D>>;
 impl<D> IndexWriter<D>
 where
   D: Directory,
 {
-  pub fn new(d: Arc<D>, conf: IndexWriterConfig<D>) -> Result<Self>
+  pub fn new(d: Arc<D>, conf: IndexWriterConfig<D>) -> Result<Arc<Self>>
   where
     D: 'static,
   {
     Self::with_hooks(d, conf, Some(EmptyIndexWriterHooks.into()))
-  }
-
-  pub fn new_arc(d: Arc<D>, conf: IndexWriterConfig<D>) -> Result<Arc<Self>>
-  where
-    D: 'static,
-  {
-    Ok(Self::new(d, conf)?.into_arc())
   }
 }
 
@@ -278,7 +271,7 @@ where
   fn new_merge_source(&self) -> Result<IndexWriterMergeSource<D>> {
     let writer = self.arc_self().ok_or_else(|| {
       LuceneError::illegal_state(
-        "background merges require IndexWriter to be constructed with IndexWriter::new_arc",
+        "background merges require IndexWriter to be constructed as Arc<IndexWriter>",
       )
     })?;
     Ok(IndexWriterMergeSource::new(writer))
@@ -287,7 +280,7 @@ where
   fn new_add_indexes_merge_source(&self) -> Result<AddIndexesMergeSource<D>> {
     let writer = self.arc_self().ok_or_else(|| {
       LuceneError::illegal_state(
-        "background addIndexes merges require IndexWriter to be constructed with IndexWriter::new_arc",
+        "background addIndexes merges require IndexWriter to be constructed as Arc<IndexWriter>",
       )
     })?;
     Ok(AddIndexesMergeSource::new(writer))
@@ -303,29 +296,18 @@ where
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
     sub: Option<IndexWriterHooksEnum>,
-  ) -> Result<Self>
+  ) -> Result<Arc<Self>>
   where
     D: 'static,
   {
     Self::with_index_commit_and_hook(d, conf, sub, IndexCommitWrapper::default())
   }
 
-  pub fn with_hooks_arc(
-    d: Arc<D>,
-    conf: IndexWriterConfig<D>,
-    sub: Option<IndexWriterHooksEnum>,
-  ) -> Result<Arc<Self>>
-  where
-    D: 'static,
-  {
-    Ok(Self::with_hooks(d, conf, sub)?.into_arc())
-  }
-
   pub fn with_index_commit<IC, C>(
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
     index_commit: IndexCommitWrapper<IC, C, D>,
-  ) -> Result<Self>
+  ) -> Result<Arc<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
     C: Comparator<DefaultLeafReader<D>> + Clone,
@@ -334,39 +316,12 @@ where
     Self::with_index_commit_and_hook(d, conf, Some(EmptyIndexWriterHooks.into()), index_commit)
   }
 
-  pub fn with_index_commit_arc<IC, C>(
-    d: Arc<D>,
-    conf: IndexWriterConfig<D>,
-    index_commit: IndexCommitWrapper<IC, C, D>,
-  ) -> Result<Arc<Self>>
-  where
-    IC: IndexCommit<Directory = Arc<D>>,
-    C: Comparator<DefaultLeafReader<D>> + Clone,
-    D: 'static,
-  {
-    Ok(Self::with_index_commit(d, conf, index_commit)?.into_arc())
-  }
-
-  pub fn with_index_commit_and_hook_arc<IC, C>(
-    d: Arc<D>,
-    conf: IndexWriterConfig<D>,
-    hooks: Option<IndexWriterHooksEnum>,
-    index_commit_wrapper: IndexCommitWrapper<IC, C, D>,
-  ) -> Result<Arc<Self>>
-  where
-    IC: IndexCommit<Directory = Arc<D>>,
-    C: Comparator<DefaultLeafReader<D>> + Clone,
-    D: 'static,
-  {
-    Ok(Self::with_index_commit_and_hook(d, conf, hooks, index_commit_wrapper)?.into_arc())
-  }
-
   pub fn with_index_commit_and_hook<IC, C>(
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
     hooks: Option<IndexWriterHooksEnum>,
     mut index_commit_wrapper: IndexCommitWrapper<IC, C, D>,
-  ) -> Result<Self>
+  ) -> Result<Arc<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
     C: Comparator<DefaultLeafReader<D>> + Clone,
@@ -709,7 +664,7 @@ where
         CloseableRef::close,
       )?;
     }
-    result
+    result.map(Self::into_arc)
   }
 
   pub(crate) fn get_index_major_version_created(&self) -> i32 {
@@ -6766,7 +6721,7 @@ where
   pub fn new(
     commit: Option<IC>,
     reader: Option<StandardDirectoryReader<C, D>>,
-    old_writer: Option<IndexWriter<D>>,
+    old_writer: Option<Arc<IndexWriter<D>>>,
   ) -> Result<Self> {
     let (old_index_writer_closed, segment_infos) = if let (Some(reader), Some(old_writer)) =
       (&reader, old_writer)

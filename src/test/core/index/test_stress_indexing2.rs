@@ -157,7 +157,7 @@ fn test_multi_config() -> Result<()> {
 
 struct DocsAndWriter {
   docs: HashMap<String, Document>,
-  writer: IndexWriter<DirEnum>,
+  writer: Arc<IndexWriter<DirEnum>>,
 }
 #[allow(clippy::too_many_arguments)]
 fn index_random_iw_reader<R>(

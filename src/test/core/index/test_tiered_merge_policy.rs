@@ -491,7 +491,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
   conf.set_merge_policy(tmp);
   conf.set_merge_scheduler(SerialMergeScheduler::new());
 
-  let mut w = IndexWriter::new(dir.clone(), conf)?;
+  let w = IndexWriter::new(dir.clone(), conf)?;
 
   let mut field_to_type = HashMap::new();
 
@@ -525,7 +525,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
   check_segment_size_not_exceeded(&w.clone_segment_infos()?, max_seg_bytes)?;
 
   let pct = TestUtil::next_int(&mut random, 0, 4) + 12;
-  let mut remaining_docs = num_docs - delete_pct_docs_from_each_seg(&mut w, pct, true)?;
+  let mut remaining_docs = num_docs - delete_pct_docs_from_each_seg(&w, pct, true)?;
   w.force_merge_deletes()?;
   w.commit()?;
   check_segment_size_not_exceeded(&w.clone_segment_infos()?, max_seg_bytes)?;
@@ -533,7 +533,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
 
   seg_names_before = get_segment_names(&w)?;
   let pct = TestUtil::next_int(&mut random, 0, 3) + 3;
-  let deleted_this_pass = delete_pct_docs_from_each_seg(&mut w, pct, false)?;
+  let deleted_this_pass = delete_pct_docs_from_each_seg(&w, pct, false)?;
   w.force_merge_deletes()?;
   remaining_docs -= deleted_this_pass;
   check_segments_in_expectations(&w, &seg_names_before, false)?;
@@ -550,7 +550,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
 
   seg_names_before = get_segment_names(&w)?;
   let pct = TestUtil::next_int(&mut random, 0, 4) + 1;
-  remaining_docs -= delete_pct_docs_from_each_seg(&mut w, pct, false)?;
+  remaining_docs -= delete_pct_docs_from_each_seg(&w, pct, false)?;
   w.force_merge_deletes()?;
   check_segments_in_expectations(&w, &seg_names_before, false)?;
   assert_eq!(1, w.get_segment_count());
@@ -559,7 +559,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
   w.force_merge(1)?;
 
   let pct = TestUtil::next_int(&mut random, 0, 4) + 20;
-  remaining_docs -= delete_pct_docs_from_each_seg(&mut w, pct, true)?;
+  remaining_docs -= delete_pct_docs_from_each_seg(&w, pct, true)?;
   w.force_merge_deletes()?;
 
   assert_eq!(1, w.get_segment_count());
@@ -568,7 +568,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
   assert!(w.get_doc_stats()?.num_docs > 1_000);
 
   let pct = (w.get_doc_stats()?.num_docs * 60) / 100;
-  let deleted_this_pass = delete_pct_docs_from_each_seg(&mut w, pct, true)?;
+  let deleted_this_pass = delete_pct_docs_from_each_seg(&w, pct, true)?;
   remaining_docs -= deleted_this_pass;
 
   for i in 0..50 {
@@ -917,7 +917,7 @@ where
   Ok(names)
 }
 
-fn delete_pct_docs_from_each_seg<D>(w: &mut IndexWriter<D>, pct: i32, round_up: bool) -> Result<i32>
+fn delete_pct_docs_from_each_seg<D>(w: &IndexWriter<D>, pct: i32, round_up: bool) -> Result<i32>
 where
   D: Directory + 'static,
 {

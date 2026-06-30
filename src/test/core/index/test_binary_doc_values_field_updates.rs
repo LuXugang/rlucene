@@ -65,7 +65,6 @@ use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
 #[cfg(feature = "nightly")]
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
 
@@ -1355,7 +1354,7 @@ fn test_stress_multi_threading() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  let writer = Arc::new(IndexWriter::new(dir.clone(), conf)?);
+  let writer = IndexWriter::new(dir.clone(), conf)?;
 
   let num_fields = TestUtil::next_int(&mut random, 1, 4);
   let num_docs = if is_night_mode() {

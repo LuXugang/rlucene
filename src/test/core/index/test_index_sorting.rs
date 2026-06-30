@@ -2179,7 +2179,7 @@ fn test_concurrent_updates() -> Result<()> {
   let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Long)?])?;
   iwc.set_index_sort(index_sort)?;
 
-  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
   let values = Arc::new(Mutex::new(HashMap::new()));
 
   let num_docs = at_least(&mut random, 100) as usize;
@@ -2320,7 +2320,7 @@ fn test_concurrent_dv_updates() -> Result<()> {
   let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Long)?])?;
   iwc.set_index_sort(index_sort)?;
 
-  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
   let values = Arc::new(Mutex::new(HashMap::new()));
 
   let num_docs = at_least(&mut random, 100) as usize;
@@ -3991,7 +3991,7 @@ fn test_block_contains_parent_field() -> Result<()> {
   let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
   iwc.set_index_sort(index_sort)?;
 
-  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let cases = if random.random_bool(0.5) {
     vec![0, 1]

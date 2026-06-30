@@ -2925,7 +2925,7 @@ fn test_many_separate_threads() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(1000);
-  let writer = Arc::new(IndexWriter::new(dir.clone(), iwc)?);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   for _ in 0..100 {
     let writer = writer.clone();
@@ -4759,17 +4759,17 @@ fn test_get_field_names() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   {
-    let mut writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+    let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     let mut field_types = HashMap::new();
 
     assert_eq!(HashSet::<String>::new(), writer.get_field_names());
 
-    add_doc_with_field(&mut random, &mut writer, "f1", &mut field_types)?;
+    add_doc_with_field(&mut random, &writer, "f1", &mut field_types)?;
     assert_eq!(HashSet::from(["f1".to_string()]), writer.get_field_names());
 
     let field_set = writer.get_field_names();
 
-    add_doc_with_field(&mut random, &mut writer, "f2", &mut field_types)?;
+    add_doc_with_field(&mut random, &writer, "f2", &mut field_types)?;
     assert_eq!(
       HashSet::from(["f1".to_string(), "f2".to_string()]),
       writer.get_field_names()
@@ -5270,7 +5270,7 @@ where
 
 fn add_doc_with_field<D, R>(
   random: &mut R,
-  writer: &mut IndexWriter<D>,
+  writer: &IndexWriter<D>,
   field: &str,
   field_types: &mut HashMap<String, FieldType>,
 ) -> Result<()>

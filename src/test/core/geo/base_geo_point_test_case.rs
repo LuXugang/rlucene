@@ -30,7 +30,7 @@ use crate::core::geo::rectangle::Rectangle;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::{DefaultIndexWriterType, IndexWriter};
+use crate::core::index::index_writer::{DefaultIndexWriter, IndexWriter};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_bits::get_live_docs;
@@ -1059,7 +1059,7 @@ pub trait BaseGeoPointTestCase {
     lats: &[f64],
     lons: &[f64],
     deleted: &mut HashSet<i32>,
-    w: &DefaultIndexWriterType<D>,
+    w: &DefaultIndexWriter<D>,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
