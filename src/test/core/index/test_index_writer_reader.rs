@@ -20,6 +20,7 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -42,11 +43,12 @@ use crate::core::store::directory::Directory;
 use crate::core::util::Comparator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
+use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
 use crate::test::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_index_writer_config,
-  new_log_merge_policy_with_merge_factor, new_mock_directory, new_text_field, random,
-  random_from_seed,
+  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
+  new_mock_directory, new_text_field, random, random_from_seed,
 };
 use crate::test::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -543,13 +545,45 @@ fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
 
 #[test]
 fn test_merge_warmer() -> Result<()> {
-  // TODO IMPORTANT ConcurrentMergeScheduler未实现
+  // TODO IMPORTANT merged segment warmer 未实现
   Ok(())
 }
 
 #[test]
 fn test_after_commit() -> Result<()> {
-  // TODO IMPORTANT ConcurrentMergeScheduler未实现
+  let mut random = random();
+  let dir1 = new_directory_shared(&mut random)?;
+  let cms = ConcurrentMergeScheduler::new();
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  iwc
+    .set_merge_scheduler(cms.clone())
+    .set_max_full_flush_merge_wait_millis(0);
+  let writer = IndexWriter::new(dir1.clone(), iwc)?;
+  writer.commit()?;
+
+  // create the index
+  create_index_no_close(false, "test", &writer)?;
+
+  // get a reader to put writer into near real-time mode
+  let mut r1 = directory_reader::open_from_writer(&writer)?;
+  TestUtil::check_index(dir1.clone())?;
+  writer.commit()?;
+  TestUtil::check_index(dir1)?;
+  assert_eq!(100, r1.num_docs()?);
+
+  for i in 0..10 {
+    writer.add_document(DocHelper::create_document(i, "test", 4))?;
+  }
+  cms.sync()?;
+
+  if let Some(r2) = directory_reader::open_if_changed(&r1, &writer)? {
+    r1.close()?;
+    r1 = r2;
+  }
+  assert_eq!(110, r1.num_docs()?);
+  writer.close()?;
+  r1.close()?;
   Ok(())
 }
 

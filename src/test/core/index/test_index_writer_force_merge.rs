@@ -20,6 +20,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::get_context;
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -115,10 +116,10 @@ fn test_max_num_segments2() -> Result<()> {
   ldmp.set_merge_factor(4)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  // TODO IMPORTANT ConcurrentMergeScheduler未实现
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_max_buffered_docs(2);
   iwc.set_merge_policy(ldmp);
+  iwc.set_merge_scheduler(ConcurrentMergeScheduler::new());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   for _ in 0..10 {

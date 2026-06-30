@@ -28,6 +28,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::multi_bits::get_live_docs;
 use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -581,7 +582,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     num_dims: usize,
     num_index_dims: usize,
     num_bytes_per_dim: usize,
-    _expect_exceptions: bool,
+    expect_exceptions: bool,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -602,7 +603,9 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     } else {
       new_index_writer_config(random)?
     };
-    // TODO ConcurrentMergeScheduler 未实现
+    if expect_exceptions && let MergeSchedulerEnum::Concurrent(cms) = iwc.get_merge_scheduler() {
+      cms.set_suppress_exceptions();
+    }
     let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
     let mut field_types = HashMap::new();
 

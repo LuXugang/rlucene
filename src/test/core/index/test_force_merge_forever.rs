@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{
@@ -68,8 +69,9 @@ fn test() -> Result<()> {
   let d = new_directory_shared(&mut random)?;
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
-  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  // TODO IMPORTANT ConcurrentMergeScheduler 未实现
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  // SerialMergeScheduler can cause this test to run indefinitely long:
+  iwc.set_merge_scheduler(ConcurrentMergeScheduler::new());
   let my_index_writer = MyIndexWriter::new();
   let merge_count = my_index_writer.merge_count.clone();
   let w = IndexWriter::with_hooks(

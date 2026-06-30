@@ -2787,7 +2787,7 @@ fn test_close_then_rollback() -> Result<()> {
 
 #[test]
 fn test_close_while_merge_is_running() -> Result<()> {
-  // TODO ConcurrentMergeScheduler未实现
+  // TODO ConcurrentMergeScheduler doMerge不能覆写
   Ok(())
 }
 

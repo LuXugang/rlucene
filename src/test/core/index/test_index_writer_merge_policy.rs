@@ -19,6 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -385,8 +386,8 @@ fn test_merge_doc_count_0() -> Result<()> {
   config
     .set_open_mode(OpenMode::Append)
     .set_max_buffered_docs(10)
-    .set_merge_policy(merge_policy);
-  // TODO IMPORTANT ConcurrentMergeScheduler未实现
+    .set_merge_policy(merge_policy)
+    .set_merge_scheduler(ConcurrentMergeScheduler::new());
   let writer = IndexWriter::new(dir, config)?;
 
   for _ in 0..10 {
