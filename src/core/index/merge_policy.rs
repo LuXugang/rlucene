@@ -51,6 +51,8 @@ use crate::test::core::index::test_index_writer_merge_policy::MergeOnXMergePolic
 #[cfg(test)]
 use crate::test::core::index::test_index_writer_merge_policy::MockMergePolicy;
 #[cfg(test)]
+use crate::test::core::index::test_index_writer_merge_policy::OnlyForceMergeMergePolicy;
+#[cfg(test)]
 use crate::test::core::index::test_per_segment_deletes::RangeMergePolicy;
 use parking_lot::{Condvar, MappedMutexGuard, Mutex, MutexGuard};
 use std::collections::{HashMap, HashSet};
@@ -461,6 +463,8 @@ pub enum MergePolicyEnum {
   #[cfg(test)]
   Force(ForceMergePolicy<MergePolicyEnum>),
   #[cfg(test)]
+  OnlyForceMerge(OnlyForceMergeMergePolicy),
+  #[cfg(test)]
   KeepFullyDeletedSegments(KeepFullyDeletedSegmentsMergePolicy),
   #[cfg(test)]
   Range(RangeMergePolicy),
@@ -498,6 +502,8 @@ impl Display for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => write!(f, "{}", mp),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => write!(f, "{}", mp),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => write!(f, "{}", mp),
@@ -522,6 +528,8 @@ impl MergePolicy for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.get_base(),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.get_base(),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.get_base(),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.get_base(),
@@ -543,6 +551,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::OneMergeWrapping(mp) => mp.get_base_mut(),
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.get_base_mut(),
+      #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.get_base_mut(),
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.get_base_mut(),
       #[cfg(test)]
@@ -583,6 +593,10 @@ impl MergePolicy for MergePolicyEnum {
       },
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
@@ -667,6 +681,14 @@ impl MergePolicy for MergePolicyEnum {
         merge_context,
       ),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.find_forced_merges(
         segment_infos,
         max_segment_count,
@@ -744,6 +766,10 @@ impl MergePolicy for MergePolicyEnum {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
@@ -800,6 +826,10 @@ impl MergePolicy for MergePolicyEnum {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -845,6 +875,10 @@ impl MergePolicy for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => {
+        mp.use_compound_file(infos, merged_info, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.use_compound_file(infos, merged_info, merge_context)
       },
@@ -873,6 +907,8 @@ impl MergePolicy for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.size(info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.size(info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.size(info, merge_context),
@@ -894,6 +930,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::OneMergeWrapping(mp) => mp.max_full_flush_merge_size(),
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.max_full_flush_merge_size(),
+      #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.max_full_flush_merge_size(),
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.max_full_flush_merge_size(),
       #[cfg(test)]
@@ -926,6 +964,8 @@ impl MergePolicy for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.has_merged(infos, info, merge_context),
@@ -951,6 +991,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::OneMergeWrapping(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.keep_fully_deleted_segment(reader_supplier)
@@ -989,6 +1031,10 @@ impl MergePolicy for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => {
+        mp.num_deletes_to_merge(info, del_count, reader_supplier)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
@@ -1019,6 +1065,8 @@ impl MergePolicy for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.seg_string(merge_context, infos),
@@ -1045,6 +1093,8 @@ impl MergePolicy for MergePolicyEnum {
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.message(message, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.message(message, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.message(message, merge_context),
@@ -1070,6 +1120,8 @@ impl MergePolicy for MergePolicyEnum {
       MergePolicyEnum::OneMergeWrapping(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::Force(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::OnlyForceMerge(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.verbose(merge_context),
       #[cfg(test)]

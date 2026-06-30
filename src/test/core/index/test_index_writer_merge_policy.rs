@@ -17,10 +17,12 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer::Inner;
@@ -29,31 +31,44 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecificationNoReader,
-  OneMerge, size,
+  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
+  MergeSpecificationNoReader, OneMerge, size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::one_merge_wrapping_merge_policy::{
+  NewOneMergeUnaryOperator, OneMergeWrappingMergePolicy,
+};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
-use crate::core::index::tiered_merge_policy::SegmentDocAndID;
+use crate::core::index::tiered_merge_policy::{SegmentDocAndID, TieredMergePolicy};
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::store::data_input::DataInput;
 use crate::test::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy, new_text_field,
+  create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_merge_policy, new_string_field, new_text_field,
   random,
 };
 
-use crate::core::index::index_reader::IndexReader;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::store::index_input::IndexInput;
+use crate::core::store::io_context::IOContext;
+use crate::core::store::random_access_input::RandomAccessInputWrapper;
+use crate::core::util::HasIdentity;
+use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
 use rand::Rng;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -786,5 +801,639 @@ fn test_merge_dv_update_file_on_commit_with_concurrent_flush() -> Result<()> {
 
 #[test]
 fn test_force_merge_with_pending_hard_and_soft_delete_file() -> Result<()> {
+  let mut random = random();
+  let temp_dir = create_temp_dir_with_prefix("testForceMergeWithPendingHardAndSoftDeleteFile")?;
+  let path = temp_dir.path().to_path_buf();
+  let fs_directory = new_fs_directory(&mut random, temp_dir)?;
+  let mock_directory = Arc::new(MockAssertFileExistDirectory::new(fs_directory, path));
+
+  let mock_merge_policy = OneMergeWrappingMergePolicy::new(
+    OnlyForceMergeMergePolicy::new(TieredMergePolicy::new()),
+    NewOneMergeUnaryOperator,
+  );
+  let mut config = new_index_writer_config(&mut random)?;
+  config.set_merge_policy(mock_merge_policy);
+
+  let writer = IndexWriter::new(mock_directory, config)?;
+  let mut field_types = HashMap::new();
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+  writer.commit()?;
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "2",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "3",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "5",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(doc)?;
+  writer.commit()?;
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "2",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "2",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.update_document_with_term(Term::from_text("id", "2"), doc)?;
+  writer.commit()?;
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "3",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "2",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.update_document_with_term(Term::from_text("id", "3"), doc)?;
+
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "version",
+    "2",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  let field = NumericDocValuesField::new("soft_delete", 1);
+  writer.soft_update_document(Term::from_text("id", "4"), doc, vec![field.into()])?;
+
+  let reader = writer.get_reader(true, false)?;
+  reader.close()?;
+  writer.commit()?;
+
+  writer.force_merge(1)?;
+  writer.close()?;
   Ok(())
+}
+
+struct MockAssertFileExistDirectory<D>
+where
+  D: Directory,
+{
+  in_: D,
+  path: PathBuf,
+  id: Identity,
+}
+
+impl<D> MockAssertFileExistDirectory<D>
+where
+  D: Directory,
+{
+  fn new(in_: D, path: PathBuf) -> Self {
+    Self {
+      in_,
+      path,
+      id: Identity::new(),
+    }
+  }
+}
+
+impl<D> Display for MockAssertFileExistDirectory<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "MockAssertFileExistDirectory({})", self.in_)
+  }
+}
+
+impl<D> Closeable for MockAssertFileExistDirectory<D>
+where
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    self.in_.close()
+  }
+}
+
+impl<D> HasIdentity for MockAssertFileExistDirectory<D>
+where
+  D: Directory,
+{
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
+}
+
+impl<D> Directory for MockAssertFileExistDirectory<D>
+where
+  D: Directory,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
+{
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.in_.list_all()
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.in_.delete_file(name)
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.in_.file_length(name)
+  }
+
+  type IndexOutput = D::IndexOutput;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.in_.create_output(name, context)
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.in_.create_temp_output(prefix, suffix, context)
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.in_.sync(names)
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    self.in_.sync_metadata()
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.in_.rename(source, dest)
+  }
+
+  type IndexInput = MockAssertFileExistIndexInput<D::IndexInput>;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    let index_input = self.in_.open_input(name, context)?;
+    Ok(MockAssertFileExistIndexInput::new(
+      name.to_string(),
+      index_input,
+      self.path.join(name),
+    ))
+  }
+
+  type Lock = D::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.in_.obtain_lock(name)
+  }
+
+  fn copy_from<F>(&self, from: &F, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    F: Directory + ?Sized,
+  {
+    self.in_.copy_from(from, src, dest, context)
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    self.in_.get_pending_deletions()
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    self.in_.is_fs_directory()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.in_.ensure_open()
+  }
+}
+
+struct MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput,
+{
+  name: String,
+  delegate: I,
+  file_path: PathBuf,
+}
+
+impl<I> MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn new(name: String, in_: I, file_path: PathBuf) -> Self {
+    Self {
+      name,
+      delegate: in_,
+      file_path,
+    }
+  }
+
+  fn check_file_exists(&self) -> Result<()> {
+    if !self.file_path.exists() {
+      return Err(LuceneError::io_with_path(
+        self.file_path.to_string_lossy().to_string(),
+        Error::new(
+          ErrorKind::NotFound,
+          self.file_path.to_string_lossy().to_string(),
+        ),
+      ));
+    }
+    Ok(())
+  }
+}
+
+impl<I> Closeable for MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
+impl<I> DataInput for MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn read_byte(&mut self) -> Result<u8> {
+    self.check_file_exists()?;
+    self.delegate.read_byte()
+  }
+
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.check_file_exists()?;
+    self.delegate.read_bytes(b, offset, len)
+  }
+
+  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    self.check_file_exists()?;
+    self.delegate.read_group_vint(dst, offset)
+  }
+
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    self.check_file_exists()?;
+    IndexInput::skip_bytes(&mut self.delegate, num_bytes)
+  }
+}
+
+impl<I> Display for MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "MockAssertFileExistIndexInput(name={} delegate={})",
+      self.name, self.delegate
+    )
+  }
+}
+
+impl<I> TryClone for MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(Self::new(
+      self.name.clone(),
+      self.delegate.try_clone()?,
+      self.file_path.clone(),
+    ))
+  }
+}
+
+impl<I> IndexInput for MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput<IndexInput = I>,
+{
+  type IndexInput = MockAssertFileExistIndexInput<I>;
+
+  fn get_file_pointer(&self) -> Result<usize> {
+    self.delegate.get_file_pointer()
+  }
+
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.check_file_exists()?;
+    self.delegate.seek(pos)
+  }
+
+  fn length(&self) -> Result<usize> {
+    self.delegate.length()
+  }
+
+  fn slice(
+    &self,
+    slice_description: &str,
+    offset: usize,
+    length: usize,
+  ) -> Result<Self::IndexInput> {
+    self.check_file_exists()?;
+    let slice = self.delegate.slice(slice_description, offset, length)?;
+    Ok(Self::new(
+      slice_description.to_string(),
+      slice,
+      self.file_path.clone(),
+    ))
+  }
+
+  type RandomAccessSlice = RandomAccessInputWrapper<MockAssertFileExistIndexInput<I>>;
+
+  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    Ok(RandomAccessInputWrapper::new(self.slice(
+      "randomaccess",
+      offset,
+      length,
+    )?))
+  }
+}
+
+#[derive(Clone)]
+pub struct OnlyForceMergeMergePolicy {
+  base: TieredMergePolicy,
+}
+
+impl OnlyForceMergeMergePolicy {
+  fn new(base: TieredMergePolicy) -> Self {
+    Self { base }
+  }
+}
+
+impl From<OnlyForceMergeMergePolicy> for MergePolicyEnum {
+  fn from(value: OnlyForceMergeMergePolicy) -> Self {
+    Self::OnlyForceMerge(value)
+  }
+}
+
+impl Display for OnlyForceMergeMergePolicy {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.base)
+  }
+}
+
+impl MergePolicy for OnlyForceMergeMergePolicy {
+  fn get_base(&self) -> &MergePolicyBase {
+    self.base.get_base()
+  }
+
+  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
+    self.base.get_base_mut()
+  }
+
+  fn find_merges<D, MC>(
+    &self,
+    _merge_trigger: MergeTrigger,
+    _segment_infos: &SegmentInfos<D>,
+    _inner: Option<&Inner<D>>,
+    _merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    // only allow force merge
+    Ok(None)
+  }
+
+  fn find_merges_readers<CR, D>(
+    &self,
+    readers: Vec<CR>,
+  ) -> Result<Option<MergeSpecification<D, CR>>>
+  where
+    CR: CodecReader,
+    D: Directory,
+  {
+    self.base.find_merges_readers(readers)
+  }
+
+  fn find_forced_merges<D, MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    max_segment_count: usize,
+    segments_to_merge: &HashMap<String, Option<bool>>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.base.find_forced_merges(
+      segment_infos,
+      max_segment_count,
+      segments_to_merge,
+      inner,
+      merge_context,
+    )
+  }
+
+  fn find_forced_deletes_merges<D, MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .base
+      .find_forced_deletes_merges(segment_infos, inner, merge_context)
+  }
+
+  fn find_full_flush_merges<D, MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .base
+      .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+  }
+
+  fn use_compound_file<D, MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    merged_info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self
+      .base
+      .use_compound_file(infos, merged_info, merge_context)
+  }
+
+  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.base.size(info, merge_context)
+  }
+
+  fn max_full_flush_merge_size(&self) -> i64 {
+    self.base.max_full_flush_merge_size()
+  }
+
+  fn has_merged<D, MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    D: Directory,
+    MC: MergeContext<D>,
+  {
+    self.base.has_merged(infos, info, merge_context)
+  }
+
+  fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
+  where
+    D: Directory,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    self.base.keep_fully_deleted_segment(reader_supplier)
+  }
+
+  fn num_deletes_to_merge<D, F>(
+    &self,
+    info: &SegmentCommitInfo<D>,
+    del_count: i32,
+    reader_supplier: F,
+  ) -> Result<i32>
+  where
+    D: Directory,
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    self
+      .base
+      .num_deletes_to_merge(info, del_count, reader_supplier)
+  }
+
+  fn seg_string<MC, D>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  where
+    MC: MergeContext<D>,
+    D: Directory,
+  {
+    self.base.seg_string(merge_context, infos)
+  }
+
+  fn message<MC, D>(&self, message: &str, merge_context: &MC) -> Result<()>
+  where
+    MC: MergeContext<D>,
+    D: Directory,
+  {
+    self.base.message(message, merge_context)
+  }
+
+  fn verbose<MC, D>(&self, merge_context: &MC) -> bool
+  where
+    MC: MergeContext<D>,
+    D: Directory,
+  {
+    self.base.verbose(merge_context)
+  }
 }

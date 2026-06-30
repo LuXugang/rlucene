@@ -16,6 +16,8 @@
  */
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::Inner;
+#[cfg(test)]
+use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_policy::{
   MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
   MergeSpecificationNoReader, OneMergeSR,
@@ -37,14 +39,14 @@ use std::fmt::{Display, Formatter};
 #[derive(Clone)]
 pub struct OneMergeWrappingMergePolicy {
   in_: Box<MergePolicyEnum>,
-  wrap_one_merge: OneMergeWrapperEnum,
+  wrap_one_merge: OneMergeUnaryOperator,
 }
 
 impl OneMergeWrappingMergePolicy {
   pub fn new<T, W>(in_: T, wrap_one_merge: W) -> Self
   where
     T: Into<MergePolicyEnum>,
-    W: Into<OneMergeWrapperEnum>,
+    W: Into<OneMergeUnaryOperator>,
   {
     Self {
       in_: Box::new(in_.into()),
@@ -55,51 +57,78 @@ impl OneMergeWrappingMergePolicy {
   fn wrap_spec<D>(
     &self,
     spec: Option<MergeSpecificationNoReader<D>>,
-  ) -> Option<MergeSpecificationNoReader<D>>
+  ) -> Result<Option<MergeSpecificationNoReader<D>>>
   where
     D: Directory,
   {
-    spec.map(|spec| {
-      let mut wrapped = MergeSpecificationNoReader::new();
-      for merge in spec.merges {
-        wrapped.add(self.wrap_one_merge.wrap(merge));
-      }
-      wrapped
-    })
+    spec
+      .map(|spec| {
+        let mut wrapped = MergeSpecificationNoReader::new();
+        for merge in spec.merges {
+          wrapped.add(self.wrap_one_merge.apply(merge)?);
+        }
+        Ok(wrapped)
+      })
+      .transpose()
   }
 }
 
 #[derive(Clone)]
-pub enum OneMergeWrapperEnum {
-  Identity(IdentityOneMergeWrapper),
+pub enum OneMergeUnaryOperator {
+  Identity(IdentityOneMergeUnaryOperator),
+  #[cfg(test)]
+  NewOneMerge(NewOneMergeUnaryOperator),
 }
 
-impl OneMergeWrapperEnum {
-  pub fn wrap<D>(&self, merge: OneMergeSR<D>) -> OneMergeSR<D>
+impl OneMergeUnaryOperator {
+  pub fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
   where
     D: Directory,
   {
     match self {
-      Self::Identity(wrapper) => wrapper.wrap(merge),
+      Self::Identity(operator) => operator.apply(merge),
+      #[cfg(test)]
+      Self::NewOneMerge(operator) => operator.apply(merge),
     }
   }
 }
 
 #[derive(Clone)]
-pub struct IdentityOneMergeWrapper;
+pub struct IdentityOneMergeUnaryOperator;
 
-impl From<IdentityOneMergeWrapper> for OneMergeWrapperEnum {
-  fn from(value: IdentityOneMergeWrapper) -> Self {
+impl From<IdentityOneMergeUnaryOperator> for OneMergeUnaryOperator {
+  fn from(value: IdentityOneMergeUnaryOperator) -> Self {
     Self::Identity(value)
   }
 }
 
-impl IdentityOneMergeWrapper {
-  fn wrap<D>(&self, merge: OneMergeSR<D>) -> OneMergeSR<D>
+impl IdentityOneMergeUnaryOperator {
+  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
   where
     D: Directory,
   {
-    merge
+    Ok(merge)
+  }
+}
+
+#[cfg(test)]
+#[derive(Clone)]
+pub struct NewOneMergeUnaryOperator;
+
+#[cfg(test)]
+impl From<NewOneMergeUnaryOperator> for OneMergeUnaryOperator {
+  fn from(value: NewOneMergeUnaryOperator) -> Self {
+    Self::NewOneMerge(value)
+  }
+}
+
+#[cfg(test)]
+impl NewOneMergeUnaryOperator {
+  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
+  where
+    D: Directory,
+  {
+    OneMerge::new(merge.segments)
   }
 }
 
@@ -129,12 +158,10 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    Ok(
-      self.wrap_spec(
-        self
-          .in_
-          .find_merges(merge_trigger, segment_infos, inner, merge_context)?,
-      ),
+    self.wrap_spec(
+      self
+        .in_
+        .find_merges(merge_trigger, segment_infos, inner, merge_context)?,
     )
   }
 
@@ -161,13 +188,13 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    Ok(self.wrap_spec(self.in_.find_forced_merges(
+    self.wrap_spec(self.in_.find_forced_merges(
       segment_infos,
       max_segment_count,
       segments_to_merge,
       inner,
       merge_context,
-    )?))
+    )?)
   }
 
   fn find_forced_deletes_merges<D, MC>(
@@ -180,12 +207,10 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     MC: MergeContext<D>,
     D: Directory,
   {
-    Ok(
-      self.wrap_spec(
-        self
-          .in_
-          .find_forced_deletes_merges(segment_infos, inner, merge_context)?,
-      ),
+    self.wrap_spec(
+      self
+        .in_
+        .find_forced_deletes_merges(segment_infos, inner, merge_context)?,
     )
   }
 
@@ -200,12 +225,12 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    Ok(self.wrap_spec(self.in_.find_full_flush_merges(
+    self.wrap_spec(self.in_.find_full_flush_merges(
       merge_trigger,
       segment_infos,
       inner,
       merge_context,
-    )?))
+    )?)
   }
 
   fn use_compound_file<D, MC>(
