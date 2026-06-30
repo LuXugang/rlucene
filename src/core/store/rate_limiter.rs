@@ -27,7 +27,7 @@ use crate::core::util::error::lucene_error::Result;
  * IndexOutputs would call [`RateLimiter::pause`] whenever the have read or written more than
  * [`RateLimiter::get_min_pause_check_bytes`] bytes.
  */
-pub trait RateLimiter {
+pub trait RateLimiter: Send + Sync {
   /**
    * Sets an updated MB-per-second rate limit. An implementation may dynamically update
    * the rate limit during use.

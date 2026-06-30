@@ -28,8 +28,8 @@ use crate::core::util::error::lucene_error::Result;
 pub type BuiltInFSIndexInput =
   IndexInputEnum2<MemorySegmentIndexInput, BufferedIndexInput<NIOFSIndexInput>>;
 
-pub trait FSDirectoryBase: Display {
-  type Output: IndexInput<IndexInput = Self::Output>;
+pub trait FSDirectoryBase: Display + Send + Sync {
+  type Output: IndexInput<IndexInput = Self::Output, RandomAccessSlice: Send + Sync> + Send + Sync;
   fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output>;
 }
 

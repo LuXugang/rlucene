@@ -212,10 +212,6 @@ where
   start_commit_time: Instant,
 }
 
-unsafe impl<D> Send for IndexWriter<D> where D: Directory {}
-
-unsafe impl<D> Sync for IndexWriter<D> where D: Directory {}
-
 impl<D> Drop for IndexWriter<D>
 where
   D: Directory,

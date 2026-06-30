@@ -56,7 +56,7 @@ use std::sync::Arc;
 /// [`FSDirectory`]
 /// [`ByteBuffersDirectory`](crate::core::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::core::store::filter_directory::FilterDirectory)
-pub trait Directory: Display + Closeable + HasIdentity {
+pub trait Directory: Display + Closeable + HasIdentity + Send + Sync {
   /// Returns the names of all files stored in this directory. The output must
   /// be sorted in UTF-8 order (using `str::cmp` for comparison).
   ///
@@ -161,7 +161,9 @@ pub trait Directory: Display + Closeable + HasIdentity {
   ///
   /// # Arguments
   /// * `name` - The name of an existing file.
-  type IndexInput: IndexInput<IndexInput = Self::IndexInput>;
+  type IndexInput: IndexInput<IndexInput = Self::IndexInput, RandomAccessSlice: Send + Sync>
+    + Send
+    + Sync;
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput>;
 
   /// Opens a checksum-computing stream for reading an existing file.

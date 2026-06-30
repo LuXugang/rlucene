@@ -20,7 +20,7 @@ use crate::core::store::{IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
-use std::cell::RefCell;
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
@@ -28,7 +28,7 @@ pub(crate) struct TrackingTmpOutputDirectoryWrapper<D>
 where
   D: Directory,
 {
-  pub(crate) inner: RefCell<Inner>,
+  pub(crate) inner: Mutex<Inner>,
   in_: D,
   id: Identity,
 }
@@ -40,7 +40,7 @@ where
   D: Directory,
 {
   pub(crate) fn new(input: D) -> Self {
-    let inner = RefCell::new(Inner {
+    let inner = Mutex::new(Inner {
       file_names: HashMap::new(),
     });
     TrackingTmpOutputDirectoryWrapper {
@@ -49,7 +49,7 @@ where
       id: Identity::new(),
     }
   }
-  pub(crate) fn get_temporary_files(&self) -> &RefCell<Inner> {
+  pub(crate) fn get_temporary_files(&self) -> &Mutex<Inner> {
     &self.inner
   }
 }
@@ -102,7 +102,7 @@ where
     let output = self.in_.create_temp_output(name, "", context)?;
     self
       .inner
-      .borrow_mut()
+      .lock()
       .file_names
       .insert(name.to_string(), output.get_name().to_string());
     Ok(output)
@@ -134,7 +134,7 @@ where
   type IndexInput = D::IndexInput;
 
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-    let inner = self.inner.borrow();
+    let inner = self.inner.lock();
     let tmp_name = inner
       .file_names
       .get(name)

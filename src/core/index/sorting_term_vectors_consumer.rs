@@ -267,7 +267,7 @@ where
       let file_names: Vec<String> = self
         .tmp_directory
         .get_temporary_files()
-        .borrow()
+        .lock()
         .file_names
         .values()
         .cloned()
@@ -303,7 +303,7 @@ where
     let file_names: Vec<String> = self
       .tmp_directory
       .get_temporary_files()
-      .borrow()
+      .lock()
       .file_names
       .values()
       .cloned()

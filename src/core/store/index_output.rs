@@ -25,13 +25,14 @@ use std::fs::File;
 /// A `DataOutput` for appending data to a file in a `Directory`.
 ///
 /// # Note
-/// Instances of this struct are **not** thread-safe.
+/// Writes require exclusive mutable access. Use external synchronization if an
+/// output instance must be coordinated across threads.
 ///
 /// # See Also
 /// [`Directory`](crate::core::store::directory::Directory)
 ///
 /// [`IndexInput`](crate::core::store::index_input::IndexInput)
-pub trait IndexOutput: DataOutput + Display + Closeable {
+pub trait IndexOutput: DataOutput + Display + Closeable + Send + Sync {
   /// Returns the current position in this file, where the next write will
   /// occur.
   fn get_file_pointer(&self) -> Result<usize>;

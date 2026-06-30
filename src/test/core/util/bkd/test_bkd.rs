@@ -55,6 +55,7 @@ use std::cell::RefCell;
 use std::fmt::Display;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestBKD;
@@ -2285,24 +2286,24 @@ fn test_too_many_points_1d() -> Result<()> {
 struct CorruptingTempOutputDirectory<'a, D, F>
 where
   D: Directory,
-  F: Fn(&str, &str) -> bool,
+  F: Fn(&str, &str) -> bool + Send + Sync,
 {
   in_: &'a D,
   byte_to_corrupt: usize,
-  corrupted: RefCell<bool>,
+  corrupted: AtomicBool,
   should_corrupt: F,
 }
 
 impl<'a, D, F> CorruptingTempOutputDirectory<'a, D, F>
 where
   D: Directory,
-  F: Fn(&str, &str) -> bool,
+  F: Fn(&str, &str) -> bool + Send + Sync,
 {
   fn new(in_: &'a D, byte_to_corrupt: usize, should_corrupt: F) -> Self {
     Self {
       in_,
       byte_to_corrupt,
-      corrupted: RefCell::new(false),
+      corrupted: AtomicBool::new(false),
       should_corrupt,
     }
   }
@@ -2311,7 +2312,7 @@ where
 impl<D, F> Display for CorruptingTempOutputDirectory<'_, D, F>
 where
   D: Directory,
-  F: Fn(&str, &str) -> bool,
+  F: Fn(&str, &str) -> bool + Send + Sync,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "CorruptingTempOutputDirectory({})", self.in_)
@@ -2321,7 +2322,7 @@ where
 impl<D, F> Closeable for CorruptingTempOutputDirectory<'_, D, F>
 where
   D: Directory,
-  F: Fn(&str, &str) -> bool,
+  F: Fn(&str, &str) -> bool + Send + Sync,
 {
   fn close(&mut self) -> Result<()> {
     Ok(())
@@ -2331,7 +2332,7 @@ where
 impl<D, F> HasIdentity for CorruptingTempOutputDirectory<'_, D, F>
 where
   D: Directory,
-  F: Fn(&str, &str) -> bool,
+  F: Fn(&str, &str) -> bool + Send + Sync,
 {
   fn identity(&self) -> &Identity {
     self.in_.identity()
@@ -2342,7 +2343,7 @@ impl<'a, D, F> Directory for CorruptingTempOutputDirectory<'a, D, F>
 where
   D: Directory,
   D::IndexInput: Closeable,
-  F: Fn(&str, &str) -> bool,
+  F: Fn(&str, &str) -> bool + Send + Sync,
 {
   fn list_all(&self) -> Result<Vec<String>> {
     self.in_.list_all()
@@ -2369,8 +2370,10 @@ where
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
     let out = self.in_.create_temp_output(prefix, suffix, context)?;
-    if !*self.corrupted.borrow() && (self.should_corrupt)(prefix, suffix) {
-      *self.corrupted.borrow_mut() = true;
+    if !self.corrupted.load(Ordering::SeqCst)
+      && (self.should_corrupt)(prefix, suffix)
+      && !self.corrupted.swap(true, Ordering::SeqCst)
+    {
       Ok(IndexOutputEnum2::B(CorruptingIndexOutput::new(
         self.in_,
         self.byte_to_corrupt,

@@ -1186,13 +1186,6 @@ where
   pub(crate) merge_completed: OnceLock<bool>,
 }
 
-unsafe impl<D, CR> Send for OneMerge<D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-{
-}
-
 #[derive(Clone)]
 pub struct MergeStat {
   pub(crate) id: Identity,

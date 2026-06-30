@@ -37,7 +37,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// # Note
 /// This is an internal API.
-pub trait Lock: Display + CloseableRef {
+pub trait Lock: Display + CloseableRef + Send + Sync {
   /// Best effort check that this lock is still valid. Locks could become
   /// invalidated externally for a number of reasons, such as if a user
   /// deletes the lock file manually or when a network filesystem is in

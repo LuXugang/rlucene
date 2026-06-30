@@ -41,7 +41,7 @@ use crate::core::util::error::lucene_error::Result;
 /// could corrupt the index. Be sure to change the `LockFactory` on all Lucene
 /// instances and clean up any leftover lock files before starting with the new
 /// configuration. Different implementations cannot work together.
-pub trait LockFactory: Display {
+pub trait LockFactory: Display + Send + Sync {
   type Lock: Lock;
   /// Returns a new got `Lock` instance identified by `lock_name`.
   ///

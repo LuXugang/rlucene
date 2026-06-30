@@ -128,9 +128,9 @@ where
   }
 }
 
-impl<W: Write> IndexOutput for OutputStreamIndexOutput<W>
+impl<W> IndexOutput for OutputStreamIndexOutput<W>
 where
-  W: Write,
+  W: Write + Send + Sync,
 {
   fn get_file_pointer(&self) -> Result<usize> {
     Ok(self.bytes_written)
