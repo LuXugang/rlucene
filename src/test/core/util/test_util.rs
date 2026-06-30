@@ -28,6 +28,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
+use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
 use crate::core::index::terms::Terms;
@@ -188,8 +189,11 @@ impl TestUtil {
         tmp.set_max_merge_at_once(std::cmp::min(5, tmp.get_max_merge_at_once()))?;
         tmp.set_segments_per_tier(tmp.get_segments_per_tier().min(5.0))?;
       },
-      // TODO IMPORTANT ConcurrentMergeScheduler 未实现
       _ => {},
+    }
+    let merge_scheduler = w.get_config().get_merge_scheduler();
+    if let MergeSchedulerEnum::Concurrent(cms) = merge_scheduler {
+      cms.set_max_merges_and_threads(3, 2)?;
     }
     Ok(())
   }
