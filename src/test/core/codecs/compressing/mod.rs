@@ -14,8 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod abstract_test_compression_mod;
-mod test_fast_compression_mode;
-mod test_fast_decompression_mode;
-mod test_high_compression_mode;
-mod test_lz4_with_preset_dict_compression_mode;

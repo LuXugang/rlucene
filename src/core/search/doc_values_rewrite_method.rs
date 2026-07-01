@@ -601,19 +601,19 @@ where
   Wildcard(<WildcardQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
   #[cfg(test)]
   BoostChecking(
-    <crate::test::core::search::test_multi_term_query_rewrites::BoostCheckingQuery as MultiTermQuery>::TermsEnum<
+    <crate::test::support::core::search::multi_term::BoostCheckingQuery as MultiTermQuery>::TermsEnum<
       DocValuesTerms<S>,
     >,
   ),
   #[cfg(test)]
   DumbPrefix(
-    <crate::test::core::search::test_prefix_random::DumbPrefixQuery as MultiTermQuery>::TermsEnum<
+    <crate::test::support::core::search::multi_term::DumbPrefixQuery as MultiTermQuery>::TermsEnum<
       DocValuesTerms<S>,
     >,
   ),
   #[cfg(test)]
   DumbRegexp(
-    <crate::test::core::search::test_regexp_random2::DumbRegexpQuery as MultiTermQuery>::TermsEnum<
+    <crate::test::support::core::search::multi_term::DumbRegexpQuery as MultiTermQuery>::TermsEnum<
       DocValuesTerms<S>,
     >,
   ),

@@ -25,11 +25,11 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
 #[cfg(test)]
-use crate::test::core::index::test_omit_tf::SimpleSimilarity1;
+use crate::test::support::core::search::similarity::SimpleSimilarity;
 #[cfg(test)]
-use crate::test::core::search::test_disjunction_max_query::TestSimilarity;
+use crate::test::support::core::search::similarity::SimpleSimilarity1;
 #[cfg(test)]
-use crate::test::core::search::test_similarity::SimpleSimilarity;
+use crate::test::support::core::search::similarity::TestSimilarity;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 

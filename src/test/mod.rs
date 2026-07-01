@@ -14,39 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod core;
-mod queries;
-mod sandbox;
+pub(crate) use crate::test_framework as support;
 
-pub(crate) fn ulp_f64(x: f64) -> f64 {
-  if x.is_nan() {
-    return f64::NAN;
-  }
-  if x.is_infinite() {
-    return f64::INFINITY;
-  }
-  if x == 0.0 {
-    return f64::from_bits(1);
-  }
-
-  let bits = x.to_bits();
-  let next_bits = if x > 0.0 { bits + 1 } else { bits - 1 };
-  let next = f64::from_bits(next_bits);
-  (next - x).abs()
-}
-pub(crate) fn ulp_f32(x: f32) -> f32 {
-  if x.is_nan() {
-    return f32::NAN;
-  }
-  if x.is_infinite() {
-    return f32::INFINITY;
-  }
-  if x == 0.0 {
-    return f32::from_bits(1);
-  }
-
-  let bits = x.to_bits();
-  let next_bits = if x > 0.0 { bits + 1 } else { bits - 1 };
-  let next = f32::from_bits(next_bits);
-  (next - x).abs()
-}
+pub(crate) mod core;
+pub(crate) mod queries;
+pub(crate) mod sandbox;

@@ -30,7 +30,6 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::DirectoryReader;
@@ -58,24 +57,17 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
-use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
-  MergeSpecificationNoReader, OneMerge,
-};
-use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
-use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
@@ -97,25 +89,26 @@ use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test::core::analysis::mock_analyzer::{ENGLISH_STOPSET, MockAnalyzer, MockTokenFilter};
-use crate::test::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
-use crate::test::core::analysis::token;
-use crate::test::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
-use crate::test::core::store::base_directory_test_case::EXTRA_FILE_NAME;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::analysis::canned_token_stream::CannedTokenStream;
+use crate::test::support::core::analysis::mock_analyzer::{MockAnalyzer, MockTokenFilter};
+use crate::test::support::core::analysis::mock_token_filter::ENGLISH_STOPSET;
+use crate::test::support::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
+use crate::test::support::core::analysis::token;
+pub use crate::test::support::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
+use crate::test::support::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
+use crate::test::support::core::store::base_directory_test_case::EXTRA_FILE_NAME;
+use crate::test::support::core::util::lucene_test_case::{
   create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_mock_directory,
   new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field, new_text_field,
   random, random_from_seed, rarely, slow_file_exists,
 };
-use crate::test::core::util::test_util::TestUtil;
+use crate::test::support::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
 use std::sync::{Arc, Barrier, Condvar, LazyLock, Mutex, mpsc};
@@ -5289,208 +5282,4 @@ where
   )?);
   let _ = writer.add_document(doc)?;
   Ok(())
-}
-
-#[derive(Clone, Default)]
-pub struct KeepFullyDeletedSegmentsMergePolicy {
-  in_: NoMergePolicy,
-  merge_fully_deleted_on_full_flush: bool,
-  keep_fully_deleted_segments: Option<Arc<AtomicBool>>,
-}
-
-impl KeepFullyDeletedSegmentsMergePolicy {
-  fn with_full_flush_merges() -> Self {
-    Self {
-      in_: NoMergePolicy::default(),
-      merge_fully_deleted_on_full_flush: true,
-      keep_fully_deleted_segments: None,
-    }
-  }
-
-  fn with_keep_fully_deleted_segments(keep_fully_deleted_segments: Arc<AtomicBool>) -> Self {
-    Self {
-      in_: NoMergePolicy::default(),
-      merge_fully_deleted_on_full_flush: false,
-      keep_fully_deleted_segments: Some(keep_fully_deleted_segments),
-    }
-  }
-}
-
-impl From<KeepFullyDeletedSegmentsMergePolicy> for MergePolicyEnum {
-  fn from(value: KeepFullyDeletedSegmentsMergePolicy) -> Self {
-    MergePolicyEnum::KeepFullyDeletedSegments(value)
-  }
-}
-
-impl Display for KeepFullyDeletedSegmentsMergePolicy {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "KeepFullyDeletedSegmentsMergePolicy")
-  }
-}
-
-impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
-  fn get_base(&self) -> &MergePolicyBase {
-    self.in_.get_base()
-  }
-
-  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
-    self.in_.get_base_mut()
-  }
-
-  fn find_merges<D, MC>(
-    &self,
-    merge_trigger: MergeTrigger,
-    segment_infos: &SegmentInfos<D>,
-    inner: Option<&crate::core::index::index_writer::Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
-  where
-    D: Directory,
-    MC: MergeContext<D>,
-  {
-    self
-      .in_
-      .find_merges(merge_trigger, segment_infos, inner, merge_context)
-  }
-
-  fn find_merges_readers<CR, D>(
-    &self,
-    readers: Vec<CR>,
-  ) -> Result<Option<MergeSpecification<D, CR>>>
-  where
-    CR: CodecReader,
-    D: Directory,
-  {
-    self.in_.find_merges_readers(readers)
-  }
-
-  fn find_forced_merges<D, MC>(
-    &self,
-    segment_infos: &SegmentInfos<D>,
-    max_segment_count: usize,
-    segments_to_merge: &HashMap<String, Option<bool>>,
-    inner: Option<&crate::core::index::index_writer::Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
-  where
-    D: Directory,
-    MC: MergeContext<D>,
-  {
-    self.in_.find_forced_merges(
-      segment_infos,
-      max_segment_count,
-      segments_to_merge,
-      inner,
-      merge_context,
-    )
-  }
-
-  fn find_forced_deletes_merges<D, MC>(
-    &self,
-    segment_infos: &SegmentInfos<D>,
-    inner: Option<&crate::core::index::index_writer::Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
-  where
-    MC: MergeContext<D>,
-    D: Directory,
-  {
-    self
-      .in_
-      .find_forced_deletes_merges(segment_infos, inner, merge_context)
-  }
-
-  fn find_full_flush_merges<D, MC>(
-    &self,
-    merge_trigger: MergeTrigger,
-    segment_infos: &SegmentInfos<D>,
-    inner: Option<&crate::core::index::index_writer::Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
-  where
-    D: Directory,
-    MC: MergeContext<D>,
-  {
-    // for test_doc_count()
-    if !self.merge_fully_deleted_on_full_flush {
-      return self
-        .in_
-        .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context);
-    }
-    // for test_merge_on_commit_keep_fully_deleted_segments()
-    let mut fully_deleted_segments = Vec::new();
-    for sci in segment_infos.iter() {
-      let max_doc = sci.info.max_doc()?;
-      if max_doc - sci.get_del_count() == 0 {
-        fully_deleted_segments.push(SegmentDocAndID::new(
-          sci.info.get_id_key().to_string(),
-          max_doc,
-        ));
-      }
-    }
-
-    if fully_deleted_segments.is_empty() {
-      return Ok(None);
-    }
-
-    let mut spec = MergeSpecificationNoReader::new();
-    spec.add(OneMerge::new(fully_deleted_segments)?);
-    Ok(Some(spec))
-  }
-
-  fn use_compound_file<D, MC>(
-    &self,
-    infos: &SegmentInfos<D>,
-    merged_info: &SegmentCommitInfo<D>,
-    merge_context: &MC,
-  ) -> Result<bool>
-  where
-    D: Directory,
-    MC: MergeContext<D>,
-  {
-    self
-      .in_
-      .use_compound_file(infos, merged_info, merge_context)
-  }
-
-  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
-  where
-    D: Directory,
-    MC: MergeContext<D>,
-  {
-    self.in_.size(info, merge_context)
-  }
-
-  fn max_full_flush_merge_size(&self) -> i64 {
-    self.in_.max_full_flush_merge_size()
-  }
-
-  fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
-  where
-    D: Directory,
-    F: Fn() -> Result<DefaultLeafReader<D>>,
-  {
-    Ok(
-      self
-        .keep_fully_deleted_segments
-        .as_ref()
-        .map(|keep_fully_deleted_segments| keep_fully_deleted_segments.load(SeqCst))
-        .unwrap_or(true),
-    )
-  }
-
-  fn num_deletes_to_merge<D, F>(
-    &self,
-    info: &SegmentCommitInfo<D>,
-    del_count: i32,
-    reader_supplier: F,
-  ) -> Result<i32>
-  where
-    D: Directory,
-    F: Fn() -> Result<DefaultLeafReader<D>>,
-  {
-    self
-      .in_
-      .num_deletes_to_merge(info, del_count, reader_supplier)
-  }
 }

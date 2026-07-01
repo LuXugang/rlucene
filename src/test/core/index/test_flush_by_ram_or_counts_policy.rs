@@ -15,11 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::directory_reader;
-use crate::core::index::documents_writer_flush_control::{DocumentsWriterFlushControl, Inner};
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
-use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
-use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
-use crate::core::index::flush_policy::{FlushPolicy, FlushPolicyEnum};
+use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
+use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
@@ -28,17 +25,16 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::line_file_docs::LineFileDocs;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+pub use crate::test::support::core::index::misc::MockDefaultFlushPolicy;
+use crate::test::support::core::util::line_file_docs::LineFileDocs;
+use crate::test::support::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, random,
   random_from_seed, rarely,
 };
-use crate::test::core::util::test_util::TestUtil;
-use parking_lot::MutexGuard;
+use crate::test::support::core::util::test_util::TestUtil;
 use rand::RngExt;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
 
 #[allow(dead_code)] // for quick search
@@ -291,133 +287,6 @@ fn test_random() -> Result<()> {
 fn test_stall_control() -> Result<()> {
   // TODO IMPORTANT MockDirectoryWrapper未实现
   Ok(())
-}
-
-#[allow(dead_code)]
-pub struct MockDefaultFlushPolicy {
-  peak_bytes_without_flush: AtomicI64,
-  peak_doc_count_without_flush: AtomicI64,
-  has_marked_pending: AtomicBool,
-  base: FlushByRamOrCountsPolicy,
-}
-
-impl MockDefaultFlushPolicy {
-  pub fn new() -> Self {
-    Self {
-      peak_bytes_without_flush: AtomicI64::new(i32::MIN as i64),
-      peak_doc_count_without_flush: AtomicI64::new(i32::MIN as i64),
-      has_marked_pending: AtomicBool::new(false),
-      base: FlushByRamOrCountsPolicy::new(),
-    }
-  }
-}
-
-impl Default for MockDefaultFlushPolicy {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
-impl FlushPolicy for MockDefaultFlushPolicy {
-  fn on_change<D, L>(
-    &self,
-    control: &DocumentsWriterFlushControl<D>,
-    inner: &mut Inner<D>,
-    per_thread: Option<&MutexGuard<'_, DocumentsWriterPerThread<D>>>,
-    config: &L,
-  ) -> Result<()>
-  where
-    D: Directory,
-    L: LiveIndexWriterConfig,
-  {
-    let Some(dwpt) = per_thread else {
-      unreachable!("");
-    };
-
-    let mut pending = Vec::new();
-    let mut not_pending = Vec::new();
-    find_pending(control, &mut pending, &mut not_pending);
-
-    let flush_current = dwpt.is_flush_pending();
-    let active_bytes = control.active_bytes(Some(inner));
-    let to_flush = if flush_current {
-      find_dwpt(&pending, &dwpt.state.id)
-    } else if self.base.flush_on_doc_count(config)
-      && dwpt.get_num_docs_in_ram() >= config.get_max_buffered_docs()
-    {
-      find_dwpt(&not_pending, &dwpt.state.id)
-    } else if self.base.flush_on_ram(config)
-      && active_bytes >= (config.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64
-    {
-      let to_flush = self
-        .base
-        .find_largest_non_pending_writer_for_thread(control, dwpt)?;
-      if let Some(to_flush) = to_flush {
-        assert!(!to_flush.state.is_flush_pending());
-        Some(to_flush)
-      } else {
-        None
-      }
-    } else {
-      None
-    };
-
-    self.base.on_change(control, inner, Some(dwpt), config)?;
-
-    if let Some(to_flush) = to_flush {
-      let list = if flush_current {
-        &mut pending
-      } else {
-        &mut not_pending
-      };
-      let pos = list
-        .iter()
-        .position(|dwpt| Arc::ptr_eq(dwpt, &to_flush) || dwpt.state.id == to_flush.state.id)
-        .expect("expected DWPT in pending snapshot");
-      list.remove(pos);
-      assert!(to_flush.state.is_flush_pending());
-      self.has_marked_pending.store(true, Ordering::SeqCst);
-    } else {
-      self
-        .peak_bytes_without_flush
-        .fetch_max(active_bytes, Ordering::SeqCst);
-      self
-        .peak_doc_count_without_flush
-        .fetch_max(dwpt.get_num_docs_in_ram() as i64, Ordering::SeqCst);
-    }
-
-    for per_thread in not_pending {
-      assert!(!per_thread.state.is_flush_pending());
-    }
-
-    Ok(())
-  }
-}
-
-fn find_pending<D>(
-  flush_control: &DocumentsWriterFlushControl<D>,
-  pending: &mut Vec<Arc<DwptWrapper<D>>>,
-  not_pending: &mut Vec<Arc<DwptWrapper<D>>>,
-) where
-  D: Directory,
-{
-  for (_id, next) in flush_control.per_thread_pool.iterator() {
-    if next.state.is_flush_pending() {
-      pending.push(next);
-    } else {
-      not_pending.push(next);
-    }
-  }
-}
-
-fn find_dwpt<D>(writers: &[Arc<DwptWrapper<D>>], state_id: &str) -> Option<Arc<DwptWrapper<D>>>
-where
-  D: Directory,
-{
-  writers
-    .iter()
-    .find(|dwpt| dwpt.state.id == state_id)
-    .cloned()
 }
 
 fn index_thread<D>(

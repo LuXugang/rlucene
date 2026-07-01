@@ -54,7 +54,7 @@ use crate::impl_from_for_enum;
 use crate::sandbox::document::big_integer_point::BigIntegerPointRangeQuery;
 use crate::sandbox::document::half_float_point::HalfFloatPointRangeQuery;
 #[cfg(test)]
-use crate::test::core::search::test_point_queries::PointRangeQueryBaseImpl;
+use crate::test::support::core::search::point::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;

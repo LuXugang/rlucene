@@ -14,10 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod test_bkd;
-mod test_bkd_config;
-mod test_bkd_radix_selector;
-mod test_bkd_radix_sort;
-mod test_bkd_util;
-mod test_doc_ids_writer;
-mod test_mutable_point_tree_reader_utils;

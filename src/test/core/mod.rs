@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analysis;
-pub mod codecs;
-mod document;
-pub mod geo;
-pub mod index;
-pub mod internal;
-pub mod search;
-pub mod store;
-mod test_demo;
-mod test_search;
-mod test_search_for_duplicates;
-pub mod util;
+pub(crate) mod analysis;
+pub(crate) mod codecs;
+pub(crate) mod document;
+pub(crate) mod geo;
+pub(crate) mod index;
+pub(crate) mod internal;
+pub(crate) mod search;
+pub(crate) mod store;
+pub(crate) mod util;

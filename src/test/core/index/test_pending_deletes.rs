@@ -21,7 +21,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_info::SegmentInfo;
-use crate::test::core::util::lucene_test_case::random;
+use crate::test::support::core::util::lucene_test_case::random;
 
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::IOContext;
@@ -48,8 +48,8 @@ where
   f(&case, &mut random)
 }
 mod test_pending_deletes_base_tests {
+  use super::{TestPendingDeletesBase, run_case};
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::index::test_pending_deletes::{TestPendingDeletesBase, run_case};
 
   #[test]
   fn test_delete_doc() -> Result<()> {

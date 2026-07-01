@@ -14,8 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod base_similarity_test_case;
-mod test_bm25_similarity;
-mod test_classic_similarity;
-mod test_raw_tf_similarity;
-mod test_similarity2;

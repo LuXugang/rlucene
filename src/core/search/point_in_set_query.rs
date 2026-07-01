@@ -56,7 +56,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::sandbox::document::big_integer_point::BigIntegerPointInSetQuery;
 use crate::sandbox::document::half_float_point::HalfFloatPointInSetQuery;
 #[cfg(test)]
-use crate::test::core::search::test_point_queries::MultiDimIntPointInSetQuery;
+use crate::test::support::core::search::point::MultiDimIntPointInSetQuery;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

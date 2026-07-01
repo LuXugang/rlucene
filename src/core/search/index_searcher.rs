@@ -58,7 +58,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
-use crate::test::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
+use crate::test::support::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
 use parking_lot::Mutex;
 #[cfg(test)]
 use std::cell::Cell;

@@ -14,4 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod test_lucene94_field_infos_format;

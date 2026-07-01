@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::core::index::test_flush_by_ram_or_counts_policy::MockDefaultFlushPolicy;
+use crate::test::support::core::index::misc::MockDefaultFlushPolicy;
 use parking_lot::MutexGuard;
 use std::sync::Arc;
 #[cfg(test)]

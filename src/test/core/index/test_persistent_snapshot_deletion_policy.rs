@@ -18,6 +18,7 @@ use std::io::Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use super::test_snapshot_deletion_policy::{assert_snapshot_exists, prepare_index_and_snapshots};
 use crate::core::document::document::Document;
 use crate::core::index::directory_reader;
 use crate::core::index::index_commit::IndexCommit;
@@ -32,12 +33,9 @@ use crate::core::index::persistent_snapshot_deletion_policy::{
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::index::test_snapshot_deletion_policy::{
-  assert_snapshot_exists, prepare_index_and_snapshots,
-};
-use crate::test::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::support::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test::support::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_mock_directory, random,
 };
 

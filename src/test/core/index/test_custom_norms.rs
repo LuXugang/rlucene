@@ -33,13 +33,13 @@ use crate::core::search::similarities_impl::similarities::{
 use crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::line_file_docs::LineFileDocs;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::support::core::util::line_file_docs::LineFileDocs;
+use crate::test::support::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, random, rarely,
 };
-use crate::test::core::util::test_util::TestUtil;
+use crate::test::support::core::util::test_util::TestUtil;
 use std::fmt::{Display, Formatter};
 
 #[allow(dead_code)] // for quick search

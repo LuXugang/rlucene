@@ -29,8 +29,8 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValuesEnum2;
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::support::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
 use rand::RngExt;

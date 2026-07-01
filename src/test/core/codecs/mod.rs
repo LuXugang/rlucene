@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod compressing;
-mod hnsw;
-mod lucene101;
-mod lucene90;
-mod lucene94;
-mod lucene99;
-mod test_codec_util;
-mod test_competitive_impact_accumulator;
+pub(crate) mod compressing;
+pub(crate) mod hnsw;
+pub(crate) mod lucene101;
+pub(crate) mod lucene90;
+pub(crate) mod lucene94;
+pub(crate) mod lucene99;

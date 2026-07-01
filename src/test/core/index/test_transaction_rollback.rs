@@ -19,7 +19,6 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::directory_reader;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexCommitWrapper, IndexWriter};
 use crate::core::index::multi_bits::get_live_docs;
@@ -31,13 +30,15 @@ use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+pub use crate::test::support::core::index::deletion_policy::{
+  DeleteLastCommitPolicy, KeepAllTransactionDeletionPolicy, RollbackDeletionPolicy,
+};
+use crate::test::support::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_text_field, random,
 };
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -154,68 +155,6 @@ where
   Ok(dir)
 }
 
-#[derive(Clone)]
-pub struct RollbackDeletionPolicy {
-  rollback_point: i32,
-}
-
-impl RollbackDeletionPolicy {
-  fn new(rollback_point: i32) -> Self {
-    Self { rollback_point }
-  }
-}
-
-impl Display for RollbackDeletionPolicy {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
-  }
-}
-
-impl<IC> IndexDeletionPolicy<IC> for RollbackDeletionPolicy
-where
-  IC: IndexCommit + Clone,
-{
-  fn on_init(&self, commits: &[IC]) -> Result<()> {
-    for commit in commits {
-      let user_data = commit.get_user_data();
-      if !user_data.is_empty() {
-        let index = user_data.get("index").unwrap();
-        let last = index.rsplit('-').next().unwrap().parse::<i32>()?;
-        if last > self.rollback_point {
-          commit.delete()?;
-        }
-      }
-    }
-    Ok(())
-  }
-
-  fn on_commit(&self, _commits: &[IC]) -> Result<()> {
-    Ok(())
-  }
-}
-
-#[derive(Clone)]
-pub struct DeleteLastCommitPolicy;
-
-impl Display for DeleteLastCommitPolicy {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
-  }
-}
-
-impl<IC> IndexDeletionPolicy<IC> for DeleteLastCommitPolicy
-where
-  IC: IndexCommit + Clone,
-{
-  fn on_init(&self, commits: &[IC]) -> Result<()> {
-    commits.last().unwrap().delete()
-  }
-
-  fn on_commit(&self, _commits: &[IC]) -> Result<()> {
-    Ok(())
-  }
-}
-
 #[test]
 fn test_rollback_deletion_policy() -> Result<()> {
   let mut random = random();
@@ -232,26 +171,4 @@ fn test_rollback_deletion_policy() -> Result<()> {
     reader.close()?;
   }
   Ok(())
-}
-
-#[derive(Clone)]
-pub struct KeepAllTransactionDeletionPolicy;
-
-impl Display for KeepAllTransactionDeletionPolicy {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
-  }
-}
-
-impl<IC> IndexDeletionPolicy<IC> for KeepAllTransactionDeletionPolicy
-where
-  IC: IndexCommit + Clone,
-{
-  fn on_init(&self, _commits: &[IC]) -> Result<()> {
-    Ok(())
-  }
-
-  fn on_commit(&self, _commits: &[IC]) -> Result<()> {
-    Ok(())
-  }
 }

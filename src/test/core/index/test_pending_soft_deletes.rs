@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use super::test_pending_deletes::TestPendingDeletesBase;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::get_context;
+use crate::core::index::directory_reader;
 use crate::core::index::doc_values_field_updates::{
-  DocValuesFieldInnerIter, DocValuesFieldIterator, DocValuesFieldIteratorEnum,
-  DocValuesFieldUpdates, DocValuesFieldUpdatesBase, merged_iterator,
+  DocValuesFieldIteratorEnum, DocValuesFieldUpdates, merged_iterator,
 };
-use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
@@ -42,28 +42,25 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::index::{BytesRef, directory_reader};
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
-use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::core::index::test_pending_deletes::TestPendingDeletesBase;
-use crate::test::core::util::lucene_test_case::{new_directory_shared, random};
-use std::borrow::Cow;
+pub(crate) use crate::test::support::core::index::misc::TestSingleUpdateDocValuesFieldUpdates;
+use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
 struct TestPendingSoftDeletes;
 
 mod test_pending_deletes_base_tests {
+  use super::super::test_pending_deletes::TestPendingDeletesBase;
+  use super::TestPendingSoftDeletes;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::index::test_pending_deletes::TestPendingDeletesBase;
-  use crate::test::core::index::test_pending_soft_deletes::TestPendingSoftDeletes;
-  use crate::test::core::util::lucene_test_case::random;
+  use crate::test::support::core::util::lucene_test_case::random;
 
   #[test]
   fn test_delete_doc() -> Result<()> {
@@ -601,137 +598,4 @@ fn single_update(
   )?;
   update.finish()?;
   merged_iterator(vec![update.iterator()?])
-}
-#[cfg(test)]
-pub(crate) struct TestSingleUpdateDocValuesFieldUpdates {
-  docs_changed: Vec<i32>,
-  has_value: bool,
-}
-
-#[cfg(test)]
-impl TestSingleUpdateDocValuesFieldUpdates {
-  pub(crate) fn new(docs_changed: Vec<i32>, has_value: bool) -> Self {
-    Self {
-      docs_changed,
-      has_value,
-    }
-  }
-}
-
-#[cfg(test)]
-impl Accountable for TestSingleUpdateDocValuesFieldUpdates {
-  fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(0)
-  }
-}
-
-#[cfg(test)]
-impl DocValuesFieldUpdatesBase for TestSingleUpdateDocValuesFieldUpdates {
-  fn finish(&mut self) {}
-
-  fn add_value(&mut self, _doc: i32, _value: i64, _index: usize) -> Result<()> {
-    Err(LuceneError::unsupported_operation("add_value"))
-  }
-
-  fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef<Vec<u8>>, _index: usize) -> Result<()> {
-    Err(LuceneError::unsupported_operation("add_byte_ref"))
-  }
-
-  fn add_iterator<T>(&mut self, _doc_id: i32, _iterator: &mut T, _index: usize) -> Result<()>
-  where
-    T: DocValuesFieldIterator,
-  {
-    Err(LuceneError::unsupported_operation("add_iterator"))
-  }
-
-  fn iterator(
-    &self,
-    _inner: DocValuesFieldInnerIter,
-    del_gen: i64,
-  ) -> Result<DocValuesFieldIteratorEnum> {
-    Ok(DocValuesFieldIteratorEnum::SingleUpdate(
-      TestSingleUpdateDocValuesFieldIterator::new(
-        self.docs_changed.clone(),
-        del_gen,
-        self.has_value,
-      ),
-    ))
-  }
-
-  fn swap(&mut self, _i: usize, _j: usize) -> Result<()> {
-    Ok(())
-  }
-
-  fn grow(&mut self, _size: i32) -> Result<()> {
-    Ok(())
-  }
-
-  fn resize(&mut self, _size: i32) -> Result<()> {
-    Ok(())
-  }
-
-  fn sub_type(&self) -> DocValuesType {
-    DocValuesType::Numeric
-  }
-}
-
-#[cfg(test)]
-pub(crate) struct TestSingleUpdateDocValuesFieldIterator {
-  docs_changed: Vec<i32>,
-  idx: usize,
-  doc: i32,
-  del_gen: i64,
-  has_value: bool,
-}
-
-#[cfg(test)]
-impl TestSingleUpdateDocValuesFieldIterator {
-  fn new(docs_changed: Vec<i32>, del_gen: i64, has_value: bool) -> Self {
-    Self {
-      docs_changed,
-      idx: 0,
-      doc: -1,
-      del_gen,
-      has_value,
-    }
-  }
-}
-
-#[cfg(test)]
-impl DocValuesIterator for TestSingleUpdateDocValuesFieldIterator {}
-
-#[cfg(test)]
-impl DocIdSetIterator for TestSingleUpdateDocValuesFieldIterator {
-  fn doc_id(&self) -> i32 {
-    self.doc
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    if self.idx >= self.docs_changed.len() {
-      self.doc = NO_MORE_DOCS;
-      return Ok(self.doc);
-    }
-    self.doc = self.docs_changed[self.idx];
-    self.idx += 1;
-    Ok(self.doc)
-  }
-}
-
-#[cfg(test)]
-impl DocValuesFieldIterator for TestSingleUpdateDocValuesFieldIterator {
-  fn long_value(&self) -> Result<i64> {
-    Ok(1)
-  }
-
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Err(LuceneError::unsupported_operation("binary_value"))
-  }
-
-  fn del_gen(&self) -> i64 {
-    self.del_gen
-  }
-
-  fn has_value(&self) -> Result<bool> {
-    Ok(self.has_value)
-  }
 }

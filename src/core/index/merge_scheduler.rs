@@ -25,11 +25,11 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::core::index::base_knn_vectors_format_test_case::TestMergeScheduler;
+use crate::test::support::core::index::misc::MyMergeScheduler;
 #[cfg(test)]
-use crate::test::core::index::base_merge_policy_test_case::SerialMergeSchedulerImpl;
+use crate::test::support::core::index::misc::SerialMergeSchedulerImpl;
 #[cfg(test)]
-use crate::test::core::index::test_index_writer_merging::MyMergeScheduler;
+use crate::test::support::core::index::misc::TestMergeScheduler;
 
 /// Expert: [IndexWriter] uses an instance implementing this
 /// trait to execute the merges selected by a [MergePolicy].

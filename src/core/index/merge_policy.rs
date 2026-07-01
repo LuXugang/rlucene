@@ -43,17 +43,12 @@ use crate::core::util::io_utils::IOUtils;
 use crate::impl_from_for_enum;
 use crate::sandbox::index::merge_on_flush_merge_policy::MergeOnFlushMergePolicy;
 #[cfg(test)]
-use crate::test::core::index::force_merge_policy::ForceMergePolicy;
+use crate::test::support::core::index::force_merge_policy::ForceMergePolicy;
 #[cfg(test)]
-use crate::test::core::index::test_index_writer::KeepFullyDeletedSegmentsMergePolicy;
-#[cfg(test)]
-use crate::test::core::index::test_index_writer_merge_policy::MergeOnXMergePolicy;
-#[cfg(test)]
-use crate::test::core::index::test_index_writer_merge_policy::MockMergePolicy;
-#[cfg(test)]
-use crate::test::core::index::test_index_writer_merge_policy::OnlyForceMergeMergePolicy;
-#[cfg(test)]
-use crate::test::core::index::test_per_segment_deletes::RangeMergePolicy;
+use crate::test::support::core::index::merge_policy::{
+  KeepFullyDeletedSegmentsMergePolicy, MergeOnXMergePolicy, MockMergePolicy,
+  OnlyForceMergeMergePolicy, RangeMergePolicy,
+};
 use parking_lot::{Condvar, MappedMutexGuard, Mutex, MutexGuard};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};

@@ -14,5 +14,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod test_lucene99_hnsw_vectors_format;
-mod test_lucene99_segment_info_format;

@@ -14,13 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod block_tree;
-mod compressing;
-mod lucene90_live_docs_format;
-mod test_indexed_disi;
-mod test_lucene90_compound_format;
-pub(crate) mod test_lucene90_doc_values_format;
-pub mod test_lucene90_norms_format;
-mod test_lucene90_points_format;
-pub mod test_lucene90_stored_fields_format;
-mod test_lucene90_term_vectors_format;
+pub(crate) mod block_tree;
+pub(crate) mod compressing;

@@ -16,7 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::BytesRef;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::util::lucene_test_case::{
   new_directory_shared, new_io_context, new_io_context_with_default, random,
 };
 
@@ -46,11 +46,11 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::core::index::doc_helper::{
+use crate::test::support::core::index::doc_helper::{
   DATA, DocHelper, FIELD_2_FREQS, FIELD_2_TEXT, TEXT_FIELD_2_KEY,
 };
-use crate::test::core::index::test_segment_reader::TestSegmentReader;
-use crate::test::core::util::test_util::TestUtil;
+use crate::test::support::core::index::misc::TestSegmentReader;
+use crate::test::support::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::RngExt;
 use std::collections::HashMap;

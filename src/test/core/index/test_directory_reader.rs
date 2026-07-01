@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared, new_field,
   new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_string_field, new_text_field, random,
@@ -58,11 +58,11 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::index::doc_helper;
-use crate::test::core::index::doc_helper::{DATA, DocHelper};
-use crate::test::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::core::util::test_util::TestUtil;
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::support::core::index::doc_helper;
+use crate::test::support::core::index::doc_helper::{DATA, DocHelper};
+use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test::support::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

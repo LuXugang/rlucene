@@ -48,9 +48,9 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{Sorter, ToInt, TryIntoInt};
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldIterator;
+use crate::test::support::core::index::misc::TestSingleUpdateDocValuesFieldIterator;
 #[cfg(test)]
-use crate::test::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldUpdates;
+use crate::test::support::core::index::misc::TestSingleUpdateDocValuesFieldUpdates;
 use std::mem::size_of_val;
 
 /// Holds updates for a single DocValues field, for a set of documents within

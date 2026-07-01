@@ -14,22 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod base_token_stream_test_case;
-pub(crate) mod canned_binary_token_stream;
-pub(crate) mod canned_token_stream;
-pub mod mock_analyzer;
-pub(crate) mod mock_char_filter;
-pub(crate) mod mock_fixed_length_payload_filter;
-pub(crate) mod mock_payload_analyzer;
-mod mock_token_filter;
-pub mod mock_tokenizer;
-pub(crate) mod mock_variable_length_payload_filter;
-mod standard;
-mod test_char_array_map;
-mod test_char_array_set;
-pub(crate) mod test_char_filter;
-mod test_character_utils;
-mod test_reusable_string_reader;
-mod test_token;
-pub(crate) mod token;
-mod token_attributes;
+pub(crate) mod standard;
+mod test_whitespace_analyzer;
+pub(crate) mod token_attributes;

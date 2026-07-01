@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::core::util::lucene_test_case::{random, rarely};
+use crate::test::support::core::util::lucene_test_case::{random, rarely};
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 

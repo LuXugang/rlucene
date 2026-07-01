@@ -1,0 +1,186 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::document::document::Document;
+use crate::core::document::field::Store;
+use crate::core::document::text_field::TextField;
+use crate::core::index::index_reader::Identity;
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::term::Term;
+use crate::core::search::boolean_clause::Occur;
+use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
+use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::explanation::Explanation;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::sort::Sort;
+use crate::core::search::sort_field::{SortField, SortFieldType};
+use crate::core::search::sort_field_enum::SortFieldEnum;
+use crate::core::search::term_query::TermQuery;
+use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::search::weight::Weight;
+use crate::core::store::directory::DirEnum;
+use crate::core::util::HasIdentity;
+use crate::core::util::error::lucene_error::Result;
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+pub use crate::test::support::core::search::query::AssertNeedsScores;
+use crate::test::support::core::util::DefaultIndexSearchCR;
+use crate::test::support::core::util::lucene_test_case::{
+  new_directory_shared, new_searcher_with_reader, random,
+};
+use std::hash::{Hash, Hasher};
+use std::mem;
+use std::sync::Arc;
+
+pub struct TestNeedsScores {
+  #[allow(dead_code)]
+  dir: Arc<DirEnum>,
+  searcher: DefaultIndexSearchCR,
+}
+
+impl TestNeedsScores {
+  fn set_up() -> Result<Self> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let analyzer = MockAnalyzer::new(&mut random);
+    let iw = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer)?;
+    for i in 0..5 {
+      let mut doc = Document::new();
+      doc.add(TextField::from_string(
+        "field",
+        format!("this is document {i}"),
+        Store::No,
+      )?);
+      iw.add_document(&mut random, doc)?;
+    }
+    let reader = iw.get_reader(&mut random)?;
+    let mut searcher = new_searcher_with_reader(reader)?;
+    searcher.set_query_cache(None);
+    iw.close(&mut random)?;
+    Ok(Self { dir, searcher })
+  }
+}
+
+#[test]
+fn test_prohibited_clause() -> Result<()> {
+  let case = TestNeedsScores::set_up()?;
+  let required = TermQuery::new(Term::from_text("field", "this"));
+  let prohibited = TermQuery::new(Term::from_text("field", "3"));
+  let mut bq = BooleanQueryBuilder::new();
+  bq.add(
+    AssertNeedsScores::new(required, ScoreMode::TopScores),
+    Occur::Must,
+  )?;
+  bq.add(
+    AssertNeedsScores::new(prohibited, ScoreMode::CompleteNoScores),
+    Occur::MustNot,
+  )?;
+  assert_eq!(4, case.searcher.search(bq.build(), 5)?.total_hits.value());
+  Ok(())
+}
+
+#[test]
+fn test_constant_score_query() -> Result<()> {
+  let case = TestNeedsScores::set_up()?;
+  let term = TermQuery::new(Term::from_text("field", "this"));
+
+  let constant_score = ConstantScoreQuery::new(AssertNeedsScores::new(
+    term.clone(),
+    ScoreMode::CompleteNoScores,
+  ));
+  assert_eq!(5, case.searcher.count(constant_score.clone())?);
+
+  let manager = TopScoreDocCollectorManager::with_after(5, None, i32::MAX as usize)?;
+  let hits = case
+    .searcher
+    .search_with_collector_manager(constant_score, &manager)?;
+  assert_eq!(5, hits.total_hits.value());
+
+  let constant_score = ConstantScoreQuery::new(AssertNeedsScores::new(term, ScoreMode::TopDocs));
+  assert_eq!(
+    5,
+    case
+      .searcher
+      .search(constant_score.clone(), 5)?
+      .total_hits
+      .value()
+  );
+  assert_eq!(
+    5,
+    case
+      .searcher
+      .search_with_sort(constant_score.clone(), 5, Sort::get_index_order()?)?
+      .base
+      .total_hits
+      .value()
+  );
+  assert_eq!(
+    5,
+    case
+      .searcher
+      .search_with_sort(
+        constant_score,
+        5,
+        Sort::with_fields(vec![
+          SortFieldEnum::from(SortField::get_field_doc()?),
+          SortFieldEnum::from(SortField::new(None::<String>, SortFieldType::Score)?),
+        ])?,
+      )?
+      .base
+      .total_hits
+      .value()
+  );
+  Ok(())
+}
+
+#[test]
+fn test_sort_by_field() -> Result<()> {
+  let case = TestNeedsScores::set_up()?;
+  let query = AssertNeedsScores::new(MatchAllDocsQuery::new(), ScoreMode::TopDocs);
+  assert_eq!(
+    5,
+    case
+      .searcher
+      .search_with_sort(query, 5, Sort::get_index_order()?)?
+      .base
+      .total_hits
+      .value()
+  );
+  Ok(())
+}
+
+#[test]
+fn test_sort_by_score() -> Result<()> {
+  let case = TestNeedsScores::set_up()?;
+  let query = AssertNeedsScores::new(MatchAllDocsQuery::new(), ScoreMode::TopScores);
+  assert_eq!(
+    5,
+    case
+      .searcher
+      .search_with_sort(query, 5, Sort::get_relevance()?)?
+      .base
+      .total_hits
+      .value()
+  );
+  Ok(())
+}

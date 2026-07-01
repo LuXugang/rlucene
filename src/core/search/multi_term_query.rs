@@ -36,11 +36,11 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::core::search::test_multi_term_query_rewrites::BoostCheckingQuery;
+use crate::test::support::core::search::multi_term::BoostCheckingQuery;
 #[cfg(test)]
-use crate::test::core::search::test_prefix_random::DumbPrefixQuery;
+use crate::test::support::core::search::multi_term::DumbPrefixQuery;
 #[cfg(test)]
-use crate::test::core::search::test_regexp_random2::DumbRegexpQuery;
+use crate::test::support::core::search::multi_term::DumbRegexpQuery;
 use std::fmt::Debug;
 /// An abstract [`Query`] that matches documents containing a subset of terms provided by a
 /// `FilteredTermsEnum` enumeration.

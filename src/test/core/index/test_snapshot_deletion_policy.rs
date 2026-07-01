@@ -32,9 +32,9 @@ use crate::core::store::io_context::IOContext;
 use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::core::index::test_index_writer::assert_no_unreferenced_files;
-use crate::test::core::util::lucene_test_case::{
+use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test::support::core::index::misc::assert_no_unreferenced_files;
+use crate::test::support::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_field, new_index_writer_config_with_analyzer, random,
   slow_file_exists,
 };

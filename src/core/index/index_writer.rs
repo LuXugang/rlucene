@@ -7373,7 +7373,7 @@ use crate::core::util::{
   StringHelper, TryIntoInt,
 };
 #[cfg(test)]
-use crate::test::core::internal::index_writer_access::IndexWriterAccess;
+use crate::test::support::core::internal::index_writer_access::IndexWriterAccess;
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
 #[cfg(test)]

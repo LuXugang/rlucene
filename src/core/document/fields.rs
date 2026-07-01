@@ -73,11 +73,11 @@ use crate::sandbox::document::big_integer_point::BigIntegerPoint;
 use crate::sandbox::document::half_float_point::HalfFloatPoint;
 use crate::sandbox::document::lat_lon_bounding_box::LatLonBoundingBox;
 #[cfg(test)]
-use crate::test::core::index::test_doc_values_indexing::FieldImpl;
+use crate::test::support::core::document::FieldImpl;
 #[cfg(test)]
-use crate::test::core::index::test_document_writer::MockIndexableField;
+use crate::test::support::core::document::MockIndexableField;
 #[cfg(test)]
-use crate::test::core::index::test_indexable_field::{CustomField, MyField};
+use crate::test::support::core::document::{CustomField, MyField};
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
