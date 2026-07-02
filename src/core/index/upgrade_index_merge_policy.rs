@@ -17,8 +17,8 @@
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
-  MergeSpecificationNoReader, OneMerge,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum,
+  MergeSpecification, OneMerge,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -104,7 +104,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -132,7 +132,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -185,7 +185,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
       if !new_infos.is_empty() {
         let merge = OneMerge::new(new_infos)?;
         if spec.is_none() {
-          spec = Some(MergeSpecificationNoReader::new());
+          spec = Some(DefaultMergeSpecification::new());
         }
         spec.as_mut().unwrap().add(merge);
       }
@@ -199,7 +199,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -215,7 +215,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,

@@ -17,8 +17,8 @@
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecificationNoReader,
-  OneMerge, size,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, OneMerge,
+  size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::multi_terms::get_term_postings_enum_with_flag;

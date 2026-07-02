@@ -19,8 +19,8 @@ use crate::core::index::index_writer::Inner;
 #[cfg(test)]
 use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
-  MergeSpecificationNoReader, OneMergeSR,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum,
+  MergeSpecification, OneMergeSR,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -56,14 +56,14 @@ impl OneMergeWrappingMergePolicy {
 
   fn wrap_spec<D>(
     &self,
-    spec: Option<MergeSpecificationNoReader<D>>,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+    spec: Option<DefaultMergeSpecification<D>>,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
   {
     spec
       .map(|spec| {
-        let mut wrapped = MergeSpecificationNoReader::new();
+        let mut wrapped = DefaultMergeSpecification::new();
         for merge in spec.merges {
           wrapped.add(self.wrap_one_merge.apply(merge)?);
         }
@@ -153,7 +153,7 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -183,7 +183,7 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -202,7 +202,7 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
@@ -220,7 +220,7 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,

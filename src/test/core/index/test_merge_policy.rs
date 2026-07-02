@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::merge_policy::{MergeSpecificationNoReader, OneMerge};
+use crate::core::index::merge_policy::{DefaultMergeSpecification, OneMerge};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
@@ -145,12 +145,12 @@ fn create_random_merge_specification<R, D>(
   random: &mut R,
   dir: Arc<D>,
   num_merges: i32,
-) -> Result<MergeSpecificationNoReader<D>>
+) -> Result<DefaultMergeSpecification<D>>
 where
   R: Rng + ?Sized,
   D: Directory,
 {
-  let mut ms = MergeSpecificationNoReader::new();
+  let mut ms = DefaultMergeSpecification::new();
   for _ii in 0..num_merges {
     let id: [u8; StringHelper::ID_LENGTH] = TestUtil::random_simple_string_range(
       random,

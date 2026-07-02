@@ -17,8 +17,8 @@
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
-  MergeSpecificationNoReader, OneMerge, size,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum,
+  MergeSpecification, OneMerge, size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -86,7 +86,7 @@ impl MergePolicy for MockMergePolicy {
     segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
     _merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -109,7 +109,7 @@ impl MergePolicy for MockMergePolicy {
       }
 
       if start + merge_factor <= end {
-        let merge_spec = spec.get_or_insert_with(MergeSpecificationNoReader::new);
+        let merge_spec = spec.get_or_insert_with(DefaultMergeSpecification::new);
         let mut merge_segments = Vec::with_capacity(merge_factor);
         for info in &segments[start..start + merge_factor] {
           merge_segments.push(SegmentDocAndID::new(
@@ -133,7 +133,7 @@ impl MergePolicy for MockMergePolicy {
     _segments_to_merge: &HashMap<String, Option<bool>>,
     _inner: Option<&Inner<D>>,
     _merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -146,7 +146,7 @@ impl MergePolicy for MockMergePolicy {
     _segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
     _merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -199,7 +199,7 @@ impl MergePolicy for MergeOnXMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -227,7 +227,7 @@ impl MergePolicy for MergeOnXMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -246,7 +246,7 @@ impl MergePolicy for MergeOnXMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
@@ -262,7 +262,7 @@ impl MergePolicy for MergeOnXMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -279,7 +279,7 @@ impl MergePolicy for MergeOnXMergePolicy {
         }
       }
       if non_merging_segments.len() > 1 {
-        let mut spec = MergeSpecificationNoReader::new();
+        let mut spec = DefaultMergeSpecification::new();
         spec.add(OneMerge::new(non_merging_segments)?);
         return Ok(Some(spec));
       }
@@ -349,7 +349,7 @@ impl MergePolicy for OnlyForceMergeMergePolicy {
     _segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
     _merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -375,7 +375,7 @@ impl MergePolicy for OnlyForceMergeMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -394,7 +394,7 @@ impl MergePolicy for OnlyForceMergeMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
@@ -410,7 +410,7 @@ impl MergePolicy for OnlyForceMergeMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -562,7 +562,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -590,7 +590,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -609,7 +609,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
@@ -625,7 +625,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -651,7 +651,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
       return Ok(None);
     }
 
-    let mut spec = MergeSpecificationNoReader::new();
+    let mut spec = DefaultMergeSpecification::new();
     spec.add(OneMerge::new(fully_deleted_segments)?);
     Ok(Some(spec))
   }
@@ -778,7 +778,7 @@ impl MergePolicy for RangeMergePolicy {
     segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
     _merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -797,7 +797,7 @@ impl MergePolicy for RangeMergePolicy {
           info.info.max_doc()?,
         ));
       }
-      let mut ms = MergeSpecificationNoReader::new();
+      let mut ms = DefaultMergeSpecification::new();
       ms.add(OneMerge::new(merge_segments)?);
       return Ok(Some(ms));
     }
@@ -811,7 +811,7 @@ impl MergePolicy for RangeMergePolicy {
     _segments_to_merge: &HashMap<String, Option<bool>>,
     _inner: Option<&Inner<D>>,
     _merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -824,7 +824,7 @@ impl MergePolicy for RangeMergePolicy {
     _segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
     _merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,

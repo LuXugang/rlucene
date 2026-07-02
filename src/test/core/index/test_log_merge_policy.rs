@@ -20,7 +20,7 @@ use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_doc_merge_policy::LogDocMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_policy::{
-  MergePolicy, MergePolicyEnum, MergeSpecification, MergeSpecificationNoReader,
+  DefaultMergeSpecification, MergePolicy, MergePolicyEnum, MergeSpecification,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -143,7 +143,7 @@ fn test_increasing_segment_sizes() -> Result<()> {
     )?)?;
   }
 
-  let spec_opt: Option<MergeSpecificationNoReader<FakeDirectory>> =
+  let spec_opt: Option<DefaultMergeSpecification<FakeDirectory>> =
     merge_policy.find_merges(MergeTrigger::Explicit, &segment_infos, None, &merge_context)?;
   assert!(spec_opt.is_some());
   let spec = spec_opt.unwrap();
@@ -209,7 +209,7 @@ fn test_one_small_middle_segment() -> Result<()> {
     )?)?;
   }
 
-  let spec_opt: Option<MergeSpecificationNoReader<FakeDirectory>> =
+  let spec_opt: Option<DefaultMergeSpecification<FakeDirectory>> =
     merge_policy.find_merges(MergeTrigger::Explicit, &segment_infos, None, &merge_context)?;
   assert!(spec_opt.is_some());
   let spec = spec_opt.unwrap();
@@ -273,7 +273,7 @@ fn test_many_small_middle_segment() -> Result<()> {
     SOURCE_MERGE,
   )?)?;
 
-  let spec_opt: Option<MergeSpecificationNoReader<FakeDirectory>> =
+  let spec_opt: Option<DefaultMergeSpecification<FakeDirectory>> =
     merge_policy.find_merges(MergeTrigger::Explicit, &segment_infos, None, &merge_context)?;
   assert!(spec_opt.is_some());
   let spec = spec_opt.unwrap();
@@ -328,7 +328,7 @@ fn test_reject_unbalanced_merges() -> Result<()> {
     )?)?;
   }
 
-  let spec_opt: Option<MergeSpecificationNoReader<FakeDirectory>> =
+  let spec_opt: Option<DefaultMergeSpecification<FakeDirectory>> =
     merge_policy.find_merges(MergeTrigger::Explicit, &segment_infos, None, &merge_context)?;
   assert!(spec_opt.is_none());
 
@@ -342,7 +342,7 @@ fn test_reject_unbalanced_merges() -> Result<()> {
     SOURCE_FLUSH,
   )?)?;
 
-  let spec_opt: Option<MergeSpecificationNoReader<FakeDirectory>> =
+  let spec_opt: Option<DefaultMergeSpecification<FakeDirectory>> =
     merge_policy.find_merges(MergeTrigger::Explicit, &segment_infos, None, &merge_context)?;
   assert!(spec_opt.is_some());
   let spec = spec_opt.unwrap();
@@ -387,7 +387,7 @@ fn test_pack_large_segments() -> Result<()> {
     )?)?;
   }
 
-  let spec_opt: Option<MergeSpecificationNoReader<FakeDirectory>> =
+  let spec_opt: Option<DefaultMergeSpecification<FakeDirectory>> =
     merge_policy.find_merges(MergeTrigger::Explicit, &segment_infos, None, &merge_context)?;
   assert!(spec_opt.is_some());
   let spec = spec_opt.unwrap();
@@ -440,7 +440,7 @@ fn test_ignore_large_segments() -> Result<()> {
     )?)?;
   }
 
-  let spec_opt: Option<MergeSpecificationNoReader<FakeDirectory>> =
+  let spec_opt: Option<DefaultMergeSpecification<FakeDirectory>> =
     merge_policy.find_merges(MergeTrigger::Explicit, &segment_infos, None, &merge_context)?;
   assert!(spec_opt.is_some());
   let spec = spec_opt.unwrap();

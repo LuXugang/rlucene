@@ -25,6 +25,9 @@ use crate::core::index::index_writer_config::{
   DEFAULT_RAM_BUFFER_SIZE_MB, DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING,
   DEFAULT_USE_COMPOUND_FILE_SYSTEM, OpenMode,
 };
+use crate::core::index::index_writer_event_listener::{
+  IndexWriterEventListenerEnum, NoOpIndexWriterEventListener,
+};
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
@@ -115,6 +118,10 @@ pub trait LiveIndexWriterConfig: Display {
   /// that point. The merges are not cancelled and may still run to completion
   /// independent of the commit.
   fn get_max_full_flush_merge_wait_millis(&self) -> i64;
+
+  /// Returns the [`IndexWriterEventListenerEnum`] callback that tracks the key
+  /// `IndexWriter` operations.
+  fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum<Self::Directory>;
 
   /// Returns `true` if `IndexWriter::close` should first commit before closing.
   fn get_commit_on_close(&self) -> bool;
@@ -281,6 +288,8 @@ where
   pub soft_deletes_field: Option<String>,
   /// Amount of time to wait for merges returned by full-flush merge selection.
   pub max_full_flush_merge_wait_millis: i64,
+  /// [`IndexWriterEventListenerEnum`] for recording key `IndexWriter` events.
+  pub event_listener: IndexWriterEventListenerEnum<D>,
   /// True if calls to `IndexWriter::close` should first do a commit.
   pub commit_on_close: bool,
   /// True if an indexing thread should check for pending flushes on update in
@@ -326,6 +335,7 @@ where
       created_version_major: LATEST.major,
       soft_deletes_field: None,
       max_full_flush_merge_wait_millis: DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
+      event_listener: NoOpIndexWriterEventListener.into(),
       commit_on_close: DEFAULT_COMMIT_ON_CLOSE,
       check_pending_flush_on_update: true,
       parent_field: None,

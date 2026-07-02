@@ -92,6 +92,7 @@ pub mod index_reader_context;
 pub mod index_sorter;
 pub mod index_writer;
 pub mod index_writer_config;
+pub mod index_writer_event_listener;
 pub mod indexable_field;
 pub mod indexable_field_type;
 pub(crate) mod indexing_chain;

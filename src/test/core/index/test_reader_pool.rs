@@ -48,7 +48,7 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::Inner as IWInner;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergeSpecification, MergeSpecificationNoReader,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -762,7 +762,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&IWInner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -790,7 +790,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&IWInner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -809,7 +809,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&IWInner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
@@ -825,7 +825,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&IWInner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,

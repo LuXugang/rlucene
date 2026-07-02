@@ -23,8 +23,8 @@ use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicyEnum, MergeReaderSR, MergeSpecificationNoReader, MergeStat,
-  OneMergeBase, OneMergeSR,
+  DefaultMergeSpecification, MergeContext, MergePolicyEnum, MergeReaderSR, MergeStat, OneMergeBase,
+  OneMergeSR,
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
@@ -2350,7 +2350,7 @@ where
     }
 
     let caching_merge_context = CachingMergeContext::new(self);
-    let mut spec_opt: Option<MergeSpecificationNoReader<D>>;
+    let mut spec_opt: Option<DefaultMergeSpecification<D>>;
 
     if max_num_segments != UNBOUNDED_MAX_MERGE_SEGMENTS {
       debug_assert!(

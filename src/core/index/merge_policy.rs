@@ -104,7 +104,7 @@ pub trait MergePolicy: Display {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>;
@@ -151,7 +151,7 @@ pub trait MergePolicy: Display {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>;
@@ -166,7 +166,7 @@ pub trait MergePolicy: Display {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory;
@@ -208,7 +208,7 @@ pub trait MergePolicy: Display {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -242,7 +242,7 @@ pub trait MergePolicy: Display {
 
           if below_max_full_flush_size {
             if new_merge_spec.is_none() {
-              new_merge_spec = Some(MergeSpecificationNoReader::new());
+              new_merge_spec = Some(DefaultMergeSpecification::new());
             }
             if let Some(ref mut spec) = new_merge_spec {
               spec.add(one_merge);
@@ -567,7 +567,7 @@ impl MergePolicy for MergePolicyEnum {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -626,7 +626,7 @@ impl MergePolicy for MergePolicyEnum {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -737,7 +737,7 @@ impl MergePolicy for MergePolicyEnum {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
@@ -795,7 +795,7 @@ impl MergePolicy for MergePolicyEnum {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -1585,7 +1585,7 @@ where
   where
     F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>;
 }
-pub type MergeSpecificationNoReader<D> = MergeSpecification<D, DefaultLeafReader<D>>;
+pub type DefaultMergeSpecification<D> = MergeSpecification<D, DefaultLeafReader<D>>;
 pub struct MergeSpecification<D, CR>
 where
   D: Directory,

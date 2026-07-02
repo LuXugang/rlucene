@@ -34,6 +34,7 @@ pub mod force_merge_policy;
 pub mod legacy_base_doc_values_format_test_case;
 pub mod merge_policy;
 pub mod mismatched_leaf_reader;
+pub mod mock_index_writer_event_listener;
 pub mod per_thread_pk_lookup;
 pub mod random_index_writer;
 pub mod random_postings_tester;

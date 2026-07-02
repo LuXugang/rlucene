@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergeSpecification, MergeSpecificationNoReader,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
   OneMerge, assert_del_count, size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
@@ -195,7 +195,7 @@ where
     infos: &SegmentInfos<D>,
     mut last: i32,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -269,7 +269,7 @@ where
     max_num_segments: usize,
     mut last: usize,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -492,7 +492,7 @@ where
     infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -673,7 +673,7 @@ where
     segments_to_merge: &HashMap<String, Option<bool>>,
     _inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -755,7 +755,7 @@ where
     segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,

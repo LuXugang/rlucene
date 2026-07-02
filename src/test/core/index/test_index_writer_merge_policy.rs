@@ -34,8 +34,8 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
-  MergeSpecificationNoReader, OneMerge, size,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum,
+  MergeSpecification, OneMerge, size,
 };
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::merge_trigger::MergeTrigger;

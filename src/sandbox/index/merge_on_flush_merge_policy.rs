@@ -17,8 +17,8 @@
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum, MergeSpecification,
-  MergeSpecificationNoReader, OneMerge,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum,
+  MergeSpecification, OneMerge,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -76,7 +76,7 @@ impl MergePolicy for MergeOnFlushMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -104,7 +104,7 @@ impl MergePolicy for MergeOnFlushMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -123,7 +123,7 @@ impl MergePolicy for MergeOnFlushMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -139,7 +139,7 @@ impl MergePolicy for MergeOnFlushMergePolicy {
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -158,7 +158,7 @@ impl MergePolicy for MergeOnFlushMergePolicy {
     }
 
     if small_segments.len() > 1 {
-      let mut merge_spec = MergeSpecificationNoReader::new();
+      let mut merge_spec = DefaultMergeSpecification::new();
       merge_spec.add(OneMerge::new(small_segments)?);
       Ok(Some(merge_spec))
     } else {

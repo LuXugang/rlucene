@@ -16,8 +16,8 @@
  */
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
-  DEFAULT_MAX_CFS_SEGMENT_SIZE, MergeContext, MergePolicy, MergePolicyBase, MergeSpecification,
-  MergeSpecificationNoReader, OneMerge, assert_del_count, size,
+  DEFAULT_MAX_CFS_SEGMENT_SIZE, DefaultMergeSpecification, MergeContext, MergePolicy,
+  MergePolicyBase, MergeSpecification, OneMerge, assert_del_count, size,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -309,7 +309,7 @@ impl TieredMergePolicy {
     merge_type: MergeType,
     merge_context: &MC,
     max_merge_is_running: bool,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
@@ -644,7 +644,7 @@ impl MergePolicy for TieredMergePolicy {
     infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -768,7 +768,7 @@ impl MergePolicy for TieredMergePolicy {
     segments_to_merge: &HashMap<String, Option<bool>>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -886,7 +886,7 @@ impl MergePolicy for TieredMergePolicy {
 
     // This is the special case of merging down to one segment
     if max_segment_count == 1 && total_merge_bytes < max_merge_bytes {
-      let mut spec = MergeSpecificationNoReader::new();
+      let mut spec = DefaultMergeSpecification::new();
       let all_of_them: Vec<SegmentCommitInfoMeta> = sorted_size_and_docs
         .iter()
         .map(|s| {
@@ -897,7 +897,7 @@ impl MergePolicy for TieredMergePolicy {
       return Ok(Some(spec));
     }
 
-    let mut spec: Option<MergeSpecificationNoReader<D>> = None;
+    let mut spec: Option<DefaultMergeSpecification<D>> = None;
 
     let mut index: i32 = (starting_segment_count - 1).try_convert()?;
     let mut resulting_segments = starting_segment_count;
@@ -945,7 +945,7 @@ impl MergePolicy for TieredMergePolicy {
       {
         let merge = OneMerge::from_meta(candidate.as_ref())?;
 
-        let spec_ref = spec.get_or_insert_with(MergeSpecificationNoReader::new);
+        let spec_ref = spec.get_or_insert_with(DefaultMergeSpecification::new);
         spec_ref.add(merge);
       } else {
         return Ok(spec);
@@ -958,7 +958,7 @@ impl MergePolicy for TieredMergePolicy {
     infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
-  ) -> Result<Option<MergeSpecificationNoReader<D>>>
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
     D: Directory,
