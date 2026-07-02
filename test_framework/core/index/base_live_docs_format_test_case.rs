@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::new_directory_shared;
+use crate::test_framework::core::util::lucene_test_case::new_directory_shared;
 use std::collections::HashMap;
 
 use rand::Rng;
@@ -32,7 +32,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::{HasIdentity, LATEST, StringHelper};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 pub trait BaseLiveDocsFormatTestCase {
   fn test_dense_live_docs<R>(&self, random: &mut R) -> Result<()>

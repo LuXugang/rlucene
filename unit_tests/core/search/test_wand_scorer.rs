@@ -25,7 +25,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, new_searcher_with_threads, random,
 };
@@ -58,11 +58,11 @@ use crate::core::search::wand_scorer::{
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{HasIdentity, ToInt};
-use crate::test::support::core::search::asserting_query::AssertingQuery;
-use crate::test::support::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
-use crate::test::support::core::search::check_hits::CheckHits;
-pub use crate::test::support::core::search::query::{MaxScoreWrapperQuery, WANDScorerQuery};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::search::asserting_query::AssertingQuery;
+use crate::test_framework::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
+use crate::test_framework::core::search::check_hits::CheckHits;
+pub use crate::test_framework::core::search::query::{MaxScoreWrapperQuery, WANDScorerQuery};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

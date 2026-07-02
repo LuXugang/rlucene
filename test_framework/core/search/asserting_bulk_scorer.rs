@@ -23,8 +23,8 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::asserting_leaf_collector::AssertingLeafCollector;
-use crate::test::support::core::util::lucene_test_case::random_from_seed;
+use crate::test_framework::core::search::asserting_leaf_collector::AssertingLeafCollector;
+use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 use rand::RngExt;
 
 /// Wraps a BulkScorer with additional checks.

@@ -34,10 +34,10 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, random,
 };

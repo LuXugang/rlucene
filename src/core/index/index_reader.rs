@@ -778,7 +778,7 @@ struct IdentityTag(u8);
 pub struct Identity(Arc<IdentityTag>);
 
 impl Identity {
-  pub(crate) fn new() -> Self {
+  pub fn new() -> Self {
     Identity(Arc::new(IdentityTag(0)))
   }
   /// Returns the raw pointer to the underlying identity allocation.

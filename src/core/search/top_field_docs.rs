@@ -22,9 +22,9 @@ use crate::core::search::total_hits::TotalHits;
 /// Represents hits returned by IndexSearcher.search(Query, int, Sort).
 #[derive(Default)]
 pub struct TopFieldDocs {
-  pub(crate) base: TopDocs<TopFieldScoreDoc>,
+  pub base: TopDocs<TopFieldScoreDoc>,
   /// The fields which were used to sort results by.
-  pub(crate) fields: Vec<SortFieldEnum>,
+  pub fields: Vec<SortFieldEnum>,
 }
 impl Default for TopDocs<TopFieldScoreDoc> {
   fn default() -> Self {

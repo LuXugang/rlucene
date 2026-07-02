@@ -23,7 +23,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::compress::lz4::LZ4;
 use crate::core::util::compress::lz4::{HashTable, HashTableEnum};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 pub(crate) trait LZ4TestCase {
   fn new_hash_table(&self) -> AssertingHashTable;
 

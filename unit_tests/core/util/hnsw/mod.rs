@@ -14,14 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod hnsw_graph_test_case;
-pub mod mock_byte_vector_values;
-pub mod mock_vector_values;
 mod test_blocking_float_heap;
 mod test_float_heap;
 pub mod test_hnsw_byte_vector_graph;
 pub mod test_hnsw_float_vector_graph;
-mod test_hnsw_util;
-mod test_neighbor_array;
 mod test_neighbor_queue;
 mod test_on_heap_hnsw_graph;

@@ -40,7 +40,7 @@ use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::long_supplier::LongSupplier;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random,
 };
 
@@ -567,7 +567,7 @@ fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
   let bg_field_numbers = field_numbers.clone();
   let bg_num_segments = num_segments;
 
-  let mut bg_random = crate::test::support::core::util::lucene_test_case::random();
+  let mut bg_random = crate::test_framework::core::util::lucene_test_case::random();
   let refresher = thread::spawn(move || -> Result<()> {
     let mut bg_reader = directory_reader::open(bg_dir)?;
     latch_bg.wait();

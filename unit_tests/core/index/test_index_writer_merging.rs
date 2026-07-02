@@ -25,19 +25,17 @@ use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
-use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum, MergeSource};
-use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-pub use crate::test::support::core::index::misc::MyMergeScheduler;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::test_index_writer_merging::MyMergeScheduler;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_string_field, random,
 };

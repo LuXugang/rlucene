@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy_with_merge_factor_cfs, new_mock_directory, new_string_field, new_text_field,
   random, slow_file_exists,
@@ -41,8 +41,8 @@ use crate::core::store::{DataInput, DataOutput, IndexInput};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 #[allow(dead_code)] // for quick search
 struct TestIndexFileDeleter;
 

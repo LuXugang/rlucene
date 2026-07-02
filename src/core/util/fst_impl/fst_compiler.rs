@@ -244,7 +244,7 @@ where
   /// (e.g. [`ByteSequenceOutputs`](crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs)
   /// or
   /// [`IntSequenceOutputs`](crate::core::util::fst_impl::int_sequence_outputs::IntSequenceOutputs)), then you cannot reuse them across calls.
-  pub(crate) fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: O::V) -> Result<()> {
+  pub fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: O::V) -> Result<()> {
     let ints = &input.ints;
 
     // De-dup NO_OUTPUT since it must be a singleton:
@@ -1005,6 +1005,11 @@ where
   /// Returns the current byte size of the FST being built.
   pub fn fst_size_in_bytes(&self) -> i64 {
     self.num_bytes_written
+  }
+
+  #[cfg(test)]
+  pub(crate) fn get_fst(&self) -> &FST<O, NullFSTReader> {
+    &self.fst
   }
 }
 

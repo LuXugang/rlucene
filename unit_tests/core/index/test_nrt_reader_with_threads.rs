@@ -20,10 +20,10 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::index_tests::test_index_writer_reader;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::doc_helper::DocHelper;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::doc_helper::DocHelper;
+use crate::test_framework::core::index::test_index_writer_reader::count;
+use crate::test_framework::core::util::lucene_test_case::{
   ensure_sane_iwc_on_nightly, is_night_mode, new_directory_shared,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor_cfs, random,
   random_from_seed,
@@ -82,7 +82,7 @@ fn test_indexing() -> Result<()> {
                 let reader = directory_reader::open_from_writer(writer)?;
                 let id = r.random_range(0..seq.load(Ordering::SeqCst));
                 let term = Term::from_text("id", id.to_string());
-                let count = test_index_writer_reader::count(&mut r, &term, &reader)?;
+                let count = count(&mut r, &term, &reader)?;
                 writer.delete_documents_with_terms(vec![term])?;
                 reader.close()?;
                 del_count += count;

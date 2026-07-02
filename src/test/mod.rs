@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) use crate::test_framework as support;
+#![allow(unused_imports)]
 
 pub(crate) mod core;
 pub(crate) mod queries;

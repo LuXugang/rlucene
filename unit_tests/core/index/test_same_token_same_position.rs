@@ -20,8 +20,8 @@ use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::text_field::TextField;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 #[allow(dead_code)] // for quick search
 pub struct TestSameTokenSamePosition;
 

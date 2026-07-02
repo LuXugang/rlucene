@@ -19,11 +19,11 @@ use crate::core::search::multi_phrase_query;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::{Builder, PhraseQuery};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::search_equivalence_test_base::{
+use crate::test_framework::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
-use crate::test::support::core::util::lucene_test_case::random;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_chacha::ChaCha8Rng;
 use rand_chacha::rand_core::Rng;

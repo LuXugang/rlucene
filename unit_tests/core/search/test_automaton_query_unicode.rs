@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
 };
 use std::collections::HashMap;
@@ -34,8 +34,8 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::DefaultIndexSearchCR;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
 use rand::Rng;
 
 pub struct TestAutomatonQueryUnicode;

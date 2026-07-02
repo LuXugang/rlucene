@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/array_util.rs
 
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::cmp::Ordering;
 use std::fmt::Display;
 
@@ -29,7 +29,7 @@ use crate::core::util::array_util::{
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{NaturalOrder, ReverseOrder, SliceCopyOps, ToInt};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 pub struct TestArrayUtil;

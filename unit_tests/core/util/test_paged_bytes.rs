@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/paged_bytes.rs
 
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, random,
 };
 use rand::RngExt;
@@ -30,7 +30,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::paged_bytes::{PagedBytes, get_data_input, get_data_output};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use std::mem;
 
 #[allow(dead_code)] // for quick search

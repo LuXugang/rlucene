@@ -30,15 +30,15 @@ use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::mock_tokenizer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer,
   new_merge_policy_with_mock_mp, new_searcher_with_reader, new_string_field, new_text_field,
   random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};

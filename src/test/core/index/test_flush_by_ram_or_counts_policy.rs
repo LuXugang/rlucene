@@ -25,14 +25,14 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-pub use crate::test::support::core::index::misc::MockDefaultFlushPolicy;
-use crate::test::support::core::util::line_file_docs::LineFileDocs;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::test_flush_by_ram_or_counts_policy::MockDefaultFlushPolicy;
+use crate::test_framework::core::util::line_file_docs::LineFileDocs;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, random,
   random_from_seed, rarely,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;

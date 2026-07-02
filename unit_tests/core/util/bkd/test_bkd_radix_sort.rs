@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::RngExt;
 
@@ -29,7 +29,7 @@ use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps, ToInt};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestBKDRadixSort;
 #[test]

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, new_text_field, random,
 };
@@ -35,7 +35,7 @@ use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use rand::RngExt;
 
 #[allow(dead_code)] // for quick search

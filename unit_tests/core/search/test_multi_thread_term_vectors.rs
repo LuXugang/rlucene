@@ -26,9 +26,9 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::iterator::IteratorExt;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::util::english::English;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::util::english::English;
+use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_field, new_index_writer_config_with_analyzer,
   new_log_merge_policy, random,
 };

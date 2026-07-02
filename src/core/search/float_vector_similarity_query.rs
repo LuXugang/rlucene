@@ -46,7 +46,7 @@ pub struct FloatVectorSimilarityQuery {
   target: Vec<f32>,
   id: Identity,
   #[cfg(test)]
-  pub(crate) has_vector_scorer: bool,
+  pub has_vector_scorer: bool,
 }
 
 impl FloatVectorSimilarityQuery {

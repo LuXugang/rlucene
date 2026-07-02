@@ -52,11 +52,11 @@ use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, get_only_leaf_reader, new_directory_shared, new_searcher_with_reader,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashSet;

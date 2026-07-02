@@ -28,7 +28,7 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::sync::Arc;

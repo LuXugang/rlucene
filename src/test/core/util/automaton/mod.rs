@@ -14,3 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod test_automaton;
+mod test_intset;
+mod test_nfs_run_automaton;
+mod test_strings_to_automaton;

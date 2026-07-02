@@ -77,7 +77,7 @@ pub struct BrokenExplainTermQuery {
 }
 
 impl BrokenExplainTermQuery {
-  pub(crate) fn new<T>(term: T, toggle_explain_match: bool, break_explain_scores: bool) -> Self
+  pub fn new<T>(term: T, toggle_explain_match: bool, break_explain_scores: bool) -> Self
   where
     T: Into<Arc<Term>>,
   {
@@ -563,7 +563,7 @@ pub struct AssertNeedsScores {
 }
 
 impl AssertNeedsScores {
-  pub(crate) fn new<T>(query: T, value: ScoreMode) -> Self
+  pub fn new<T>(query: T, value: ScoreMode) -> Self
   where
     T: IntoBoxQuery,
   {
@@ -896,11 +896,7 @@ pub struct RandomQuery {
 }
 
 impl RandomQuery {
-  pub(crate) fn new(
-    seed: u64,
-    density: f32,
-    doc_values: Arc<Vec<Option<BytesRef<Vec<u8>>>>>,
-  ) -> Self {
+  pub fn new(seed: u64, density: f32, doc_values: Arc<Vec<Option<BytesRef<Vec<u8>>>>>) -> Self {
     Self {
       id: Identity::new(),
       seed,
@@ -1096,7 +1092,7 @@ pub struct DummyQuery1 {
 }
 
 impl DummyQuery1 {
-  pub(crate) fn new(id: i32) -> Self {
+  pub fn new(id: i32) -> Self {
     Self {
       id,
       identity: Identity::new(),
@@ -1265,7 +1261,7 @@ pub enum TestLRUQuery {
 static DUMMY_QUERY_COUNTER: AtomicI32 = AtomicI32::new(0);
 
 impl TestLRUQuery {
-  pub(crate) fn dummy() -> Self {
+  pub fn dummy() -> Self {
     Self::Dummy {
       id: DUMMY_QUERY_COUNTER.fetch_add(1, Ordering::Relaxed),
       identity: Identity::new(),
@@ -1835,7 +1831,7 @@ pub struct MaxScoreWrapperQuery {
 }
 
 impl MaxScoreWrapperQuery {
-  pub(crate) fn new<T>(query: T, max_range: i32, max_score: f32) -> Self
+  pub fn new<T>(query: T, max_range: i32, max_score: f32) -> Self
   where
     T: Into<Box<Query>>,
   {
@@ -2058,7 +2054,7 @@ pub struct WANDScorerQuery {
 }
 
 impl WANDScorerQuery {
-  pub(crate) fn new(query: BooleanQuery, do_blocks: bool) -> Self {
+  pub fn new(query: BooleanQuery, do_blocks: bool) -> Self {
     let id = Identity::new();
     assert_eq!(
       query.clauses().len(),

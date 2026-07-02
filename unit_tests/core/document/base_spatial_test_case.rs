@@ -25,7 +25,7 @@ use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::test::support::core::search::fixed_bit_set_collector::FixedBitSetCollector;
+use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 
 pub trait BaseSpatialTestCase {
   fn search_index<IRC>(

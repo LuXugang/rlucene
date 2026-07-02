@@ -26,10 +26,10 @@ use crate::core::search::query::Query;
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::base_explanation_test_case::{
+use crate::test_framework::core::search::base_explanation_test_case::{
   BaseExplanationTestCase, BaseExplanationTestContext, FIELD, before_class_test_explanations,
 };
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

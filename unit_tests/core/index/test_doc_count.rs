@@ -28,11 +28,11 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_string_field, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
 

@@ -16,7 +16,7 @@
  */
 use crate::core::index::documents_writer_stall_control::DocumentsWriterStallControl;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, is_night_mode, random,
 };
 use parking_lot::{Condvar, Mutex};

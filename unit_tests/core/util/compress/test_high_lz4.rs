@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::compress::lz4::{HashTableEnum, HighCompressionHashTable};
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use crate::util_tests::compress::lz4_test_case::{AssertingHashTable, LZ4TestCase};
 
 #[allow(dead_code)] // for quick search

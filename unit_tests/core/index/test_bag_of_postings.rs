@@ -25,13 +25,13 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
   random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::seq::SliceRandom;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Barrier, Mutex};
@@ -77,7 +77,7 @@ fn test() -> Result<()> {
     let field_type = field_type.clone();
 
     handles.push(thread::spawn(move || {
-      let mut thread_random = crate::test::support::core::util::lucene_test_case::random();
+      let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
       let _ = barrier.wait();
 
       loop {

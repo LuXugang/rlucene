@@ -16,8 +16,8 @@
  */
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::search_tests::similarities::base_similarity_test_case::BaseSimilarityTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::search::base_similarity_test_case::BaseSimilarityTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::RngExt;
 

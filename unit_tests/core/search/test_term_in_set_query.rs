@@ -40,13 +40,13 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
   new_searcher_with_reader, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;

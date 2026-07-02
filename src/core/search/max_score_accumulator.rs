@@ -65,11 +65,11 @@ impl MaxScoreAccumulator {
     }
   }
 
-  pub(crate) fn to_score(value: i64) -> f32 {
+  pub fn to_score(value: i64) -> f32 {
     f32::from_bits((value >> 32) as u32)
   }
 
-  pub(crate) fn doc_id(value: i64) -> i32 {
+  pub fn doc_id(value: i64) -> i32 {
     value as i32
   }
 

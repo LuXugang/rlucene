@@ -27,8 +27,8 @@ use crate::core::search::sorted_set_selector::SortedSetSelectorType::{Max, Middl
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   new_bytes_ref_from_string, new_directory_shared, new_searcher_with_wrap, new_string_field, random,
 };
 use std::collections::HashMap;

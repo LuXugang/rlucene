@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_array_doc_id_set::IntArrayDocIdSetIterator;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::test::support::core::util::lucene_test_case::{is_night_mode, random};
+use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
 use crate::util_tests::base_bit_set_test_case::{
   BaseBitSetTestCase, BaseBitSetTestCaseSupperImpl, RustUtilBitSet,
 };

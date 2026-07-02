@@ -36,13 +36,13 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::internal::index_writer_access::IndexWriterAccess;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::internal::index_writer_access::IndexWriterAccess;
+use crate::test_framework::core::util::lucene_test_case::{
   maybe_change_live_index_writer_config, new_index_writer_config_with_analyzer, random_from_seed,
 };
-use crate::test::support::core::util::null_info_stream::NullInfoStream;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::null_info_stream::NullInfoStream;
+use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
@@ -57,7 +57,7 @@ pub struct RandomIndexWriter<D>
 where
   D: Directory + 'static,
 {
-  pub(crate) w: DefaultIndexWriter<D>,
+  pub w: DefaultIndexWriter<D>,
   flush_state: Mutex<FlushState>,
   get_reader_called: AtomicBool,
   soft_deletes_ratio: f64,

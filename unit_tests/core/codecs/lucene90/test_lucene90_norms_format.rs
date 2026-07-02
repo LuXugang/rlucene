@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::base_norms_format_test_case::BaseNormsFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_norms_format_test_case::BaseNormsFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 
@@ -48,7 +48,7 @@ where
 mod base_norms_format_test_case_test {
   use crate::codecs_tests::lucene90::test_lucene90_norms_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_norms_format_test_case::BaseNormsFormatTestCase;
+  use crate::test_framework::core::index::base_norms_format_test_case::BaseNormsFormatTestCase;
 
   #[test]
   fn test_byte_range() -> Result<()> {

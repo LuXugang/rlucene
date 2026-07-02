@@ -16,9 +16,9 @@
  */
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, Version};
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene99SegmentInfoFormat;
@@ -26,7 +26,7 @@ pub struct TestLucene99SegmentInfoFormat;
 mod base_segment_info_format_test_case_tests {
   use crate::codecs_tests::lucene99::test_lucene99_segment_info_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
+  use crate::test_framework::core::index::base_segment_info_format_test_case::BaseSegmentInfoFormatTestCase;
 
   #[test]
   fn test_files() -> Result<()> {

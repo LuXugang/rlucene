@@ -18,7 +18,7 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::token::Token;
+use crate::test_framework::core::analysis::token::Token;
 
 pub struct CannedTokenStream {
   attr: Attributes,

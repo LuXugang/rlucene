@@ -55,7 +55,7 @@ impl MockMergePolicy {
     self.merge_factor
   }
 
-  pub(crate) fn set_merge_factor(&mut self, merge_factor: i32) {
+  pub fn set_merge_factor(&mut self, merge_factor: i32) {
     self.merge_factor = merge_factor;
   }
 }

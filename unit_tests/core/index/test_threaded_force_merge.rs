@@ -28,10 +28,10 @@ use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::term::Term;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::mock_tokenizer;
-use crate::test::support::core::util::english::English;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer;
+use crate::test_framework::core::util::english::English;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, random, random_from_seed,
 };

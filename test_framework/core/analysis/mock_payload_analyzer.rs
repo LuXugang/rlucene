@@ -23,8 +23,8 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::index::bytes_ref::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_tokenizer::MockTokenizer;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
+use crate::test_framework::core::util::lucene_test_case::random;
 
 /// Wraps a whitespace tokenizer with a filter that sets the first token, and odd tokens to posinc=1,
 /// and all others to 0, encoding the position as pos: XXX in the payload.

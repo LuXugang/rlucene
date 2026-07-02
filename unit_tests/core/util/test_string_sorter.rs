@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use rand::Rng;
 use rand::RngExt;
 
@@ -25,7 +25,7 @@ use crate::core::util::stable_string_sorter::{StableStringSorter, StableStringSo
 use crate::core::util::{
   MSBRadixSorterBase, NaturalOrder, SliceCopyOps, Sorter, StringSorter, StringSorterBase,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use crate::util_tests::common_method::assert_vecs_equal;
 
 #[allow(dead_code)] // for quick search

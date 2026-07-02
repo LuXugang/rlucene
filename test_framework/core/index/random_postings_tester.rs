@@ -64,13 +64,13 @@ use crate::core::util::iterator::{IteratorExt, VecIter, VecIteratorExt};
 use crate::core::util::string_helper::StringHelper;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::version::LATEST;
-use crate::test::support::core::util::automaton::automaton_test_util::{
+use crate::test_framework::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
 };
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_fs_directory, random_from_seed, random_multiplier,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
 use rand::rngs::StdRng;
 use rand::{Rng, RngExt};

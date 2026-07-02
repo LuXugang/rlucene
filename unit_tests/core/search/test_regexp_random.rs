@@ -22,13 +22,13 @@ use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::DefaultIndexSearchCR;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_field, new_index_writer_config, new_searcher_with_reader,
   random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;

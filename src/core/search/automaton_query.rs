@@ -110,8 +110,7 @@ impl AutomatonQuery {
       rewrite_method,
     })
   }
-  #[cfg(test)]
-  pub(crate) fn get_compiled(&self) -> &CompiledAutomaton {
+  pub fn get_compiled(&self) -> &CompiledAutomaton {
     &self.compiled
   }
 }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{random, rarely};
+use crate::test_framework::core::util::lucene_test_case::{random, rarely};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -28,7 +28,7 @@ use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::core::index::term::Term;
 use crate::core::util::AtomicCounter;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 use rand::Rng;
 use rand::RngExt;

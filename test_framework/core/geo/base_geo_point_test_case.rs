@@ -50,11 +50,11 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sloppy_math::SloppyMath;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::fixed_bit_set_collector::FixedBitSetCollector;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher_with_reader,

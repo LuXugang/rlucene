@@ -20,8 +20,8 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::build;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::RngExt;
 use std::sync::Arc;
 

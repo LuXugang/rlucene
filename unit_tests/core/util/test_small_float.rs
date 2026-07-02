@@ -18,7 +18,7 @@
 
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 
 #[allow(dead_code)] // for quick search
 struct TestSmallFloat;
@@ -108,7 +108,7 @@ fn test_byte_to_float() {
 }
 use rand::RngExt;
 
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[test]
 fn test_float_to_byte() {

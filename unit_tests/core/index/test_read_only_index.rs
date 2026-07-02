@@ -22,9 +22,9 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::term_query::TermQuery;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
   new_searcher_with_reader, new_text_field, random,
 };

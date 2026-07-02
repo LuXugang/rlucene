@@ -69,31 +69,31 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::support::core::search::asserting_query::AssertingQuery;
+use crate::test_framework::core::search::asserting_query::AssertingQuery;
 #[cfg(test)]
-use crate::test::support::core::search::base_vector_similarity_query_test_case::CountingQuery;
+use crate::test_framework::core::search::base_vector_similarity_query_test_case::CountingQuery;
 #[cfg(test)]
-use crate::test::support::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
+use crate::test_framework::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
 #[cfg(test)]
-use crate::test::support::core::search::query::AssertNeedsScores;
+use crate::test_framework::core::search::query::AssertNeedsScores;
 #[cfg(test)]
-use crate::test::support::core::search::query::BitSetQuery;
+use crate::test_framework::core::search::query::BitSetQuery;
 #[cfg(test)]
-use crate::test::support::core::search::query::BrokenExplainTermQuery;
+use crate::test_framework::core::search::query::BrokenExplainTermQuery;
 #[cfg(test)]
-use crate::test::support::core::search::query::CrazyMustUseBulkScorerQuery;
+use crate::test_framework::core::search::query::CrazyMustUseBulkScorerQuery;
 #[cfg(test)]
-use crate::test::support::core::search::query::DummyQuery1;
+use crate::test_framework::core::search::query::DummyQuery1;
 #[cfg(test)]
-use crate::test::support::core::search::query::RandomQuery;
+use crate::test_framework::core::search::query::RandomQuery;
 #[cfg(test)]
-use crate::test::support::core::search::query::TestRewriteQuery;
+use crate::test_framework::core::search::query::TestRewriteQuery;
 #[cfg(test)]
-use crate::test::support::core::search::query::{DVCacheQuery, TestLRUQuery};
+use crate::test_framework::core::search::query::{DVCacheQuery, TestLRUQuery};
 #[cfg(test)]
-use crate::test::support::core::search::query::{MaxScoreWrapperQuery, WANDScorerQuery};
+use crate::test_framework::core::search::query::{MaxScoreWrapperQuery, WANDScorerQuery};
 #[cfg(test)]
-use crate::test::support::core::search::random_approximation_query::RandomApproximationQuery;
+use crate::test_framework::core::search::random_approximation_query::RandomApproximationQuery;
 use std::cmp::PartialEq;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};

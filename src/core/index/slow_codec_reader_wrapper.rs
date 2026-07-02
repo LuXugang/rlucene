@@ -54,7 +54,7 @@ impl SlowCodecReaderWrapper {
   ///
   /// If `reader` is already a [CodecReader], it is returned directly.
   /// Otherwise, a (slow) view is returned.
-  pub(crate) fn wrap_leaf_reader<LR>(reader: LR) -> CodecReaderImpl<LR>
+  pub fn wrap_leaf_reader<LR>(reader: LR) -> CodecReaderImpl<LR>
   where
     LR: LeafReader,
   {

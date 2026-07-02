@@ -132,7 +132,7 @@ fn build_fst_with_compiler(
     DummyDirectory,
   >,
 ) -> Result<FST<NoOutputs, DataOutputEnum<DummyDirectory>>> {
-  let nothing = fst_compiler.fst.outputs.get_no_output();
+  let nothing = fst_compiler.get_fst().outputs.get_no_output();
   let mut scratch = IntsRefBuilder::new();
   for entry in entries {
     Util::to_ints_ref(entry, &mut scratch)?;

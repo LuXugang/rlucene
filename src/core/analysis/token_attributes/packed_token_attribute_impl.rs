@@ -34,11 +34,11 @@ use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
-use crate::test::support::core::analysis::base_token_stream_test_case::{
+use crate::test_framework::core::analysis::base_token_stream_test_case::{
   CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
 };
 #[cfg(test)]
-use crate::test::support::core::analysis::token::TokenBase;
+use crate::test_framework::core::analysis::token::TokenBase;
 use std::borrow::Cow;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
@@ -66,7 +66,7 @@ pub struct PackedTokenAttributeImpl {
   #[cfg(debug_assertions)]
   attribute: HashSet<String>,
   #[cfg(test)]
-  pub(crate) token: TokenBase,
+  pub token: TokenBase,
 }
 
 impl PackedTokenAttributeImpl {

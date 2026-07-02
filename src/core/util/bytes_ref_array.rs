@@ -49,7 +49,7 @@ pub struct BytesRefArray {
 }
 
 impl BytesRefArray {
-  pub(crate) fn new(byte_used: SharedCounter) -> Result<BytesRefArray> {
+  pub fn new(byte_used: SharedCounter) -> Result<BytesRefArray> {
     let allocator = DirectAllocatorByte::new();
     let mut pool = ByteBlockPool::new(allocator);
     pool.next_buffer()?;

@@ -30,11 +30,11 @@ use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-pub use crate::test::support::core::index::deletion_policy::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+pub use crate::test_framework::core::index::deletion_policy::{
   DeleteLastCommitPolicy, KeepAllTransactionDeletionPolicy, RollbackDeletionPolicy,
 };
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_text_field, random,
 };
 use rand_chacha::rand_core::Rng;

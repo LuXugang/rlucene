@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene94FieldInfosFormat;

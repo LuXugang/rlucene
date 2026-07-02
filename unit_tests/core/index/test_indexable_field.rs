@@ -50,12 +50,12 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
-pub use crate::test::support::core::document::{CustomField, MyField};
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+pub use crate::test_framework::core::document::{CustomField, MyField};
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_searcher_with_reader, new_string_field, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 pub(crate) struct TestIndexableField;

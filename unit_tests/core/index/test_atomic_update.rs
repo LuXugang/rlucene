@@ -28,11 +28,11 @@ use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::store::mock_directory_wrapper::MockDirectoryWrapper;
-use crate::test::support::core::util::english::English;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::util::english::English;
+use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, is_night_mode, new_fs_directory,
   new_index_writer_config_with_analyzer, random,
 };
@@ -141,7 +141,7 @@ impl TestAtomicUpdate {
       for _ in 0..index_threads {
         let writer = writer.clone();
         handles.push(scope.spawn(move || -> Result<()> {
-          let mut thread_random = crate::test::support::core::util::lucene_test_case::random();
+          let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
           for count in 0..index_iterations {
             Self::indexer_do_work(&writer, &mut thread_random, count)?;
           }

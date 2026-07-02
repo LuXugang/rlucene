@@ -18,9 +18,9 @@ use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
 use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::earth_debugger::EarthDebugger;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::geo::earth_debugger::EarthDebugger;
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use rand::{Rng, RngExt};
 
 struct TestGeoUtils;

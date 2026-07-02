@@ -58,7 +58,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
-use crate::test::support::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
+use crate::test_framework::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
 use parking_lot::Mutex;
 #[cfg(test)]
 use std::cell::Cell;
@@ -246,7 +246,7 @@ where
   }
 
   #[cfg(test)]
-  pub(crate) fn set_slice_strategy(&mut self, slice_strategy: SliceStrategy<IRC::LeafReader>) {
+  pub fn set_slice_strategy(&mut self, slice_strategy: SliceStrategy<IRC::LeafReader>) {
     self.slice_strategy = Some(slice_strategy);
     if self.search_threads > 1 {
       self.inner.lock().leaf_slices = None;
@@ -254,7 +254,7 @@ where
   }
 
   #[cfg(test)]
-  pub(crate) fn set_offloaded_slice_counter(&mut self, counter: Arc<AtomicUsize>) {
+  pub fn set_offloaded_slice_counter(&mut self, counter: Arc<AtomicUsize>) {
     self.offloaded_slice_counter = Some(counter);
   }
 
@@ -820,7 +820,7 @@ where
   }
 
   #[allow(clippy::type_complexity)]
-  pub(crate) fn create_weight<T>(
+  pub fn create_weight<T>(
     &self,
     query: T,
     score_mode: ScoreMode,

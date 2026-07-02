@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{at_least, new_directory_shared};
+use crate::test_framework::core::util::lucene_test_case::{at_least, new_directory_shared};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -40,11 +40,11 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper, TryIntoInt};
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::util::index_package_access::{
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::util::index_package_access::{
   FieldInfosBuilder, IndexPackageAccess, IndexPackageAccessImpl,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
   fn support_doc_values_skip_index(&self) -> bool {

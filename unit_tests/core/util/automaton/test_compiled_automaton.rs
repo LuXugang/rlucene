@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{at_least, random, random_multiplier};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random, random_multiplier};
 use std::collections::HashSet;
 
 use rand::Rng;
@@ -26,7 +26,7 @@ use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestCompiledAutomaton;
 fn build(_determinize_work_limit: i32, strings: &[&str]) -> Result<CompiledAutomaton> {

@@ -18,8 +18,8 @@ use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
-use crate::test::support::core::util::lucene_test_case::random;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 #[allow(dead_code)] // for quick search
 struct TestGeoEncodingUtils;

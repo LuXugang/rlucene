@@ -32,7 +32,7 @@ pub struct ScorerIndexSearcher<CR>
 where
   CR: CompositeReader + 'static,
 {
-  pub(crate) s: IndexSearcher<CompositeReaderContext<CR>>,
+  pub s: IndexSearcher<CompositeReaderContext<CR>>,
 }
 impl<CR> ScorerIndexSearcher<CR>
 where

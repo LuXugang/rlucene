@@ -16,8 +16,8 @@
  */
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sloppy_math::{SIN_COS_MAX_VALUE_FOR_INT_MODULO, SloppyMath, TO_METERS};
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use rand::RngExt;
 #[allow(dead_code)] // for quick search
 struct TestSloppyMath;

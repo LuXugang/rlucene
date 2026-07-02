@@ -21,7 +21,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
 
@@ -37,7 +37,7 @@ use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 
 #[allow(dead_code)] // for quick search
 struct TestDocument;

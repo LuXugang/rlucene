@@ -210,7 +210,7 @@ impl NeighborArray {
   }
   /// This method is for test only.
   #[cfg(debug_assertions)]
-  pub(crate) fn insert_sorted(&mut self, new_node: usize, new_score: f32) -> Result<()> {
+  pub fn insert_sorted(&mut self, new_node: usize, new_score: f32) -> Result<()> {
     self.add_out_of_order(new_node, new_score)?;
     let mut v = DummyRandomVectorScorer;
     self.insert_sorted_internal(&mut v)?;

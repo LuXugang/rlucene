@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_cfs, random,
 };
 use std::collections::HashSet;
@@ -43,10 +43,10 @@ use crate::core::store::{
 };
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::misc::create_index_no_close;
-use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::support::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::test_index_writer_reader::create_index_no_close;
+use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 
 type NioDirectory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 type SwitchDirectory = FileSwitchDirectory<NioDirectory, NioDirectory>;
@@ -354,7 +354,7 @@ fn test_delete_and_list() -> Result<()> {
 mod base_directory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::store_tests::test_file_switch_directory::run_case;
-  use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
+  use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 
   #[test]
   fn test_copy_from() -> Result<()> {

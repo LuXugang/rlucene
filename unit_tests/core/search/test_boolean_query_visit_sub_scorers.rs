@@ -22,14 +22,14 @@ use crate::core::search::query::Query;
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::scorer_index_searcher::ScorerIndexSearcher;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::scorer_index_searcher::ScorerIndexSearcher;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher_with_wrap_assert,
 };
-use crate::test::support::core::util::{DefaultCRReaderShared, DefaultIndexSearchCRShared};
+use crate::test_framework::core::util::{DefaultCRReaderShared, DefaultIndexSearchCRShared};
 use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;

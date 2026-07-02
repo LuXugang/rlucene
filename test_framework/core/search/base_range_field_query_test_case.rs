@@ -32,12 +32,12 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::query::Query;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::fixed_bit_set_collector::FixedBitSetCollector;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_searcher_with_reader,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
 use std::fmt::Display;

@@ -46,17 +46,17 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
-use crate::test::support::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::token;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-pub use crate::test::support::core::index::term_vectors::RandomTokenStreamAttr;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::token;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+pub use crate::test_framework::core::index::term_vectors::RandomTokenStreamAttr;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_bytes_ref_from_bytes, new_directory_shared,
   new_index_writer_config, new_index_writer_config_with_analyzer, rarely,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::seq::SliceRandom;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;

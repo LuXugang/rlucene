@@ -26,9 +26,9 @@ where
   LR: LeafReader,
 {
   /// The reader's ord in the top-level's leaves array
-  pub(crate) ord: usize,
+  pub ord: usize,
   /// The reader's absolute doc base
-  pub(crate) doc_base: usize,
+  pub doc_base: usize,
   reader: LR,
   base: IndexReaderContextBase,
   pub(crate) top_parent: TopParentMeta,

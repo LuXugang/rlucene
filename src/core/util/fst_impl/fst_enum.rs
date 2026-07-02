@@ -1093,6 +1093,6 @@ where
 /// Holds a single input + output pair
 #[derive(Clone)]
 pub struct InputOutput<T, I> {
-  pub(crate) input: I,
-  pub(crate) output: T,
+  pub input: I,
+  pub output: T,
 }

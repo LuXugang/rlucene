@@ -22,7 +22,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
   new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
   random_from_seed, random_multiplier,
@@ -56,11 +56,11 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::per_thread_pk_lookup::PerThreadPKLookup;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::line_file_docs::LineFileDocs;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::per_thread_pk_lookup::PerThreadPKLookup;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::line_file_docs::LineFileDocs;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::borrow::Cow;

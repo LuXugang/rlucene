@@ -17,7 +17,7 @@
 use crate::codecs_tests::compressing::abstract_test_compression_mod::AbstractTestCompressionMode;
 use crate::core::codecs::compression::compression_mode::{CompressionMode, CompressionModeEnum};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 #[allow(dead_code)]
 pub struct TestFastCompressionMode;

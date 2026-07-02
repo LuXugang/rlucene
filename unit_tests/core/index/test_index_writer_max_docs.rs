@@ -33,11 +33,11 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
   new_string_field, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashMap;
 use std::sync::{Arc, Barrier};
 use std::thread;

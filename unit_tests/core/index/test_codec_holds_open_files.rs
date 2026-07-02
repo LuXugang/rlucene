@@ -22,11 +22,11 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_text_field, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search

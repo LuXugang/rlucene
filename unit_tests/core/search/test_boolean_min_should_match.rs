@@ -27,15 +27,15 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::error::lucene_error::Result;
-use crate::search_tests::test_boolean2::rand_bool_query;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::DefaultIndexSearchCR;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::boolean_query::{Callback, rand_bool_query};
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field,
   random, random_from_seed,
 };
-use crate::test::support::ulp_f32;
+use crate::test_framework::ulp_f32;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 
@@ -537,11 +537,6 @@ where
 {
   // not required in Rust Lucene
   Ok(())
-}
-pub(crate) trait Callback {
-  fn post_create<R>(&self, random: &mut R, q: &mut Builder) -> Result<()>
-  where
-    R: Rng + ?Sized;
 }
 pub(crate) struct CallbackImpl<'a> {
   field: String,

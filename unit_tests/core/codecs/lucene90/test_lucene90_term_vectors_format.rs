@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 
@@ -36,7 +36,7 @@ where
 mod base_term_vectors_format_test_case_tests {
   use crate::codecs_tests::lucene90::test_lucene90_term_vectors_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
+  use crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
 
   #[test]
   fn test_rare_vectors() -> Result<()> {

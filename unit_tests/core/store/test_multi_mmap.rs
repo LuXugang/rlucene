@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_io_context, random,
 };
 use std::path::PathBuf;
@@ -31,9 +31,9 @@ use crate::core::store::{
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
-use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
+use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestMultiMMap;
@@ -100,7 +100,7 @@ mod test_multi_mmap_tests {
 mod base_directory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::store_tests::test_multi_mmap::run_case;
-  use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
+  use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 
   #[test]
   fn test_copy_from() -> Result<()> {
@@ -381,7 +381,7 @@ mod base_directory_test_case_tests {
 mod base_chunked_directory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::store_tests::test_multi_mmap::run_case;
-  use crate::test::support::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
+  use crate::test_framework::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
 
   #[test]
   fn test_group_vint_multi_blocks() -> Result<()> {

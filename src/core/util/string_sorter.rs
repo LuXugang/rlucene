@@ -44,7 +44,7 @@ where
   T: StringSorterBase,
   C: BytesRefComparator,
 {
-  pub(crate) fn new(delegate: T, cmp: C) -> StringSorter<T, C> {
+  pub fn new(delegate: T, cmp: C) -> StringSorter<T, C> {
     StringSorter {
       delegate,
       scratch1: BytesRefBuilder::default(),
@@ -55,7 +55,7 @@ where
     }
   }
   #[cfg(debug_assertions)]
-  pub(crate) fn get_delegate(&self) -> &T {
+  pub fn get_delegate(&self) -> &T {
     &self.delegate
   }
 }

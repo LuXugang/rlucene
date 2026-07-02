@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod test_automaton;
 mod test_compiled_automaton;
 mod test_determinism;
 mod test_determinize_lexicon;
 mod test_finite_strings_iterator;
-mod test_intset;
 mod test_levenshtein_automata;
 mod test_limited_finite_strings_iterator;
 mod test_minimize;
-mod test_nfs_run_automaton;
 mod test_operations;
 mod test_reg_exp;
 mod test_reg_exp_parsing;
-mod test_strings_to_automaton;
 mod test_utf32_to_utf8;

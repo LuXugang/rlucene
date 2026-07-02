@@ -30,12 +30,12 @@ use crate::core::search::query::Query;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
-use crate::test::support::core::util::lucene_test_case::random;
-use crate::util_tests::hnsw::hnsw_graph_test_case::{
+use crate::test_framework::core::util::hnsw::hnsw_graph_test_case::{
   CircularByteVectorValues, HnswGraphTestCase, TestsCircularKnnVectorValues, TestsKnnVectorValues,
   create_random_byte_vectors, random_vector8,
 };
-use crate::util_tests::hnsw::mock_byte_vector_values::MockByteVectorValues;
+use crate::test_framework::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 
@@ -258,7 +258,7 @@ where
 
 mod hnsw_graph_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
-  use crate::util_tests::hnsw::hnsw_graph_test_case::HnswGraphTestCase;
+  use crate::test_framework::core::util::hnsw::hnsw_graph_test_case::HnswGraphTestCase;
   use crate::util_tests::hnsw::test_hnsw_byte_vector_graph::run_case;
 
   #[test]

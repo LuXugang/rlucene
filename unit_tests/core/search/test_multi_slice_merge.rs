@@ -25,10 +25,10 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::top_docs;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::util::DefaultCRReader;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::util::DefaultCRReader;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_log_merge_policy, random,
 };
 use rand::{Rng, RngExt};

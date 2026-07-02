@@ -18,7 +18,7 @@
 
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::frequency_tracking_ring_buffer::*;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 use std::collections::HashMap;
 #[allow(dead_code)] // for quick search

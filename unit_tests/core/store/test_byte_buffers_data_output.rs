@@ -14,13 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{is_night_mode, random, random_from_seed};
+use crate::test_framework::core::util::lucene_test_case::{
+  is_night_mode, random, random_from_seed,
+};
 use rand::RngExt;
 
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::{ByteArrayDataInput, ByteBuffersDataOutput};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::store::base_data_output_test_case::{
+use crate::test_framework::core::store::base_data_output_test_case::{
   BaseDataOutputTestCase, add_random_data,
 };
 

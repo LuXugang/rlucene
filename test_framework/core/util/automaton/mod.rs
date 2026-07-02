@@ -16,3 +16,4 @@
  */
 pub mod automaton_test_util;
 pub mod minimization_operation;
+pub(crate) mod test_operations;

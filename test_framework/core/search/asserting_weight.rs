@@ -26,9 +26,9 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::asserting_bulk_scorer::AssertingBulkScorer;
-use crate::test::support::core::search::asserting_scorer::AssertingScorer;
-use crate::test::support::core::util::lucene_test_case::{random_from_seed, usually};
+use crate::test_framework::core::search::asserting_bulk_scorer::AssertingBulkScorer;
+use crate::test_framework::core::search::asserting_scorer::AssertingScorer;
+use crate::test_framework::core::util::lucene_test_case::{random_from_seed, usually};
 use rand::RngExt;
 use std::sync::Arc;
 

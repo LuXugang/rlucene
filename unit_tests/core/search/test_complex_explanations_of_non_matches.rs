@@ -19,12 +19,12 @@ use crate::core::util::error::lucene_error::Result;
 use crate::search_tests::test_complex_explanations::{
   ComplexExplanations, TestComplexExplanations,
 };
-use crate::test::support::core::search::base_explanation_test_case::{
+use crate::test_framework::core::search::base_explanation_test_case::{
   BaseExplanationTestCase, BaseExplanationTestContext, FIELD,
 };
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::util::DefaultIndexSearchCRShared;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::util::DefaultIndexSearchCRShared;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

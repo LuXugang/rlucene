@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{is_night_mode, random};
+use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
 use rand::RngExt;
 use rand_xoshiro::Xoroshiro128Plus;
 use rand_xoshiro::rand_core::SeedableRng;
@@ -22,7 +22,7 @@ use rand_xoshiro::rand_core::SeedableRng;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::store::base_data_output_test_case::add_random_data;
+use crate::test_framework::core::store::base_data_output_test_case::add_random_data;
 
 #[allow(dead_code)] // for quick search
 struct TestByteBuffersDataInput;

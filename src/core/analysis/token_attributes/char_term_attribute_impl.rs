@@ -37,7 +37,7 @@ where
   term_length: usize,
   /// Implementations may use this to convert to other character sets or encodings when implementing [`get_bytes_ref`](Self::get_bytes_ref).
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
-  pub(crate) sub: T,
+  pub sub: T,
   #[cfg(debug_assertions)]
   attribute: HashSet<String>,
 }

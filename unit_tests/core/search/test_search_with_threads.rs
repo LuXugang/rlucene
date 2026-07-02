@@ -20,9 +20,9 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
   new_text_field, random,
 };

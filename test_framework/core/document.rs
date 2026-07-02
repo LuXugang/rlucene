@@ -42,7 +42,7 @@ pub struct FieldImpl {
 }
 
 impl FieldImpl {
-  pub(crate) fn new(name: &str, value: BytesRef<Vec<u8>>, field_type: FieldType) -> Self {
+  pub fn new(name: &str, value: BytesRef<Vec<u8>>, field_type: FieldType) -> Self {
     let parent_field = Field::new(name, value, field_type);
     FieldImpl { parent_field }
   }
@@ -302,7 +302,7 @@ impl<'a> From<&'a MyFieldType> for IndexableFieldTypeEnum<'a> {
 }
 
 impl MyField {
-  pub(crate) fn new(counter: i32) -> Result<Self> {
+  pub fn new(counter: i32) -> Result<Self> {
     Ok(Self {
       counter,
       name: format!("f{counter}"),
@@ -436,7 +436,7 @@ pub struct CustomField {
 }
 
 impl CustomField {
-  pub(crate) fn new() -> Result<Self> {
+  pub fn new() -> Result<Self> {
     let mut field_type = FieldType::from_ref(&*stored_field_type::TYPE)?;
     field_type.set_store_term_vectors(true)?;
     field_type.freeze();

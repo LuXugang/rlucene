@@ -20,8 +20,8 @@ use crate::core::index::merge_rate_limiter::MergeRateLimiter;
 use crate::core::store::rate_limiter::RateLimiter;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search

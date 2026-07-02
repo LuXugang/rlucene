@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory, new_directory_shared, random,
 };
 use rand::Rng;
@@ -32,7 +32,7 @@ use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, 
 use crate::core::util::packed::direct_monotonic_writer::{
   DirectMonotonicWriter, MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 pub struct TestDirectMonotonic;

@@ -22,8 +22,8 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::asserting_weight::AssertingWeight;
-use crate::test::support::core::util::lucene_test_case::random_from_seed;
+use crate::test_framework::core::search::asserting_weight::AssertingWeight;
+use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 use rand::RngExt;
 use rand::prelude::StdRng;
 use rand_xoshiro::rand_core::Rng;
@@ -39,7 +39,7 @@ pub struct AssertingQuery {
 
 impl AssertingQuery {
   /// Creates a new instance.
-  pub(crate) fn new<R, Q>(random: &mut R, query: Q) -> Self
+  pub fn new<R, Q>(random: &mut R, query: Q) -> Self
   where
     R: Rng + ?Sized,
     Q: IntoBoxQuery,

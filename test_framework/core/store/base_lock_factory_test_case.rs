@@ -28,8 +28,8 @@ use crate::core::store::directory::Directory;
 use crate::core::store::lock::Lock;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, new_index_writer_config_with_analyzer, new_searcher_with_reader,
   new_text_field, random_from_seed,
 };

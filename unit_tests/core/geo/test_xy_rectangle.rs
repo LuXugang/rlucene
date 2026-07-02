@@ -18,9 +18,9 @@ use crate::core::geo::component2d::Component2D;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::geo::ShapeTestUtil;
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::geo::ShapeTestUtil;
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 #[allow(dead_code)] // for quick search
 struct TestXYRectangle;

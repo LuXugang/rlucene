@@ -17,7 +17,7 @@
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{FSDirectory, NativeFSLockFactory};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
 use std::path::PathBuf;
 
 /** Simple tests for NativeFSLockFactory */
@@ -42,8 +42,8 @@ mod native_fs_lock_factory_tests {
   use crate::core::store::lock::Lock;
   use crate::core::util::close::{Closeable, CloseableRef};
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-  use crate::test::support::core::util::lucene_test_case::{create_temp_dir, random};
+  use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+  use crate::test_framework::core::util::lucene_test_case::{create_temp_dir, random};
   use std::fs::{self, File};
 
   /** Verify NativeFSLockFactory works correctly if the lock file exists */
@@ -144,8 +144,8 @@ mod native_fs_lock_factory_tests {
 mod base_lock_factory_test_case_tests {
   use super::TestNativeFSLockFactory;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-  use crate::test::support::core::util::lucene_test_case::random;
+  use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+  use crate::test_framework::core::util::lucene_test_case::random;
 
   #[test]
   fn test_basics() -> Result<()> {

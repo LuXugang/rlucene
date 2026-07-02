@@ -54,7 +54,7 @@ use crate::impl_from_for_enum;
 use crate::sandbox::document::big_integer_point::BigIntegerPointRangeQuery;
 use crate::sandbox::document::half_float_point::HalfFloatPointRangeQuery;
 #[cfg(test)]
-use crate::test::support::core::search::point::PointRangeQueryBaseImpl;
+use crate::test_framework::core::search::point::PointRangeQueryBaseImpl;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -171,11 +171,11 @@ impl PointRangeQuery {
     Ok(sb)
   }
   #[cfg(test)]
-  pub(crate) fn get_lower_point(&self) -> &[u8] {
+  pub fn get_lower_point(&self) -> &[u8] {
     &self.lower_point
   }
   #[cfg(test)]
-  pub(crate) fn get_upper_point(&self) -> &[u8] {
+  pub fn get_upper_point(&self) -> &[u8] {
     &self.upper_point
   }
 }

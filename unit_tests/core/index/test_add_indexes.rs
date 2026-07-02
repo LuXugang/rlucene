@@ -39,15 +39,15 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::store::mock_directory_wrapper::MockDirectoryWrapper;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_cfs, new_log_merge_policy_with_merge_factor,
   new_log_merge_policy_with_merge_factor_cfs, new_text_field, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;

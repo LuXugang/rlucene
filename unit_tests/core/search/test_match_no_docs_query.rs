@@ -28,13 +28,13 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher_with_reader, new_text_field, random,
 };
-use crate::test::support::core::util::{dummy_directory, dummy_index_searcher};
+use crate::test_framework::core::util::{dummy_directory, dummy_index_searcher};
 use rand::Rng;
 use std::collections::HashMap;
 

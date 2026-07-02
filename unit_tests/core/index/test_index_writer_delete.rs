@@ -42,16 +42,16 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::mock_tokenizer;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer;
 #[cfg(feature = "nightly")]
-use crate::test::support::core::analysis::mock_tokenizer::MockTokenizer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 #[cfg(feature = "nightly")]
-use crate::test::support::core::util::lucene_test_case::random_from_seed;
+use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 #[cfg(feature = "nightly")]
-use crate::test::support::core::util::lucene_test_case::slow_file_exists;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::slow_file_exists;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_searcher_with_reader, new_string_field, new_text_field, random,
 };
@@ -331,7 +331,7 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
     let latch = latch.clone();
     let done_latch = done_latch.clone();
     threads.push(thread::spawn(move || -> Result<()> {
-      let mut thread_random = crate::test::support::core::util::lucene_test_case::random();
+      let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
       let mut id = (i as i32) * 1000;
       let value = 100;
       latch.wait();
@@ -799,7 +799,7 @@ fn test_indexing_then_deleting() -> Result<()> {
 #[test]
 fn test_flush_pushed_deletes_by_ram() -> Result<()> {
   use crate::core::index::no_merge_policy::NoMergePolicy;
-  use crate::test::support::core::util::lucene_test_case::{
+  use crate::test_framework::core::util::lucene_test_case::{
     new_directory_shared, new_index_writer_config_with_analyzer, slow_file_exists,
   };
 
@@ -846,10 +846,10 @@ fn test_flush_pushed_deletes_by_ram() -> Result<()> {
 fn test_apply_deletes_on_flush() -> Result<()> {
   use crate::core::index::index_writer::{IndexWriterHooks, IndexWriterHooksEnum};
   use crate::core::index::no_merge_policy::NoMergePolicy;
-  use crate::test::support::core::util::lucene_test_case::{
+  use crate::test_framework::core::util::lucene_test_case::{
     new_directory_shared, new_index_writer_config_with_analyzer,
   };
-  use crate::test::support::core::util::test_util::TestUtil;
+  use crate::test_framework::core::util::test_util::TestUtil;
   use std::sync::atomic::{AtomicBool, AtomicI32};
 
   struct ApplyDeletesOnFlushHooks {

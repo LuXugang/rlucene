@@ -27,7 +27,7 @@ pub struct BitSetIterator<T>
 where
   T: BitSet,
 {
-  pub(crate) bits: T,
+  pub bits: T,
   length: i32,
   cost: i64,
   doc: i32,

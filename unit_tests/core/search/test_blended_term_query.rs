@@ -22,9 +22,9 @@ use crate::core::search::blended_term_query;
 use crate::core::search::blended_term_query::{BooleanRewrite, DisjunctionMaxRewrite};
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
 use rand::RngExt;

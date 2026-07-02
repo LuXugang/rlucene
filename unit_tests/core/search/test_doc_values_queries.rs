@@ -44,13 +44,13 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
   new_searcher_with_reader, new_searcher_with_wrap, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::sync::Arc;
 

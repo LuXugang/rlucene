@@ -273,6 +273,9 @@ where
     }
     Ok(())
   }
+  pub fn get_sub_selector(&self) -> &T {
+    &self.sub_selector
+  }
 }
 
 impl<T> Selector for RadixSelector<T>

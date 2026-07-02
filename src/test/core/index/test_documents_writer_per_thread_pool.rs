@@ -16,7 +16,7 @@
  */
 use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random,
 };
 

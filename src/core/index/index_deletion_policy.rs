@@ -23,11 +23,11 @@ use crate::core::index::snapshot_deletion_policy::{SnapshotCommitPoint, Snapshot
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
-use crate::test::support::core::index::deletion_policy::{
+use crate::test_framework::core::index::deletion_policy::{
   DeleteLastCommitPolicy, KeepAllTransactionDeletionPolicy, RollbackDeletionPolicy,
 };
 #[cfg(test)]
-use crate::test::support::core::index::deletion_policy::{
+use crate::test_framework::core::index::deletion_policy::{
   ExpirationTimeDeletionPolicy, KeepAllDeletionPolicy, KeepLastNDeletionPolicy,
   KeepNoneOnInitDeletionPolicy,
 };

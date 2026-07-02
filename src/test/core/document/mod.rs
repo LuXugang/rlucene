@@ -14,3 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod test_doc_values_long_hash_set;
+mod test_field;

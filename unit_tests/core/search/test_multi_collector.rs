@@ -30,12 +30,12 @@ use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_searcher_with_reader, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 use std::cell::Cell;

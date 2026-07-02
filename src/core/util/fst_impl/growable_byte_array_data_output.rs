@@ -31,22 +31,22 @@ pub(crate) struct GrowableByteArrayDataOutput {
 }
 impl GrowableByteArrayDataOutput {
   const INITIAL_SIZE: usize = 1 << 8;
-  pub(crate) fn new() -> Self {
+  pub fn new() -> Self {
     Self {
       bytes: vec![0u8; Self::INITIAL_SIZE],
       next_write: 0,
     }
   }
-  pub(crate) fn get_position(&self) -> usize {
+  pub fn get_position(&self) -> usize {
     self.next_write
   }
   /// Returns the full byte buffer.
-  pub(crate) fn get_bytes(&mut self) -> &mut [u8] {
+  pub fn get_bytes(&mut self) -> &mut [u8] {
     &mut self.bytes
   }
 
   /// Set the position of the byte array, increasing the capacity if needed.
-  pub(crate) fn set_position(&mut self, new_len: usize) -> Result<()> {
+  pub fn set_position(&mut self, new_len: usize) -> Result<()> {
     if new_len > self.next_write {
       self.ensure_capacity(new_len - self.next_write)?;
     }
@@ -59,12 +59,12 @@ impl GrowableByteArrayDataOutput {
     ArrayUtil::grow_with_len(&mut self.bytes, self.next_write + capacity_to_write)
   }
   /// Writes all of our bytes to the target `Write`.
-  pub(crate) fn write_to_data_output(&self, out: &mut impl DataOutput) -> Result<()> {
+  pub fn write_to_data_output(&self, out: &mut impl DataOutput) -> Result<()> {
     out.write_bytes_range(&self.bytes, 0, self.next_write)
   }
 
   /// Copies bytes from this store to a target buffer.
-  pub(crate) fn write_to(&self, src_offset: usize, dest: &mut [u8], dest_offset: i32, len: usize) {
+  pub fn write_to(&self, src_offset: usize, dest: &mut [u8], dest_offset: i32, len: usize) {
     debug_assert!(src_offset + len <= self.next_write);
     dest.copy_from(
       &self.bytes[src_offset..(src_offset + len)],

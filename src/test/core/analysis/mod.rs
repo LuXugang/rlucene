@@ -15,5 +15,7 @@
  * limitations under the License.
  */
 pub(crate) mod standard;
+mod test_character_utils;
+mod test_token;
 mod test_whitespace_analyzer;
 pub(crate) mod token_attributes;

@@ -19,8 +19,8 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::sandbox::document::big_integer_point::BigIntegerPoint;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
 use num_bigint::BigInt;

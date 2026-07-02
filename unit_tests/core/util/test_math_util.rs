@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/math_util.rs
 
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::{FromPrimitive, ToPrimitive};

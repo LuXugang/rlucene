@@ -25,14 +25,14 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::query::Query;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::asserting_query::AssertingQuery;
-use crate::test::support::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::search::random_approximation_query::RandomApproximationQuery;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::search::asserting_query::AssertingQuery;
+use crate::test_framework::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::search::random_approximation_query::RandomApproximationQuery;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_searcher_with_threads, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 
 #[allow(dead_code)] // for quick search

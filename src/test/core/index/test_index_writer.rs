@@ -89,22 +89,25 @@ use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::support::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test::support::core::analysis::mock_analyzer::{MockAnalyzer, MockTokenFilter};
-use crate::test::support::core::analysis::mock_token_filter::ENGLISH_STOPSET;
-use crate::test::support::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
-use crate::test::support::core::analysis::token;
-pub use crate::test::support::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
-use crate::test::support::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
-use crate::test::support::core::store::base_directory_test_case::EXTRA_FILE_NAME;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
+use crate::test_framework::core::analysis::mock_analyzer::{MockAnalyzer, MockTokenFilter};
+use crate::test_framework::core::analysis::mock_token_filter::ENGLISH_STOPSET;
+use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
+use crate::test_framework::core::analysis::token;
+pub use crate::test_framework::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
+use crate::test_framework::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
+use crate::test_framework::core::index::test_index_writer::{
+  STORED_TEXT_TYPE, add_doc, add_doc_with_index, assert_no_unreferenced_files,
+};
+use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
+use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_mock_directory,
   new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field, new_text_field,
   random, random_from_seed, rarely, slow_file_exists,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
@@ -115,10 +118,6 @@ use std::sync::{Arc, Barrier, Condvar, LazyLock, Mutex, mpsc};
 use std::thread;
 use std::vec;
 
-static STORED_TEXT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-  FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)
-    .expect("should not fail")
-});
 #[allow(dead_code)]
 pub(crate) struct TestIndexWriter;
 
@@ -193,84 +192,6 @@ fn test_doc_count() -> Result<()> {
     assert_eq!(0, doc_stats.num_docs);
     writer.close()?;
   }
-  Ok(())
-}
-pub(crate) fn add_doc<D, R>(
-  random: &mut R,
-  writer: &IndexWriter<D>,
-  field_types: &mut HashMap<String, FieldType>,
-) -> Result<()>
-where
-  D: Directory + 'static,
-  R: Rng + ?Sized,
-{
-  let mut doc = Document::new();
-  doc.add(new_text_field(
-    random,
-    "content",
-    "aaa",
-    Store::No,
-    field_types,
-  )?);
-  let _ = writer.add_document(doc)?;
-  Ok(())
-}
-pub(crate) fn add_doc_with_index<D, R>(
-  random: &mut R,
-  writer: &IndexWriter<D>,
-  index: i32,
-  field_types: &mut HashMap<String, FieldType>,
-) -> Result<()>
-where
-  D: Directory + 'static,
-  R: Rng + ?Sized,
-{
-  let mut doc = Document::new();
-  doc.add(new_field(
-    random,
-    "content",
-    format!("aaa {}", index),
-    &STORED_TEXT_TYPE,
-    field_types,
-  )?);
-  doc.add(StringField::from_string(
-    "id",
-    index.to_string(),
-    Store::No,
-  )?);
-
-  match writer.add_document(doc) {
-    Ok(_) => Ok(()),
-    Err(e) => Err(e),
-  }
-}
-
-pub(crate) fn assert_no_unreferenced_files<D>(dir: Arc<D>, message: &str) -> Result<()>
-where
-  D: Directory + 'static,
-{
-  let mut start_files = dir.list_all()?;
-  let mut random = random();
-  let mock = MockAnalyzer::new(&mut random);
-  let writer = IndexWriter::new(
-    dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, mock)?,
-  )?;
-  writer.close()?;
-  let mut end_files = dir.list_all()?;
-
-  start_files.sort();
-  end_files.sort();
-
-  assert_eq!(
-    start_files,
-    end_files,
-    "{}: before delete:\n    {}\n  after delete:\n    {}",
-    message,
-    start_files.join("\n    "),
-    end_files.join("\n    ")
-  );
-
   Ok(())
 }
 

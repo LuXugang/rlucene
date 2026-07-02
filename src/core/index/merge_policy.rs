@@ -43,9 +43,9 @@ use crate::core::util::io_utils::IOUtils;
 use crate::impl_from_for_enum;
 use crate::sandbox::index::merge_on_flush_merge_policy::MergeOnFlushMergePolicy;
 #[cfg(test)]
-use crate::test::support::core::index::force_merge_policy::ForceMergePolicy;
+use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;
 #[cfg(test)]
-use crate::test::support::core::index::merge_policy::{
+use crate::test_framework::core::index::merge_policy::{
   KeepFullyDeletedSegmentsMergePolicy, MergeOnXMergePolicy, MockMergePolicy,
   OnlyForceMergeMergePolicy, RangeMergePolicy,
 };
@@ -1229,7 +1229,7 @@ where
   pub(crate) segments: Vec<SegmentDocAndID>,
   error: Mutex<Option<LuceneError>>,
   pub(crate) stat: MergeStat,
-  pub(crate) info: Option<SegmentCommitInfo<D>>,
+  pub info: Option<SegmentCommitInfo<D>>,
   pub(crate) merge_completed: OnceLock<bool>,
 }
 

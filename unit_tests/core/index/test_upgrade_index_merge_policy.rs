@@ -20,9 +20,9 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::upgrade_index_merge_policy::UpgradeIndexMergePolicy;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_merge_policy_test_case::BaseMergePolicyTestCase;
-use crate::test::support::core::util::lucene_test_case::{new_tiered_merge_policy, random};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::index::base_merge_policy_test_case::BaseMergePolicyTestCase;
+use crate::test_framework::core::util::lucene_test_case::{new_tiered_merge_policy, random};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
 
@@ -71,7 +71,7 @@ impl BaseMergePolicyTestCase for TestUpgradeIndexMergePolicy {
 mod base_merge_policy_test_case_tests {
   use super::*;
   use crate::index_tests::test_upgrade_index_merge_policy::run_case;
-  use crate::test::support::core::index::base_merge_policy_test_case::FakeDirectory;
+  use crate::test_framework::core::index::base_merge_policy_test_case::FakeDirectory;
   use std::sync::Arc;
 
   #[test]

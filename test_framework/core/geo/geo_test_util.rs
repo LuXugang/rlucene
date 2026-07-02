@@ -23,7 +23,7 @@ use crate::core::geo::rectangle::Rectangle;
 use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 
 /// static methods for testing geo

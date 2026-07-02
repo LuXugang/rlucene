@@ -23,13 +23,13 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::point_values::{IntersectVisitor, PointValues, Relation};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::base_points_format_test_case::BasePointsFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_points_format_test_case::BasePointsFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_index_writer_config,
   new_log_merge_policy, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::StdRng;
@@ -356,7 +356,7 @@ fn test_estimate_point_count_2_dims() -> Result<()> {
 mod base_points_format_test_case_tests {
   use crate::codecs_tests::lucene90::test_lucene90_points_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_points_format_test_case::BasePointsFormatTestCase;
+  use crate::test_framework::core::index::base_points_format_test_case::BasePointsFormatTestCase;
 
   #[test]
   fn test_basic() -> Result<()> {

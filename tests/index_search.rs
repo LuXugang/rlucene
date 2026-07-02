@@ -20,7 +20,7 @@
 #[macro_use]
 #[path = "../test_framework/integration_prelude.rs"]
 mod integration_prelude;
-pub use integration_prelude::test;
+pub use integration_prelude::test_framework;
 
 #[path = "../src/analysis/mod.rs"]
 pub mod analysis;

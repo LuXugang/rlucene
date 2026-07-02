@@ -20,7 +20,7 @@ use crate::core::document::field::Store;
 use crate::core::document::float_field::FloatField;
 use crate::core::document::int_field::IntField;
 use crate::core::document::string_field::StringField;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
 
@@ -36,7 +36,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 
 /// Simple tests for SortedNumericSortField
 #[allow(dead_code)] // for quick search

@@ -43,13 +43,13 @@ use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(feature = "nightly")]
 use crate::core::util::version::LATEST;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 #[cfg(feature = "nightly")]
-use crate::test::support::core::index::deletion_policy::ExpirationTimeDeletionPolicy;
-pub use crate::test::support::core::index::deletion_policy::{
+use crate::test_framework::core::index::deletion_policy::ExpirationTimeDeletionPolicy;
+pub use crate::test_framework::core::index::deletion_policy::{
   KeepAllDeletionPolicy, KeepLastNDeletionPolicy, KeepNoneOnInitDeletionPolicy,
 };
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, new_searcher_with_reader, new_string_field,
   new_text_field, random,

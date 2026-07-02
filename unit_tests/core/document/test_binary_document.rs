@@ -20,11 +20,11 @@ use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
 use crate::core::index::index_reader::IndexReader;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 
 #[allow(dead_code)] // for quick search
 pub struct TestBinaryDocument;

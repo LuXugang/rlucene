@@ -26,10 +26,10 @@ use crate::core::index::multi_terms::get_term_postings_enum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test::support::core::analysis::token;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
+use crate::test_framework::core::analysis::token;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::RngExt;
 #[allow(dead_code)] // for quick search
 pub struct TestMaxPosition;

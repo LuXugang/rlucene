@@ -20,7 +20,7 @@ use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::store::sleeping_lock_wrapper::SleepingLockWrapper;
 use crate::core::store::{FSDirectory, NativeFSLockFactory};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
 use rand::RngExt;
 use std::path::PathBuf;
 
@@ -65,8 +65,8 @@ impl BaseLockFactoryTestCase for TestSleepingLockWrapper {
 mod base_lock_factory_test_case_tests {
   use super::TestSleepingLockWrapper;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-  use crate::test::support::core::util::lucene_test_case::random;
+  use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+  use crate::test_framework::core::util::lucene_test_case::random;
 
   #[test]
   fn test_basics() -> Result<()> {

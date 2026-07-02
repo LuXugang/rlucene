@@ -18,7 +18,7 @@ use crate::core::analysis::char_filter::CharFilter;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::util::error::lucene_error::Result;
-pub use crate::test::support::core::analysis::char_filter::{CharFilter1, CharFilter2};
+pub use crate::test_framework::core::analysis::char_filter::{CharFilter1, CharFilter2};
 
 #[allow(dead_code)]
 struct TestCharFilter;

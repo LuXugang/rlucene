@@ -43,9 +43,9 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-pub use crate::test::support::core::search::query::BitSetQuery;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+pub use crate::test_framework::core::search::query::BitSetQuery;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
   new_searcher_with_reader, random,
 };

@@ -37,7 +37,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{ByteBlockPool, ToInt};
 #[cfg(test)]
-use crate::test::support::core::index::misc::TermsHashPerFieldMock;
+use crate::test_framework::core::index::test_terms_hash_per_field::TermsHashPerFieldMock;
 use std::cmp::Ordering;
 use std::sync::Arc;
 

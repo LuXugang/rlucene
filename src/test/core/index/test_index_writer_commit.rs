@@ -34,18 +34,18 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::mock_fixed_length_payload_filter::MockFixedLengthPayloadFilter;
-use crate::test::support::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
-use crate::test::support::core::index::misc::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_fixed_length_payload_filter::MockFixedLengthPayloadFilter;
+use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::test_index_writer::{
   add_doc, add_doc_with_index, assert_no_unreferenced_files,
 };
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, new_mock_directory, new_searcher_with_reader, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 use std::collections::HashMap;
@@ -377,7 +377,7 @@ fn test_commit_thread_safety() -> Result<()> {
     let writer = writer.clone();
     let failed = failed.clone();
     threads.push(thread::spawn(move || -> Result<()> {
-      let mut thread_random = crate::test::support::core::util::lucene_test_case::random();
+      let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
       let mut reader = directory_reader::open(dir.clone())?;
       let mut iterations = 0;
       let mut count = 0;

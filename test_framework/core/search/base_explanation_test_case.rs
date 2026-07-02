@@ -27,14 +27,14 @@ use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher_with_reader,
 };
-use crate::test::support::core::util::{DefaultCRReaderShared, DefaultIndexSearchCRShared};
+use crate::test_framework::core::util::{DefaultCRReaderShared, DefaultIndexSearchCRShared};
 use rand::{Rng, RngExt};
 use std::sync::Arc;
 

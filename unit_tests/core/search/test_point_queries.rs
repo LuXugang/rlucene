@@ -51,18 +51,18 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::fixed_bit_set_collector::FixedBitSetCollector;
-pub use crate::test::support::core::search::point::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
+pub use crate::test_framework::core::search::point::{
   MultiDimIntPointInSetQuery, PointRangeQueryBaseImpl,
 };
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
   new_searcher_with_wrap, new_string_field, random, random_from_seed,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::borrow::Cow;

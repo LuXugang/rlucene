@@ -24,9 +24,9 @@ use crate::core::util::attribute::Attribute;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
 #[cfg(test)]
-use crate::test::support::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
+use crate::test_framework::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
 #[cfg(test)]
-use crate::test::support::core::index::term_vectors::RandomTokenStreamAttr;
+use crate::test_framework::core::index::term_vectors::RandomTokenStreamAttr;
 use std::borrow::Cow;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;

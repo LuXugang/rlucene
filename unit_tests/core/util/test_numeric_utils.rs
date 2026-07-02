@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/numeric_utils.rs
 
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::cmp::Ordering;
 use std::ops::{Add, Sub};
 
@@ -29,7 +29,7 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestNumericUtils;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 
 pub fn random_vector_dim<R>(random: &mut R, dim: usize) -> Vec<f32>

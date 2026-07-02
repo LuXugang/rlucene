@@ -33,9 +33,9 @@ use crate::core::index::persistent_snapshot_deletion_policy::{
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_mock_directory, random,
 };
 

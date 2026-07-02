@@ -29,12 +29,12 @@ use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory, new_index_writer_config, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
 use std::collections::HashSet;
@@ -67,7 +67,7 @@ impl BaseStoredFieldsFormatTestCase for TestLucene90StoredFieldsFormat {}
 mod base_stored_fields_format_test_case_test {
   use crate::codecs_tests::lucene90::test_lucene90_stored_fields_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
+  use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
 
   #[test]
   fn test_random_stored_fields() -> Result<()> {

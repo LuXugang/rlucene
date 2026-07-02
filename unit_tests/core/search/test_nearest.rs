@@ -38,13 +38,13 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::store::directory::Directory;
 use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::cmp::Ordering;
 use std::sync::Arc;

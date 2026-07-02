@@ -25,9 +25,9 @@ use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
-use crate::test::support::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
+use crate::test_framework::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
 #[cfg(test)]
-use crate::test::support::core::analysis::base_token_stream_test_case::CheckClearAttributesAttributeImpl;
+use crate::test_framework::core::analysis::base_token_stream_test_case::CheckClearAttributesAttributeImpl;
 use std::borrow::Cow;
 #[cfg(debug_assertions)]
 use std::collections::HashSet;

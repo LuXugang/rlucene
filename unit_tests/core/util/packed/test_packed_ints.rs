@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_io_context, random, random_from_seed, rarely,
 };
 use rand::RngExt;
@@ -44,7 +44,7 @@ use crate::core::util::packed::{
   PackedInts, PackedSingleBlockImpl, Reader, ReaderIterator, Writer, create, is_supported,
 };
 use crate::core::util::{SliceCopyOps, TryIntoInt};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestPackedInts;

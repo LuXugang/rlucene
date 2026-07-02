@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{random, random_multiplier};
+use crate::test_framework::core::util::lucene_test_case::{random, random_multiplier};
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Barrier};

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::collections::BTreeSet;
 
 use crate::core::index::field_term_iterator::FieldTermIterator;
@@ -22,7 +22,7 @@ use crate::core::index::prefix_coded_terms::PrefixCodedTermsBuilder;
 use crate::core::index::term::Term;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestPrefixCodedTerms;

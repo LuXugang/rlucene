@@ -38,7 +38,7 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 #[cfg(test)]
-use crate::test::support::core::util::bkd::DocMapMock;
+use crate::test_framework::core::util::bkd::DocMapMock;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;

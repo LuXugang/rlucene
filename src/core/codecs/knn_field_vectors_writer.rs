@@ -64,7 +64,7 @@ impl_from_for_enum!(
     Vec<f32> => Float,
 );
 impl VectorValueEnum {
-  pub(crate) fn copy_value(&self, offset: usize, dim: usize) -> VectorValueEnum {
+  pub fn copy_value(&self, offset: usize, dim: usize) -> VectorValueEnum {
     match self {
       Self::Byte(v) => {
         let v = ArrayUtil::copy_of_sub_array(v, offset, offset + dim);
@@ -76,25 +76,31 @@ impl VectorValueEnum {
       },
     }
   }
-  pub(crate) fn len(&self) -> usize {
+  pub fn len(&self) -> usize {
     match self {
       Self::Byte(v) => v.len(),
       Self::Float(v) => v.len(),
     }
   }
-  pub(crate) fn as_bytes(&self) -> Result<&[u8]> {
+  pub fn is_empty(&self) -> bool {
+    match self {
+      Self::Byte(v) => v.is_empty(),
+      Self::Float(v) => v.is_empty(),
+    }
+  }
+  pub fn as_bytes(&self) -> Result<&[u8]> {
     match self {
       Self::Byte(v) => Ok(v),
       Self::Float(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
-  pub(crate) fn as_floats(&self) -> Result<&[f32]> {
+  pub fn as_floats(&self) -> Result<&[f32]> {
     match self {
       Self::Byte(_) => Err(LuceneError::unsupported_operation("")),
       Self::Float(v) => Ok(v),
     }
   }
-  pub(crate) fn write_float(&self, chunk: &mut [u8]) -> Result<()> {
+  pub fn write_float(&self, chunk: &mut [u8]) -> Result<()> {
     match self {
       Self::Byte(_) => Err(LuceneError::unsupported_operation("")),
       Self::Float(v) => {

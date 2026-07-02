@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_index_writer_config, new_string_field, random,
 };
 use std::collections::HashMap;
@@ -35,8 +35,8 @@ use crate::core::store::{
   OUTPUT_AS_BYTE_ARRAY, OUTPUT_AS_MANY_BUFFERS, OUTPUT_AS_ONE_BUFFER,
 };
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
-use crate::test::support::core::util::english::English;
+use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
+use crate::test_framework::core::util::english::English;
 
 #[allow(dead_code)] // for quick search
 pub struct TestByteBuffersDirectory {
@@ -100,7 +100,7 @@ fn test_build_index() -> Result<()> {
 mod base_directory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::store_tests::test_byte_buffers_directory::run_case;
-  use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
+  use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 
   #[test]
   fn test_copy_from() -> Result<()> {

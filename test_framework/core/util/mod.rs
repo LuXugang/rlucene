@@ -35,6 +35,8 @@ use tempfile::TempDir;
 pub mod automaton;
 pub mod bkd;
 pub mod english;
+pub mod fst_tester;
+pub mod hnsw;
 pub mod index_package_access;
 pub mod line_file_docs;
 pub mod lucene_test_case;

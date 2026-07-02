@@ -29,18 +29,18 @@ use crate::core::util::automation::automaton_provider::DefaultProvider;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::mock_tokenizer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::DefaultIndexSearchCR;
-use crate::test::support::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
+use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
   random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 /// Tests the DocValuesRewriteMethod
 #[allow(dead_code)] // for quick search

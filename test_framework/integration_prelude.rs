@@ -23,7 +23,4 @@ mod source_macros;
 mod test_framework_macros;
 
 #[path = "mod.rs"]
-pub mod support;
-pub mod test {
-  pub use crate::integration_prelude::support;
-}
+pub mod test_framework;

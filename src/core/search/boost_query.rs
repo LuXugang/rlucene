@@ -63,7 +63,7 @@ impl BoostQuery {
   pub fn get_boost(&self) -> f32 {
     self.boost
   }
-  pub(crate) fn into_inner(self) -> Query {
+  pub fn into_inner(self) -> Query {
     *self.query
   }
 }

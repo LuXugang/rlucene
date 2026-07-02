@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::ptr;
@@ -36,10 +36,10 @@ use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::unicode_util::UnicodeUtil;
-use crate::test::support::core::util::automaton::automaton_test_util::{
+use crate::test_framework::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 pub(crate) struct TestOperations;
 

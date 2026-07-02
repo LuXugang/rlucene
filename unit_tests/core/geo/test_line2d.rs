@@ -20,8 +20,8 @@ use crate::core::geo::line::Line;
 use crate::core::geo::line2d::create_from_line;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
 #[allow(dead_code)] // for quick search
 struct TestLine2D;
 

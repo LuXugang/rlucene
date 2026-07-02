@@ -21,11 +21,11 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::sandbox::document::lat_lon_bounding_box::LatLonBoundingBox;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::search::base_range_field_query_test_case::{
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::search::base_range_field_query_test_case::{
   BaseRangeFieldQueryTestCase, Range, RangeBase,
 };
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 use rand::Rng;
@@ -395,7 +395,7 @@ fn test_to_string() -> Result<()> {
 mod base_range_field_query_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::sandbox_search_tests::test_lat_lon_bounding_box_queries::run_case;
-  use crate::test::support::core::search::base_range_field_query_test_case::BaseRangeFieldQueryTestCase;
+  use crate::test_framework::core::search::base_range_field_query_test_case::BaseRangeFieldQueryTestCase;
 
   #[test]
   fn test_random_tiny() -> Result<()> {

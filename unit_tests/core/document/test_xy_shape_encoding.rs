@@ -21,8 +21,8 @@ use crate::core::geo::xy_geometry::XYGeometryType;
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::util::error::lucene_error::Result;
 use crate::document_tests::base_shape_encoding_test_case::BaseShapeEncodingTestCase;
-use crate::test::support::core::geo::ShapeTestUtil;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::ShapeTestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

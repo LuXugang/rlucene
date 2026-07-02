@@ -21,11 +21,11 @@ use crate::core::search::float_vector_similarity_query::FloatVectorSimilarityQue
 use crate::core::search::query::Query;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::base_vector_similarity_query_test_case::{
+use crate::test_framework::core::search::base_vector_similarity_query_test_case::{
   BaseVectorSimilarityQueryBase, BaseVectorSimilarityQueryTestCase,
 };
-use crate::test::support::core::util::lucene_test_case::{at_least_usize, random};
-use crate::test::support::core::util::test_vector_util::random_vector_dim;
+use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
+use crate::test_framework::core::util::test_vector_util::random_vector_dim;
 use rand::Rng;
 use rand::rngs::StdRng;
 use std::sync::Arc;
@@ -157,7 +157,7 @@ impl BaseVectorSimilarityQueryTestCase for TestFloatVectorSimilarityQuery {
 mod base_vector_similarity_query_test_case_test {
   use crate::core::util::error::lucene_error::Result;
   use crate::search_tests::test_float_vector_similarity_query::{run_case, run_case_mut};
-  use crate::test::support::core::search::base_vector_similarity_query_test_case::BaseVectorSimilarityQueryTestCase;
+  use crate::test_framework::core::search::base_vector_similarity_query_test_case::BaseVectorSimilarityQueryTestCase;
 
   #[test]
   fn test_equals() -> Result<()> {

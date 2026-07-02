@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::rarely;
+use crate::test_framework::core::util::lucene_test_case::rarely;
 use std::cmp::Ordering;
 
 use rand::Rng;
@@ -22,7 +22,7 @@ use rand::RngExt;
 
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{COMPARATOR_TYPE, Comparator, Sorter, ToInt};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use crate::util_tests::base_sort_test_case::Strategy::{
   Random, RandomLowCardinality, RandomMediumCardinality,
 };

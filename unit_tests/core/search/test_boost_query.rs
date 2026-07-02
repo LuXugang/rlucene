@@ -26,7 +26,7 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::util::lucene_test_case::{new_searcher_with_reader, random};
+use crate::test_framework::core::util::lucene_test_case::{new_searcher_with_reader, random};
 use rand::RngExt;
 
 #[allow(dead_code)] // for quick search

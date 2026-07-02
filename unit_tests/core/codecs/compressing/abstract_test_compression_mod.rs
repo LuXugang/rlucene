@@ -23,8 +23,8 @@ use crate::core::index::BytesRef;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
 use crate::core::util::array_util::ArrayUtil;
-use crate::test::support::core::util::lucene_test_case::{at_least, is_night_mode};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::lucene_test_case::{at_least, is_night_mode};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::io::Cursor;
 

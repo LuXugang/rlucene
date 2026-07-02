@@ -28,14 +28,14 @@ use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::ShapeTestUtil;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::geo::ShapeTestUtil;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 #[cfg(feature = "nightly")]
-use crate::test::support::core::util::lucene_test_case::is_night_mode;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::is_night_mode;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};

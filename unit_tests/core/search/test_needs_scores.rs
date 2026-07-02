@@ -41,11 +41,11 @@ use crate::core::search::weight::Weight;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-pub use crate::test::support::core::search::query::AssertNeedsScores;
-use crate::test::support::core::util::DefaultIndexSearchCR;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+pub use crate::test_framework::core::search::query::AssertNeedsScores;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
 use std::hash::{Hash, Hasher};

@@ -26,14 +26,14 @@ use crate::core::search::similarities_impl::similarities::{
 };
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::token;
-use crate::test::support::core::analysis::token::Token;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::token;
+use crate::test_framework::core::analysis::token::Token;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::RngExt;
 use std::collections::HashMap;

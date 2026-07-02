@@ -38,12 +38,12 @@ use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::mock_tokenizer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::DefaultIRCRC;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::DefaultIRCRC;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config_with_analyzer, new_searcher_with_reader,
   random,
 };
@@ -265,7 +265,7 @@ where
 fn assert_sane_scoring<R>(
   random: &mut R,
   pq: PhraseQuery,
-  searcher: &crate::test::support::core::util::DefaultIndexSearchCR,
+  searcher: &crate::test_framework::core::util::DefaultIndexSearchCR,
 ) -> Result<()>
 where
   R: Rng + ?Sized,

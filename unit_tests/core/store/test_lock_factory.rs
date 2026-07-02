@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_index_writer_config, new_text_field, random,
 };
 use std::collections::HashMap;
@@ -32,7 +32,7 @@ use crate::core::store::lock_factory::LockFactory;
 use crate::core::store::{ByteBuffersDirectory, NoLockFactory};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 
 #[allow(dead_code)] // for quick search
 struct TestLockFactory;

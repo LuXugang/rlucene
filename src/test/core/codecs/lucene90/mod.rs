@@ -16,3 +16,5 @@
  */
 pub(crate) mod block_tree;
 pub(crate) mod compressing;
+mod test_indexed_disi;
+pub(crate) mod test_lucene90_doc_values_format;

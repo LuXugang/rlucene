@@ -21,7 +21,7 @@ use crate::core::store::read_advice::ReadAdvice;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};

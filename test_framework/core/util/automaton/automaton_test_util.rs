@@ -47,7 +47,7 @@ impl AutomatonTestUtil {
   pub const DEFAULT_MAX_DETERMINIZED_STATES: usize = 1000000;
   ///  Maximum level of recursion allowed in recursive operations.
   pub const MAX_RECURSION_LEVEL: usize = 1000;
-  pub(crate) fn random_regexp<R>(random: &mut R) -> Result<String>
+  pub fn random_regexp<R>(random: &mut R) -> Result<String>
   where
     R: Rng + ?Sized,
   {
@@ -370,7 +370,7 @@ impl AutomatonTestUtil {
   }
   /// Returns `true` if the language of this automaton is finite.
   /// The automaton must not have any dead states.
-  pub(crate) fn is_finite(a: &Automaton) -> Result<bool> {
+  pub fn is_finite(a: &Automaton) -> Result<bool> {
     if a.get_num_states() == 0 {
       return Ok(true);
     }
@@ -382,7 +382,7 @@ impl AutomatonTestUtil {
 
   /// Checks whether there is a loop containing the given state.
   /// (This is sufficient since there are never transitions to dead states.)
-  pub(crate) fn is_finite_inner(
+  pub fn is_finite_inner(
     scratch: &mut Transition,
     a: &Automaton,
     state: i32,
@@ -440,7 +440,7 @@ impl AutomatonTestUtil {
   /// This is a costly computation!
   ///
   /// Both automata must be determinized and have no dead states.
-  pub(crate) fn same_language(a1: &Automaton, a2: &Automaton) -> Result<bool> {
+  pub fn same_language(a1: &Automaton, a2: &Automaton) -> Result<bool> {
     if std::ptr::eq(a1, a2) {
       return Ok(true);
     }
@@ -452,7 +452,7 @@ impl AutomatonTestUtil {
   /// states.
   ///
   /// Complexity: quadratic in the number of states.
-  pub(crate) fn subset_of(a1: &Automaton, a2: &Automaton) -> Result<bool> {
+  pub fn subset_of(a1: &Automaton, a2: &Automaton) -> Result<bool> {
     if !a1.is_deterministic() {
       return Err(LuceneError::illegal_argument("a1 must be deterministic"));
     }
@@ -612,7 +612,7 @@ impl<'a> RandomAcceptedStrings<'a> {
       transitions,
     })
   }
-  pub(crate) fn get_random_accepted_string<R>(&self, random: &mut R) -> Result<Vec<i32>>
+  pub fn get_random_accepted_string<R>(&self, random: &mut R) -> Result<Vec<i32>>
   where
     R: Rng + ?Sized,
   {

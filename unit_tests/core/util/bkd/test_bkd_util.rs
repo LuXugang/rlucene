@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 
 use crate::core::util::SliceCopyOps;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_util::BKDUtil;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestBKDUtil;

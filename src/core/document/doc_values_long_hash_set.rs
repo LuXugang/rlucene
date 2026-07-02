@@ -122,7 +122,7 @@ impl DocValuesLongHashSet {
   }
   /// returns a stream of all values contained in this set
   #[cfg(test)]
-  pub(crate) fn stream(&self) -> HashSet<i64> {
+  pub fn stream(&self) -> HashSet<i64> {
     let mut set = HashSet::with_capacity(self.size as usize);
     if self.has_missing_value {
       set.insert(MISSING);

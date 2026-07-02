@@ -56,16 +56,16 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, new_bytes_ref_empty, new_bytes_ref_from_bytes,
   new_bytes_ref_from_string, new_directory_shared, new_fs_directory,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
   new_string_field, new_text_field, rarely,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::{IndexedRandom, SliceRandom};
 use rand::{Rng, RngExt};
 use std::collections::{BTreeSet, HashMap, HashSet};

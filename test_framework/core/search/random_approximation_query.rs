@@ -34,7 +34,7 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::util::lucene_test_case::random_from_seed;
+use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::StdRng;
@@ -49,7 +49,7 @@ pub struct RandomApproximationQuery {
   random_seed: u64,
 }
 impl RandomApproximationQuery {
-  pub(crate) fn new<Q, R>(query: Q, random: &mut R) -> Self
+  pub fn new<Q, R>(query: Q, random: &mut R) -> Self
   where
     Q: IntoBoxQuery,
     R: Rng + ?Sized,

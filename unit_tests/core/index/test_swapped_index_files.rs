@@ -23,10 +23,10 @@ use crate::core::index::merge_policy::MergePolicy;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::io_context::IOContext;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::line_file_docs::LineFileDocs;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::line_file_docs::LineFileDocs;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
 use rand::rngs::StdRng;

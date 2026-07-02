@@ -44,10 +44,10 @@ use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::VectorUtil;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
-use crate::test::support::core::util::lucene_test_case::{new_searcher_with_reader, random};
-use crate::test::support::core::util::test_vector_util::random_vector_dim;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
+use crate::test_framework::core::util::lucene_test_case::{new_searcher_with_reader, random};
+use crate::test_framework::core::util::test_vector_util::random_vector_dim;
 use rand::rngs::StdRng;
 use rand::{Rng, RngExt};
 use std::sync::Arc;
@@ -67,7 +67,7 @@ where
 mod base_knn_vector_query_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::search_tests::test_knn_float_vector_query::run_case;
-  use crate::test::support::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
+  use crate::test_framework::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
 
   #[test]
   fn test_equals() -> Result<()> {

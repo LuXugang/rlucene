@@ -23,8 +23,8 @@ use crate::core::document::long_range_doc_values_field::LongRangeDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::search::query::QueryBase;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_searcher_with_reader, random,
 };
 

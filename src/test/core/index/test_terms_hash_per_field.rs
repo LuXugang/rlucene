@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{new_bytes_ref_from_string, random};
+use crate::test_framework::core::util::lucene_test_case::{new_bytes_ref_from_string, random};
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -26,7 +26,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::indexing_chain::IntBlockAllocator;
 use crate::core::index::parallel_postings_array::PostingsArrayEnum;
-use crate::core::index::terms_hash_per_field::PostingsArrayWrapper;
+use crate::core::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField};
 use crate::core::store::DataInput;
 
 use crate::core::util::allocator_byte::DirectAllocatorByte;
@@ -35,7 +35,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{AtomicCounter, ByteBlockPool};
 
-pub(crate) use crate::test::support::core::index::misc::{
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::field_invert_state::FieldInvertState;
+use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
+use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
+use crate::core::index::index_options::IndexOptions;
+use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
+use crate::test_framework::core::index::test_terms_hash_per_field::{
   TermsHashPerFieldMock, new_terms_hash_per_field_mock,
 };
 use rand::RngExt;

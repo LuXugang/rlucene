@@ -28,9 +28,9 @@ use crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::util::DefaultIndexSearchCR;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_searcher_with_reader, new_text_field, random,
 };

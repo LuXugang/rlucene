@@ -47,8 +47,8 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_io_context, new_io_context_with_default, random,
 };
 use parking_lot::Mutex;

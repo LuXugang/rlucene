@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
@@ -28,7 +28,7 @@ use crate::core::util::automation::character_run_automaton::CharacterRunAutomato
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 #[allow(dead_code)] // for quick search
 struct TestRegExp {
   case_sensitive_query: bool,

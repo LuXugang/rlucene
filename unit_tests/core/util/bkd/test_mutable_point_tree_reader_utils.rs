@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use std::fmt;
 use std::rc::Rc;
 
@@ -30,7 +30,7 @@ use crate::core::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeRea
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{SliceCopyOps, ToInt};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestMutablePointTreeReaderUtils;

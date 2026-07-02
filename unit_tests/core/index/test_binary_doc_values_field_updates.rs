@@ -51,15 +51,16 @@ use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::mock_tokenizer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_bytes_ref_from_string, new_bytes_ref_with_length,
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, random, random_from_seed,
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::test_binary_doc_values_updates::{get_value, to_bytes};
+use crate::test_framework::core::util::lucene_test_case::{
+  at_least, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
+  random_from_seed,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 #[cfg(feature = "nightly")]
 use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
@@ -71,44 +72,6 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 struct TestBinaryDocValuesUpdates;
 
-pub(crate) fn get_value(bdv: &mut impl BinaryDocValues) -> Result<i64> {
-  let term = bdv.binary_value()?;
-  let mut idx = term.offset;
-  debug_assert!(term.length > 0);
-  let mut b = term.bytes[idx];
-  idx += 1;
-
-  let mut value = (b & 0x7F) as i64;
-  let mut shift = 7;
-  while (b as i64 & 0x80) != 0 {
-    b = term.bytes[idx];
-    idx += 1;
-    value |= ((b & 0x7F) as i64) << shift;
-    shift += 7;
-  }
-
-  Ok(value)
-}
-// encodes a long into a BytesRef as VLong so that we get varying number of bytes when we update
-pub(crate) fn to_bytes<R>(random: &mut R, mut value: i64) -> Result<BytesRef<Vec<u8>>>
-where
-  R: Rng + ?Sized,
-{
-  let mut bytes: BytesRef<Vec<u8>> = new_bytes_ref_with_length(10, random)?;
-  let mut upto = 0usize;
-
-  while (value & !0x7f) != 0 {
-    bytes.bytes[bytes.offset + upto] = ((value & 0x7f) | 0x80) as u8;
-    upto += 1;
-    value = ((value as u64) >> 7) as i64;
-  }
-
-  bytes.bytes[bytes.offset + upto] = value as u8;
-  upto += 1;
-  bytes.length = upto;
-
-  Ok(bytes)
-}
 fn doc<R>(random: &mut R, id: i32) -> Result<Document>
 where
   R: Rng + ?Sized,

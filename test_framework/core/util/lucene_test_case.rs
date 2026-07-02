@@ -52,12 +52,12 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::store::mock_directory_wrapper::MockDirectoryWrapper;
-use crate::test::support::core::util::lucene_test_case::EnvConfig::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::util::lucene_test_case::EnvConfig::{
   Multiplier, NightMode, TestSeed,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 use tempfile::TempDir;

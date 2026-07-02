@@ -17,7 +17,7 @@
 /// Not thorough, but tries to test determinism correctness somewhat randomly,
 /// by determinizing a huge random lexicon.
 #[cfg(test)]
-use crate::test::support::core::util::lucene_test_case::{at_least, is_night_mode, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, is_night_mode, random};
 use rand::Rng;
 use rand::prelude::SliceRandom;
 
@@ -27,8 +27,8 @@ use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestDeterminizeLexicon;

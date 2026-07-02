@@ -21,8 +21,8 @@ use crate::core::util::automation::character_run_automaton::CharacterRunAutomato
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-use crate::test::support::core::util::automaton::minimization_operation::MinimizationOperations;
+use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+use crate::test_framework::core::util::automaton::minimization_operation::MinimizationOperations;
 struct TestLevenshteinAutomata;
 
 #[test]

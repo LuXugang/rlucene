@@ -18,7 +18,7 @@
 use crate::core::util::compress::lz4::FastCompressionHashTable;
 use crate::core::util::compress::lz4::HashTableEnum;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use crate::util_tests::compress::lz4_test_case::{AssertingHashTable, LZ4TestCase};
 
 struct TestFastLZ4;

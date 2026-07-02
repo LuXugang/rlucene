@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_searcher_with_reader, new_searcher_with_threads, new_text_field,
   random,
@@ -36,7 +36,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hits::Relation;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;

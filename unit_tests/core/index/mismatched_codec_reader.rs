@@ -32,7 +32,9 @@ use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::index::mismatched_leaf_reader::{MismatchedVisitor, shuffle_infos};
+use crate::test_framework::core::index::mismatched_leaf_reader::{
+  MismatchedVisitor, shuffle_infos,
+};
 use rand::Rng;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;

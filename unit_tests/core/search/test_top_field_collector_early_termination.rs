@@ -34,15 +34,15 @@ use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::total_hits::Relation;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::util::DefaultCRReader;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::util::DefaultCRReader;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, new_directory_shared, new_index_writer_config_with_analyzer,
   new_searcher_with_reader, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;

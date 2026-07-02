@@ -22,10 +22,10 @@ use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_field, random,
 };
 use rand::Rng;
@@ -45,7 +45,7 @@ where
 mod base_term_vectors_format_test_case_tests {
   use crate::codecs_tests::lucene90::compressing::test_compressing_term_vectors_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
+  use crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
 
   #[test]
   fn test_rare_vectors() -> Result<()> {

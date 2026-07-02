@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/long_heap.rs
 
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::RngExt;
 

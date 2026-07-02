@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::SliceRandom;
@@ -24,7 +24,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_compound_format_test_case::{
+use crate::test_framework::core::index::base_compound_format_test_case::{
   BaseCompoundFormatTestCase, create_random_file, new_segment_info,
 };
 #[allow(dead_code)] // for quick search
@@ -33,7 +33,7 @@ pub struct TestLucene90CompoundFormat;
 mod base_compound_format_test_case_tests {
   use crate::codecs_tests::lucene90::test_lucene90_compound_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_compound_format_test_case::BaseCompoundFormatTestCase;
+  use crate::test_framework::core::index::base_compound_format_test_case::BaseCompoundFormatTestCase;
 
   #[test]
   fn test_empty() -> Result<()> {

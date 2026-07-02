@@ -45,8 +45,8 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
 };
 use rand::{Rng, RngExt};
@@ -58,7 +58,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub struct BaseVectorSimilarityQueryBase {
   pub(crate) vector_field: String,
   pub(crate) id_field: String,
-  pub(crate) function: VectorSimilarityFunction,
+  pub function: VectorSimilarityFunction,
   pub(crate) num_docs: usize,
   pub(crate) dim: usize,
 }

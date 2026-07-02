@@ -20,7 +20,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
 use std::io::Error;

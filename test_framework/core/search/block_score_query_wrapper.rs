@@ -45,7 +45,7 @@ pub struct BlockScoreQueryWrapper {
   id: Identity,
 }
 impl BlockScoreQueryWrapper {
-  pub(crate) fn new<T>(query: T, block_length: usize) -> Self
+  pub fn new<T>(query: T, block_length: usize) -> Self
   where
     T: IntoBoxQuery,
   {

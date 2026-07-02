@@ -26,16 +26,16 @@ use crate::core::store::{
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::store::base_directory_wrapper::BaseDirectoryWrapper;
-use crate::test::support::core::store::mock_index_input_wrapper::{
+use crate::test_framework::core::store::base_directory_wrapper::BaseDirectoryWrapper;
+use crate::test_framework::core::store::mock_index_input_wrapper::{
   MockDirectoryIndexInput, MockIndexInputWrapper,
 };
-use crate::test::support::core::store::mock_index_output_wrapper::MockIndexOutputWrapper;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::store::mock_index_output_wrapper::MockIndexOutputWrapper;
+use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_io_context_with_default,
 };
-use crate::test::support::core::util::test_util::TestUtil;
-use crate::test::support::core::util::throttled_index_output::ThrottledIndexOutput;
+use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::throttled_index_output::ThrottledIndexOutput;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
@@ -118,48 +118,48 @@ pub(crate) struct MockDirectoryWrapperState<D>
 where
   D: Directory,
 {
-  pub(crate) base: Mutex<BaseDirectoryWrapper<D>>,
-  pub(crate) id: Identity,
-  pub(crate) max_size: AtomicI64,
+  pub base: Mutex<BaseDirectoryWrapper<D>>,
+  pub id: Identity,
+  pub max_size: AtomicI64,
 
   // Max actual bytes used. This is set by MockIndexOutputWrapper.
-  pub(crate) max_used_size: AtomicI64,
-  pub(crate) random_io_exception_rate: Mutex<f64>,
-  pub(crate) random_io_exception_rate_on_open: Mutex<f64>,
-  pub(crate) random_state: Mutex<StdRng>,
-  pub(crate) assert_no_delete_open_file: AtomicBool,
-  pub(crate) track_disk_usage: AtomicBool,
-  pub(crate) use_slow_open_closers: AtomicBool,
-  pub(crate) allow_random_file_not_found_exception: AtomicBool,
-  pub(crate) allow_reading_files_still_open_for_write: AtomicBool,
-  pub(crate) unsynced_files: Mutex<HashSet<String>>,
-  pub(crate) created_files: Mutex<HashSet<String>>,
-  pub(crate) open_files_for_write: Mutex<HashSet<String>>,
-  pub(crate) open_locks: Mutex<HashMap<String, String>>,
-  pub(crate) crashed: AtomicBool,
-  pub(crate) throttled_output: Mutex<ThrottledOutputTemplate>,
-  pub(crate) throttling: Mutex<Throttling>,
+  pub max_used_size: AtomicI64,
+  pub random_io_exception_rate: Mutex<f64>,
+  pub random_io_exception_rate_on_open: Mutex<f64>,
+  pub random_state: Mutex<StdRng>,
+  pub assert_no_delete_open_file: AtomicBool,
+  pub track_disk_usage: AtomicBool,
+  pub use_slow_open_closers: AtomicBool,
+  pub allow_random_file_not_found_exception: AtomicBool,
+  pub allow_reading_files_still_open_for_write: AtomicBool,
+  pub unsynced_files: Mutex<HashSet<String>>,
+  pub created_files: Mutex<HashSet<String>>,
+  pub open_files_for_write: Mutex<HashSet<String>>,
+  pub open_locks: Mutex<HashMap<String, String>>,
+  pub crashed: AtomicBool,
+  pub throttled_output: Mutex<ThrottledOutputTemplate>,
+  pub throttling: Mutex<Throttling>,
 
   // for testing
-  pub(crate) always_corrupt: AtomicBool,
+  pub always_corrupt: AtomicBool,
 
-  pub(crate) input_clone_count: AtomicI32,
+  pub input_clone_count: AtomicI32,
 
   // use this for tracking files for crash.
   // additionally: provides debugging information in case you leave one open
-  pub(crate) open_file_handles: Mutex<HashMap<usize, String>>,
+  pub open_file_handles: Mutex<HashMap<usize, String>>,
 
-  pub(crate) open_files: Mutex<HashMap<String, i32>>,
+  pub open_files: Mutex<HashMap<String, i32>>,
 
   // Only tracked if noDeleteOpenFile is true: if an attempt
   // is made to delete an open file, we enroll it here.
-  pub(crate) open_files_deleted: Mutex<HashSet<String>>,
+  pub open_files_deleted: Mutex<HashSet<String>>,
 
-  pub(crate) verbose_clone: AtomicBool,
-  pub(crate) fail_on_create_output: AtomicBool,
-  pub(crate) fail_on_open_input: AtomicBool,
-  pub(crate) assert_no_unreferenced_files_on_close: AtomicBool,
-  pub(crate) failures: Mutex<Vec<Box<dyn Failure<D>>>>,
+  pub verbose_clone: AtomicBool,
+  pub fail_on_create_output: AtomicBool,
+  pub fail_on_open_input: AtomicBool,
+  pub assert_no_unreferenced_files_on_close: AtomicBool,
+  pub failures: Mutex<Vec<Box<dyn Failure<D>>>>,
 }
 
 /// This is a Directory Wrapper that adds methods intended to be used only by
@@ -178,7 +178,7 @@ pub(crate) struct MockDirectoryWrapper<D>
 where
   D: Directory,
 {
-  pub(crate) state: Arc<MockDirectoryWrapperState<D>>,
+  pub state: Arc<MockDirectoryWrapperState<D>>,
 }
 
 impl<D> Clone for MockDirectoryWrapper<D>
@@ -196,7 +196,7 @@ impl<D> MockDirectoryWrapper<D>
 where
   D: Directory,
 {
-  pub(crate) fn new<R>(random: &mut R, delegate: D) -> Self
+  pub fn new<R>(random: &mut R, delegate: D) -> Self
   where
     R: Rng + ?Sized,
   {
@@ -245,24 +245,24 @@ where
     }
   }
 
-  pub(crate) fn get_input_clone_count(&self) -> i32 {
+  pub fn get_input_clone_count(&self) -> i32 {
     self.state.input_clone_count.load(Ordering::SeqCst)
   }
 
-  pub(crate) fn is_open(&self) -> bool {
+  pub fn is_open(&self) -> bool {
     self.state.base.lock().is_open()
   }
 
   /// Set whether or not checkindex should be run on close.
-  pub(crate) fn set_check_index_on_close(&self, value: bool) {
+  pub fn set_check_index_on_close(&self, value: bool) {
     self.state.base.lock().set_check_index_on_close(value);
   }
 
-  pub(crate) fn get_check_index_on_close(&self) -> bool {
+  pub fn get_check_index_on_close(&self) -> bool {
     self.state.base.lock().get_check_index_on_close()
   }
 
-  pub(crate) fn set_cross_check_term_vectors_on_close(&self, value: bool) {
+  pub fn set_cross_check_term_vectors_on_close(&self, value: bool) {
     self
       .state
       .base
@@ -270,24 +270,24 @@ where
       .set_cross_check_term_vectors_on_close(value);
   }
 
-  pub(crate) fn get_level_for_check_on_close(&self) -> i32 {
+  pub fn get_level_for_check_on_close(&self) -> i32 {
     self.state.base.lock().get_level_for_check_on_close()
   }
 
   /// If set to true, we print a fake exception with filename and stacktrace on
   /// every indexinput clone()
-  pub(crate) fn set_verbose_clone(&self, v: bool) {
+  pub fn set_verbose_clone(&self, v: bool) {
     self.state.verbose_clone.store(v, Ordering::SeqCst);
   }
 
-  pub(crate) fn set_track_disk_usage(&self, v: bool) {
+  pub fn set_track_disk_usage(&self, v: bool) {
     self.state.track_disk_usage.store(v, Ordering::SeqCst);
   }
 
   /// If set to true (the default), when we throw random IOException on
   /// openInput or createOutput, we may sometimes throw FileNotFoundException or
   /// NoSuchFileException.
-  pub(crate) fn set_allow_random_file_not_found_exception(&self, value: bool) {
+  pub fn set_allow_random_file_not_found_exception(&self, value: bool) {
     self
       .state
       .allow_random_file_not_found_exception
@@ -296,7 +296,7 @@ where
 
   /// If set to true, you can open an inputstream on a file that is still open
   /// for writes.
-  pub(crate) fn set_allow_reading_files_still_open_for_write(&self, value: bool) {
+  pub fn set_allow_reading_files_still_open_for_write(&self, value: bool) {
     self
       .state
       .allow_reading_files_still_open_for_write
@@ -306,18 +306,18 @@ where
   /// Enum for controlling hard disk throttling. Set via `set_throttling`.
   ///
   /// WARNING: can make tests very slow.
-  pub(crate) fn set_throttling(&self, throttling: Throttling) {
+  pub fn set_throttling(&self, throttling: Throttling) {
     *self.state.throttling.lock() = throttling;
   }
 
   /// Add a rare small sleep to catch race conditions in open/close
   ///
   /// You can enable this if you need it.
-  pub(crate) fn set_use_slow_open_closers(&self, v: bool) {
+  pub fn set_use_slow_open_closers(&self, v: bool) {
     self.state.use_slow_open_closers.store(v, Ordering::SeqCst);
   }
 
-  pub(crate) fn size_in_bytes(&self) -> Result<usize> {
+  pub fn size_in_bytes(&self) -> Result<usize> {
     let mut size = 0;
     let base = self.state.base.lock();
     for file in base.get_delegate().list_all()? {
@@ -331,7 +331,7 @@ where
     Ok(size)
   }
 
-  pub(crate) fn corrupt_unknown_files(&self) -> Result<()> {
+  pub fn corrupt_unknown_files(&self) -> Result<()> {
     if cfg!(feature = "test_log_verbose") {
       eprintln!("MDW: corrupt unknown files");
     }
@@ -360,7 +360,7 @@ where
     self.corrupt_files(to_corrupt)
   }
 
-  pub(crate) fn corrupt_files(&self, files: impl IntoIterator<Item = String>) -> Result<()> {
+  pub fn corrupt_files(&self, files: impl IntoIterator<Item = String>) -> Result<()> {
     self._corrupt_files(files)
   }
 
@@ -551,7 +551,7 @@ where
   }
 
   /// Simulates a crash of OS or machine by overwriting unsynced files.
-  pub(crate) fn crash(&self) -> Result<()> {
+  pub fn crash(&self) -> Result<()> {
     self.state.open_files.lock().clear();
     self.state.open_files_for_write.lock().clear();
     self.state.open_files_deleted.lock().clear();
@@ -566,25 +566,25 @@ where
     Ok(())
   }
 
-  pub(crate) fn clear_crash(&self) {
+  pub fn clear_crash(&self) {
     self.state.crashed.store(false, Ordering::SeqCst);
     self.state.open_locks.lock().clear();
   }
 
-  pub(crate) fn set_max_size_in_bytes(&self, max_size: i64) {
+  pub fn set_max_size_in_bytes(&self, max_size: i64) {
     self.state.max_size.store(max_size, Ordering::SeqCst);
   }
 
-  pub(crate) fn get_max_size_in_bytes(&self) -> i64 {
+  pub fn get_max_size_in_bytes(&self) -> i64 {
     self.state.max_size.load(Ordering::SeqCst)
   }
 
   /// Returns the peek actual storage used (bytes) in this directory.
-  pub(crate) fn get_max_used_size_in_bytes(&self) -> i64 {
+  pub fn get_max_used_size_in_bytes(&self) -> i64 {
     self.state.max_used_size.load(Ordering::SeqCst)
   }
 
-  pub(crate) fn reset_max_used_size_in_bytes(&self) -> Result<()> {
+  pub fn reset_max_used_size_in_bytes(&self) -> Result<()> {
     self
       .state
       .max_used_size
@@ -593,40 +593,40 @@ where
   }
 
   /// Trip a test assert if there is an attempt to delete an open file.
-  pub(crate) fn set_assert_no_delete_open_file(&self, value: bool) {
+  pub fn set_assert_no_delete_open_file(&self, value: bool) {
     self
       .state
       .assert_no_delete_open_file
       .store(value, Ordering::SeqCst);
   }
 
-  pub(crate) fn get_assert_no_delete_open_file(&self) -> bool {
+  pub fn get_assert_no_delete_open_file(&self) -> bool {
     self.state.assert_no_delete_open_file.load(Ordering::SeqCst)
   }
 
   /// If 0.0, no exceptions will be thrown. Else this should be a double 0.0 -
   /// 1.0. We will randomly throw an IOException on the first write to an
   /// OutputStream based on this probability.
-  pub(crate) fn set_random_io_exception_rate(&self, rate: f64) {
+  pub fn set_random_io_exception_rate(&self, rate: f64) {
     *self.state.random_io_exception_rate.lock() = rate;
   }
 
-  pub(crate) fn get_random_io_exception_rate(&self) -> f64 {
+  pub fn get_random_io_exception_rate(&self) -> f64 {
     *self.state.random_io_exception_rate.lock()
   }
 
   /// If 0.0, no exceptions will be thrown during openInput and createOutput.
   /// Else this should be a double 0.0 - 1.0 and we will randomly throw an
   /// IOException in openInput and createOutput with this probability.
-  pub(crate) fn set_random_io_exception_rate_on_open(&self, rate: f64) {
+  pub fn set_random_io_exception_rate_on_open(&self, rate: f64) {
     *self.state.random_io_exception_rate_on_open.lock() = rate;
   }
 
-  pub(crate) fn get_random_io_exception_rate_on_open(&self) -> f64 {
+  pub fn get_random_io_exception_rate_on_open(&self) -> f64 {
     *self.state.random_io_exception_rate_on_open.lock()
   }
 
-  pub(crate) fn maybe_throw_io_exception(&self, message: Option<&str>) -> Result<()> {
+  pub fn maybe_throw_io_exception(&self, message: Option<&str>) -> Result<()> {
     if self.state.random_state.lock().random::<f64>() < *self.state.random_io_exception_rate.lock()
     {
       let message = format!(
@@ -641,7 +641,7 @@ where
     Ok(())
   }
 
-  pub(crate) fn maybe_throw_io_exception_on_open(&self, name: &str) -> Result<()> {
+  pub fn maybe_throw_io_exception_on_open(&self, name: &str) -> Result<()> {
     if self.state.random_state.lock().random::<f64>()
       < *self.state.random_io_exception_rate_on_open.lock()
     {
@@ -672,7 +672,7 @@ where
   }
 
   /// returns current open file handle count
-  pub(crate) fn get_file_handle_count(&self) -> usize {
+  pub fn get_file_handle_count(&self) -> usize {
     self.state.open_file_handles.lock().len()
   }
 
@@ -682,11 +682,11 @@ where
     }
   }
 
-  pub(crate) fn get_open_deleted_files(&self) -> HashSet<String> {
+  pub fn get_open_deleted_files(&self) -> HashSet<String> {
     self.state.open_files_deleted.lock().clone()
   }
 
-  pub(crate) fn set_fail_on_create_output(&self, v: bool) {
+  pub fn set_fail_on_create_output(&self, v: bool) {
     self.state.fail_on_create_output.store(v, Ordering::SeqCst);
   }
 
@@ -725,12 +725,12 @@ where
     );
   }
 
-  pub(crate) fn set_fail_on_open_input(&self, v: bool) {
+  pub fn set_fail_on_open_input(&self, v: bool) {
     self.state.fail_on_open_input.store(v, Ordering::SeqCst);
   }
 
   /// NOTE: This is off by default; see LUCENE-5574
-  pub(crate) fn set_assert_no_unrefenced_files_on_close(&self, v: bool) {
+  pub fn set_assert_no_unrefenced_files_on_close(&self, v: bool) {
     self
       .state
       .assert_no_unreferenced_files_on_close
@@ -752,24 +752,24 @@ where
     self.state.open_file_handles.lock().remove(&handle_id);
   }
 
-  pub(crate) fn remove_index_output(&self, handle_id: usize, name: &str) {
+  pub fn remove_index_output(&self, handle_id: usize, name: &str) {
     self.state.open_files_for_write.lock().remove(name);
     self.remove_open_file(handle_id, name);
   }
 
-  pub(crate) fn remove_index_input(&self, handle_id: usize, name: &str) {
+  pub fn remove_index_input(&self, handle_id: usize, name: &str) {
     self.remove_open_file(handle_id, name);
   }
 
   /// add a Failure object to the list of objects to be evaluated at every
   /// potential failure point
-  pub(crate) fn fail_on(&self, fail: Box<dyn Failure<D>>) {
+  pub fn fail_on(&self, fail: Box<dyn Failure<D>>) {
     self.state.failures.lock().push(fail);
   }
 
   /// Iterate through the failures list, giving each object a chance to throw
   /// an IOE
-  pub(crate) fn maybe_throw_deterministic_exception(&self) -> Result<()> {
+  pub fn maybe_throw_deterministic_exception(&self) -> Result<()> {
     let mut failures = self.state.failures.lock();
     for failure in failures.iter_mut() {
       if let Err(error) = failure.eval(self) {

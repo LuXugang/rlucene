@@ -46,7 +46,7 @@ pub struct BoostCheckingQuery {
 }
 
 impl BoostCheckingQuery {
-  pub(crate) fn new<T>(field: &str, rewrite_method: T) -> Self
+  pub fn new<T>(field: &str, rewrite_method: T) -> Self
   where
     T: Into<RewriteMethodEnum>,
   {

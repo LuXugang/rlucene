@@ -720,7 +720,7 @@ where
   #[cfg(test)]
   #[allow(invalid_reference_casting)]
   #[allow(clippy::mut_from_ref)]
-  pub(crate) fn get_config_mut(&self) -> &mut IndexWriterConfig<D> {
+  pub fn get_config_mut(&self) -> &mut IndexWriterConfig<D> {
     unsafe { &mut *(&self.config as *const IndexWriterConfig<D> as *mut IndexWriterConfig<D>) }
   }
   /// Gracefully closes (commits, waits for merges), but calls rollback if there's an error so the
@@ -1525,13 +1525,13 @@ where
   }
 
   #[cfg(test)]
-  pub(crate) fn get_segment_count(&self) -> usize {
+  pub fn get_segment_count(&self) -> usize {
     let inner = self.inner.lock();
     inner.segment_infos.size()
   }
 
   #[cfg(test)]
-  pub(crate) fn get_num_buffered_documents(&self) -> i32 {
+  pub fn get_num_buffered_documents(&self) -> i32 {
     self.doc_writer.get_num_docs()
   }
   /// Returns true if this index has deletions (including buffered deletions). Note that this will
@@ -1572,12 +1572,12 @@ where
   }
 
   #[cfg(test)]
-  pub(crate) fn get_flush_count(&self) -> i32 {
+  pub fn get_flush_count(&self) -> i32 {
     self.flush_count.load(Ordering::Acquire)
   }
 
   #[cfg(test)]
-  pub(crate) fn get_flush_deletes_count(&self) -> i32 {
+  pub fn get_flush_deletes_count(&self) -> i32 {
     self.flush_deletes_count.load(Ordering::Acquire)
   }
   #[cfg(test)]
@@ -7373,7 +7373,7 @@ use crate::core::util::{
   StringHelper, TryIntoInt,
 };
 #[cfg(test)]
-use crate::test::support::core::internal::index_writer_access::IndexWriterAccess;
+use crate::test_framework::core::internal::index_writer_access::IndexWriterAccess;
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
 #[cfg(test)]

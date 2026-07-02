@@ -16,8 +16,8 @@
  */
 use crate::core::geo::xy_line::XYLine;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::geo::ShapeTestUtil;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::ShapeTestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 #[allow(dead_code)] // for quick search

@@ -16,8 +16,8 @@
  */
 use crate::core::index::freq_prox_terms_writer::DocOffsetSorter;
 use crate::core::util::Sorter;
-use crate::test::support::core::util::lucene_test_case::{is_night_mode, random};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::SliceRandom;

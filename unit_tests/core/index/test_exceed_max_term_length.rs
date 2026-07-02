@@ -21,11 +21,11 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory, new_index_writer_config, new_index_writer_config_with_analyzer, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::sync::Arc;

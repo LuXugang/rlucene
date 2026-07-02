@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::directory::DirEnum;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::util::error::lucene_error::Result;

@@ -56,9 +56,9 @@ use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::version::LATEST;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::lucene_test_case::rarely;
-use crate::test::support::ulp_f32;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::lucene_test_case::rarely;
+use crate::test_framework::ulp_f32;
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
@@ -403,7 +403,7 @@ impl CheckHits {
 
     Ok(())
   }
-  pub(crate) fn check_top_scores<IRC, R>(
+  pub fn check_top_scores<IRC, R>(
     random: &mut R,
     query: &Query,
     searcher: &IndexSearcher<IRC>,

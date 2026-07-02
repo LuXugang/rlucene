@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::DEFAULT_LINE_DOCS_FILE;
+use crate::test_framework::core::util::lucene_test_case::DEFAULT_LINE_DOCS_FILE;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};

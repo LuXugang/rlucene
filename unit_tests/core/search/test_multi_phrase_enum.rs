@@ -26,7 +26,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::multi_phrase_query::UnionPostingsEnum;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_text_field, random,
 };

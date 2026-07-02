@@ -35,8 +35,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
 use crate::core::util::roaring_doc_id_set::Builder;
-use crate::test::support::core::util::lucene_test_case::{is_night_mode, random, rarely};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random, rarely};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::borrow::Cow;
 
@@ -166,7 +166,7 @@ fn test_random() -> Result<()> {
         j += 1;
         doc = it.next_doc()?;
       }
-      (j, it.bits)
+      (j, it.get_bit_set().clone())
     };
 
     let docs = v;
@@ -236,7 +236,7 @@ fn test_misleading_disi_cost() -> Result<()> {
 fn test_empty_points() -> Result<()> {
   let values = DummyPointValues::new(0, 0);
   let builder = DocIdSetBuilder::from_point_values(1, &values, "foo")?;
-  assert_eq!(1.0_f64, builder.num_values_per_doc);
+  assert_eq!(1.0_f64, builder.get_num_values_per_doc());
   Ok(())
 }
 
@@ -245,8 +245,8 @@ fn test_leverage_stats() -> Result<()> {
   // single-valued points
   let values = DummyPointValues::new(42, 42);
   let mut builder = DocIdSetBuilder::from_point_values(100, &values, "foo")?;
-  assert_eq!(1.0_f64, builder.num_values_per_doc);
-  assert!(!builder.multi_valued);
+  assert_eq!(1.0_f64, builder.get_num_values_per_doc());
+  assert!(!builder.get_multi_valued());
 
   {
     builder.grow(2);
@@ -263,8 +263,8 @@ fn test_leverage_stats() -> Result<()> {
   // multi-valued points
   let values = DummyPointValues::new(42, 63);
   let mut builder = DocIdSetBuilder::from_point_values(100, &values, "foo")?;
-  assert_eq!(1.5_f64, builder.num_values_per_doc);
-  assert!(builder.multi_valued);
+  assert_eq!(1.5_f64, builder.get_num_values_per_doc());
+  assert!(builder.get_multi_valued());
 
   builder.grow(2);
   builder.add_doc(5);
@@ -284,14 +284,14 @@ fn test_leverage_stats() -> Result<()> {
   // incomplete stats: doc_count unknown
   let values = DummyPointValues::new(-1, 84);
   let builder = DocIdSetBuilder::from_point_values(100, &values, "foo")?;
-  assert_eq!(1.0_f64, builder.num_values_per_doc);
-  assert!(builder.multi_valued);
+  assert_eq!(1.0_f64, builder.get_num_values_per_doc());
+  assert!(builder.get_multi_valued());
 
   // single-valued terms
   let terms = DummyTerms::new(42, 42);
   let mut builder = DocIdSetBuilder::from_terms(100, &terms)?;
-  assert_eq!(1.0_f64, builder.num_values_per_doc);
-  assert!(!builder.multi_valued);
+  assert_eq!(1.0_f64, builder.get_num_values_per_doc());
+  assert!(!builder.get_multi_valued());
 
   builder.grow(2);
   builder.add_doc(5);
@@ -306,8 +306,8 @@ fn test_leverage_stats() -> Result<()> {
   // multi-valued terms
   let terms = DummyTerms::new(42, 63);
   let mut builder = DocIdSetBuilder::from_terms(100, &terms)?;
-  assert_eq!(1.5_f64, builder.num_values_per_doc);
-  assert!(builder.multi_valued);
+  assert_eq!(1.5_f64, builder.get_num_values_per_doc());
+  assert!(builder.get_multi_valued());
 
   builder.grow(2);
   builder.add_doc(5);
@@ -323,14 +323,14 @@ fn test_leverage_stats() -> Result<()> {
   // incomplete stats: num_values unknown
   let terms = DummyTerms::new(42, -1);
   let builder = DocIdSetBuilder::from_terms(100, &terms)?;
-  assert_eq!(1.0_f64, builder.num_values_per_doc);
-  assert!(builder.multi_valued);
+  assert_eq!(1.0_f64, builder.get_num_values_per_doc());
+  assert!(builder.get_multi_valued());
 
   // incomplete stats: doc_count unknown
   let terms = DummyTerms::new(-1, 84);
   let builder = DocIdSetBuilder::from_terms(100, &terms)?;
-  assert_eq!(1.0_f64, builder.num_values_per_doc);
-  assert!(builder.multi_valued);
+  assert_eq!(1.0_f64, builder.get_num_values_per_doc());
+  assert!(builder.get_multi_valued());
 
   Ok(())
 }

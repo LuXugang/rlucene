@@ -17,9 +17,9 @@
 use crate::core::codecs::LATEST_CODEC;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 
@@ -51,7 +51,7 @@ impl BaseStoredFieldsFormatTestCase for TestCompressingStoredFieldsFormat {}
 mod base_stored_fields_format_test_case_test {
   use crate::codecs_tests::lucene90::compressing::test_compressing_stored_fields_format::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
+  use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
 
   #[test]
   fn test_random_stored_fields() -> Result<()> {
@@ -139,7 +139,7 @@ mod compression_numeric_encoding_tests {
   };
   use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::util::lucene_test_case::random;
+  use crate::test_framework::core::util::lucene_test_case::random;
   use rand::RngExt;
 
   #[test]

@@ -333,7 +333,7 @@ impl Operations {
   ///   prevent memory exhaustion.
   ///   [`DEFAULT_DETERMINIZE_WORK_LIMIT`](Self::DEFAULT_DETERMINIZE_WORK_LIMIT)
   ///   is a good starting default.
-  pub(crate) fn complement(a: &Automaton, determinize_work_limit: usize) -> Result<Automaton> {
+  pub fn complement(a: &Automaton, determinize_work_limit: usize) -> Result<Automaton> {
     let v = Operations::determinize(a, determinize_work_limit)?;
     let mut a = Operations::totalize(&v)?;
 
@@ -388,10 +388,7 @@ impl Operations {
   /// the given automata. Never modifies the input automata languages.
   ///
   /// Complexity: quadratic in the number of states.
-  pub(crate) fn intersection<'a>(
-    a1: &'a Automaton,
-    a2: &'a Automaton,
-  ) -> Result<Cow<'a, Automaton>> {
+  pub fn intersection<'a>(a1: &'a Automaton, a2: &'a Automaton) -> Result<Cow<'a, Automaton>> {
     if std::ptr::eq(a1, a2) {
       return Ok(Cow::Borrowed(a1));
     }
@@ -670,7 +667,7 @@ impl Operations {
     Ok(Cow::Owned(result))
   }
   /// Returns true if the given automaton accepts no strings.
-  pub(crate) fn is_empty(a: &Automaton) -> bool {
+  pub fn is_empty(a: &Automaton) -> bool {
     if a.get_num_states() == 0 {
       return true;
     }
@@ -714,7 +711,7 @@ impl Operations {
   /// `false`.
   ///
   /// Complexity: linear in the number of states and transitions.
-  pub(crate) fn is_total(a: &Automaton) -> Result<bool> {
+  pub fn is_total(a: &Automaton) -> Result<bool> {
     Operations::is_total_with_range(a, char::MIN as i32, char::MAX as i32)
   }
   /// Returns `true` if the given automaton accepts all strings for the
@@ -724,11 +721,7 @@ impl Operations {
   /// `false`.
   ///
   /// Complexity: linear in the number of states and transitions.
-  pub(crate) fn is_total_with_range(
-    a: &Automaton,
-    min_alphabet: i32,
-    max_alphabet: i32,
-  ) -> Result<bool> {
+  pub fn is_total_with_range(a: &Automaton, min_alphabet: i32, max_alphabet: i32) -> Result<bool> {
     let states = Operations::get_live_states(a)?;
     let mut spare = Transition::default();
     let mut seen_states = 0;
@@ -768,7 +761,7 @@ impl Operations {
   /// **Note:** For full performance, use the
   /// [`RunAutomaton`](crate::core::util::automation::run_automaton::RunAutomaton)
   /// struct.
-  pub(crate) fn run_str(a: &Automaton, s: &str) -> bool {
+  pub fn run_str(a: &Automaton, s: &str) -> bool {
     debug_assert!(a.is_deterministic());
 
     let mut state = 0;
@@ -794,7 +787,7 @@ impl Operations {
   /// **Note:** For full performance, use the
   /// [`RunAutomaton`](crate::core::util::automation::run_automaton::RunAutomaton)
   /// struct.
-  pub(crate) fn run_ints_ref(a: &Automaton, s: &IntsRef<Vec<i32>>) -> bool {
+  pub fn run_ints_ref(a: &Automaton, s: &IntsRef<Vec<i32>>) -> bool {
     debug_assert!(a.is_deterministic());
 
     let mut state = 0;
@@ -937,7 +930,7 @@ impl Operations {
   /// Returns:
   /// - The common prefix, which can be an empty (length 0) `String` (never
   ///   `None`).
-  pub(crate) fn get_common_prefix(a: &Automaton) -> Result<String> {
+  pub fn get_common_prefix(a: &Automaton) -> Result<String> {
     if Operations::has_dead_states_from_initial(a)? {
       return Err(LuceneError::illegal_argument(
         "input automaton has dead states",
@@ -1008,7 +1001,7 @@ impl Operations {
   /// - The common prefix, which can be an empty (length 0) [`BytesRef`]
   ///   (never `None`), and might possibly include a UTF-8 fragment of a full
   ///   Unicode character.
-  pub(crate) fn get_common_prefix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
+  pub fn get_common_prefix_bytes_ref(a: &Automaton) -> Result<BytesRef<Vec<u8>>> {
     let prefix = Operations::get_common_prefix(a)?;
     let mut builder: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
     for ch in prefix.chars() {
@@ -1022,7 +1015,7 @@ impl Operations {
   }
   /// If this automaton accepts a single input, returns it. Otherwise, returns
   /// `None`. The automaton must be deterministic.
-  pub(crate) fn get_singleton(a: &Automaton) -> Result<Option<IntsRef<Vec<i32>>>> {
+  pub fn get_singleton(a: &Automaton) -> Result<Option<IntsRef<Vec<i32>>>> {
     if !a.is_deterministic() {
       return Err(LuceneError::illegal_argument(
         "input automaton must be deterministic",
@@ -1084,11 +1077,11 @@ impl Operations {
     }
   }
   /// Returns an automaton accepting the reverse language.
-  pub(crate) fn reverse(a: &Automaton) -> Result<Automaton> {
+  pub fn reverse(a: &Automaton) -> Result<Automaton> {
     Operations::reverse_with_initial_states(a, None)
   }
   /// Reverses the automaton, returning the new initial states.
-  pub(crate) fn reverse_with_initial_states(
+  pub fn reverse_with_initial_states(
     a: &Automaton,
     mut initial_states: Option<&mut BTreeSet<i32>>,
   ) -> Result<Automaton> {
@@ -1139,7 +1132,7 @@ impl Operations {
   /// Returns a new automaton accepting the same language, with added
   /// transitions to a dead state so that from every state and every label
   /// there is a transition.
-  pub(crate) fn totalize(a: &Automaton) -> Result<Automaton> {
+  pub fn totalize(a: &Automaton) -> Result<Automaton> {
     let mut result = Automaton::new();
 
     let num_states = a.get_num_states();
@@ -1202,7 +1195,7 @@ impl Operations {
   ///
   /// Returns:
   /// - The topologically sorted array of state IDs.
-  pub(crate) fn topo_sort_states(a: &Automaton) -> Result<Vec<i32>> {
+  pub fn topo_sort_states(a: &Automaton) -> Result<Vec<i32>> {
     if a.get_num_states() == 0 {
       return Ok(Vec::new());
     }

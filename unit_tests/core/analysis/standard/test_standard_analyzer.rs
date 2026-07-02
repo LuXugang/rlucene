@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
-use crate::test::support::core::analysis::base_token_stream_test_case::{
+use crate::test_framework::core::analysis::base_token_stream_test_case::{
   assert_analyzes_to6, assert_analyzes_to7, assert_analyzes_to9, check_one_term,
 };
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 
 use crate::core::util::error::lucene_error::Result;
 

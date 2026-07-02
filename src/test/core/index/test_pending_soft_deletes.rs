@@ -49,8 +49,8 @@ use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
-pub(crate) use crate::test::support::core::index::misc::TestSingleUpdateDocValuesFieldUpdates;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldUpdates;
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
@@ -60,7 +60,7 @@ mod test_pending_deletes_base_tests {
   use super::super::test_pending_deletes::TestPendingDeletesBase;
   use super::TestPendingSoftDeletes;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::support::core::util::lucene_test_case::random;
+  use crate::test_framework::core::util::lucene_test_case::random;
 
   #[test]
   fn test_delete_doc() -> Result<()> {

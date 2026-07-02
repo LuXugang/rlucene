@@ -19,8 +19,8 @@ use crate::core::geo::rectangle2d::create_from_xy_rectangle;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::point_values::Relation::{CellInsideQuery, CellOutsideQuery};
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::ShapeTestUtil;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::ShapeTestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 #[allow(dead_code)] // for quick search
 struct TestRectangle2D;

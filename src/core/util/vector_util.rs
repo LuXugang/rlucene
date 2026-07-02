@@ -178,7 +178,7 @@ impl VectorUtil {
     }
   }
 
-  pub(crate) fn xor_bit_count_int(&self, a: &[u8], b: &[u8]) -> i32 {
+  pub fn xor_bit_count_int(&self, a: &[u8], b: &[u8]) -> i32 {
     let mut distance = 0i32;
     let mut i = 0usize;
     let stride = u32::BITS as usize / 8;
@@ -199,7 +199,7 @@ impl VectorUtil {
     distance
   }
 
-  pub(crate) fn xor_bit_count_long(&self, a: &[u8], b: &[u8]) -> i32 {
+  pub fn xor_bit_count_long(&self, a: &[u8], b: &[u8]) -> i32 {
     let mut distance = 0i32;
     let mut i = 0usize;
     let stride = BitUtil::LONG_BYTES;

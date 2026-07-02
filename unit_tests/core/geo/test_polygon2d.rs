@@ -21,9 +21,9 @@ use crate::core::geo::polygon::Polygon;
 use crate::core::geo::polygon2d::create_from_polygon;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::util::lucene_test_case::{at_least, random};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 
 #[cfg(test)] // for quick search

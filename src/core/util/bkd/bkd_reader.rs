@@ -60,7 +60,7 @@ where
   pub(crate) is_tree_balanced: bool,
   /// index_in,data_in are the same instance
   #[cfg(test)]
-  pub(crate) same_in: bool,
+  pub same_in: bool,
 }
 impl<I> Clone for BKDReader<I>
 where

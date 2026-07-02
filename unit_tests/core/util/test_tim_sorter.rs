@@ -16,12 +16,12 @@
  */
 // Migrated from src/core/util/tim_sorter.rs
 
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 
 use crate::core::util::array_tim_sorter::ArrayTimSorter;
 use crate::core::util::{NaturalOrder, Sorter};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use crate::util_tests::base_sort_test_case::{BaseSortTestCase, Entry};
 #[allow(dead_code)] // for quick search
 struct TestTimSorter;

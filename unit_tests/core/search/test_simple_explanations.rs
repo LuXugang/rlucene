@@ -27,11 +27,11 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::base_explanation_test_case::{
+use crate::test_framework::core::search::base_explanation_test_case::{
   ALTFIELD, BaseExplanationTestCase, BaseExplanationTestContext, FIELD,
   before_class_test_explanations,
 };
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 

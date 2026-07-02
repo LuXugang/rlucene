@@ -30,8 +30,8 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use std::cell::Cell;
 
 #[allow(dead_code)] // for quick search

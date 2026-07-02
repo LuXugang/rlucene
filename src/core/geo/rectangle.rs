@@ -42,7 +42,7 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
-  pub(crate) const AXISLAT_ERROR: f64 =
+  pub const AXISLAT_ERROR: f64 =
     (0.1f64 / GeoUtils::EARTH_MEAN_RADIUS_METERS) * 180.0 / std::f64::consts::PI;
   /// Constructs a bounding box by first validating the provided latitude and longitude coordinates
   pub fn new(min_lat: f64, max_lat: f64, min_lon: f64, max_lon: f64) -> Result<Self> {

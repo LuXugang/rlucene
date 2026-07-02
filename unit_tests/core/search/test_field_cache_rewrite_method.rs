@@ -26,9 +26,9 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::Result;
 use crate::search_tests::test_regexp_random2::TestRegexpRandom2;
-use crate::test::support::core::search::check_hits::CheckHits;
-use crate::test::support::core::search::query_utils::QueryUtils;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::search::check_hits::CheckHits;
+use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 
 /// Tests the FieldcacheRewriteMethod with random regular expressions

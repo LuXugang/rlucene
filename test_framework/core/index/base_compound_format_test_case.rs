@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, new_directory_shared, new_io_context, random,
 };
 use std::collections::{HashMap, HashSet};
@@ -39,8 +39,8 @@ use crate::core::store::{IO_CONTEXT_DEFAULT, IndexInput};
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper};
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 pub trait BaseCompoundFormatTestCase {
   fn test_empty<R>(&self, random: &mut R) -> Result<()>

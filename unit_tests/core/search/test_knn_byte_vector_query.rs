@@ -21,9 +21,9 @@ use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
 use crate::core::search::query::Query;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
-use crate::test::support::core::util::test_vector_util::random_vector_bytes_dim;
+use crate::test_framework::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_vector_util::random_vector_bytes_dim;
 use rand::Rng;
 use rand::rngs::StdRng;
 use std::sync::Arc;
@@ -43,7 +43,7 @@ mod base_knn_vector_query_test_case_tests {
 
   use crate::core::util::error::lucene_error::Result;
   use crate::search_tests::test_knn_byte_vector_query::run_case;
-  use crate::test::support::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
+  use crate::test_framework::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
 
   #[test]
   fn test_equals() -> Result<()> {

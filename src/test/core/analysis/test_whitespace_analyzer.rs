@@ -16,7 +16,7 @@
  */
 use crate::analysis::common::analysis_impl::core::whitespace_analyzer::WhitespaceAnalyzer;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::base_token_stream_test_case::assert_analyzes_to6;
+use crate::test_framework::core::analysis::base_token_stream_test_case::assert_analyzes_to6;
 use rand::rng;
 
 #[allow(dead_code)] // for quick search

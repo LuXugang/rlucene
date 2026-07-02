@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/priority_queue.rs
 
-use crate::test::support::core::util::lucene_test_case::{at_least, at_least_usize, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, at_least_usize, random};
 use std::fmt::Debug;
 
 use rand::RngExt;
@@ -24,7 +24,7 @@ use rand::RngExt;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestPriorityQueue;

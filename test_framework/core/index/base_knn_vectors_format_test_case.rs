@@ -43,8 +43,9 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::MergePolicyEnum;
-use crate::core::index::merge_scheduler::MergeSchedulerEnum;
+use crate::core::index::merge_policy::{MergePolicyEnum, OneMergeSR};
+use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum, MergeSource};
+use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -67,18 +68,18 @@ use crate::core::util::StringHelper;
 use crate::core::util::ToInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::vector_util::VectorUtil;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::force_merge_policy::ForceMergePolicy;
-pub use crate::test::support::core::index::misc::TestMergeScheduler;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_io_context,
   new_log_merge_policy,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -2618,5 +2619,46 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     // TODO add_indexes未实现
     Ok(())
+  }
+}
+pub struct TestMergeScheduler {
+  ex: Arc<AtomicBool>,
+}
+
+impl TestMergeScheduler {
+  pub(crate) fn new(ex: Arc<AtomicBool>) -> Self {
+    Self { ex }
+  }
+}
+
+impl CloseableRef for TestMergeScheduler {}
+
+impl MergeScheduler for TestMergeScheduler {
+  fn merge<MS, D>(&self, merge_source: MS, _trigger: MergeTrigger) -> Result<()>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMergeSR<D>: Send + 'static,
+  {
+    while let Some(mut merge) = merge_source.get_next_merge()? {
+      let result: Result<()> = merge_source.merge(&mut merge);
+      if result.is_err() {
+        self.ex.store(true, Ordering::Relaxed);
+        return result;
+      }
+    }
+    Ok(())
+  }
+
+  type Directory<D>
+    = D
+  where
+    D: Directory;
+
+  fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
+  where
+    D: Directory,
+  {
+    Ok(in_)
   }
 }

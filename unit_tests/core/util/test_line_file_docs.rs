@@ -17,7 +17,7 @@
 use chrono::{NaiveDate, NaiveTime};
 
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::line_file_docs::DATE_FIELD_VALUE_TO_LOCALDATETIME;
+use crate::test_framework::core::util::line_file_docs::DATE_FIELD_VALUE_TO_LOCALDATETIME;
 
 #[allow(dead_code)] // for quick search
 struct TestLineFileDocs;

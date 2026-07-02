@@ -19,8 +19,8 @@ use crate::core::geo::point::Point;
 use crate::core::geo::point2d::create_from_point;
 use crate::core::index::point_values::Relation;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 #[allow(dead_code)] // for quick search
 struct TestPoint2D;

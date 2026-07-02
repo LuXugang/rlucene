@@ -29,7 +29,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_text_field, random,
 };
 use std::collections::HashMap;

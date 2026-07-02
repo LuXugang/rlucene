@@ -20,8 +20,8 @@ use crate::core::geo::xy_geometry::XYGeometryEnum;
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::base_xy_point_test_case::BaseXYPointTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::base_xy_point_test_case::BaseXYPointTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 
 pub struct TestXYPointQueries;
@@ -36,7 +36,7 @@ where
 mod base_xy_point_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::search_tests::test_xy_point_queries::run_case;
-  use crate::test::support::core::geo::base_xy_point_test_case::BaseXYPointTestCase;
+  use crate::test_framework::core::geo::base_xy_point_test_case::BaseXYPointTestCase;
   #[test]
   fn test_index_extreme_values() -> Result<()> {
     run_case(|case, _random| case.test_index_extreme_values())

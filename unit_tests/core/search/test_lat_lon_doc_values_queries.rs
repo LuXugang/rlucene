@@ -22,8 +22,8 @@ use crate::core::geo::lat_lon_geometry::LatLonGeometryEnum;
 use crate::core::geo::polygon::Polygon;
 use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 pub struct TestLatLonDocValuesQueries;
 fn run_case<F>(f: F) -> Result<()>
@@ -37,7 +37,7 @@ where
 mod base_geo_point_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::search_tests::test_lat_lon_doc_values_queries::run_case;
-  use crate::test::support::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
+  use crate::test_framework::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
 
   #[test]
   fn test_index_extreme_values() -> Result<()> {

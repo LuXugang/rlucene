@@ -25,14 +25,14 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::line_file_docs::LineFileDocs;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::line_file_docs::LineFileDocs;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, random,
   random_from_seed, rarely,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::Rng;
 use rand::RngExt;
@@ -311,7 +311,7 @@ where
       let done = done.clone();
       let barrier = barrier.clone();
       handles.push(scope.spawn(move || -> Result<()> {
-        let mut thread_random = crate::test::support::core::util::lucene_test_case::random();
+        let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
         barrier.wait();
         let result = (|| -> Result<()> {
           for _ in 0..iters_per_thread {

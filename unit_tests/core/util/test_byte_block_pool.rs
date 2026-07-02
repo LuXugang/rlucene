@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/byte_block_pool.rs
 
-use crate::test::support::core::util::lucene_test_case::{at_least_usize, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use rand::distr::Alphanumeric;
 use rand::{Rng, RngExt};
 use std::sync::Arc;
@@ -25,7 +25,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::allocator_byte::{DirectAllocatorByte, DirectTrackingAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestByteBlockPool {}

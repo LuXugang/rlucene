@@ -65,7 +65,7 @@ impl ConstantScoreQuery {
     }
   }
 
-  pub(crate) fn into_inner(self) -> Query {
+  pub fn into_inner(self) -> Query {
     *self.query
   }
 }

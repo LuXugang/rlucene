@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, random, random_multiplier,
 };
 use std::mem::size_of;
@@ -35,7 +35,7 @@ use crate::core::store::{
 };
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
+use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 
 #[allow(dead_code)] // for quick search
 struct TestMMapDirectory {
@@ -184,7 +184,7 @@ fn test_no_grouping_func() -> Result<()> {
 mod base_directory_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::store_tests::test_mmap_directory::run_case;
-  use crate::test::support::core::store::base_directory_test_case::BaseDirectoryTestCase;
+  use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 
   #[test]
   fn test_copy_from() -> Result<()> {

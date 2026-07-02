@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
-use crate::test::support::core::util::lucene_test_case::{is_night_mode, random};
+use crate::test_framework::core::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
+use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90LiveDocsFormat;

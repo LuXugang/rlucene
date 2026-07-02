@@ -36,13 +36,13 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::io_utils::IOUtils;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::misc::assert_no_unreferenced_files;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
+use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, new_mock_directory, random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
@@ -127,7 +127,7 @@ fn test_no_extra_files() -> Result<()> {
     for _ in 0..21 {
       let mut doc = Document::new();
       doc.add(
-        crate::test::support::core::util::lucene_test_case::new_text_field(
+        crate::test_framework::core::util::lucene_test_case::new_text_field(
           &mut random,
           "content",
           "a b c",

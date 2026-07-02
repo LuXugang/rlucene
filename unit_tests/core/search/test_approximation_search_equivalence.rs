@@ -21,11 +21,11 @@ use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::query::Query;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::random_approximation_query::RandomApproximationQuery;
-use crate::test::support::core::search::search_equivalence_test_base::{
+use crate::test_framework::core::search::random_approximation_query::RandomApproximationQuery;
+use crate::test_framework::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 /// Basic equivalence tests for approximations.
 pub struct TestApproximationSearchEquivalence {

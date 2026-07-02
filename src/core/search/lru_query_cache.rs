@@ -518,7 +518,7 @@ where
     self.get_cache_count() - self.get_cache_size()
   }
   #[cfg(test)]
-  pub(crate) fn assert_consistent(&self) -> Result<()> {
+  pub fn assert_consistent(&self) -> Result<()> {
     let inner = self.inner.write();
 
     if self.requires_eviction(&inner) {

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use std::borrow::Cow;
 use std::collections::HashSet;
 
@@ -32,9 +32,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
-use crate::test::support::core::util::automaton::automaton_test_util::AutomatonTestUtil;
-use crate::test::support::core::util::automaton::minimization_operation::MinimizationOperations;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
+use crate::test_framework::core::util::automaton::minimization_operation::MinimizationOperations;
+use crate::test_framework::core::util::test_util::TestUtil;
 use crate::util_tests::automaton::test_operations::TestOperations;
 /// Test for FiniteStringsIterator.
 #[allow(dead_code)] // for quick search

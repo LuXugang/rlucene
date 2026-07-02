@@ -25,8 +25,8 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::query::Query;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 use rand::prelude::StdRng;
@@ -45,7 +45,7 @@ where
 mod base_geo_point_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
   use crate::search_tests::test_lat_lon_point_queries::run_case;
-  use crate::test::support::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
+  use crate::test_framework::core::geo::base_geo_point_test_case::BaseGeoPointTestCase;
 
   #[test]
   fn test_index_extreme_values() -> Result<()> {

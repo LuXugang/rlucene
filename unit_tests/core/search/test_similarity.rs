@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::text_field::TextField;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_merge_policy_with_mock_mp,
   new_searcher_with_reader, random,
 };
@@ -42,10 +42,12 @@ use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::search::dummy_total_hit_count_collector::CollectorManagerImpl;
-pub use crate::test::support::core::search::similarity::{SimpleSimilarity, new_simple_similarity};
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::dummy_total_hit_count_collector::CollectorManagerImpl;
+pub use crate::test_framework::core::search::similarity::{
+  SimpleSimilarity, new_simple_similarity,
+};
 
 #[allow(dead_code)] // for quick search
 struct TestSimilarity;

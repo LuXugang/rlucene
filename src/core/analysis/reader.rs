@@ -17,9 +17,9 @@
 #[cfg(test)]
 use crate::core::analysis::char_filter::CharFilter;
 #[cfg(test)]
-use crate::test::support::core::analysis::char_filter::{CharFilter1, CharFilter2};
+use crate::test_framework::core::analysis::char_filter::{CharFilter1, CharFilter2};
 #[cfg(test)]
-use crate::test::support::core::analysis::mock_char_filter::MockCharFilter;
+use crate::test_framework::core::analysis::mock_char_filter::MockCharFilter;
 
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::tokenizer::IllegalStateReader;

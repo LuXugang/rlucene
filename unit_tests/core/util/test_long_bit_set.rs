@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/long_bit_set.rs
 
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, is_night_mode, random, random_multiplier,
 };
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -27,7 +27,7 @@ use rand::RngExt;
 
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use crate::util_tests::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
 
 #[allow(dead_code)] // for quick search

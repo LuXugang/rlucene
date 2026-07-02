@@ -44,21 +44,21 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test::support::core::analysis::token;
-use crate::test::support::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::index::random_postings_tester::Option_;
-use crate::test::support::core::index::random_postings_tester::RandomPostingsTester;
-use crate::test::support::core::util::line_file_docs::LineFileDocs;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::token;
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::random_postings_tester::Option_;
+use crate::test_framework::core::index::random_postings_tester::RandomPostingsTester;
+use crate::test_framework::core::util::line_file_docs::LineFileDocs;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
   new_directory_shared, new_fs_directory, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, new_text_field,
   new_tiered_merge_policy,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};

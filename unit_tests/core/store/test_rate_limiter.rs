@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{random as new_random, random_from_seed};
+use crate::test_framework::core::util::lucene_test_case::{random as new_random, random_from_seed};
 use rand::RngExt;
 use std::sync::atomic::AtomicI64;
 use std::sync::{Arc, Barrier};

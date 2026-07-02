@@ -22,11 +22,11 @@ use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::asserting_query::AssertingQuery;
-use crate::test::support::core::search::search_equivalence_test_base::{
+use crate::test_framework::core::search::asserting_query::AssertingQuery;
+use crate::test_framework::core::search::search_equivalence_test_base::{
   SearchEquivalenceTestBase, SearchEquivalenceTestBaseMeta,
 };
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 

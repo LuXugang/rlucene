@@ -19,7 +19,7 @@ use crate::core::search::doc_id_stream::{DocIdStream, DocIdStreamConsumer};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::search::asserting_scorable::AssertingScorable;
+use crate::test_framework::core::search::asserting_scorable::AssertingScorable;
 use std::fmt::{Display, Formatter};
 
 /// Wraps another Collector and checks that order is respected.

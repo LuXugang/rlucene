@@ -21,7 +21,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::not_doc_id_set::NotDocIdSet;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use crate::util_tests::base_doc_id_set_test_case::{
   BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };

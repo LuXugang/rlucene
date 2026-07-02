@@ -21,8 +21,8 @@ use crate::core::geo::polygon::Polygon;
 use crate::core::geo::polygon2d::Polygon2D;
 use crate::core::util::error::lucene_error::Result;
 use crate::document_tests::base_shape_encoding_test_case::BaseShapeEncodingTestCase;
-use crate::test::support::core::geo::geo_test_util::GeoTestUtil;
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 /// Test case for LatLonShape encoding

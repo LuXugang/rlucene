@@ -25,7 +25,7 @@ use crate::core::index::check_index::{CheckIndex, Level};
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
   new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_string_field, random,
@@ -44,8 +44,8 @@ use crate::core::index::point_values::{
 use crate::core::index::term::Term;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::index::random_index_writer::RandomIndexWriter;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
@@ -53,7 +53,7 @@ use std::collections::HashMap;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::util::TryIntoInt;
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use std::sync::Arc;
 use std::vec;
 

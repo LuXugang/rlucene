@@ -29,11 +29,11 @@ use crate::core::index::terms::Terms;
 use crate::core::index::{BytesRef, directory_reader};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared, new_index_writer_config,
   random,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use std::borrow::Cow;
 
 #[allow(dead_code)] // for quick search

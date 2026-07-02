@@ -14,4 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub use crate::test::support::core::index::force_merge_policy::ForceMergePolicy;
+pub use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;

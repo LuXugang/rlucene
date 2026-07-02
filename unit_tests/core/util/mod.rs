@@ -66,8 +66,8 @@ mod test_version;
 mod compress;
 mod test_intro_sorter;
 
-pub use crate::test::support::core::util::{
+pub use crate::test_framework::core::util::{
   DefaultCRReader, DefaultCRReaderShared, DefaultIRCLR, DefaultIRCRC, DefaultIndexSearchCR,
   DefaultIndexSearchCRShared, DefaultIndexSearchLR, DefaultLRReader, DummyCR,
 };
-pub(crate) use crate::test::support::core::util::{dummy_directory, dummy_index_searcher};
+pub(crate) use crate::test_framework::core::util::{dummy_directory, dummy_index_searcher};

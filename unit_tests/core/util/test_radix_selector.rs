@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/radix_selector.rs
 
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use std::cmp::{Ordering, min};
 
 use rand::Rng;
@@ -26,7 +26,7 @@ use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::radix_selector::{RadixSelector, RadixSelectorBase};
 use crate::core::util::selector::Selector;
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestRadixSelector;
@@ -122,7 +122,7 @@ where
 
   let mut selector = RadixSelector::new(enforced_max_len, selector_impl);
   Selector::select(&mut selector, from, to, k)?;
-  actual = selector.sub_selector.actual.clone();
+  actual = selector.get_sub_selector().actual.clone();
 
   assert_eq!(expected[k], actual[k]);
   for i in 0..actual.len() {

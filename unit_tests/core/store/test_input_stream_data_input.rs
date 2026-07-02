@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test::support::core::util::lucene_test_case::{at_least_usize, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use std::fmt::{Display, Formatter};
 use std::io::{Cursor, Read, Seek};
 
@@ -22,7 +22,7 @@ use rand::{Rng, RngExt};
 
 use crate::core::store::{DataInput, InputStreamDataInput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
 struct TestInputStreamDataInput;

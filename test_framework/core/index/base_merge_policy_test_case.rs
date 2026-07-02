@@ -21,28 +21,28 @@ use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_writer::{IndexWriter, Inner, SOURCE, SOURCE_FLUSH, SOURCE_MERGE};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyEnum, MergeSpecification, OneMerge,
+  MergeContext, MergePolicy, MergePolicyEnum, MergeSpecification, OneMerge, OneMergeSR,
 };
-use crate::core::index::merge_scheduler::MergeSchedulerEnum;
+use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::dummy::dummy_lock::DummyLock;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::{HasIdentity, LATEST, LUCENE_10_1_1, StringHelper};
-use crate::test::support::core::analysis::mock_analyzer::MockAnalyzer;
-pub use crate::test::support::core::index::misc::SerialMergeSchedulerImpl;
-use crate::test::support::core::util::lucene_test_case::{
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer,
 };
-use crate::test::support::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
@@ -730,7 +730,7 @@ where
   D: Directory,
   F: Fn(&SegmentCommitInfo<D>) -> Result<i32>,
 {
-  pub(crate) fn new(num_deletes_func: F) -> Self {
+  pub fn new(num_deletes_func: F) -> Self {
     Self {
       num_deletes_func,
       dir: PhantomData,
@@ -738,7 +738,7 @@ where
       info_stream: InfoStreamMT::default(),
     }
   }
-  pub(crate) fn set_merging_segments(&mut self, merging_segments: HashSet<String>) {
+  pub fn set_merging_segments(&mut self, merging_segments: HashSet<String>) {
     self.merging_segments = merging_segments;
   }
 }
@@ -768,7 +768,7 @@ pub(crate) struct FakeDirectory {
   id: Identity,
 }
 impl FakeDirectory {
-  pub(crate) fn new() -> Self {
+  pub fn new() -> Self {
     Self {
       id: Identity::new(),
     }
@@ -867,5 +867,62 @@ impl Directory for FakeDirectory {
 
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     Err(LuceneError::unsupported_operation(""))
+  }
+}
+pub struct SerialMergeSchedulerImpl {
+  may_merge: Arc<AtomicBool>,
+  base: SerialMergeScheduler,
+}
+
+impl SerialMergeSchedulerImpl {
+  pub(crate) fn new(may_merge: Arc<AtomicBool>) -> Self {
+    Self {
+      may_merge,
+      base: SerialMergeScheduler::new(),
+    }
+  }
+}
+
+impl CloseableRef for SerialMergeSchedulerImpl {
+  fn close(&self) -> Result<()> {
+    self.base.close()
+  }
+}
+
+impl MergeScheduler for SerialMergeSchedulerImpl {
+  fn merge<MS, D>(&self, merge_source: MS, trigger: MergeTrigger) -> Result<()>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMergeSR<D>: Send + 'static,
+  {
+    if !self.may_merge.load(Ordering::SeqCst) {
+      let merge = merge_source.get_next_merge()?;
+      if merge.is_some() {
+        return Err(LuceneError::illegal_argument(
+          "TEST: we should not need any merging, yet merge policy returned merge",
+        ));
+      }
+    }
+    self.base.merge(merge_source, trigger)
+  }
+
+  type Directory<D>
+    = <SerialMergeScheduler as MergeScheduler>::Directory<D>
+  where
+    D: Directory;
+
+  fn wrap_for_merge<D>(&self, in_: D) -> Result<Self::Directory<D>>
+  where
+    D: Directory,
+  {
+    self.base.wrap_for_merge(in_)
+  }
+
+  fn initialize<D>(&mut self, directory: &D) -> Result<()>
+  where
+    D: Directory,
+  {
+    self.base.initialize(directory)
   }
 }

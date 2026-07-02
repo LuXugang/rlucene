@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/version.rs
 
-use crate::test::support::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::random;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 use rand::RngExt;
