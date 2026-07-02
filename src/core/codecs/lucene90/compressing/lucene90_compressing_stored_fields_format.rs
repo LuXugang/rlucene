@@ -22,7 +22,7 @@ use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::direct_monotonic_writer::{MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT};
@@ -162,14 +162,14 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
     )
   }
 
-  type StoredFieldsWriter<T: IndexOutput> = Lucene90CompressingStoredFieldsWriter<T>;
+  type StoredFieldsWriter<D: Directory> = Lucene90CompressingStoredFieldsWriter<D>;
 
   fn fields_writer<D1, D2>(
     &self,
-    directory: &D1,
+    directory: D1,
     segment_info: &mut SegmentInfo<D2>,
     context: &IOContext,
-  ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
+  ) -> Result<Self::StoredFieldsWriter<D1>>
   where
     D1: Directory,
     D2: Directory,

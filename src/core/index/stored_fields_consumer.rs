@@ -35,13 +35,13 @@ where
   D: Directory,
 {
   directory: D,
-  pub(crate) writer: Option<DefaultStoredFieldsWriter<D::IndexOutput>>,
+  pub(crate) writer: Option<DefaultStoredFieldsWriter<D>>,
   last_doc: i32,
   sub: Option<SortingStoredFieldsConsumer<D>>,
 }
 impl<D> StoredFieldsConsumer<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   pub(crate) fn new(directory: D, sub: Option<SortingStoredFieldsConsumer<D>>) -> Self {
     Self {
@@ -64,7 +64,7 @@ where
       None => {
         if self.writer.is_none() {
           let writer = LATEST_CODEC.stored_fields_format().fields_writer(
-            &self.directory,
+            self.directory.clone(),
             info,
             &IOContext::default_io_context()?,
           )?;
@@ -248,7 +248,7 @@ where
 impl<D> Accountable for StoredFieldsConsumer<D>
 where
   D: Directory,
-  DefaultStoredFieldsWriter<D::IndexOutput>: Accountable,
+  DefaultStoredFieldsWriter<D>: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     match self.sub {

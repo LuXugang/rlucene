@@ -71,7 +71,7 @@ where
 }
 impl<D> FreqProxTermsWriter<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   pub(crate) fn new(bytes_used: SharedCounter, next_terms_hash: TermVectorsConsumer<D>) -> Self {
     let base = TermsHash::new(bytes_used);

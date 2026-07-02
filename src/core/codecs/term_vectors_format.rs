@@ -20,7 +20,7 @@ use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
@@ -40,14 +40,14 @@ pub trait TermVectorsFormat {
     D1: Directory,
     D2: Directory;
 
-  type TermVectorsWriter<T: IndexOutput>: TermVectorsWriter;
+  type TermVectorsWriter<D: Directory>: TermVectorsWriter;
   /// Returns a [`TermVectorsWriter`] to write term vectors.
   fn vectors_writer<D1, D2>(
     &self,
-    directory: &D1,
+    directory: D1,
     segment_info: &SegmentInfo<D2>,
     context: &IOContext,
-  ) -> Result<Self::TermVectorsWriter<D1::IndexOutput>>
+  ) -> Result<Self::TermVectorsWriter<D1>>
   where
     D1: Directory,
     D2: Directory;

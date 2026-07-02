@@ -253,5 +253,5 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     Ok(())
   }
 }
-pub type DefaultTermVectorsWriter<O> =
-  <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<O>;
+pub type DefaultTermVectorsWriter<D> =
+  <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>;

@@ -23,12 +23,13 @@ use crate::core::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 pub(crate) struct TrackingTmpOutputDirectoryWrapper<D>
 where
   D: Directory,
 {
-  pub(crate) inner: Mutex<Inner>,
+  pub(crate) inner: Arc<Mutex<Inner>>,
   in_: D,
   id: Identity,
 }
@@ -40,17 +41,30 @@ where
   D: Directory,
 {
   pub(crate) fn new(input: D) -> Self {
-    let inner = Mutex::new(Inner {
+    let inner = Arc::new(Mutex::new(Inner {
       file_names: HashMap::new(),
-    });
+    }));
     TrackingTmpOutputDirectoryWrapper {
       inner,
       in_: input,
       id: Identity::new(),
     }
   }
-  pub(crate) fn get_temporary_files(&self) -> &Mutex<Inner> {
+  pub(crate) fn get_temporary_files(&self) -> &Arc<Mutex<Inner>> {
     &self.inner
+  }
+}
+
+impl<D> Clone for TrackingTmpOutputDirectoryWrapper<D>
+where
+  D: Directory + Clone,
+{
+  fn clone(&self) -> Self {
+    Self {
+      inner: Arc::clone(&self.inner),
+      in_: self.in_.clone(),
+      id: self.id.clone(),
+    }
   }
 }
 

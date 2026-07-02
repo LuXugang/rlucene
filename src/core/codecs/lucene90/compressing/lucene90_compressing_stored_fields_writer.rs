@@ -57,14 +57,14 @@ pub(crate) static TYPE_BITS: LazyLock<i32> =
   LazyLock::new(|| PackedInts::bits_required(NUMERIC_DOUBLE as i64).unwrap());
 
 pub(crate) static TYPE_MASK: LazyLock<i64> = LazyLock::new(|| PackedInts::max_value(*TYPE_BITS));
-pub struct Lucene90CompressingStoredFieldsWriter<O>
+pub struct Lucene90CompressingStoredFieldsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   segment: String,
-  index_writer: FieldsIndexWriter<O>,
-  meta_stream: O,
-  fields_stream: O,
+  index_writer: FieldsIndexWriter<D>,
+  meta_stream: D::IndexOutput,
+  fields_stream: D::IndexOutput,
   compressor: CompressorEnum,
   closed: bool,
   compression_mode: CompressionModeEnum,
@@ -80,13 +80,13 @@ where
   num_dirty_docs: i64,
   num_stored_fields_in_doc: i32,
 }
-impl<O> Lucene90CompressingStoredFieldsWriter<O>
+impl<D> Lucene90CompressingStoredFieldsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   #[allow(clippy::too_many_arguments)]
-  pub fn new<D1, D2>(
-    directory: &D1,
+  pub fn new<D2>(
+    directory: D,
     si: &SegmentInfo<D2>,
     segment_suffix: &str,
     context: &IOContext,
@@ -97,7 +97,6 @@ where
     block_shift: i32,
   ) -> Result<Self>
   where
-    D1: Directory<IndexOutput = O>,
     D2: Directory,
   {
     let segment = si.name.clone();
@@ -284,15 +283,15 @@ where
 
     Ok(())
   }
-  fn copy_chunks<D, CR>(
+  fn copy_chunks<MD, CR>(
     &mut self,
-    merge_state: &mut MergeState<D, CR>,
+    merge_state: &mut MergeState<MD, CR>,
     sub: &CompressingStoredFieldsMergeSub<CR>,
     from_doc_id: i32,
     to_doc_id: i32,
   ) -> Result<()>
   where
-    D: Directory,
+    MD: Directory,
     CR: CodecReader,
   {
     let reader_wrap = match merge_state.stored_fields_readers[sub.reader_index] {
@@ -423,14 +422,14 @@ where
         && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
     )
   }
-  fn get_merge_strategy<D, CR>(
+  fn get_merge_strategy<MD, CR>(
     &self,
-    merge_state: &MergeState<D, CR>,
+    merge_state: &MergeState<MD, CR>,
     matching_readers: &MatchingReaders,
     reader_index: usize,
   ) -> Result<MergeStrategy>
   where
-    D: Directory,
+    MD: Directory,
     CR: CodecReader,
   {
     let candidate = match merge_state.stored_fields_readers[reader_index] {
@@ -472,9 +471,9 @@ pub static BULK_MERGE_ENABLED: LazyLock<bool> = LazyLock::new(|| {
     .map(|v| v.parse::<bool>().unwrap_or(true))
     .unwrap_or(true)
 });
-impl<O> Closeable for Lucene90CompressingStoredFieldsWriter<O>
+impl<D> Closeable for Lucene90CompressingStoredFieldsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn close(&mut self) -> Result<()> {
     if self.closed {
@@ -499,9 +498,9 @@ where
   }
 }
 
-impl<O> StoredFieldsWriter for Lucene90CompressingStoredFieldsWriter<O>
+impl<D> StoredFieldsWriter for Lucene90CompressingStoredFieldsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn start_document(&mut self) -> Result<()> {
     Ok(())
@@ -588,7 +587,7 @@ where
     self.buffered_docs.write_string(value)?;
     Ok(())
   }
-  fn finish<D1>(&mut self, num_docs: i32, dir: &D1) -> Result<()>
+  fn finish<D1>(&mut self, num_docs: i32, _dir: &D1) -> Result<()>
   where
     D1: Directory,
   {
@@ -609,7 +608,6 @@ where
       num_docs,
       self.fields_stream.get_file_pointer()?,
       &mut self.meta_stream,
-      dir,
     )?;
 
     self.meta_stream.write_vlong(self.num_chunks)?;
@@ -624,9 +622,9 @@ where
     Ok(())
   }
 
-  fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
+  fn merge<MD, D1, CR>(&mut self, merge_state: &mut MergeState<MD, CR>, dir: &D1) -> Result<i32>
   where
-    D: Directory,
+    MD: Directory,
     D1: Directory,
     CR: CodecReader,
     Self: Sized,
@@ -717,9 +715,9 @@ where
   }
 }
 
-impl<O> Accountable for Lucene90CompressingStoredFieldsWriter<O>
+impl<D> Accountable for Lucene90CompressingStoredFieldsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(

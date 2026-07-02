@@ -158,8 +158,8 @@ pub trait StoredFieldsWriter: Closeable {
     Ok(doc_count)
   }
 }
-pub type DefaultStoredFieldsWriter<I> =
-  <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<I>;
+pub type DefaultStoredFieldsWriter<D> =
+  <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>;
 struct StoredFieldsMergeSub<CR>
 where
   CR: CodecReader,

@@ -49,15 +49,13 @@ pub(crate) struct SortingTermVectorsConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) writer: Option<
-    DefaultTermVectorsWriter<<TrackingTmpOutputDirectoryWrapper<D> as Directory>::IndexOutput>,
-  >,
+  pub(crate) writer: Option<DefaultTermVectorsWriter<TrackingTmpOutputDirectoryWrapper<D>>>,
   pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
   tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   pub(crate) fn new(dir: D) -> Result<Self> {
     let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
@@ -213,7 +211,7 @@ where
 
 impl<D> TermVectorsConsumerBase for SortingTermVectorsConsumer<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   type Directory = D;
 
@@ -291,7 +289,7 @@ where
     if self.writer.is_none() {
       let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
       self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
-        &self.tmp_directory,
+        self.tmp_directory.clone(),
         info,
         &context,
       )?);

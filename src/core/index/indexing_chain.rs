@@ -184,7 +184,7 @@ impl IndexContext {
 
 impl<D> IndexingChain<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   fn on_aborting_exception(
     &mut self,
@@ -1501,7 +1501,7 @@ impl PerField {
     bytes_used: SharedCounter,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + Clone,
   {
     let fi = self.field_info.as_ref().unwrap().clone();
     let state = FieldInvertState::new(
@@ -1532,7 +1532,7 @@ impl PerField {
     similarity: &S,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + Clone,
     S: Similarity,
   {
     if !self.field_info.as_ref().unwrap().omits_norms() {
@@ -2154,7 +2154,7 @@ impl FieldSchema {
 
 struct DocValuesLeafReaderImpl1<'a, D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   index_chain: &'a mut IndexingChain<D>,
   base: DocValuesLeafReader,
@@ -2163,7 +2163,7 @@ where
 }
 impl<'a, D> DocValuesLeafReaderImpl1<'a, D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   fn new(index_chain: &'a mut IndexingChain<D>, field_info: &'a mut Builder) -> Self {
     let base = DocValuesLeafReader;
@@ -2178,7 +2178,7 @@ where
 
 impl<D> Display for DocValuesLeafReaderImpl1<'_, D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
@@ -2187,7 +2187,7 @@ where
 
 impl<D> IndexReader for DocValuesLeafReaderImpl1<'_, D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
 
@@ -2246,7 +2246,7 @@ where
 
 impl<'a, D> LeafReader for DocValuesLeafReaderImpl1<'a, D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   type CacheHelper = <DocValuesLeafReader as LeafReader>::CacheHelper;
 

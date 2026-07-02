@@ -44,7 +44,7 @@ where
   D: Directory,
 {
   directory: D,
-  pub(crate) writer: Option<DefaultTermVectorsWriter<D::IndexOutput>>,
+  pub(crate) writer: Option<DefaultTermVectorsWriter<D>>,
   has_vectors: bool,
   num_vector_fields: i32,
   pub(crate) last_doc_id: i32,
@@ -93,7 +93,7 @@ impl Default for TermVectorsConsumer<DummyDirectory> {
 
 impl<D> TermVectorsConsumer<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   pub(crate) fn new(directory: D, sub: Option<SortingTermVectorsConsumer<D>>) -> Self {
     let base = TermsHash::new(Arc::new(AtomicCounter::new()));
@@ -223,6 +223,29 @@ where
   ) -> Result<TermVectorsConsumerPerField> {
     TermVectorsConsumerPerField::new(self, field_info)
   }
+  pub(crate) fn write_per_field(
+    &mut self,
+    per_field: &mut TermVectorsConsumerPerField,
+    int_pool: &mut IntBlockPool,
+    byte_pool: &ByteBlockPool,
+  ) -> Result<()> {
+    match self.sub {
+      Some(ref mut sub) => {
+        let writer = sub
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+        per_field.write_to_writer(writer, int_pool, byte_pool)
+      },
+      None => {
+        let writer = self
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+        per_field.write_to_writer(writer, int_pool, byte_pool)
+      },
+    }
+  }
   pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) -> Result<()> {
     let num_vector_fields = self.num_vector_fields as usize;
     if num_vector_fields == self.per_fields_idxs.len() {
@@ -304,7 +327,7 @@ where
           let context = IOContext::with_flush(flush_info)?;
 
           self.writer = Option::from(LATEST_CODEC.term_vectors_format().vectors_writer(
-            &self.directory,
+            self.directory.clone(),
             info,
             &context,
           )?);
@@ -320,15 +343,6 @@ where
       sub.abort()?;
     }
     Ok(())
-  }
-
-  pub(crate) fn get_writer(&mut self) -> Result<&mut DefaultTermVectorsWriter<D::IndexOutput>> {
-    let v = match self.sub {
-      Some(ref mut v) => &mut v.writer,
-      None => &mut self.writer,
-    };
-    v.as_mut()
-      .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))
   }
 }
 

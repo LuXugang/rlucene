@@ -26,6 +26,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
+#[derive(Clone)]
 pub struct DummyDirectory;
 impl Display for DummyDirectory {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {

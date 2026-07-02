@@ -233,7 +233,7 @@ where
   /// Returns an error if the index is corrupt or if there is a low-level I/O error.
   fn merge_fields(&mut self) -> Result<i32> {
     let mut fields_writer = LATEST_CODEC.stored_fields_format().fields_writer(
-      &self.directory,
+      self.directory,
       self.merge_state.segment_info,
       self.context,
     )?;
@@ -248,7 +248,7 @@ where
   /// Returns an error if there is a low-level I/O error.
   fn merge_term_vectors(&mut self) -> Result<i32> {
     let mut term_vectors_writer = LATEST_CODEC.term_vectors_format().vectors_writer(
-      &self.directory,
+      self.directory,
       self.merge_state.segment_info,
       self.context,
     )?;

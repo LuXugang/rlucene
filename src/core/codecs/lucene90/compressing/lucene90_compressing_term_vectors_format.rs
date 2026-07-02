@@ -22,7 +22,7 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
@@ -118,14 +118,14 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
     )
   }
 
-  type TermVectorsWriter<T: IndexOutput> = Lucene90CompressingTermVectorsWriter<T>;
+  type TermVectorsWriter<D: Directory> = Lucene90CompressingTermVectorsWriter<D>;
 
   fn vectors_writer<D1, D2>(
     &self,
-    directory: &D1,
+    directory: D1,
     segment_info: &SegmentInfo<D2>,
     context: &IOContext,
-  ) -> Result<Self::TermVectorsWriter<D1::IndexOutput>>
+  ) -> Result<Self::TermVectorsWriter<D1>>
   where
     D1: Directory,
     D2: Directory,

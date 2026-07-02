@@ -56,14 +56,14 @@ use std::sync::LazyLock;
 pub(crate) static FLAGS_BITS: LazyLock<i32> =
   LazyLock::new(|| bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
 /// [`TermVectorsWriter`] for [`Lucene90CompressingTermVectorsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat).
-pub struct Lucene90CompressingTermVectorsWriter<O>
+pub struct Lucene90CompressingTermVectorsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   segment: String,
-  index_writer: FieldsIndexWriter<O>,
-  meta_stream: O,
-  vectors_stream: O,
+  index_writer: FieldsIndexWriter<D>,
+  meta_stream: D::IndexOutput,
+  vectors_stream: D::IndexOutput,
   closed: bool,
   compression_mode: CompressionModeEnum,
   compressor: CompressorEnum,
@@ -97,13 +97,13 @@ where
   max_docs_per_chunk: i32,
   scratch_buffer: ByteBuffersDataOutput,
 }
-impl<O> Lucene90CompressingTermVectorsWriter<O>
+impl<D> Lucene90CompressingTermVectorsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   #[allow(clippy::too_many_arguments)]
-  pub fn new<D1, D2>(
-    directory: &D1,
+  pub fn new<D2>(
+    directory: D,
     si: &SegmentInfo<D2>,
     segment_suffix: &str,
     context: &IOContext,
@@ -114,7 +114,6 @@ where
     block_shift: i32,
   ) -> Result<Self>
   where
-    D1: Directory<IndexOutput = O>,
     D2: Directory,
   {
     debug_assert!(chunk_size > 0);
@@ -695,15 +694,15 @@ where
 
     self.writer.finish(&mut self.vectors_stream)
   }
-  fn copy_chunks<D, CR>(
+  fn copy_chunks<MD, CR>(
     &mut self,
-    merge_state: &mut MergeState<D, CR>,
+    merge_state: &mut MergeState<MD, CR>,
     sub: &CompressingTermVectorsSub<CR>,
     from_doc_id: i32,
     to_doc_id: i32,
   ) -> Result<()>
   where
-    D: Directory,
+    MD: Directory,
     CR: CodecReader,
   {
     let merge_state_meta = merge_state.get_meta();
@@ -837,14 +836,14 @@ where
         && candidate.get_num_dirty_chunks()? * 100 > candidate.get_num_chunks()?,
     )
   }
-  fn can_perform_bulk_merge<D, CR>(
+  fn can_perform_bulk_merge<MD, CR>(
     &self,
-    merge_state: &MergeState<D, CR>,
+    merge_state: &MergeState<MD, CR>,
     matching_readers: &MatchingReaders,
     reader_index: usize,
   ) -> Result<bool>
   where
-    D: Directory,
+    MD: Directory,
     CR: CodecReader,
   {
     match merge_state.term_vectors_readers[reader_index] {
@@ -865,9 +864,9 @@ where
   }
 }
 
-impl<O> Accountable for Lucene90CompressingTermVectorsWriter<O>
+impl<D> Accountable for Lucene90CompressingTermVectorsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(
@@ -883,9 +882,9 @@ where
   }
 }
 
-impl<O> Closeable for Lucene90CompressingTermVectorsWriter<O>
+impl<D> Closeable for Lucene90CompressingTermVectorsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn close(&mut self) -> Result<()> {
     if self.closed {
@@ -904,9 +903,9 @@ where
   }
 }
 
-impl<O> TermVectorsWriter for Lucene90CompressingTermVectorsWriter<O>
+impl<D> TermVectorsWriter for Lucene90CompressingTermVectorsWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
     self.cur_doc = self.add_doc_data(num_vector_fields);
@@ -1042,7 +1041,7 @@ where
     Ok(())
   }
 
-  fn finish<D1>(&mut self, num_docs: i32, dir: &D1) -> Result<()>
+  fn finish<D1>(&mut self, num_docs: i32, _dir: &D1) -> Result<()>
   where
     D1: Directory,
   {
@@ -1061,7 +1060,6 @@ where
       num_docs,
       self.vectors_stream.get_file_pointer()?,
       &mut self.meta_stream,
-      dir,
     )?;
 
     self.meta_stream.write_vlong(self.num_chunks)?;
@@ -1175,9 +1173,9 @@ where
     Ok(())
   }
 
-  fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
+  fn merge<MD, D1, CR>(&mut self, merge_state: &mut MergeState<MD, CR>, dir: &D1) -> Result<i32>
   where
-    D: Directory,
+    MD: Directory,
     D1: Directory,
     CR: CodecReader,
   {

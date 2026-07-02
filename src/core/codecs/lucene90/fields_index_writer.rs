@@ -14,22 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fs;
-
 use crate::core::codecs::CodecUtil;
 use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IOContext, IndexOutput};
+use crate::core::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::core::util::StringHelper;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
 
-pub struct FieldsIndexWriter<O>
+pub struct FieldsIndexWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
+  dir: D,
   name: String,
   suffix: String,
   extension: String,
@@ -37,8 +36,8 @@ where
   id: [u8; StringHelper::ID_LENGTH],
   block_shift: i32,
   io_context: IOContext,
-  docs_out: O,
-  file_pointers_out: O,
+  docs_out: D::IndexOutput,
+  file_pointers_out: D::IndexOutput,
   docs_out_pending_delete: bool,
   file_pointers_out_pending_delete: bool,
   temp_outputs_closed: bool,
@@ -51,13 +50,13 @@ pub(crate) mod fields_index_writer_const {
   pub(crate) const VERSION_CURRENT: i32 = 0;
 }
 
-impl<O> FieldsIndexWriter<O>
+impl<D> FieldsIndexWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new<D>(
-    dir: &D,
+  pub(crate) fn new(
+    dir: D,
     name: &str,
     suffix: &str,
     extension: &str,
@@ -65,27 +64,47 @@ where
     id: [u8; StringHelper::ID_LENGTH],
     block_shift: i32,
     io_context: IOContext, // TODO:avoid copy? could wrap with Rc?
-  ) -> Result<Self>
-  where
-    D: Directory<IndexOutput = O>,
-  {
+  ) -> Result<Self> {
     let mut docs_out =
       dir.create_temp_output(name, &format!("{codec_name}-doc_ids"), &io_context)?;
-    CodecUtil::write_header(
-      &mut docs_out,
-      &format!("{codec_name}Docs"),
-      fields_index_writer_const::VERSION_CURRENT,
-    )?;
 
-    let mut file_pointers_out =
-      dir.create_temp_output(name, &format!("{codec_name}file_pointers"), &io_context)?;
-    CodecUtil::write_header(
-      &mut file_pointers_out,
-      &format!("{codec_name}FilePointers"),
-      fields_index_writer_const::VERSION_CURRENT,
-    )?;
+    let mut file_pointers_out = None;
+    let init_result: Result<()> = (|| {
+      CodecUtil::write_header(
+        &mut docs_out,
+        &format!("{codec_name}Docs"),
+        fields_index_writer_const::VERSION_CURRENT,
+      )?;
+
+      let mut out =
+        dir.create_temp_output(name, &format!("{codec_name}file_pointers"), &io_context)?;
+      CodecUtil::write_header(
+        &mut out,
+        &format!("{codec_name}FilePointers"),
+        fields_index_writer_const::VERSION_CURRENT,
+      )?;
+      file_pointers_out = Some(out);
+      Ok(())
+    })();
+
+    if let Err(init_error) = init_result {
+      let has_file_pointers_out = file_pointers_out.is_some();
+      Self::close_temp_outputs(
+        &dir,
+        &mut docs_out,
+        file_pointers_out.as_mut(),
+        false,
+        true,
+        has_file_pointers_out,
+      )?;
+      return Err(init_error);
+    }
+
+    let file_pointers_out = file_pointers_out
+      .ok_or_else(|| LuceneError::illegal_state("file_pointers_out must be initialized"))?;
 
     Ok(FieldsIndexWriter {
+      dir,
       name: name.to_string(),
       suffix: suffix.to_string(),
       extension: extension.to_string(),
@@ -118,16 +137,12 @@ where
     Ok(())
   }
 
-  pub(crate) fn finish<D>(
+  pub(crate) fn finish(
     &mut self,
     num_docs: i32,
     max_pointer: usize,
-    meta_out: &mut O,
-    dir: &D,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+    meta_out: &mut D::IndexOutput,
+  ) -> Result<()> {
     if num_docs != self.total_docs {
       return Err(LuceneError::illegal_state(format!(
         "Expected {} docs, but got {}",
@@ -148,7 +163,7 @@ where
     }
     close_result?;
 
-    let mut data_out = dir.create_output(
+    let mut data_out = self.dir.create_output(
       &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
       &self.io_context,
     )?;
@@ -167,7 +182,7 @@ where
       meta_out.write_long(data_out.get_file_pointer()? as i64)?;
 
       {
-        let mut docs_in = dir.open_checksum_input(&docs_out_file_name)?;
+        let mut docs_in = self.dir.open_checksum_input(&docs_out_file_name)?;
         let result: Result<()> = (|| {
           CodecUtil::check_header(
             &mut docs_in,
@@ -203,11 +218,11 @@ where
         })();
         IOUtils::use_or_suppress_result(result, docs_in.close())?;
       }
-      dir.delete_file(&docs_out_file_name)?;
+      self.dir.delete_file(&docs_out_file_name)?;
       self.docs_out_pending_delete = false;
       meta_out.write_long(data_out.get_file_pointer()? as i64)?;
       {
-        let mut file_pointers_in = dir.open_checksum_input(&file_pointers_out_file_name)?;
+        let mut file_pointers_in = self.dir.open_checksum_input(&file_pointers_out_file_name)?;
         let result: Result<()> = (|| {
           CodecUtil::check_header(
             &mut file_pointers_in,
@@ -244,7 +259,7 @@ where
         })();
         IOUtils::use_or_suppress_result(result, file_pointers_in.close())?;
       }
-      dir.delete_file(&file_pointers_out_file_name)?;
+      self.dir.delete_file(&file_pointers_out_file_name)?;
       self.file_pointers_out_pending_delete = false;
       meta_out.write_long(data_out.get_file_pointer()? as i64)?;
       meta_out.write_long(max_pointer as i64)?;
@@ -252,53 +267,66 @@ where
     })();
     IOUtils::use_or_suppress_result(result, data_out.close())
   }
+
+  fn close_temp_outputs(
+    dir: &D,
+    docs_out: &mut D::IndexOutput,
+    file_pointers_out: Option<&mut D::IndexOutput>,
+    temp_outputs_closed: bool,
+    docs_out_pending_delete: bool,
+    file_pointers_out_pending_delete: bool,
+  ) -> Result<()> {
+    let mut file_names = Vec::new();
+    if docs_out_pending_delete {
+      file_names.push(docs_out.get_name().to_string());
+    }
+    if file_pointers_out_pending_delete && let Some(out) = file_pointers_out.as_ref() {
+      file_names.push(out.get_name().to_string());
+    }
+
+    let close_result = if temp_outputs_closed {
+      Ok(())
+    } else {
+      match file_pointers_out {
+        Some(out) => IOUtils::close([docs_out, out], Closeable::close),
+        None => IOUtils::close(std::iter::once(docs_out), Closeable::close),
+      }
+    };
+
+    let delete_result = IOUtils::delete_files(dir, &file_names);
+    delete_result?;
+    close_result
+  }
 }
-impl<O> Closeable for FieldsIndexWriter<O>
+impl<D> Closeable for FieldsIndexWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn close(&mut self) -> Result<()> {
     if !self.docs_out_pending_delete && !self.file_pointers_out_pending_delete {
       return Ok(());
     }
 
-    let close_result = if self.temp_outputs_closed {
-      Ok(())
-    } else {
-      IOUtils::close(
-        [&mut self.docs_out, &mut self.file_pointers_out],
-        Closeable::close,
-      )
-    };
-
-    let mut file_names = Vec::new();
-    if self.docs_out_pending_delete {
-      file_names.push(self.docs_out.get_name().to_string());
-    }
-    if self.file_pointers_out_pending_delete {
-      file_names.push(self.file_pointers_out.get_name().to_string());
-    }
-
-    let delete_result = (|| -> Result<()> {
-      // TODO IMPORTANT 要用 Directory 删除
-      for file_name in file_names {
-        fs::remove_file(&file_name).map_err(|e| LuceneError::io_with_path(file_name, e))?;
-      }
-      Ok(())
-    })();
+    let cleanup_result = Self::close_temp_outputs(
+      &self.dir,
+      &mut self.docs_out,
+      Some(&mut self.file_pointers_out),
+      self.temp_outputs_closed,
+      self.docs_out_pending_delete,
+      self.file_pointers_out_pending_delete,
+    );
 
     self.docs_out_pending_delete = false;
     self.file_pointers_out_pending_delete = false;
     self.temp_outputs_closed = true;
 
-    delete_result?;
-    close_result
+    cleanup_result
   }
 }
 
-impl<O> Drop for FieldsIndexWriter<O>
+impl<D> Drop for FieldsIndexWriter<D>
 where
-  O: IndexOutput,
+  D: Directory,
 {
   fn drop(&mut self) {
     let _ = self.close();

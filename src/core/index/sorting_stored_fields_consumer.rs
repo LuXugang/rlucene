@@ -48,15 +48,13 @@ pub(crate) struct SortingStoredFieldsConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) writer: Option<
-    DefaultStoredFieldsWriter<<TrackingTmpOutputDirectoryWrapper<D> as Directory>::IndexOutput>,
-  >,
+  pub(crate) writer: Option<DefaultStoredFieldsWriter<TrackingTmpOutputDirectoryWrapper<D>>>,
   pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
   stored_fields_format: Lucene90CompressingStoredFieldsFormat,
 }
 impl<D> SortingStoredFieldsConsumer<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   pub(crate) fn new(dir: D) -> Result<Self> {
     let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
@@ -77,7 +75,7 @@ where
 
 impl<D> StoredFieldsConsumerBase for SortingStoredFieldsConsumer<D>
 where
-  D: Directory,
+  D: Directory + Clone,
 {
   type Directory = D;
 
@@ -87,7 +85,7 @@ where
   {
     if self.writer.is_none() {
       self.writer = Some(self.stored_fields_format.fields_writer(
-        &self.tmp_directory,
+        self.tmp_directory.clone(),
         info,
         &IOContext::default_io_context()?,
       )?);

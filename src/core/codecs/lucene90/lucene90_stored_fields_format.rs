@@ -24,7 +24,7 @@ use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
@@ -169,15 +169,15 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
     format.fields_reader(directory, segment_info, field_infos, context)
   }
 
-  type StoredFieldsWriter<T: IndexOutput> =
-    <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<T>;
+  type StoredFieldsWriter<D: Directory> =
+    <Lucene90CompressingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>;
 
   fn fields_writer<D1, D2>(
     &self,
-    directory: &D1,
+    directory: D1,
     segment_info: &mut SegmentInfo<D2>,
     context: &IOContext,
-  ) -> Result<Self::StoredFieldsWriter<D1::IndexOutput>>
+  ) -> Result<Self::StoredFieldsWriter<D1>>
   where
     D1: Directory,
     D2: Directory,

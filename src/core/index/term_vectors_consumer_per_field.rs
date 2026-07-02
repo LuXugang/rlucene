@@ -87,7 +87,7 @@ impl TermVectorsConsumerPerField {
     byte_pool: &ByteBlockPool,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + Clone,
   {
     if !self.do_vectors {
       return Ok(());
@@ -97,7 +97,20 @@ impl TermVectorsConsumerPerField {
     let num_postings = self.base.get_num_terms();
     debug_assert!(num_postings >= 0);
 
-    let tv = term_vectors_consumer.get_writer()?;
+    term_vectors_consumer.write_per_field(self, int_pool, byte_pool)
+  }
+
+  pub(crate) fn write_to_writer<TW>(
+    &mut self,
+    tv: &mut TW,
+    int_pool: &mut IntBlockPool,
+    byte_pool: &ByteBlockPool,
+  ) -> Result<()>
+  where
+    TW: TermVectorsWriter,
+  {
+    let num_postings = self.base.get_num_terms();
+    debug_assert!(num_postings >= 0);
 
     self.base.sort_terms(byte_pool)?;
     let term_ids = self.base.get_sorted_term_ids();
@@ -413,7 +426,7 @@ impl TermVectorsConsumerPerField {
     meta: PerFieldMeta,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + Clone,
   {
     if !self.do_vectors || self.base.get_num_terms() == 0 {
       return Ok(());

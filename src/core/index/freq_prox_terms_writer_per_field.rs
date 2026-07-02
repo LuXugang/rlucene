@@ -230,7 +230,7 @@ impl FreqProxTermsWriterPerField {
     meta: PerFieldMeta,
   ) -> Result<()>
   where
-    D: Directory,
+    D: Directory + Clone,
   {
     if let Some(next_per_field) = self.next_per_field.as_mut() {
       next_per_field.finish(term_vectors_consumer, meta)?;
