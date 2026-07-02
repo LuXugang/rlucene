@@ -76,7 +76,7 @@ use crate::core::search::phrase_query::Builder as PhraseQueryBuilder;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{ByteBuffersDirectory, IndexOutput};
+use crate::core::store::{ByteBuffersDirectory, IndexOutput, NoLockFactory};
 use crate::core::store::{DataOutput, IOContext, SimpleFSLockFactory};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::automation::automata::Automata;
@@ -1345,18 +1345,17 @@ fn test_delete_unused_files2() -> Result<()> {
 
 #[test]
 fn test_empty_fs_dir_with_no_lock() -> Result<()> {
-  // TODO IMPORTANT 编译错误 object too large
   // Tests that if FSDir is opened w/ a NoLockFactory (or SingleInstanceLF),
   // then IndexWriter ctor succeeds. Previously (LUCENE-2386) it failed
   // when listAll() was called in IndexFileDeleter.
-  // let mut random = random();
-  // let temp_dir = create_temp_dir()?;
-  // let dir = Arc::new(NIOFSDirectory::with_lock_factory(
-  //   temp_dir.keep(),
-  //   NoLockFactory,
-  // )?);
-  // let a = MockAnalyzer::new(&mut random);
-  // IndexWriter::new(dir, new_index_writer_config_with_analyzer(&mut random, a)?)?.close()?;
+  let mut random = random();
+  let temp_dir = create_temp_dir()?;
+  let dir = Arc::new(NIOFSDirectory::with_lock_factory(
+    temp_dir.keep(),
+    NoLockFactory,
+  )?);
+  let a = MockAnalyzer::new(&mut random);
+  IndexWriter::new(dir, new_index_writer_config_with_analyzer(&mut random, a)?)?.close()?;
   Ok(())
 }
 

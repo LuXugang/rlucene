@@ -29,6 +29,8 @@ use crate::test_framework::core::index::base_knn_vectors_format_test_case::TestM
 #[cfg(test)]
 use crate::test_framework::core::index::base_merge_policy_test_case::SerialMergeSchedulerImpl;
 #[cfg(test)]
+use crate::test_framework::core::index::test_index_writer_merge_policy::LatchedSerialMergeScheduler;
+#[cfg(test)]
 use crate::test_framework::core::index::test_index_writer_merging::MyMergeScheduler;
 
 /// Expert: [IndexWriter] uses an instance implementing this
@@ -92,6 +94,8 @@ pub enum MergeSchedulerEnum {
   #[cfg(test)]
   SerialTest(SerialMergeSchedulerImpl),
   #[cfg(test)]
+  LatchedSerial(LatchedSerialMergeScheduler),
+  #[cfg(test)]
   KnnMergeScheduler(TestMergeScheduler),
   #[cfg(test)]
   IndexWriterMerging(MyMergeScheduler),
@@ -117,6 +121,8 @@ impl CloseableRef for MergeSchedulerEnum {
       #[cfg(test)]
       MergeSchedulerEnum::SerialTest(s) => s.close(),
       #[cfg(test)]
+      MergeSchedulerEnum::LatchedSerial(s) => s.close(),
+      #[cfg(test)]
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.close(),
       #[cfg(test)]
       MergeSchedulerEnum::IndexWriterMerging(s) => s.close(),
@@ -137,6 +143,8 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::Concurrent(c) => c.merge(merge_source, trigger),
       #[cfg(test)]
       MergeSchedulerEnum::SerialTest(s) => s.merge(merge_source, trigger),
+      #[cfg(test)]
+      MergeSchedulerEnum::LatchedSerial(s) => s.merge(merge_source, trigger),
       #[cfg(test)]
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.merge(merge_source, trigger),
       #[cfg(test)]
@@ -164,6 +172,8 @@ impl MergeScheduler for MergeSchedulerEnum {
       #[cfg(test)]
       MergeSchedulerEnum::SerialTest(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
       #[cfg(test)]
+      MergeSchedulerEnum::LatchedSerial(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
+      #[cfg(test)]
       MergeSchedulerEnum::KnnMergeScheduler(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
       #[cfg(test)]
       MergeSchedulerEnum::IndexWriterMerging(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
@@ -180,6 +190,8 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::Concurrent(c) => c.initialize(directory),
       #[cfg(test)]
       MergeSchedulerEnum::SerialTest(s) => s.initialize(directory),
+      #[cfg(test)]
+      MergeSchedulerEnum::LatchedSerial(s) => s.initialize(directory),
       #[cfg(test)]
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.initialize(directory),
       #[cfg(test)]

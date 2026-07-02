@@ -44,8 +44,10 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
@@ -53,7 +55,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
   new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_string_field, rarely,
+  new_log_merge_policy, new_mock_fs_directory, new_string_field, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use num_bigint::{BigInt, BigUint};
@@ -198,8 +200,74 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_with_exceptions(&self) -> Result<()> {
-    // TODO IMPORTANT 编译错误 object too large
+  fn test_with_exceptions<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let num_docs = at_least(random, 1000);
+    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
+    let num_dims = TestUtil::next_int(random, 1, MAX_DIMENSIONS as i32) as usize;
+    let num_index_dims = TestUtil::next_int(
+      random,
+      1,
+      std::cmp::min(num_dims as i32, MAX_INDEX_DIMENSIONS as i32),
+    ) as usize;
+
+    let mut doc_values = Vec::with_capacity(num_docs as usize);
+    for _doc_id in 0..num_docs {
+      let mut values = Vec::with_capacity(num_dims);
+      for _dim in 0..num_dims {
+        let mut value = vec![0u8; num_bytes_per_dim];
+        random.fill_bytes(&mut value);
+        values.push(value);
+      }
+      doc_values.push(values);
+    }
+
+    // Keep retrying until we 1) we allow a big enough heap, and 2) we hit a random IOExc from MDW:
+    let mut done = false;
+    while !done {
+      let mut dir = new_mock_fs_directory(random, create_temp_dir()?)?;
+      dir.set_random_io_exception_rate(0.05);
+      dir.set_random_io_exception_rate_on_open(0.05);
+
+      let result = {
+        let dir = Arc::new(dir.clone());
+        self.verify_with_expect_exceptions(
+          random,
+          dir,
+          &doc_values,
+          None,
+          num_dims,
+          num_index_dims,
+          num_bytes_per_dim,
+          true,
+        )
+      };
+
+      match IOUtils::use_or_suppress_result(result, dir.close()) {
+        Ok(()) => {},
+        Err(e @ LuceneError::IllegalState(_)) => {
+          done = self.handle_possibly_fake_exception(e)?;
+        },
+        Err(LuceneError::IllegalArgument(msg)) => {
+          // This just means we got a too-small maxMB for the maxPointsInLeafNode; just retry w/
+          // more heap
+          assert!(
+            msg
+              .message
+              .contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"),
+            "{}",
+            msg.message
+          );
+        },
+        Err(e @ (LuceneError::Io { .. } | LuceneError::IoWithPath { .. })) => {
+          done = self.handle_possibly_fake_exception(e)?;
+        },
+        Err(e) => return Err(e),
+      }
+    }
+
     Ok(())
   }
 

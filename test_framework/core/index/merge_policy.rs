@@ -30,10 +30,9 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct MockMergePolicy {

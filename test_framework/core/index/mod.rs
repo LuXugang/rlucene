@@ -41,6 +41,7 @@ pub mod term_vectors;
 pub mod test_binary_doc_values_updates;
 pub mod test_flush_by_ram_or_counts_policy;
 pub mod test_index_writer;
+pub mod test_index_writer_merge_policy;
 pub mod test_index_writer_merging;
 pub mod test_index_writer_reader;
 pub mod test_pending_soft_deletes;

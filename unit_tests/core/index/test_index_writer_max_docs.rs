@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field::Store::No;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_DOCS, set_max_docs};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -32,18 +33,141 @@ use crate::core::search::sort_field::SortFieldType::Doc;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::store::directory::{Directory, DirectoryEnum2};
+use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+use crate::core::store::{ByteBuffersDirectory, IOContext, NoLockFactory};
+use crate::core::util::HasIdentity;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
-  new_string_field, random,
+  new_mock_directory, new_mock_directory_with_lock_factory, new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Barrier};
 use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterMaxDocs;
+
+struct AddIndexesFilterDirectory<D>
+where
+  D: Directory,
+{
+  id: Identity,
+  in_: Arc<D>,
+}
+
+impl<D> AddIndexesFilterDirectory<D>
+where
+  D: Directory,
+{
+  fn new(in_: Arc<D>) -> Self {
+    Self {
+      id: Identity::new(),
+      in_,
+    }
+  }
+}
+
+impl<D> Display for AddIndexesFilterDirectory<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "FilterDirectory({})", self.in_)
+  }
+}
+
+impl<D> Closeable for AddIndexesFilterDirectory<D> where D: Directory {}
+
+impl<D> HasIdentity for AddIndexesFilterDirectory<D>
+where
+  D: Directory,
+{
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
+}
+
+impl<D> Directory for AddIndexesFilterDirectory<D>
+where
+  D: Directory,
+{
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.in_.list_all()
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.in_.delete_file(name)
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.in_.file_length(name)
+  }
+
+  type IndexOutput = D::IndexOutput;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.in_.create_output(name, context)
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.in_.create_temp_output(prefix, suffix, context)
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.in_.sync(names)
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    self.in_.sync_metadata()
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.in_.rename(source, dest)
+  }
+
+  type IndexInput = D::IndexInput;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.in_.open_input(name, context)
+  }
+
+  type Lock = D::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.in_.obtain_lock(name)
+  }
+
+  fn copy_from<F>(&self, from: &F, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    F: Directory + ?Sized,
+  {
+    self.in_.copy_from(from, src, dest, context)
+  }
+
+  fn get_pending_deletions(&self) -> Result<std::collections::HashSet<String>> {
+    self.in_.get_pending_deletions()
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    self.in_.is_fs_directory()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.in_.ensure_open()
+  }
+}
 
 #[test]
 fn test_exactly_at_true_limit() -> Result<()> {
@@ -370,7 +494,59 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
 // TODO: can we use the setter to lower the amount of docs to be written here?
 #[test]
 fn test_add_too_many_indexes_dir() -> Result<()> {
-  // TODO IMPORTANT 编译错误 object too large
+  let mut random = random();
+
+  type SourceDirectory = MockDirectoryWrapper<ByteBuffersDirectory<NoLockFactory>>;
+  type TargetDirectory = MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>;
+  type FilterDirectory = AddIndexesFilterDirectory<SourceDirectory>;
+  type TestDirectory = DirectoryEnum2<TargetDirectory, FilterDirectory>;
+
+  // we cheat and add the same one over again... IW wants a write lock on each
+  let source = Arc::new(new_mock_directory_with_lock_factory(
+    &mut random,
+    NoLockFactory,
+  )?);
+  let w = IndexWriter::new(source.clone(), new_index_writer_config(&mut random)?)?;
+  for _ in 0..100000 {
+    w.add_document(Document::new())?;
+  }
+  w.force_merge(1)?;
+  w.commit()?;
+  w.close()?;
+
+  // wrap this with disk full, so test fails faster and doesn't fill up real disks.
+  let target = new_mock_directory(&mut random)?;
+  let target_dir = Arc::new(TestDirectory::A(target.clone()));
+  let w = IndexWriter::new(target_dir, new_index_writer_config(&mut random)?)?;
+  w.commit()?; // don't confuse checkindex
+  target.set_max_size_in_bytes(target.size_in_bytes()? as i64 + 65536); // 64KB
+
+  let dirs_len = 1 + (MAX_DOCS / 100000);
+  let mut dirs = Vec::new();
+  for _ in 0..dirs_len {
+    // bypass iw check for duplicate dirs
+    dirs.push(Arc::new(TestDirectory::B(FilterDirectory::new(
+      source.clone(),
+    ))));
+  }
+
+  match w.add_indexes_from_dir(&dirs) {
+    Ok(_) => return Err(LuceneError::illegal_state("didn't get expected exception")),
+    Err(LuceneError::IllegalArgument(_)) => {
+      // pass
+    },
+    Err(fake_disk_full) if fake_disk_full.to_string().contains("fake disk full") => {
+      let mut e = LuceneError::illegal_state(
+        "test failed: IW checks aren't working and we are executing add_indexes",
+      );
+      e.add_suppressed(fake_disk_full);
+      return Err(e);
+    },
+    Err(e) => return Err(e),
+  }
+  assert_eq!(0, w.get_doc_stats()?.max_doc);
+
+  w.close()?;
   Ok(())
 }
 

@@ -374,7 +374,7 @@ mod base_points_format_test_case_tests {
   }
   #[test]
   fn test_with_exceptions() -> Result<()> {
-    run_case(|case, _random| case.test_with_exceptions())
+    run_case(|case, random| case.test_with_exceptions(random))
   }
   #[test]
   fn test_multi_valued() -> Result<()> {
