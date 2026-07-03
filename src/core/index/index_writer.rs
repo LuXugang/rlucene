@@ -2752,7 +2752,7 @@ where
 
     // Abort all pending & running merges:
     let mut pending_merges = std::mem::take(&mut inner.pending_merges);
-    IOUtils::apply_to_all(pending_merges.make_contiguous(), |merge| {
+    IOUtils::close(pending_merges.make_contiguous().iter_mut(), |merge| {
       if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
@@ -4984,7 +4984,7 @@ where
   fn merge_success(&self, _merge: &OneMergeSR<D>) -> Result<()> {
     Ok(())
   }
-  fn abort_one_merge(&self, merge: &OneMergeSR<D>, inner: &mut Inner<D>) -> Result<()> {
+  fn abort_one_merge(&self, merge: &mut OneMergeSR<D>, inner: &mut Inner<D>) -> Result<()> {
     merge.set_aborted()?;
     self.close_merge_readers(merge, true, false, Some(inner))
   }
@@ -5230,7 +5230,7 @@ where
 
   fn close_merge_readers(
     &self,
-    merge: &OneMergeSR<D>,
+    merge: &mut OneMergeSR<D>,
     suppress_error: bool,
     dropper_segment: bool,
     inner: Option<&mut Inner<D>>,
@@ -8008,18 +8008,21 @@ where
 
   fn abort_pending_merges(&self, inner: &mut Inner<D>) -> Result<()> {
     let mut pending_add_indexes_merges = std::mem::take(&mut inner.pending_add_indexes_merges);
-    IOUtils::apply_to_all(pending_add_indexes_merges.make_contiguous(), |merge| {
-      if self.writer().info_stream.is_enabled("IW") {
-        self
-          .writer()
-          .info_stream
-          .message("IW", "now abort pending addIndexes merge")?;
-      }
-      merge.set_aborted()?;
-      merge.close(inner, false, false, |_, _| Ok(()))?;
-      self.on_merge_finished(&merge.stat, Some(inner));
-      Ok(())
-    })?;
+    IOUtils::close(
+      pending_add_indexes_merges.make_contiguous().iter_mut(),
+      |merge| {
+        if self.writer().info_stream.is_enabled("IW") {
+          self
+            .writer()
+            .info_stream
+            .message("IW", "now abort pending addIndexes merge")?;
+        }
+        merge.set_aborted()?;
+        merge.close(inner, false, false, |_, _| Ok(()))?;
+        self.on_merge_finished(&merge.stat, Some(inner));
+        Ok(())
+      },
+    )?;
 
     Ok(())
   }
@@ -8391,7 +8394,7 @@ where
 
   fn init_merge_readers<F>(
     &self,
-    merge_readers: &Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
     stat: &MergeStat,
     reader_factory: F,
   ) -> Result<()>

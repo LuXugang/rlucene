@@ -47,7 +47,7 @@ use crate::test_framework::core::index::merge_policy::{
   KeepFullyDeletedSegmentsMergePolicy, MergeOnXMergePolicy, MockMergePolicy,
   OnlyForceMergeMergePolicy, RangeMergePolicy,
 };
-use parking_lot::{Condvar, MappedMutexGuard, Mutex, MutexGuard};
+use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -1484,7 +1484,7 @@ where
   pub estimated_merge_bytes: Arc<AtomicI64>,
   /// Sum of sizeInBytes of all SegmentInfos; set by IW.mergeInit
   pub(crate) total_merge_bytes: AtomicI64,
-  merge_readers: Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+  merge_readers: Vec<MergeReader<CR, CR::Bits>>,
   pub(crate) merge_start_ns: Arc<Mutex<Instant>>,
   /// Total number of documents in segments to be merged, not accounting for deletions.
   pub(crate) total_max_doc: i32,
@@ -1617,7 +1617,7 @@ where
       uses_pooled_readers: true,
       estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
       total_merge_bytes: AtomicI64::new(0),
-      merge_readers: Mutex::new(Vec::new()),
+      merge_readers: Vec::new(),
       merge_start_ns: Arc::new(Mutex::new(Instant::now())),
       total_max_doc,
       #[cfg(test)]
@@ -1647,7 +1647,7 @@ where
     let stat = MergeStat::default();
     let one_merge = Self {
       hook: OneMergeHook::<D, CR>::Default,
-      merge_readers: Mutex::new(one_merge.merge_readers.into_inner()),
+      merge_readers: one_merge.merge_readers,
       total_max_doc: one_merge.total_max_doc,
       #[cfg(test)]
       segments: one_merge.segments,
@@ -1685,7 +1685,7 @@ where
       uses_pooled_readers: false,
       estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
       total_merge_bytes: AtomicI64::new(0),
-      merge_readers: Mutex::new(merge_readers),
+      merge_readers,
       merge_start_ns: Arc::new(Mutex::new(Instant::now())),
       total_max_doc: total_docs,
       #[cfg(test)]
@@ -1751,8 +1751,8 @@ where
     }
     Ok(())
   }
-  pub fn get_merge_reader(&self) -> MappedMutexGuard<'_, [MergeReader<CR, CR::Bits>]> {
-    MutexGuard::map(self.merge_readers.lock(), |readers| readers.as_mut_slice())
+  pub fn get_merge_reader(&self) -> &[MergeReader<CR, CR::Bits>] {
+    self.merge_readers.as_slice()
   }
 
   pub(crate) fn has_finished(&self) -> bool {
@@ -1824,14 +1824,14 @@ where
   {
     <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::init_merge_readers::<F>(
       &self.hook,
-      &self.merge_readers,
+      &mut self.merge_readers,
       &self.stat,
       reader_factory,
     )
   }
 
   pub(crate) fn close<F>(
-    &self,
+    &mut self,
     inner: &mut Inner<D>,
     success: bool,
     segment_dropped: bool,
@@ -1847,7 +1847,7 @@ where
       self.merge_finished(inner, success, segment_dropped)?;
       Ok(())
     })();
-    let merge_readers = std::mem::take(&mut *self.merge_readers.lock());
+    let merge_readers = std::mem::take(&mut self.merge_readers);
     IOUtils::apply_to_all(&merge_readers, |merge_reader| {
       reader_consumer(inner, merge_reader)
     })?;
@@ -1856,7 +1856,7 @@ where
 
   #[cfg(test)]
   pub(crate) fn close_for_test<F>(
-    &self,
+    &mut self,
     success: bool,
     _segment_dropped: bool,
     reader_consumer: F,
@@ -1875,7 +1875,7 @@ where
     if self.merge_completed.set(success).is_err() {
       return Err(LuceneError::illegal_state("merge has already finished"));
     }
-    let merge_readers = std::mem::take(&mut *self.merge_readers.lock());
+    let merge_readers = std::mem::take(&mut self.merge_readers);
     IOUtils::apply_to_all(&merge_readers, reader_consumer)
   }
 }
@@ -1946,7 +1946,7 @@ impl OneMergeDefaults {
   }
 
   pub(crate) fn init_merge_readers<CR, F>(
-    merge_readers: &Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
     stat: &MergeStat,
     mut reader_factory: F,
   ) -> Result<()>
@@ -1954,7 +1954,7 @@ impl OneMergeDefaults {
     CR: CodecReader,
     F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
   {
-    debug_assert!(merge_readers.lock().is_empty());
+    debug_assert!(merge_readers.is_empty());
     // TODO merge_completed未实现
     let mut readers = Vec::with_capacity(stat.segments.len());
     let result: Result<_> = (|| {
@@ -1963,7 +1963,7 @@ impl OneMergeDefaults {
       }
       Ok(())
     })();
-    *merge_readers.lock() = readers;
+    *merge_readers = readers;
     result
   }
 }
@@ -2031,7 +2031,7 @@ where
 
   fn init_merge_readers<F>(
     &self,
-    merge_readers: &Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
     stat: &MergeStat,
     reader_factory: F,
   ) -> Result<()>
@@ -2083,7 +2083,7 @@ where
 
   fn init_merge_readers<F>(
     &self,
-    merge_readers: &Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
     stat: &MergeStat,
     reader_factory: F,
   ) -> Result<()>

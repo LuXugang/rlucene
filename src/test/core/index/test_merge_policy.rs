@@ -23,39 +23,59 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use crate::test_framework::core::util::test_util::TestUtil;
+use parking_lot::Mutex;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[allow(dead_code)] // for quick search
 struct TestMergePolicy;
+
+fn await_merges<D>(ms: &Arc<Mutex<DefaultMergeSpecification<D>>>, timeout: Duration) -> bool
+where
+  D: Directory,
+{
+  let deadline = Instant::now() + timeout;
+  loop {
+    if ms.lock().merges.iter().all(|merge| merge.has_finished()) {
+      return true;
+    }
+
+    let now = Instant::now();
+    if now >= deadline {
+      return false;
+    }
+
+    thread::sleep(std::cmp::min(Duration::from_millis(1), deadline - now));
+  }
+}
 
 #[test]
 fn test_wait_for_one_merge() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let num_merges = 1 + random.random_range(0..10);
-  let ms = Arc::new(create_random_merge_specification(
+  let ms = Arc::new(Mutex::new(create_random_merge_specification(
     &mut random,
     dir,
     num_merges,
-  )?);
-  for m in &ms.merges {
+  )?));
+  for m in &ms.lock().merges {
     assert!(!m.has_finished());
   }
   let thread_ms = ms.clone();
   let t = thread::spawn(move || -> Result<()> {
-    let ms = &thread_ms;
-    for m in &ms.merges {
+    let mut ms = thread_ms.lock();
+    for m in &mut ms.merges {
       m.close_for_test(true, false, |_| Ok(()))?;
     }
     Ok(())
   });
-  assert!(ms.await_(Duration::from_secs(100 * 60 * 60)));
-  for m in &ms.merges {
+  assert!(await_merges(&ms, Duration::from_secs(100 * 60 * 60)));
+  for m in &ms.lock().merges {
     assert!(m.has_finished());
   }
   t.join().unwrap()?;
@@ -66,17 +86,21 @@ fn test_wait_for_one_merge() -> Result<()> {
 fn test_timeout() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let ms = Arc::new(create_random_merge_specification(&mut random, dir, 3)?);
-  for m in &ms.merges {
+  let ms = Arc::new(Mutex::new(create_random_merge_specification(
+    &mut random,
+    dir,
+    3,
+  )?));
+  for m in &ms.lock().merges {
     assert!(!m.has_finished());
   }
   let thread_ms = ms.clone();
   let t = thread::spawn(move || -> Result<()> {
-    thread_ms.merges[0].close_for_test(true, false, |_| Ok(()))?;
+    thread_ms.lock().merges[0].close_for_test(true, false, |_| Ok(()))?;
     Ok(())
   });
-  assert!(!ms.await_(Duration::from_millis(10)));
-  assert!(!ms.merges[1].has_finished());
+  assert!(!await_merges(&ms, Duration::from_millis(10)));
+  assert!(!ms.lock().merges[1].has_finished());
   t.join().unwrap()?;
   Ok(())
 }
@@ -85,8 +109,12 @@ fn test_timeout() -> Result<()> {
 fn test_timeout_large_number_of_merges() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let ms = Arc::new(create_random_merge_specification(&mut random, dir, 10000)?);
-  for m in &ms.merges {
+  let ms = Arc::new(Mutex::new(create_random_merge_specification(
+    &mut random,
+    dir,
+    10000,
+  )?));
+  for m in &ms.lock().merges {
     assert!(!m.has_finished());
   }
   let i = Arc::new(AtomicUsize::new(0));
@@ -97,14 +125,15 @@ fn test_timeout_large_number_of_merges() -> Result<()> {
   let t = thread::spawn(move || -> Result<()> {
     while !thread_stop.load(Ordering::SeqCst) {
       let index = thread_i.fetch_add(1, Ordering::SeqCst);
-      thread_ms.merges[index].close_for_test(true, false, |_| Ok(()))?;
+      thread_ms.lock().merges[index].close_for_test(true, false, |_| Ok(()))?;
       thread::sleep(Duration::from_millis(1));
     }
     Ok(())
   });
-  assert!(!ms.await_(Duration::from_millis(10)));
+  assert!(!await_merges(&ms, Duration::from_millis(10)));
   stop.store(true, Ordering::SeqCst);
   t.join().unwrap()?;
+  let ms = ms.lock();
   for j in 0..ms.merges.len() {
     if j < i.load(Ordering::SeqCst) {
       assert!(ms.merges[j].has_finished());
@@ -119,8 +148,8 @@ fn test_timeout_large_number_of_merges() -> Result<()> {
 fn test_finish_twice() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let spec = create_random_merge_specification(&mut random, dir, 1)?;
-  let one_merge = &spec.merges[0];
+  let mut spec = create_random_merge_specification(&mut random, dir, 1)?;
+  let one_merge = &mut spec.merges[0];
   one_merge.close_for_test(true, false, |_| Ok(()))?;
   let err = one_merge.close_for_test(false, false, |_| Ok(()));
   assert!(err.is_err());
