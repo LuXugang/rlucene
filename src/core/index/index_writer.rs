@@ -212,6 +212,118 @@ where
   start_commit_time: Instant,
 }
 
+enum RegisterMergeResult<D>
+where
+  D: Directory,
+{
+  Registered(MergeStat),
+  Rejected(Box<OneMergeSR<D>>),
+}
+
+#[derive(Default)]
+struct UpdatePendingMergesResult<D>
+where
+  D: Directory,
+{
+  /// Handles for merges that were successfully registered and moved to `pending_merges`.
+  registered_merges: Vec<MergeStat>,
+  /// Merges returned by the merge policy that could not be registered.
+  rejected_merges: Vec<OneMergeSR<D>>,
+}
+
+impl<D> UpdatePendingMergesResult<D>
+where
+  D: Directory,
+{
+  fn for_each_merge_mut<F>(&mut self, inner: &mut Inner<D>, mut consumer: F) -> Result<()>
+  where
+    F: FnMut(&mut OneMergeSR<D>, &SegmentInfos<D>, &mut IndexFileDeleter<D>) -> Result<()>,
+  {
+    let pending_merges = &mut inner.pending_merges;
+    let segment_infos = &inner.segment_infos;
+    let deleter = &mut inner.deleter;
+
+    for merge_stat in &self.registered_merges {
+      let merge = pending_merges
+        .iter_mut()
+        .find(|merge| merge.stat.id.eq(&merge_stat.id))
+        .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
+      consumer(merge, segment_infos, deleter)?;
+    }
+
+    for merge in &mut self.rejected_merges {
+      consumer(merge, segment_infos, deleter)?;
+    }
+
+    Ok(())
+  }
+
+  fn for_each_merge_mut_removing_pending<F>(
+    &mut self,
+    inner: &mut Inner<D>,
+    mut consumer: F,
+  ) -> Result<()>
+  where
+    F: FnMut(&mut OneMergeSR<D>, &mut Inner<D>) -> Result<()>,
+  {
+    let mut first_error = None;
+
+    for merge_stat in &self.registered_merges {
+      let result = (|| {
+        let position = inner
+          .pending_merges
+          .iter()
+          .position(|merge| merge.stat.id.eq(&merge_stat.id))
+          .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
+        let mut merge = inner
+          .pending_merges
+          .remove(position)
+          .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
+        consumer(&mut merge, inner)
+      })();
+      if let Err(error) = result {
+        first_error = Some(IOUtils::use_or_suppress(first_error, error));
+      }
+    }
+
+    for merge in &mut self.rejected_merges {
+      if let Err(error) = consumer(merge, inner) {
+        first_error = Some(IOUtils::use_or_suppress(first_error, error));
+      }
+    }
+
+    match first_error {
+      Some(error) => Err(error),
+      None => Ok(()),
+    }
+  }
+
+  fn await_merges(&self, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    for merge_stat in &self.registered_merges {
+      if !merge_stat.await_until(deadline) {
+        return false;
+      }
+    }
+
+    for merge in &self.rejected_merges {
+      if !merge.stat.await_until(deadline) {
+        return false;
+      }
+    }
+
+    true
+  }
+
+  fn merge_states(&self) -> Vec<MergeStat> {
+    let mut merge_states =
+      Vec::with_capacity(self.registered_merges.len() + self.rejected_merges.len());
+    merge_states.extend(self.registered_merges.iter().cloned());
+    merge_states.extend(self.rejected_merges.iter().map(|merge| merge.stat.clone()));
+    merge_states
+  }
+}
+
 impl<D> Drop for IndexWriter<D>
 where
   D: Directory,
@@ -2105,7 +2217,7 @@ where
         Some(spec) => {
           let merge_stats: Vec<MergeStat> = spec.merges.iter().map(|m| m.stat.clone()).collect();
           for merge in spec.merges {
-            self.register_merge(merge, &mut inner)?;
+            let _ = self.register_merge(merge, &mut inner)?;
           }
           Some(merge_stats)
         },
@@ -2312,9 +2424,9 @@ where
     D: 'static,
   {
     self.do_ensure_open(false)?;
-    if !self
+    if self
       .update_pending_merges(merge_policy, trigger, max_num_segments, None)?
-      .is_empty()
+      .is_some()
     {
       self.execute_merge(trigger)?;
     }
@@ -2337,7 +2449,7 @@ where
     trigger: MergeTrigger,
     max_num_segments: i32,
     inner: Option<&mut Inner<D>>,
-  ) -> Result<Vec<Identity>>
+  ) -> Result<Option<UpdatePendingMergesResult<D>>>
   where
     P: MergePolicy<D> + ?Sized,
   {
@@ -2351,12 +2463,12 @@ where
     debug_assert!(max_num_segments == UNBOUNDED_MAX_MERGE_SEGMENTS || max_num_segments > 0);
 
     if !inner.merges.are_enabled() {
-      return Ok(Vec::new());
+      return Ok(None);
     }
 
     // Do not start new merges if disaster struck
     if self.tragedy.get().is_some() {
-      return Ok(Vec::new());
+      return Ok(None);
     }
 
     let caching_merge_context = CachingMergeContext::new(self);
@@ -2409,16 +2521,24 @@ where
 
     match spec_opt {
       Some(spec) => {
-        let mut registered_merge_ids = Vec::new();
+        let mut registered_merges = Vec::new();
+        let mut rejected_merges = Vec::new();
         for m in spec.merges.into_iter() {
-          let merge_id = m.stat.id.clone();
-          if self.register_merge(m, inner)? {
-            registered_merge_ids.push(merge_id);
+          match self.register_merge(m, inner)? {
+            RegisterMergeResult::Registered(merge_stat) => {
+              registered_merges.push(merge_stat);
+            },
+            RegisterMergeResult::Rejected(merge) => {
+              rejected_merges.push(*merge);
+            },
           }
         }
-        Ok(registered_merge_ids)
+        Ok(Some(UpdatePendingMergesResult {
+          registered_merges,
+          rejected_merges,
+        }))
       },
-      _ => Ok(Vec::new()),
+      _ => Ok(None),
     }
   }
   /// **Expert:** the [`MergeScheduler`] calls this method to retrieve the next merge
@@ -3756,7 +3876,7 @@ where
     let mut to_commit: Option<Arc<Mutex<SegmentInfos<D>>>> = None;
     let mut any_changes = false;
     let mut seq_no: i64 = 0;
-    let point_in_time_merges: Option<DefaultMergeSpecification<D>> = None;
+    let mut point_in_time_merges: Option<UpdatePendingMergesResult<D>> = None;
     let stop_adding_merged_segments = Arc::new(AtomicBool::new(false));
     let max_commit_merge_wait_millis = self.config.get_max_full_flush_merge_wait_millis();
     // This is copied from doFlush, except it's modified to
@@ -3820,7 +3940,15 @@ where
             .inc_ref_files(commit_infos.lock().files(false)?)?;
 
           if max_commit_merge_wait_millis > 0 {
-            // TODO IMPORTANT
+            // We can safely call preparePointInTimeMerge since writeReaderPool(true) above wrote
+            // all necessary files to disk and checkpointed them.
+            point_in_time_merges = self.prepare_point_in_time_merge(
+              commit_infos,
+              stop_adding_merged_segments.clone(),
+              MergeTrigger::Commit,
+              PointInTimeMergeFinished::NoOp,
+              &mut inner,
+            )?;
           }
         }
         Ok(())
@@ -3866,20 +3994,24 @@ where
 
     if let Some(ref point_in_time_merges) = point_in_time_merges {
       let event_listener = self.config.get_index_writer_event_listener();
-      event_listener.begin_merge_on_full_flush(point_in_time_merges);
+      let merge_states = point_in_time_merges.merge_states();
+      event_listener.begin_merge_on_full_flush(&merge_states);
 
-      self.execute_merge(MergeTrigger::Commit)?;
-      DefaultMergeSpecification::await_merges(
-        &point_in_time_merges.merges,
-        Duration::from_millis(max_commit_merge_wait_millis as u64),
-      );
+      {
+        let merge_source = self.new_merge_source()?;
+        self
+          .config
+          .get_merge_scheduler()
+          .merge(merge_source, MergeTrigger::Commit)?;
+      }
+      point_in_time_merges.await_merges(Duration::from_millis(max_commit_merge_wait_millis as u64));
 
       if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "done waiting for merges during commit")?;
       }
-      event_listener.end_merge_on_full_flush(point_in_time_merges);
+      event_listener.end_merge_on_full_flush(&merge_states);
 
       {
         // we need to do this under lock since merge_finished above is also called under the IW lock
@@ -3921,6 +4053,83 @@ where
         }
       },
     }
+  }
+
+  fn prepare_point_in_time_merge(
+    &self,
+    merging_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
+    stop_collecting_merge_results: Arc<AtomicBool>,
+    trigger: MergeTrigger,
+    merge_finished: PointInTimeMergeFinished<D>,
+    inner: &mut Inner<D>,
+  ) -> Result<Option<UpdatePendingMergesResult<D>>>
+  where
+    D: 'static,
+  {
+    debug_assert!(
+      matches!(trigger, MergeTrigger::GetReader | MergeTrigger::Commit),
+      "illegal trigger: {:?}",
+      trigger
+    );
+
+    let mut point_in_time_merges = self.update_pending_merges(
+      &OneMergeWrappingMergePolicy::new(
+        self.config.get_merge_policy().clone(),
+        PointInTimeOneMerge::<D, DefaultLeafReader<D>>::new(
+          merging_segment_infos,
+          stop_collecting_merge_results,
+          trigger,
+          merge_finished,
+        ),
+      ),
+      trigger,
+      UNBOUNDED_MAX_MERGE_SEGMENTS,
+      Some(inner),
+    )?;
+
+    if let Some(ref mut point_in_time_merges) = point_in_time_merges {
+      let mut close_readers = true;
+      let init_result: Result<()> = (|| {
+        point_in_time_merges.for_each_merge_mut(inner, |merge, segment_infos, deleter| {
+          let context = IOContext::with_merge(merge.get_store_merge_info())?;
+          merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
+            let sci = segment_infos.index_of(sci_id).ok_or_else(|| {
+              LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
+            })?;
+            let rld = self
+              .get_pooled_instance(sci.to_meta()?, true)?
+              .ok_or_else(|| {
+                LuceneError::illegal_state("failed to get pooled instance for merge")
+              })?;
+            // Calling setIsMerging is important since it causes the ReadersAndUpdates to record
+            // all doc values updates in a separate map in order to be applied to the merged
+            // segment after it's done.
+            rld.set_is_merging();
+            let reader = rld.get_reader_for_merge(&context, sci, segment_infos)?;
+            deleter.inc_ref_files(reader.reader.get_segment_info().files()?)?;
+            Ok(reader)
+          })
+        })?;
+
+        close_readers = false;
+        Ok(())
+      })();
+
+      IOUtils::use_or_suppress_result(
+        init_result,
+        if close_readers {
+          point_in_time_merges.for_each_merge_mut_removing_pending(inner, |merge, inner| {
+            let abort_result = self.abort_one_merge(merge, inner);
+            self.merge_finish(&merge.stat, Some(inner));
+            abort_result
+          })
+        } else {
+          Ok(())
+        },
+      )?;
+    }
+
+    Ok(point_in_time_merges)
   }
 
   /// Ensures that all changes in the reader pool are written to disk.
@@ -4989,13 +5198,18 @@ where
 
   /// Checks whether this merge involves any segments already participating in a merge.
   /// If not, this merge is "registered", meaning we record that its segments are now participating in a merge,
-  /// and true is returned. Else (the merge conflicts) false is returned.
-  fn register_merge(&self, mut merge: OneMergeSR<D>, inner: &mut Inner<D>) -> Result<bool> {
+  /// and its [`MergeStat`] is returned. Else (the merge conflicts) the original merge is returned.
+  fn register_merge(
+    &self,
+    mut merge: OneMergeSR<D>,
+    inner: &mut Inner<D>,
+  ) -> Result<RegisterMergeResult<D>> {
     if self.register_merge_state(&mut merge, inner)? {
+      let merge_stat = merge.stat.clone();
       inner.pending_merges.push_back(merge);
-      Ok(true)
+      Ok(RegisterMergeResult::Registered(merge_stat))
     } else {
-      Ok(false)
+      Ok(RegisterMergeResult::Rejected(Box::new(merge)))
     }
   }
 
@@ -7378,7 +7592,9 @@ use crate::core::index::merge_policy::{
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
-use crate::core::index::one_merge_wrapping_merge_policy::OneMergeUnaryOperatorBase;
+use crate::core::index::one_merge_wrapping_merge_policy::{
+  OneMergeUnaryOperatorBase, OneMergeWrappingMergePolicy,
+};
 use crate::core::index::pending_soft_deletes::count_soft_deletes;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -8217,6 +8433,112 @@ impl DocModifier for DocModifierImpl2 {
     Ok(())
   }
 }
+
+pub(crate) enum PointInTimeMergeFinished<D>
+where
+  D: Directory,
+{
+  NoOp,
+  GetReader(Arc<PointInTimeGetReaderMergeFinished<D>>),
+}
+
+pub(crate) struct PointInTimeGetReaderMergeFinished<D>
+where
+  D: Directory,
+{
+  writer: Weak<IndexWriter<D>>,
+  merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+  opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+  stop_collecting_merged_readers: Arc<AtomicBool>,
+  max_full_flush_merge_wait_millis: i64,
+}
+
+impl<D> Clone for PointInTimeMergeFinished<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    match self {
+      Self::NoOp => Self::NoOp,
+      Self::GetReader(merge_finished) => Self::GetReader(merge_finished.clone()),
+    }
+  }
+}
+
+impl<D> Clone for PointInTimeGetReaderMergeFinished<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      writer: self.writer.clone(),
+      merged_readers: self.merged_readers.clone(),
+      opened_read_only_clones: self.opened_read_only_clones.clone(),
+      stop_collecting_merged_readers: self.stop_collecting_merged_readers.clone(),
+      max_full_flush_merge_wait_millis: self.max_full_flush_merge_wait_millis,
+    }
+  }
+}
+
+impl<D> PointInTimeGetReaderMergeFinished<D>
+where
+  D: Directory,
+{
+  pub(crate) fn new(
+    writer: Weak<IndexWriter<D>>,
+    merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    stop_collecting_merged_readers: Arc<AtomicBool>,
+    max_full_flush_merge_wait_millis: i64,
+  ) -> Self {
+    Self {
+      writer,
+      merged_readers,
+      opened_read_only_clones,
+      stop_collecting_merged_readers,
+      max_full_flush_merge_wait_millis,
+    }
+  }
+
+  fn accept(&self, inner: &mut Inner<D>, sci: &SegmentCommitInfo<D>) -> Result<()> {
+    debug_assert!(
+      !self.stop_collecting_merged_readers.load(Ordering::Acquire),
+      "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
+    );
+    let writer = self
+      .writer
+      .upgrade()
+      .ok_or_else(|| LuceneError::illegal_state("point-in-time getReader writer is gone"))?;
+    let mut opened_read_only_clones = self.opened_read_only_clones.lock();
+    let mut reader_factory = IOFunctionImpl::new(
+      writer.as_ref(),
+      &mut opened_read_only_clones,
+      self.max_full_flush_merge_wait_millis,
+    );
+    let apply = reader_factory.apply(sci, inner)?;
+    self
+      .merged_readers
+      .lock()
+      .insert(sci.info.name.clone(), apply);
+    // We need to incRef the files of the opened SegmentReader otherwise it's possible that another
+    // merge removes the segment before we pass it on to the StandardDirectoryReader.
+    inner.deleter.inc_ref_files(sci.files()?)?;
+    Ok(())
+  }
+}
+
+impl<D> PointInTimeMergeFinished<D>
+where
+  D: Directory,
+{
+  fn accept(&self, inner: &mut Inner<D>, info: &SegmentCommitInfo<D>) -> Result<()> {
+    match self {
+      Self::NoOp => Ok(()),
+      Self::GetReader(merge_finished) => merge_finished.accept(inner, info),
+    }
+  }
+}
+
 pub struct PointInTimeOneMerge<D, CR>
 where
   D: Directory,
@@ -8226,6 +8548,7 @@ where
   merging_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
   stop_collecting_merge_results: Arc<AtomicBool>,
   trigger: MergeTrigger,
+  merge_finished: PointInTimeMergeFinished<D>,
   orig_info: Mutex<Option<SegmentCommitInfo<D>>>,
   only_once: AtomicBool,
   _codec_reader: PhantomData<fn(CR)>,
@@ -8241,6 +8564,7 @@ where
       merging_segment_infos: self.merging_segment_infos.clone(),
       stop_collecting_merge_results: self.stop_collecting_merge_results.clone(),
       trigger: self.trigger,
+      merge_finished: self.merge_finished.clone(),
       orig_info: Mutex::new(None),
       only_once: AtomicBool::new(false),
       _codec_reader: PhantomData,
@@ -8269,12 +8593,14 @@ where
     merging_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
     stop_collecting_merge_results: Arc<AtomicBool>,
     trigger: MergeTrigger,
+    merge_finished: PointInTimeMergeFinished<D>,
   ) -> Self {
     Self {
       wrapped: Box::new(OneMergeHook::default()),
       merging_segment_infos,
       stop_collecting_merge_results,
       trigger,
+      merge_finished,
       orig_info: Mutex::new(None),
       only_once: AtomicBool::new(false),
       _codec_reader: PhantomData,
@@ -8376,12 +8702,14 @@ where
     merge_info: &Option<SegmentCommitInfo<D>>,
     is_aborted: bool,
   ) -> Result<()> {
+    let info = merge_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("point-in-time merge info is none"))?;
     if !self.stop_collecting_merge_results.load(Ordering::Acquire)
       && !is_aborted
-      && let Some(info) = merge_info
       && info.info.max_doc()? > 0
     {
-      // self.merge_finished.accept(inner, info)?;
+      self.merge_finished.accept(inner, info)?;
       *self.orig_info.lock() = Some(info.clone());
     }
     self

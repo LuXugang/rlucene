@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::merge_policy::DefaultMergeSpecification;
-use crate::core::store::directory::Directory;
+use crate::core::index::merge_policy::MergeStat;
 use std::fmt::{Display, Formatter};
 
 /// A callback event listener for recording key events happened inside
@@ -24,21 +23,18 @@ use std::fmt::{Display, Formatter};
 /// # Experimental
 ///
 /// This API follows the original Lucene experimental status.
-pub trait IndexWriterEventListener<D>: Display
-where
-  D: Directory,
-{
+pub trait IndexWriterEventListener: Display {
   /// Invoked at the start of merge on commit.
   ///
-  /// * `merge` - merge specification to be tracked
-  fn begin_merge_on_full_flush(&self, merge: &DefaultMergeSpecification<D>);
+  /// * `merge_states` - merge states to be tracked
+  fn begin_merge_on_full_flush(&self, merge_states: &[MergeStat]);
 
   /// Invoked at the end of merge on commit, due to either merge completed, or
   /// merge timed out according to
   /// [`IndexWriterConfig::set_max_full_flush_merge_wait_millis`](crate::core::index::index_writer_config::IndexWriterConfig::set_max_full_flush_merge_wait_millis).
   ///
-  /// * `merge` - merge specification to be tracked
-  fn end_merge_on_full_flush(&self, merge: &DefaultMergeSpecification<D>);
+  /// * `merge_states` - merge states to be tracked
+  fn end_merge_on_full_flush(&self, merge_states: &[MergeStat]);
 }
 
 /// A no-op listener that helps to save `None` checks.
@@ -51,69 +47,48 @@ impl Display for NoOpIndexWriterEventListener {
   }
 }
 
-impl<D> IndexWriterEventListener<D> for NoOpIndexWriterEventListener
-where
-  D: Directory,
-{
-  fn begin_merge_on_full_flush(&self, _merge: &DefaultMergeSpecification<D>) {}
+impl IndexWriterEventListener for NoOpIndexWriterEventListener {
+  fn begin_merge_on_full_flush(&self, _merge_states: &[MergeStat]) {}
 
-  fn end_merge_on_full_flush(&self, _merge: &DefaultMergeSpecification<D>) {}
+  fn end_merge_on_full_flush(&self, _merge_states: &[MergeStat]) {}
 }
 
-pub type DynIndexWriterEventListener<D> = dyn IndexWriterEventListener<D> + Send + Sync;
-pub type CustomIndexWriterEventListener<D> = Box<DynIndexWriterEventListener<D>>;
+pub type DynIndexWriterEventListener = dyn IndexWriterEventListener + Send + Sync;
+pub type CustomIndexWriterEventListener = Box<DynIndexWriterEventListener>;
 
-pub enum IndexWriterEventListenerEnum<D>
-where
-  D: Directory,
-{
+pub enum IndexWriterEventListenerEnum {
   NoOp(NoOpIndexWriterEventListener),
-  Custom(CustomIndexWriterEventListener<D>),
+  Custom(CustomIndexWriterEventListener),
 }
 
-impl<D> IndexWriterEventListenerEnum<D>
-where
-  D: Directory,
-{
+impl IndexWriterEventListenerEnum {
   pub fn custom<T>(listener: T) -> Self
   where
-    T: IndexWriterEventListener<D> + Send + Sync + 'static,
+    T: IndexWriterEventListener + Send + Sync + 'static,
   {
     Self::Custom(Box::new(listener))
   }
 }
 
-impl<D> Default for IndexWriterEventListenerEnum<D>
-where
-  D: Directory,
-{
+impl Default for IndexWriterEventListenerEnum {
   fn default() -> Self {
     Self::NoOp(NoOpIndexWriterEventListener)
   }
 }
 
-impl<D> From<NoOpIndexWriterEventListener> for IndexWriterEventListenerEnum<D>
-where
-  D: Directory,
-{
+impl From<NoOpIndexWriterEventListener> for IndexWriterEventListenerEnum {
   fn from(value: NoOpIndexWriterEventListener) -> Self {
     Self::NoOp(value)
   }
 }
 
-impl<D> From<CustomIndexWriterEventListener<D>> for IndexWriterEventListenerEnum<D>
-where
-  D: Directory,
-{
-  fn from(value: CustomIndexWriterEventListener<D>) -> Self {
+impl From<CustomIndexWriterEventListener> for IndexWriterEventListenerEnum {
+  fn from(value: CustomIndexWriterEventListener) -> Self {
     Self::Custom(value)
   }
 }
 
-impl<D> Display for IndexWriterEventListenerEnum<D>
-where
-  D: Directory,
-{
+impl Display for IndexWriterEventListenerEnum {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::NoOp(listener) => write!(f, "{}", listener),
@@ -122,21 +97,18 @@ where
   }
 }
 
-impl<D> IndexWriterEventListener<D> for IndexWriterEventListenerEnum<D>
-where
-  D: Directory,
-{
-  fn begin_merge_on_full_flush(&self, merge: &DefaultMergeSpecification<D>) {
+impl IndexWriterEventListener for IndexWriterEventListenerEnum {
+  fn begin_merge_on_full_flush(&self, merge_states: &[MergeStat]) {
     match self {
-      Self::NoOp(listener) => listener.begin_merge_on_full_flush(merge),
-      Self::Custom(listener) => listener.begin_merge_on_full_flush(merge),
+      Self::NoOp(listener) => listener.begin_merge_on_full_flush(merge_states),
+      Self::Custom(listener) => listener.begin_merge_on_full_flush(merge_states),
     }
   }
 
-  fn end_merge_on_full_flush(&self, merge: &DefaultMergeSpecification<D>) {
+  fn end_merge_on_full_flush(&self, merge_states: &[MergeStat]) {
     match self {
-      Self::NoOp(listener) => listener.end_merge_on_full_flush(merge),
-      Self::Custom(listener) => listener.end_merge_on_full_flush(merge),
+      Self::NoOp(listener) => listener.end_merge_on_full_flush(merge_states),
+      Self::Custom(listener) => listener.end_merge_on_full_flush(merge_states),
     }
   }
 }

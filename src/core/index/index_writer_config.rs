@@ -248,7 +248,7 @@ where
   /// Set event listener to record key events in `IndexWriter`.
   pub fn set_index_writer_event_listener<T>(&mut self, event_listener: T) -> &mut Self
   where
-    T: Into<IndexWriterEventListenerEnum<D>>,
+    T: Into<IndexWriterEventListenerEnum>,
   {
     self.base.event_listener = event_listener.into();
     self
@@ -379,7 +379,7 @@ where
     self.base.max_full_flush_merge_wait_millis
   }
 
-  fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum<D> {
+  fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum {
     &self.base.event_listener
   }
 

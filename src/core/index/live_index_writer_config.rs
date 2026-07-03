@@ -121,7 +121,7 @@ pub trait LiveIndexWriterConfig: Display {
 
   /// Returns the [`IndexWriterEventListenerEnum`] callback that tracks the key
   /// `IndexWriter` operations.
-  fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum<Self::Directory>;
+  fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum;
 
   /// Returns `true` if `IndexWriter::close` should first commit before closing.
   fn get_commit_on_close(&self) -> bool;
@@ -289,7 +289,7 @@ where
   /// Amount of time to wait for merges returned by full-flush merge selection.
   pub max_full_flush_merge_wait_millis: i64,
   /// [`IndexWriterEventListenerEnum`] for recording key `IndexWriter` events.
-  pub event_listener: IndexWriterEventListenerEnum<D>,
+  pub event_listener: IndexWriterEventListenerEnum,
   /// True if calls to `IndexWriter::close` should first do a commit.
   pub commit_on_close: bool,
   /// True if an indexing thread should check for pending flushes on update in

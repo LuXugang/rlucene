@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_writer_event_listener::IndexWriterEventListener;
-use crate::core::index::merge_policy::DefaultMergeSpecification;
-use crate::core::store::directory::Directory;
+use crate::core::index::merge_policy::MergeStat;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -46,15 +45,12 @@ impl Display for MockIndexWriterEventListener {
   }
 }
 
-impl<D> IndexWriterEventListener<D> for MockIndexWriterEventListener
-where
-  D: Directory,
-{
-  fn begin_merge_on_full_flush(&self, _merge: &DefaultMergeSpecification<D>) {
+impl IndexWriterEventListener for MockIndexWriterEventListener {
+  fn begin_merge_on_full_flush(&self, _merge_states: &[MergeStat]) {
     self.begin_merge_called.store(true, Ordering::SeqCst);
   }
 
-  fn end_merge_on_full_flush(&self, _merge: &DefaultMergeSpecification<D>) {
+  fn end_merge_on_full_flush(&self, _merge_states: &[MergeStat]) {
     self.end_merge_called.store(true, Ordering::SeqCst);
   }
 }
