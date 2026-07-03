@@ -50,16 +50,20 @@ where
 }
 
 impl BaseMergePolicyTestCase for TestLogMergePolicy {
-  type MergePolicy = MergePolicyEnum;
-
-  fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+  type MergePolicy<D>
+    = MergePolicyEnum<D>
   where
+    D: Directory;
+
+  fn merge_policy<D, R>(&self, random: &mut R) -> Self::MergePolicy<D>
+  where
+    D: Directory,
     R: Rng + ?Sized,
   {
     new_log_merge_policy(random).expect("")
   }
 
-  fn assert_segment_infos<D>(policy: &Self::MergePolicy, infos: &SegmentInfos<D>) -> Result<()>
+  fn assert_segment_infos<D>(policy: &Self::MergePolicy<D>, infos: &SegmentInfos<D>) -> Result<()>
   where
     D: Directory,
   {
@@ -88,7 +92,7 @@ impl BaseMergePolicyTestCase for TestLogMergePolicy {
   }
 
   fn assert_merge<D, CR>(
-    policy: &Self::MergePolicy,
+    policy: &Self::MergePolicy<D>,
     merge: &MergeSpecification<D, CR>,
   ) -> Result<()>
   where

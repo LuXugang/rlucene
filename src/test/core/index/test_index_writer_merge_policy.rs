@@ -366,9 +366,10 @@ where
 /// Port of Java TestIndexWriterMergePolicy.assertSetters(MergePolicy)
 const EPSILON: f64 = 1e-14;
 
-fn assert_setters<P>(lmp: &mut P) -> Result<()>
+fn assert_setters<D, P>(lmp: &mut P) -> Result<()>
 where
-  P: MergePolicy,
+  D: Directory,
+  P: MergePolicy<D>,
 {
   let base = lmp.get_base_mut();
   base.set_max_cfs_segment_size_mb(2.0)?;
@@ -394,10 +395,10 @@ where
 #[test]
 fn test_setters() -> Result<()> {
   let mut lmp = LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size();
-  assert_setters(&mut lmp)?;
+  assert_setters::<crate::core::store::dummy::dummy_directory::DummyDirectory, _>(&mut lmp)?;
 
   let mut mock = MockMergePolicy::default();
-  assert_setters(&mut mock)?;
+  assert_setters::<crate::core::store::dummy::dummy_directory::DummyDirectory, _>(&mut mock)?;
 
   Ok(())
 }

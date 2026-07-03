@@ -83,9 +83,9 @@ pub trait LiveIndexWriterConfig: Display {
   fn get_parent_field(&self) -> Option<&String>;
 
   /// Returns the current [`MergePolicyEnum`] in use by this writer.
-  fn get_merge_policy(&self) -> &MergePolicyEnum;
+  fn get_merge_policy(&self) -> &MergePolicyEnum<Self::Directory>;
   /// Returns mutable access to the current [`MergePolicyEnum`].
-  fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum;
+  fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum<Self::Directory>;
 
   /// Returns the [`FlushPolicyEnum`] used to control when segments are flushed.
   fn get_flush_policy(&self) -> &FlushPolicyEnum;
@@ -218,7 +218,7 @@ pub trait LiveIndexWriterConfig: Display {
   /// already registered by the previous merge policy are not affected.
   fn set_merge_policy<T>(&mut self, merge_policy: T) -> &mut Self
   where
-    T: Into<MergePolicyEnum>,
+    T: Into<MergePolicyEnum<Self::Directory>>,
   {
     let v = merge_policy.into();
     self.get_base_mut().merge_policy = v;
@@ -274,7 +274,7 @@ where
   /// [`InfoStreamMT`] for debugging messages.
   pub info_stream: InfoStreamMT,
   /// [`MergePolicyEnum`] for selecting merges.
-  pub merge_policy: MergePolicyEnum,
+  pub merge_policy: MergePolicyEnum<D>,
   /// [`FlushPolicyEnum`] to control when segments are flushed.
   pub flush_policy: Arc<FlushPolicyEnum>,
   /// True if readers should be pooled.

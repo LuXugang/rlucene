@@ -199,18 +199,20 @@ where
   Ok(config)
 }
 
-pub fn new_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>
+pub fn new_merge_policy<D, R>(r: &mut R) -> Result<MergePolicyEnum<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   // TODO
   Ok(new_tiered_merge_policy(r).into())
 }
-pub fn new_merge_policy_with_mock_mp<R>(
+pub fn new_merge_policy_with_mock_mp<D, R>(
   r: &mut R,
   _include_mock_mp: bool,
-) -> Result<MergePolicyEnum>
+) -> Result<MergePolicyEnum<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   // TODO
@@ -223,24 +225,25 @@ where
   // TODO
   TieredMergePolicy::new()
 }
-pub fn new_log_merge_policy_with_merge_factor_cfs<R>(
+pub fn new_log_merge_policy_with_merge_factor_cfs<D, R>(
   r: &mut R,
   use_cfs: bool,
   merge_factor: i32,
-) -> Result<MergePolicyEnum>
+) -> Result<MergePolicyEnum<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
-  let lomp = new_log_merge_policy(r)?;
+  let lomp = new_log_merge_policy::<D, R>(r)?;
   let ratio = if use_cfs { 1.0 } else { 0.0 };
   match lomp {
     MergePolicyEnum::LogDoc(mut log_doc) => {
-      log_doc.get_base_mut().set_no_cfs_ratio(ratio)?;
+      MergePolicy::<D>::get_base_mut(&mut log_doc).set_no_cfs_ratio(ratio)?;
       log_doc.set_merge_factor(merge_factor as usize)?;
       Ok(log_doc.into())
     },
     MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
-      log_bytes_size.get_base_mut().set_no_cfs_ratio(ratio)?;
+      MergePolicy::<D>::get_base_mut(&mut log_bytes_size).set_no_cfs_ratio(ratio)?;
       log_bytes_size.set_merge_factor(merge_factor as usize)?;
       Ok(log_bytes_size.into())
     },
@@ -249,14 +252,15 @@ where
     )),
   }
 }
-pub fn new_log_merge_policy_with_merge_factor<R>(
+pub fn new_log_merge_policy_with_merge_factor<D, R>(
   r: &mut R,
   merge_factor: i32,
-) -> Result<MergePolicyEnum>
+) -> Result<MergePolicyEnum<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
-  let lomp = new_log_merge_policy(r)?;
+  let lomp = new_log_merge_policy::<D, R>(r)?;
   match lomp {
     MergePolicyEnum::LogDoc(mut log_doc) => {
       log_doc.set_merge_factor(merge_factor as usize)?;
@@ -271,42 +275,45 @@ where
     )),
   }
 }
-pub fn new_log_merge_policy<R>(r: &mut R) -> Result<MergePolicyEnum>
+pub fn new_log_merge_policy<D, R>(r: &mut R) -> Result<MergePolicyEnum<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   let logmp = if r.random_bool(0.5) {
     let mut v = LogMergePolicy::log_doc();
-    set_meta(r, &mut v)?;
+    set_meta::<D, R>(r, &mut v)?;
     v.into()
   } else {
     let mut v = LogMergePolicy::log_bytes_size();
-    set_meta(r, &mut v)?;
+    set_meta::<D, R>(r, &mut v)?;
     v.into()
   };
 
   Ok(logmp)
 }
-pub fn new_log_merge_policy_with_cfs<R>(r: &mut R, use_cfs: bool) -> Result<MergePolicyEnum>
+pub fn new_log_merge_policy_with_cfs<D, R>(r: &mut R, use_cfs: bool) -> Result<MergePolicyEnum<D>>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   let ratio = if use_cfs { 1.0 } else { 0.0 };
   let logmp = if r.random_bool(0.5) {
     let mut v = LogMergePolicy::log_doc();
-    v.get_base_mut().set_no_cfs_ratio(ratio)?;
+    MergePolicy::<D>::get_base_mut(&mut v).set_no_cfs_ratio(ratio)?;
     v.into()
   } else {
     let mut v = LogMergePolicy::log_bytes_size();
-    v.get_base_mut().set_no_cfs_ratio(ratio)?;
-    set_meta(r, &mut v)?;
+    MergePolicy::<D>::get_base_mut(&mut v).set_no_cfs_ratio(ratio)?;
+    set_meta::<D, R>(r, &mut v)?;
     v.into()
   };
 
   Ok(logmp)
 }
-fn set_meta<R>(r: &mut R, mp: &mut LogMergePolicy<impl LogMergePolicyBase>) -> Result<()>
+fn set_meta<D, R>(r: &mut R, mp: &mut LogMergePolicy<impl LogMergePolicyBase>) -> Result<()>
 where
+  D: Directory,
   R: Rng + ?Sized,
 {
   mp.set_calibrate_size_by_deletes(r.random_bool(0.5));
@@ -318,12 +325,13 @@ where
     mp.set_merge_factor(TestUtil::next_usize(r, 10, 50))?;
   }
 
-  configure_random(r, mp)
+  configure_random::<D, R, _>(r, mp)
 }
-fn configure_random<R, MP>(r: &mut R, merge_policy: &mut MP) -> Result<()>
+fn configure_random<D, R, MP>(r: &mut R, merge_policy: &mut MP) -> Result<()>
 where
+  D: Directory,
   R: Rng + ?Sized,
-  MP: MergePolicy,
+  MP: MergePolicy<D>,
 {
   if r.random_bool(0.5) {
     merge_policy

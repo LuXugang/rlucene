@@ -52,15 +52,19 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 /// Base test case for [`MergePolicy`]
 pub trait BaseMergePolicyTestCase {
-  type MergePolicy: MergePolicy + Into<MergePolicyEnum>;
-  fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+  type MergePolicy<D>: MergePolicy<D> + Into<MergePolicyEnum<D>>
   where
+    D: Directory;
+
+  fn merge_policy<D, R>(&self, random: &mut R) -> Self::MergePolicy<D>
+  where
+    D: Directory,
     R: Rng + ?Sized;
-  fn assert_segment_infos<D>(policy: &Self::MergePolicy, infos: &SegmentInfos<D>) -> Result<()>
+  fn assert_segment_infos<D>(policy: &Self::MergePolicy<D>, infos: &SegmentInfos<D>) -> Result<()>
   where
     D: Directory;
   fn assert_merge<D, CR>(
-    policy: &Self::MergePolicy,
+    policy: &Self::MergePolicy<D>,
     merge: &MergeSpecification<D, CR>,
   ) -> Result<()>
   where
@@ -191,7 +195,7 @@ pub trait BaseMergePolicyTestCase {
   fn test_simulate_append_only<D, R>(
     &self,
     random: &mut R,
-    merge_policy: &Self::MergePolicy,
+    merge_policy: &Self::MergePolicy<D>,
     fake_directory: Arc<D>,
   ) -> Result<()>
   where
@@ -204,7 +208,7 @@ pub trait BaseMergePolicyTestCase {
   fn do_test_simulate_append_only<D, R>(
     &self,
     random: &mut R,
-    merge_policy: &Self::MergePolicy,
+    merge_policy: &Self::MergePolicy<D>,
     fake_directory: Arc<D>,
     total_docs: i32,
     max_docs_per_flush: i32,
@@ -297,7 +301,7 @@ pub trait BaseMergePolicyTestCase {
   fn test_simulate_updates<D, R>(
     &self,
     random: &mut R,
-    merge_policy: &Self::MergePolicy,
+    merge_policy: &Self::MergePolicy<D>,
     fake_directory: Arc<D>,
   ) -> Result<()>
   where
@@ -311,7 +315,7 @@ pub trait BaseMergePolicyTestCase {
   fn do_test_simulate_updates<D, R>(
     &self,
     random: &mut R,
-    merge_policy: &Self::MergePolicy,
+    merge_policy: &Self::MergePolicy<D>,
     fake_directory: Arc<D>,
     total_docs: i32,
     max_docs_per_flush: i32,
@@ -427,7 +431,7 @@ pub trait BaseMergePolicyTestCase {
   fn test_no_pathological_merges<D, R>(
     &self,
     random: &mut R,
-    merge_policy: &Self::MergePolicy,
+    merge_policy: &Self::MergePolicy<D>,
     fake_directory: Arc<D>,
   ) -> Result<()>
   where

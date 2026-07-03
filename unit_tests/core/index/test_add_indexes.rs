@@ -37,7 +37,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
-use crate::core::store::directory::{Directory, DirectoryEnum2};
+use crate::core::store::directory::{DirEnum, Directory, DirectoryEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -818,7 +818,7 @@ fn test_hang_on_close() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mut lmp = LogMergePolicy::log_bytes_size();
-  lmp.get_base_mut().set_no_cfs_ratio(0.0)?;
+  MergePolicy::<DirEnum>::get_base_mut(&mut lmp).set_no_cfs_ratio(0.0)?;
   lmp.set_merge_factor(100)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
@@ -885,7 +885,7 @@ fn test_hang_on_close() -> Result<()> {
   let dir2 = new_directory_shared(&mut random)?;
   let mut lmp = LogMergePolicy::log_bytes_size();
   lmp.set_min_merge_mb(0.0001);
-  lmp.get_base_mut().set_no_cfs_ratio(0.0)?;
+  MergePolicy::<DirEnum>::get_base_mut(&mut lmp).set_no_cfs_ratio(0.0)?;
   lmp.set_merge_factor(4)?;
 
   let analyzer = MockAnalyzer::new(&mut random);

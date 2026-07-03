@@ -57,16 +57,33 @@ use std::fmt::{Display, Formatter};
 /// [`MergePolicy`] may also reorder documents.
 ///
 /// See also `IndexUpgrader`.
-#[derive(Clone)]
-pub struct UpgradeIndexMergePolicy {
+pub struct UpgradeIndexMergePolicy<D>
+where
+  D: Directory,
+{
   base: MergePolicyBase,
-  inner: Box<MergePolicyEnum>,
+  inner: Box<MergePolicyEnum<D>>,
 }
 
-impl UpgradeIndexMergePolicy {
+impl<D> Clone for UpgradeIndexMergePolicy<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      base: self.base.clone(),
+      inner: self.inner.clone(),
+    }
+  }
+}
+
+impl<D> UpgradeIndexMergePolicy<D>
+where
+  D: Directory,
+{
   /// Wrap the given [`MergePolicy`] and intercept `force_merge` requests to only upgrade
   /// segments written with previous Lucene versions.
-  pub fn new(inner: MergePolicyEnum) -> Self {
+  pub fn new(inner: MergePolicyEnum<D>) -> Self {
     Self {
       base: MergePolicyBase::default(),
       inner: Box::new(inner),
@@ -78,18 +95,24 @@ impl UpgradeIndexMergePolicy {
   /// The default implementation returns `sci.info.get_version_ref() != Some(&*LATEST)`,
   /// so all segments created with a different version number than this Lucene version will
   /// get upgraded.
-  pub fn should_upgrade_segment<D: Directory>(sci: &SegmentCommitInfo<D>) -> bool {
+  pub fn should_upgrade_segment(sci: &SegmentCommitInfo<D>) -> bool {
     sci.info.get_version_ref() != Some(&*LATEST)
   }
 }
 
-impl Display for UpgradeIndexMergePolicy {
+impl<D> Display for UpgradeIndexMergePolicy<D>
+where
+  D: Directory,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
-impl MergePolicy for UpgradeIndexMergePolicy {
+impl<D> MergePolicy<D> for UpgradeIndexMergePolicy<D>
+where
+  D: Directory,
+{
   fn get_base(&self) -> &MergePolicyBase {
     &self.base
   }
@@ -98,7 +121,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     &mut self.base
   }
 
-  fn find_merges<D, MC>(
+  fn find_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -106,7 +129,6 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -114,18 +136,14 @@ impl MergePolicy for UpgradeIndexMergePolicy {
       .find_merges(merge_trigger, segment_infos, inner, merge_context)
   }
 
-  fn find_merges_readers<CR, D>(
-    &self,
-    readers: Vec<CR>,
-  ) -> Result<Option<MergeSpecification<D, CR>>>
+  fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<D, CR>>>
   where
     CR: CodecReader,
-    D: Directory,
   {
     self.inner.find_merges_readers(readers)
   }
 
-  fn find_forced_merges<D, MC>(
+  fn find_forced_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     max_segment_count: usize,
@@ -134,7 +152,6 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     // first find all old segments
@@ -194,14 +211,13 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     Ok(spec)
   }
 
-  fn find_forced_deletes_merges<D, MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -209,7 +225,7 @@ impl MergePolicy for UpgradeIndexMergePolicy {
       .find_forced_deletes_merges(segment_infos, inner, merge_context)
   }
 
-  fn find_full_flush_merges<D, MC>(
+  fn find_full_flush_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -217,7 +233,6 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -225,14 +240,13 @@ impl MergePolicy for UpgradeIndexMergePolicy {
       .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
   }
 
-  fn use_compound_file<D, MC>(
+  fn use_compound_file<MC>(
     &self,
     infos: &SegmentInfos<D>,
     merged_info: &SegmentCommitInfo<D>,
     merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -240,9 +254,8 @@ impl MergePolicy for UpgradeIndexMergePolicy {
       .use_compound_file(infos, merged_info, merge_context)
   }
 
-  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.inner.size(info, merge_context)
@@ -252,35 +265,32 @@ impl MergePolicy for UpgradeIndexMergePolicy {
     self.inner.max_full_flush_merge_size()
   }
 
-  fn has_merged<D, MC>(
+  fn has_merged<MC>(
     &self,
     infos: &SegmentInfos<D>,
     info: &SegmentCommitInfo<D>,
     merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.inner.has_merged(infos, info, merge_context)
   }
 
-  fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
+  fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self.inner.keep_fully_deleted_segment(reader_supplier)
   }
 
-  fn num_deletes_to_merge<D, F>(
+  fn num_deletes_to_merge<F>(
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
     reader_supplier: F,
   ) -> Result<i32>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self
@@ -288,26 +298,23 @@ impl MergePolicy for UpgradeIndexMergePolicy {
       .num_deletes_to_merge(info, del_count, reader_supplier)
   }
 
-  fn seg_string<MC, D>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self.inner.seg_string(merge_context, infos)
   }
 
-  fn message<MC, D>(&self, message: &str, merge_context: &MC) -> Result<()>
+  fn message<MC>(&self, message: &str, merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self.inner.message(message, merge_context)
   }
 
-  fn verbose<MC, D>(&self, merge_context: &MC) -> bool
+  fn verbose<MC>(&self, merge_context: &MC) -> bool
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self.inner.verbose(merge_context)
   }

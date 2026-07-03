@@ -84,36 +84,40 @@ mod base_merge_policy_test_case_tests {
   #[test]
   fn test_simulate_append_only() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy(random);
+      let mp = case.merge_policy::<FakeDirectory, _>(random);
       case.test_simulate_append_only(random, &mp, Arc::new(FakeDirectory::new()))
     })
   }
   #[test]
   fn test_simulate_updates() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy(random);
+      let mp = case.merge_policy::<FakeDirectory, _>(random);
       case.test_simulate_updates(random, &mp, Arc::new(FakeDirectory::new()))
     })
   }
   #[test]
   fn test_no_pathological_merges() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy(random);
+      let mp = case.merge_policy::<FakeDirectory, _>(random);
       case.test_no_pathological_merges(random, &mp, Arc::new(FakeDirectory::new()))
     })
   }
 }
 impl BaseMergePolicyTestCase for TestTieredMergePolicy {
-  type MergePolicy = TieredMergePolicy;
-
-  fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+  type MergePolicy<D>
+    = TieredMergePolicy
   where
+    D: Directory;
+
+  fn merge_policy<D, R>(&self, random: &mut R) -> Self::MergePolicy<D>
+  where
+    D: Directory,
     R: Rng + ?Sized,
   {
     new_tiered_merge_policy(random)
   }
 
-  fn assert_segment_infos<D>(tmp: &Self::MergePolicy, infos: &SegmentInfos<D>) -> Result<()>
+  fn assert_segment_infos<D>(tmp: &Self::MergePolicy<D>, infos: &SegmentInfos<D>) -> Result<()>
   where
     D: Directory,
   {
@@ -237,7 +241,10 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
     Ok(())
   }
 
-  fn assert_merge<D, CR>(tmp: &Self::MergePolicy, merges: &MergeSpecification<D, CR>) -> Result<()>
+  fn assert_merge<D, CR>(
+    tmp: &Self::MergePolicy<D>,
+    merges: &MergeSpecification<D, CR>,
+  ) -> Result<()>
   where
     D: Directory,
     CR: CodecReader,
@@ -1039,26 +1046,31 @@ fn test_setters() -> Result<()> {
   let err = tmp.set_floor_segment_mb(-2.0);
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
-  tmp.get_base_mut().set_max_cfs_segment_size_mb(2.0)?;
-  assert!((tmp.get_base().get_max_cfs_segment_size_mb() - 2.0).abs() < EPSILON);
+  MergePolicy::<FakeDirectory>::get_base_mut(&mut tmp).set_max_cfs_segment_size_mb(2.0)?;
+  assert!(
+    (MergePolicy::<FakeDirectory>::get_base(&tmp).get_max_cfs_segment_size_mb() - 2.0).abs()
+      < EPSILON
+  );
 
-  tmp
-    .get_base_mut()
+  MergePolicy::<FakeDirectory>::get_base_mut(&mut tmp)
     .set_max_cfs_segment_size_mb(f64::INFINITY)?;
   assert!(
-    (tmp.get_base().get_max_cfs_segment_size_mb() - (i64::MAX as f64 / 1024.0 / 1024.0)).abs()
+    (MergePolicy::<FakeDirectory>::get_base(&tmp).get_max_cfs_segment_size_mb()
+      - (i64::MAX as f64 / 1024.0 / 1024.0))
+      .abs()
       < EPSILON * i64::MAX as f64
   );
 
-  tmp
-    .get_base_mut()
+  MergePolicy::<FakeDirectory>::get_base_mut(&mut tmp)
     .set_max_cfs_segment_size_mb(i64::MAX as f64 / 1024.0 / 1024.0)?;
   assert!(
-    (tmp.get_base().get_max_cfs_segment_size_mb() - (i64::MAX as f64 / 1024.0 / 1024.0)).abs()
+    (MergePolicy::<FakeDirectory>::get_base(&tmp).get_max_cfs_segment_size_mb()
+      - (i64::MAX as f64 / 1024.0 / 1024.0))
+      .abs()
       < EPSILON * i64::MAX as f64
   );
 
-  let err = tmp.get_base_mut().set_max_cfs_segment_size_mb(-2.0);
+  let err = MergePolicy::<FakeDirectory>::get_base_mut(&mut tmp).set_max_cfs_segment_size_mb(-2.0);
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
   Ok(())
@@ -1184,7 +1196,7 @@ fn test_merge_purely_to_reclaim_deletes() -> Result<()> {
   let fake_directory = Arc::new(FakeDirectory::new());
   let case = TestTieredMergePolicy;
 
-  let merge_policy = case.merge_policy(&mut random);
+  let merge_policy = case.merge_policy::<FakeDirectory, _>(&mut random);
   let mut infos = SegmentInfos::new(LATEST.major)?;
 
   infos.add(make_segment_commit_info(

@@ -629,7 +629,10 @@ noCFSRatio={}, deletesPctAllowed={}, targetSearchConcurrency={}",
   }
 }
 
-impl MergePolicy for TieredMergePolicy {
+impl<D> MergePolicy<D> for TieredMergePolicy
+where
+  D: Directory,
+{
   fn get_base(&self) -> &MergePolicyBase {
     &self.base
   }
@@ -638,7 +641,7 @@ impl MergePolicy for TieredMergePolicy {
     &mut self.base
   }
 
-  fn find_merges<D, MC>(
+  fn find_merges<MC>(
     &self,
     _merge_trigger: MergeTrigger,
     infos: &SegmentInfos<D>,
@@ -646,7 +649,6 @@ impl MergePolicy for TieredMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     // Compute total index bytes & print details about the index
@@ -761,7 +763,7 @@ impl MergePolicy for TieredMergePolicy {
     )
   }
 
-  fn find_forced_merges<D, MC>(
+  fn find_forced_merges<MC>(
     &self,
     infos: &SegmentInfos<D>,
     max_segment_count: usize,
@@ -770,7 +772,6 @@ impl MergePolicy for TieredMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     let mut sorted_size_and_docs = self.get_sorted_by_segment_size(infos, merge_context)?;
@@ -953,7 +954,7 @@ impl MergePolicy for TieredMergePolicy {
     }
   }
 
-  fn find_forced_deletes_merges<D, MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
@@ -961,7 +962,6 @@ impl MergePolicy for TieredMergePolicy {
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     // First do a quick check that there's any work to do.
     // NOTE: this makes BaseMergePOlicyTestCase.testFindForcedDeletesMerges work
@@ -1008,9 +1008,8 @@ impl MergePolicy for TieredMergePolicy {
     )
   }
 
-  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     size(info, merge_context)

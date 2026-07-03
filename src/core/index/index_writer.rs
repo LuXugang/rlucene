@@ -23,7 +23,7 @@ use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  DefaultMergeSpecification, MergeContext, MergePolicyEnum, MergeReaderSR, MergeStat, OneMergeSR,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergeReaderSR, MergeStat, OneMergeSR,
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
@@ -1591,7 +1591,10 @@ where
   }
 
   /// Performs the time-consuming merge work without holding the `IndexWriter` lock.
-  fn merge_middle(&self, merge: &mut OneMergeSR<D>, merge_policy: &MergePolicyEnum) -> Result<i32> {
+  fn merge_middle<P>(&self, merge: &mut OneMergeSR<D>, merge_policy: &P) -> Result<i32>
+  where
+    P: MergePolicy<D> + ?Sized,
+  {
     let mut max_doc = -1;
     self.test_point("mergeMiddleStart")?;
     merge.check_aborted()?;
@@ -2298,13 +2301,14 @@ where
     )
   }
 
-  fn maybe_merge_with_max_num_segments(
+  fn maybe_merge_with_max_num_segments<P>(
     &self,
-    merge_policy: &MergePolicyEnum,
+    merge_policy: &P,
     trigger: MergeTrigger,
     max_num_segments: i32,
   ) -> Result<()>
   where
+    P: MergePolicy<D> + ?Sized,
     D: 'static,
   {
     self.do_ensure_open(false)?;
@@ -2327,13 +2331,16 @@ where
       .get_merge_scheduler()
       .merge(merge_source, trigger)
   }
-  fn update_pending_merges(
+  fn update_pending_merges<P>(
     &self,
-    merge_policy: &MergePolicyEnum,
+    merge_policy: &P,
     trigger: MergeTrigger,
     max_num_segments: i32,
     inner: Option<&mut Inner<D>>,
-  ) -> Result<Vec<Identity>> {
+  ) -> Result<Vec<Identity>>
+  where
+    P: MergePolicy<D> + ?Sized,
+  {
     // In case infoStream was disabled on init, but then enabled at some
     // point, try again to log the config here:
     let inner = match inner {
@@ -4160,8 +4167,9 @@ where
     Ok(self.doc_writer.any_changes()? || self.buffered_updates_stream.any())
   }
 
-  pub(crate) fn commit_internal(&self, merge_policy: &MergePolicyEnum) -> Result<i64>
+  pub(crate) fn commit_internal<P>(&self, merge_policy: &P) -> Result<i64>
   where
+    P: MergePolicy<D> + ?Sized,
     D: 'static,
   {
     if self.info_stream.is_enabled("IW") {
@@ -7368,10 +7376,11 @@ use crate::core::index::index_writer_event_listener::IndexWriterEventListener;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::{LeafReader, get_context};
 use crate::core::index::merge_policy::{
-  MergePolicy, MergeReader, OneMerge, OneMergeBase, OneMergeDefaults, OneMergeHook,
+  MergeReader, OneMerge, OneMergeBase, OneMergeDefaults, OneMergeHook,
 };
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::numeric_doc_values_field_updates::NumericDocValuesFieldUpdates;
+use crate::core::index::one_merge_wrapping_merge_policy::OneMergeUnaryOperatorBase;
 use crate::core::index::pending_soft_deletes::count_soft_deletes;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
@@ -8207,7 +8216,7 @@ impl DocModifier for DocModifierImpl2 {
     Ok(())
   }
 }
-pub(crate) struct PointInTimeOneMerge<D, CR>
+pub struct PointInTimeOneMerge<D, CR>
 where
   D: Directory,
   CR: CodecReader,
@@ -8220,6 +8229,35 @@ where
   only_once: AtomicBool,
   _codec_reader: PhantomData<fn(CR)>,
 }
+impl<D, CR> Clone for PointInTimeOneMerge<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  fn clone(&self) -> Self {
+    Self {
+      wrapped: Box::new(OneMergeHook::Default),
+      merging_segment_infos: self.merging_segment_infos.clone(),
+      stop_collecting_merge_results: self.stop_collecting_merge_results.clone(),
+      trigger: self.trigger,
+      orig_info: Mutex::new(None),
+      only_once: AtomicBool::new(false),
+      _codec_reader: PhantomData,
+    }
+  }
+}
+impl<D> OneMergeUnaryOperatorBase<D> for PointInTimeOneMerge<D, DefaultLeafReader<D>>
+where
+  D: Directory,
+{
+  fn apply(&self, mut merge: OneMergeSR<D>) -> Result<OneMergeSR<D>> {
+    let mut new_hook = self.clone();
+    let to_wrap = merge.replace_hook(OneMergeHook::Default);
+    new_hook.set_wrap(to_wrap);
+    merge.replace_hook(OneMergeHook::PointInTime(Box::new(new_hook)));
+    Ok(merge)
+  }
+}
 
 impl<D, CR> PointInTimeOneMerge<D, CR>
 where
@@ -8227,13 +8265,12 @@ where
   CR: CodecReader,
 {
   pub(crate) fn new(
-    wrapped: OneMergeHook<D, CR>,
     merging_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
     stop_collecting_merge_results: Arc<AtomicBool>,
     trigger: MergeTrigger,
   ) -> Self {
     Self {
-      wrapped: Box::new(wrapped),
+      wrapped: Box::new(OneMergeHook::default()),
       merging_segment_infos,
       stop_collecting_merge_results,
       trigger,
@@ -8243,19 +8280,8 @@ where
     }
   }
 
-  pub(crate) fn wrap_merge(
-    mut merge: OneMerge<D, CR>,
-    merging_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
-    stop_collecting_merge_results: Arc<AtomicBool>,
-    trigger: MergeTrigger,
-  ) -> OneMerge<D, CR> {
-    let wrapped = merge.replace_hook(OneMergeHook::<D, CR>::Default);
-    merge.with_hook(OneMergeHook::PointInTime(Box::new(Self::new(
-      wrapped,
-      merging_segment_infos,
-      stop_collecting_merge_results,
-      trigger,
-    ))))
+  pub(crate) fn set_wrap(&mut self, to_wrap: OneMergeHook<D, CR>) {
+    *self.wrapped = to_wrap;
   }
 }
 

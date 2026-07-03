@@ -345,10 +345,10 @@ where
     self.base.parent_field.as_ref()
   }
 
-  fn get_merge_policy(&self) -> &MergePolicyEnum {
+  fn get_merge_policy(&self) -> &MergePolicyEnum<D> {
     &self.base.merge_policy
   }
-  fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum {
+  fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum<D> {
     &mut self.base.merge_policy
   }
   fn get_flush_policy(&self) -> &FlushPolicyEnum {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::index_writer::Inner;
+use crate::core::index::index_writer::{Inner, PointInTimeOneMerge};
 #[cfg(test)]
 use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_policy::{
@@ -36,17 +36,34 @@ use std::fmt::{Display, Formatter};
 /// # Experimental
 ///
 /// This API is experimental and may change in incompatible ways.
-#[derive(Clone)]
-pub struct OneMergeWrappingMergePolicy {
-  in_: Box<MergePolicyEnum>,
-  wrap_one_merge: OneMergeUnaryOperator,
+pub struct OneMergeWrappingMergePolicy<D>
+where
+  D: Directory,
+{
+  in_: Box<MergePolicyEnum<D>>,
+  wrap_one_merge: OneMergeUnaryOperator<D>,
 }
 
-impl OneMergeWrappingMergePolicy {
+impl<D> Clone for OneMergeWrappingMergePolicy<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      in_: self.in_.clone(),
+      wrap_one_merge: self.wrap_one_merge.clone(),
+    }
+  }
+}
+
+impl<D> OneMergeWrappingMergePolicy<D>
+where
+  D: Directory,
+{
   pub fn new<T, W>(in_: T, wrap_one_merge: W) -> Self
   where
-    T: Into<MergePolicyEnum>,
-    W: Into<OneMergeUnaryOperator>,
+    T: Into<MergePolicyEnum<D>>,
+    W: Into<OneMergeUnaryOperator<D>>,
   {
     Self {
       in_: Box::new(in_.into()),
@@ -54,13 +71,10 @@ impl OneMergeWrappingMergePolicy {
     }
   }
 
-  fn wrap_spec<D>(
+  fn wrap_spec(
     &self,
     spec: Option<DefaultMergeSpecification<D>>,
-  ) -> Result<Option<DefaultMergeSpecification<D>>>
-  where
-    D: Directory,
-  {
+  ) -> Result<Option<DefaultMergeSpecification<D>>> {
     spec
       .map(|spec| {
         let mut wrapped = DefaultMergeSpecification::new();
@@ -73,26 +87,45 @@ impl OneMergeWrappingMergePolicy {
   }
 }
 
-#[derive(Clone)]
-pub enum OneMergeUnaryOperator {
+pub enum OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
   Identity(IdentityOneMergeUnaryOperator),
+  PointInTime(Box<PointInTimeOneMerge<D, DefaultLeafReader<D>>>),
   #[cfg(test)]
   NewOneMerge(NewOneMergeUnaryOperator),
 }
 
-pub trait OneMergeUnaryOperatorBase {
-  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
-  where
-    D: Directory;
+impl<D> Clone for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    match self {
+      Self::Identity(operator) => Self::Identity(operator.clone()),
+      Self::PointInTime(operator) => Self::PointInTime(operator.clone()),
+      #[cfg(test)]
+      Self::NewOneMerge(operator) => Self::NewOneMerge(operator.clone()),
+    }
+  }
 }
 
-impl OneMergeUnaryOperatorBase for OneMergeUnaryOperator {
-  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
-  where
-    D: Directory,
-  {
+pub trait OneMergeUnaryOperatorBase<D>
+where
+  D: Directory,
+{
+  fn apply(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>;
+}
+
+impl<D> OneMergeUnaryOperatorBase<D> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn apply(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>> {
     match self {
       Self::Identity(operator) => operator.apply(merge),
+      Self::PointInTime(operator) => operator.apply(merge),
       #[cfg(test)]
       Self::NewOneMerge(operator) => operator.apply(merge),
     }
@@ -102,17 +135,29 @@ impl OneMergeUnaryOperatorBase for OneMergeUnaryOperator {
 #[derive(Clone)]
 pub struct IdentityOneMergeUnaryOperator;
 
-impl From<IdentityOneMergeUnaryOperator> for OneMergeUnaryOperator {
+impl<D> From<IdentityOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
   fn from(value: IdentityOneMergeUnaryOperator) -> Self {
     Self::Identity(value)
   }
 }
 
-impl OneMergeUnaryOperatorBase for IdentityOneMergeUnaryOperator {
-  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
-  where
-    D: Directory,
-  {
+impl<D> From<PointInTimeOneMerge<D, DefaultLeafReader<D>>> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn from(value: PointInTimeOneMerge<D, DefaultLeafReader<D>>) -> Self {
+    Self::PointInTime(Box::new(value))
+  }
+}
+
+impl<D> OneMergeUnaryOperatorBase<D> for IdentityOneMergeUnaryOperator
+where
+  D: Directory,
+{
+  fn apply(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>> {
     Ok(merge)
   }
 }
@@ -122,29 +167,38 @@ impl OneMergeUnaryOperatorBase for IdentityOneMergeUnaryOperator {
 pub struct NewOneMergeUnaryOperator;
 
 #[cfg(test)]
-impl From<NewOneMergeUnaryOperator> for OneMergeUnaryOperator {
+impl<D> From<NewOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
   fn from(value: NewOneMergeUnaryOperator) -> Self {
     Self::NewOneMerge(value)
   }
 }
 
 #[cfg(test)]
-impl OneMergeUnaryOperatorBase for NewOneMergeUnaryOperator {
-  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
-  where
-    D: Directory,
-  {
+impl<D> OneMergeUnaryOperatorBase<D> for NewOneMergeUnaryOperator
+where
+  D: Directory,
+{
+  fn apply(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>> {
     OneMerge::new(merge.segments)
   }
 }
 
-impl Display for OneMergeWrappingMergePolicy {
+impl<D> Display for OneMergeWrappingMergePolicy<D>
+where
+  D: Directory,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "OneMergeWrappingMergePolicy({})", self.in_)
   }
 }
 
-impl MergePolicy for OneMergeWrappingMergePolicy {
+impl<D> MergePolicy<D> for OneMergeWrappingMergePolicy<D>
+where
+  D: Directory,
+{
   fn get_base(&self) -> &MergePolicyBase {
     self.in_.get_base()
   }
@@ -153,7 +207,7 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     self.in_.get_base_mut()
   }
 
-  fn find_merges<D, MC>(
+  fn find_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -161,7 +215,6 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.wrap_spec(
@@ -171,18 +224,14 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     )
   }
 
-  fn find_merges_readers<CR, D>(
-    &self,
-    readers: Vec<CR>,
-  ) -> Result<Option<MergeSpecification<D, CR>>>
+  fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<D, CR>>>
   where
     CR: CodecReader,
-    D: Directory,
   {
     self.in_.find_merges_readers(readers)
   }
 
-  fn find_forced_merges<D, MC>(
+  fn find_forced_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     max_segment_count: usize,
@@ -191,7 +240,6 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.wrap_spec(self.in_.find_forced_merges(
@@ -203,7 +251,7 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     )?)
   }
 
-  fn find_forced_deletes_merges<D, MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
@@ -211,7 +259,6 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self.wrap_spec(
       self
@@ -220,7 +267,7 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     )
   }
 
-  fn find_full_flush_merges<D, MC>(
+  fn find_full_flush_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -228,7 +275,6 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.wrap_spec(self.in_.find_full_flush_merges(
@@ -239,14 +285,13 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     )?)
   }
 
-  fn use_compound_file<D, MC>(
+  fn use_compound_file<MC>(
     &self,
     infos: &SegmentInfos<D>,
     merged_info: &SegmentCommitInfo<D>,
     merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -254,9 +299,8 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
       .use_compound_file(infos, merged_info, merge_context)
   }
 
-  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.in_.size(info, merge_context)
@@ -266,35 +310,32 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
     self.in_.max_full_flush_merge_size()
   }
 
-  fn has_merged<D, MC>(
+  fn has_merged<MC>(
     &self,
     infos: &SegmentInfos<D>,
     info: &SegmentCommitInfo<D>,
     merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.in_.has_merged(infos, info, merge_context)
   }
 
-  fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
+  fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self.in_.keep_fully_deleted_segment(reader_supplier)
   }
 
-  fn num_deletes_to_merge<D, F>(
+  fn num_deletes_to_merge<F>(
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
     reader_supplier: F,
   ) -> Result<i32>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self
@@ -302,26 +343,23 @@ impl MergePolicy for OneMergeWrappingMergePolicy {
       .num_deletes_to_merge(info, del_count, reader_supplier)
   }
 
-  fn seg_string<MC, D>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self.in_.seg_string(merge_context, infos)
   }
 
-  fn message<MC, D>(&self, message: &str, merge_context: &MC) -> Result<()>
+  fn message<MC>(&self, message: &str, merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self.in_.message(message, merge_context)
   }
 
-  fn verbose<MC, D>(&self, merge_context: &MC) -> bool
+  fn verbose<MC>(&self, merge_context: &MC) -> bool
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self.in_.verbose(merge_context)
   }

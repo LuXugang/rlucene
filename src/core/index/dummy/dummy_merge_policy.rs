@@ -35,7 +35,10 @@ impl Display for DummyMergePolicy {
   }
 }
 
-impl MergePolicy for DummyMergePolicy {
+impl<D> MergePolicy<D> for DummyMergePolicy
+where
+  D: Directory,
+{
   fn get_base(&self) -> &MergePolicyBase {
     dummy_unreachable!()
   }
@@ -44,7 +47,7 @@ impl MergePolicy for DummyMergePolicy {
     dummy_unreachable!()
   }
 
-  fn find_merges<D, MC>(
+  fn find_merges<MC>(
     &self,
     _merge_trigger: MergeTrigger,
     _segment_infos: &SegmentInfos<D>,
@@ -52,13 +55,12 @@ impl MergePolicy for DummyMergePolicy {
     _merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     dummy_unreachable!()
   }
 
-  fn find_forced_merges<D, MC>(
+  fn find_forced_merges<MC>(
     &self,
     _segment_infos: &SegmentInfos<D>,
     _max_segment_count: usize,
@@ -67,13 +69,12 @@ impl MergePolicy for DummyMergePolicy {
     _merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     dummy_unreachable!()
   }
 
-  fn find_forced_deletes_merges<D, MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     _segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
@@ -81,12 +82,11 @@ impl MergePolicy for DummyMergePolicy {
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     dummy_unreachable!()
   }
 
-  fn find_full_flush_merges<D, MC>(
+  fn find_full_flush_merges<MC>(
     &self,
     _merge_trigger: MergeTrigger,
     _segment_infos: &SegmentInfos<D>,
@@ -94,87 +94,78 @@ impl MergePolicy for DummyMergePolicy {
     _merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     dummy_unreachable!()
   }
 
-  fn use_compound_file<D, MC>(
+  fn use_compound_file<MC>(
     &self,
     _infos: &SegmentInfos<D>,
     _merged_info: &SegmentCommitInfo<D>,
     _merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     dummy_unreachable!()
   }
 
-  fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     dummy_unreachable!()
   }
 
-  fn has_merged<D, MC>(
+  fn has_merged<MC>(
     &self,
     _infos: &SegmentInfos<D>,
     _info: &SegmentCommitInfo<D>,
     _merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     dummy_unreachable!()
   }
 
-  fn keep_fully_deleted_segment<D, F>(&self, _reader_supplier: F) -> Result<bool>
+  fn keep_fully_deleted_segment<F>(&self, _reader_supplier: F) -> Result<bool>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     dummy_unreachable!()
   }
 
-  fn num_deletes_to_merge<D, F>(
+  fn num_deletes_to_merge<F>(
     &self,
     _info: &SegmentCommitInfo<D>,
     _del_count: i32,
     _reader_supplier: F,
   ) -> Result<i32>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     dummy_unreachable!()
   }
 
-  fn seg_string<MC, D>(&self, _merge_context: &MC, _infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, _merge_context: &MC, _infos: &[SegmentCommitInfo<D>]) -> String
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     dummy_unreachable!()
   }
 
-  fn message<MC, D>(&self, _message: &str, _merge_context: &MC) -> Result<()>
+  fn message<MC>(&self, _message: &str, _merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     dummy_unreachable!()
   }
 
-  fn verbose<MC, D>(&self, _merge_context: &MC) -> bool
+  fn verbose<MC>(&self, _merge_context: &MC) -> bool
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     dummy_unreachable!()
   }

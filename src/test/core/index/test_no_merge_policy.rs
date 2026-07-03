@@ -46,16 +46,20 @@ where
 }
 
 impl BaseMergePolicyTestCase for TestNoMergePolicy {
-  type MergePolicy = NoMergePolicy;
-
-  fn merge_policy<R>(&self, _random: &mut R) -> Self::MergePolicy
+  type MergePolicy<D>
+    = NoMergePolicy
   where
+    D: Directory;
+
+  fn merge_policy<D, R>(&self, _random: &mut R) -> Self::MergePolicy<D>
+  where
+    D: Directory,
     R: Rng + ?Sized,
   {
     NoMergePolicy::default()
   }
 
-  fn assert_segment_infos<D>(_policy: &Self::MergePolicy, infos: &SegmentInfos<D>) -> Result<()>
+  fn assert_segment_infos<D>(_: &Self::MergePolicy<D>, infos: &SegmentInfos<D>) -> Result<()>
   where
     D: Directory,
   {
@@ -66,7 +70,7 @@ impl BaseMergePolicyTestCase for TestNoMergePolicy {
   }
 
   fn assert_merge<D, CR>(
-    _policy: &Self::MergePolicy,
+    _policy: &Self::MergePolicy<D>,
     _merge: &MergeSpecification<D, CR>,
   ) -> Result<()>
   where
@@ -81,7 +85,7 @@ impl BaseMergePolicyTestCase for TestNoMergePolicy {
 fn test_no_merge_policy() -> Result<()> {
   let mut random = random();
   let case = TestNoMergePolicy;
-  let mp = case.merge_policy(&mut random);
+  let mp = case.merge_policy::<DummyDirectory, _>(&mut random);
   assert!(
     mp.find_merges(
       MergeTrigger::random_trigger(&mut random),
@@ -133,7 +137,7 @@ mod base_merge_policy_test_case_tests {
   #[test]
   fn test_simulate_append_only() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy(random);
+      let mp = case.merge_policy::<FakeDirectory, _>(random);
       case.do_test_simulate_append_only(
         random,
         &mp,
@@ -146,7 +150,7 @@ mod base_merge_policy_test_case_tests {
   #[test]
   fn test_simulate_updates() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy(random);
+      let mp = case.merge_policy::<FakeDirectory, _>(random);
       case.do_test_simulate_updates(random, &mp, Arc::new(FakeDirectory::new()), 100_000, 10_000)
     })
   }
@@ -154,7 +158,7 @@ mod base_merge_policy_test_case_tests {
   #[test]
   fn test_no_pathological_merges() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy(random);
+      let mp = case.merge_policy::<FakeDirectory, _>(random);
       case.test_no_pathological_merges(random, &mp, Arc::new(FakeDirectory::new()))
     })
   }

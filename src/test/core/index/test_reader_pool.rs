@@ -747,16 +747,19 @@ impl Display for KeepFullyDeletedSegmentsMergePolicy {
   }
 }
 
-impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
+impl<D> MergePolicy<D> for KeepFullyDeletedSegmentsMergePolicy
+where
+  D: Directory,
+{
   fn get_base(&self) -> &MergePolicyBase {
-    self.in_.get_base()
+    MergePolicy::<D>::get_base(&self.in_)
   }
 
   fn get_base_mut(&mut self) -> &mut MergePolicyBase {
-    self.in_.get_base_mut()
+    MergePolicy::<D>::get_base_mut(&mut self.in_)
   }
 
-  fn find_merges<D, MC>(
+  fn find_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -764,7 +767,6 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -772,18 +774,14 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
       .find_merges(merge_trigger, segment_infos, inner, merge_context)
   }
 
-  fn find_merges_readers<CR, D>(
-    &self,
-    readers: Vec<CR>,
-  ) -> Result<Option<MergeSpecification<D, CR>>>
+  fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<D, CR>>>
   where
     CR: CodecReader,
-    D: Directory,
   {
     self.in_.find_merges_readers(readers)
   }
 
-  fn find_forced_merges<D, MC>(
+  fn find_forced_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     max_segment_count: usize,
@@ -792,7 +790,6 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.in_.find_forced_merges(
@@ -804,7 +801,7 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     )
   }
 
-  fn find_forced_deletes_merges<D, MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     inner: Option<&IWInner<D>>,
@@ -812,14 +809,13 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     self
       .in_
       .find_forced_deletes_merges(segment_infos, inner, merge_context)
   }
 
-  fn find_full_flush_merges<D, MC>(
+  fn find_full_flush_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -827,7 +823,6 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -835,14 +830,13 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
       .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
   }
 
-  fn use_compound_file<D, MC>(
+  fn use_compound_file<MC>(
     &self,
     infos: &SegmentInfos<D>,
     merged_info: &SegmentCommitInfo<D>,
     merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self
@@ -850,34 +844,31 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
       .use_compound_file(infos, merged_info, merge_context)
   }
 
-  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.in_.size(info, merge_context)
   }
 
   fn max_full_flush_merge_size(&self) -> i64 {
-    self.in_.max_full_flush_merge_size()
+    MergePolicy::<D>::max_full_flush_merge_size(&self.in_)
   }
 
-  fn has_merged<D, MC>(
+  fn has_merged<MC>(
     &self,
     infos: &SegmentInfos<D>,
     info: &SegmentCommitInfo<D>,
     merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self.in_.has_merged(infos, info, merge_context)
   }
 
-  fn keep_fully_deleted_segment<D, F>(&self, reader_supplier: F) -> Result<bool>
+  fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     let reader = reader_supplier()?;
@@ -885,14 +876,13 @@ impl MergePolicy for KeepFullyDeletedSegmentsMergePolicy {
     Ok(true)
   }
 
-  fn num_deletes_to_merge<D, F>(
+  fn num_deletes_to_merge<F>(
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
     reader_supplier: F,
   ) -> Result<i32>
   where
-    D: Directory,
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
     self

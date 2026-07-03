@@ -471,8 +471,9 @@ pub trait LogMergePolicyBase {
     MC: MergeContext<D>;
 }
 
-impl<T> MergePolicy for LogMergePolicy<T>
+impl<D, T> MergePolicy<D> for LogMergePolicy<T>
 where
+  D: Directory,
   T: LogMergePolicyBase,
 {
   fn get_base(&self) -> &MergePolicyBase {
@@ -486,7 +487,7 @@ where
   /// so. A merge is necessary when there are more than [`LogMergePolicy::set_merge_factor`] segments
   /// at a given level. When multiple levels have too many segments, this method will return multiple
   /// merges, allowing the `MergeScheduler` to use concurrency.
-  fn find_merges<D, MC>(
+  fn find_merges<MC>(
     &self,
     _merge_trigger: MergeTrigger,
     infos: &SegmentInfos<D>,
@@ -494,7 +495,6 @@ where
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     let num_segments = infos.size();
@@ -666,7 +666,7 @@ where
   /// deletions pending nor separate norms, and it is in compound file format if the current
   /// useCompoundFile setting is true. This method returns multiple merges (mergeFactor at a time) so
   /// the `MergeScheduler` in use may make use of concurrency.
-  fn find_forced_merges<D, MC>(
+  fn find_forced_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     max_segment_count: usize,
@@ -675,7 +675,6 @@ where
     merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     debug_assert!(max_segment_count > 0);
@@ -750,7 +749,7 @@ where
   }
   /// Finds merges necessary to force-merge all deletes from the index.
   /// We simply merge adjacent segments that have deletes, up to mergeFactor at a time.
-  fn find_forced_deletes_merges<D, MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
@@ -758,7 +757,6 @@ where
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     let segments = segment_infos.iter();
     let num_segments = segments.len();
@@ -810,9 +808,8 @@ where
     Ok(Some(spec))
   }
 
-  fn size<D, MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     self

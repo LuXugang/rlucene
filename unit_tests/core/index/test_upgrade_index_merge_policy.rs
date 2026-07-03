@@ -38,10 +38,14 @@ where
 }
 
 impl BaseMergePolicyTestCase for TestUpgradeIndexMergePolicy {
-  type MergePolicy = MergePolicyEnum;
-
-  fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+  type MergePolicy<D>
+    = MergePolicyEnum<D>
   where
+    D: Directory;
+
+  fn merge_policy<D, R>(&self, random: &mut R) -> Self::MergePolicy<D>
+  where
+    D: Directory,
     R: Rng + ?Sized,
   {
     let mut inner = new_tiered_merge_policy(random);
@@ -50,7 +54,7 @@ impl BaseMergePolicyTestCase for TestUpgradeIndexMergePolicy {
     UpgradeIndexMergePolicy::new(inner.into()).into()
   }
 
-  fn assert_segment_infos<D>(_policy: &Self::MergePolicy, _infos: &SegmentInfos<D>) -> Result<()>
+  fn assert_segment_infos<D>(_policy: &Self::MergePolicy<D>, _infos: &SegmentInfos<D>) -> Result<()>
   where
     D: Directory,
   {
@@ -58,7 +62,7 @@ impl BaseMergePolicyTestCase for TestUpgradeIndexMergePolicy {
   }
 
   fn assert_merge<D, CR>(
-    _policy: &Self::MergePolicy,
+    _policy: &Self::MergePolicy<D>,
     _merge: &MergeSpecification<D, CR>,
   ) -> Result<()>
   where

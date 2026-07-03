@@ -45,10 +45,14 @@ where
 }
 
 impl BaseMergePolicyTestCase for TestMergeOnFlushMergePolicy {
-  type MergePolicy = MergePolicyEnum;
-
-  fn merge_policy<R>(&self, random: &mut R) -> Self::MergePolicy
+  type MergePolicy<D>
+    = MergePolicyEnum<D>
   where
+    D: Directory;
+
+  fn merge_policy<D, R>(&self, random: &mut R) -> Self::MergePolicy<D>
+  where
+    D: Directory,
     R: Rng + ?Sized,
   {
     let mut inner = new_merge_policy_with_mock_mp(random, false).expect("");
@@ -71,7 +75,7 @@ impl BaseMergePolicyTestCase for TestMergeOnFlushMergePolicy {
     merge_on_flush.into()
   }
 
-  fn assert_segment_infos<D>(_policy: &Self::MergePolicy, _infos: &SegmentInfos<D>) -> Result<()>
+  fn assert_segment_infos<D>(_policy: &Self::MergePolicy<D>, _infos: &SegmentInfos<D>) -> Result<()>
   where
     D: Directory,
   {
@@ -79,7 +83,7 @@ impl BaseMergePolicyTestCase for TestMergeOnFlushMergePolicy {
   }
 
   fn assert_merge<D, CR>(
-    _policy: &Self::MergePolicy,
+    _policy: &Self::MergePolicy<D>,
     _merge: &MergeSpecification<D, CR>,
   ) -> Result<()>
   where

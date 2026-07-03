@@ -313,7 +313,7 @@ where
     info: &SegmentCommitInfo<D>,
   ) -> Result<i32>
   where
-    P: MergePolicy,
+    P: MergePolicy<D> + ?Sized,
   {
     let del_count = {
       let mut inner = self.inner.lock();
@@ -846,11 +846,14 @@ where
         .is_fully_deleted(info, None, None, false)
     }
   }
-  pub(crate) fn keep_fully_deleted_segment(
+  pub(crate) fn keep_fully_deleted_segment<P>(
     &self,
-    merge_policy: &impl MergePolicy,
+    merge_policy: &P,
     info: &SegmentCommitInfo<D>,
-  ) -> Result<bool> {
+  ) -> Result<bool>
+  where
+    P: MergePolicy<D> + ?Sized,
+  {
     merge_policy.keep_fully_deleted_segment(|| {
       let mut inner = self.inner.lock();
       self.get_latest_read(info, &mut inner, self.index_created_version_major)

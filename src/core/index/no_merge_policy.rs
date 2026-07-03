@@ -51,7 +51,10 @@ impl Display for NoMergePolicy {
   }
 }
 
-impl MergePolicy for NoMergePolicy {
+impl<D> MergePolicy<D> for NoMergePolicy
+where
+  D: Directory,
+{
   fn get_base(&self) -> &MergePolicyBase {
     &self.base
   }
@@ -60,7 +63,7 @@ impl MergePolicy for NoMergePolicy {
     &mut self.base
   }
 
-  fn find_merges<D, MC>(
+  fn find_merges<MC>(
     &self,
     _merge_trigger: MergeTrigger,
     _segment_infos: &SegmentInfos<D>,
@@ -68,13 +71,12 @@ impl MergePolicy for NoMergePolicy {
     _merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     Ok(None)
   }
 
-  fn find_forced_merges<D, MC>(
+  fn find_forced_merges<MC>(
     &self,
     _segment_infos: &SegmentInfos<D>,
     _max_segment_count: usize,
@@ -83,13 +85,12 @@ impl MergePolicy for NoMergePolicy {
     _merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     Ok(None)
   }
 
-  fn find_forced_deletes_merges<D, MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     _segment_infos: &SegmentInfos<D>,
     _inner: Option<&Inner<D>>,
@@ -97,12 +98,11 @@ impl MergePolicy for NoMergePolicy {
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
     MC: MergeContext<D>,
-    D: Directory,
   {
     Ok(None)
   }
 
-  fn find_full_flush_merges<D, MC>(
+  fn find_full_flush_merges<MC>(
     &self,
     _merge_trigger: MergeTrigger,
     _segment_infos: &SegmentInfos<D>,
@@ -110,28 +110,25 @@ impl MergePolicy for NoMergePolicy {
     _merge_context: &MC,
   ) -> Result<Option<DefaultMergeSpecification<D>>>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     Ok(None)
   }
 
-  fn use_compound_file<D, MC>(
+  fn use_compound_file<MC>(
     &self,
     _infos: &SegmentInfos<D>,
     new_segment: &SegmentCommitInfo<D>,
     _merge_context: &MC,
   ) -> Result<bool>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     Ok(new_segment.info.get_use_compound_file())
   }
 
-  fn size<D, MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, _info: &SegmentCommitInfo<D>, _merge_context: &MC) -> Result<i64>
   where
-    D: Directory,
     MC: MergeContext<D>,
   {
     Ok(i64::MAX)
