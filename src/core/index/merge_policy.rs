@@ -17,7 +17,7 @@
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_reader::Identity;
-use crate::core::index::index_writer::Inner;
+use crate::core::index::index_writer::{Inner, PointInTimeOneMerge};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_doc_merge_policy::LogDocMergePolicy;
@@ -28,7 +28,6 @@ use crate::core::index::one_merge_wrapping_merge_policy::OneMergeWrappingMergePo
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::DefaultLeafReader;
-use crate::core::index::sorter::DocMap;
 use crate::core::index::tiered_merge_policy::{
   SegmentCommitInfoMeta, SegmentDocAndID, TieredMergePolicy,
 };
@@ -1215,6 +1214,7 @@ where
   D: Directory,
   CR: CodecReader,
 {
+  hook: OneMergeHook<D, CR>,
   pub(crate) is_external: bool,
   pub(crate) uses_pooled_readers: bool,
   /// Estimated size in bytes of the merged segment.
@@ -1230,7 +1230,7 @@ where
   error: Mutex<Option<LuceneError>>,
   pub(crate) stat: MergeStat,
   pub info: Option<SegmentCommitInfo<D>>,
-  pub(crate) merge_completed: OnceLock<bool>,
+  pub(crate) merge_completed: Arc<OnceLock<bool>>,
 }
 
 #[derive(Clone)]
@@ -1337,6 +1337,7 @@ where
 
     let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
+      hook: OneMergeHook::<D, CR>::Default,
       is_external: false,
       uses_pooled_readers: true,
       estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
@@ -1356,7 +1357,7 @@ where
         merge_gen: 0,
       },
       info: None,
-      merge_completed: OnceLock::new(),
+      merge_completed: Arc::new(OnceLock::new()),
     })
   }
   pub fn from_meta(segments: &[SegmentCommitInfoMeta]) -> Result<Self> {
@@ -1373,6 +1374,7 @@ where
     stat.merge_progress = merge_progress;
     stat.register_done.store(false, Ordering::Release);
     let one_merge = Self {
+      hook: OneMergeHook::<D, CR>::Default,
       merge_readers: Mutex::new(one_merge.merge_readers.into_inner()),
       total_max_doc: one_merge.total_max_doc,
       #[cfg(test)]
@@ -1385,7 +1387,7 @@ where
       error: Mutex::new(None),
       stat,
       info: one_merge.info,
-      merge_completed: OnceLock::new(),
+      merge_completed: Arc::new(OnceLock::new()),
     };
     one_merge.stat.set_max_num_segments(-1);
     one_merge.stat.clear_merge_info();
@@ -1406,6 +1408,7 @@ where
 
     let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
+      hook: OneMergeHook::<D, CR>::Default,
       is_external: false,
       uses_pooled_readers: false,
       estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
@@ -1425,7 +1428,7 @@ where
         merge_gen: 0,
       },
       info: None,
-      merge_completed: OnceLock::new(),
+      merge_completed: Arc::new(OnceLock::new()),
     })
   }
   /// Called by IndexWriter after the merge started and from the thread that will be executing the merge.
@@ -1487,72 +1490,286 @@ where
   pub(crate) fn has_completed_successfully(&self) -> Option<bool> {
     self.merge_completed.get().copied()
   }
-}
-impl<D, CR> OneMerge<D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-  Self: OneMergeBase<D, CR>,
-{
-  pub(crate) fn close<F>(
+  pub(crate) fn with_hook(mut self, hook: OneMergeHook<D, CR>) -> Self {
+    self.hook = hook;
+    self
+  }
+
+  pub(crate) fn replace_hook(&mut self, hook: OneMergeHook<D, CR>) -> OneMergeHook<D, CR> {
+    std::mem::replace(&mut self.hook, hook)
+  }
+
+  pub fn wrap_for_merge(&self, reader: CR) -> Result<CR> {
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::wrap_for_merge(&self.hook, reader)
+  }
+
+  // TODO IMPORTANT 多线程参数未定义
+  pub fn reorder<CR1, D1>(&self, reader: &CR1, dir: D1) -> Result<Option<DummyDocMap>>
+  where
+    CR1: CodecReader,
+    D1: Directory,
+  {
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::reorder::<CR1, D1>(&self.hook, reader, dir)
+  }
+
+  pub fn set_merge_info(&mut self, info: SegmentCommitInfo<D>) {
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::set_merge_info(
+      &self.hook,
+      &self.stat,
+      &mut self.info,
+      info,
+    );
+  }
+
+  pub(crate) fn merge_finished(
     &self,
+    inner: &mut Inner<D>,
     success: bool,
     segment_dropped: bool,
-    reader_consumer: F,
+  ) -> Result<()> {
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::merge_finished(
+      &self.hook,
+      inner,
+      &self.stat,
+      success,
+      segment_dropped,
+    )
+  }
+
+  pub fn on_merge_complete(&self, inner: &mut Inner<D>) -> Result<()> {
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::on_merge_complete(
+      &self.hook,
+      inner,
+      &self.stat,
+      &self.info,
+      self.is_aborted(),
+    )
+  }
+
+  pub fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
+  where
+    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+  {
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::init_merge_readers::<F>(
+      &self.hook,
+      &self.merge_readers,
+      &self.stat,
+      reader_factory,
+    )
+  }
+
+  pub(crate) fn close<F>(
+    &self,
+    inner: &mut Inner<D>,
+    success: bool,
+    segment_dropped: bool,
+    mut reader_consumer: F,
   ) -> Result<()>
   where
-    F: FnMut(&MergeReader<CR, CR::Bits>) -> Result<()>,
+    F: FnMut(&mut Inner<D>, &MergeReader<CR, CR::Bits>) -> Result<()>,
   {
     if self.merge_completed.set(success).is_err() {
       return Err(LuceneError::illegal_state("merge has already finished"));
     }
     let result = (|| -> Result<()> {
-      self.merge_finished(success, segment_dropped)?;
+      self.merge_finished(inner, success, segment_dropped)?;
       Ok(())
     })();
     let merge_readers = std::mem::take(&mut *self.merge_readers.lock());
-    IOUtils::apply_to_all(&merge_readers, reader_consumer)?;
+    IOUtils::apply_to_all(&merge_readers, |merge_reader| {
+      reader_consumer(inner, merge_reader)
+    })?;
     result
   }
+
+  #[cfg(test)]
+  pub(crate) fn close_for_test<F>(
+    &self,
+    success: bool,
+    _segment_dropped: bool,
+    reader_consumer: F,
+  ) -> Result<()>
+  where
+    F: FnMut(&MergeReader<CR, CR::Bits>) -> Result<()>,
+  {
+    match self.hook {
+      OneMergeHook::Default => {},
+      _ => {
+        return Err(LuceneError::illegal_state(
+          "close_for_test only supports default OneMerge hooks",
+        ));
+      },
+    }
+    if self.merge_completed.set(success).is_err() {
+      return Err(LuceneError::illegal_state("merge has already finished"));
+    }
+    let merge_readers = std::mem::take(&mut *self.merge_readers.lock());
+    IOUtils::apply_to_all(&merge_readers, reader_consumer)
+  }
 }
-impl<D, CR> OneMergeBase<D, CR> for OneMerge<D, CR>
+
+#[derive(Default)]
+pub(crate) enum OneMergeHook<D, CR>
 where
   D: Directory,
   CR: CodecReader,
 {
-  type CodecReader = CR;
+  #[default]
+  Default,
+  PointInTime(Box<PointInTimeOneMerge<D, CR>>),
+}
 
-  fn wrap_for_merge(&self, reader: CR) -> Result<Self::CodecReader> {
+pub(crate) struct OneMergeDefaults;
+
+impl OneMergeDefaults {
+  pub(crate) fn merge_finished<D>(
+    _inner: &mut Inner<D>,
+    _stat: &MergeStat,
+    _success: bool,
+    _segment_dropped: bool,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    Ok(())
+  }
+
+  pub(crate) fn wrap_for_merge<CR>(reader: CR) -> Result<CR>
+  where
+    CR: CodecReader,
+  {
     Ok(reader)
   }
 
-  type DocMap = DummyDocMap;
-
-  fn set_merge_info(&mut self, info: SegmentCommitInfo<D>) {
-    self
-      .stat
-      .set_merge_info(info.info.get_id_key().to_string(), info.info.name.clone());
-    self.info = Some(info);
+  // TODO IMPORTANT 多线程参数未定义
+  pub(crate) fn reorder<CR1, D1>(_reader: &CR1, _dir: D1) -> Result<Option<DummyDocMap>>
+  where
+    CR1: CodecReader,
+    D1: Directory,
+  {
+    Ok(None)
   }
 
-  type MergeCodecReader = CR;
-  type Bits = <CR as LeafReader>::Bits;
-
-  fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
-  where
-    F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>,
+  pub(crate) fn set_merge_info<D>(
+    stat: &MergeStat,
+    merge_info: &mut Option<SegmentCommitInfo<D>>,
+    info: SegmentCommitInfo<D>,
+  ) where
+    D: Directory,
   {
-    debug_assert!(self.merge_readers.lock().is_empty());
+    stat.set_merge_info(info.info.get_id_key().to_string(), info.info.name.clone());
+    *merge_info = Some(info);
+  }
+
+  pub(crate) fn on_merge_complete<D>(
+    _inner: &mut Inner<D>,
+    _stat: &MergeStat,
+    _merge_info: &Option<SegmentCommitInfo<D>>,
+    _is_aborted: bool,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    Ok(())
+  }
+
+  pub(crate) fn init_merge_readers<CR, F>(
+    merge_readers: &Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+    stat: &MergeStat,
+    mut reader_factory: F,
+  ) -> Result<()>
+  where
+    CR: CodecReader,
+    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+  {
+    debug_assert!(merge_readers.lock().is_empty());
     // TODO merge_completed未实现
-    let mut readers = Vec::with_capacity(self.stat.segments.len());
+    let mut readers = Vec::with_capacity(stat.segments.len());
     let result: Result<_> = (|| {
-      for seg_id in self.stat.segments.iter() {
+      for seg_id in stat.segments.iter() {
         readers.push(reader_factory(seg_id)?);
       }
       Ok(())
     })();
-    *self.merge_readers.lock() = readers;
+    *merge_readers.lock() = readers;
     result
+  }
+}
+
+impl<D, CR> OneMergeBase<D, CR> for OneMergeHook<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  fn merge_finished(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    success: bool,
+    segment_dropped: bool,
+  ) -> Result<()> {
+    match self {
+      Self::Default => OneMergeDefaults::merge_finished(inner, stat, success, segment_dropped),
+      Self::PointInTime(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+    }
+  }
+
+  fn wrap_for_merge(&self, reader: CR) -> Result<CR> {
+    match self {
+      Self::Default => OneMergeDefaults::wrap_for_merge(reader),
+      Self::PointInTime(hook) => hook.wrap_for_merge(reader),
+    }
+  }
+
+  fn reorder<CR1, D1>(&self, reader: &CR1, dir: D1) -> Result<Option<DummyDocMap>>
+  where
+    CR1: CodecReader,
+    D1: Directory,
+  {
+    match self {
+      Self::Default => OneMergeDefaults::reorder(reader, dir),
+      Self::PointInTime(hook) => hook.reorder(reader, dir),
+    }
+  }
+
+  fn set_merge_info(
+    &self,
+    stat: &MergeStat,
+    merge_info: &mut Option<SegmentCommitInfo<D>>,
+    info: SegmentCommitInfo<D>,
+  ) {
+    match self {
+      Self::Default => OneMergeDefaults::set_merge_info(stat, merge_info, info),
+      Self::PointInTime(hook) => hook.set_merge_info(stat, merge_info, info),
+    }
+  }
+
+  fn on_merge_complete(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    merge_info: &Option<SegmentCommitInfo<D>>,
+    is_aborted: bool,
+  ) -> Result<()> {
+    match self {
+      Self::Default => OneMergeDefaults::on_merge_complete(inner, stat, merge_info, is_aborted),
+      Self::PointInTime(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+    }
+  }
+
+  fn init_merge_readers<F>(
+    &self,
+    merge_readers: &Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+    stat: &MergeStat,
+    reader_factory: F,
+  ) -> Result<()>
+  where
+    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+  {
+    match self {
+      Self::Default => OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory),
+      Self::PointInTime(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
+    }
   }
 }
 
@@ -1561,29 +1778,45 @@ where
   D: Directory,
   CR: CodecReader,
 {
-  fn merge_finished(&self, _success: bool, _segment_dropped: bool) -> Result<()> {
-    Ok(())
-  }
-  type CodecReader: CodecReader;
-  fn wrap_for_merge(&self, _reader: CR) -> Result<Self::CodecReader>;
+  fn merge_finished(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    success: bool,
+    segment_dropped: bool,
+  ) -> Result<()>;
+
+  fn wrap_for_merge(&self, reader: CR) -> Result<CR>;
+
   // TODO IMPORTANT 多线程参数未定义
-  type DocMap: DocMap + Clone;
-  fn reorder<CR1, D1>(&self, _reader: &CR1, _dir: D1) -> Result<Option<Self::DocMap>>
+  fn reorder<CR1, D1>(&self, reader: &CR1, dir: D1) -> Result<Option<DummyDocMap>>
   where
     CR1: CodecReader,
-    D1: Directory,
-  {
-    Ok(None)
-  }
-  fn set_merge_info(&mut self, info: SegmentCommitInfo<D>);
-  fn on_merge_complete(&self) -> Result<()> {
-    Ok(())
-  }
-  type MergeCodecReader: CodecReader;
-  type Bits: Bits;
-  fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
+    D1: Directory;
+
+  fn set_merge_info(
+    &self,
+    stat: &MergeStat,
+    merge_info: &mut Option<SegmentCommitInfo<D>>,
+    info: SegmentCommitInfo<D>,
+  );
+
+  fn on_merge_complete(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    merge_info: &Option<SegmentCommitInfo<D>>,
+    is_aborted: bool,
+  ) -> Result<()>;
+
+  fn init_merge_readers<F>(
+    &self,
+    merge_readers: &Mutex<Vec<MergeReader<CR, CR::Bits>>>,
+    stat: &MergeStat,
+    reader_factory: F,
+  ) -> Result<()>
   where
-    F: Fn(&String) -> Result<MergeReader<Self::MergeCodecReader, Self::Bits>>;
+    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>;
 }
 pub type DefaultMergeSpecification<D> = MergeSpecification<D, DefaultLeafReader<D>>;
 pub struct MergeSpecification<D, CR>
@@ -1621,8 +1854,7 @@ where
   pub fn add(&mut self, merge: OneMerge<D, CR>) {
     self.merges.push(merge);
   }
-
-  pub fn r#await(&self, timeout: Duration) -> bool {
+  pub fn await_(&self, timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     loop {
       if self.merges.iter().all(|merge| merge.has_finished()) {

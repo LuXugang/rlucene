@@ -50,11 +50,11 @@ fn test_wait_for_one_merge() -> Result<()> {
   let t = thread::spawn(move || -> Result<()> {
     let ms = &thread_ms;
     for m in &ms.merges {
-      m.close(true, false, |_| Ok(()))?;
+      m.close_for_test(true, false, |_| Ok(()))?;
     }
     Ok(())
   });
-  assert!(ms.r#await(Duration::from_secs(100 * 60 * 60)));
+  assert!(ms.await_(Duration::from_secs(100 * 60 * 60)));
   for m in &ms.merges {
     assert!(m.has_finished());
   }
@@ -72,10 +72,10 @@ fn test_timeout() -> Result<()> {
   }
   let thread_ms = ms.clone();
   let t = thread::spawn(move || -> Result<()> {
-    thread_ms.merges[0].close(true, false, |_| Ok(()))?;
+    thread_ms.merges[0].close_for_test(true, false, |_| Ok(()))?;
     Ok(())
   });
-  assert!(!ms.r#await(Duration::from_millis(10)));
+  assert!(!ms.await_(Duration::from_millis(10)));
   assert!(!ms.merges[1].has_finished());
   t.join().unwrap()?;
   Ok(())
@@ -97,12 +97,12 @@ fn test_timeout_large_number_of_merges() -> Result<()> {
   let t = thread::spawn(move || -> Result<()> {
     while !thread_stop.load(Ordering::SeqCst) {
       let index = thread_i.fetch_add(1, Ordering::SeqCst);
-      thread_ms.merges[index].close(true, false, |_| Ok(()))?;
+      thread_ms.merges[index].close_for_test(true, false, |_| Ok(()))?;
       thread::sleep(Duration::from_millis(1));
     }
     Ok(())
   });
-  assert!(!ms.r#await(Duration::from_millis(10)));
+  assert!(!ms.await_(Duration::from_millis(10)));
   stop.store(true, Ordering::SeqCst);
   t.join().unwrap()?;
   for j in 0..ms.merges.len() {
@@ -121,8 +121,8 @@ fn test_finish_twice() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let spec = create_random_merge_specification(&mut random, dir, 1)?;
   let one_merge = &spec.merges[0];
-  one_merge.close(true, false, |_| Ok(()))?;
-  let err = one_merge.close(false, false, |_| Ok(()));
+  one_merge.close_for_test(true, false, |_| Ok(()))?;
+  let err = one_merge.close_for_test(false, false, |_| Ok(()));
   assert!(err.is_err());
   Ok(())
 }

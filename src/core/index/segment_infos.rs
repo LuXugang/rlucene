@@ -27,8 +27,9 @@ use crate::core::codecs::{Codec, CodecUtil, LATEST_CODEC};
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_commit::IndexCommit;
 
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_writer::get_actual_max_docs;
-use crate::core::index::merge_policy::OneMergeSR;
+use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
@@ -977,11 +978,14 @@ where
     Ok(())
   }
   /// Applies all changes caused by committing a merge to this `SegmentInfos`
-  pub(crate) fn apply_merge_changes(
+  pub(crate) fn apply_merge_changes<CR>(
     &mut self,
-    merge: &mut OneMergeSR<D>,
+    merge: &mut OneMerge<D, CR>,
     drop_segment: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    CR: CodecReader,
+  {
     if self.index_created_version_major >= 7
       && merge
         .info
