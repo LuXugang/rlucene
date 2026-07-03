@@ -80,8 +80,14 @@ pub enum OneMergeUnaryOperator {
   NewOneMerge(NewOneMergeUnaryOperator),
 }
 
-impl OneMergeUnaryOperator {
-  pub fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
+pub trait OneMergeUnaryOperatorBase {
+  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
+  where
+    D: Directory;
+}
+
+impl OneMergeUnaryOperatorBase for OneMergeUnaryOperator {
+  fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
   where
     D: Directory,
   {
@@ -102,7 +108,7 @@ impl From<IdentityOneMergeUnaryOperator> for OneMergeUnaryOperator {
   }
 }
 
-impl IdentityOneMergeUnaryOperator {
+impl OneMergeUnaryOperatorBase for IdentityOneMergeUnaryOperator {
   fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
   where
     D: Directory,
@@ -123,7 +129,7 @@ impl From<NewOneMergeUnaryOperator> for OneMergeUnaryOperator {
 }
 
 #[cfg(test)]
-impl NewOneMergeUnaryOperator {
+impl OneMergeUnaryOperatorBase for NewOneMergeUnaryOperator {
   fn apply<D>(&self, merge: OneMergeSR<D>) -> Result<OneMergeSR<D>>
   where
     D: Directory,
