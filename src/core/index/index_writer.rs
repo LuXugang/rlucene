@@ -6674,18 +6674,11 @@ where
      * We release the two-stage full flush after we are done opening the
      * directory reader!
      */
-    // let mut on_get_reader_merges = None;
-    let _stop_collecting_merged_readers = AtomicBool::new(false);
-    // let mut merged_readers =
-    //     std::collections::HashMap::new();
-    let mut opened_read_only_clones = HashMap::new();
-
-    let mut reader_factory = IOFunctionImpl::new(
-      self,
-      &mut opened_read_only_clones,
-      max_full_flush_merge_wait_millis,
-    );
-    let _opening_segment_infos: Option<SegmentInfos<D>> = None;
+    let mut on_get_reader_merges: Option<UpdatePendingMergesResult<D>> = None;
+    let stop_collecting_merged_readers = Arc::new(AtomicBool::new(false));
+    let merged_readers = Arc::new(Mutex::new(HashMap::new()));
+    let opened_read_only_clones = Arc::new(Mutex::new(HashMap::new()));
+    let mut opening_segment_infos: Option<Arc<Mutex<SegmentInfos<D>>>> = None;
     let result1 = (|| {
       /*
       This is the essential part of the getReader method. We need to take care of the following things:
@@ -6732,21 +6725,61 @@ where
             // Prevent segmentInfos from changing while opening the
             // reader; in theory we could instead do similar retry logic,
             // just like we do when loading segments_N
-            let r = open_with_reader_function(
-              self,
-              &mut reader_factory,
-              None,
-              &mut inner,
-              apply_all_deletes,
-              write_all_deletes,
-              leaf_sorter,
-            )?;
+            let r = {
+              let mut opened_read_only_clones = opened_read_only_clones.lock();
+              let mut reader_factory = IOFunctionImpl::new(
+                self,
+                &mut opened_read_only_clones,
+                max_full_flush_merge_wait_millis,
+              );
+              open_with_reader_function(
+                self,
+                &mut reader_factory,
+                None,
+                &mut inner,
+                apply_all_deletes,
+                write_all_deletes,
+                leaf_sorter.clone(),
+              )?
+            };
 
             if max_full_flush_merge_wait_millis > 0 {
-              // TODO IMPORTANT 段的合并未完成
-            }
-            if self.info_stream.is_enabled("IW") {
-              // self.info_stream.message("IW", format!("return reader version={} reader={}", ));
+              // we take the SIS from the reader which has already pruned away fully deleted readers
+              // this makes pulling the readers below after the merge simpler since we can be safe
+              // that
+              // they are not closed. Every segment has a corresponding SR in the SDR we opened if
+              // we use
+              // this SIS
+              // we need to do this rather complicated management of SRs and infos since we can't
+              // wait for merges
+              // while we hold the fullFlushLock since the merge might hit a tragic event and that
+              // must not be reported
+              // while holding that lock. Merging outside of the lock ie. after calling
+              // docWriter.finishFullFlush(boolean) would
+              // yield wrong results because deletes might sneak in during the merge
+              let opening_segment_infos_for_merge =
+                Arc::new(Mutex::new(r.get_segment_infos().try_clone()?));
+              opening_segment_infos = Some(opening_segment_infos_for_merge.clone());
+              let writer = self.self_ref.get().cloned().ok_or_else(|| {
+                LuceneError::illegal_state(
+                  "point-in-time getReader merges require IndexWriter to be constructed as Arc<IndexWriter>",
+                )
+              })?;
+              on_get_reader_merges = self.prepare_point_in_time_merge(
+                opening_segment_infos_for_merge,
+                stop_collecting_merged_readers.clone(),
+                MergeTrigger::GetReader,
+                PointInTimeMergeFinished::GetReader(Arc::new(
+                  PointInTimeGetReaderMergeFinished::new(
+                    writer,
+                    merged_readers.clone(),
+                    opened_read_only_clones.clone(),
+                    stop_collecting_merged_readers.clone(),
+                    max_full_flush_merge_wait_millis,
+                  ),
+                )),
+                &mut inner,
+              )?;
             }
             r
           };
@@ -6767,30 +6800,196 @@ where
         result2
       };
       match res {
-        Ok(r) => {
-          any_changes |= self.maybe_merge.swap(false, Ordering::AcqRel);
-          if any_changes {
-            self.maybe_merge_with_max_num_segments(
-              self.config.get_merge_policy(),
-              MergeTrigger::FullFlush,
-              UNBOUNDED_MAX_MERGE_SEGMENTS,
-            )?;
+        Ok(mut r) => {
+          let result = (|| {
+            if let Some(ref on_get_reader_merges) = on_get_reader_merges {
+              let opening_segment_infos = opening_segment_infos.as_ref().ok_or_else(|| {
+                LuceneError::illegal_state("point-in-time getReader SegmentInfos is none")
+              })?;
+              if let Some(merged_reader) = self.finish_get_reader_merge(
+                stop_collecting_merged_readers.clone(),
+                merged_readers.clone(),
+                opened_read_only_clones.clone(),
+                opening_segment_infos.clone(),
+                apply_all_deletes,
+                write_all_deletes,
+                on_get_reader_merges,
+                max_full_flush_merge_wait_millis,
+                leaf_sorter,
+              )? {
+                let old_reader = std::mem::replace(&mut r, merged_reader);
+                old_reader.close()?;
+              }
+            }
+
+            any_changes |= self.maybe_merge.swap(false, Ordering::AcqRel);
+            if any_changes {
+              self.maybe_merge_with_max_num_segments(
+                self.config.get_merge_policy(),
+                MergeTrigger::FullFlush,
+                UNBOUNDED_MAX_MERGE_SEGMENTS,
+              )?;
+            }
+            Ok(())
+          })();
+          match result {
+            Ok(()) => Ok(r),
+            Err(error) => {
+              let close_result = r.close();
+              if let Err(close_error) = close_result
+                && close_error.is_tragedy_error()
+              {
+                Err(close_error)
+              } else {
+                Err(error)
+              }
+            },
           }
-          Ok(r)
         },
         Err(e) => Err(e),
       }
     })();
-    // TODO IMPORTANT : 返回之前需要关闭一些 但是rust Lucene不需要？并且还有一些实现未完成 不过不影响使用
 
     match result1 {
-      Ok(v) => Ok(v),
+      Ok(v) => {
+        if on_get_reader_merges.is_some() {
+          self.close_get_reader_merge_resources(
+            stop_collecting_merged_readers,
+            merged_readers,
+            None,
+          )?;
+        }
+        Ok(v)
+      },
       Err(e) => {
-        self.tragic_event(e.clone(), "get_reader", None)?;
+        let tragic_result = if e.is_tragedy_error() {
+          self.tragic_event(e.clone(), "get_reader", None)
+        } else {
+          Ok(())
+        };
+        let close_result = if on_get_reader_merges.is_some() {
+          self.close_get_reader_merge_resources(
+            stop_collecting_merged_readers,
+            merged_readers,
+            None,
+          )
+        } else {
+          Ok(())
+        };
+        self.maybe_close_on_tragic_event(None)?;
+        if let Err(close_error) = close_result
+          && close_error.is_tragedy_error()
+        {
+          return Err(close_error);
+        }
+        tragic_result?;
         Err(e)
       },
     }
   }
+  #[allow(clippy::too_many_arguments)]
+  fn finish_get_reader_merge<C>(
+    &self,
+    stop_collecting_merged_readers: Arc<AtomicBool>,
+    merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    opening_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
+    apply_all_deletes: bool,
+    write_all_deletes: bool,
+    point_in_time_merges: &UpdatePendingMergesResult<D>,
+    max_commit_merge_wait_millis: i64,
+    leaf_sorter: Option<C>,
+  ) -> Result<Option<StandardDirectoryReader<C, D>>>
+  where
+    C: Comparator<DefaultLeafReader<D>> + Clone,
+    D: 'static,
+  {
+    let merge_source = self.new_merge_source()?;
+    self
+      .config
+      .get_merge_scheduler()
+      .merge(merge_source, MergeTrigger::GetReader)?;
+    point_in_time_merges.await_merges(Duration::from_millis(max_commit_merge_wait_millis as u64));
+
+    let mut inner = self.inner.lock();
+    stop_collecting_merged_readers.store(true, Ordering::Release);
+    let reader = self.maybe_reopen_merged_nrt_reader(
+      &merged_readers,
+      &opened_read_only_clones,
+      &opening_segment_infos,
+      apply_all_deletes,
+      write_all_deletes,
+      &mut inner,
+      leaf_sorter,
+    )?;
+    {
+      let mut merged_readers = merged_readers.lock();
+      IOUtils::close(merged_readers.values(), |reader| reader.close())?;
+      merged_readers.clear();
+    }
+    Ok(reader)
+  }
+  #[allow(clippy::too_many_arguments)]
+  fn maybe_reopen_merged_nrt_reader<C>(
+    &self,
+    merged_readers: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    opening_segment_infos: &Arc<Mutex<SegmentInfos<D>>>,
+    apply_all_deletes: bool,
+    write_all_deletes: bool,
+    inner: &mut Inner<D>,
+    leaf_sorter: Option<C>,
+  ) -> Result<Option<StandardDirectoryReader<C, D>>>
+  where
+    C: Comparator<DefaultLeafReader<D>> + Clone,
+    D: 'static,
+  {
+    if merged_readers.lock().is_empty() {
+      return Ok(None);
+    }
+
+    let opening_segment_infos = Some(&*opening_segment_infos.lock());
+    let mut files = Vec::new();
+    let mut reader_function =
+      MergedNRTReaderFunction::new(merged_readers, opened_read_only_clones, &mut files);
+    let result = open_with_reader_function(
+      self,
+      &mut reader_function,
+      opening_segment_infos,
+      inner,
+      apply_all_deletes,
+      write_all_deletes,
+      leaf_sorter,
+    );
+    inner.deleter.dec_ref(files.iter())?;
+    result.map(Some)
+  }
+
+  fn close_get_reader_merge_resources(
+    &self,
+    stop_collecting_merged_readers: Arc<AtomicBool>,
+    merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    inner: Option<&mut Inner<D>>,
+  ) -> Result<()> {
+    let inner = match inner {
+      Some(inner) => inner,
+      None => &mut *self.inner.lock(),
+    };
+    stop_collecting_merged_readers.store(true, Ordering::Release);
+    let merged_readers = merged_readers.lock();
+    IOUtils::close(merged_readers.values(), |reader| {
+      let dec_ref_result = reader
+        .get_segment_info()
+        .files()
+        .and_then(|files| inner.deleter.dec_ref(files.iter()));
+      let close_result = reader.close();
+      match close_result {
+        Ok(()) => dec_ref_result,
+        Err(error) => Err(error),
+      }
+    })
+  }
+
   /// Counts soft-deleted and hard-deleted documents in the given reader.
   /// Updates the provided counters.
   ///
@@ -7371,6 +7570,55 @@ where
     result
   }
 }
+
+struct MergedNRTReaderFunction<'a, D>
+where
+  D: Directory,
+{
+  merged_readers: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+  opened_read_only_clones: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+  files: &'a mut Vec<String>,
+}
+impl<'a, D> MergedNRTReaderFunction<'a, D>
+where
+  D: Directory,
+{
+  fn new(
+    merged_readers: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    files: &'a mut Vec<String>,
+  ) -> Self {
+    Self {
+      merged_readers,
+      opened_read_only_clones,
+      files,
+    }
+  }
+}
+impl<'a, D> IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>
+  for MergedNRTReaderFunction<'a, D>
+where
+  D: Directory,
+{
+  fn apply(
+    &mut self,
+    sci: &SegmentCommitInfo<D>,
+    _inner: &mut Inner<D>,
+  ) -> Result<DefaultLeafReader<D>> {
+    if let Some(remove) = self.merged_readers.lock().remove(&sci.info.name) {
+      self.files.extend(remove.get_segment_info().files()?);
+      return Ok(remove);
+    }
+
+    let reader = self
+      .opened_read_only_clones
+      .lock()
+      .remove(&sci.info.name)
+      .ok_or_else(|| LuceneError::illegal_state("point-in-time reader clone is missing"))?;
+    reader.inc_ref()?;
+    Ok(reader)
+  }
+}
 impl<D> Display for IndexWriter<D>
 where
   D: Directory,
@@ -7750,7 +7998,6 @@ pub(crate) fn is_congruent_sort(index_sort: &Sort, other_sort: &Sort) -> bool {
 
 // reads latest field infos for the commit
 // this is used on IW init and addIndexes(Dir) to create/update the global field map.
-// TODO: fix tests abusing this method!
 pub(crate) fn read_field_infos<D>(si: &SegmentCommitInfo<D>) -> Result<FieldInfos>
 where
   D: Directory,

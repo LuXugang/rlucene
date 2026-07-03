@@ -214,6 +214,10 @@ where
 
     Ok(Some(self.do_open_from_commit(commit)?))
   }
+
+  pub(crate) fn get_segment_infos(&self) -> &SegmentInfos<D> {
+    &self.segment_infos
+  }
 }
 pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<EmptyLeafSorter, D>;
 pub(crate) fn open_with_reader_function<D, IO, C>(
