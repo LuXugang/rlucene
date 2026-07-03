@@ -3865,23 +3865,21 @@ where
     tragic_res?;
 
     if let Some(ref point_in_time_merges) = point_in_time_merges {
-      self
-        .config
-        .get_index_writer_event_listener()
-        .begin_merge_on_full_flush(point_in_time_merges);
+      let event_listener = self.config.get_index_writer_event_listener();
+      event_listener.begin_merge_on_full_flush(point_in_time_merges);
 
       self.execute_merge(MergeTrigger::Commit)?;
-      point_in_time_merges.await_(Duration::from_millis(max_commit_merge_wait_millis as u64));
+      DefaultMergeSpecification::await_merges(
+        &point_in_time_merges.merges,
+        Duration::from_millis(max_commit_merge_wait_millis as u64),
+      );
 
       if self.info_stream.is_enabled("IW") {
         self
           .info_stream
           .message("IW", "done waiting for merges during commit")?;
       }
-      self
-        .config
-        .get_index_writer_event_listener()
-        .end_merge_on_full_flush(point_in_time_merges);
+      event_listener.end_merge_on_full_flush(point_in_time_merges);
 
       {
         // we need to do this under lock since merge_finished above is also called under the IW lock

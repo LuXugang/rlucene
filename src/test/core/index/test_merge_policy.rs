@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::merge_policy::{DefaultMergeSpecification, OneMerge};
+use crate::core::index::merge_policy::{DefaultMergeSpecification, MergeStat, OneMerge};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
@@ -29,7 +29,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 #[allow(dead_code)] // for quick search
 struct TestMergePolicy;
@@ -38,19 +38,13 @@ fn await_merges<D>(ms: &Arc<Mutex<DefaultMergeSpecification<D>>>, timeout: Durat
 where
   D: Directory,
 {
-  let deadline = Instant::now() + timeout;
-  loop {
-    if ms.lock().merges.iter().all(|merge| merge.has_finished()) {
-      return true;
-    }
-
-    let now = Instant::now();
-    if now >= deadline {
-      return false;
-    }
-
-    thread::sleep(std::cmp::min(Duration::from_millis(1), deadline - now));
-  }
+  let merge_stats: Vec<MergeStat> = ms
+    .lock()
+    .merges
+    .iter()
+    .map(|merge| merge.stat.clone())
+    .collect();
+  MergeStat::await_all(&merge_stats, timeout)
 }
 
 #[test]
@@ -64,7 +58,7 @@ fn test_wait_for_one_merge() -> Result<()> {
     num_merges,
   )?));
   for m in &ms.lock().merges {
-    assert!(!m.has_finished());
+    assert!(m.has_completed_successfully().is_none());
   }
   let thread_ms = ms.clone();
   let t = thread::spawn(move || -> Result<()> {
@@ -76,7 +70,7 @@ fn test_wait_for_one_merge() -> Result<()> {
   });
   assert!(await_merges(&ms, Duration::from_secs(100 * 60 * 60)));
   for m in &ms.lock().merges {
-    assert!(m.has_finished());
+    assert!(m.has_completed_successfully().unwrap());
   }
   t.join().unwrap()?;
   Ok(())
@@ -92,7 +86,7 @@ fn test_timeout() -> Result<()> {
     3,
   )?));
   for m in &ms.lock().merges {
-    assert!(!m.has_finished());
+    assert!(m.has_completed_successfully().is_none());
   }
   let thread_ms = ms.clone();
   let t = thread::spawn(move || -> Result<()> {
@@ -100,7 +94,7 @@ fn test_timeout() -> Result<()> {
     Ok(())
   });
   assert!(!await_merges(&ms, Duration::from_millis(10)));
-  assert!(!ms.lock().merges[1].has_finished());
+  assert!(ms.lock().merges[1].has_completed_successfully().is_none());
   t.join().unwrap()?;
   Ok(())
 }
@@ -115,7 +109,7 @@ fn test_timeout_large_number_of_merges() -> Result<()> {
     10000,
   )?));
   for m in &ms.lock().merges {
-    assert!(!m.has_finished());
+    assert!(m.has_completed_successfully().is_none());
   }
   let i = Arc::new(AtomicUsize::new(0));
   let stop = Arc::new(AtomicBool::new(false));
@@ -136,9 +130,9 @@ fn test_timeout_large_number_of_merges() -> Result<()> {
   let ms = ms.lock();
   for j in 0..ms.merges.len() {
     if j < i.load(Ordering::SeqCst) {
-      assert!(ms.merges[j].has_finished());
+      assert!(ms.merges[j].has_completed_successfully().unwrap());
     } else {
-      assert!(!ms.merges[j].has_finished());
+      assert!(ms.merges[j].has_completed_successfully().is_none());
     }
   }
   Ok(())

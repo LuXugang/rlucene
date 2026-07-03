@@ -51,9 +51,9 @@ use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
 
@@ -1493,7 +1493,6 @@ where
   error: Mutex<Option<LuceneError>>,
   pub(crate) stat: MergeStat,
   pub info: Option<SegmentCommitInfo<D>>,
-  pub(crate) merge_completed: Arc<OnceLock<bool>>,
 }
 
 #[derive(Clone)]
@@ -1501,6 +1500,7 @@ pub struct MergeStat {
   pub(crate) id: Identity,
   pub(crate) register_done: Arc<AtomicBool>,
   state: Arc<Mutex<MergeStatState>>,
+  completion: Arc<MergeCompletion>,
   merge_progress: Arc<OneMergeProgress>,
   /// Segments to be merged.
   /// `SegmentInfo::name` and `SegmentInfo::id`.
@@ -1513,12 +1513,72 @@ impl Default for MergeStat {
       id: Identity::new(),
       register_done: Arc::new(AtomicBool::new(false)),
       state: Arc::new(Mutex::new(MergeStatState::default())),
+      completion: Arc::new(MergeCompletion::new()),
       merge_progress: Arc::new(OneMergeProgress::new()),
       segments: vec![],
       merge_gen: 0,
     }
   }
 }
+
+#[derive(Default)]
+struct MergeCompletion {
+  /// `None` means the merge is still running or has not started yet.
+  /// `Some(success)` means the merge has finished, and `success` records whether it completed
+  /// successfully.
+  state: Mutex<Option<bool>>,
+  completed: Condvar,
+}
+
+impl MergeCompletion {
+  fn new() -> Self {
+    Self {
+      state: Mutex::new(None),
+      completed: Condvar::new(),
+    }
+  }
+
+  fn complete(&self, success: bool) -> bool {
+    let mut state = self.state.lock();
+    if state.is_some() {
+      return false;
+    }
+    *state = Some(success);
+    self.completed.notify_all();
+    true
+  }
+
+  fn is_done(&self) -> bool {
+    self.state.lock().is_some()
+  }
+
+  fn completed_successfully(&self) -> Option<bool> {
+    *self.state.lock()
+  }
+
+  fn await_until(&self, deadline: Instant) -> bool {
+    let mut state = self.state.lock();
+    loop {
+      if state.is_some() {
+        return true;
+      }
+
+      let now = Instant::now();
+      if now >= deadline {
+        return false;
+      }
+
+      if self
+        .completed
+        .wait_for(&mut state, deadline - now)
+        .timed_out()
+      {
+        return state.is_some();
+      }
+    }
+  }
+}
+
 #[derive(Default)]
 struct MergeStatState {
   max_num_segments: i32,
@@ -1553,6 +1613,32 @@ impl Hash for MergeStat {
 }
 
 impl MergeStat {
+  pub(crate) fn await_all(merges: &[MergeStat], timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    for merge in merges {
+      if !merge.await_until(deadline) {
+        return false;
+      }
+    }
+    true
+  }
+
+  pub(crate) fn await_until(&self, deadline: Instant) -> bool {
+    self.completion.await_until(deadline)
+  }
+
+  pub(crate) fn complete(&self, success: bool) -> bool {
+    self.completion.complete(success)
+  }
+
+  pub(crate) fn has_finished(&self) -> bool {
+    self.completion.is_done()
+  }
+
+  pub(crate) fn has_completed_successfully(&self) -> Option<bool> {
+    self.completion.completed_successfully()
+  }
+
   pub(crate) fn max_num_segments(&self) -> i32 {
     self.state.lock().max_num_segments
   }
@@ -1627,12 +1713,12 @@ where
         id: Identity::new(),
         register_done: Arc::new(AtomicBool::new(false)),
         state: Arc::new(Mutex::new(MergeStatState::new())),
+        completion: Arc::new(MergeCompletion::new()),
         merge_progress,
         segments: v,
         merge_gen: 0,
       },
       info: None,
-      merge_completed: Arc::new(OnceLock::new()),
     })
   }
   pub fn from_meta(segments: &[SegmentCommitInfoMeta]) -> Result<Self> {
@@ -1659,7 +1745,6 @@ where
       error: Mutex::new(None),
       stat,
       info: None,
-      merge_completed: Arc::new(OnceLock::new()),
     };
     one_merge.stat.set_max_num_segments(-1);
     one_merge.stat.clear_merge_info();
@@ -1695,12 +1780,12 @@ where
         id: Identity::new(),
         register_done: Arc::new(AtomicBool::new(false)),
         state: Arc::new(Mutex::new(MergeStatState::new())),
+        completion: Arc::new(MergeCompletion::new()),
         merge_progress,
         segments: Vec::new(),
         merge_gen: 0,
       },
       info: None,
-      merge_completed: Arc::new(OnceLock::new()),
     })
   }
   /// Called by IndexWriter after the merge started and from the thread that will be executing the merge.
@@ -1756,11 +1841,11 @@ where
   }
 
   pub(crate) fn has_finished(&self) -> bool {
-    self.merge_completed.get().is_some()
+    self.stat.has_finished()
   }
 
   pub(crate) fn has_completed_successfully(&self) -> Option<bool> {
-    self.merge_completed.get().copied()
+    self.stat.has_completed_successfully()
   }
   pub(crate) fn with_hook(mut self, hook: OneMergeHook<D, CR>) -> Self {
     self.hook = hook;
@@ -1840,7 +1925,7 @@ where
   where
     F: FnMut(&mut Inner<D>, &MergeReader<CR, CR::Bits>) -> Result<()>,
   {
-    if self.merge_completed.set(success).is_err() {
+    if !self.stat.complete(success) {
       return Err(LuceneError::illegal_state("merge has already finished"));
     }
     let result = (|| -> Result<()> {
@@ -1872,7 +1957,7 @@ where
         ));
       },
     }
-    if self.merge_completed.set(success).is_err() {
+    if !self.stat.complete(success) {
       return Err(LuceneError::illegal_state("merge has already finished"));
     }
     let merge_readers = std::mem::take(&mut self.merge_readers);
@@ -1955,7 +2040,7 @@ impl OneMergeDefaults {
     F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
   {
     debug_assert!(merge_readers.is_empty());
-    // TODO merge_completed未实现
+    debug_assert!(!stat.has_finished(), "merge is already done");
     let mut readers = Vec::with_capacity(stat.segments.len());
     let result: Result<_> = (|| {
       for seg_id in stat.segments.iter() {
@@ -2126,20 +2211,15 @@ where
   pub fn add(&mut self, merge: OneMerge<D, CR>) {
     self.merges.push(merge);
   }
-  pub fn await_(&self, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    loop {
-      if self.merges.iter().all(|merge| merge.has_finished()) {
-        return true;
-      }
 
-      let now = Instant::now();
-      if now >= deadline {
+  pub fn await_merges(merges: &[OneMerge<D, CR>], timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    for merge in merges {
+      if !merge.stat.await_until(deadline) {
         return false;
       }
-
-      thread::sleep(std::cmp::min(Duration::from_millis(1), deadline - now));
     }
+    true
   }
 }
 
