@@ -314,7 +314,7 @@ where
       )
     {
       loop {
-        code += 1;
+        code = code.wrapping_add(1);
         hash_pos = code & self.hash_mask;
         e = self.ids[hash_pos as usize];
         if e == -1
@@ -354,7 +354,7 @@ where
     let length = self.bytes_start_array.len();
     // Resolve hash conflicts
     while e != -1 && self.bytes_start_array.get_value(e as usize) != offset {
-      code += 1;
+      code = code.wrapping_add(1);
       hash_pos = code & self.hash_mask;
       e = self.ids[hash_pos as usize];
     }
@@ -409,7 +409,7 @@ where
         debug_assert!(hash_pos >= 0);
         if new_hash[hash_pos as usize] != -1 {
           loop {
-            code += 1;
+            code = code.wrapping_add(1);
             hash_pos = code & new_mask;
             if new_hash[hash_pos as usize] == -1 {
               break;
