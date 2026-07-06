@@ -25,14 +25,14 @@ use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
+use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::long_supplier::LongSupplier;
-use crate::core::util::{Comparator, HasIdentity, IOUtils};
+use crate::core::util::{HasIdentity, IOUtils};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -84,21 +84,16 @@ where
   F: LongSupplier,
 {
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new<S, C>(
+  pub(crate) fn new(
     directory: Arc<IndexWriterDir<D>>,
     original_directory: Arc<D>,
     segment_infos: &SegmentInfos<D>,
     info_stream: InfoStreamMT,
-    soft_deletes_field: Option<S>,
+    soft_deletes_field: Option<String>,
     completed_del_gen_supplier: F,
-    reader: Option<StandardDirectoryReader<C, D>>,
+    reader: Option<StandardDirectoryReader<D>>,
     index_created_version_major: i32,
-  ) -> Result<Self>
-  where
-    S: Into<String>,
-    C: Comparator<DefaultLeafReader<D>> + Clone,
-  {
-    let soft_deletes_field = soft_deletes_field.map(Into::into);
+  ) -> Result<Self> {
     let mut reader_map = HashMap::new();
 
     if let Some(reader) = reader {

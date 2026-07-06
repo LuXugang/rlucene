@@ -71,7 +71,7 @@ pub(crate) fn check_max_doc<D>(commit: &Arc<CommitPoint<D>>, expected_max_doc: i
 where
   D: Directory + 'static,
 {
-  let reader = directory_reader::open_from_commit::<_, DummyComparator, _>(commit)?;
+  let reader = directory_reader::open_from_commit(commit)?;
   assert_eq!(expected_max_doc, reader.max_doc()?);
   reader.close()
 }
@@ -313,7 +313,7 @@ fn test_basic_snapshots() -> Result<()> {
   )?;
 
   // open a reader on a snapshot - should succeed.
-  directory_reader::open_from_commit::<_, DummyComparator, _>(&snapshots[0])?.close()?;
+  directory_reader::open_from_commit(&snapshots[0])?.close()?;
 
   // open a new IndexWriter w/ no snapshots to keep and assert that all snapshots are gone.
   let writer = IndexWriter::new(dir.clone(), get_config(&mut random, None)?)?;
@@ -390,12 +390,7 @@ fn test_rollback_to_old_snapshot() -> Result<()> {
   // now open the writer on "snapshot0" - make sure it succeeds
   let mut config = get_config(&mut random, Some(sdp.clone()))?;
   config.set_open_mode(OpenMode::CreateOrAppend);
-  let index_commit =
-    IndexCommitWrapper::<Arc<CommitPoint<DirEnum>>, DummyComparator, DirEnum>::new(
-      Some(snapshots[0].clone()),
-      None,
-      None,
-    )?;
+  let index_commit = IndexCommitWrapper::new(Some(snapshots[0].clone()), None, None)?;
   let writer = IndexWriter::with_index_commit(dir.clone(), config, index_commit)?;
   // this does the actual rollback.
   writer.commit()?;

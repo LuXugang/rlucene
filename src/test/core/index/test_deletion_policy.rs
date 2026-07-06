@@ -255,7 +255,7 @@ fn test_keep_all_deletion_policy() -> Result<()> {
     assert_eq!(1 + usize::from(needs_merging), commits.len());
 
     for commit in &commits {
-      let r = directory_reader::open_from_commit::<_, DummyComparator, _>(commit)?;
+      let r = directory_reader::open_from_commit(commit)?;
       r.close()?;
     }
 
@@ -343,7 +343,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     conf,
-    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None, None)?,
+    IndexCommitWrapper::new(Some(last_commit.clone()), None, None)?,
   )?;
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
 
@@ -362,7 +362,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     conf,
-    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None, None)?,
+    IndexCommitWrapper::new(Some(last_commit.clone()), None, None)?,
   )?;
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
   writer.close()?;
@@ -393,7 +393,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     conf,
-    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last_commit.clone()), None, None)?,
+    IndexCommitWrapper::new(Some(last_commit.clone()), None, None)?,
   )?;
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
 

@@ -2384,11 +2384,8 @@ fn test_get_commit_data_from_old_snapshot() -> Result<()> {
   // the old commit data is visible.
   let mut iwc = new_snapshot_index_writer_config(&mut random)?;
   iwc.set_open_mode(OpenMode::Append);
-  let index_commit_wrapper = IndexCommitWrapper::<
-    Arc<CommitPoint<DirEnum>>,
-    DummyComparator,
-    DirEnum,
-  >::new(Some(index_commit), None, None)?;
+  let index_commit_wrapper =
+    IndexCommitWrapper::<Arc<CommitPoint<DirEnum>>, DirEnum>::new(Some(index_commit), None, None)?;
   let writer = IndexWriter::with_index_commit(dir.clone(), iwc, index_commit_wrapper)?;
   assert_eq!(
     Some("value"),

@@ -48,7 +48,6 @@ use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
-use crate::core::index::standard_directory_reader::EmptyLeafSorter;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
@@ -1293,7 +1292,7 @@ fn test_open_with_invalid_min_compat_version() -> Result<()> {
   let commits = directory_reader::list_commits(dir.clone())?;
   let commit = &commits[0];
 
-  match directory_reader::open_with_version::<_, EmptyLeafSorter, _>(commit, -1, None) {
+  match directory_reader::open_with_version(commit, -1, None) {
     Ok(reader) => {
       reader.close()?;
       unreachable!("expected IllegalArgument");
@@ -1301,7 +1300,6 @@ fn test_open_with_invalid_min_compat_version() -> Result<()> {
     Err(err) => assert!(matches!(err, LuceneError::IllegalArgument(_))),
   }
 
-  directory_reader::open_with_version::<_, EmptyLeafSorter, _>(commit, LATEST.major, None)?
-    .close()?;
+  directory_reader::open_with_version(commit, LATEST.major, None)?.close()?;
   Ok(())
 }

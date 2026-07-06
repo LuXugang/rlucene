@@ -21,18 +21,21 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::get_context;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader::{self, DirectoryReader};
+use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexReaderWarmer, IndexReaderWarmerEnum, IndexWriter};
 use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::live_index_writer_config::LeafSorter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::simple_merged_segment_warmer::SimpleMergedSegmentWarmer;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -47,7 +50,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
 use crate::test_framework::core::index::test_index_writer_reader::{count, create_index_no_close};
 use crate::test_framework::core::util::lucene_test_case::{
-  is_night_mode, new_directory_shared, new_index_writer_config,
+  at_least, is_night_mode, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
   new_mock_directory, new_text_field, random, random_from_seed,
 };
@@ -1014,7 +1017,7 @@ fn test_reopen_after_no_real_change() -> Result<()> {
 
 #[test]
 fn test_nrt_open_exceptions() -> Result<()> {
-  // TODO IMPORTANT MockDirectoryWrapper未实现
+  // TODO callStackContainsAnyOf未实现
   Ok(())
 }
 
@@ -1069,9 +1072,159 @@ fn test_reopen_nrt_reader_on_commit() -> Result<()> {
 
 #[test]
 fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
-  // TODO IMPORTANT LeafSorter测试未通过
+  let mut random = random();
+  let field_name = "field1";
+  let asc_sort = random.random_bool(0.5);
+  let missing_value: i64 = if asc_sort { i64::MAX } else { i64::MIN };
+
+  let point_sorter = Arc::new(PointValueLeafSorter {
+    asc_sort,
+    field_name: field_name.to_string(),
+    missing_value,
+  });
+  let leaf_sorter = {
+    let s = Arc::clone(&point_sorter);
+    Some(LeafSorter::Custom(Arc::new(move |a, b| s.compare(a, b))))
+  };
+
+  let num_docs = at_least(&mut random, 30);
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_leaf_sorter(leaf_sorter.clone());
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  for i in 0..num_docs {
+    let mut doc = Document::new();
+    doc.add(LongPoint::new(
+      field_name,
+      [random.random_range(1..100) as i64],
+    )?);
+    writer.add_document(doc)?;
+    if i > 0 && i % 10 == 0 {
+      writer.flush()?;
+    }
+  }
+
+  // Test1: test that leafReaders are sorted according to leafSorter provided in
+  // IndexWriterConfig
+  {
+    let reader = directory_reader::open_from_writer(&writer)?;
+    assert_leaves_sorted(&reader, &point_sorter)?;
+
+    let first_value: i64 = if asc_sort { 0 } else { 100 };
+    for _i in 0..10 {
+      let mut doc = Document::new();
+      doc.add(LongPoint::new(field_name, [first_value])?);
+      writer.add_document(doc)?;
+    }
+    writer.commit()?;
+
+    let reader2 =
+      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    assert_leaves_sorted(&reader2, &point_sorter)?;
+    reader.close()?;
+    reader2.close()?;
+  }
+
+  // Test2: test that leafReaders are sorted according to the provided leafSorter
+  // when opened from directory
+  {
+    let reader = directory_reader::open_with_sorter(dir.clone(), leaf_sorter.clone())?;
+    assert_leaves_sorted(&reader, &point_sorter)?;
+
+    let first_value: i64 = if asc_sort { 0 } else { 100 };
+    for _i in 0..10 {
+      let mut doc = Document::new();
+      doc.add(LongPoint::new(field_name, [first_value])?);
+      writer.add_document(doc)?;
+    }
+    writer.commit()?;
+
+    let reader2 =
+      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    assert_leaves_sorted(&reader2, &point_sorter)?;
+    reader.close()?;
+    reader2.close()?;
+  }
+
+  // Test3: test that FilterDirectoryReader sorts leaves according
+  // to leafSorter of its wrapped reader
+  // TODO: AssertingDirectoryReader未实现
+  {
+    let reader = directory_reader::open_with_sorter(dir.clone(), leaf_sorter.clone())?;
+    assert_leaves_sorted(&reader, &point_sorter)?;
+
+    let first_value: i64 = if asc_sort { 0 } else { 100 };
+    for _i in 0..10 {
+      let mut doc = Document::new();
+      doc.add(LongPoint::new(field_name, [first_value])?);
+      writer.add_document(doc)?;
+    }
+    writer.commit()?;
+
+    let reader2 =
+      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    assert_leaves_sorted(&reader2, &point_sorter)?;
+    reader.close()?;
+    reader2.close()?;
+  }
+
+  // Test4: test that leafReaders are sorted according to the provided leafSorter
+  // when opened from commit
+  {
+    let commits = directory_reader::list_commits(dir.clone())?;
+    let latest_commit = &commits[commits.len() - 1];
+    let reader = StandardDirectoryReader::open(
+      latest_commit.get_directory(),
+      Some(latest_commit),
+      leaf_sorter.clone(),
+    )?;
+    assert_leaves_sorted(&reader, &point_sorter)?;
+
+    let first_value: i64 = if asc_sort { 0 } else { 100 };
+    for _i in 0..10 {
+      let mut doc = Document::new();
+      doc.add(LongPoint::new(field_name, [first_value])?);
+      writer.add_document(doc)?;
+    }
+    writer.commit()?;
+
+    let reader2 =
+      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    assert_leaves_sorted(&reader2, &point_sorter)?;
+    reader.close()?;
+    reader2.close()?;
+  }
+
+  writer.close()?;
   Ok(())
 }
+
+/// Assert that the leaf readers of the provided directory reader are sorted
+/// according to the provided leafSorter.
+///
+/// [Java reference: TestIndexWriterReader.assertLeavesSorted]
+fn assert_leaves_sorted<D>(
+  reader: &StandardDirectoryReader<D>,
+  sorter: &PointValueLeafSorter,
+) -> Result<()>
+where
+  D: Directory,
+{
+  let context = get_context(reader)?;
+  let leaves = context.leaves()?;
+  let lrs: Vec<_> = leaves.iter().map(|l| Arc::clone(l.reader())).collect();
+  let mut expected = lrs.clone();
+  expected.sort_by(|a, b| sorter.compare(a, b).unwrap().cmp(&0));
+  for (i, lr) in lrs.iter().enumerate() {
+    assert!(
+      Arc::ptr_eq(lr, &expected[i]),
+      "leaf readers not sorted at index {}",
+      i
+    );
+  }
+  Ok(())
+}
+
 #[derive(Clone)]
 pub struct PointValueLeafSorter {
   asc_sort: bool,

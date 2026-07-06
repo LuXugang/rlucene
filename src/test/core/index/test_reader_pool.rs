@@ -83,7 +83,7 @@ fn test_drop() -> Result<()> {
   let segment_infos = &mut reader.segment_infos;
   let lock = directory.obtain_lock("writer_lock")?;
   let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
-  let pool = ReaderPool::new::<String, DummyComparator>(
+  let pool = ReaderPool::new(
     lock_dir,
     directory.clone(),
     segment_infos,
@@ -142,7 +142,7 @@ fn test_pool_readers() -> Result<()> {
   let lock = directory.obtain_lock("writer_lock")?;
   let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-  let pool = ReaderPool::new::<String, DummyComparator>(
+  let pool = ReaderPool::new(
     lock_dir,
     directory.clone(),
     segment_infos,
@@ -263,7 +263,7 @@ fn test_update() -> Result<()> {
   let lock = directory.obtain_lock("writer_lock")?;
   let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-  let pool = ReaderPool::new::<String, DummyComparator>(
+  let pool = ReaderPool::new(
     lock_dir,
     directory.clone(),
     segment_infos,
@@ -419,7 +419,7 @@ fn test_deletes() -> Result<()> {
   let lock = directory.obtain_lock("writer_lock")?;
   let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-  let pool = ReaderPool::new::<String, DummyComparator>(
+  let pool = ReaderPool::new(
     lock_dir,
     directory.clone(),
     segment_infos,
@@ -536,7 +536,7 @@ fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
   let lock = directory.obtain_lock("writer_lock")?;
   let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-  let pool = Arc::new(ReaderPool::new::<String, DummyComparator>(
+  let pool = Arc::new(ReaderPool::new(
     lock_dir,
     directory.clone(),
     &reader.segment_infos,
@@ -659,7 +659,7 @@ fn test_get_reader_by_ram() -> Result<()> {
   let lock = directory.obtain_lock("writer_lock")?;
   let lock_dir = Arc::new(LockValidatingDirectoryWrapper::new(directory.clone(), lock));
 
-  let pool = ReaderPool::new::<String, DummyComparator>(
+  let pool = ReaderPool::new(
     lock_dir,
     directory.clone(),
     segment_infos,

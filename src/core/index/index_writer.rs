@@ -411,28 +411,26 @@ where
     Self::with_index_commit_and_hook(d, conf, sub, IndexCommitWrapper::default())
   }
 
-  pub fn with_index_commit<IC, C>(
+  pub fn with_index_commit<IC>(
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
-    index_commit: IndexCommitWrapper<IC, C, D>,
+    index_commit: IndexCommitWrapper<IC, D>,
   ) -> Result<Arc<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
-    C: Comparator<DefaultLeafReader<D>> + Clone,
     D: 'static,
   {
     Self::with_index_commit_and_hook(d, conf, Some(EmptyIndexWriterHooks.into()), index_commit)
   }
 
-  pub fn with_index_commit_and_hook<IC, C>(
+  pub fn with_index_commit_and_hook<IC>(
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
     hooks: Option<IndexWriterHooksEnum>,
-    mut index_commit_wrapper: IndexCommitWrapper<IC, C, D>,
+    mut index_commit_wrapper: IndexCommitWrapper<IC, D>,
   ) -> Result<Arc<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
-    C: Comparator<DefaultLeafReader<D>> + Clone,
     D: 'static,
   {
     let enable_test_points = hooks.as_ref().unwrap().is_enable_test_points();
@@ -665,7 +663,7 @@ where
         directory_orig.clone(),
         &segment_infos,
         info_stream.clone(),
-        conf.get_soft_deletes_field(),
+        conf.get_soft_deletes_field().cloned(),
         LongSupplierImpl::new(buffered_updates_stream.clone()),
         reader,
         conf.get_index_created_version_major(),
@@ -6668,18 +6666,6 @@ where
   where
     D: 'static,
   {
-    self.get_reader_with_leaf_sorter::<EmptyLeafSorter>(apply_all_deletes, write_all_deletes, None)
-  }
-  pub(crate) fn get_reader_with_leaf_sorter<C>(
-    &self,
-    apply_all_deletes: bool,
-    write_all_deletes: bool,
-    leaf_sorter: Option<C>,
-  ) -> Result<StandardDirectoryReader<C, D>>
-  where
-    C: Comparator<DefaultLeafReader<D>> + Clone,
-    D: 'static,
-  {
     self.do_ensure_open(true)?;
 
     if write_all_deletes && !apply_all_deletes {
@@ -6740,7 +6726,7 @@ where
       let mut success = false;
       let res = {
         let _full_flush_lock = self.full_flush_lock.lock();
-        let result2: Result<StandardDirectoryReader<C, D>> = (|| {
+        let result2: Result<StandardDirectoryReader<D>> = (|| {
           any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
           if !any_changes {
             self.flush_count.fetch_add(1, Ordering::AcqRel);
@@ -6778,7 +6764,6 @@ where
                 &mut inner,
                 apply_all_deletes,
                 write_all_deletes,
-                leaf_sorter.clone(),
               )?
             };
 
@@ -6854,7 +6839,6 @@ where
                 write_all_deletes,
                 on_get_reader_merges,
                 max_full_flush_merge_wait_millis,
-                leaf_sorter,
               )? {
                 let old_reader = std::mem::replace(&mut r, merged_reader);
                 old_reader.close()?;
@@ -6927,7 +6911,7 @@ where
     }
   }
   #[allow(clippy::too_many_arguments)]
-  fn finish_get_reader_merge<C>(
+  fn finish_get_reader_merge(
     &self,
     stop_collecting_merged_readers: Arc<AtomicBool>,
     merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
@@ -6937,10 +6921,8 @@ where
     write_all_deletes: bool,
     point_in_time_merges: &UpdatePendingMergesResult<D>,
     max_commit_merge_wait_millis: i64,
-    leaf_sorter: Option<C>,
-  ) -> Result<Option<StandardDirectoryReader<C, D>>>
+  ) -> Result<Option<StandardDirectoryReader<D>>>
   where
-    C: Comparator<DefaultLeafReader<D>> + Clone,
     D: 'static,
   {
     let merge_source = self.new_merge_source()?;
@@ -6959,7 +6941,6 @@ where
       apply_all_deletes,
       write_all_deletes,
       &mut inner,
-      leaf_sorter,
     )?;
     {
       let mut merged_readers = merged_readers.lock();
@@ -6969,7 +6950,7 @@ where
     Ok(reader)
   }
   #[allow(clippy::too_many_arguments)]
-  fn maybe_reopen_merged_nrt_reader<C>(
+  fn maybe_reopen_merged_nrt_reader(
     &self,
     merged_readers: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
     opened_read_only_clones: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
@@ -6977,10 +6958,8 @@ where
     apply_all_deletes: bool,
     write_all_deletes: bool,
     inner: &mut Inner<D>,
-    leaf_sorter: Option<C>,
-  ) -> Result<Option<StandardDirectoryReader<C, D>>>
+  ) -> Result<Option<StandardDirectoryReader<D>>>
   where
-    C: Comparator<DefaultLeafReader<D>> + Clone,
     D: 'static,
   {
     if merged_readers.lock().is_empty() {
@@ -6998,7 +6977,6 @@ where
       inner,
       apply_all_deletes,
       write_all_deletes,
-      leaf_sorter,
     );
     inner.deleter.dec_ref(files.iter())?;
     result.map(Some)
@@ -7189,27 +7167,25 @@ where
     Ok(())
   }
 }
-pub struct IndexCommitWrapper<IC, C, D>
+pub struct IndexCommitWrapper<IC, D>
 where
   IC: IndexCommit<Directory = Arc<D>>,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   pub(crate) commit: Option<IC>,
-  pub(crate) reader: Option<StandardDirectoryReader<C, D>>,
+  pub(crate) reader: Option<StandardDirectoryReader<D>>,
   #[cfg(debug_assertions)]
   pub(crate) old_index_writer_closed: Option<Arc<AtomicBool>>,
   pub segment_infos: Option<SegmentInfos<D>>,
 }
-impl<IC, C, D> IndexCommitWrapper<IC, C, D>
+impl<IC, D> IndexCommitWrapper<IC, D>
 where
   IC: IndexCommit<Directory = Arc<D>>,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   pub fn new(
     commit: Option<IC>,
-    reader: Option<StandardDirectoryReader<C, D>>,
+    reader: Option<StandardDirectoryReader<D>>,
     old_writer: Option<Arc<IndexWriter<D>>>,
   ) -> Result<Self> {
     let (old_index_writer_closed, segment_infos) = if let (Some(reader), Some(old_writer)) =
@@ -7240,7 +7216,7 @@ where
     })
   }
 }
-impl<D> Default for IndexCommitWrapper<DummyIndexCommit<D>, EmptyLeafSorter, D>
+impl<D> Default for IndexCommitWrapper<DummyIndexCommit<D>, D>
 where
   D: Directory,
 {
@@ -7957,7 +7933,7 @@ use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::sorting_codec_reader::wrap_with_doc_map;
 use crate::core::index::standard_directory_reader::{
-  EmptyLeafSorter, StandardDirectoryReader, StandardDirectoryReaderType, open_with_reader_function,
+  StandardDirectoryReader, StandardDirectoryReaderType, open_with_reader_function,
 };
 use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
@@ -7983,8 +7959,8 @@ use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
-  BYTE_BLOCK_SIZE, Comparator, CoreHelper, HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR,
-  StringHelper, TryIntoInt,
+  BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper,
+  TryIntoInt,
 };
 #[cfg(test)]
 use crate::test_framework::core::internal::index_writer_access::IndexWriterAccess;

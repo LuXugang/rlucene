@@ -22,7 +22,7 @@ use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_writer::IndexReaderWarmerEnum;
 use crate::core::index::index_writer_event_listener::IndexWriterEventListenerEnum;
 use crate::core::index::live_index_writer_config::{
-  LiveIndexWriterConfig, LiveIndexWriterConfigBase,
+  LeafSorter, LiveIndexWriterConfig, LiveIndexWriterConfigBase,
 };
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
@@ -302,6 +302,19 @@ where
   pub fn set_reader_pooling(&mut self, reader_pooling: bool) -> &mut Self {
     self.base.reader_pooling = reader_pooling;
     self
+  }
+  /// Set the comparator for sorting leaf readers. A `DirectoryReader` opened
+  /// from an `IndexWriter` with this configuration will have its leaf readers
+  /// sorted with the provided leaf sorter.
+  pub fn set_leaf_sorter(&mut self, leaf_sorter: Option<LeafSorter<D>>) -> &mut Self {
+    self.base.leaf_sorter = leaf_sorter;
+    self
+  }
+
+  /// Returns the comparator for sorting leaf readers, or `None` if no leaf
+  /// sorter is set.
+  pub fn get_leaf_sorter(&self) -> Option<&LeafSorter<D>> {
+    self.base.leaf_sorter.as_ref()
   }
 }
 

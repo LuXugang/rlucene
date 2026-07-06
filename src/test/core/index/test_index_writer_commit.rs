@@ -29,7 +29,6 @@ use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
-use crate::core::index::standard_directory_reader::EmptyLeafSorter;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
@@ -514,7 +513,7 @@ fn test_future_commit() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     iwc,
-    IndexCommitWrapper::<_, EmptyLeafSorter, _>::new(Some(commit), None, None)?,
+    IndexCommitWrapper::new(Some(commit), None, None)?,
   )?;
 
   assert_eq!(1, writer.get_doc_stats()?.num_docs);

@@ -30,6 +30,7 @@ use crate::core::index::index_reader::{
 };
 use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::leaf_reader::LeafReader;
+pub use crate::core::index::live_index_writer_config::LeafSorter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::pending_deletes::DocBits;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -41,7 +42,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::io_utils::IOUtils;
-use crate::core::util::{Comparator, LATEST, MIN_SUPPORTED_MAJOR};
+use crate::core::util::{LATEST, MIN_SUPPORTED_MAJOR};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -50,9 +51,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 
 /// Default implementation of DirectoryReader.
-pub struct StandardDirectoryReader<C, D>
+pub struct StandardDirectoryReader<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   base_composite_reader_base:
@@ -61,21 +61,20 @@ where
   apply_all_deletes: bool,
   write_all_deletes: bool,
   pub(crate) segment_infos: SegmentInfos<D>,
-  sub_reader_sorter: Option<C>,
+  sub_reader_sorter: Option<LeafSorter<D>>,
   index_base: IndexReaderBase,
   pub(crate) writer_closed: Option<Arc<AtomicBool>>,
   cache_helper: CacheHelperImpl,
 }
-impl<C, D> StandardDirectoryReader<C, D>
+impl<D> StandardDirectoryReader<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory + 'static,
 {
   pub(crate) fn new(
     directory: Arc<D>,
     readers: Vec<DefaultLeafReader<D>>,
     segment_infos: SegmentInfos<D>,
-    leaf_sorter: Option<C>,
+    leaf_sorter: Option<LeafSorter<D>>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
     closed: Option<Arc<AtomicBool>>,
@@ -99,11 +98,10 @@ where
   pub(crate) fn open<IC>(
     directory: Arc<D>,
     commit: Option<&IC>,
-    leaf_sorter: Option<C>,
-  ) -> Result<StandardDirectoryReader<C, D>>
+    leaf_sorter: Option<LeafSorter<D>>,
+  ) -> Result<StandardDirectoryReader<D>>
   where
     D: Directory,
-    C: Comparator<DefaultLeafReader<D>> + Clone,
     IC: IndexCommit<Directory = Arc<D>>,
   {
     Self::open_with_version(directory, *MIN_SUPPORTED_MAJOR, commit, leaf_sorter)
@@ -113,11 +111,10 @@ where
     directory: Arc<D>,
     min_supported_major_version: i32,
     commit: Option<&IC>,
-    leaf_sorter: Option<C>,
-  ) -> Result<StandardDirectoryReader<C, D>>
+    leaf_sorter: Option<LeafSorter<D>>,
+  ) -> Result<StandardDirectoryReader<D>>
   where
     D: Directory,
-    C: Comparator<DefaultLeafReader<D>> + Clone,
     IC: IndexCommit<Directory = Arc<D>>,
   {
     let mut finder =
@@ -169,11 +166,7 @@ where
       return Ok(None);
     }
 
-    let reader = writer.get_reader_with_leaf_sorter(
-      self.apply_all_deletes,
-      self.write_all_deletes,
-      self.sub_reader_sorter.clone(),
-    )?;
+    let reader = writer.get_reader(self.apply_all_deletes, self.write_all_deletes)?;
 
     // If in fact no changes took place, return None:
     if reader.get_version()? == self.segment_infos.get_version() {
@@ -219,20 +212,18 @@ where
     &self.segment_infos
   }
 }
-pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<EmptyLeafSorter, D>;
-pub(crate) fn open_with_reader_function<D, IO, C>(
+pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<D>;
+pub(crate) fn open_with_reader_function<D, IO>(
   writer: &IndexWriter<D>,
   reader_function: &mut IO,
   infos: Option<&SegmentInfos<D>>,
   inner: &mut Inner<D>, // hold IndexWriter lock
   apply_all_deletes: bool,
   write_all_deletes: bool,
-  leaf_sorter: Option<C>,
-) -> Result<StandardDirectoryReader<C, D>>
+) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
   IO: IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   let (segment_infos, dir, readers) = {
     let infos = match infos {
@@ -293,6 +284,7 @@ where
   // Clone pointer should be cheap
   let readers_backup = readers.clone();
   let result: Result<_> = (|| {
+    let leaf_sorter = writer.get_config().get_leaf_sorter().cloned();
     writer.inc_ref_deleter(&segment_infos, Some(inner))?;
     StandardDirectoryReader::new(
       dir,
@@ -314,15 +306,14 @@ where
     },
   }
 }
-pub(crate) fn open_with_leaf_sorter<D, C>(
+pub(crate) fn open_with_leaf_sorter<D>(
   directory: Arc<D>,
   infos: SegmentInfos<D>,
   old_readers: Vec<DefaultLeafReader<D>>,
-  leaf_sorter: Option<C>,
-) -> Result<StandardDirectoryReader<C, D>>
+  leaf_sorter: Option<LeafSorter<D>>,
+) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   // we put the old SegmentReaders in a map, that allows us
   // to lookup a reader using its segment name
@@ -467,16 +458,10 @@ where
   }
 }
 
-impl<C, D> BaseCompositeReader for StandardDirectoryReader<C, D>
-where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
-  D: Directory,
-{
-}
+impl<D> BaseCompositeReader for StandardDirectoryReader<D> where D: Directory {}
 
-impl<C, D> CompositeReader for StandardDirectoryReader<C, D>
+impl<D> CompositeReader for StandardDirectoryReader<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   type LeafReader = DefaultLeafReader<D>;
@@ -510,9 +495,8 @@ where
   }
 }
 
-impl<C, D> IndexReader for StandardDirectoryReader<C, D>
+impl<D> IndexReader for StandardDirectoryReader<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   type TermVectors =
@@ -578,9 +562,8 @@ where
   }
 }
 
-impl<C, D> Display for StandardDirectoryReader<C, D>
+impl<D> Display for StandardDirectoryReader<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -588,12 +571,11 @@ where
   }
 }
 
-impl<C, D> DirectoryReader for StandardDirectoryReader<C, D>
+impl<D> DirectoryReader for StandardDirectoryReader<D>
 where
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   D: Directory + 'static,
 {
-  type DirectoryReader = StandardDirectoryReader<C, D>;
+  type DirectoryReader = StandardDirectoryReader<D>;
 
   fn do_open_if_changed(
     &self,
@@ -636,11 +618,9 @@ where
     {
       self.do_open_from_writer::<DummyIndexCommit<D>>(writer, None)
     } else {
-      Ok(Some(writer.get_reader_with_leaf_sorter(
-        apply_deletes,
-        self.write_all_deletes,
-        self.sub_reader_sorter.clone(),
-      )?))
+      Ok(Some(
+        writer.get_reader(apply_deletes, self.write_all_deletes)?,
+      ))
     }
   }
 
@@ -697,21 +677,23 @@ impl CacheHelper for CacheHelperImpl {
     self.cache_key.clone()
   }
 }
-pub struct FindSegmentsFileImpl1<D, C>
+pub struct FindSegmentsFileImpl1<D>
 where
   D: Directory,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   min_supported_major_version: i32,
   directory: Arc<D>,
-  leaf_sorter: Option<C>,
+  leaf_sorter: Option<LeafSorter<D>>,
 }
-impl<D, C> FindSegmentsFileImpl1<D, C>
+impl<D> FindSegmentsFileImpl1<D>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
-  pub fn new(min_supported_major_version: i32, directory: Arc<D>, leaf_sorter: Option<C>) -> Self {
+  pub fn new(
+    min_supported_major_version: i32,
+    directory: Arc<D>,
+    leaf_sorter: Option<LeafSorter<D>>,
+  ) -> Self {
     FindSegmentsFileImpl1 {
       min_supported_major_version,
       directory,
@@ -719,12 +701,11 @@ where
     }
   }
 }
-impl<D, C> FindSegmentsFile for FindSegmentsFileImpl1<D, C>
+impl<D> FindSegmentsFile for FindSegmentsFileImpl1<D>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
-  type V = StandardDirectoryReader<C, D>;
+  type V = StandardDirectoryReader<D>;
   type D = D;
 
   fn get_directory_point(&self) -> Arc<Self::D> {
@@ -773,24 +754,22 @@ where
   }
 }
 
-pub struct FindSegmentsFileImpl2<D, C>
+pub struct FindSegmentsFileImpl2<D>
 where
   D: Directory,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   directory: Arc<D>,
   old_readers: Vec<DefaultLeafReader<D>>,
-  leaf_sorter: Option<C>,
+  leaf_sorter: Option<LeafSorter<D>>,
 }
-impl<D, C> FindSegmentsFileImpl2<D, C>
+impl<D> FindSegmentsFileImpl2<D>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   pub fn new(
     directory: Arc<D>,
     old_readers: Vec<DefaultLeafReader<D>>,
-    leaf_sorter: Option<C>,
+    leaf_sorter: Option<LeafSorter<D>>,
   ) -> Self {
     FindSegmentsFileImpl2 {
       directory,
@@ -799,12 +778,11 @@ where
     }
   }
 }
-impl<D, C> FindSegmentsFile for FindSegmentsFileImpl2<D, C>
+impl<D> FindSegmentsFile for FindSegmentsFileImpl2<D>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
-  type V = StandardDirectoryReader<C, D>;
+  type V = StandardDirectoryReader<D>;
   type D = D;
 
   fn get_directory_point(&self) -> Arc<Self::D> {
@@ -821,29 +799,16 @@ where
     )
   }
 }
-pub(crate) fn do_open_if_changed<D, C>(
+pub(crate) fn do_open_if_changed<D>(
   infos: SegmentInfos<D>,
   directory: Arc<D>,
   old_readers: Vec<DefaultLeafReader<D>>,
-  sub_readers_sorter: Option<C>,
-) -> Result<StandardDirectoryReader<C, D>>
+  sub_readers_sorter: Option<LeafSorter<D>>,
+) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   open_with_leaf_sorter(directory, infos, old_readers, sub_readers_sorter)
-}
-#[derive(Clone)]
-pub struct EmptyLeafSorter;
-impl<D> Comparator<DefaultLeafReader<D>> for EmptyLeafSorter
-where
-  D: Directory,
-{
-  const TYPE: &'static str = "EmptyLeafSorter";
-
-  fn compare(&self, _a: &DefaultLeafReader<D>, _b: &DefaultLeafReader<D>) -> Result<i32> {
-    Ok(0)
-  }
 }
 
 pub struct ReaderCommit<D>

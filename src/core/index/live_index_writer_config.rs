@@ -45,6 +45,9 @@ use std::fmt::Display;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
+use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::util::comparator::Comparator;
+
 /// Holds all configuration used by `IndexWriter`, with a small set of setters
 /// for settings that can be changed on an `IndexWriter` instance live.
 pub trait LiveIndexWriterConfig: Display {
@@ -260,6 +263,57 @@ pub trait LiveIndexWriterConfig: Display {
   }
 }
 
+/// Leaf sorter for sorting leaf readers, equivalent to Java's
+/// `Comparator<LeafReader>`.
+///
+/// Implements [`Comparator<DefaultLeafReader<D>>`] via a closure held in
+/// the `Custom` variant.
+pub enum LeafSorter<D>
+where
+  D: Directory,
+{
+  /// A custom comparator provided by the user.
+  ///
+  /// Uses `Arc<dyn Fn>` because [`Comparator`] is not dyn-compatible
+  /// (it has an associated constant `TYPE`).
+  Custom(Arc<LeafReaderComparator<D>>),
+}
+impl<D> Comparator<DefaultLeafReader<D>> for LeafSorter<D>
+where
+  D: Directory,
+{
+  const TYPE: &'static str = "LeafSorter";
+
+  fn compare(&self, a: &DefaultLeafReader<D>, b: &DefaultLeafReader<D>) -> Result<i32> {
+    match self {
+      LeafSorter::Custom(c) => c(a, b),
+    }
+  }
+}
+
+impl<D> Clone for LeafSorter<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    match self {
+      LeafSorter::Custom(c) => LeafSorter::Custom(Arc::clone(c)),
+    }
+  }
+}
+
+impl<D> LeafSorter<D>
+where
+  D: Directory,
+{
+  /// Creates a new `LeafSorter` with a custom comparator.
+  pub fn custom(comparator: Arc<LeafReaderComparator<D>>) -> Self {
+    LeafSorter::Custom(comparator)
+  }
+}
+
+type LeafReaderComparator<D> =
+  dyn Fn(&DefaultLeafReader<D>, &DefaultLeafReader<D>) -> Result<i32> + Send + Sync;
 /// Storage for live index writer configuration values.
 ///
 /// These fields mirror the live configuration state that an `IndexWriter` reads
@@ -320,6 +374,8 @@ where
   pub index_sort_fields: HashSet<String>,
   /// [`MergeSchedulerEnum`] to use for running merges.
   pub merge_scheduler: MergeSchedulerEnum,
+  /// Comparator for sorting leaf readers.
+  pub leaf_sorter: Option<LeafSorter<D>>,
 }
 impl<D> LiveIndexWriterConfigBase<D>
 where
@@ -360,6 +416,7 @@ where
       index_sort: None,
       index_sort_fields: HashSet::new(),
       merge_scheduler: MergeSchedulerEnum::default(),
+      leaf_sorter: None,
     })
   }
 

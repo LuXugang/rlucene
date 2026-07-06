@@ -73,7 +73,7 @@ where
   let writer = IndexWriter::with_index_commit(
     dir,
     config,
-    IndexCommitWrapper::<_, DummyComparator, _>::new(Some(last), None, None)?,
+    IndexCommitWrapper::new(Some(last), None, None)?,
   )?;
   writer.set_live_commit_data(HashMap::from([(
     "index".to_string(),

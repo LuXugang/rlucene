@@ -24,11 +24,10 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
-use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::live_index_writer_config::LeafSorter;
 use crate::core::index::standard_directory_reader::{
   ReaderCommit, StandardDirectoryReader, StandardDirectoryReaderType,
 };
-use crate::core::util::Comparator;
 /// [`DirectoryReader`] is an implementation of [`CompositeReader`](crate::core::index::composite_reader::CompositeReader) that can read indexes
 /// from a [`Directory`].
 ///
@@ -149,7 +148,7 @@ pub fn open<D>(directory: Arc<D>) -> Result<StandardDirectoryReaderType<D>>
 where
   D: Directory + 'static,
 {
-  StandardDirectoryReader::<_, _>::open::<DummyIndexCommit<D>>(directory, None, None)
+  StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, None)
 }
 
 /// Returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) for the index in the given [`Directory`].
@@ -167,13 +166,12 @@ where
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open_with_sorter<D, C>(
+pub fn open_with_sorter<D>(
   directory: Arc<D>,
-  leaf_sorter: Option<C>,
-) -> Result<StandardDirectoryReader<C, D>>
+  leaf_sorter: Option<LeafSorter<D>>,
+) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
 }
@@ -197,16 +195,7 @@ where
 {
   open_with_writer_deletes(writer, true, false)
 }
-pub fn open_from_writer_with_leaf_sorter<D, C>(
-  writer: &IndexWriter<D>,
-  leaf_sorter: C,
-) -> Result<StandardDirectoryReader<C, D>>
-where
-  D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
-{
-  open_with_writer_deletes_and_leaf_sorter(writer, true, false, leaf_sorter)
-}
+
 /// Expert: Opens a near real-time `IndexReader` from the given [`IndexWriter`],
 /// controlling whether past deletions should be applied.
 ///
@@ -238,18 +227,6 @@ where
 {
   writer.get_reader(apply_all_deletes, write_all_deletes)
 }
-pub fn open_with_writer_deletes_and_leaf_sorter<D, C>(
-  writer: &IndexWriter<D>,
-  apply_all_deletes: bool,
-  write_all_deletes: bool,
-  leaf_sorter: C,
-) -> Result<StandardDirectoryReader<C, D>>
-where
-  D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
-{
-  writer.get_reader_with_leaf_sorter(apply_all_deletes, write_all_deletes, Some(leaf_sorter))
-}
 
 /// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given `IndexCommit`.
 ///
@@ -260,10 +237,9 @@ where
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open_from_commit<D, C, IC>(commit: &IC) -> Result<StandardDirectoryReader<C, D>>
+pub fn open_from_commit<D, IC>(commit: &IC) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = Arc<D>>,
 {
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
@@ -287,13 +263,12 @@ where
 /// # Errors
 ///
 /// Returns an error if the index is corrupt or if there is a low-level I/O error.
-pub fn open_if_changed<D, C>(
-  old_reader: &StandardDirectoryReader<C, D>,
+pub fn open_if_changed<D>(
+  old_reader: &StandardDirectoryReader<D>,
   writer: &IndexWriter<D>,
-) -> Result<Option<StandardDirectoryReader<C, D>>>
+) -> Result<Option<StandardDirectoryReader<D>>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   old_reader.do_open_if_changed(writer)
 }
@@ -304,14 +279,13 @@ where
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open_if_changed_with_commit<D, C, IC>(
-  old_reader: &StandardDirectoryReader<C, D>,
+pub fn open_if_changed_with_commit<D, IC>(
+  old_reader: &StandardDirectoryReader<D>,
   commit: Option<&IC>,
   writer: &IndexWriter<D>,
-) -> Result<Option<StandardDirectoryReader<C, D>>>
+) -> Result<Option<StandardDirectoryReader<D>>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = Arc<D>>,
 {
   old_reader.do_open_if_changed_with_commit(writer, commit)
@@ -343,13 +317,12 @@ where
 /// # Lucene
 ///
 /// This API is marked as experimental in Lucene.
-pub fn open_if_changed_with_writer<D, C>(
-  old_reader: &StandardDirectoryReader<C, D>,
+pub fn open_if_changed_with_writer<D>(
+  old_reader: &StandardDirectoryReader<D>,
   writer: &IndexWriter<D>,
-) -> Result<Option<StandardDirectoryReader<C, D>>>
+) -> Result<Option<StandardDirectoryReader<D>>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   open_if_changed_with_writer_deletes(old_reader, writer, true)
 }
@@ -372,14 +345,13 @@ where
 /// # Lucene
 ///
 /// This API is marked as experimental in Lucene.
-pub fn open_if_changed_with_writer_deletes<D, C>(
-  old_reader: &StandardDirectoryReader<C, D>,
+pub fn open_if_changed_with_writer_deletes<D>(
+  old_reader: &StandardDirectoryReader<D>,
   writer: &IndexWriter<D>,
   apply_all_deletes: bool,
-) -> Result<Option<StandardDirectoryReader<C, D>>>
+) -> Result<Option<StandardDirectoryReader<D>>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
 {
   old_reader.do_open_if_changed_with_deletes(writer, apply_all_deletes)
 }
@@ -491,14 +463,13 @@ pub fn index_exists(directory: &impl Directory) -> Result<bool> {
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open_with_version<D, C, IC>(
+pub fn open_with_version<D, IC>(
   commit: &IC,
   min_supported_major_version: i32,
-  leaf_sorter: Option<C>,
-) -> Result<StandardDirectoryReader<C, D>>
+  leaf_sorter: Option<LeafSorter<D>>,
+) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
-  C: Comparator<DefaultLeafReader<D>> + Clone,
   IC: IndexCommit<Directory = Arc<D>>,
 {
   StandardDirectoryReader::open_with_version(
