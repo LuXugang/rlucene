@@ -83,10 +83,11 @@ where
 
   /// Merges the indicated segments, replacing them in the stack
   /// with a single segment.
-  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()>
+  fn merge(&self, merge: OneMergeSR<D>) -> Result<()>
   where
     D: 'static;
 }
+
 pub enum MergeSchedulerEnum {
   Serial(SerialMergeScheduler),
   No(NoMergeScheduler),

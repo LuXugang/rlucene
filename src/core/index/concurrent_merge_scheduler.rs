@@ -608,7 +608,7 @@ impl ConcurrentMergeScheduler {
   /**
    * Does the actual merge, by calling `MergeSource::merge`.
    */
-  fn do_merge<MS, D>(&self, merge_source: &MS, merge: &mut OneMergeSR<D>) -> Result<()>
+  fn do_merge<MS, D>(&self, merge_source: &MS, merge: OneMergeSR<D>) -> Result<()>
   where
     MS: MergeSource<D>,
     D: Directory + 'static,
@@ -750,16 +750,23 @@ where
     }
   }
 
-  fn run(mut self, merge_scheduler: ConcurrentMergeScheduler) -> Result<()> {
-    self.state.set_owner_to_current_thread();
-    let previous = CURRENT_MERGE_RATE_LIMITER
-      .with(|slot| slot.borrow_mut().replace(self.state.rate_limiter.clone()));
-    let merge_result = merge_scheduler.do_merge(&self.merge_source, &mut self.merge);
+  fn run(self, merge_scheduler: ConcurrentMergeScheduler) -> Result<()> {
+    let MergeThread {
+      state,
+      merge_source,
+      merge,
+    } = self;
+    let merge_stat = merge.stat.clone();
+
+    state.set_owner_to_current_thread();
+    let previous =
+      CURRENT_MERGE_RATE_LIMITER.with(|slot| slot.borrow_mut().replace(state.rate_limiter.clone()));
+    let merge_result = merge_scheduler.do_merge(&merge_source, merge);
     CURRENT_MERGE_RATE_LIMITER.with(|slot| {
       *slot.borrow_mut() = previous;
     });
 
-    let merge_aborted = self.merge.is_aborted();
+    let merge_aborted = merge_stat.is_aborted();
 
     if let Err(exc) = merge_result {
       let mut inner = merge_scheduler.inner.lock();
@@ -776,7 +783,7 @@ where
         Ok(())
       }
     } else {
-      merge_scheduler.run_on_merge_finished(self.merge_source.clone())
+      merge_scheduler.run_on_merge_finished(merge_source)
     }
   }
 

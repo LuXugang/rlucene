@@ -38,14 +38,19 @@ impl MergeScheduler for MyMergeScheduler {
     OneMergeSR<D>: Send + 'static,
   {
     loop {
-      let mut merge = match merge_source.get_next_merge()? {
+      let merge = match merge_source.get_next_merge()? {
         Some(merge) => merge,
         None => break,
       };
-      merge_source.merge(&mut merge)?;
-      if let Some(info) = merge.info.as_ref() {
-        assert!(info.info.max_doc()? > 0);
+      let mut num_docs = 0;
+      for segment in &merge.segments {
+        let max_doc = segment.max_doc;
+        num_docs += max_doc;
+        assert!(max_doc < 20);
       }
+      let merge_stat = merge.stat.clone();
+      merge_source.merge(merge)?;
+      assert_eq!(Some(num_docs), merge_stat.max_doc());
     }
     Ok(())
   }

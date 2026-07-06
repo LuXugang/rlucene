@@ -1942,6 +1942,8 @@ where
         debug_assert!(merge.info.is_some());
         let sci = merge.info.as_mut().unwrap();
         max_doc = sci.info.max_doc()?;
+        #[cfg(test)]
+        merge.stat.set_max_doc(max_doc);
         debug_assert!(max_doc > 0);
 
         // Very important to do this before opening the reader
@@ -8505,11 +8507,11 @@ where
     }
   }
 
-  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()>
+  fn merge(&self, mut merge: OneMergeSR<D>) -> Result<()>
   where
     D: 'static,
   {
-    self.writer().merge(merge)
+    self.writer().merge(&mut merge)
   }
 }
 struct AddIndexesMergeSource<D>
@@ -8517,6 +8519,7 @@ where
   D: Directory,
 {
   writer: Arc<IndexWriter<D>>,
+  processed_merges: Mutex<Vec<OneMergeSR<D>>>,
 }
 
 impl<D> Clone for AddIndexesMergeSource<D>
@@ -8526,6 +8529,7 @@ where
   fn clone(&self) -> Self {
     Self {
       writer: self.writer.clone(),
+      processed_merges: Mutex::new(Vec::new()),
     }
   }
 }
@@ -8535,7 +8539,10 @@ where
   D: Directory,
 {
   fn new(writer: Arc<IndexWriter<D>>) -> Self {
-    Self { writer }
+    Self {
+      writer,
+      processed_merges: Mutex::new(Vec::new()),
+    }
   }
 
   fn writer(&self) -> &IndexWriter<D> {
@@ -8612,22 +8619,25 @@ where
     }
   }
 
-  fn merge(&self, merge: &mut OneMergeSR<D>) -> Result<()>
+  fn merge(&self, mut merge: OneMergeSR<D>) -> Result<()>
   where
     D: 'static,
   {
     let mut success = false;
-    let result = match self.writer().add_indexes_reader_merge(merge) {
+    let result = match self.writer().add_indexes_reader_merge(&mut merge) {
       Ok(()) => {
         success = true;
         Ok(())
       },
-      Err(err) => self.writer().handle_merge_exception(err, merge),
+      Err(err) => self.writer().handle_merge_exception(err, &merge),
     };
 
-    let mut inner = self.writer().inner.lock();
-    merge.close(&mut inner, success, false, |_, _| Ok(()))?;
-    self.on_merge_finished(&merge.stat, Some(&mut *inner));
+    {
+      let mut inner = self.writer().inner.lock();
+      merge.close(&mut inner, success, false, |_, _| Ok(()))?;
+      self.on_merge_finished(&merge.stat, Some(&mut *inner));
+    }
+    self.processed_merges.lock().push(merge);
     result
   }
 }

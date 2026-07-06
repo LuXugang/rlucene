@@ -52,11 +52,11 @@ impl MergeScheduler for SerialMergeScheduler {
   {
     let _guard = self.merge_lock.lock();
     loop {
-      let mut merge = match merge_source.get_next_merge()? {
+      let merge = match merge_source.get_next_merge()? {
         Some(merge) => merge,
         None => break,
       };
-      merge_source.merge(&mut merge)?;
+      merge_source.merge(merge)?;
     }
     Ok(())
   }

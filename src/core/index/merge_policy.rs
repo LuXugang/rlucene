@@ -1584,6 +1584,8 @@ struct MergeStatState {
   max_num_segments: i32,
   info_id: Option<String>,
   name: Option<String>,
+  #[cfg(test)]
+  max_doc: Option<i32>,
 }
 
 impl MergeStatState {
@@ -1592,6 +1594,8 @@ impl MergeStatState {
       max_num_segments: -1,
       info_id: None,
       name: None,
+      #[cfg(test)]
+      max_doc: None,
     }
   }
 }
@@ -1655,20 +1659,38 @@ impl MergeStat {
     self.state.lock().name.clone()
   }
 
+  #[cfg(test)]
+  pub(crate) fn max_doc(&self) -> Option<i32> {
+    self.state.lock().max_doc
+  }
+
   pub(crate) fn set_merge_info(&self, info_id: String, name: String) {
     let mut state = self.state.lock();
     state.info_id = Some(info_id);
     state.name = Some(name);
   }
 
+  #[cfg(test)]
+  pub(crate) fn set_max_doc(&self, max_doc: i32) {
+    self.state.lock().max_doc = Some(max_doc);
+  }
+
   pub(crate) fn clear_merge_info(&self) {
     let mut state = self.state.lock();
     state.info_id = None;
     state.name = None;
+    #[cfg(test)]
+    {
+      state.max_doc = None;
+    }
   }
 
   pub(crate) fn set_aborted(&self) {
     self.merge_progress.abort();
+  }
+
+  pub(crate) fn is_aborted(&self) -> bool {
+    self.merge_progress.is_aborted()
   }
 
   pub(crate) fn set_merge_thread(&self) {
@@ -1828,7 +1850,7 @@ where
     Ok(())
   }
   pub fn is_aborted(&self) -> bool {
-    self.stat.merge_progress.is_aborted()
+    self.stat.is_aborted()
   }
   pub fn check_aborted(&self) -> Result<()> {
     if self.is_aborted() {

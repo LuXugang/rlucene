@@ -2640,8 +2640,8 @@ impl MergeScheduler for TestMergeScheduler {
     D: Directory + 'static,
     OneMergeSR<D>: Send + 'static,
   {
-    while let Some(mut merge) = merge_source.get_next_merge()? {
-      let result: Result<()> = merge_source.merge(&mut merge);
+    while let Some(merge) = merge_source.get_next_merge()? {
+      let result: Result<()> = merge_source.merge(merge);
       if result.is_err() {
         self.ex.store(true, Ordering::Relaxed);
         return result;
