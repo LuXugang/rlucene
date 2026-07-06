@@ -405,70 +405,69 @@ fn test_setters() -> Result<()> {
 
 #[test]
 fn test_merge_on_commit() -> Result<()> {
-  // TODO IMPORTANT commitOnMerge
-  // let mut random = random();
-  // let dir = new_directory_shared(&mut random)?;
-  //
-  // // First writer: no merge policy, add 5 docs (each flushed)
-  // let mock = MockAnalyzer::new(&mut random);
-  // let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  // config.set_merge_policy(NoMergePolicy::default());
-  // let first_writer = IndexWriter::new(dir.clone(), config)?;
-  //
-  // let mut field_types = HashMap::new();
-  // for _ in 0..5 {
-  //   crate::test_framework::core::index::test_index_writer::add_doc(
-  //     &mut random,
-  //     &first_writer,
-  //     &mut field_types,
-  //   )?;
-  //   first_writer.flush()?;
-  // }
-  //
-  // // Check 5 leaf segments
-  // {
-  //   let first_reader = directory_reader::open_from_writer(&first_writer)?;
-  //   let first_ctx = get_context(first_reader)?;
-  //   assert_eq!(5, first_ctx.leaves()?.len());
-  // }
-  // first_writer.close()?;
-  //
-  // // Second writer: MergeOnX with COMMIT trigger
-  // let mock = MockAnalyzer::new(&mut random);
-  // let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  // config
-  //   .set_merge_policy(MergeOnXMergePolicy::new(
-  //     new_merge_policy(&mut random)?,
-  //     MergeTrigger::Commit,
-  //   ))
-  //   .set_max_full_flush_merge_wait_millis(i64::MAX);
-  // let writer_with_merge_policy = IndexWriter::new(dir.clone(), config)?;
-  //
-  // {
-  //   let unmerged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
-  //   let unmerged_ctx = get_context(unmerged_reader)?;
-  //   let leaf_count = unmerged_ctx.leaves()?.len();
-  //   assert_eq!(5, leaf_count);
-  // }
-  //
-  // // Commit triggers merge
-  // writer_with_merge_policy.commit()?;
-  // assert_eq!(1, writer_with_merge_policy.get_segment_count());
-  //
-  // {
-  //   let merged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
-  //   let merged_ctx = get_context(merged_reader)?;
-  //   assert_eq!(1, merged_ctx.leaves()?.len());
-  // }
-  //
-  // let reader = Arc::new(directory_reader::open_from_writer(
-  //   &writer_with_merge_policy,
-  // )?);
-  // let searcher = IndexSearcher::from_cr(reader.clone())?;
-  // assert_eq!(5, reader.num_docs()?);
-  // assert_eq!(5, searcher.count(MatchAllDocsQuery::new())?);
-  //
-  // writer_with_merge_policy.close()?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  // First writer: no merge policy, add 5 docs (each flushed)
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config.set_merge_policy(NoMergePolicy::default());
+  let first_writer = IndexWriter::new(dir.clone(), config)?;
+
+  let mut field_types = HashMap::new();
+  for _ in 0..5 {
+    crate::test_framework::core::index::test_index_writer::add_doc(
+      &mut random,
+      &first_writer,
+      &mut field_types,
+    )?;
+    first_writer.flush()?;
+  }
+
+  // Check 5 leaf segments
+  {
+    let first_reader = directory_reader::open_from_writer(&first_writer)?;
+    let first_ctx = get_context(first_reader)?;
+    assert_eq!(5, first_ctx.leaves()?.len());
+  }
+  first_writer.close()?;
+
+  // Second writer: MergeOnX with COMMIT trigger
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      new_merge_policy(&mut random)?,
+      MergeTrigger::Commit,
+    ))
+    .set_max_full_flush_merge_wait_millis(i64::MAX);
+  let writer_with_merge_policy = IndexWriter::new(dir.clone(), config)?;
+
+  {
+    let unmerged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
+    let unmerged_ctx = get_context(unmerged_reader)?;
+    let leaf_count = unmerged_ctx.leaves()?.len();
+    assert_eq!(5, leaf_count);
+  }
+
+  // Commit triggers merge
+  writer_with_merge_policy.commit()?;
+  assert_eq!(1, writer_with_merge_policy.get_segment_count());
+
+  {
+    let merged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
+    let merged_ctx = get_context(merged_reader)?;
+    assert_eq!(1, merged_ctx.leaves()?.len());
+  }
+
+  let reader = Arc::new(directory_reader::open_from_writer(
+    &writer_with_merge_policy,
+  )?);
+  let searcher = IndexSearcher::from_cr(reader.clone())?;
+  assert_eq!(5, reader.num_docs()?);
+  assert_eq!(5, searcher.count(MatchAllDocsQuery::new())?);
+
+  writer_with_merge_policy.close()?;
   Ok(())
 }
 
@@ -508,52 +507,51 @@ fn await_latch(latch: &TestLatch, message: &str) -> Result<()> {
   }
 }
 
-fn abort_merge_on_x(_use_get_reader: bool) -> Result<()> {
-  // TODO IMPORTANT commitOnMerge未实现
-  // let mut random = random();
-  // let directory = new_directory_shared(&mut random)?;
-  // let wait_for_merge = TestLatch::new();
-  // let wait_for_delete_all = TestLatch::new();
-  // let mut config = new_index_writer_config(&mut random)?;
-  // config
-  //   .set_merge_policy(MergeOnXMergePolicy::new(
-  //     new_merge_policy(&mut random)?,
-  //     if use_get_reader {
-  //       MergeTrigger::GetReader
-  //     } else {
-  //       MergeTrigger::Commit
-  //     },
-  //   ))
-  //   .set_max_full_flush_merge_wait_millis(30 * 1000)
-  //   .set_merge_scheduler(MergeSchedulerEnum::LatchedSerial(
-  //     LatchedSerialMergeScheduler::new(wait_for_merge.clone(), wait_for_delete_all.clone()),
-  //   ));
-  // let writer = IndexWriter::new(directory, config)?;
-  //
-  // writer.add_document(id_doc("1")?)?;
-  // writer.flush()?;
-  // writer.add_document(id_doc("2")?)?;
-  //
-  // let thread_writer = writer.clone();
-  // let thread_wait_for_merge = wait_for_merge.clone();
-  // let handle = thread::spawn(move || -> Result<()> {
-  //   let result = if use_get_reader {
-  //     directory_reader::open_from_writer(&thread_writer).and_then(|reader| reader.close())
-  //   } else {
-  //     thread_writer.commit().map(|_| ())
-  //   };
-  //   if result.is_err() {
-  //     thread_wait_for_merge.count_down();
-  //   }
-  //   result
-  // });
-  //
-  // await_latch(&wait_for_merge, "merge did not start")?;
-  // writer.delete_all()?;
-  // wait_for_delete_all.count_down();
-  // join_result(handle)?;
-  //
-  // writer.close()?;
+fn abort_merge_on_x(use_get_reader: bool) -> Result<()> {
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let wait_for_merge = TestLatch::new();
+  let wait_for_delete_all = TestLatch::new();
+  let mut config = new_index_writer_config(&mut random)?;
+  config
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      new_merge_policy(&mut random)?,
+      if use_get_reader {
+        MergeTrigger::GetReader
+      } else {
+        MergeTrigger::Commit
+      },
+    ))
+    .set_max_full_flush_merge_wait_millis(30 * 1000)
+    .set_merge_scheduler(MergeSchedulerEnum::LatchedSerial(
+      LatchedSerialMergeScheduler::new(wait_for_merge.clone(), wait_for_delete_all.clone()),
+    ));
+  let writer = IndexWriter::new(directory, config)?;
+
+  writer.add_document(id_doc("1")?)?;
+  writer.flush()?;
+  writer.add_document(id_doc("2")?)?;
+
+  let thread_writer = writer.clone();
+  let thread_wait_for_merge = wait_for_merge.clone();
+  let handle = thread::spawn(move || -> Result<()> {
+    let result = if use_get_reader {
+      directory_reader::open_from_writer(&thread_writer).and_then(|reader| reader.close())
+    } else {
+      thread_writer.commit().map(|_| ())
+    };
+    if result.is_err() {
+      thread_wait_for_merge.count_down();
+    }
+    result
+  });
+
+  await_latch(&wait_for_merge, "merge did not start")?;
+  writer.delete_all()?;
+  wait_for_delete_all.count_down();
+  join_result(handle)?;
+
+  writer.close()?;
   Ok(())
 }
 
@@ -569,110 +567,108 @@ fn test_abort_merge_on_get_reader() -> Result<()> {
 
 #[test]
 fn test_force_merge_while_get_reader() -> Result<()> {
-  // TODO IMPORTANT commitOnMerge
-  // let mut random = random();
-  // let directory = new_directory_shared(&mut random)?;
-  // let wait_for_merge = TestLatch::new();
-  // let wait_for_force_merge_called = TestLatch::new();
-  // let mut config = new_index_writer_config(&mut random)?;
-  // config
-  //   .set_merge_policy(MergeOnXMergePolicy::new(
-  //     new_merge_policy(&mut random)?,
-  //     MergeTrigger::GetReader,
-  //   ))
-  //   .set_max_full_flush_merge_wait_millis(30 * 1000)
-  //   .set_merge_scheduler(MergeSchedulerEnum::LatchedSerial(
-  //     LatchedSerialMergeScheduler::new(wait_for_merge.clone(), wait_for_force_merge_called.clone()),
-  //   ));
-  // let writer = IndexWriter::new(directory, config)?;
-  //
-  // writer.add_document(id_doc("1")?)?;
-  // writer.flush()?;
-  // writer.add_document(id_doc("2")?)?;
-  //
-  // let thread_writer = writer.clone();
-  // let handle = thread::spawn(move || -> Result<()> {
-  //   let reader = directory_reader::open_from_writer(&thread_writer)?;
-  //   assert_eq!(2, reader.max_doc()?);
-  //   reader.close()
-  // });
-  //
-  // await_latch(&wait_for_merge, "merge did not start")?;
-  // writer.add_document(id_doc("3")?)?;
-  // wait_for_force_merge_called.count_down();
-  // writer.force_merge(1)?;
-  // join_result(handle)?;
-  //
-  // writer.close()?;
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let wait_for_merge = TestLatch::new();
+  let wait_for_force_merge_called = TestLatch::new();
+  let mut config = new_index_writer_config(&mut random)?;
+  config
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      new_merge_policy(&mut random)?,
+      MergeTrigger::GetReader,
+    ))
+    .set_max_full_flush_merge_wait_millis(30 * 1000)
+    .set_merge_scheduler(MergeSchedulerEnum::LatchedSerial(
+      LatchedSerialMergeScheduler::new(wait_for_merge.clone(), wait_for_force_merge_called.clone()),
+    ));
+  let writer = IndexWriter::new(directory, config)?;
+
+  writer.add_document(id_doc("1")?)?;
+  writer.flush()?;
+  writer.add_document(id_doc("2")?)?;
+
+  let thread_writer = writer.clone();
+  let handle = thread::spawn(move || -> Result<()> {
+    let reader = directory_reader::open_from_writer(&thread_writer)?;
+    assert_eq!(2, reader.max_doc()?);
+    reader.close()
+  });
+
+  await_latch(&wait_for_merge, "merge did not start")?;
+  writer.add_document(id_doc("3")?)?;
+  wait_for_force_merge_called.count_down();
+  writer.force_merge(1)?;
+  join_result(handle)?;
+
+  writer.close()?;
   Ok(())
 }
 
 #[test]
 fn test_fail_after_merge_committed() -> Result<()> {
-  // TODO IMPORTANT commitOnMerge
-  // struct FailAfterFlushHooks<D>
-  // where
-  //   D: Directory,
-  // {
-  //   merge_and_fail: Arc<AtomicBool>,
-  //   writer: Arc<OnceLock<Arc<IndexWriter<D>>>>,
-  // }
-  //
-  // impl<D> IndexWriterHooks for FailAfterFlushHooks<D>
-  // where
-  //   D: Directory + 'static,
-  // {
-  //   fn do_after_flush(&self) -> Result<()> {
-  //     if self.merge_and_fail.load(Ordering::SeqCst)
-  //       && let Some(writer) = self.writer.get()
-  //       && writer.has_pending_merges()?
-  //     {
-  //       writer.execute_merge(MergeTrigger::GetReader)?;
-  //       return Err(LuceneError::illegal_state("boom"));
-  //     }
-  //     Ok(())
-  //   }
-  // }
-  //
-  // let mut random = random();
-  // let directory = new_directory_shared(&mut random)?;
-  // let merge_and_fail = Arc::new(AtomicBool::new(false));
-  // let writer_cell = Arc::new(OnceLock::new());
-  // let mut config = new_index_writer_config(&mut random)?;
-  // config
-  //   .set_merge_policy(MergeOnXMergePolicy::new(
-  //     NoMergePolicy::default().into(),
-  //     MergeTrigger::GetReader,
-  //   ))
-  //   .set_max_full_flush_merge_wait_millis(30 * 1000)
-  //   .set_merge_scheduler(SerialMergeScheduler::new());
-  // let writer = IndexWriter::with_hooks(
-  //   directory,
-  //   config,
-  //   Some(IndexWriterHooksEnum::custom(FailAfterFlushHooks {
-  //     merge_and_fail: merge_and_fail.clone(),
-  //     writer: writer_cell.clone(),
-  //   })),
-  // )?;
-  // let _ = writer_cell.set(writer.clone());
-  //
-  // writer.add_document(id_doc("1")?)?;
-  // writer.flush()?;
-  // writer.add_document(id_doc("2")?)?;
-  // writer.flush()?;
-  //
-  // merge_and_fail.store(true, Ordering::SeqCst);
-  // let result = directory_reader::open_from_writer(&writer);
-  // merge_and_fail.store(false, Ordering::SeqCst);
-  // match result {
-  //   Ok(reader) => {
-  //     reader.close()?;
-  //     return Err(LuceneError::illegal_state("expected boom"));
-  //   },
-  //   Err(err) => assert_eq!("boom", err.to_string()),
-  // }
-  //
-  // writer.close()?;
+  struct FailAfterFlushHooks<D>
+  where
+    D: Directory,
+  {
+    merge_and_fail: Arc<AtomicBool>,
+    writer: Arc<OnceLock<Arc<IndexWriter<D>>>>,
+  }
+
+  impl<D> IndexWriterHooks for FailAfterFlushHooks<D>
+  where
+    D: Directory + 'static,
+  {
+    fn do_after_flush(&self) -> Result<()> {
+      if self.merge_and_fail.load(Ordering::SeqCst)
+        && let Some(writer) = self.writer.get()
+        && writer.has_pending_merges()?
+      {
+        writer.execute_merge(MergeTrigger::GetReader)?;
+        return Err(LuceneError::illegal_state("boom"));
+      }
+      Ok(())
+    }
+  }
+
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let merge_and_fail = Arc::new(AtomicBool::new(false));
+  let writer_cell = Arc::new(OnceLock::new());
+  let mut config = new_index_writer_config(&mut random)?;
+  config
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      NoMergePolicy::default().into(),
+      MergeTrigger::GetReader,
+    ))
+    .set_max_full_flush_merge_wait_millis(30 * 1000)
+    .set_merge_scheduler(SerialMergeScheduler::new());
+  let writer = IndexWriter::with_hooks(
+    directory,
+    config,
+    Some(IndexWriterHooksEnum::custom(FailAfterFlushHooks {
+      merge_and_fail: merge_and_fail.clone(),
+      writer: writer_cell.clone(),
+    })),
+  )?;
+  let _ = writer_cell.set(writer.clone());
+
+  writer.add_document(id_doc("1")?)?;
+  writer.flush()?;
+  writer.add_document(id_doc("2")?)?;
+  writer.flush()?;
+
+  merge_and_fail.store(true, Ordering::SeqCst);
+  let result = directory_reader::open_from_writer(&writer);
+  merge_and_fail.store(false, Ordering::SeqCst);
+  match result {
+    Ok(reader) => {
+      reader.close()?;
+      return Err(LuceneError::illegal_state("expected boom"));
+    },
+    Err(err) => assert_eq!("boom", err.to_string()),
+  }
+
+  writer.close()?;
   Ok(())
 }
 
@@ -771,58 +767,57 @@ fn stress_update_same_document_with_merge_on_x(use_get_reader: bool) -> Result<(
 
 #[test]
 fn test_merge_on_get_reader() -> Result<()> {
-  // TODO IMPORTANT commitOnMerge
-  // let mut random = random();
-  // let dir = new_directory_shared(&mut random)?;
-  //
-  // let mock = MockAnalyzer::new(&mut random);
-  // let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  // config.set_merge_policy(NoMergePolicy::default());
-  // let first_writer = IndexWriter::new(dir.clone(), config)?;
-  // let mut field_types = HashMap::new();
-  // for _ in 0..5 {
-  //   crate::test_framework::core::index::test_index_writer::add_doc(
-  //     &mut random,
-  //     &first_writer,
-  //     &mut field_types,
-  //   )?;
-  //   first_writer.flush()?;
-  // }
-  // {
-  //   let first_reader = directory_reader::open_from_writer(&first_writer)?;
-  //   let first_ctx = get_context(first_reader)?;
-  //   assert_eq!(5, first_ctx.leaves()?.len());
-  // }
-  // first_writer.close()?;
-  //
-  // let mock = MockAnalyzer::new(&mut random);
-  // let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  // config
-  //   .set_merge_policy(MergeOnXMergePolicy::new(
-  //     new_merge_policy(&mut random)?,
-  //     MergeTrigger::GetReader,
-  //   ))
-  //   .set_max_full_flush_merge_wait_millis(i64::MAX);
-  // let writer_with_merge_policy = IndexWriter::new(dir.clone(), config)?;
-  //
-  // {
-  //   let unmerged_reader = directory_reader::open(dir.clone())?;
-  //   let unmerged_ctx = get_context(unmerged_reader)?;
-  //   assert_eq!(5, unmerged_ctx.leaves()?.len());
-  // }
-  //
-  // crate::test_framework::core::index::test_index_writer::add_doc(
-  //   &mut random,
-  //   &writer_with_merge_policy,
-  //   &mut field_types,
-  // )?;
-  // {
-  //   let merged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
-  //   let merged_ctx = get_context(merged_reader)?;
-  //   assert_eq!(1, merged_ctx.leaves()?.len());
-  // }
-  //
-  // writer_with_merge_policy.close()?;
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config.set_merge_policy(NoMergePolicy::default());
+  let first_writer = IndexWriter::new(dir.clone(), config)?;
+  let mut field_types = HashMap::new();
+  for _ in 0..5 {
+    crate::test_framework::core::index::test_index_writer::add_doc(
+      &mut random,
+      &first_writer,
+      &mut field_types,
+    )?;
+    first_writer.flush()?;
+  }
+  {
+    let first_reader = directory_reader::open_from_writer(&first_writer)?;
+    let first_ctx = get_context(first_reader)?;
+    assert_eq!(5, first_ctx.leaves()?.len());
+  }
+  first_writer.close()?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      new_merge_policy(&mut random)?,
+      MergeTrigger::GetReader,
+    ))
+    .set_max_full_flush_merge_wait_millis(i64::MAX);
+  let writer_with_merge_policy = IndexWriter::new(dir.clone(), config)?;
+
+  {
+    let unmerged_reader = directory_reader::open(dir.clone())?;
+    let unmerged_ctx = get_context(unmerged_reader)?;
+    assert_eq!(5, unmerged_ctx.leaves()?.len());
+  }
+
+  crate::test_framework::core::index::test_index_writer::add_doc(
+    &mut random,
+    &writer_with_merge_policy,
+    &mut field_types,
+  )?;
+  {
+    let merged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
+    let merged_ctx = get_context(merged_reader)?;
+    assert_eq!(1, merged_ctx.leaves()?.len());
+  }
+
+  writer_with_merge_policy.close()?;
   Ok(())
 }
 
