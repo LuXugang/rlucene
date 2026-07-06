@@ -373,6 +373,7 @@ mod base_points_format_test_case_tests {
     run_case(|case, random| case.test_all_point_docs_deleted_in_segment(random))
   }
 
+  #[test]
   fn test_with_exceptions() -> Result<()> {
     run_case(|case, random| case.test_with_exceptions(random))
   }
