@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::{
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
+};
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
@@ -47,21 +50,23 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::index::term_vectors::RandomTokenStreamAttr;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_bytes_ref_from_bytes, new_directory_shared,
-  new_index_writer_config, new_index_writer_config_with_analyzer, rarely,
+  new_index_writer_config, new_index_writer_config_with_analyzer, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use rand::prelude::StdRng;
 use rand::seq::SliceRandom;
-use rand::{Rng, RngExt};
+use rand::{Rng, RngExt, SeedableRng};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::thread;
 
 pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   fn valid_options(&self) -> Vec<Options> {
@@ -396,11 +401,69 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     self.do_test_merge(random, Some(Sort::with_fields(sort_fields)?), true)
   }
 
-  fn test_clone<R>(&self, _random: &mut R) -> Result<()>
+  // run random tests from different threads to make sure the per-thread clones
+  // don't share mutable data
+  fn test_clone<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO RandomDocumentFactory未实现
+    let doc_factory = RandomDocumentFactory::new(random, 5, 20);
+    let num_docs = at_least(random, 50) as usize;
+    for options in self.valid_options() {
+      let mut docs = Vec::with_capacity(num_docs);
+      for _ in 0..num_docs {
+        let field_count = TestUtil::next_int(random, 1, 3) as usize;
+        let max_term_count = at_least(random, 10) as usize;
+        docs.push(doc_factory.new_document(random, field_count, max_term_count, options)?);
+      }
+      let dir = new_directory_shared(random)?;
+      let writer = RandomIndexWriter::new(random, dir)?;
+      for (i, doc) in docs.iter().enumerate() {
+        writer.add_document(random, add_id(doc.to_document()?, &i.to_string())?)?;
+      }
+      let reader = Arc::new(writer.get_reader(random)?);
+      let mut term_vectors = reader.term_vectors()?;
+      for (i, doc) in docs.iter().enumerate() {
+        let doc_id = doc_id(reader.clone(), &i.to_string())?;
+        let fields = term_vectors
+          .get(doc_id)?
+          .expect("term vectors should exist");
+        assert_random_document_equals(random, doc, fields)?;
+      }
+      drop(term_vectors);
+
+      let thread_seeds = [random.random(), random.random()];
+      thread::scope(|scope| -> Result<()> {
+        let mut threads = Vec::with_capacity(thread_seeds.len());
+        for seed in thread_seeds {
+          let reader = reader.clone();
+          let docs = &docs;
+          threads.push(scope.spawn(move || -> Result<()> {
+            let mut thread_random = StdRng::seed_from_u64(seed);
+            let mut term_vectors = reader.term_vectors()?;
+            let mut i = 0;
+            while i < at_least(&mut thread_random, 100) {
+              let idx = thread_random.random_range(0..docs.len());
+              let doc_id = doc_id(reader.clone(), &idx.to_string())?;
+              let fields = term_vectors
+                .get(doc_id)?
+                .expect("term vectors should exist");
+              assert_random_document_equals(&mut thread_random, &docs[idx], fields)?;
+              i += 1;
+            }
+            Ok(())
+          }));
+        }
+        for thread in threads {
+          thread.join().map_err(|payload| {
+            LuceneError::tragedy_from_panic("test thread panicked", payload.as_ref())
+          })??;
+        }
+        Ok(())
+      })?;
+      reader.close()?;
+      writer.close(random)?;
+    }
     Ok(())
   }
   fn test_postings_enum_freqs<R>(&self, random: &mut R) -> Result<()>
@@ -408,8 +471,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let analyzer = MockAnalyzer::new(random);
-    // TODO TokenStreamComponents未实现
+    let analyzer = MockTokenizerAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -482,8 +544,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let analyzer = MockAnalyzer::new(random);
-    // TODO TokenStreamComponents未实现
+    let analyzer = MockTokenizerAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -654,8 +715,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let analyzer = MockAnalyzer::new(random);
-    // TODO TokenStreamComponents未实现
+    let analyzer = MockTokenizerAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -864,8 +924,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let analyzer = MockAnalyzer::new(random);
-    // TODO TokenStreamComponents未实现
+    let analyzer = MockTokenizerAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -1590,6 +1649,53 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 }
+
+struct MockTokenizerAnalyzer {
+  seed: u64,
+  stored_value: AnalyzerStoredValue,
+}
+
+impl MockTokenizerAnalyzer {
+  fn new<R>(random: &mut R) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    Self {
+      seed: random.random(),
+      stored_value: AnalyzerStoredValue::new(),
+    }
+  }
+
+  fn next_random(&self) -> StdRng {
+    random_from_seed(self.seed)
+  }
+}
+
+impl Analyzer for MockTokenizerAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    Ok(TokenStreamComponents::new(
+      Box::new(MockTokenizer::with_default_max_token_length(
+        self.next_random(),
+        WHITESPACE.clone(),
+        true,
+      )) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+crate::impl_analyzer_close!(MockTokenizerAnalyzer);
+
+impl From<MockTokenizerAnalyzer> for AnalyzerEnum {
+  fn from(analyzer: MockTokenizerAnalyzer) -> Self {
+    AnalyzerEnum::Custom(Box::new(analyzer))
+  }
+}
+
 pub struct RandomTokenStream {
   attr: Attributes,
   terms: Vec<String>,
