@@ -23,14 +23,16 @@ use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer::{IndexReaderWarmer, IndexReaderWarmerEnum, IndexWriter};
 use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::simple_merged_segment_warmer::SimpleMergedSegmentWarmer;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -38,7 +40,9 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::Comparator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
 use crate::test_framework::core::index::test_index_writer_reader::{count, create_index_no_close};
@@ -51,12 +55,13 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterReader;
+
 #[test]
 fn test_add_close_open() -> Result<()> {
   let mut random = random();
@@ -500,7 +505,49 @@ fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
 
 #[test]
 fn test_merge_warmer() -> Result<()> {
-  // TODO IMPORTANT merged segment warmer 未实现
+  let mut random = random();
+  let dir1 = new_directory_shared(&mut random)?;
+  let warm_count = Arc::new(AtomicUsize::new(0));
+  let cms = ConcurrentMergeScheduler::new();
+  let mock = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  iwc
+    .set_max_buffered_docs(2)
+    .set_max_full_flush_merge_wait_millis(0)
+    .set_merged_segment_warmer(Some(IndexReaderWarmerEnum::custom(CountingWarmer {
+      warm_count: warm_count.clone(),
+    })))
+    .set_merge_scheduler(cms.clone())
+    .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
+  let writer = IndexWriter::new(dir1, iwc)?;
+
+  // create the index
+  create_index_no_close(false, "test", &writer)?;
+
+  // get a reader to put writer into near real-time mode
+  let r1 = directory_reader::open_from_writer(&writer)?;
+
+  match writer.get_config_mut().get_merge_policy_mut() {
+    MergePolicyEnum::LogDoc(merge_policy) => merge_policy.set_merge_factor(2)?,
+    MergePolicyEnum::LogBytesSize(merge_policy) => merge_policy.set_merge_factor(2)?,
+    _ => panic!("expected LogMergePolicy variant"),
+  }
+
+  let num = if is_night_mode() { 100 } else { 10 };
+  for i in 0..num {
+    writer.add_document(DocHelper::create_document(i, "test", 4))?;
+  }
+  cms.sync()?;
+
+  assert!(warm_count.load(AtomicOrdering::SeqCst) > 0);
+  let count = warm_count.load(AtomicOrdering::SeqCst);
+
+  writer.add_document(DocHelper::create_document(17, "test", 4))?;
+  writer.force_merge(1)?;
+  assert!(warm_count.load(AtomicOrdering::SeqCst) > count);
+
+  writer.close()?;
+  r1.close()?;
   Ok(())
 }
 
@@ -858,13 +905,73 @@ fn test_empty_index() -> Result<()> {
 
 #[test]
 fn test_segment_warmer() -> Result<()> {
-  // TODO IMPORTANT SegmentWarmer未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let did_warm = Arc::new(AtomicBool::new(false));
+  let cms = ConcurrentMergeScheduler::new();
+  let mock = MockAnalyzer::new(&mut random);
+  let mut merge_policy = new_log_merge_policy_with_merge_factor(&mut random, 10)?;
+  match &mut merge_policy {
+    MergePolicyEnum::LogDoc(merge_policy) => merge_policy.set_target_search_concurrency(1)?,
+    MergePolicyEnum::LogBytesSize(merge_policy) => merge_policy.set_target_search_concurrency(1)?,
+    _ => panic!("expected LogMergePolicy variant"),
+  }
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  iwc
+    .set_max_buffered_docs(2)
+    .set_reader_pooling(true)
+    .set_merged_segment_warmer(Some(IndexReaderWarmerEnum::custom(AssertingTermWarmer {
+      did_warm: did_warm.clone(),
+    })))
+    .set_merge_scheduler(cms.clone())
+    .set_merge_policy(merge_policy);
+  let w = IndexWriter::new(dir, iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("foo", "bar", Store::No)?);
+  for _ in 0..20 {
+    w.add_document(doc.clone())?;
+  }
+  cms.sync()?;
+  w.close()?;
+  assert!(did_warm.load(AtomicOrdering::SeqCst));
   Ok(())
 }
 
 #[test]
 fn test_simple_merged_segment_warmer() -> Result<()> {
-  // TODO IMPORTANT SegmentWarmer未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let did_warm = Arc::new(AtomicBool::new(false));
+  let info_stream = Arc::new(InfoStreamEnum::Custom(Box::new(SmswInfoStream {
+    did_warm: did_warm.clone(),
+  })));
+  let cms = ConcurrentMergeScheduler::new();
+  let mock = MockAnalyzer::new(&mut random);
+  let mut merge_policy = new_log_merge_policy_with_merge_factor(&mut random, 10)?;
+  match &mut merge_policy {
+    MergePolicyEnum::LogDoc(merge_policy) => merge_policy.set_target_search_concurrency(1)?,
+    MergePolicyEnum::LogBytesSize(merge_policy) => merge_policy.set_target_search_concurrency(1)?,
+    _ => panic!("expected LogMergePolicy variant"),
+  }
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  iwc
+    .set_max_buffered_docs(2)
+    .set_reader_pooling(true)
+    .set_info_stream(info_stream.clone())
+    .set_merged_segment_warmer(Some(SimpleMergedSegmentWarmer::new(info_stream).into()))
+    .set_merge_scheduler(cms.clone())
+    .set_merge_policy(merge_policy);
+  let w = IndexWriter::new(dir, iwc)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("foo", "bar", Store::No)?);
+  for _ in 0..20 {
+    w.add_document(doc.clone())?;
+  }
+  cms.sync()?;
+  w.close()?;
+  assert!(did_warm.load(AtomicOrdering::SeqCst));
   Ok(())
 }
 
@@ -1011,5 +1118,58 @@ where
       Ordering::Equal => 0,
       Ordering::Greater => 1,
     })
+  }
+}
+struct CountingWarmer {
+  warm_count: Arc<AtomicUsize>,
+}
+
+impl<D> IndexReaderWarmer<D> for CountingWarmer
+where
+  D: Directory,
+{
+  fn warm(&self, _reader: &DefaultLeafReader<D>) -> Result<()> {
+    self.warm_count.fetch_add(1, AtomicOrdering::SeqCst);
+    Ok(())
+  }
+}
+
+struct AssertingTermWarmer {
+  did_warm: Arc<AtomicBool>,
+}
+
+impl<D> IndexReaderWarmer<D> for AssertingTermWarmer
+where
+  D: Directory + 'static,
+{
+  fn warm(&self, reader: &DefaultLeafReader<D>) -> Result<()> {
+    let searcher = IndexSearcher::from_lr(reader.clone())?;
+    let count = searcher.count(TermQuery::new(Term::from_text("foo", "bar")))?;
+    assert_eq!(20, count);
+    self.did_warm.store(true, AtomicOrdering::SeqCst);
+    Ok(())
+  }
+}
+
+struct SmswInfoStream {
+  did_warm: Arc<AtomicBool>,
+}
+
+impl CloseableRef for SmswInfoStream {
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl InfoStream for SmswInfoStream {
+  fn message(&self, component: &str, _message: &str) -> Result<()> {
+    if component == "SMSW" {
+      self.did_warm.store(true, AtomicOrdering::SeqCst);
+    }
+    Ok(())
+  }
+
+  fn is_enabled(&self, _component: &str) -> bool {
+    true
   }
 }

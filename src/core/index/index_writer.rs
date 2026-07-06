@@ -2071,7 +2071,46 @@ where
           }
           write_res?;
         }
-        // TODO IMPORTANT IndexReaderWarmer not supported
+
+        let merged_segment_warmer = self.config.get_merged_segment_warmer();
+        if self.reader_pool.is_reader_pooling_enabled()
+          && let Some(merged_segment_warmer) = merged_segment_warmer
+        {
+          let info = merge
+            .info
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("merge info is None"))?;
+          let rld = self
+            .get_pooled_instance(info.to_meta()?, true)?
+            .ok_or_else(|| {
+              LuceneError::illegal_state("failed to get pooled instance for merged segment warmer")
+            })?;
+          let sr = {
+            let mut inner = rld.inner.lock();
+            readers_and_updates::get_reader(
+              &IOContext::default_io_context()?,
+              info,
+              &mut inner,
+              rld.index_created_version_major,
+            )?;
+            inner.reader.as_ref().unwrap().clone()
+          };
+
+          let warm_result = merged_segment_warmer.warm(&sr);
+
+          let finally_result = {
+            let mut inner = self.inner.lock();
+            match rld.release(sr.as_ref(), None) {
+              Ok(()) => self.release(rld.as_ref(), &mut inner),
+              Err(e) => Err(e),
+            }
+          };
+
+          match finally_result {
+            Ok(()) => warm_result?,
+            Err(e) => return Err(e),
+          }
+        }
 
         if !self.commit_merge(merge, &doc_maps)? {
           // commitMerge will return false if this merge was
@@ -7219,10 +7258,73 @@ where
 ///
 /// **NOTE**: `warm(LeafReader)` is called before any deletes have been carried
 /// over to the merged segment.
-pub trait IndexReaderWarmer {
-  fn warm<LR>(reader: LR) -> Result<()>
+pub trait IndexReaderWarmer<D>
+where
+  D: Directory,
+{
+  fn warm(&self, reader: &DefaultLeafReader<D>) -> Result<()>;
+}
+
+impl<D, F> IndexReaderWarmer<D> for F
+where
+  D: Directory,
+  F: Fn(&DefaultLeafReader<D>) -> Result<()> + Send + Sync,
+{
+  fn warm(&self, reader: &DefaultLeafReader<D>) -> Result<()> {
+    self(reader)
+  }
+}
+
+pub type CustomIndexReaderWarmer<D> = Box<dyn IndexReaderWarmer<D> + Send + Sync>;
+
+pub enum IndexReaderWarmerEnum<D>
+where
+  D: Directory,
+{
+  SimpleMergedSegmentWarmer(SimpleMergedSegmentWarmer),
+  Custom(CustomIndexReaderWarmer<D>),
+}
+
+impl<D> IndexReaderWarmerEnum<D>
+where
+  D: Directory,
+{
+  pub fn custom<T>(warmer: T) -> Self
   where
-    LR: LeafReader;
+    T: IndexReaderWarmer<D> + Send + Sync + 'static,
+  {
+    Self::Custom(Box::new(warmer))
+  }
+}
+
+impl<D> From<SimpleMergedSegmentWarmer> for IndexReaderWarmerEnum<D>
+where
+  D: Directory,
+{
+  fn from(warmer: SimpleMergedSegmentWarmer) -> Self {
+    Self::SimpleMergedSegmentWarmer(warmer)
+  }
+}
+
+impl<D> From<CustomIndexReaderWarmer<D>> for IndexReaderWarmerEnum<D>
+where
+  D: Directory,
+{
+  fn from(warmer: CustomIndexReaderWarmer<D>) -> Self {
+    Self::Custom(warmer)
+  }
+}
+
+impl<D> IndexReaderWarmer<D> for IndexReaderWarmerEnum<D>
+where
+  D: Directory,
+{
+  fn warm(&self, reader: &DefaultLeafReader<D>) -> Result<()> {
+    match self {
+      Self::SimpleMergedSegmentWarmer(warmer) => warmer.warm(reader),
+      Self::Custom(warmer) => warmer.warm(reader),
+    }
+  }
 }
 
 struct IOConsumerImpl1<'a, D>
@@ -7812,7 +7914,6 @@ use crate::core::index::buffered_updates::MAX_INT;
 use crate::core::index::caching_merge_context::CachingMergeContext;
 use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_field_updates::{
   DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
@@ -7851,6 +7952,7 @@ use crate::core::index::segment_commit_info::{
 };
 use crate::core::index::segment_merger::SegmentMerger;
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
+use crate::core::index::simple_merged_segment_warmer::SimpleMergedSegmentWarmer;
 use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::sorting_codec_reader::wrap_with_doc_map;
@@ -7861,6 +7963,7 @@ use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::index::{directory_reader, readers_and_updates};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::field_exists_query::get_doc_values_doc_id_set_iterator;
@@ -8938,7 +9041,6 @@ where
     merge_info: &mut Option<SegmentCommitInfo<D>>,
     info: SegmentCommitInfo<D>,
   ) {
-    OneMergeDefaults::set_merge_info(stat, merge_info, info.clone());
     self.wrapped.set_merge_info(stat, merge_info, info);
   }
 

@@ -19,6 +19,7 @@ use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
+use crate::core::index::index_writer::IndexReaderWarmerEnum;
 use crate::core::index::index_writer_event_listener::IndexWriterEventListenerEnum;
 use crate::core::index::live_index_writer_config::{
   LiveIndexWriterConfig, LiveIndexWriterConfigBase,
@@ -254,6 +255,22 @@ where
     self
   }
 
+  /// Set the merged segment warmer.
+  ///
+  /// Takes effect on the next merge.
+  pub fn set_merged_segment_warmer(
+    &mut self,
+    merge_segment_warmer: Option<IndexReaderWarmerEnum<D>>,
+  ) -> &mut Self {
+    self.base.merged_segment_warmer = merge_segment_warmer;
+    self
+  }
+
+  /// Returns the current merged segment warmer.
+  pub fn get_merged_segment_warmer(&self) -> Option<&IndexReaderWarmerEnum<D>> {
+    self.base.merged_segment_warmer.as_ref()
+  }
+
   /// Sets the parent document field.
   ///
   /// If this optional property is set, `IndexWriter` adds an internal field to
@@ -381,6 +398,10 @@ where
 
   fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum {
     &self.base.event_listener
+  }
+
+  fn get_merged_segment_warmer(&self) -> Option<&IndexReaderWarmerEnum<D>> {
+    self.base.merged_segment_warmer.as_ref()
   }
 
   fn get_commit_on_close(&self) -> bool {

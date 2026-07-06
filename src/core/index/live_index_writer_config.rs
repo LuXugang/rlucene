@@ -20,6 +20,7 @@ use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
+use crate::core::index::index_writer::IndexReaderWarmerEnum;
 use crate::core::index::index_writer_config::{
   DEFAULT_COMMIT_ON_CLOSE, DEFAULT_MAX_BUFFERED_DOCS, DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
   DEFAULT_RAM_BUFFER_SIZE_MB, DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB, DEFAULT_READER_POOLING,
@@ -122,6 +123,9 @@ pub trait LiveIndexWriterConfig: Display {
   /// Returns the [`IndexWriterEventListenerEnum`] callback that tracks the key
   /// `IndexWriter` operations.
   fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum;
+
+  /// Returns the current merged segment warmer.
+  fn get_merged_segment_warmer(&self) -> Option<&IndexReaderWarmerEnum<Self::Directory>>;
 
   /// Returns `true` if `IndexWriter::close` should first commit before closing.
   fn get_commit_on_close(&self) -> bool;
@@ -243,6 +247,17 @@ pub trait LiveIndexWriterConfig: Display {
     self.get_base_mut().info_stream = info_stream.into();
     self
   }
+
+  /// Sets the merged segment warmer.
+  ///
+  /// Takes effect on the next merge.
+  fn set_merged_segment_warmer(
+    &mut self,
+    merge_segment_warmer: Option<IndexReaderWarmerEnum<Self::Directory>>,
+  ) -> &mut Self {
+    self.get_base_mut().merged_segment_warmer = merge_segment_warmer;
+    self
+  }
 }
 
 /// Storage for live index writer configuration values.
@@ -290,6 +305,8 @@ where
   pub max_full_flush_merge_wait_millis: i64,
   /// [`IndexWriterEventListenerEnum`] for recording key `IndexWriter` events.
   pub event_listener: IndexWriterEventListenerEnum,
+  /// Warmer called for newly merged segments before they are committed.
+  pub merged_segment_warmer: Option<IndexReaderWarmerEnum<D>>,
   /// True if calls to `IndexWriter::close` should first do a commit.
   pub commit_on_close: bool,
   /// True if an indexing thread should check for pending flushes on update in
@@ -336,6 +353,7 @@ where
       soft_deletes_field: None,
       max_full_flush_merge_wait_millis: DEFAULT_MAX_FULL_FLUSH_MERGE_WAIT_MILLIS,
       event_listener: NoOpIndexWriterEventListener.into(),
+      merged_segment_warmer: None,
       commit_on_close: DEFAULT_COMMIT_ON_CLOSE,
       check_pending_flush_on_update: true,
       parent_field: None,

@@ -17,20 +17,21 @@
 use crate::core::index::index_writer_event_listener::IndexWriterEventListener;
 use crate::core::index::merge_policy::MergeStat;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Mock IndexWriterEventListener to verify invocation of event methods.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct MockIndexWriterEventListener {
-  begin_merge_called: AtomicBool,
-  end_merge_called: AtomicBool,
+  begin_merge_called: Arc<AtomicBool>,
+  end_merge_called: Arc<AtomicBool>,
 }
 
 impl MockIndexWriterEventListener {
   pub fn new() -> Self {
     Self {
-      begin_merge_called: AtomicBool::new(false),
-      end_merge_called: AtomicBool::new(false),
+      begin_merge_called: Arc::new(AtomicBool::new(false)),
+      end_merge_called: Arc::new(AtomicBool::new(false)),
     }
   }
 

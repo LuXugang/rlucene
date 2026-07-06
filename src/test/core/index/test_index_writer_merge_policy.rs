@@ -30,6 +30,7 @@ use crate::core::index::index_writer::{
   IndexWriter, IndexWriterHooks, IndexWriterHooksEnum, SOURCE, SOURCE_MERGE,
 };
 use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::index_writer_event_listener::IndexWriterEventListenerEnum;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
@@ -70,6 +71,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
 use crate::test_framework::core::index::test_index_writer_merge_policy::{
   LatchedSerialMergeScheduler, TestLatch,
 };
@@ -471,9 +473,56 @@ fn test_merge_on_commit() -> Result<()> {
   Ok(())
 }
 
+// Test basic semantics of merge on commit and events recording invocation
 #[test]
 fn test_merge_on_commit_with_event_listener() -> Result<()> {
-  // TODO IMPORTANT IndexWriterEventListener未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config.set_merge_policy(NoMergePolicy::default());
+  let first_writer = IndexWriter::new(dir.clone(), config)?;
+
+  let mut field_types = HashMap::new();
+  for _ in 0..5 {
+    crate::test_framework::core::index::test_index_writer::add_doc(
+      &mut random,
+      &first_writer,
+      &mut field_types,
+    )?;
+    first_writer.flush()?;
+  }
+
+  let first_reader = directory_reader::open_from_writer(&first_writer)?;
+  assert_eq!(5, get_context(&first_reader)?.leaves()?.len());
+  first_reader.close()?;
+  first_writer.close()?; // When this writer closes, it does not merge on commit.
+
+  let event_listener = MockIndexWriterEventListener::new();
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  config
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      new_merge_policy(&mut random)?,
+      MergeTrigger::Commit,
+    ))
+    .set_max_full_flush_merge_wait_millis(i64::MAX)
+    .set_index_writer_event_listener(IndexWriterEventListenerEnum::custom(event_listener.clone()));
+  let writer_with_merge_policy = IndexWriter::new(dir.clone(), config)?;
+
+  // No changes. Refresh doesn't trigger a merge.
+  let unmerged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
+  assert_eq!(5, get_context(&unmerged_reader)?.leaves()?.len());
+  unmerged_reader.close()?;
+
+  assert!(!event_listener.is_events_recorded());
+  writer_with_merge_policy.commit()?; // Do merge on commit.
+  assert_eq!(1, writer_with_merge_policy.get_segment_count());
+  assert!(event_listener.is_events_recorded());
+
+  writer_with_merge_policy.close()?;
   Ok(())
 }
 
@@ -824,34 +873,6 @@ fn test_merge_on_get_reader() -> Result<()> {
 #[test]
 fn test_set_diagnostics() -> Result<()> {
   // TODO IMPORTANT OneMerge#set_merge_info
-  // let mut random = random();
-  // let mut log_mp = LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size();
-  // log_mp.set_merge_factor(4)?;
-  // log_mp.set_target_search_concurrency(1)?;
-  // let dir = new_directory_shared(&mut random)?;
-  // let mut config = new_index_writer_config(&mut random)?;
-  // config
-  //   .set_merge_policy(my_merge_policy)
-  //   .set_max_buffered_docs(2);
-  // let writer = IndexWriter::new(dir.clone(), config)?;
-  // for _ in 0..20 {
-  //   writer.add_document(Document::new())?;
-  // }
-  // writer.close()?;
-  //
-  // let si = SegmentInfos::read_latest_commit(dir)?;
-  // let mut has_one_merged_segment = false;
-  // for sci in si.iter() {
-  //   let diagnostics = sci.info.get_diagnostics();
-  //   if diagnostics.get(SOURCE).map(String::as_str) == Some(SOURCE_MERGE) {
-  //     assert_eq!(
-  //       Some("my_merge_policy"),
-  //       diagnostics.get("merge_policy").map(String::as_str)
-  //     );
-  //     has_one_merged_segment = true;
-  //   }
-  // }
-  // assert!(has_one_merged_segment);
   Ok(())
 }
 
