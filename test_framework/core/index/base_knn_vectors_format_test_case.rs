@@ -745,44 +745,190 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_illegal_dim_change_via_add_indexes_codec_reader<R>(&self, _random: &mut R) -> Result<()>
+  fn test_illegal_dim_change_via_add_indexes_codec_reader<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT add_indexes_from_codec_readers未实现
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w.add_document(doc)?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 6],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w2.add_document(doc)?;
+      let reader = directory_reader::open(dir.clone())?;
+      let leaf = get_only_leaf_reader(&reader)?;
+      let err = w2.add_indexes_from_codec_readers(vec![leaf]);
+      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert_eq!(
+        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32(4), vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        err.unwrap_err().to_string()
+      );
+      reader.close()?;
+      w2.close()?;
+    }
+
     Ok(())
   }
 
   fn test_illegal_similarity_function_change_via_add_indexes_codec_reader<R>(
     &self,
-    _random: &mut R,
+    random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT add_indexes_from_codec_readers未实现
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w.add_document(doc)?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::Euclidean,
+      )?);
+      w2.add_document(doc)?;
+      let reader = directory_reader::open(dir.clone())?;
+      let leaf = get_only_leaf_reader(&reader)?;
+      let err = w2.add_indexes_from_codec_readers(vec![leaf]);
+      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert_eq!(
+        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        err.unwrap_err().to_string()
+      );
+      reader.close()?;
+      w2.close()?;
+    }
+
     Ok(())
   }
 
-  /// TODO add_indexes_slowly未实现
   fn test_illegal_dim_change_via_add_indexes_slow_codec_reader<R>(
     &self,
-    _random: &mut R,
+    random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w.add_document(doc)?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 6],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w2.add_document(doc)?;
+      let reader = directory_reader::open(dir.clone())?;
+      let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
+      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert_eq!(
+        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32(4), vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        err.unwrap_err().to_string()
+      );
+      reader.close()?;
+      w2.close()?;
+    }
+
     Ok(())
   }
 
-  /// TODO add_indexes_slowly未实现
   fn test_illegal_similarity_function_change_via_add_indexes_slow_codec_reader<R>(
     &self,
-    _random: &mut R,
+    random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let dir = new_directory_shared(random)?;
+    let dir2 = new_directory_shared(random)?;
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w = IndexWriter::new(dir.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::DotProduct,
+      )?);
+      w.add_document(doc)?;
+      w.close()?;
+    }
+
+    {
+      let iwc = new_index_writer_config(random)?;
+      let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+      let mut doc = Document::new();
+      doc.add(KnnFloatVectorField::with_similarity_function(
+        "f",
+        vec![0.0; 4],
+        VectorSimilarityFunction::Euclidean,
+      )?);
+      w2.add_document(doc)?;
+      let reader = directory_reader::open(dir.clone())?;
+      let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
+      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert_eq!(
+        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        err.unwrap_err().to_string()
+      );
+      reader.close()?;
+      w2.close()?;
+    }
+
     Ok(())
   }
 

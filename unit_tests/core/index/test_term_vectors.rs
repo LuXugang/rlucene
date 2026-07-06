@@ -29,6 +29,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::sync::Arc;
 
@@ -129,7 +130,28 @@ fn test_full_merge_add_indexes_dir() -> Result<()> {
 }
 #[test]
 fn test_full_merge_add_indexes_reader() -> Result<()> {
-  // TODO add_indexes_slowly未实现
+  let mut random = random();
+
+  let input = vec![
+    new_directory_shared(&mut random)?,
+    new_directory_shared(&mut random)?,
+  ];
+  let target = new_directory_shared(&mut random)?;
+
+  for dir in &input {
+    create_dir(&mut random, dir.clone())?;
+  }
+
+  let writer = create_writer(&mut random, target.clone())?;
+  for dir in &input {
+    let reader = directory_reader::open(dir.clone())?;
+    TestUtil::add_indexes_slowly(&writer, &[&reader])?;
+    reader.close()?;
+  }
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  verify_index(target.clone())?;
   Ok(())
 }
 #[test]

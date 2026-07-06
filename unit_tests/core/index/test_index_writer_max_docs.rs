@@ -41,8 +41,9 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
-  new_mock_directory, new_mock_directory_with_lock_factory, new_string_field, random,
+  create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared, new_fs_directory,
+  new_index_writer_config, new_mock_directory, new_mock_directory_with_lock_factory,
+  new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashMap;
@@ -410,9 +411,8 @@ fn test_add_indexes() -> Result<()> {
     assert_eq!(1, w2.get_doc_stats()?.max_doc);
 
     let ir = directory_reader::open(dir.clone())?;
-    // TODO IMPORTANT add_indexes_slowly未实现
-    // let err = TestUtil::add_indexes_slowly(&w2, ir.clone());
-    // assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    let err = TestUtil::add_indexes_slowly(&w2, &[&ir]);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
     w2.close()?;
     ir.close()?;
@@ -553,7 +553,51 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
 /// LUCENE-6299: Test if addindexes(CodecReader[]) prevents exceeding max docs.
 #[test]
 fn test_add_too_many_indexes_codec_reader() -> Result<()> {
-  // TODO IMPORTANT add_indexes_from_codec_readers未实现
+  let mut random = random();
+
+  let source = Arc::new(new_mock_directory_with_lock_factory(
+    &mut random,
+    NoLockFactory,
+  )?);
+  let w = IndexWriter::new(source.clone(), new_index_writer_config(&mut random)?)?;
+  for _ in 0..100000 {
+    w.add_document(Document::new())?;
+  }
+  w.force_merge(1)?;
+  w.commit()?;
+  w.close()?;
+
+  // wrap this with disk full, so test fails faster and doesn't fill up real disks.
+  let target = Arc::new(new_mock_directory_with_lock_factory(
+    &mut random,
+    NoLockFactory,
+  )?);
+  let w = IndexWriter::new(target.clone(), new_index_writer_config(&mut random)?)?;
+  w.commit()?; // don't confuse checkindex
+  target.set_max_size_in_bytes(target.size_in_bytes()? as i64 + 65536); // 64KB
+  let r = directory_reader::open(source.clone())?;
+  let seg_reader = get_only_leaf_reader(&r)?;
+
+  let readers_len = 1 + (MAX_DOCS / 100000);
+  let readers = vec![seg_reader; readers_len as usize];
+
+  match w.add_indexes_from_codec_readers(readers) {
+    Ok(_) => return Err(LuceneError::illegal_state("didn't get expected exception")),
+    Err(LuceneError::IllegalArgument(_)) => {
+      // pass
+    },
+    Err(fake_disk_full) if fake_disk_full.to_string().contains("fake disk full") => {
+      let mut e = LuceneError::illegal_state(
+        "test failed: IW checks aren't working and we are executing add_indexes",
+      );
+      e.add_suppressed(fake_disk_full);
+      return Err(e);
+    },
+    Err(e) => return Err(e),
+  }
+
+  r.close()?;
+  w.close()?;
   Ok(())
 }
 #[test]

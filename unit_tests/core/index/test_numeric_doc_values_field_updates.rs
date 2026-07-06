@@ -1724,15 +1724,13 @@ fn test_add_indexes() -> Result<()> {
   let a = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
   let writer = IndexWriter::new(dir2.clone(), conf)?;
-  // TODO IMPORTANT add_indexes_slowly未实现
-  writer.add_indexes_from_directory(std::slice::from_ref(&dir1))?;
-  // if random.random_bool(0.5) {
-  //   writer.add_indexes_from_dir(&vec![dir1.clone()])?;
-  // } else {
-  //   let reader = directory_reader::open(dir1.clone())?;
-  //   TestUtil::add_indexes_slowly(&mut writer, &reader)?;
-  //   reader.close()?;
-  // }
+  if random.random_bool(0.5) {
+    writer.add_indexes_from_directory(std::slice::from_ref(&dir1))?;
+  } else {
+    let reader = directory_reader::open(dir1.clone())?;
+    TestUtil::add_indexes_slowly(&writer, &[&reader])?;
+    reader.close()?;
+  }
   writer.close()?;
   drop(writer);
 

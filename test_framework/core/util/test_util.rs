@@ -23,14 +23,16 @@ use rand::prelude::IndexedRandom;
 use std::sync::{Arc, LazyLock};
 
 use crate::core::index::CODEC_FILE_PATTERN;
-use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, IndexFileNames};
@@ -168,6 +170,21 @@ impl TestUtil {
     R: Rng + ?Sized,
   {
     Self::random_simple_string_range(random, 0, 10)
+  }
+
+  pub fn add_indexes_slowly<D, CR>(writer: &IndexWriter<D>, readers: &[CR]) -> Result<i64>
+  where
+    D: Directory + 'static,
+    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+  {
+    let mut leaves = Vec::new();
+    for reader in readers {
+      let reader_context = get_context(reader)?;
+      for context in reader_context.leaves()? {
+        leaves.push(context.reader().clone());
+      }
+    }
+    writer.add_indexes_from_codec_readers(leaves)
   }
 
   /// Just tries to configure things to keep the open file count lowish.

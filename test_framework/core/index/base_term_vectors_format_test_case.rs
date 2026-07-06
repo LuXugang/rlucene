@@ -316,22 +316,22 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
             }
           }
         }
-        writer.add_document(random, doc)?;
-        // TODO add_indexes_slowly未实现
-        // if random.random_range(0..100) < 5 {
-        //   // add via foreign writer
-        //   let mut other_iwc = new_index_writer_config(random)?;
-        //   if let Some(sort) = index_sort.clone() {
-        //     other_iwc.set_index_sort(sort)?;
-        //   }
-        //   let other_dir = new_directory_shared(random)?;
-        //   let other_iw = RandomIndexWriter::with_config(random, other_dir.clone(), other_iwc);
-        //   other_iw.add_document(random, doc)?;
-        //   other_iw.close(random)?;
-        //   writer.w.add_indexes_from_dir(&[other_dir])?;
-        // } else {
-        //   writer.add_document(random, doc)?;
-        // }
+        if random.random_range(0..100) < 5 {
+          // add via foreign writer
+          let mut other_iwc = new_index_writer_config(random)?;
+          if let Some(sort) = index_sort.clone() {
+            other_iwc.set_index_sort(sort)?;
+          }
+          let other_dir = new_directory_shared(random)?;
+          let other_iw = RandomIndexWriter::with_config(random, other_dir, other_iwc);
+          other_iw.add_document(random, doc)?;
+          let other_reader = other_iw.get_reader(random)?;
+          TestUtil::add_indexes_slowly(&writer.w, &[&other_reader])?;
+          other_reader.close()?;
+          other_iw.close(random)?;
+        } else {
+          writer.add_document(random, doc)?;
+        }
         live_doc_ids.push(id);
         if allow_deletes && random.random_range(0..100) < 20 {
           let delete_id = live_doc_ids.remove(random.random_range(0..live_doc_ids.len()));

@@ -1017,13 +1017,14 @@ fn test_deadlock() -> Result<()> {
   writer2.add_document(doc)?;
   writer2.close()?;
 
-  let _r1 = directory_reader::open(dir2.clone())?;
-  // TODO add_indexes_slowly未实现
-  // TestUtil::add_indexes_slowly(&mut writer, &r1, &r1)?;
-  // writer.close()?;
-  //
-  // let r3 = directory_reader::open(dir.clone())?;
-  // assert_eq!(5, r3.num_docs()?);
+  let r1 = directory_reader::open(dir2.clone())?;
+  TestUtil::add_indexes_slowly(&writer, &[&r1, &r1])?;
+  writer.close()?;
+
+  let r3 = directory_reader::open(dir.clone())?;
+  assert_eq!(5, r3.num_docs()?);
+  r3.close()?;
+  r1.close()?;
 
   Ok(())
 }

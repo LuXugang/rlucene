@@ -2443,19 +2443,21 @@ fn test_bad_add_indexes() -> Result<()> {
         .to_string()
         .contains("cannot change index sort")
     );
-    // TODO IMPORTANT  add_indexes_from_cr 未实现
-    // let leaves = get_context(reader)?.leaves()? ;
-    // let mut codec_readers = Vec::with_capacity(leaves.len());
-    // for leaf in leaves {
-    //   codec_readers.push(leaf.reader().get_codec_reader()?.clone());
-    // }
+    let reader_context = get_context(&reader)?;
+    let leaves = reader_context.leaves()?;
+    let mut codec_readers = Vec::with_capacity(leaves.len());
+    for leaf in leaves {
+      codec_readers.push(leaf.reader().clone());
+    }
 
-    // let err = w.add_indexes(codec_readers);
-    // assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    // assert!(err
-    //     .unwrap_err()
-    //     .to_string()
-    //     .contains("cannot change index sort"));
+    let err = w.add_indexes_from_codec_readers(codec_readers);
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(
+      err
+        .unwrap_err()
+        .to_string()
+        .contains("cannot change index sort")
+    );
 
     reader.close()?;
   }
@@ -2463,13 +2465,10 @@ fn test_bad_add_indexes() -> Result<()> {
   w.close()?;
   Ok(())
 }
-fn do_test_add_indexes<R>(random: &mut R, with_deletes: bool, _use_readers: bool) -> Result<()>
+fn do_test_add_indexes<R>(random: &mut R, with_deletes: bool, use_readers: bool) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  // TODO IMPORTANT add_indexes_from_codec_readers未实现
-  let use_readers = false;
-
   let dir = new_directory_shared(random)?;
   let mut iwc1 = new_index_writer_config(random)?;
   let use_parent = rarely(random);
@@ -2517,7 +2516,8 @@ where
   let dir2 = new_directory_shared(random)?;
   let analyzer = MockAnalyzer::new(random);
   let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
-  if random.random_bool(0.5) {
+  let use_prefix_sort = random.random_bool(0.5);
+  if use_prefix_sort {
     iwc.set_index_sort(Sort::with_fields(vec![SortField::new(
       Some("foo"),
       SortFieldType::Long,
@@ -2531,13 +2531,13 @@ where
   let w2 = IndexWriter::new(dir2.clone(), iwc)?;
 
   if use_readers {
-    unreachable!("add_indexes_from_codec_readers未实现")
-    // let leaves = reader.leaves()?;
-    // let mut codec_readers = Vec::with_capacity(leaves.len());
-    // for leaf in leaves {
-    //   codec_readers.push(leaf.reader().get_codec_reader()?.clone());
-    // }
-    // w2.add_indexes(codec_readers)?;
+    let reader_context = get_context(reader.clone())?;
+    let leaves = reader_context.leaves()?;
+    let mut codec_readers = Vec::with_capacity(leaves.len());
+    for leaf in leaves {
+      codec_readers.push(leaf.reader().clone());
+    }
+    w2.add_indexes_from_codec_readers(codec_readers)?;
   } else {
     w2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
   }

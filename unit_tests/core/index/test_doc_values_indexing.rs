@@ -55,6 +55,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
@@ -67,7 +68,44 @@ struct TestDocValuesIndexing;
 
 #[test]
 fn test_add_indexes() -> Result<()> {
-  // TODO IndexWriter::add_indexes 未实现
+  let mut random = random();
+
+  let d1 = new_directory_shared(&mut random)?;
+  let w = RandomIndexWriter::new(&mut random, d1.clone())?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(NumericDocValuesField::new("dv", 1));
+  w.add_document(&mut random, doc)?;
+  let r1 = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
+
+  let d2 = new_directory_shared(&mut random)?;
+  let w = RandomIndexWriter::new(&mut random, d2.clone())?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(NumericDocValuesField::new("dv", 2));
+  w.add_document(&mut random, doc)?;
+  let r2 = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
+
+  let d3 = new_directory_shared(&mut random)?;
+  let w = RandomIndexWriter::new(&mut random, d3.clone())?;
+  // TODO IMPORTANT add_indexes_from_codec_readers不支持其他 CR 类型
+  w.add_indexes_from_codec_readers(
+    &mut random,
+    vec![get_only_leaf_reader(&r1)?, get_only_leaf_reader(&r2)?],
+  )?;
+  r1.close()?;
+  r2.close()?;
+
+  w.force_merge(&mut random, 1)?;
+  let r3 = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
+  let sr = get_only_leaf_reader(&r3)?;
+  assert_eq!(2, sr.num_docs()?);
+  let doc_values = sr.get_numeric_doc_values("dv")?;
+  assert!(doc_values.is_some());
+  r3.close()?;
   Ok(())
 }
 #[test]
@@ -790,7 +828,37 @@ fn test_mixed_types_different_threads() -> Result<()> {
 }
 #[test]
 fn test_mixed_types_via_add_indexes() -> Result<()> {
-  // TODO add_indexes未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  let w = IndexWriter::new(dir.clone(), conf)?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("foo", 0));
+  w.add_document(doc)?;
+
+  // Make 2nd index w/ inconsistent field
+  let dir2 = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  let w2 = IndexWriter::new(dir2.clone(), conf)?;
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "foo",
+    new_bytes_ref_from_string(&mut random, "hello")?,
+  ));
+  w2.add_document(doc)?;
+  w2.close()?;
+
+  let err = w.add_indexes_from_directory(std::slice::from_ref(&dir2));
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+  let r = directory_reader::open(dir2.clone())?;
+  let err = TestUtil::add_indexes_slowly(&w, &[&r]);
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+  r.close()?;
+  w.close()?;
   Ok(())
 }
 #[test]
@@ -1010,7 +1078,33 @@ fn test_type_change_via_add_indexes() -> Result<()> {
 }
 #[test]
 fn test_type_change_via_add_indexes_ir() -> Result<()> {
-  // TODO add_indexes未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 0));
+  writer.add_document(doc)?;
+  writer.close()?;
+
+  let dir2 = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  let writer2 = IndexWriter::new(dir2.clone(), conf)?;
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
+  writer2.add_document(doc)?;
+  let reader = directory_reader::open(dir.clone())?;
+  let err = TestUtil::add_indexes_slowly(&writer2, &[&reader]);
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+  reader.close()?;
+  writer2.close()?;
   Ok(())
 }
 #[test]
@@ -1046,7 +1140,34 @@ fn test_type_change_via_add_indexes2() -> Result<()> {
 }
 #[test]
 fn test_type_change_via_add_indexes_ir_2() -> Result<()> {
-  // TODO add_indexes未实现
+  let mut random = random();
+
+  let dir = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+  let mut doc = Document::new();
+  doc.add(NumericDocValuesField::new("dv", 0));
+  writer.add_document(doc)?;
+  writer.close()?;
+
+  let dir2 = new_directory_shared(&mut random)?;
+  let a = MockAnalyzer::new(&mut random);
+  let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  let writer2 = IndexWriter::new(dir2.clone(), conf)?;
+  let reader = directory_reader::open(dir.clone())?;
+  TestUtil::add_indexes_slowly(&writer2, &[&reader])?;
+  reader.close()?;
+
+  let mut doc2 = Document::new();
+  doc2.add(SortedDocValuesField::new(
+    "dv",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+  ));
+  let err = writer2.add_document(doc2);
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+  writer2.close()?;
   Ok(())
 }
 #[test]

@@ -3393,10 +3393,13 @@ where
         .map(|s| !is_congruent_sort(&index_sort, s))
         .unwrap_or(true)
     {
+      let old_sort = leaf_index_sort
+        .as_ref()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| "None".to_string());
       return Err(LuceneError::illegal_argument(format!(
         "cannot change index sort from {} to {}",
-        leaf_index_sort.as_ref().unwrap(),
-        index_sort
+        old_sort, index_sort
       )));
     }
 
@@ -8632,13 +8635,14 @@ where
       },
       Err(err) => self.writer().handle_merge_exception(err, &merge),
     };
-
+    let mut processed_merges = self.processed_merges.lock();
+    processed_merges.push(merge);
+    let merge = processed_merges.last_mut().unwrap();
     {
       let mut inner = self.writer().inner.lock();
       merge.close(&mut inner, success, false, |_, _| Ok(()))?;
       self.on_merge_finished(&merge.stat, Some(&mut *inner));
     }
-    self.processed_merges.lock().push(merge);
     result
   }
 }

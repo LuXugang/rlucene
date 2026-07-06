@@ -55,7 +55,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
   new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_mock_fs_directory, new_string_field, rarely,
+  new_log_merge_policy, new_mock_fs_directory, new_searcher_with_reader, new_string_field, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use num_bigint::{BigInt, BigUint};
@@ -1010,11 +1010,40 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_add_indexes<R>(&self, _random: &mut R) -> Result<()>
+  fn test_add_indexes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    let dir1 = new_directory_shared(random)?;
+    let w = RandomIndexWriter::new(random, dir1.clone())?;
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int1", vec![17])?);
+    w.add_document(random, doc)?;
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int2", vec![42])?);
+    w.add_document(random, doc)?;
+    w.close(random)?;
+
+    // Different field number assigments:
+    let dir2 = new_directory_shared(random)?;
+    let w = RandomIndexWriter::new(random, dir2.clone())?;
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int2", vec![42])?);
+    w.add_document(random, doc)?;
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int1", vec![17])?);
+    w.add_document(random, doc)?;
+    w.close(random)?;
+
+    let dir = new_directory_shared(random)?;
+    let w = RandomIndexWriter::new(random, dir.clone())?;
+    w.add_indexes_from_dir(random, &[dir1.clone(), dir2.clone()])?;
+    w.force_merge(random, 1)?;
+
+    let s = new_searcher_with_reader(w.get_reader(random)?)?;
+    assert_eq!(2, s.count(IntPoint::new_exact_query("int1", 17)?)?);
+    assert_eq!(2, s.count(IntPoint::new_exact_query("int2", 42)?)?);
+    w.close(random)?;
     Ok(())
   }
 
