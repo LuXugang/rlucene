@@ -274,7 +274,7 @@ fn test_removals_and_insertions() -> Result<()> {
   // Basic insertion of new content
   let mut sds: Vec<i32> = Vec::with_capacity(num_docs_in_pq);
   for _i in 0..num_docs_in_pq * 10 {
-    let new_entry = random.random::<i32>().abs();
+    let new_entry = random.random::<i32>().wrapping_abs();
     sds.push(new_entry);
     let evicted = pq.insert_with_overflow(new_entry)?;
     check_validity(&pq);
@@ -311,7 +311,7 @@ fn test_removals_and_insertions() -> Result<()> {
     assert_eq!(sds.remove(element), object_to_remove);
     assert!(pq.remove(&object_to_remove)?);
     check_validity(&pq);
-    let new_entry = random.random::<i32>().abs();
+    let new_entry = random.random::<i32>().wrapping_abs();
     sds.push(new_entry);
     assert_eq!(pq.insert_with_overflow(new_entry)?, None);
     check_validity(&pq);
