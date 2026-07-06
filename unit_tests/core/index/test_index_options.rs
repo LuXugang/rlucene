@@ -139,7 +139,7 @@ where
   drop(w2);
 
   if from == to {
-    w1.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
+    w1.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
     w1.force_merge(1)?;
     let reader = directory_reader::open_from_writer(&w1)?;
     let leaf = get_only_leaf_reader(&reader)?;
@@ -154,7 +154,7 @@ where
     );
     reader.close()?;
   } else {
-    let err = w1.add_indexes_from_dir(std::slice::from_ref(&dir2));
+    let err = w1.add_indexes_from_directory(std::slice::from_ref(&dir2));
     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     assert_eq!(
       format!(

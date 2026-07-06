@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::merge_policy::{DefaultMergeSpecification, MergeStat, OneMerge};
+use crate::core::index::merge_policy::{
+  DefaultMergeSpecification, MergeSpecification, MergeStat, OneMerge,
+};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
@@ -44,7 +47,7 @@ where
     .iter()
     .map(|merge| merge.stat.clone())
     .collect();
-  MergeStat::await_all(&merge_stats, timeout)
+  MergeSpecification::<D, DefaultLeafReader<D>>::await_with_timeout(&merge_stats, timeout)
 }
 
 #[test]

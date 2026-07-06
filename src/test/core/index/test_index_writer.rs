@@ -3910,7 +3910,7 @@ fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()>
   config.set_soft_deletes_field("soft_deletes_2");
   let w2 = IndexWriter::new(dir2.clone(), config)?;
 
-  let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir1));
+  let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir1));
   match err {
     Ok(_) => panic!("expected IllegalArgument error"),
     Err(err) => {
@@ -3929,7 +3929,7 @@ fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()>
   config.set_soft_deletes_field("soft_deletes_1");
   let w3 = IndexWriter::new(dir3, config)?;
 
-  w3.add_indexes_from_dir(std::slice::from_ref(&dir1))?;
+  w3.add_indexes_from_directory(std::slice::from_ref(&dir1))?;
 
   for si in w3.clone_segment_infos()?.iter() {
     let field_infos = read_field_infos(si)?;
@@ -4507,7 +4507,7 @@ fn test_segment_commit_info_id() -> Result<()> {
       iwc.set_merge_policy(NoMergePolicy::default());
       let writer2 = IndexWriter::new(dir2.clone(), iwc)?;
 
-      writer2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      writer2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
       writer2.commit()?;
 
       let infos2 = SegmentInfos::read_latest_commit(dir2)?;

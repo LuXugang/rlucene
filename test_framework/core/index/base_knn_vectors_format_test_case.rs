@@ -530,7 +530,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     {
       let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
-      w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      w2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
 
       let reader = directory_reader::open_from_writer(&w2)?;
@@ -575,7 +575,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
       w2.add_document(doc)?;
-      w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      w2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
 
       let reader = directory_reader::open_from_writer(&w2)?;
@@ -635,7 +635,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       )?);
 
       w2.add_document(doc2)?;
-      w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+      w2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
 
       let reader = directory_reader::open_from_writer(&w2)?;
@@ -689,7 +689,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       )?);
       w2.add_document(doc)?;
 
-      let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+      let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32(4), vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
@@ -734,7 +734,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       )?);
       w2.add_document(doc)?;
 
-      let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+      let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",

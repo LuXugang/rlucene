@@ -23,7 +23,8 @@ use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  DefaultMergeSpecification, MergeContext, MergePolicy, MergeReaderSR, MergeStat, OneMergeSR,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergeReaderSR, MergeSpecification,
+  MergeStat, OneMergeSR,
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
@@ -3221,7 +3222,7 @@ where
   /// same coarse-grained flow:
   /// flush current in-memory changes, validate incoming commits, copy segment files as-is,
   /// reserve document ids, publish the new segments, and finally trigger merges if needed.
-  pub fn add_indexes_from_dir(&self, dirs: &[Arc<D>]) -> Result<i64>
+  pub fn add_indexes_from_directory(&self, dirs: &[Arc<D>]) -> Result<i64>
   where
     D: 'static,
   {
@@ -3426,148 +3427,144 @@ where
   /// - [`LuceneError::CorruptIndex`] if the index is corrupt
   /// - an error if there is a low-level IO error
   /// - [`LuceneError::IllegalArgument`] if `add_indexes` would cause the index to exceed `MAX_DOCS`
-  pub fn add_indexes_from_codec_readers<CR>(&self, _readers: Vec<CR>) -> Result<i64>
+  pub fn add_indexes_from_codec_readers(&self, readers: Vec<DefaultLeafReader<D>>) -> Result<i64>
   where
-    CR: CodecReader + Clone,
+    D: 'static,
   {
-    // self.ensure_open()?;
-    // let res = (|| {
-    //   let mut num_docs = 0_i64;
-    //   {
-    //     let global_field_number_map = self.global_field_number_map.lock();
-    //     for leaf in &readers {
-    //       self.validate_merge_reader(leaf)?;
-    //       let field_infos = leaf.get_field_infos()?;
-    //       for fi in field_infos.iter() {
-    //         global_field_number_map.verify_field_info(fi)?;
-    //       }
-    //       num_docs += i64::from(leaf.num_docs()?);
-    //     }
-    //   }
-    //   self.test_reserve_docs(num_docs)?;
-    //
-    //   {
-    //     let inner = self.inner.lock();
-    //     self.ensure_open()?;
-    //     if !inner.merges.are_enabled() {
-    //       return Err(LuceneError::already_closed(
-    //         "this IndexWriter is closed. Cannot execute add_indexes(CodecReaders...) API",
-    //       ));
-    //     }
-    //   }
-    //   let merge_policy = self.config.get_merge_policy();
-    //   let mut spec = match merge_policy.find_merges_readers::<CR, D>(readers)? {
-    //     Some(spec) if !spec.merges.is_empty() => spec,
-    //     None => {
-    //       self.info_stream.message(
-    //         "addIndexes(CodecReaders...)",
-    //         "received None mergeSpecification from MergePolicy. No indexes to add, returning..",
-    //       );
-    //       return Ok(self.doc_writer.get_next_sequence_number());
-    //     },
-    //     Some(_) => {
-    //       self.info_stream.message(
-    //         "addIndexes(CodecReaders...)",
-    //         "received empty mergeSpecification from MergePolicy. No indexes to add, returning..",
-    //       );
-    //       return Ok(self.doc_writer.get_next_sequence_number());
-    //     },
-    //   };
-    //
-    //   let mut merge_success = false;
-    //   let merge_result: Result<()> = (|| {
-    //     for merge in &mut spec.merges {
-    //       let mut success = false;
-    //       let result = (|| {
-    //         self.add_indexes_reader_merge(merge)?;
-    //         success = true;
-    //         Ok(())
-    //       })();
-    //       let close_result = merge.close(success, false, |_| Ok(()));
-    //       if let Err(err) = result {
-    //         close_result?;
-    //         return Err(err);
-    //       }
-    //       close_result?;
-    //     }
-    //     Ok(())
-    //   })();
-    //   if merge_result.is_ok() {
-    //     merge_success = spec
-    //       .merges
-    //       .iter()
-    //       .all(|merge| merge.has_completed_successfully().unwrap_or(false));
-    //   }
-    //
-    //   if !merge_success {
-    //     for merge in &spec.merges {
-    //       if let Some(merge_info) = merge.info.as_ref() {
-    //         self.delete_new_files(merge_info.files()?.iter(), None)?;
-    //       }
-    //     }
-    //   }
-    //   if let Err(err) = merge_result {
-    //     return Err(err);
-    //   }
-    //
-    //   if merge_success {
-    //     let mut infos = Vec::new();
-    //     let mut total_docs = 0_i64;
-    //     for merge in &spec.merges {
-    //       total_docs += i64::from(merge.total_max_doc);
-    //       if let Some(merge_info) = merge.info.as_ref() {
-    //         infos.push(merge_info.clone());
-    //       }
-    //     }
-    //
-    //     let seq_no = {
-    //       let mut inner = self.inner.lock();
-    //       if !infos.is_empty() {
-    //         let register_result: Result<()> = (|| {
-    //           self.ensure_open()?;
-    //           self.reserve_docs(total_docs)?;
-    //           inner.segment_infos.add_all(infos.clone())?;
-    //           self.checkpoint(&mut inner)?;
-    //           Ok(())
-    //         })();
-    //
-    //         if register_result.is_err() {
-    //           for sipc in &infos {
-    //             self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
-    //           }
-    //         }
-    //         register_result?;
-    //       }
-    //       self.doc_writer.get_next_sequence_number()
-    //     };
-    //     Ok(seq_no)
-    //   } else {
-    //     if self.info_stream.enabled("IW") {
-    //       self.info_stream.message(
-    //         "IW",
-    //         "addIndexes(CodecReaders...): failed to successfully merge all provided readers.",
-    //       );
-    //     }
-    //     for merge in &spec.merges {
-    //       if merge.is_aborted() {
-    //         return Err(LuceneError::merge_abort("merge was aborted."));
-    //       }
-    //       if let Some(err) = merge.get_exception() {
-    //         return Err(err);
-    //       }
-    //     }
-    //     Err(LuceneError::illegal_state(
-    //       "failed to successfully merge all provided readers in addIndexes(CodecReader...)",
-    //     ))
-    //   }
-    // })();
-    //
-    // if let Err(ref e) = res {
-    //   self.tragic_event(e, "addIndexes(CodecReader...)")?;
-    // }
-    // self.maybe_merge()?;
-    // res
-    todo!()
+    self.ensure_open()?;
+    let res = (|| {
+      let mut num_docs = 0_i64;
+      {
+        let global_field_number_map = self.global_field_number_map.lock();
+        for leaf in &readers {
+          self.validate_merge_reader(leaf)?;
+          let field_infos = leaf.get_field_infos()?;
+          for fi in field_infos.iter() {
+            global_field_number_map.verify_field_info(fi)?;
+          }
+          num_docs += i64::from(leaf.num_docs()?);
+        }
+      }
+      self.test_reserve_docs(num_docs)?;
+
+      {
+        let inner = self.inner.lock();
+        self.ensure_open()?;
+        if !inner.merges.are_enabled() {
+          return Err(LuceneError::already_closed(
+            "this IndexWriter is closed. Cannot execute add_indexes(CodecReaders...) API",
+          ));
+        }
+      }
+      let merge_policy = self.config.get_merge_policy();
+      let mut merges = match merge_policy.find_merges_readers(readers)? {
+        Some(spec) if !spec.merges.is_empty() => {
+          let merge_source = self.new_add_indexes_merge_source()?;
+          let mut merge_stats = Vec::with_capacity(spec.merges.len());
+          {
+            let mut inner = self.inner.lock();
+            for om in spec.merges {
+              merge_stats.push(om.stat.clone());
+              merge_source.register_merge(om, &mut inner);
+            }
+          }
+          self
+            .config
+            .get_merge_scheduler()
+            .merge(merge_source.clone(), MergeTrigger::AddIndexes)?;
+          MergeSpecification::<D, DefaultLeafReader<D>>::await_(&merge_stats);
+          merge_source.take_processed_merges()
+        },
+        None => {
+          self.info_stream.message(
+            "addIndexes(CodecReaders...)",
+            "received None mergeSpecification from MergePolicy. No indexes to add, returning..",
+          )?;
+          return Ok(self.doc_writer.get_next_sequence_number());
+        },
+        Some(_) => {
+          self.info_stream.message(
+            "addIndexes(CodecReaders...)",
+            "received empty mergeSpecification from MergePolicy. No indexes to add, returning..",
+          )?;
+          return Ok(self.doc_writer.get_next_sequence_number());
+        },
+      };
+
+      let merge_success = merges
+        .iter()
+        .all(|merge| merge.has_completed_successfully().unwrap_or(false));
+
+      if !merge_success {
+        for merge in &merges {
+          if let Some(merge_info) = merge.info.as_ref() {
+            self.delete_new_files(merge_info.files()?.iter(), None)?;
+          }
+        }
+      }
+
+      if merge_success {
+        let mut infos = Vec::new();
+        let mut total_docs = 0_i64;
+        for merge in &mut merges {
+          total_docs += i64::from(merge.total_max_doc);
+          if let Some(merge_info) = merge.info.take() {
+            infos.push(merge_info);
+          }
+        }
+
+        let seq_no = {
+          let mut inner = self.inner.lock();
+          if !infos.is_empty() {
+            let register_segment_result: Result<()> = (|| {
+              self.ensure_open()?;
+              self.reserve_docs(total_docs)?;
+              Ok(())
+            })();
+            if register_segment_result.is_err() {
+              for sipc in &infos {
+                self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
+              }
+            }
+            register_segment_result?;
+            inner.segment_infos.add_all(infos)?;
+            self.checkpoint(&mut inner)?;
+          }
+          self.doc_writer.get_next_sequence_number()
+        };
+        Ok(seq_no)
+      } else {
+        if self.info_stream.is_enabled("IW") {
+          self.info_stream.message(
+            "addIndexes(CodecReaders...)",
+            "failed to successfully merge all provided readers.",
+          )?;
+        }
+        for merge in &merges {
+          if merge.is_aborted() {
+            return Err(LuceneError::merge_abort("merge was aborted."));
+          }
+          if let Some(t) = merge.get_exception() {
+            return Err(t);
+          }
+        }
+        Err(LuceneError::illegal_state(
+          "failed to successfully merge all provided readers in addIndexes(CodecReader...)",
+        ))
+      }
+    })();
+    match res {
+      Ok(seq_no) => {
+        self.maybe_merge()?;
+        Ok(seq_no)
+      },
+      Err(err) => {
+        if err.is_tragedy_error() {
+          self.tragic_event(err.clone(), "addIndexes(CodecReader...)", None)?;
+        }
+        Err(err)
+      },
+    }
   }
 
   /// Runs a single merge operation for [`IndexWriter::add_indexes(CodecReader...)`].
@@ -8519,7 +8516,7 @@ where
   D: Directory,
 {
   writer: Arc<IndexWriter<D>>,
-  processed_merges: Mutex<Vec<OneMergeSR<D>>>,
+  processed_merges: Arc<Mutex<Vec<OneMergeSR<D>>>>,
 }
 
 impl<D> Clone for AddIndexesMergeSource<D>
@@ -8529,7 +8526,7 @@ where
   fn clone(&self) -> Self {
     Self {
       writer: self.writer.clone(),
-      processed_merges: Mutex::new(Vec::new()),
+      processed_merges: self.processed_merges.clone(),
     }
   }
 }
@@ -8541,7 +8538,7 @@ where
   fn new(writer: Arc<IndexWriter<D>>) -> Self {
     Self {
       writer,
-      processed_merges: Mutex::new(Vec::new()),
+      processed_merges: Arc::new(Mutex::new(Vec::new())),
     }
   }
 
@@ -8580,6 +8577,10 @@ where
 
   fn on_merge_finished_locked(&self, merge: &MergeStat, inner: &mut Inner<D>) {
     inner.running_merges.remove(merge);
+  }
+  fn take_processed_merges(&self) -> Vec<OneMergeSR<D>> {
+    let mut processed_merges = self.processed_merges.lock();
+    std::mem::take(&mut *processed_merges)
   }
 }
 impl<D> MergeSource<D> for AddIndexesMergeSource<D>

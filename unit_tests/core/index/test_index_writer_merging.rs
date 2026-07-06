@@ -68,7 +68,7 @@ fn test_lucene() -> Result<()> {
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 2)?);
   let writer = IndexWriter::new(merged.clone(), conf)?;
-  writer.add_indexes_from_dir(&[index_a, index_b])?;
+  writer.add_indexes_from_directory(&[index_a, index_b])?;
   writer.force_merge(1)?;
   writer.close()?;
 

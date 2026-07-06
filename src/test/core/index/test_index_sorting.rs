@@ -2435,7 +2435,7 @@ fn test_bad_add_indexes() -> Result<()> {
     w2.close()?;
     drop(w2);
 
-    let err = w.add_indexes_from_dir(std::slice::from_ref(&dir2));
+    let err = w.add_indexes_from_directory(std::slice::from_ref(&dir2));
     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
     assert!(
       err
@@ -2539,7 +2539,7 @@ where
     // }
     // w2.add_indexes(codec_readers)?;
   } else {
-    w2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+    w2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
   }
 
   let reader2 = Arc::new(directory_reader::open_from_writer(&w2)?);

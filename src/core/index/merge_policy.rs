@@ -1556,6 +1556,13 @@ impl MergeCompletion {
     *self.state.lock()
   }
 
+  fn await_(&self) {
+    let mut state = self.state.lock();
+    while state.is_none() {
+      self.completed.wait(&mut state);
+    }
+  }
+
   fn await_until(&self, deadline: Instant) -> bool {
     let mut state = self.state.lock();
     loop {
@@ -1617,7 +1624,13 @@ impl Hash for MergeStat {
 }
 
 impl MergeStat {
-  pub(crate) fn await_all(merges: &[MergeStat], timeout: Duration) -> bool {
+  pub(crate) fn await_all(merges: &[MergeStat]) {
+    for merge in merges {
+      merge.await_();
+    }
+  }
+
+  fn await_all_with_timeout(merges: &[MergeStat], timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     for merge in merges {
       if !merge.await_until(deadline) {
@@ -1629,6 +1642,10 @@ impl MergeStat {
 
   pub(crate) fn await_until(&self, deadline: Instant) -> bool {
     self.completion.await_until(deadline)
+  }
+
+  pub(crate) fn await_(&self) {
+    self.completion.await_()
   }
 
   pub(crate) fn complete(&self, success: bool) -> bool {
@@ -2234,14 +2251,12 @@ where
     self.merges.push(merge);
   }
 
-  pub fn await_merges(merges: &[OneMerge<D, CR>], timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    for merge in merges {
-      if !merge.stat.await_until(deadline) {
-        return false;
-      }
-    }
-    true
+  pub fn await_(merges: &[MergeStat]) {
+    MergeStat::await_all(merges);
+  }
+
+  pub fn await_with_timeout(merges: &[MergeStat], timeout: Duration) -> bool {
+    MergeStat::await_all_with_timeout(merges, timeout)
   }
 }
 

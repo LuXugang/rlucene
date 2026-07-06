@@ -120,7 +120,7 @@ fn test_full_merge_add_indexes_dir() -> Result<()> {
   }
 
   let writer = create_writer(&mut random, target.clone())?;
-  writer.add_indexes_from_dir(&input)?;
+  writer.add_indexes_from_directory(&input)?;
   writer.force_merge(1)?;
   writer.close()?;
 

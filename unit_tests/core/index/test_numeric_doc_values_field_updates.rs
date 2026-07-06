@@ -1725,7 +1725,7 @@ fn test_add_indexes() -> Result<()> {
   let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
   let writer = IndexWriter::new(dir2.clone(), conf)?;
   // TODO IMPORTANT add_indexes_slowly未实现
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir1))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir1))?;
   // if random.random_bool(0.5) {
   //   writer.add_indexes_from_dir(&vec![dir1.clone()])?;
   // } else {
@@ -1793,7 +1793,7 @@ fn test_add_new_field_after_add_indexes() -> Result<()> {
   conf.set_merge_policy(NoMergePolicy::default());
   {
     let writer = IndexWriter::new(main_dir.clone(), conf)?;
-    writer.add_indexes_from_dir(&[dir1.clone(), dir2.clone()])?;
+    writer.add_indexes_from_directory(&[dir1.clone(), dir2.clone()])?;
 
     let mut original_field_infos = Vec::new();
     {
@@ -1887,7 +1887,7 @@ fn test_updates_after_add_indexes() -> Result<()> {
   conf.set_merge_policy(NoMergePolicy::default());
   {
     let writer = IndexWriter::new(main_dir.clone(), conf)?;
-    writer.add_indexes_from_dir(&[dir1.clone(), dir2.clone()])?;
+    writer.add_indexes_from_directory(&[dir1.clone(), dir2.clone()])?;
 
     let mut original_field_infos = Vec::new();
     {

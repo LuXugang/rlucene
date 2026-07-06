@@ -404,7 +404,7 @@ fn test_add_indexes() -> Result<()> {
     let w2 = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random)?)?;
     w2.add_document(Document::new())?;
 
-    let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+    let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
     assert_eq!(1, w2.get_doc_stats()?.max_doc);
@@ -530,7 +530,7 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
     ))));
   }
 
-  match w.add_indexes_from_dir(&dirs) {
+  match w.add_indexes_from_directory(&dirs) {
     Ok(_) => return Err(LuceneError::illegal_state("didn't get expected exception")),
     Err(LuceneError::IllegalArgument(_)) => {
       // pass

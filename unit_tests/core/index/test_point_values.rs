@@ -250,7 +250,7 @@ fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
   doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
   w2.add_document(doc)?;
 
-  let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+  let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=2, indexDimensionCount=2, numBytes=4 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
@@ -428,7 +428,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
   doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
   w2.add_document(doc)?;
 
-  let err = w2.add_indexes_from_dir(std::slice::from_ref(&dir));
+  let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=6 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",

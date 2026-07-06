@@ -152,7 +152,7 @@ fn test_add_indexes() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir1.clone(), iwc)?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
   writer.close()?;
   drop(writer);
 

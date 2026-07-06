@@ -97,7 +97,7 @@ fn test_simple_case() -> Result<()> {
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   assert_eq!(100, writer.get_doc_stats()?.max_doc);
-  writer.add_indexes_from_dir(&[aux.clone(), aux2.clone()])?;
+  writer.add_indexes_from_directory(&[aux.clone(), aux2.clone()])?;
   assert_eq!(190, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   TestUtil::check_index(dir.clone())?;
@@ -120,7 +120,7 @@ fn test_simple_case() -> Result<()> {
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   assert_eq!(190, writer.get_doc_stats()?.max_doc);
-  writer.add_indexes_from_dir(std::slice::from_ref(&aux3))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&aux3))?;
   assert_eq!(230, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
@@ -174,7 +174,7 @@ fn test_simple_case() -> Result<()> {
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
   assert_eq!(230, writer.get_doc_stats()?.max_doc);
-  writer.add_indexes_from_dir(std::slice::from_ref(&aux4))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&aux4))?;
   assert_eq!(231, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
@@ -202,7 +202,7 @@ fn test_with_pending_deletes() -> Result<()> {
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_open_mode(OpenMode::Append);
   let writer = new_writer(dir.clone(), conf)?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&aux))?;
 
   // Adds 10 docs, then replaces them with another 10
   // docs, so 10 pending deletes:
@@ -286,7 +286,7 @@ fn test_with_pending_deletes2() -> Result<()> {
     writer.update_document_with_term(Term::from_text("id", (i % 10).to_string()), doc)?;
   }
 
-  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&aux))?;
 
   // Deletes one of the 10 added docs, leaving 9:
   let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
@@ -353,7 +353,7 @@ fn test_with_pending_deletes3() -> Result<()> {
   let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
   writer.delete_documents_with_queries(vec![q.into()])?;
 
-  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&aux))?;
 
   writer.force_merge(1)?;
   writer.commit()?;
@@ -415,7 +415,7 @@ fn test_add_self() -> Result<()> {
   conf.set_open_mode(OpenMode::Append);
   let writer2 = new_writer(dir.clone(), conf)?;
 
-  let err = writer2.add_indexes_from_dir(&[aux.clone(), dir.clone()]);
+  let err = writer2.add_indexes_from_directory(&[aux.clone(), dir.clone()]);
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
   assert_eq!(100, writer2.get_doc_stats()?.max_doc);
@@ -445,7 +445,7 @@ fn test_no_tail_segments() -> Result<()> {
   let writer = new_writer(dir.clone(), conf)?;
   add_docs(&mut random, &writer, 10, &mut field_types)?;
 
-  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&aux))?;
   assert_eq!(1040, writer.get_doc_stats()?.max_doc);
   assert_eq!(1000, writer.max_doc(0));
   writer.close()?;
@@ -472,7 +472,7 @@ fn test_no_merge_after_copy() -> Result<()> {
   let writer = new_writer(writer_dir, conf)?;
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
   let aux_copy = MockDirectoryWrapper::new(&mut random, aux_copy);
-  writer.add_indexes_from_dir(&[
+  writer.add_indexes_from_directory(&[
     Arc::new(DirectoryEnum2::A(aux.clone())),
     Arc::new(DirectoryEnum2::B(aux_copy)),
   ])?;
@@ -525,7 +525,7 @@ fn test_merge_after_copy() -> Result<()> {
   }
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
   let aux_copy = MockDirectoryWrapper::new(&mut random, aux_copy);
-  writer.add_indexes_from_dir(&[
+  writer.add_indexes_from_directory(&[
     Arc::new(DirectoryEnum2::A(aux.clone())),
     Arc::new(DirectoryEnum2::B(aux_copy)),
   ])?;
@@ -557,7 +557,7 @@ fn test_more_merges() -> Result<()> {
   conf.set_max_buffered_docs(100);
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
   let writer = new_writer(aux2.clone(), conf)?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&aux))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&aux))?;
   assert_eq!(30, writer.get_doc_stats()?.max_doc);
   assert_eq!(3, writer.get_segment_count());
   writer.close()?;
@@ -598,7 +598,7 @@ fn test_more_merges() -> Result<()> {
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
   let writer = new_writer(dir.clone(), conf)?;
 
-  writer.add_indexes_from_dir(&[aux.clone(), aux2.clone()])?;
+  writer.add_indexes_from_directory(&[aux.clone(), aux2.clone()])?;
   assert_eq!(1040, writer.get_doc_stats()?.max_doc);
   assert_eq!(1000, writer.max_doc(0));
   writer.close()?;
@@ -893,7 +893,7 @@ fn test_hang_on_close() -> Result<()> {
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
   iwc.set_merge_policy(lmp);
   let writer = IndexWriter::new(dir2.clone(), iwc)?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir))?;
   writer.close()?;
   Ok(())
 }
@@ -1113,7 +1113,7 @@ fn test_add_indexes_dv_update_same_segment_name() -> Result<()> {
   let iwc2 = new_index_writer_config_with_analyzer(&mut random, a)?;
   let dir2 = new_directory_shared(&mut random)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
-  w2.add_indexes_from_dir(std::slice::from_ref(&dir1))?;
+  w2.add_indexes_from_directory(std::slice::from_ref(&dir1))?;
   w2.commit()?;
   w2.close()?;
   drop(w2);

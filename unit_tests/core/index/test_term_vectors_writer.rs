@@ -587,7 +587,7 @@ fn test_term_vector_corruption() -> Result<()> {
       &mut random,
       dir.as_ref(),
     )?))];
-    writer.add_indexes_from_dir(&index_dirs)?;
+    writer.add_indexes_from_directory(&index_dirs)?;
     writer.force_merge(1)?;
     writer.close()?;
   }

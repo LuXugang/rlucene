@@ -294,7 +294,7 @@ fn test_add_indexes() -> Result<()> {
   let r0 = directory_reader::open_from_writer(&writer)?;
   assert!(r0.is_current(&writer)?);
   drop(writer2);
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
   assert!(!r0.is_current(&writer)?);
   r0.close()?;
 
@@ -338,11 +338,11 @@ fn test_add_indexes2() -> Result<()> {
   create_index_no_close(!do_full_merge, "index2", &writer2)?;
   writer2.close()?;
   drop(writer2);
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
-  writer.add_indexes_from_dir(std::slice::from_ref(&dir2))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
+  writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
 
   let r1 = directory_reader::open_from_writer(&writer)?;
   assert_eq!(500, r1.max_doc()?);
@@ -658,7 +658,7 @@ fn test_during_add_indexes() -> Result<()> {
         let mut count = 0;
         loop {
           count += 1;
-          writer.add_indexes_from_dir(&dirs)?;
+          writer.add_indexes_from_directory(&dirs)?;
           writer.maybe_merge()?;
           if count >= num_iterations {
             break;

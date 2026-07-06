@@ -1002,7 +1002,7 @@ fn test_type_change_via_add_indexes() -> Result<()> {
   ));
   writer2.add_document(doc)?;
 
-  let err = writer2.add_indexes_from_dir(std::slice::from_ref(&dir));
+  let err = writer2.add_indexes_from_directory(std::slice::from_ref(&dir));
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
   writer2.close()?;
@@ -1031,7 +1031,7 @@ fn test_type_change_via_add_indexes2() -> Result<()> {
   let a = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let writer2 = IndexWriter::new(dir2.clone(), iwc)?;
-  writer2.add_indexes_from_dir(std::slice::from_ref(&dir))?;
+  writer2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
 
   let mut doc2 = Document::new();
   doc2.add(SortedDocValuesField::new(
