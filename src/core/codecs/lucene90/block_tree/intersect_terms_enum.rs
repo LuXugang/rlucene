@@ -204,13 +204,9 @@ where
       let fr_index = self.fr.index.as_ref().unwrap();
       let reader = self.fst_reader.as_mut().unwrap();
 
-      let v = fr_index.find_target_arc(
-        target,
-        // TODO IMPORTANT avoid clone here
-        &self.arcs[arc_idx].clone(),
-        &mut self.arcs[next_idx],
-        reader,
-      )?;
+      debug_assert!(arc_idx < next_idx);
+      let (follow_arcs, next_arcs) = self.arcs.split_at_mut(next_idx);
+      let v = fr_index.find_target_arc(target, &follow_arcs[arc_idx], &mut next_arcs[0], reader)?;
       debug_assert!(v.is_some());
       arc_idx = next_idx;
       let v = self.arcs[arc_idx].output().clone();
