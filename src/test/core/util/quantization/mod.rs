@@ -14,10 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod automaton;
-pub(crate) mod bkd;
-pub(crate) mod compress;
-pub(crate) mod fst;
-pub(crate) mod hnsw;
-pub(crate) mod packed;
-pub mod quantization;
+pub mod test_scalar_quantized_vector_similarity;
+pub mod test_scalar_quantizer;
