@@ -41,6 +41,49 @@ macro_rules! close_objects {
 }
 
 pub struct IOUtils;
+pub(crate) struct CloseWhileHandlingError {
+  first_error: Option<LuceneError>,
+  first_throwable: Option<LuceneError>,
+}
+impl CloseWhileHandlingError {
+  pub(crate) fn new() -> Self {
+    Self {
+      first_error: None,
+      first_throwable: None,
+    }
+  }
+
+  pub(crate) fn close<F>(&mut self, close: F)
+  where
+    F: FnOnce() -> Result<()>,
+  {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(close)) {
+      Ok(Ok(())) => {},
+      Ok(Err(error)) if error.is_tragedy_error() => {
+        self.first_error = Some(IOUtils::use_or_suppress(self.first_error.take(), error));
+      },
+      Ok(Err(error)) => {
+        self.first_throwable = Some(IOUtils::use_or_suppress(self.first_throwable.take(), error));
+      },
+      Err(payload) => {
+        let error = LuceneError::tragedy_from_panic("panic while closing", payload.as_ref());
+        self.first_error = Some(IOUtils::use_or_suppress(self.first_error.take(), error));
+      },
+    }
+  }
+
+  pub(crate) fn finish(self) -> Result<()> {
+    if let Some(mut first_error) = self.first_error {
+      if let Some(first_throwable) = self.first_throwable {
+        first_error.add_suppressed(first_throwable);
+      }
+      Err(first_error)
+    } else {
+      Ok(())
+    }
+  }
+}
+
 impl IOUtils {
   /// Deletes all given files, suppressing all returned errors.
   ///
@@ -106,40 +149,20 @@ impl IOUtils {
     Self::close(objects, CloseableRef::close)
   }
 
-  /// Closes all given objects, suppressing all returned errors.
+  /// Closes all given objects, suppressing all returned non-tragic errors.
   ///
-  /// Even if a panic is raised, all given closeables are closed before the
-  /// first panic is returned as an error.
+  /// Even if a panic is raised or a tragedy is returned, all given closeables
+  /// are closed before the first tragedy is returned as an error.
   pub fn close_while_handling_error<I, F>(objects: I, mut close: F) -> Result<()>
   where
     I: IntoIterator,
     F: FnMut(I::Item) -> Result<()>,
   {
-    let mut first_error = None;
-    let mut first_panic = None;
+    let mut error = CloseWhileHandlingError::new();
     for object in objects {
-      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| close(object))) {
-        Ok(Ok(())) => {},
-        Ok(Err(e)) => {
-          first_error = Some(IOUtils::use_or_suppress(first_error, e));
-        },
-        Err(e) => {
-          first_panic = Some(IOUtils::use_or_suppress(
-            first_panic,
-            LuceneError::tragedy_from_panic("panic while closing", e.as_ref()),
-          ));
-        },
-      }
+      error.close(|| close(object));
     }
-
-    if let Some(mut first_panic) = first_panic {
-      if let Some(error) = first_error {
-        first_panic = IOUtils::use_or_suppress(Some(first_panic), error);
-      }
-      Err(first_panic)
-    } else {
-      Ok(())
-    }
+    error.finish()
   }
 
   /// Ensure that any writes to the given file are written to the storage

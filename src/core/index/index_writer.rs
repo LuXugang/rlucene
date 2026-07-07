@@ -213,15 +213,6 @@ where
   start_commit_time: Instant,
 }
 
-impl<D> Drop for IndexWriter<D>
-where
-  D: Directory,
-{
-  fn drop(&mut self) {
-    // TODO IMPORTANT 其他close需要用到IndexWriter的字段都需要在这里处理
-  }
-}
-
 pub type DefaultIndexWriter<D> = Arc<IndexWriter<D>>;
 impl<D> IndexWriter<D>
 where
@@ -2511,7 +2502,7 @@ where
       self.info_stream.message("IW", "rollback")?;
     }
 
-    let result = (|| -> Result<()> {
+    let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       {
         let mut inner = self.inner.lock();
         // must be synced otherwise register merge might return an error if merges
@@ -2602,56 +2593,62 @@ where
       // below that sets closed:
       self.closed.store(true, Ordering::SeqCst);
 
-      // TODO IMPORTANT 这里需要捕获 panic 吗
       let close_result = IOUtils::close_one_ref(self.writer_lock());
       self.closing.store(false, Ordering::SeqCst);
       self.pausing.notify_all();
       close_result?;
       Ok(())
-    })();
+    })) {
+      Ok(result) => result,
+      Err(payload) => Err(LuceneError::tragedy_from_panic(
+        "panic while rolling back",
+        payload.as_ref(),
+      )),
+    };
 
-    let result = match result {
+    let mut result = match result {
       Ok(()) => Ok(()),
       Err(mut error) => {
-        let mut cleanup_error = None;
-        if let Err(e) = self.config.get_merge_scheduler().close() {
-          cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
-        }
-
-        {
+        let mut cleanup = CloseWhileHandlingError::new();
+        cleanup.close(|| self.config.get_merge_scheduler().close());
+        cleanup.close(|| {
           let mut inner = self.inner.lock();
 
           if let Some(mut pending_commit) = commit_lock.pending_commit.take() {
-            pending_commit.rollback_commit(self.directory.as_ref());
-            if let Err(e) = inner.deleter.dec_ref_from_segment(&pending_commit) {
-              cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+              pending_commit.rollback_commit(self.directory.as_ref());
+              inner.deleter.dec_ref_from_segment(&pending_commit)?;
+              Ok(())
+            })) {
+              Ok(Ok(())) => {},
+              Ok(Err(e)) => error.add_suppressed(e),
+              Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
+                "panic while rolling back pending commit",
+                payload.as_ref(),
+              )),
             }
           }
 
-          // TODO IMPORTANT 这里需要捕获 panic 吗
-          if let Err(e) = self.reader_pool.close(&mut inner.segment_infos) {
-            cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
-          }
-          if let Err(e) = inner.deleter.close() {
-            cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
-          }
-          if let Err(e) = IOUtils::close_one_ref(self.writer_lock()) {
-            cleanup_error = Some(IOUtils::use_or_suppress(cleanup_error, e));
-          }
+          let mut inner_cleanup = CloseWhileHandlingError::new();
+          inner_cleanup.close(|| self.reader_pool.close(&mut inner.segment_infos));
+          inner_cleanup.close(|| inner.deleter.close());
+          inner_cleanup.close(|| IOUtils::close_one_ref(self.writer_lock()));
+          inner_cleanup.close(|| {
+            self.closed.store(true, Ordering::SeqCst);
+            self.closing.store(false, Ordering::SeqCst);
+            self.pausing.notify_all();
+            Ok(())
+          });
+          inner_cleanup.finish()
+        });
 
-          self.closed.store(true, Ordering::SeqCst);
-          self.closing.store(false, Ordering::SeqCst);
-          self.pausing.notify_all();
-        }
-
-        if let Some(cleanup_error) = cleanup_error {
+        if let Err(cleanup_error) = cleanup.finish() {
           error.add_suppressed(cleanup_error);
         }
         Err(error)
       },
     };
 
-    let mut result = result;
     if let Err(error) = &mut result
       && error.is_tragedy_error()
       && let Err(tragic_error) =
@@ -7834,8 +7831,8 @@ use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
-  BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper,
-  TryIntoInt,
+  BYTE_BLOCK_SIZE, CloseWhileHandlingError, CoreHelper, HasIdentity, IOUtils, LATEST,
+  MIN_SUPPORTED_MAJOR, StringHelper, TryIntoInt,
 };
 #[cfg(test)]
 use crate::test_framework::core::internal::index_writer_access::IndexWriterAccess;
