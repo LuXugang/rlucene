@@ -62,7 +62,6 @@ use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableR
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-use log::warn;
 use std::sync::Arc;
 
 /// Writes vector values to index segments.
@@ -717,6 +716,7 @@ where
   num_vectors: i32,
   dir: &'a D,
   temp_file: String,
+  closed: bool,
 }
 
 impl<'a, S, D> FlatCloseableRandomVectorScorerSupplier<'a, S, D>
@@ -730,6 +730,7 @@ where
       num_vectors,
       dir,
       temp_file,
+      closed: false,
     }
   }
 }
@@ -775,6 +776,14 @@ where
   S: RandomVectorScorerSupplier,
   D: Directory,
 {
+  fn close(&mut self) -> Result<()> {
+    if !self.closed {
+      self.closed = true;
+      self.dir.delete_file(&self.temp_file)
+    } else {
+      Ok(())
+    }
+  }
 }
 
 impl<S, D> CloseableRandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<'_, S, D>
@@ -792,12 +801,6 @@ where
   D: Directory,
 {
   fn drop(&mut self) {
-    match self.dir.delete_file(&self.temp_file) {
-      Ok(_) => (),
-      Err(e) => {
-        // TODO IMPORTANT 有没有优雅合适的处理方式
-        warn!("Failed to delete temporary file: {}", e);
-      },
-    }
+    let _ = self.close();
   }
 }
