@@ -91,6 +91,8 @@ impl MemorySegmentIndexInput {
     let chunk_size = 1usize << chunk_size_power;
     #[cfg(unix)]
     let native_access = PosixNativeAccess::new()?;
+    #[cfg(not(unix))]
+    let _ = read_advice;
     let mut segments = Vec::new();
     let mut start_offset = 0usize;
     while start_offset < length {

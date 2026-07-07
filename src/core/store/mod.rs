@@ -88,10 +88,12 @@ pub use index_output::*;
 pub use input_stream_data_input::*;
 pub use io_context::*;
 pub use memory_segment_index_input::*;
+#[cfg(unix)]
 pub use native_access::*;
 pub use native_fs_lock_factory::*;
 pub use no_lock_factory::*;
 pub use output_stream_index_output::*;
+#[cfg(unix)]
 pub use posix_native_access::*;
 pub use rate_limited_directory::*;
 pub use rate_limited_index_output::*;
