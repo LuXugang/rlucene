@@ -37,6 +37,8 @@ use crate::core::util::fst_impl::fst::Arc;
 use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use crate::core::util::group_vint_util::GroupVIntUtil;
 
+const STATIC_FRAME_IDX: usize = 0;
+
 /// Iterates through terms in this field.
 pub struct SegmentTermsEnum<I, PR>
 where
@@ -45,12 +47,9 @@ where
 {
   // Lazy init: input stream
   pub(crate) input: Option<I>,
+  // stack[0] is staticFrame
   pub(crate) stack: Vec<SegmentTermsEnumFrame>,
-  pub(crate) static_frame: SegmentTermsEnumFrame,
-  // TODO IMPORTANT: 由于不确定使用static_frame_idx还是stack
-  // 代码中存在很多根据current_frame_idx的重复代码需要优化
   pub(crate) current_frame_idx: usize,
-  pub(crate) static_frame_idx: usize,
   pub(crate) term_exists: bool,
   pub(crate) fr: FieldReader<I, PR>,
   target_before_current_length: i32,
@@ -82,19 +81,12 @@ where
       debug_assert!(arcs[0].is_final());
     }
 
-    // Create static_frame
-    let static_frame = SegmentTermsEnumFrame::new(-1, &fr)?;
-
-    // Build Frame
-    let stack = Vec::new();
-    let stack_len = stack.len();
+    // Used to hold seek by TermState, or cached seek.
+    let frames = vec![SegmentTermsEnumFrame::new(-1, &fr)?];
     Ok(Self {
       input: None,
-      stack,
-      static_frame,
-      current_frame_idx: stack_len + 1,
-      // The value of static_frame_idx is always stack.len() + 1.
-      static_frame_idx: stack_len + 1,
+      stack: frames,
+      current_frame_idx: STATIC_FRAME_IDX,
       term_exists: false,
       fr,
       target_before_current_length: 0,
@@ -113,23 +105,20 @@ where
     }
     Ok(())
   }
-  fn get_frame(&mut self, ord: usize) -> Result<()> {
-    if ord >= self.stack.len() {
-      let new_len = ArrayUtil::oversize(ord + 1, std::mem::size_of::<SegmentTermsEnumFrame>())?;
+  fn get_frame(&mut self, ord: usize) -> Result<usize> {
+    let frame_idx = ord + 1;
+    if frame_idx >= self.stack.len() {
+      let new_len =
+        ArrayUtil::oversize(frame_idx + 1, std::mem::size_of::<SegmentTermsEnumFrame>())?;
 
       for i in self.stack.len()..new_len {
-        let frame = SegmentTermsEnumFrame::new(i as i32, &self.fr)?;
+        let frame = SegmentTermsEnumFrame::new((i - 1) as i32, &self.fr)?;
         self.stack.push(frame);
       }
-      if self.current_frame_idx == self.static_frame_idx {
-        self.current_frame_idx = self.stack.len() + 1;
-      }
-      // The value of static_frame_idx is always stack.len() + 1.
-      self.static_frame_idx = self.stack.len() + 1;
     }
 
-    debug_assert_eq!(self.stack[ord].ord, ord as i32, "Frame ord mismatch");
-    Ok(())
+    debug_assert_eq!(self.stack[frame_idx].ord, ord as i32, "Frame ord mismatch");
+    Ok(frame_idx)
   }
   pub(crate) fn get_arc(&mut self, ord: usize) -> Result<usize> {
     if ord >= self.arcs.len() {
@@ -155,14 +144,10 @@ where
     self.output_accumulator.prepare_read();
     let code = self.fr.read_vlong_output(&mut self.output_accumulator)?;
     let fp_seek = ((code as u64) >> OUTPUT_FLAGS_NUM_BITS) as i64;
-    let current_ord = if self.current_frame_idx == self.static_frame_idx {
-      -1
-    } else {
-      self.stack[self.current_frame_idx].ord
-    };
+    let current_ord = self.stack[self.current_frame_idx].ord;
     let ord = (current_ord + 1) as usize;
-    self.get_frame(ord)?;
-    let f = &mut self.stack[ord];
+    let frame_idx = self.get_frame(ord)?;
+    let f = &mut self.stack[frame_idx];
     f.has_terms = (code & OUTPUT_FLAG_HAS_TERMS as i64) != 0;
     f.has_terms_orig = f.has_terms;
     f.is_floor = (code & OUTPUT_FLAG_IS_FLOOR as i64) != 0;
@@ -170,14 +155,15 @@ where
     if f.is_floor {
       f.set_floor_data(&self.output_accumulator)?;
     }
-    self.push_frame(arc, fp_seek, length)?;
-    Ok(ord)
+    let pushed_frame_idx = self.push_frame(arc, fp_seek, length)?;
+    debug_assert_eq!(pushed_frame_idx, frame_idx);
+    Ok(frame_idx)
   }
   pub(crate) fn push_frame(&mut self, arc: Option<usize>, fp: i64, length: usize) -> Result<usize> {
-    let current_frame = self.current_frame();
+    let current_frame = &self.stack[self.current_frame_idx];
     let ord = (current_frame.ord + 1) as usize;
-    self.get_frame(ord)?;
-    let f = &mut self.stack[ord];
+    let frame_idx = self.get_frame(ord)?;
+    let f = &mut self.stack[frame_idx];
     f.arc = arc;
 
     if f.fp_orig == fp && f.next_ent != -1 {
@@ -194,7 +180,7 @@ where
       f.last_sub_fp = -1;
     }
 
-    Ok(ord)
+    Ok(frame_idx)
   }
 
   fn clear_eof(&mut self) -> bool {
@@ -206,28 +192,6 @@ where
     true
   }
 
-  #[inline]
-  fn current_frame(&self) -> &SegmentTermsEnumFrame {
-    if self.current_frame_idx == self.static_frame_idx {
-      &self.static_frame
-    } else {
-      &self.stack[self.current_frame_idx]
-    }
-  }
-
-  #[inline]
-  fn current_frame_mut(&mut self) -> &mut SegmentTermsEnumFrame {
-    if self.current_frame_idx == self.static_frame_idx {
-      &mut self.static_frame
-    } else {
-      &mut self.stack[self.current_frame_idx]
-    }
-  }
-
-  #[inline]
-  fn current_ord(&self) -> i32 {
-    self.current_frame().ord
-  }
   pub fn prepare_seek_exact(
     &mut self,
     target: &BytesRef<Vec<u8>>,
@@ -246,16 +210,13 @@ where
     self.term.grow(1 + target.length)?;
     debug_assert!(self.clear_eof());
     let mut target_upto;
-    let target_before_current_length = {
-      let current_frame = self.current_frame();
-      current_frame.ord
-    };
+    let target_before_current_length = self.stack[self.current_frame_idx].ord;
     self.target_before_current_length = target_before_current_length;
     self.output_accumulator.reset();
 
     // -1 means equal to staticFrame
     let mut arc_index;
-    if self.current_frame_idx != self.static_frame_idx {
+    if self.current_frame_idx != STATIC_FRAME_IDX {
       let mut arc;
       // We are already seek'd; find the common
       // prefix of new seek term vs current term and
@@ -269,7 +230,7 @@ where
       self.output_accumulator.push(arc.output());
 
       target_upto = 0;
-      let mut last_frame: usize = 0;
+      let mut last_frame: usize = 1;
       debug_assert!(self.valid_index_prefix <= self.term.length());
 
       let target_limit = std::cmp::min(target.length, self.valid_index_prefix);
@@ -292,7 +253,7 @@ where
         self.output_accumulator.push(arc.output());
 
         if arc.is_final() {
-          last_frame = (1 + self.stack[last_frame].ord) as usize;
+          last_frame = (self.stack[last_frame].ord + 2) as usize;
         }
 
         target_upto += 1;
@@ -336,7 +297,7 @@ where
 
         self.output_accumulator.push(arc.output());
 
-        self.current_frame_idx = self.static_frame_idx;
+        self.current_frame_idx = STATIC_FRAME_IDX;
 
         target_upto = 0;
         let next_final_output = arc.next_final_output();
@@ -355,19 +316,19 @@ where
       let fr_index = self.fr.index.as_ref().unwrap();
       let reader = self.fst_reader.as_mut().unwrap();
 
+      debug_assert!(arc_index < next_arc_idx);
+      let (follow_arcs, next_arcs) = self.arcs.split_at_mut(next_arc_idx);
       let v = fr_index.find_target_arc(
         target_label,
-        // TODO IMPORTANT avoid clone here
-        &self.arcs[arc_index].clone(),
-        &mut self.arcs[next_arc_idx],
+        &follow_arcs[arc_index],
+        &mut next_arcs[0],
         reader,
       )?;
 
       if v.is_none() {
         // index exhausted
         {
-          let current_frame = self.current_frame();
-          self.valid_index_prefix = current_frame.prefix_length;
+          self.valid_index_prefix = self.stack[self.current_frame_idx].prefix_length;
         }
         SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
           self.current_frame_idx,
@@ -375,8 +336,7 @@ where
           self,
           true,
         )?;
-        let current_frame = self.current_frame();
-        if !current_frame.has_terms {
+        if !self.stack[self.current_frame_idx].has_terms {
           self.term_exists = false;
           self.term.set_byte_at(target_upto, target_label as u8);
           self.term.set_length(target_upto + 1);
@@ -405,8 +365,7 @@ where
       }
     }
     {
-      let current_frame = self.current_frame();
-      self.valid_index_prefix = current_frame.prefix_length;
+      self.valid_index_prefix = self.stack[self.current_frame_idx].prefix_length;
     }
     SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
       self.current_frame_idx,
@@ -414,8 +373,7 @@ where
       self,
       true,
     )?;
-    let current_frame = self.current_frame();
-    if !current_frame.has_terms {
+    if !self.stack[self.current_frame_idx].has_terms {
       self.term_exists = false;
       self.term.set_length(target_upto);
       self.prepare_seek_status = PrepareSeekStatus::NotFound;
@@ -449,11 +407,10 @@ where
       self.current_frame_idx = self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
       SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
     }
-    let current_frame = self.current_frame();
-    self.target_before_current_length = current_frame.ord;
+    self.target_before_current_length = self.stack[self.current_frame_idx].ord;
     debug_assert!(!self.eof);
 
-    if self.current_frame_idx == self.static_frame_idx {
+    if self.current_frame_idx == STATIC_FRAME_IDX {
       // If seek was previously called and the term was
       // cached, or seek(TermState) was called, usually
       // caller is just going to pull a D/&PEnum or get
@@ -467,31 +424,30 @@ where
     }
     loop {
       let res = {
-        let current_frame = self.current_frame_mut();
+        let current_frame = &self.stack[self.current_frame_idx];
         current_frame.next_ent == current_frame.ent_count
       };
       if res {
-        let is_last_in_floor = {
-          let current_frame = self.current_frame();
-          current_frame.is_last_in_floor
-        };
+        let is_last_in_floor = { self.stack[self.current_frame_idx].is_last_in_floor };
         if !is_last_in_floor {
           SegmentTermsEnumFrame::load_next_floor_block(self.current_frame_idx, self)?;
           break;
         } else {
           let (next_ent, last_sub_fp, last_fp) = {
-            if self.current_ord() == 0 {
+            let current_frame_idx = self.current_frame_idx;
+            let current_ord = self.stack[current_frame_idx].ord;
+            if current_ord == 0 {
               self.eof = true;
               self.term.clear();
               self.valid_index_prefix = 0;
-              self.current_frame_mut().rewind()?;
+              self.stack[current_frame_idx].rewind()?;
               self.term_exists = false;
               return Ok(None);
             }
 
-            let last_fp = self.current_frame().fp_orig;
-            self.current_frame_idx = (self.current_ord() - 1) as usize;
-            let current_frame = self.current_frame();
+            let last_fp = self.stack[current_frame_idx].fp_orig;
+            self.current_frame_idx = current_ord as usize;
+            let current_frame = &self.stack[self.current_frame_idx];
             (current_frame.next_ent, current_frame.last_sub_fp, last_fp)
           };
 
@@ -502,8 +458,9 @@ where
             SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
             SegmentTermsEnumFrame::scan_to_sub_block(self.current_frame_idx, last_fp, self)?;
           }
-          let current_frame = self.current_frame();
-          self.valid_index_prefix = self.valid_index_prefix.min(current_frame.prefix_length);
+          self.valid_index_prefix = self
+            .valid_index_prefix
+            .min(self.stack[self.current_frame_idx].prefix_length);
         }
       } else {
         break;
@@ -513,8 +470,7 @@ where
     loop {
       let has_next = SegmentTermsEnumFrame::next(self.current_frame_idx, self)?;
       if has_next {
-        let current_frame = self.current_frame();
-        let last_sub_fp = current_frame.last_sub_fp;
+        let last_sub_fp = self.stack[self.current_frame_idx].last_sub_fp;
         let length = { self.term.length() };
         self.current_frame_idx = self.push_frame(None, last_sub_fp, length)?;
         // This is a "next" frame -- even if it's
@@ -584,11 +540,10 @@ where
 
     let mut target_upto;
 
-    let current_frame = self.current_frame();
-    self.target_before_current_length = current_frame.ord;
+    self.target_before_current_length = self.stack[self.current_frame_idx].ord;
     self.output_accumulator.reset();
     let mut arc_index;
-    if self.current_frame_idx != self.static_frame_idx {
+    if self.current_frame_idx != STATIC_FRAME_IDX {
       let mut arc;
       // We are already seek'd; find the common
       // prefix of new seek term vs current term and
@@ -603,8 +558,7 @@ where
       self.output_accumulator.push(v);
       target_upto = 0;
 
-      let mut last_frame_index: usize = 0;
-      let mut last_frame = &mut self.stack[last_frame_index];
+      let mut last_frame_index: usize = 1;
       debug_assert!(self.valid_index_prefix <= self.term.length());
 
       let target_limit = std::cmp::min(target.length, self.valid_index_prefix);
@@ -626,9 +580,7 @@ where
         self.output_accumulator.push(arc.output());
 
         if arc.is_final() {
-          let idx = 1 + last_frame.ord;
-          last_frame_index = idx as usize;
-          last_frame = &mut self.stack[idx as usize];
+          last_frame_index = (self.stack[last_frame_index].ord + 2) as usize;
         }
 
         target_upto += 1;
@@ -644,7 +596,7 @@ where
         self.current_frame_idx = last_frame_index;
       } else if cmp > 0 {
         self.target_before_current_length = 0;
-        last_frame.rewind()?;
+        self.stack[last_frame_index].rewind()?;
         self.current_frame_idx = last_frame_index;
       } else {
         debug_assert_eq!(self.term.length(), target.length);
@@ -662,7 +614,7 @@ where
 
       self.output_accumulator.push(arc.output());
 
-      self.current_frame_idx = self.static_frame_idx;
+      self.current_frame_idx = STATIC_FRAME_IDX;
 
       target_upto = 0;
       self.output_accumulator.push(arc.next_final_output());
@@ -679,17 +631,17 @@ where
 
       let reader = self.fst_reader.as_mut().unwrap();
 
+      debug_assert!(arc_index < next_arc_idx);
+      let (follow_arcs, next_arcs) = self.arcs.split_at_mut(next_arc_idx);
       let v = fr_index.find_target_arc(
         target_label,
-        // TODO IMPORTANT avoid clone here through clone here is acceptable
-        &self.arcs[arc_index].clone(),
-        &mut self.arcs[next_arc_idx],
+        &follow_arcs[arc_index],
+        &mut next_arcs[0],
         reader,
       )?;
 
       if v.is_none() {
-        let current_frame = self.current_frame();
-        self.valid_index_prefix = current_frame.prefix_length;
+        self.valid_index_prefix = self.stack[self.current_frame_idx].prefix_length;
         SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
           self.current_frame_idx,
           target,
@@ -729,8 +681,7 @@ where
         }
       }
     }
-    let current_frame = self.current_frame();
-    self.valid_index_prefix = current_frame.prefix_length;
+    self.valid_index_prefix = self.stack[self.current_frame_idx].prefix_length;
     SegmentTermsEnumFrame::scan_to_floor_frame_with_target(
       self.current_frame_idx,
       target,
@@ -767,11 +718,12 @@ where
   ) -> Result<()> {
     debug_assert!(self.clear_eof());
     if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
-      self.static_frame.state = other_state.clone();
-      self.current_frame_idx = self.static_frame_idx;
+      self.stack[STATIC_FRAME_IDX].state = other_state.clone();
+      self.current_frame_idx = STATIC_FRAME_IDX;
       self.term.copy_bytes_from_ref(target)?;
-      self.static_frame.meta_data_upto = self.static_frame.get_term_block_ord()?;
-      debug_assert!(self.static_frame.meta_data_upto > 0);
+      self.stack[STATIC_FRAME_IDX].meta_data_upto =
+        self.stack[STATIC_FRAME_IDX].get_term_block_ord()?;
+      debug_assert!(self.stack[STATIC_FRAME_IDX].meta_data_upto > 0);
       self.valid_index_prefix = 0;
     }
     Ok(())
@@ -790,7 +742,7 @@ where
     debug_assert!(!self.eof);
 
     SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
-    let current_frame = self.current_frame();
+    let current_frame = &self.stack[self.current_frame_idx];
 
     Ok(current_frame.state.get_block_term_state()?.doc_freq)
   }
@@ -799,7 +751,7 @@ where
     debug_assert!(!self.eof);
 
     SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
-    let current_frame = self.current_frame();
+    let current_frame = &self.stack[self.current_frame_idx];
 
     Ok(current_frame.state.get_block_term_state()?.total_term_freq)
   }
@@ -817,7 +769,7 @@ where
 
     let field_info = &self.fr.field_info;
     let postings_reader = &self.fr.parent.as_ref().unwrap().postings_reader;
-    let current_frame = self.current_frame();
+    let current_frame = &self.stack[self.current_frame_idx];
 
     let v = postings_reader
       .postings(field_info, &current_frame.state, reuse, flags)?
@@ -830,7 +782,7 @@ where
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     debug_assert!(!self.eof);
     SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
-    let current_frame = self.current_frame();
+    let current_frame = &self.stack[self.current_frame_idx];
     let field_info = &self.fr.field_info;
     let postings_reader = &self.fr.parent.as_ref().unwrap().postings_reader;
 
@@ -842,7 +794,7 @@ where
     debug_assert!(!self.eof);
 
     SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
-    let current_frame = self.current_frame();
+    let current_frame = &self.stack[self.current_frame_idx];
 
     let cloned_state = current_frame.state.clone();
     Ok(cloned_state)

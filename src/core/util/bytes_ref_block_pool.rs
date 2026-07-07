@@ -62,7 +62,6 @@ impl BytesRefBlockPool {
         (pos + 2) as i32,
       )
     };
-    // TODO IMPORTANT 这里总是需要克隆 term可以优化的
     let length = length as usize;
     ArrayUtil::grow_no_copy(&mut term.bytes, length)?;
     term

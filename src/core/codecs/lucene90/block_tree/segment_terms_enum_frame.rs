@@ -30,7 +30,7 @@ use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use std::sync::Arc;
 
 pub struct SegmentTermsEnumFrame {
-  /// Our index in stack[]
+  /// Java stack ord; -1 for the static frame.
   pub(crate) ord: i32,
 
   pub(crate) has_terms: bool,
@@ -182,11 +182,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     debug_assert!(
       frame.arc.is_none() || frame.is_floor,
       "arc= {:?} isFloor={}",
@@ -208,11 +204,7 @@ impl SegmentTermsEnumFrame {
     P: PostingsReaderBase,
   {
     let (next_ent, fp) = {
-      let frame = if frame_idx == ste.static_frame_idx {
-        &ste.static_frame
-      } else {
-        &ste.stack[frame_idx]
-      };
+      let frame = &ste.stack[frame_idx];
       (frame.next_ent, frame.fp)
     };
     if next_ent != -1 {
@@ -250,11 +242,7 @@ impl SegmentTermsEnumFrame {
     // that just pull a TermsEnum to
     // seekExact(TermState) don't pay this cost:
     ste.init_index_input()?;
-    let frame = if frame_index == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_index]
-    };
+    let frame = &mut ste.stack[frame_index];
 
     if frame.next_ent != -1 {
       return Ok(frame.is_leaf_block); // already loaded
@@ -371,11 +359,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     if frame.is_leaf_block {
       Self::next_leaf(frame_idx, ste)?;
       Ok(false)
@@ -388,12 +372,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    // TODO: 可以判断下是不是static 就可以避免这里的判断
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     debug_assert!(
       frame.next_ent != -1 && frame.next_ent < frame.ent_count,
       "next_ent={} ent_count={} fp={}",
@@ -431,21 +410,13 @@ impl SegmentTermsEnumFrame {
   {
     loop {
       let v = {
-        let frame = if frame_idx == ste.static_frame_idx {
-          &mut ste.static_frame
-        } else {
-          &mut ste.stack[frame_idx]
-        };
+        let frame = &mut ste.stack[frame_idx];
         frame.next_ent == frame.ent_count
       };
 
       if v {
         debug_assert!({
-          let frame = if frame_idx == ste.static_frame_idx {
-            &mut ste.static_frame
-          } else {
-            &mut ste.stack[frame_idx]
-          };
+          let frame = &mut ste.stack[frame_idx];
           frame.arc.is_none() || (frame.is_floor && !frame.is_last_in_floor)
         });
 
@@ -458,11 +429,7 @@ impl SegmentTermsEnumFrame {
           continue;
         }
       }
-      let frame = if frame_idx == ste.static_frame_idx {
-        &mut ste.static_frame
-      } else {
-        &mut ste.stack[frame_idx]
-      };
+      let frame = &mut ste.stack[frame_idx];
       debug_assert!(
         frame.next_ent != -1 && frame.next_ent < frame.ent_count,
         "next_ent={} ent_count={} fp={}",
@@ -521,11 +488,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     let target = if use_target {
       target
     } else {
@@ -576,11 +539,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     let limit = frame.get_term_block_ord()?;
     let mut absolute = frame.meta_data_upto == 0;
     debug_assert!(limit > 0);
@@ -640,11 +599,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &ste.static_frame
-    } else {
-      &ste.stack[frame_idx]
-    };
+    let frame = &ste.stack[frame_idx];
     for byte_pos in 0..frame.prefix_length {
       if target.bytes[target.offset + byte_pos] != ste.term.byte_at(byte_pos) {
         return false;
@@ -664,11 +619,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     debug_assert!(!frame.is_leaf_block);
     if frame.last_sub_fp == sub_fp {
       return Ok(());
@@ -709,11 +660,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     if frame.is_leaf_block {
       if frame.all_equal {
         Self::binary_search_term_leaf(frame_idx, target, exact_only, ste)
@@ -737,11 +684,7 @@ impl SegmentTermsEnumFrame {
     P: PostingsReaderBase,
   {
     {
-      let frame = if frame_idx == ste.static_frame_idx {
-        &mut ste.static_frame
-      } else {
-        &mut ste.stack[frame_idx]
-      };
+      let frame = &mut ste.stack[frame_idx];
       debug_assert!(frame.next_ent != -1);
       ste.term_exists = true;
       frame.sub_code = 0;
@@ -757,11 +700,7 @@ impl SegmentTermsEnumFrame {
     debug_assert!(Self::prefix_matches(frame_idx, target, ste));
 
     loop {
-      let frame = if frame_idx == ste.static_frame_idx {
-        &mut ste.static_frame
-      } else {
-        &mut ste.stack[frame_idx]
-      };
+      let frame = &mut ste.stack[frame_idx];
       frame.next_ent += 1;
       frame.suffix_length = frame.suffix_lengths_reader.read_vint()?.try_convert()?;
       debug_assert!(frame.suffixes_reader.get_position() <= i32::MAX as usize);
@@ -830,11 +769,7 @@ impl SegmentTermsEnumFrame {
     P: PostingsReaderBase,
   {
     {
-      let frame = if frame_idx == ste.static_frame_idx {
-        &mut ste.static_frame
-      } else {
-        &mut ste.stack[frame_idx]
-      };
+      let frame = &mut ste.stack[frame_idx];
       debug_assert!(frame.next_ent != -1);
       ste.term_exists = true;
       frame.sub_code = 0;
@@ -848,11 +783,7 @@ impl SegmentTermsEnumFrame {
     }
 
     debug_assert!(Self::prefix_matches(frame_idx, target, ste));
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
 
     frame.suffix_length = frame.suffix_lengths_reader.read_vint()?.try_convert()?;
 
@@ -931,49 +862,29 @@ impl SegmentTermsEnumFrame {
     P: PostingsReaderBase,
   {
     debug_assert!({
-      let frame = if frame_idx == ste.static_frame_idx {
-        &mut ste.static_frame
-      } else {
-        &mut ste.stack[frame_idx]
-      };
+      let frame = &mut ste.stack[frame_idx];
       frame.next_ent != -1
     });
 
     let v = {
-      let frame = if frame_idx == ste.static_frame_idx {
-        &mut ste.static_frame
-      } else {
-        &mut ste.stack[frame_idx]
-      };
+      let frame = &mut ste.stack[frame_idx];
       frame.next_ent == frame.ent_count
     };
     if v {
       if exact_only {
         Self::fill_term(frame_idx, ste)?;
-        let frame = if frame_idx == ste.static_frame_idx {
-          &mut ste.static_frame
-        } else {
-          &mut ste.stack[frame_idx]
-        };
+        let frame = &mut ste.stack[frame_idx];
         ste.term_exists = frame.sub_code == 0;
       }
       return Ok(SeekStatus::End);
     }
     debug_assert!(Self::prefix_matches(frame_idx, target, ste));
     while {
-      let frame = if frame_idx == ste.static_frame_idx {
-        &mut ste.static_frame
-      } else {
-        &mut ste.stack[frame_idx]
-      };
+      let frame = &mut ste.stack[frame_idx];
       frame.next_ent < frame.ent_count
     } {
       let cmp = {
-        let frame = if frame_idx == ste.static_frame_idx {
-          &mut ste.static_frame
-        } else {
-          &mut ste.stack[frame_idx]
-        };
+        let frame = &mut ste.stack[frame_idx];
         frame.next_ent += 1;
         let code = frame.suffix_lengths_reader.read_vint()?;
         frame.suffix_length = (code as u32 >> 1) as usize;
@@ -1015,18 +926,10 @@ impl SegmentTermsEnumFrame {
           // the target, so we must recurse into the
           // sub-frame(s):
           let last_sub_fp = {
-            let current_frame = if ste.current_frame_idx == ste.static_frame_idx {
-              &mut ste.static_frame
-            } else {
-              &mut ste.stack[ste.current_frame_idx]
-            };
+            let current_frame = &mut ste.stack[ste.current_frame_idx];
             current_frame.last_sub_fp
           };
-          let frame = if frame_idx == ste.static_frame_idx {
-            &mut ste.static_frame
-          } else {
-            &mut ste.stack[frame_idx]
-          };
+          let frame = &mut ste.stack[frame_idx];
           let prefix_len = frame.prefix_length + frame.suffix_length;
           let mut current_frame_idx = ste.push_frame(None, last_sub_fp, prefix_len)?;
           ste.current_frame_idx = current_frame_idx;
@@ -1034,11 +937,7 @@ impl SegmentTermsEnumFrame {
           Self::load_block(current_frame_idx, ste)?;
           while Self::next(current_frame_idx, ste)? {
             let last_sub_fp = {
-              let current_frame = if ste.current_frame_idx == ste.static_frame_idx {
-                &mut ste.static_frame
-              } else {
-                &mut ste.stack[ste.current_frame_idx]
-              };
+              let current_frame = &mut ste.stack[ste.current_frame_idx];
               current_frame.last_sub_fp
             };
 
@@ -1076,11 +975,7 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    let frame = if frame_idx == ste.static_frame_idx {
-      &mut ste.static_frame
-    } else {
-      &mut ste.stack[frame_idx]
-    };
+    let frame = &mut ste.stack[frame_idx];
     let term_length = frame.prefix_length + frame.suffix_length;
     ste.term.set_length(term_length);
     ste.term.grow(term_length)?;
