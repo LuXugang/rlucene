@@ -25,3 +25,4 @@ pub mod lucene99_scalar_quantized_vectors_format;
 pub mod lucene99_scalar_quantized_vectors_reader;
 pub mod lucene99_scalar_quantized_vectors_writer;
 pub mod lucene99_segment_info_format;
+pub mod off_heap_quantized_byte_vector_values;

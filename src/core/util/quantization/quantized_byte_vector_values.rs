@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
@@ -36,11 +37,12 @@ pub trait QuantizedByteVectorValues: ByteVectorValues + HasIndexSlice {
   ///
   /// # Returns
   /// a `VectorScorer` instance or None
-  fn scorer(&self, _query: &[f32]) -> Result<Self::VectorScorer> {
+  type QuantizedVectorScorer: VectorScorer;
+  fn scorer(&self, _query: &[f32]) -> Result<Option<Self::QuantizedVectorScorer>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
   type QuantizedByteVectorValues: QuantizedByteVectorValues;
 
-  fn copy(&self) -> Result<&Self::QuantizedByteVectorValues>;
+  fn copy(&self) -> Result<Self::QuantizedByteVectorValues>;
 }
