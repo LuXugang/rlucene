@@ -24,7 +24,7 @@ use crate::core::codecs::lucene90_stored_fields_format::Lucene90StoredFieldsForm
 use crate::core::codecs::lucene90_term_vectors_format::Lucene90TermVectorsFormat;
 use crate::core::codecs::lucene94::lucene94_field_infos_format::Lucene94FieldInfosFormat;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
-use crate::core::codecs::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
+use crate::core::codecs::lucene99::lucene99_segment_info_format::Lucene99SegmentInfoFormat;
 use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};

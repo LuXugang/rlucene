@@ -20,3 +20,8 @@ pub mod lucene99_flat_vectors_writer;
 pub mod lucene99_hnsw_vectors_format;
 pub mod lucene99_hnsw_vectors_reader;
 pub mod lucene99_hnsw_vectors_writer;
+pub mod lucene99_scalar_quantized_vector_scorer;
+pub mod lucene99_scalar_quantized_vectors_format;
+pub mod lucene99_scalar_quantized_vectors_reader;
+pub mod lucene99_scalar_quantized_vectors_writer;
+pub mod lucene99_segment_info_format;
