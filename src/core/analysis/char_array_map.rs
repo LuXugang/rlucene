@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 
 /// A map that stores string keys as character arrays in a hash table.
+#[derive(Clone)]
 pub struct CharArrayMap<T> {
   ignore: bool,
   map: HashMap<Vec<char>, T>,

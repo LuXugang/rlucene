@@ -18,6 +18,7 @@ use crate::core::analysis::char_array_map::{CharArrayMap, empty_map};
 use std::fmt::Display;
 
 /// A set that stores strings as character arrays in a hash table.
+#[derive(Clone)]
 pub struct CharArraySet {
   map: CharArrayMap<()>,
 }

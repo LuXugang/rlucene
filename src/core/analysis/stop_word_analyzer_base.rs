@@ -22,10 +22,7 @@ pub trait StopWordAnalyzerBase: Analyzer {
 }
 pub(crate) fn init_stop_wors(stop_words: Option<&CharArraySet>) -> CharArraySet {
   match stop_words {
-    Some(_v) => {
-      // TODO IMPORTANT
-      todo!()
-    },
+    Some(v) => v.clone(),
     None => CharArraySet::empty_set(),
   }
 }
