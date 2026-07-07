@@ -5177,14 +5177,21 @@ where
     let mut success = false;
     let merge_policy = self.config.get_merge_policy();
     let result = (|| -> Result<()> {
-      let inner_result = (|| -> Result<()> {
-        self.merge_init(merge)?;
-        // The merge's SegmentCommitInfo has moved to `IndexWriter::inner::segment_infos`.
-        self.merge_middle(merge, merge_policy)?;
-        self.merge_success(merge)?;
-        success = true;
-        Ok(())
-      })();
+      let inner_result =
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          self.merge_init(merge)?;
+          // The merge's SegmentCommitInfo has moved to `IndexWriter::inner::segment_infos`.
+          self.merge_middle(merge, merge_policy)?;
+          self.merge_success(merge)?;
+          success = true;
+          Ok(())
+        })) {
+          Ok(result) => result,
+          Err(payload) => Err(LuceneError::tragedy_from_panic(
+            "panic while merging",
+            payload.as_ref(),
+          )),
+        };
 
       {
         let mut inner = self.inner.lock();
@@ -8628,12 +8635,18 @@ where
     D: 'static,
   {
     let mut success = false;
-    let result = match self.writer().add_indexes_reader_merge(&mut merge) {
-      Ok(()) => {
+    let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.writer().add_indexes_reader_merge(&mut merge)
+    })) {
+      Ok(Ok(())) => {
         success = true;
         Ok(())
       },
-      Err(err) => self.writer().handle_merge_exception(err, &merge),
+      Ok(Err(err)) => self.writer().handle_merge_exception(err, &merge),
+      Err(payload) => self.writer().handle_merge_exception(
+        LuceneError::tragedy_from_panic("panic while addIndexes reader merge", payload.as_ref()),
+        &merge,
+      ),
     };
     let mut processed_merges = self.processed_merges.lock();
     processed_merges.push(merge);
