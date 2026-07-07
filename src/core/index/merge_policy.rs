@@ -590,11 +590,11 @@ where
   }
 }
 
-impl<D> MergePolicyEnum<D>
+impl<D> MergePolicy<D> for MergePolicyEnum<D>
 where
   D: Directory,
 {
-  pub(crate) fn get_base(&self) -> &MergePolicyBase {
+  fn get_base(&self) -> &MergePolicyBase {
     match self {
       MergePolicyEnum::No(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::Tiered(mp) => MergePolicy::<D>::get_base(mp),
@@ -618,7 +618,7 @@ where
     }
   }
 
-  pub(crate) fn get_base_mut(&mut self) -> &mut MergePolicyBase {
+  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
     match self {
       MergePolicyEnum::No(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::Tiered(mp) => MergePolicy::<D>::get_base_mut(mp),
@@ -642,7 +642,7 @@ where
     }
   }
 
-  pub(crate) fn find_merges<MC>(
+  fn find_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -699,10 +699,7 @@ where
     }
   }
 
-  pub(crate) fn find_merges_readers<CR>(
-    &self,
-    readers: Vec<CR>,
-  ) -> Result<Option<MergeSpecification<D, CR>>>
+  fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<D, CR>>>
   where
     CR: CodecReader,
   {
@@ -729,7 +726,7 @@ where
     }
   }
 
-  pub(crate) fn find_forced_merges<MC>(
+  fn find_forced_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     max_segment_count: usize,
@@ -841,7 +838,7 @@ where
     }
   }
 
-  pub(crate) fn find_forced_deletes_merges<MC>(
+  fn find_forced_deletes_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
     inner: Option<&Inner<D>>,
@@ -897,7 +894,7 @@ where
     }
   }
 
-  pub(crate) fn find_full_flush_merges<MC>(
+  fn find_full_flush_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
     segment_infos: &SegmentInfos<D>,
@@ -956,7 +953,7 @@ where
     }
   }
 
-  pub(crate) fn use_compound_file<MC>(
+  fn use_compound_file<MC>(
     &self,
     infos: &SegmentInfos<D>,
     merged_info: &SegmentCommitInfo<D>,
@@ -994,7 +991,7 @@ where
     }
   }
 
-  pub(crate) fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
   where
     MC: MergeContext<D>,
   {
@@ -1021,7 +1018,7 @@ where
     }
   }
 
-  pub(crate) fn max_full_flush_merge_size(&self) -> i64 {
+  fn max_full_flush_merge_size(&self) -> i64 {
     match self {
       MergePolicyEnum::No(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::Tiered(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
@@ -1047,7 +1044,7 @@ where
     }
   }
 
-  pub(crate) fn has_merged<MC>(
+  fn has_merged<MC>(
     &self,
     infos: &SegmentInfos<D>,
     info: &SegmentCommitInfo<D>,
@@ -1079,7 +1076,7 @@ where
     }
   }
 
-  pub(crate) fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
+  fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
@@ -1108,7 +1105,7 @@ where
     }
   }
 
-  pub(crate) fn num_deletes_to_merge<F>(
+  fn num_deletes_to_merge<F>(
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
@@ -1150,7 +1147,7 @@ where
     }
   }
 
-  pub(crate) fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
   where
     MC: MergeContext<D>,
   {
@@ -1177,7 +1174,7 @@ where
     }
   }
 
-  pub(crate) fn message<MC>(&self, message: &str, merge_context: &MC) -> Result<()>
+  fn message<MC>(&self, message: &str, merge_context: &MC) -> Result<()>
   where
     MC: MergeContext<D>,
   {
@@ -1204,7 +1201,7 @@ where
     }
   }
 
-  pub(crate) fn verbose<MC>(&self, merge_context: &MC) -> bool
+  fn verbose<MC>(&self, merge_context: &MC) -> bool
   where
     MC: MergeContext<D>,
   {
@@ -1229,166 +1226,6 @@ where
       #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.verbose(merge_context),
     }
-  }
-}
-
-impl<D> MergePolicy<D> for MergePolicyEnum<D>
-where
-  D: Directory,
-{
-  fn get_base(&self) -> &MergePolicyBase {
-    MergePolicyEnum::get_base(self)
-  }
-
-  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
-    MergePolicyEnum::get_base_mut(self)
-  }
-
-  fn find_merges<MC>(
-    &self,
-    merge_trigger: MergeTrigger,
-    segment_infos: &SegmentInfos<D>,
-    inner: Option<&Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<DefaultMergeSpecification<D>>>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::find_merges(self, merge_trigger, segment_infos, inner, merge_context)
-  }
-
-  fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<D, CR>>>
-  where
-    CR: CodecReader,
-  {
-    MergePolicyEnum::find_merges_readers(self, readers)
-  }
-
-  fn find_forced_merges<MC>(
-    &self,
-    segment_infos: &SegmentInfos<D>,
-    max_segment_count: usize,
-    segments_to_merge: &HashMap<String, Option<bool>>,
-    inner: Option<&Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<DefaultMergeSpecification<D>>>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::find_forced_merges(
-      self,
-      segment_infos,
-      max_segment_count,
-      segments_to_merge,
-      inner,
-      merge_context,
-    )
-  }
-
-  fn find_forced_deletes_merges<MC>(
-    &self,
-    segment_infos: &SegmentInfos<D>,
-    inner: Option<&Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<DefaultMergeSpecification<D>>>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::find_forced_deletes_merges(self, segment_infos, inner, merge_context)
-  }
-
-  fn find_full_flush_merges<MC>(
-    &self,
-    merge_trigger: MergeTrigger,
-    segment_infos: &SegmentInfos<D>,
-    inner: Option<&Inner<D>>,
-    merge_context: &MC,
-  ) -> Result<Option<DefaultMergeSpecification<D>>>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::find_full_flush_merges(
-      self,
-      merge_trigger,
-      segment_infos,
-      inner,
-      merge_context,
-    )
-  }
-
-  fn use_compound_file<MC>(
-    &self,
-    infos: &SegmentInfos<D>,
-    merged_info: &SegmentCommitInfo<D>,
-    merge_context: &MC,
-  ) -> Result<bool>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::use_compound_file(self, infos, merged_info, merge_context)
-  }
-
-  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::size(self, info, merge_context)
-  }
-
-  fn max_full_flush_merge_size(&self) -> i64 {
-    MergePolicyEnum::max_full_flush_merge_size(self)
-  }
-
-  fn has_merged<MC>(
-    &self,
-    infos: &SegmentInfos<D>,
-    info: &SegmentCommitInfo<D>,
-    merge_context: &MC,
-  ) -> Result<bool>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::has_merged(self, infos, info, merge_context)
-  }
-
-  fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
-  where
-    F: Fn() -> Result<DefaultLeafReader<D>>,
-  {
-    MergePolicyEnum::keep_fully_deleted_segment(self, reader_supplier)
-  }
-
-  fn num_deletes_to_merge<F>(
-    &self,
-    info: &SegmentCommitInfo<D>,
-    del_count: i32,
-    reader_supplier: F,
-  ) -> Result<i32>
-  where
-    F: Fn() -> Result<DefaultLeafReader<D>>,
-  {
-    MergePolicyEnum::num_deletes_to_merge(self, info, del_count, reader_supplier)
-  }
-
-  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::seg_string(self, merge_context, infos)
-  }
-
-  fn message<MC>(&self, message: &str, merge_context: &MC) -> Result<()>
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::message(self, message, merge_context)
-  }
-
-  fn verbose<MC>(&self, merge_context: &MC) -> bool
-  where
-    MC: MergeContext<D>,
-  {
-    MergePolicyEnum::verbose(self, merge_context)
   }
 }
 

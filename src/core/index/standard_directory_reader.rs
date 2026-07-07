@@ -32,6 +32,7 @@ use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 pub use crate::core::index::live_index_writer_config::LeafSorter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::pending_deletes::DocBits;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::{FindSegmentsFile, SegmentInfos};

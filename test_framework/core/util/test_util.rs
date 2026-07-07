@@ -28,7 +28,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::MergePolicyEnum;
+use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};

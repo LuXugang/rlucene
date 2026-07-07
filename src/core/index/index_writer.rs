@@ -213,118 +213,6 @@ where
   start_commit_time: Instant,
 }
 
-enum RegisterMergeResult<D>
-where
-  D: Directory,
-{
-  Registered(MergeStat),
-  Rejected(Box<OneMergeSR<D>>),
-}
-
-#[derive(Default)]
-struct UpdatePendingMergesResult<D>
-where
-  D: Directory,
-{
-  /// Handles for merges that were successfully registered and moved to `pending_merges`.
-  registered_merges: Vec<MergeStat>,
-  /// Merges returned by the merge policy that could not be registered.
-  rejected_merges: Vec<OneMergeSR<D>>,
-}
-
-impl<D> UpdatePendingMergesResult<D>
-where
-  D: Directory,
-{
-  fn for_each_merge_mut<F>(&mut self, inner: &mut Inner<D>, mut consumer: F) -> Result<()>
-  where
-    F: FnMut(&mut OneMergeSR<D>, &SegmentInfos<D>, &mut IndexFileDeleter<D>) -> Result<()>,
-  {
-    let pending_merges = &mut inner.pending_merges;
-    let segment_infos = &inner.segment_infos;
-    let deleter = &mut inner.deleter;
-
-    for merge_stat in &self.registered_merges {
-      let merge = pending_merges
-        .iter_mut()
-        .find(|merge| merge.stat.id.eq(&merge_stat.id))
-        .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
-      consumer(merge, segment_infos, deleter)?;
-    }
-
-    for merge in &mut self.rejected_merges {
-      consumer(merge, segment_infos, deleter)?;
-    }
-
-    Ok(())
-  }
-
-  fn for_each_merge_mut_removing_pending<F>(
-    &mut self,
-    inner: &mut Inner<D>,
-    mut consumer: F,
-  ) -> Result<()>
-  where
-    F: FnMut(&mut OneMergeSR<D>, &mut Inner<D>) -> Result<()>,
-  {
-    let mut first_error = None;
-
-    for merge_stat in &self.registered_merges {
-      let result = (|| {
-        let position = inner
-          .pending_merges
-          .iter()
-          .position(|merge| merge.stat.id.eq(&merge_stat.id))
-          .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
-        let mut merge = inner
-          .pending_merges
-          .remove(position)
-          .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
-        consumer(&mut merge, inner)
-      })();
-      if let Err(error) = result {
-        first_error = Some(IOUtils::use_or_suppress(first_error, error));
-      }
-    }
-
-    for merge in &mut self.rejected_merges {
-      if let Err(error) = consumer(merge, inner) {
-        first_error = Some(IOUtils::use_or_suppress(first_error, error));
-      }
-    }
-
-    match first_error {
-      Some(error) => Err(error),
-      None => Ok(()),
-    }
-  }
-
-  fn await_merges(&self, timeout: Duration) -> bool {
-    let deadline = Instant::now() + timeout;
-    for merge_stat in &self.registered_merges {
-      if !merge_stat.await_until(deadline) {
-        return false;
-      }
-    }
-
-    for merge in &self.rejected_merges {
-      if !merge.stat.await_until(deadline) {
-        return false;
-      }
-    }
-
-    true
-  }
-
-  fn merge_states(&self) -> Vec<MergeStat> {
-    let mut merge_states =
-      Vec::with_capacity(self.registered_merges.len() + self.rejected_merges.len());
-    merge_states.extend(self.registered_merges.iter().cloned());
-    merge_states.extend(self.rejected_merges.iter().map(|merge| merge.stat.clone()));
-    merge_states
-  }
-}
-
 impl<D> Drop for IndexWriter<D>
 where
   D: Directory,
@@ -344,28 +232,6 @@ where
     D: 'static,
   {
     Self::with_hooks(d, conf, Some(EmptyIndexWriterHooks.into()))
-  }
-}
-
-/// Unified reader wrapper for try_modify_document.
-pub enum ModifyReader<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> {
-  Leaf(&'a SegmentReader<D>),
-  Composite(&'a CR),
-}
-
-impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>>
-  From<&'a SegmentReader<D>> for ModifyReader<'a, D, CR>
-{
-  fn from(r: &'a SegmentReader<D>) -> Self {
-    ModifyReader::Leaf(r)
-  }
-}
-
-impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> From<&'a CR>
-  for ModifyReader<'a, D, CR>
-{
-  fn from(r: &'a CR) -> Self {
-    ModifyReader::Composite(r)
   }
 }
 
@@ -9156,5 +9022,137 @@ pub(crate) mod tests {
     {
       iw.newest_segment()
     }
+  }
+}
+enum RegisterMergeResult<D>
+where
+  D: Directory,
+{
+  Registered(MergeStat),
+  Rejected(Box<OneMergeSR<D>>),
+}
+
+#[derive(Default)]
+struct UpdatePendingMergesResult<D>
+where
+  D: Directory,
+{
+  /// Handles for merges that were successfully registered and moved to `pending_merges`.
+  registered_merges: Vec<MergeStat>,
+  /// Merges returned by the merge policy that could not be registered.
+  rejected_merges: Vec<OneMergeSR<D>>,
+}
+
+impl<D> UpdatePendingMergesResult<D>
+where
+  D: Directory,
+{
+  fn for_each_merge_mut<F>(&mut self, inner: &mut Inner<D>, mut consumer: F) -> Result<()>
+  where
+    F: FnMut(&mut OneMergeSR<D>, &SegmentInfos<D>, &mut IndexFileDeleter<D>) -> Result<()>,
+  {
+    let pending_merges = &mut inner.pending_merges;
+    let segment_infos = &inner.segment_infos;
+    let deleter = &mut inner.deleter;
+
+    for merge_stat in &self.registered_merges {
+      let merge = pending_merges
+        .iter_mut()
+        .find(|merge| merge.stat.id.eq(&merge_stat.id))
+        .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
+      consumer(merge, segment_infos, deleter)?;
+    }
+
+    for merge in &mut self.rejected_merges {
+      consumer(merge, segment_infos, deleter)?;
+    }
+
+    Ok(())
+  }
+
+  fn for_each_merge_mut_removing_pending<F>(
+    &mut self,
+    inner: &mut Inner<D>,
+    mut consumer: F,
+  ) -> Result<()>
+  where
+    F: FnMut(&mut OneMergeSR<D>, &mut Inner<D>) -> Result<()>,
+  {
+    let mut first_error = None;
+
+    for merge_stat in &self.registered_merges {
+      let result = (|| {
+        let position = inner
+          .pending_merges
+          .iter()
+          .position(|merge| merge.stat.id.eq(&merge_stat.id))
+          .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
+        let mut merge = inner
+          .pending_merges
+          .remove(position)
+          .ok_or_else(|| LuceneError::illegal_state("point-in-time merge is not pending"))?;
+        consumer(&mut merge, inner)
+      })();
+      if let Err(error) = result {
+        first_error = Some(IOUtils::use_or_suppress(first_error, error));
+      }
+    }
+
+    for merge in &mut self.rejected_merges {
+      if let Err(error) = consumer(merge, inner) {
+        first_error = Some(IOUtils::use_or_suppress(first_error, error));
+      }
+    }
+
+    match first_error {
+      Some(error) => Err(error),
+      None => Ok(()),
+    }
+  }
+
+  fn await_merges(&self, timeout: Duration) -> bool {
+    let deadline = Instant::now() + timeout;
+    for merge_stat in &self.registered_merges {
+      if !merge_stat.await_until(deadline) {
+        return false;
+      }
+    }
+
+    for merge in &self.rejected_merges {
+      if !merge.stat.await_until(deadline) {
+        return false;
+      }
+    }
+
+    true
+  }
+
+  fn merge_states(&self) -> Vec<MergeStat> {
+    let mut merge_states =
+      Vec::with_capacity(self.registered_merges.len() + self.rejected_merges.len());
+    merge_states.extend(self.registered_merges.iter().cloned());
+    merge_states.extend(self.rejected_merges.iter().map(|merge| merge.stat.clone()));
+    merge_states
+  }
+}
+/// Unified reader wrapper for try_modify_document.
+pub enum ModifyReader<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> {
+  Leaf(&'a SegmentReader<D>),
+  Composite(&'a CR),
+}
+
+impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>>
+  From<&'a SegmentReader<D>> for ModifyReader<'a, D, CR>
+{
+  fn from(r: &'a SegmentReader<D>) -> Self {
+    ModifyReader::Leaf(r)
+  }
+}
+
+impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> From<&'a CR>
+  for ModifyReader<'a, D, CR>
+{
+  fn from(r: &'a CR) -> Self {
+    ModifyReader::Composite(r)
   }
 }
