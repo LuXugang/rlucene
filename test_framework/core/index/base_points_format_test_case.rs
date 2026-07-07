@@ -247,7 +247,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
 
       match IOUtils::use_or_suppress_result(result, dir.close()) {
         Ok(()) => {},
-        Err(e @ LuceneError::IllegalState(_)) => {
+        Err(e @ (LuceneError::AlreadyClosed(_) | LuceneError::IllegalState(_))) => {
           done = self.handle_possibly_fake_exception(e)?;
         },
         Err(LuceneError::IllegalArgument(msg)) => {
@@ -273,11 +273,15 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
 
   // TODO: merge w/ BaseIndexFileFormatTestCase.handleFakeIOException
   fn handle_possibly_fake_exception(&self, e: LuceneError) -> Result<bool> {
-    let message = e.to_string();
-    if message.contains("a random IOException")
-      || message.contains("background merge hit exception")
-    {
-      return Ok(true);
+    let mut current = Some(&e);
+    while let Some(err) = current {
+      let message = err.to_string();
+      if message.contains("a random IOException")
+        || message.contains("background merge hit exception")
+      {
+        return Ok(true);
+      }
+      current = err.get_suppressed()?;
     }
 
     Err(e)
