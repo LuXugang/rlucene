@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::compound_format::CompoundFormat;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::index::IndexFileNames;
@@ -148,7 +147,7 @@ impl Lucene90CompoundFormat {
 
 impl CompoundFormat for Lucene90CompoundFormat {
   type Directory<D>
-    = CompoundDirectory<Lucene90CompoundReader<D>>
+    = Lucene90CompoundReader<D>
   where
     D: Directory;
 
@@ -156,9 +155,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
   where
     D: Directory,
   {
-    Ok(CompoundDirectory::new(Lucene90CompoundReader::new(
-      dir, si,
-    )?))
+    Lucene90CompoundReader::new(dir, si)
   }
 
   fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>

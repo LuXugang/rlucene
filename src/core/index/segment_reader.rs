@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::compound_directory::CompoundDirectoryBase;
+use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::doc_values_producer::{
   DefaultDocValuesProducer, DocValuesProducer, DocValuesProducerEnum2,
 };
@@ -593,7 +593,7 @@ where
   fn check_integrity(&self) -> Result<()> {
     CodecReader::default_check_integrity(self)?;
     if let Some(dv) = &self.core.cfs_reader {
-      dv.sub_compound_dir.check_integrity()?;
+      dv.check_integrity()?;
     }
     Ok(())
   }

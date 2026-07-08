@@ -23,7 +23,6 @@ use std::sync::Arc;
 use rand::Rng;
 use rand::RngExt;
 
-use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
 use crate::core::document::document::Document;
@@ -934,10 +933,7 @@ fn assert_equal_arrays(msg: &str, expected: &[u8], test: &[u8], start: usize, le
 }
 /// Creates a large compound file with 20 sequential files, each of which is
 /// 1000 bytes.
-fn create_large_cfs<D, R>(
-  random: &mut R,
-  dir: Arc<D>,
-) -> Result<CompoundDirectory<Lucene90CompoundReader<D>>>
+fn create_large_cfs<D, R>(random: &mut R, dir: Arc<D>) -> Result<Lucene90CompoundReader<D>>
 where
   R: Rng + ?Sized,
   D: Directory,

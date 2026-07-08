@@ -20,7 +20,7 @@ use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInpu
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
@@ -31,122 +31,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// # Note
 /// This API is experimental and may change in future versions.
-pub struct CompoundDirectory<D>
-where
-  D: Directory,
-{
-  pub(crate) sub_compound_dir: D,
-  id: Identity,
-}
-
-impl<D> CompoundDirectory<D>
-where
-  D: Directory,
-{
-  pub fn new(sub_compound_dir: D) -> Self {
-    CompoundDirectory {
-      sub_compound_dir,
-      id: Identity::new(),
-    }
-  }
-}
-
-impl<D> Display for CompoundDirectory<D>
-where
-  D: Directory,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    self.sub_compound_dir.fmt(f)
-  }
-}
-
-impl<D> Closeable for CompoundDirectory<D>
-where
-  D: Directory,
-{
-  fn close(&mut self) -> Result<()> {
-    // TODO
-    Ok(())
-  }
-}
-
-impl<D> HasIdentity for CompoundDirectory<D>
-where
-  D: Directory,
-{
-  fn identity(&self) -> &Identity {
-    &self.id
-  }
-}
-
-impl<D> Directory for CompoundDirectory<D>
-where
-  D: Directory,
-{
-  fn list_all(&self) -> Result<Vec<String>> {
-    self.sub_compound_dir.list_all()
-  }
-
-  fn delete_file(&self, _name: &str) -> Result<()> {
-    Err(LuceneError::unsupported_operation(
-      "delete_file".to_string(),
-    ))
-  }
-
-  fn file_length(&self, name: &str) -> Result<usize> {
-    self.sub_compound_dir.file_length(name)
-  }
-
-  fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
-    Err(LuceneError::unsupported_operation(
-      "create_output".to_string(),
-    ))
-  }
-
-  type IndexOutput = D::IndexOutput;
-  fn create_temp_output(
-    &self,
-    _prefix: &str,
-    _suffix: &str,
-    _context: &IOContext,
-  ) -> Result<Self::IndexOutput> {
-    Err(LuceneError::unsupported_operation(
-      "create_temp_output".to_string(),
-    ))
-  }
-
-  fn sync(&self, _names: &[String]) -> Result<()> {
-    Err(LuceneError::unsupported_operation("sync".to_string()))
-  }
-
-  fn sync_metadata(&self) -> Result<()> {
-    Ok(())
-  }
-
-  fn rename(&self, _source: &str, _dest: &str) -> Result<()> {
-    Err(LuceneError::unsupported_operation("rename".to_string()))
-  }
-
-  type IndexInput = D::IndexInput;
-
-  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-    self.sub_compound_dir.open_input(name, context)
-  }
-
-  type Lock = D::Lock;
-
-  fn obtain_lock(&self, _name: &str) -> Result<Self::Lock> {
-    Err(LuceneError::unsupported_operation(
-      "obtain_lock".to_string(),
-    ))
-  }
-
-  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-    self.sub_compound_dir.get_pending_deletions()
-  }
-}
-
-pub trait CompoundDirectoryBase {
+pub trait CompoundDirectory: Directory {
   /// Checks the consistency of this directory.
   ///
   /// # Note

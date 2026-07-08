@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::DefaultCompoundFormat;
+use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -23,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 /// Encodes/decodes compound files
 pub trait CompoundFormat {
   /// Returns a read-only view of the compound files in this segment.
-  type Directory<D>: Directory
+  type Directory<D>: CompoundDirectory
   where
     D: Directory;
   fn get_compound_reader<D>(&self, dir: &D, si: &SegmentInfo<D>) -> Result<Self::Directory<D>>

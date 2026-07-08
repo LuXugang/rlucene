@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::compound_directory::CompoundDirectoryBase;
+use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_reader::Identity;
@@ -80,27 +80,33 @@ where
       .unwrap_or_else(|| CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, ""))
       + CodecUtil::footer_length();
 
-    CodecUtil::check_index_header(
-      &mut handle,
-      Lucene90CompoundFormat::DATA_CODEC,
-      version,
-      version,
-      si.get_id(),
-      "",
-    )?;
-    // NOTE: data file is too costly to verify checksum against all the
-    // bytes on open, but for now we at least verify proper
-    // structure of the checksum footer: which looks
-    // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some
-    // forms of corruption such as file truncation.
-    let _ = CodecUtil::retrieve_checksum(&mut handle)?;
-    // We also validate length, because e.g. if you strip 16 bytes off the
-    // .cfs we otherwise would not detect it:
-    let length = IndexInput::length(&handle)?;
-    if length != expected_length {
-      return Err(LuceneError::corrupt_index(format!(
-        "length should be {expected_length} bytes, but is {length} instead (resource={handle})"
-      )));
+    let result = (|| -> Result<()> {
+      CodecUtil::check_index_header(
+        &mut handle,
+        Lucene90CompoundFormat::DATA_CODEC,
+        version,
+        version,
+        si.get_id(),
+        "",
+      )?;
+      // NOTE: data file is too costly to verify checksum against all the
+      // bytes on open, but for now we at least verify proper
+      // structure of the checksum footer: which looks
+      // for FOOTER_MAGIC + algorithmID. This is cheap and can detect some
+      // forms of corruption such as file truncation.
+      let _ = CodecUtil::retrieve_checksum(&mut handle)?;
+      // We also validate length, because e.g. if you strip 16 bytes off the
+      // .cfs we otherwise would not detect it:
+      let length = IndexInput::length(&handle)?;
+      if length != expected_length {
+        return Err(LuceneError::corrupt_index(format!(
+          "length should be {expected_length} bytes, but is {length} instead (resource={handle})"
+        )));
+      }
+      Ok(())
+    })();
+    if let Err(error) = result {
+      return IOUtils::use_or_suppress_result(Err(error), handle.close());
     }
     let dir_fmt = directory.to_string();
     Ok(Self {
@@ -182,10 +188,7 @@ where
   }
 
   fn delete_file(&self, _name: &str) -> Result<()> {
-    Err(LuceneError::illegal_state(
-      "delete_file() wrapped by CompoundDirectory, this method should never not be called"
-        .to_string(),
-    ))
+    Err(LuceneError::unsupported_operation("delete_file"))
   }
 
   /// Returns the length of a file in the directory.
@@ -199,10 +202,7 @@ where
   }
 
   fn create_output(&self, _name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
-    Err(LuceneError::illegal_state(
-      "create_output() wrapped by CompoundDirectory, this method should never not be called"
-        .to_string(),
-    ))
+    Err(LuceneError::unsupported_operation("create_output"))
   }
 
   type IndexOutput = D::IndexOutput;
@@ -212,29 +212,19 @@ where
     _suffix: &str,
     _context: &IOContext,
   ) -> Result<Self::IndexOutput> {
-    Err(LuceneError::illegal_state(
-      "create_temp_output() wrapped by CompoundDirectory, this method should never not be called"
-        .to_string(),
-    ))
+    Err(LuceneError::unsupported_operation("create_temp_output"))
   }
 
   fn sync(&self, _names: &[String]) -> Result<()> {
-    Err(LuceneError::illegal_state(
-      "sync() wrapped by CompoundDirectory, this method should never not be called".to_string(),
-    ))
+    Err(LuceneError::unsupported_operation("sync"))
   }
 
   fn sync_metadata(&self) -> Result<()> {
-    Err(LuceneError::illegal_state(
-      "sync_metadata() wrapped by CompoundDirectory, this method should never not be called"
-        .to_string(),
-    ))
+    Ok(())
   }
 
   fn rename(&self, _source: &str, _dest: &str) -> Result<()> {
-    Err(LuceneError::illegal_state(
-      "rename() wrapped by CompoundDirectory, this method should never not be called".to_string(),
-    ))
+    Err(LuceneError::unsupported_operation("rename"))
   }
 
   type IndexInput = D::IndexInput;
@@ -270,10 +260,7 @@ where
   type Lock = D::Lock;
 
   fn obtain_lock(&self, _name: &str) -> Result<Self::Lock> {
-    Err(LuceneError::illegal_state(
-      "obtain_lock() wrapped by CompoundDirectory, this method should never not be called"
-        .to_string(),
-    ))
+    Err(LuceneError::unsupported_operation("obtain_lock"))
   }
 
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
@@ -298,12 +285,11 @@ where
   D: Directory,
 {
   fn close(&mut self) -> Result<()> {
-    // TODO
-    Ok(())
+    self.handle.close()
   }
 }
 
-impl<D> CompoundDirectoryBase for Lucene90CompoundReader<D>
+impl<D> CompoundDirectory for Lucene90CompoundReader<D>
 where
   D: Directory,
 {
