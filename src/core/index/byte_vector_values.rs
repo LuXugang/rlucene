@@ -74,6 +74,43 @@ pub trait ByteVectorValues: KnnVectorValues {
   }
 }
 
+impl<T> ByteVectorValues for &T
+where
+  T: ByteVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    (**self).vector_value(ord)
+  }
+
+  type ByteVectorValues = T::ByteVectorValues;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    (**self).byte_copy()
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    (**self).scorer(query)
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    <T as ByteVectorValues>::get_encoding(*self)
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    (**self).get_vectors()
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    (**self).get_vectors_capacity()
+  }
+}
+
 #[macro_export]
 macro_rules! either_byte_vector_values {
     (

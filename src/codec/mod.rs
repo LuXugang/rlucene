@@ -14,27 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![cfg_attr(debug_assertions, allow(dead_code))]
-#![cfg_attr(not(test), forbid(clippy::mutable_key_type))]
-#[macro_use]
-mod macros;
-
-pub mod analysis;
-pub mod codec;
-pub mod core;
-pub mod migration_notes;
-pub mod queries;
-pub mod queryparser;
-pub mod sandbox;
-
-#[cfg(test)]
-#[macro_use]
-#[path = "../test_framework/macros.rs"]
-mod test_framework_macros;
-
-#[cfg(test)]
-#[path = "../test_framework/mod.rs"]
-pub(crate) mod test_framework;
-
-#[cfg(test)]
-pub mod test;
+pub mod bitvectors;

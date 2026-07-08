@@ -77,6 +77,57 @@ pub trait KnnVectorValues {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+impl<T> KnnVectorValues for &T
+where
+  T: KnnVectorValues,
+{
+  fn dimension(&self) -> usize {
+    (**self).dimension()
+  }
+
+  fn size(&self) -> usize {
+    (**self).size()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    (**self).ord_to_doc(ord)
+  }
+
+  type KnnVectorValues = T::KnnVectorValues;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    (**self).copy()
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    (**self).get_vector_byte_length()
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    (**self).get_encoding()
+  }
+
+  type Bits<'a, B>
+    = T::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a,
+    T: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    (**self).get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = T::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    (**self).iterator()
+  }
+}
 pub struct BitsImpl1<B>
 where
   B: Bits,
