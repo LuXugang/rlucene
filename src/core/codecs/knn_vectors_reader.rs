@@ -29,6 +29,7 @@ use crate::core::util::close::Closeable;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
+use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use std::sync::Arc;
 
 /// Reads vectors from an index.
@@ -50,6 +51,10 @@ pub trait KnnVectorsReader: HnswGraphProvider + Closeable {
   /// the given field doesn't have KNN vectors enabled on its `FieldInfo`. The return value is
   /// never `None`.
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues>;
+
+  fn get_quantization_state(&self, _field: &str) -> Result<Option<ScalarQuantizer>> {
+    Ok(None)
+  }
 
   /// Return the k nearest neighbor documents as determined by comparison of their vector values for
   /// this field, to the given vector, by the field's similarity function. The score of each document
@@ -215,6 +220,13 @@ macro_rules! either_knn_vectors_reader {
             }
 
             #[inline]
+            fn get_quantization_state(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Option<$crate::core::util::quantization::scalar_quantizer::ScalarQuantizer>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_quantization_state(field), )+
+                }
+            }
+
+            #[inline]
             fn search_f32<AcceptDocs, K>(
                 &self,
                 field: &str,
@@ -368,6 +380,10 @@ where
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
     (**self).get_byte_vector_values(field)
+  }
+
+  fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
+    (**self).get_quantization_state(field)
   }
 
   fn search_f32<B, K>(

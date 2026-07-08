@@ -19,11 +19,19 @@ use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::codecs::knn_vectors_writer::{KnnVectorsWriter, map_old_ord_to_new_ord};
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
+use crate::core::codecs::knn_vectors_writer::{
+  KnnVectorsWriter, has_vector_values, map_old_ord_to_new_ord, merge_float_vector_values,
+};
+use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
   DefaultRandomVectorScorerSupplier, FieldWriter as HnswFieldWriter,
+};
+use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::{
+  Lucene99ScalarQuantizedVectorScorer, ScalarQuantizedRandomVectorScorerSupplier,
+  ScalarQuantizedVectorsScorer,
 };
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_format::{
   DYNAMIC_CONFIDENCE_INTERVAL, Lucene99ScalarQuantizedVectorsFormat, META_CODEC_NAME,
@@ -31,22 +39,26 @@ use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_format::{
   VERSION_ADD_BITS, VERSION_CURRENT,
 };
 use crate::core::codecs::lucene99::off_heap_quantized_byte_vector_values::{
-  compress_bytes, compressed_array,
+  self, compress_bytes, compressed_array,
 };
 use crate::core::index::IndexFileNames;
+use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::codec_reader::CRKnnVectorReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValues, FloatVectorValuesEnum2};
 use crate::core::index::knn_vector_values::{
   BitsImpl1, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues,
 };
-use crate::core::index::merge_state::MergeState;
+use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
@@ -59,7 +71,6 @@ use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
-use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
@@ -67,7 +78,9 @@ use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByte
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::vector_util::VectorUtil;
+use parking_lot::Mutex;
 use std::borrow::Cow;
+use std::rc::Rc;
 use std::sync::Arc;
 
 // Used for determining when merged quantiles shifted too far from individual segment quantiles.
@@ -318,6 +331,125 @@ where
   }
 }
 
+impl<O, R, S> Lucene99ScalarQuantizedVectorsWriter<O, R, Lucene99ScalarQuantizedVectorScorer<S>>
+where
+  O: IndexOutput,
+  R: FlatVectorsWriter,
+  S: FlatVectorsScorer + Clone,
+{
+  fn merge_one_field_to_index_with_quantization_state<'a, D1, D2, CR>(
+    &'a mut self,
+    segment_write_state: &SegmentWriteState<&'a D2>,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    merged_quantization_state: ScalarQuantizer,
+  ) -> Result<
+    <Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>,
+  >
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+  {
+    if segment_write_state
+      .info_stream
+      .is_enabled(QUANTIZED_VECTOR_COMPONENT)
+    {
+      segment_write_state.info_stream.message(
+        QUANTIZED_VECTOR_COMPONENT,
+        &format!(
+          "quantized field= confidenceInterval={:?} minQuantile={} maxQuantile={}",
+          self.confidence_interval,
+          merged_quantization_state.get_lower_quantile(),
+          merged_quantization_state.get_upper_quantile()
+        ),
+      )?;
+    }
+    let vector_data_offset = self
+      .quantized_vector_data
+      .align_file_pointer(BitUtil::FLOAT_BYTES)?;
+    let mut temp_quantized_vector_data = segment_write_state.directory.create_temp_output(
+      self.quantized_vector_data.get_name(),
+      "temp",
+      segment_write_state.context,
+    )?;
+    let temp_quantized_vector_name = temp_quantized_vector_data.get_name().to_string();
+    let result =
+      (|| -> Result<
+        <Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'_, D2::IndexInput, D2>,
+      > {
+        let byte_vector_values = MergedQuantizedVectorValues::merge_quantized_byte_vector_values(
+          field_info,
+          merge_state,
+          merged_quantization_state.clone(),
+        )?;
+        let docs_with_field = write_quantized_vector_data(
+          &mut temp_quantized_vector_data,
+          &byte_vector_values,
+          self.bits,
+          self.compress,
+        )?;
+        CodecUtil::write_footer(&mut temp_quantized_vector_data)?;
+        IOUtils::close_one(&mut temp_quantized_vector_data)?;
+
+        let mut quantization_data_input = segment_write_state
+          .directory
+          .open_input(&temp_quantized_vector_name, segment_write_state.context)?;
+        let copy_len = quantization_data_input.length()? - CodecUtil::footer_length();
+        self
+          .quantized_vector_data
+          .copy_bytes(&mut quantization_data_input, copy_len)?;
+        let vector_data_length = self.quantized_vector_data.get_file_pointer()? - vector_data_offset;
+        CodecUtil::retrieve_checksum(&mut quantization_data_input)?;
+        write_meta(
+          &mut self.meta,
+          &mut self.quantized_vector_data,
+          field_info,
+          merge_state.segment_info.max_doc()?,
+          vector_data_offset as i64,
+          vector_data_length as i64,
+          self.confidence_interval,
+          self.bits,
+          self.compress,
+          merged_quantization_state.get_lower_quantile(),
+          merged_quantization_state.get_upper_quantile(),
+          &docs_with_field,
+          self.version,
+        )?;
+
+        let random_vector_scorer_supplier =
+          self.flat_vector_scorer.get_random_vector_scorer_supplier_quantized(
+            *field_info.get_vector_similarity_function(),
+            off_heap_quantized_byte_vector_values::DenseOffHeapVectorValues::new(
+              field_info.get_vector_dimension() as usize,
+              docs_with_field.cardinality() as usize,
+              merged_quantization_state,
+              self.compress,
+              *field_info.get_vector_similarity_function(),
+              self.flat_vector_scorer.clone(),
+              quantization_data_input,
+            ),
+          )?;
+        Ok(
+          ScalarQuantizedCloseableRandomVectorScorerSupplier::new_quantized(
+            docs_with_field.cardinality(),
+            random_vector_scorer_supplier,
+            segment_write_state.directory,
+            temp_quantized_vector_name.clone(),
+          ),
+        )
+      })();
+
+    if result.is_err() {
+      IOUtils::delete_files_ignoring_exceptions(
+        segment_write_state.directory,
+        std::iter::once(&temp_quantized_vector_name),
+      );
+    }
+    result
+  }
+}
+
 impl<O, R, F> Accountable for Lucene99ScalarQuantizedVectorsWriter<O, R, F>
 where
   O: IndexOutput,
@@ -359,18 +491,60 @@ where
 {
   fn merge_one_field<D1, D2, CR>(
     &mut self,
-    _field_info: &Arc<FieldInfo>,
-    _merge_state: &MergeState<'_, D1, CR>,
-    _segment_write_state: &SegmentWriteState<&D2>,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
     D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
-    Err(LuceneError::unsupported_operation(
-      "Lucene99ScalarQuantizedVectorsWriter merge is not implemented yet",
-    ))
+    self
+      .raw_vector_delegate
+      .merge_one_field(field_info, merge_state, segment_write_state)?;
+    // Since we know we will not be searching for additional indexing, we can just write the
+    // the vectors directly to the new segment.
+    // No need to use temporary file as we don't have to re-open for reading
+    if *field_info.get_vector_encoding() == VectorEncoding::FLOAT32(BitUtil::FLOAT_BYTES) {
+      let merged_quantization_state = merge_and_recalculate_quantiles(
+        merge_state,
+        field_info.as_ref(),
+        self.confidence_interval,
+        self.bits,
+      )?;
+      let byte_vector_values = MergedQuantizedVectorValues::merge_quantized_byte_vector_values(
+        field_info.as_ref(),
+        merge_state,
+        merged_quantization_state.clone(),
+      )?;
+      let vector_data_offset = self
+        .quantized_vector_data
+        .align_file_pointer(BitUtil::FLOAT_BYTES)?;
+      let docs_with_field = write_quantized_vector_data(
+        &mut self.quantized_vector_data,
+        &byte_vector_values,
+        self.bits,
+        self.compress,
+      )?;
+      let vector_data_length = self.quantized_vector_data.get_file_pointer()? - vector_data_offset;
+      write_meta(
+        &mut self.meta,
+        &mut self.quantized_vector_data,
+        field_info.as_ref(),
+        merge_state.segment_info.max_doc()?,
+        vector_data_offset as i64,
+        vector_data_length as i64,
+        self.confidence_interval,
+        self.bits,
+        self.compress,
+        merged_quantization_state.get_lower_quantile(),
+        merged_quantization_state.get_upper_quantile(),
+        &docs_with_field,
+        self.version,
+      )?;
+    }
+    Ok(())
   }
 
   fn finish(&mut self) -> Result<()> {
@@ -389,13 +563,14 @@ where
   }
 }
 
-impl<O, R, F> FlatVectorsWriter for Lucene99ScalarQuantizedVectorsWriter<O, R, F>
+impl<O, R, S> FlatVectorsWriter
+  for Lucene99ScalarQuantizedVectorsWriter<O, R, Lucene99ScalarQuantizedVectorScorer<S>>
 where
   O: IndexOutput,
   R: FlatVectorsWriter,
-  F: FlatVectorsScorer,
+  S: FlatVectorsScorer + Clone,
 {
-  type FlatVectorsScorer = F;
+  type FlatVectorsScorer = Lucene99ScalarQuantizedVectorScorer<S>;
 
   fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer {
     &self.flat_vector_scorer
@@ -490,7 +665,16 @@ where
   }
 
   type CloseableRandomVectorScorerSupplier<'a, I, D>
-    = Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier
+    = ScalarQuantizedCloseableRandomVectorScorerSupplier<
+    'a,
+    ScalarQuantizedRandomVectorScorerSupplier<
+      off_heap_quantized_byte_vector_values::DenseOffHeapVectorValues<
+        I,
+        Lucene99ScalarQuantizedVectorScorer<S>,
+      >,
+    >,
+    D,
+  >
   where
     I: IndexInput + 'a,
     D: Directory,
@@ -500,17 +684,46 @@ where
 
   fn merge_one_field_to_index<'a, D1, D2, CR>(
     &'a mut self,
-    _field_info: &FieldInfo,
-    _merge_state: &MergeState<'_, D1, CR>,
-    _segment_write_state: &SegmentWriteState<'a, &D2>,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&'a D2>,
   ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
     D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
+    if *field_info.get_vector_encoding() == VectorEncoding::FLOAT32(BitUtil::FLOAT_BYTES) {
+      // Simply merge the underlying delegate, which just copies the raw vector data to a new
+      // segment file
+      let field_info_arc = merge_state
+        .merge_field_infos
+        .field_info_by_name(&field_info.name)
+        .ok_or_else(|| {
+          LuceneError::illegal_argument(format!("field=\"{}\" not found", field_info.name))
+        })?;
+      self.raw_vector_delegate.merge_one_field(
+        &field_info_arc,
+        merge_state,
+        segment_write_state,
+      )?;
+      let merged_quantization_state = merge_and_recalculate_quantiles(
+        merge_state,
+        field_info,
+        self.confidence_interval,
+        self.bits,
+      )?;
+      return self.merge_one_field_to_index_with_quantization_state(
+        segment_write_state,
+        field_info,
+        merge_state,
+        merged_quantization_state,
+      );
+    }
+    // We only merge the delegate, since the field type isn't float32, quantization wasn't
+    // supported, so bypass it.
     Err(LuceneError::unsupported_operation(
-      "Lucene99ScalarQuantizedVectorsWriter mergeOneFieldToIndex is not implemented yet",
+      "Lucene99ScalarQuantizedVectorsWriter mergeOneFieldToIndex only supports FLOAT32 fields",
     ))
   }
 }
@@ -693,6 +906,176 @@ where
     quantized_vector_data.write_bytes_range(&offset_buffer, 0, offset_buffer.len())?;
   }
   Ok(())
+}
+
+fn merge_quantiles(
+  quantization_states: &[Option<ScalarQuantizer>],
+  segment_sizes: &[usize],
+  bits: u8,
+) -> Result<Option<ScalarQuantizer>> {
+  debug_assert_eq!(quantization_states.len(), segment_sizes.len());
+  if quantization_states.is_empty() {
+    return Ok(None);
+  }
+  let mut lower_quantile = 0.0f32;
+  let mut upper_quantile = 0.0f32;
+  let mut total_count = 0usize;
+  for i in 0..quantization_states.len() {
+    let Some(quantization_state) = quantization_states[i].as_ref() else {
+      return Ok(None);
+    };
+    lower_quantile += quantization_state.get_lower_quantile() * segment_sizes[i] as f32;
+    upper_quantile += quantization_state.get_upper_quantile() * segment_sizes[i] as f32;
+    total_count += segment_sizes[i];
+    if quantization_state.get_bits() != bits {
+      return Ok(None);
+    }
+  }
+  lower_quantile /= total_count as f32;
+  upper_quantile /= total_count as f32;
+  ScalarQuantizer::new(lower_quantile, upper_quantile, bits).map(Some)
+}
+
+/// Returns true if the quantiles of the merged state are too far from the quantiles of the
+/// individual states.
+///
+/// - `merged_quantization_state`: The merged quantization state
+/// - `quantization_states`: The quantization states of the individual segments
+///
+/// Returns true if the quantiles should be recomputed.
+fn should_recompute_quantiles(
+  merged_quantization_state: &ScalarQuantizer,
+  quantization_states: &[Option<ScalarQuantizer>],
+) -> bool {
+  // calculate the limit for the quantiles to be considered too far apart
+  // We utilize upper & lower here to determine if the new upper and merged upper would
+  // drastically
+  // change the quantization buckets for floats
+  // This is a fairly conservative check.
+  let limit = (merged_quantization_state.get_upper_quantile()
+    - merged_quantization_state.get_lower_quantile())
+    / QUANTILE_RECOMPUTE_LIMIT;
+  for quantization_state in quantization_states {
+    let Some(quantization_state) = quantization_state.as_ref() else {
+      debug_assert!(
+        false,
+        "missing quantization state after quantiles were merged"
+      );
+      continue;
+    };
+    if (quantization_state.get_upper_quantile() - merged_quantization_state.get_upper_quantile())
+      .abs()
+      > limit
+    {
+      return true;
+    }
+    if (quantization_state.get_lower_quantile() - merged_quantization_state.get_lower_quantile())
+      .abs()
+      > limit
+    {
+      return true;
+    }
+  }
+  false
+}
+
+/// Merges the quantiles of the segments and recalculates the quantiles if necessary.
+///
+/// - `merge_state`: The merge state
+/// - `field_info`: The field info
+/// - `confidence_interval`: The confidence interval
+/// - `bits`: The number of bits
+///
+/// Returns the merged quantiles.
+pub fn merge_and_recalculate_quantiles<D, CR>(
+  merge_state: &MergeState<'_, D, CR>,
+  field_info: &FieldInfo,
+  confidence_interval: Option<f32>,
+  bits: u8,
+) -> Result<ScalarQuantizer>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  debug_assert_eq!(
+    *field_info.get_vector_encoding(),
+    VectorEncoding::FLOAT32(BitUtil::FLOAT_BYTES)
+  );
+  let mut quantization_states = Vec::with_capacity(merge_state.live_docs.len());
+  let mut segment_sizes = Vec::with_capacity(merge_state.live_docs.len());
+  for i in 0..merge_state.live_docs.len() {
+    if has_vector_values(&merge_state.field_infos[i], &field_info.name)
+      && let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref()
+    {
+      let fvv = knn_vectors_reader.get_float_vector_values(&field_info.name)?;
+      if fvv.size() > 0 {
+        let quantization_state = knn_vectors_reader.get_quantization_state(&field_info.name)?;
+        // If we have quantization state, we can utilize that to make merging cheaper
+        quantization_states.push(quantization_state);
+        segment_sizes.push(fvv.size());
+      }
+    }
+  }
+  let merged_quantiles = merge_quantiles(&quantization_states, &segment_sizes, bits)?;
+  // Segments no providing quantization state indicates that their quantiles were never
+  // calculated.
+  // To be safe, we should always recalculate given a sample set over all the float vectors in the
+  // merged
+  // segment view
+  let should_recalculate = match merged_quantiles.as_ref() {
+    None => true,
+    Some(merged_quantiles) => {
+      // For smaller `bits` values, we should always recalculate the quantiles
+      // TODO: this is very conservative, could we reuse information for even int4 quantization?
+      if bits <= 4 {
+        true
+      } else {
+        should_recompute_quantiles(merged_quantiles, &quantization_states)
+      }
+    },
+  };
+  if should_recalculate {
+    let mut num_vectors = 0usize;
+    let float_vector_values = merge_float_vector_values(field_info, merge_state)?;
+    let mut iter = float_vector_values.iterator()?;
+    // iterate vectorValues and increment numVectors
+    loop {
+      let doc = iter.next_doc()?;
+      if doc == NO_MORE_DOCS {
+        break;
+      }
+      num_vectors += 1;
+    }
+    return build_scalar_quantizer(
+      merge_float_vector_values(field_info, merge_state)?,
+      num_vectors,
+      *field_info.get_vector_similarity_function(),
+      confidence_interval,
+      bits,
+    );
+  }
+  merged_quantiles.ok_or_else(|| LuceneError::illegal_state("missing merged quantiles"))
+}
+
+/// Returns true if the quantiles of the new quantization state are too far from the quantiles of
+/// the existing quantization state. This would imply that floating point values would slightly
+/// shift quantization buckets.
+///
+/// - `existing_quantiles`: The existing quantiles for a segment
+/// - `new_quantiles`: The new quantiles for a segment, could be merged, or fully re-calculated
+///
+/// Returns true if the floating point values should be requantized.
+fn should_requantize(
+  existing_quantiles: &ScalarQuantizer,
+  new_quantiles: &ScalarQuantizer,
+) -> bool {
+  let tol = REQUANTIZATION_LIMIT
+    * (new_quantiles.get_upper_quantile() - new_quantiles.get_lower_quantile())
+    / 128.0;
+  if (existing_quantiles.get_upper_quantile() - new_quantiles.get_upper_quantile()).abs() > tol {
+    return true;
+  }
+  (existing_quantiles.get_lower_quantile() - new_quantiles.get_lower_quantile()).abs() > tol
 }
 
 /// Writes the vector values to the output and returns a set of documents that contains vectors.
@@ -989,6 +1372,599 @@ impl FloatVectorValues for FloatVectorWrapper<'_> {
   type VectorScorer = DummyVectorScorer;
 }
 
+struct QuantizedByteVectorValueSub<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  values: V,
+  iterator: <V as KnnVectorValues>::DocIndexIterator,
+  doc_map: Rc<MergeStateDocMap<CR>>,
+}
+
+impl<V, CR> QuantizedByteVectorValueSub<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: V) -> Result<Self> {
+    let iterator = values.iterator()?;
+    debug_assert_eq!(iterator.doc_id(), -1);
+    Ok(Self {
+      values,
+      iterator,
+      doc_map,
+    })
+  }
+
+  fn index(&self) -> Result<i32> {
+    self.iterator.index()
+  }
+}
+
+impl<V, CR> SubBase for QuantizedByteVectorValueSub<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  type DocMap = Rc<MergeStateDocMap<CR>>;
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.iterator.next_doc()
+  }
+
+  fn get_doc_map(&self) -> Result<&Self::DocMap> {
+    Ok(&self.doc_map)
+  }
+}
+
+/// Returns a merged view over all the segment's [`QuantizedByteVectorValues`].
+struct MergedQuantizedVectorValues<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, CR>>>,
+  size: usize,
+  dimension: usize,
+}
+
+struct MergedQuantizedVectorValuesState<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  doc_id: i32,
+  ord: i32,
+  current: Option<usize>,
+  doc_id_merger: DocIDMergerEnum<QuantizedByteVectorValueSub<V, CR>>,
+}
+
+impl<CR>
+  MergedQuantizedVectorValues<
+    QuantizedFloatVectorValues<
+      FloatVectorValuesEnum2<
+        <CRKnnVectorReader<CR> as KnnVectorsReader>::FloatVectorValues,
+        NormalizedFloatVectorValues<<CRKnnVectorReader<CR> as KnnVectorsReader>::FloatVectorValues>,
+      >,
+    >,
+    CR,
+  >
+where
+  CR: CodecReader,
+{
+  fn merge_quantized_byte_vector_values<D>(
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D, CR>,
+    scalar_quantizer: ScalarQuantizer,
+  ) -> Result<Self>
+  where
+    D: Directory,
+  {
+    debug_assert!(field_info.has_vector_values());
+
+    let mut subs = Vec::new();
+    for i in 0..merge_state.knn_vectors_readers.len() {
+      if has_vector_values(&merge_state.field_infos[i], &field_info.name)
+        && let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref()
+      {
+        debug_assert!(scalar_quantizer.get_bits() > 0);
+        let to_quantize = knn_vectors_reader.get_float_vector_values(&field_info.name)?;
+        let to_quantize =
+          if *field_info.get_vector_similarity_function() == VectorSimilarityFunction::Cosine {
+            FloatVectorValuesEnum2::B(NormalizedFloatVectorValues::new(to_quantize))
+          } else {
+            FloatVectorValuesEnum2::A(to_quantize)
+          };
+        let sub = QuantizedByteVectorValueSub::new(
+          merge_state.doc_maps[i].clone(),
+          QuantizedFloatVectorValues::new(
+            to_quantize,
+            *field_info.get_vector_similarity_function(),
+            scalar_quantizer.clone(),
+          ),
+        )?;
+        subs.push(Sub::new(sub));
+      }
+    }
+    Self::new(subs, merge_state)
+  }
+}
+
+impl<V, CR> MergedQuantizedVectorValues<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  fn new<D>(
+    subs: Vec<Sub<QuantizedByteVectorValueSub<V, CR>>>,
+    merge_state: &MergeState<'_, D, CR>,
+  ) -> Result<Self>
+  where
+    D: Directory,
+  {
+    let dimension = match subs.first() {
+      Some(sub) => sub.sub.values.dimension(),
+      None => return Err(LuceneError::illegal_state("no sub-vectors to merge")),
+    };
+    let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
+    let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
+    Ok(Self {
+      state: Arc::new(Mutex::new(MergedQuantizedVectorValuesState {
+        doc_id: -1,
+        ord: -1,
+        current: None,
+        doc_id_merger,
+      })),
+      size,
+      dimension,
+    })
+  }
+}
+
+impl<V, CR> HasIndexSlice for MergedQuantizedVectorValues<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+}
+
+impl<V, CR> KnnVectorValues for MergedQuantizedVectorValues<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  fn dimension(&self) -> usize {
+    self.dimension
+  }
+
+  fn size(&self) -> usize {
+    self.size
+  }
+
+  type KnnVectorValues = Self;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(self)
+  }
+
+  type Bits<'a, B>
+    = BitsImpl1<B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = MergedQuantizedVectorValuesIterator<V, CR>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    Ok(MergedQuantizedVectorValuesIterator {
+      state: self.state.clone(),
+      size: self.size,
+    })
+  }
+}
+
+impl<V, CR> ByteVectorValues for MergedQuantizedVectorValues<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    let state = self.state.lock();
+    let current = state
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
+    let current_sub = &state.doc_id_merger.get_subs()[current].sub;
+    let index: usize = current_sub.index()?.try_convert()?;
+    Ok(Cow::Owned(
+      current_sub.values.vector_value(index)?.into_owned(),
+    ))
+  }
+
+  type ByteVectorValues = DummyByteVectorValues;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+
+impl<V, CR> QuantizedByteVectorValues for MergedQuantizedVectorValues<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  fn get_score_correction_constant(&self, _ord: usize) -> Result<f32> {
+    let state = self.state.lock();
+    let current = state
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
+    let current_sub = &state.doc_id_merger.get_subs()[current].sub;
+    let index: usize = current_sub.index()?.try_convert()?;
+    current_sub.values.get_score_correction_constant(index)
+  }
+
+  type QuantizedVectorScorer = DummyVectorScorer;
+
+  fn scorer(&self, _query: &[f32]) -> Result<Option<Self::QuantizedVectorScorer>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type QuantizedByteVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::QuantizedByteVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+struct MergedQuantizedVectorValuesIterator<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, CR>>>,
+  size: usize,
+}
+
+impl<V, CR> DocIdSetIterator for MergedQuantizedVectorValuesIterator<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  fn doc_id(&self) -> i32 {
+    self.state.lock().doc_id
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    let mut state = self.state.lock();
+    state.current = state.doc_id_merger.next()?;
+    match state.current {
+      Some(current) => {
+        state.doc_id = state.doc_id_merger.get_subs()[current].mapped_doc_id;
+        state.ord += 1;
+        Ok(state.doc_id)
+      },
+      None => {
+        state.doc_id = NO_MORE_DOCS;
+        state.ord = NO_MORE_DOCS;
+        Ok(NO_MORE_DOCS)
+      },
+    }
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.size.try_convert()
+  }
+}
+
+impl<V, CR> DocIndexIterator for MergedQuantizedVectorValuesIterator<V, CR>
+where
+  V: QuantizedByteVectorValues,
+  CR: CodecReader,
+{
+  fn index(&self) -> Result<i32> {
+    Ok(self.state.lock().ord)
+  }
+}
+
+struct QuantizedFloatVectorValues<FVV>
+where
+  FVV: FloatVectorValues,
+{
+  values: FVV,
+  quantizer: ScalarQuantizer,
+  inner: Mutex<QuantizedFloatVectorValuesInner>,
+  vector_similarity_function: VectorSimilarityFunction,
+}
+
+struct QuantizedFloatVectorValuesInner {
+  quantized_vector: Vec<u8>,
+  last_ord: i32,
+  offset_value: f32,
+}
+
+impl<FVV> QuantizedFloatVectorValues<FVV>
+where
+  FVV: FloatVectorValues,
+{
+  fn new(
+    values: FVV,
+    vector_similarity_function: VectorSimilarityFunction,
+    quantizer: ScalarQuantizer,
+  ) -> Self {
+    let quantized_vector = vec![0; values.dimension()];
+    Self {
+      values,
+      quantizer,
+      inner: Mutex::new(QuantizedFloatVectorValuesInner {
+        quantized_vector,
+        last_ord: -1,
+        offset_value: 0.0,
+      }),
+      vector_similarity_function,
+    }
+  }
+
+  fn quantize(&self, ord: usize, inner: &mut QuantizedFloatVectorValuesInner) -> Result<f32> {
+    let vector = self.values.vector_value(ord)?;
+    Ok(self.quantizer.quantize(
+      vector.as_floats()?,
+      &mut inner.quantized_vector,
+      self.vector_similarity_function,
+    ))
+  }
+}
+
+impl<FVV> HasIndexSlice for QuantizedFloatVectorValues<FVV> where FVV: FloatVectorValues {}
+
+impl<FVV> KnnVectorValues for QuantizedFloatVectorValues<FVV>
+where
+  FVV: FloatVectorValues,
+{
+  fn dimension(&self) -> usize {
+    self.values.dimension()
+  }
+
+  fn size(&self) -> usize {
+    self.values.size()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    self.values.ord_to_doc(ord)
+  }
+
+  type KnnVectorValues = Self;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(self)
+  }
+
+  type Bits<'a, B>
+    = FVV::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    self.values.get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = FVV::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    self.values.iterator()
+  }
+}
+
+impl<FVV> ByteVectorValues for QuantizedFloatVectorValues<FVV>
+where
+  FVV: FloatVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    let mut inner = self.inner.lock();
+    let ord_i32: i32 = ord.try_convert()?;
+    if ord_i32 != inner.last_ord {
+      inner.offset_value = self.quantize(ord, &mut inner)?;
+      inner.last_ord = ord_i32;
+    }
+    Ok(Cow::Owned(VectorValueEnum::Byte(
+      inner.quantized_vector.clone(),
+    )))
+  }
+
+  type ByteVectorValues = Self;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+
+impl<FVV> QuantizedByteVectorValues for QuantizedFloatVectorValues<FVV>
+where
+  FVV: FloatVectorValues,
+{
+  fn get_scalar_quantizer(&self) -> Result<ScalarQuantizer> {
+    Ok(self.quantizer.clone())
+  }
+
+  fn get_score_correction_constant(&self, ord: usize) -> Result<f32> {
+    let inner = self.inner.lock();
+    let ord: i32 = ord.try_convert()?;
+    if ord != inner.last_ord {
+      return Err(LuceneError::illegal_state(format!(
+        "attempt to retrieve score correction for different ord {} than the quantization was done for: {}",
+        ord, inner.last_ord
+      )));
+    }
+    Ok(inner.offset_value)
+  }
+
+  type QuantizedVectorScorer = DummyVectorScorer;
+
+  fn scorer(&self, _query: &[f32]) -> Result<Option<Self::QuantizedVectorScorer>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type QuantizedByteVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::QuantizedByteVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+struct OffsetCorrectedQuantizedByteVectorValues<Q>
+where
+  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+{
+  in_: Q,
+  vector_similarity_function: VectorSimilarityFunction,
+  scalar_quantizer: ScalarQuantizer,
+  old_scalar_quantizer: ScalarQuantizer,
+}
+
+impl<Q> OffsetCorrectedQuantizedByteVectorValues<Q>
+where
+  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+{
+  fn new(
+    in_: Q,
+    vector_similarity_function: VectorSimilarityFunction,
+    scalar_quantizer: ScalarQuantizer,
+    old_scalar_quantizer: ScalarQuantizer,
+  ) -> Self {
+    Self {
+      in_,
+      vector_similarity_function,
+      scalar_quantizer,
+      old_scalar_quantizer,
+    }
+  }
+}
+
+impl<Q> HasIndexSlice for OffsetCorrectedQuantizedByteVectorValues<Q>
+where
+  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+{
+  fn seek(&self, pos: usize) -> Result<()> {
+    self.in_.seek(pos)
+  }
+
+  fn read_bytes(&self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.in_.read_bytes(b, offset, len)
+  }
+}
+
+impl<Q> KnnVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
+where
+  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+{
+  fn dimension(&self) -> usize {
+    self.in_.dimension()
+  }
+
+  fn size(&self) -> usize {
+    self.in_.size()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    self.in_.ord_to_doc(ord)
+  }
+
+  type KnnVectorValues = Self;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(self)
+  }
+
+  type Bits<'a, B>
+    = Q::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    self.in_.get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = Q::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    self.in_.iterator()
+  }
+}
+
+impl<Q> ByteVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
+where
+  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    self.in_.vector_value(ord)
+  }
+
+  type ByteVectorValues = Self;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    QuantizedByteVectorValues::copy(self).map(Some)
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+
+impl<Q> QuantizedByteVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
+where
+  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+{
+  fn get_scalar_quantizer(&self) -> Result<ScalarQuantizer> {
+    Ok(self.scalar_quantizer.clone())
+  }
+
+  fn get_score_correction_constant(&self, ord: usize) -> Result<f32> {
+    let vector = self.in_.vector_value(ord)?;
+    Ok(self.scalar_quantizer.recalculate_corrective_offset(
+      vector.as_bytes()?,
+      &self.old_scalar_quantizer,
+      self.vector_similarity_function,
+    ))
+  }
+
+  type QuantizedVectorScorer = DummyVectorScorer;
+
+  fn scorer(&self, _query: &[f32]) -> Result<Option<Self::QuantizedVectorScorer>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type QuantizedByteVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::QuantizedByteVectorValues> {
+    Ok(Self::new(
+      QuantizedByteVectorValues::copy(&self.in_)?,
+      self.vector_similarity_function,
+      self.scalar_quantizer.clone(),
+      self.old_scalar_quantizer.clone(),
+    ))
+  }
+}
+
 struct NormalizedFloatVectorValues<FVV>
 where
   FVV: FloatVectorValues,
@@ -1067,40 +2043,103 @@ where
   type VectorScorer = DummyVectorScorer;
 }
 
-pub struct Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier;
+pub struct ScalarQuantizedCloseableRandomVectorScorerSupplier<'a, Q, D>
+where
+  Q: RandomVectorScorerSupplier,
+  D: Directory,
+{
+  supplier: Q,
+  num_vectors: i32,
+  dir: &'a D,
+  temp_file: String,
+  closed: bool,
+}
 
-impl RandomVectorScorerSupplier for Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier {
+impl<'a, Q, D> ScalarQuantizedCloseableRandomVectorScorerSupplier<'a, Q, D>
+where
+  Q: RandomVectorScorerSupplier,
+  D: Directory,
+{
+  fn new_quantized(num_vectors: i32, supplier: Q, dir: &'a D, temp_file: String) -> Self {
+    Self {
+      supplier,
+      num_vectors,
+      dir,
+      temp_file,
+      closed: false,
+    }
+  }
+}
+
+impl<Q, D> RandomVectorScorerSupplier
+  for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+where
+  Q: RandomVectorScorerSupplier,
+  D: Directory,
+{
   type Scorer<'a>
-    = DummyRandomVectorScorer
+    = Q::Scorer<'a>
   where
     Self: 'a;
 
-  fn scorer(&self, _ord: usize) -> Result<Self::Scorer<'_>> {
-    Err(LuceneError::unsupported_operation(
-      "Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier is not implemented yet",
-    ))
+  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
+    self.supplier.scorer(ord)
   }
 
-  type RandomVectorScorerSupplier = Self;
+  type RandomVectorScorerSupplier = Q::RandomVectorScorerSupplier;
 
   fn copy(&self) -> Result<Self::RandomVectorScorerSupplier>
   where
     Self: Sized,
   {
-    Err(LuceneError::unsupported_operation(
-      "Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier is not implemented yet",
-    ))
+    self.supplier.copy()
+  }
+
+  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
+    self.supplier.get_vector()
+  }
+
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    self.supplier.get_vector_mut()
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.supplier.ram_bytes_used()
   }
 }
 
-impl Closeable for Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier {}
+impl<Q, D> Closeable for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+where
+  Q: RandomVectorScorerSupplier,
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    if !self.closed {
+      self.closed = true;
+      self.dir.delete_file(&self.temp_file)
+    } else {
+      Ok(())
+    }
+  }
+}
 
-impl CloseableRandomVectorScorerSupplier
-  for Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier
+impl<Q, D> CloseableRandomVectorScorerSupplier
+  for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+where
+  Q: RandomVectorScorerSupplier,
+  D: Directory,
 {
   fn total_vector_count(&self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(
-      "Lucene99ScalarQuantizedCloseableRandomVectorScorerSupplier is not implemented yet",
-    ))
+    Ok(self.num_vectors)
+  }
+}
+
+impl<Q, D> Drop for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+where
+  Q: RandomVectorScorerSupplier,
+  D: Directory,
+{
+  fn drop(&mut self) {
+    let _ = self.close();
   }
 }

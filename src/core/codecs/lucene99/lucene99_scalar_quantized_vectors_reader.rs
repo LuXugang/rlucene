@@ -369,6 +369,10 @@ where
     self.raw_vectors_reader.get_byte_vector_values(field)
   }
 
+  fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
+    QuantizedVectorsReader::get_quantization_state(self, field)
+  }
+
   fn search_f32<B, K>(
     &self,
     _field: &str,

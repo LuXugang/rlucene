@@ -316,7 +316,7 @@ where
   }
 
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
-    self.flat_vectors_reader.get_quantization_state(field)
+    KnnVectorsReader::get_quantization_state(&self.flat_vectors_reader, field)
   }
 }
 impl<F, I> HnswGraphProvider for Lucene99HnswVectorsReader<F, I>
@@ -367,6 +367,10 @@ where
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
     self.flat_vectors_reader.get_byte_vector_values(field)
+  }
+
+  fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
+    self.flat_vectors_reader.get_quantization_state(field)
   }
 
   fn search_f32<B, K>(
