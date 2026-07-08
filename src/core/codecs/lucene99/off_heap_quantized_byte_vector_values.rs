@@ -1355,21 +1355,27 @@ where
   F: FlatVectorsScorer,
 {
   #[allow(clippy::too_many_arguments)]
-  pub fn load(
+  pub fn load<S>(
     configuration: Arc<OrdToDocDISIReaderConfiguration>,
     dimension: usize,
     size: usize,
-    scalar_quantizer: ScalarQuantizer,
+    scalar_quantizer: S,
     similarity_function: VectorSimilarityFunction,
     vectors_scorer: F,
     compress: bool,
     quantized_vector_data_offset: usize,
     quantized_vector_data_length: usize,
     vector_data: I,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    S: Into<Option<ScalarQuantizer>>,
+  {
     if configuration.is_empty() {
       return Ok(Self::Empty(EmptyOffHeapVectorValues::new(dimension)));
     }
+    let scalar_quantizer = scalar_quantizer
+      .into()
+      .ok_or_else(|| LuceneError::illegal_state("Missing scalar quantizer"))?;
     let bytes_slice = vector_data.slice(
       "quantized-vector-data",
       quantized_vector_data_offset,

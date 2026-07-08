@@ -19,6 +19,7 @@ use crate::core::codecs::hnsw::flat_vector_scorer_util::GET_LUCENE99_FLAT_VECTOR
 use crate::core::codecs::hnsw::flat_vectors_format::FlatVectorsFormat;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::Lucene99FlatVectorsFormat;
+use crate::core::codecs::lucene99::lucene99_flat_vectors_reader::Lucene99FlatVectorsReader;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::Lucene99ScalarQuantizedVectorScorer;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_reader::Lucene99ScalarQuantizedVectorsReader;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_writer::Lucene99ScalarQuantizedVectorsWriter;
@@ -175,6 +176,7 @@ impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
 
   type KnnVectorsReader<T: IndexInput> = Lucene99ScalarQuantizedVectorsReader<
     T,
+    Lucene99FlatVectorsReader<T, DefaultFlatVectorScorer>,
     Lucene99ScalarQuantizedVectorScorer<DefaultFlatVectorScorer>,
   >;
 
@@ -215,18 +217,26 @@ impl FlatVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
 
   type FlatVectorsReader<T: IndexInput> = Lucene99ScalarQuantizedVectorsReader<
     T,
+    Lucene99FlatVectorsReader<T, DefaultFlatVectorScorer>,
     Lucene99ScalarQuantizedVectorScorer<DefaultFlatVectorScorer>,
   >;
 
   fn fields_reader<D1, D2>(
     &self,
-    _state: &SegmentReadState<D1>,
-    _segment_info: &SegmentInfo<D2>,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::FlatVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
     D2: Directory,
   {
-    todo!("Lucene99ScalarQuantizedVectorsReader is not implemented yet")
+    let raw_vectors_reader =
+      FlatVectorsFormat::fields_reader(&*RAW_VECTOR_FORMAT, state, segment_info)?;
+    Lucene99ScalarQuantizedVectorsReader::new(
+      state,
+      raw_vectors_reader,
+      self.flat_vector_scorer.clone(),
+      segment_info,
+    )
   }
 }

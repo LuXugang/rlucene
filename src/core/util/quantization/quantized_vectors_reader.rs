@@ -29,5 +29,5 @@ pub trait QuantizedVectorsReader: Accountable + Closeable {
     field_name: &str,
   ) -> Result<Self::QuantizedByteVectorValues>;
 
-  fn get_quantization_state(&self, field_name: &str) -> ScalarQuantizer;
+  fn get_quantization_state(&self, field_name: &str) -> Result<Option<ScalarQuantizer>>;
 }

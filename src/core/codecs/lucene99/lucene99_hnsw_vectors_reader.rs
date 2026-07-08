@@ -315,7 +315,7 @@ where
     self.flat_vectors_reader.get_quantized_vector_values(field)
   }
 
-  fn get_quantization_state(&self, field: &str) -> ScalarQuantizer {
+  fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
     self.flat_vectors_reader.get_quantization_state(field)
   }
 }

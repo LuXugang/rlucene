@@ -88,6 +88,71 @@ where
   }
 }
 
+pub trait ScalarQuantizedVectorsScorer: FlatVectorsScorer + Clone {
+  type QuantizedRandomVectorScorerSupplier<V>: RandomVectorScorerSupplier
+  where
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>;
+
+  fn get_random_vector_scorer_supplier_quantized<V>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: V,
+  ) -> Result<Self::QuantizedRandomVectorScorerSupplier<V>>
+  where
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>;
+
+  type QuantizedRandomVectorScorer<V>: RandomVectorScorer
+  where
+    V: QuantizedByteVectorValues;
+
+  fn get_random_vector_scorer_f32_quantized<V>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: V,
+    target: Vec<f32>,
+  ) -> Result<Self::QuantizedRandomVectorScorer<V>>
+  where
+    V: QuantizedByteVectorValues;
+}
+
+impl<F> ScalarQuantizedVectorsScorer for Lucene99ScalarQuantizedVectorScorer<F>
+where
+  F: FlatVectorsScorer + Clone,
+{
+  type QuantizedRandomVectorScorerSupplier<V>
+    = ScalarQuantizedRandomVectorScorerSupplier<V>
+  where
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>;
+
+  fn get_random_vector_scorer_supplier_quantized<V>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: V,
+  ) -> Result<Self::QuantizedRandomVectorScorerSupplier<V>>
+  where
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>,
+  {
+    self.get_random_vector_scorer_supplier(similarity_function, vector_values)
+  }
+
+  type QuantizedRandomVectorScorer<V>
+    = ScalarQuantizedRandomVectorScorerEnum<V>
+  where
+    V: QuantizedByteVectorValues;
+
+  fn get_random_vector_scorer_f32_quantized<V>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: V,
+    target: Vec<f32>,
+  ) -> Result<Self::QuantizedRandomVectorScorer<V>>
+  where
+    V: QuantizedByteVectorValues,
+  {
+    self.get_random_vector_scorer_f32(similarity_function, vector_values, target)
+  }
+}
+
 impl<F> Display for Lucene99ScalarQuantizedVectorScorer<F>
 where
   F: FlatVectorsScorer,
@@ -603,7 +668,7 @@ impl ScoreAdjustmentFunction {
   }
 }
 
-pub(crate) struct ScalarQuantizedRandomVectorScorerSupplier<V>
+pub struct ScalarQuantizedRandomVectorScorerSupplier<V>
 where
   V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>,
 {
