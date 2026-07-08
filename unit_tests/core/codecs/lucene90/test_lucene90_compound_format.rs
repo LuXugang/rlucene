@@ -19,7 +19,7 @@ use rand::Rng;
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 
-use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC, Lucene90CompoundFormat};
+use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, Lucene90CompoundFormat};
 use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT};
@@ -191,7 +191,7 @@ impl TestLucene90CompoundFormat {
     let files = shuffled_files.into_iter().collect();
     si.set_files(files)?;
 
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
 

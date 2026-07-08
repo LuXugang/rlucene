@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
 use crate::core::index::field_info::FieldInfo;
@@ -281,7 +281,7 @@ impl PendingDeletesBase for PendingDeletes {
     // .tmp & renaming it) because the file is not live
     // until segments file is written:
     let write_res = (|| -> Result<()> {
-      let codec = &*LATEST_CODEC;
+      let codec = info.info.get_codec()?;
       codec.live_docs_format().write_live_docs(
         live_docs,
         &tracking_dir,

@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::BytesRef;
 use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::field_info::FieldInfo;
@@ -149,7 +149,7 @@ where
     DM: DocMap + Clone,
     D1: Directory,
   {
-    self.next_terms_hash.flush(state, sort_map, codec, info)?;
+    self.next_terms_hash.flush(state, sort_map, info)?;
     if !state.field_infos.has_postings() {
       return Ok(());
     }
@@ -167,9 +167,7 @@ where
     let mut fields = FreqProxFields::new(all_fields, int_pool, byte_pool);
     self.apply_deletes(state, &fields, info, seg_updates)?;
 
-    let mut consumer = LATEST_CODEC
-      .postings_format()
-      .fields_consumer(state, info)?;
+    let mut consumer = codec.postings_format().fields_consumer(state, info)?;
     let write_result = (|| {
       if let Some(doc_map) = sort_map {
         let mut filter_fields =

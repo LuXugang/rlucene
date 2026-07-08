@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::codec;
 use crate::core::document::document::Document;
 use crate::core::index::BytesRef;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -85,6 +86,7 @@ fn test_merge() -> Result<()> {
     -1,
     false,
     false,
+    Some(codec::get_default()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),

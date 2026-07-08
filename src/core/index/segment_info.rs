@@ -18,6 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::sync::Arc;
 
+use crate::core::codecs::Codecs;
 use crate::core::search::sort::Sort;
 use crate::core::store::directory::Directory;
 #[cfg(test)]
@@ -46,9 +47,7 @@ where
   #[cfg(test)]
   id_str: String,
   id_key: String,
-  // Diff to Java Lucene: We need to ensure that there is only one Codec in
-  // the index, Therefore, we do not need to explicitly define the Codec
-  // in the SegmentInfo. pub(crate) codec: Option<Lucene101Codec>,
+  codec: Option<Codecs>,
   diagnostics: HashMap<String, String>,
   attributes: HashMap<String, String>,
   pub(crate) index_sort: Option<Arc<Sort>>,
@@ -85,6 +84,7 @@ impl Default for SegmentInfo<DummyDirectory> {
       id_key: id_str,
       diagnostics: HashMap::new(),
       attributes: HashMap::new(),
+      codec: None,
       index_sort: None,
       version: None,
       min_version: None,
@@ -115,7 +115,8 @@ where
   /// * `is_compound_file` - Indicates if this segment uses a compound file
   ///   format.
   /// * `has_blocks` - Indicates if the segment has blocks.
-  /// * `codec` - The codec used to encode/decode this segment.
+  /// * `codec` - Codec that wrote this segment, or `None` while reading the
+  ///   segment info file before `SegmentInfos` fills it in.
   /// * `diagnostics` - Diagnostic information related to the segment.
   /// * `id` - Unique identifier for this segment.
   /// * `attributes` - Additional attributes for the segment.
@@ -129,6 +130,7 @@ where
     max_doc: i32,
     is_compound_file: bool,
     has_blocks: bool,
+    codec: Option<Codecs>,
     diagnostics: HashMap<String, String>,
     id: [u8; StringHelper::ID_LENGTH],
     attributes: HashMap<String, String>,
@@ -155,6 +157,7 @@ where
       max_doc,
       is_compound_file,
       has_blocks,
+      codec,
       diagnostics,
       id,
       #[cfg(test)]
@@ -188,6 +191,23 @@ where
     let mut copy = self.diagnostics.clone();
     copy.extend(diagnostics);
     self.set_diagnostics(copy);
+  }
+
+  /// Can only be called once.
+  pub fn set_codec(&mut self, codec: Codecs) -> Result<()> {
+    if self.codec.is_some() {
+      return Err(LuceneError::illegal_state("codec can only be set once"));
+    }
+    self.codec = Some(codec);
+    Ok(())
+  }
+
+  /// Return the [`Codec`](crate::core::codecs::Codec) that wrote this segment.
+  pub fn get_codec(&self) -> Result<&Codecs> {
+    self
+      .codec
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("segment codec is not set"))
   }
 
   /// Returns diagnostics saved into the segment when it was written.
@@ -449,6 +469,7 @@ where
       id_key: id_str,
       diagnostics: HashMap::new(),
       attributes: HashMap::new(),
+      codec: None,
       index_sort: None,
       version: None,
       min_version: None,
@@ -481,6 +502,7 @@ where
       id_key: self.id_key.clone(),
       diagnostics: self.diagnostics.clone(),
       attributes: self.attributes.clone(),
+      codec: self.codec.clone(),
       index_sort: self.index_sort.clone(),
       version: self.version.clone(),
       min_version: self.min_version.clone(),

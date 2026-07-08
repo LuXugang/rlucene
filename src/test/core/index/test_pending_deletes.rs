@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::codecs::{Codec, codec};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
@@ -98,6 +98,7 @@ pub(crate) trait TestPendingDeletesBase {
       10,
       false,
       false,
+      Some(codec::get_default()),
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
@@ -145,6 +146,7 @@ pub(crate) trait TestPendingDeletesBase {
       6,
       false,
       false,
+      Some(codec::get_default()),
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
@@ -174,7 +176,7 @@ pub(crate) trait TestPendingDeletesBase {
     assert!(deletes.write_live_docs(dir.clone(), &mut commit_info)?);
     assert_eq!(dir.list_all()?.len(), 1);
 
-    let codec = &*LATEST_CODEC;
+    let codec = codec::get_default();
     let live_docs = codec.live_docs_format().read_live_docs(
       dir.as_ref(),
       &commit_info,
@@ -234,6 +236,7 @@ pub(crate) trait TestPendingDeletesBase {
       3,
       false,
       false,
+      Some(codec::get_default()),
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
@@ -242,7 +245,7 @@ pub(crate) trait TestPendingDeletesBase {
     let mut commit_info =
       SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
 
-    let codec = &*LATEST_CODEC;
+    let codec = codec::get_default();
     let field_infos = FieldInfos::new(Vec::new())?;
     codec.field_infos_format().write(
       dir.as_ref(),

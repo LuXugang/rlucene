@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::core::codecs::codec::{Codec, LATEST_CODEC};
+use crate::core::codecs::codec::{self, Codec};
 use crate::core::codecs::compound_format::CompoundFormat;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
@@ -140,7 +140,7 @@ fn merge(
   let r1 = SegmentReader::new(si1, LATEST.major, &new_io_context(&mut random)?)?;
   let r2 = SegmentReader::new(si2, LATEST.major, &new_io_context(&mut random)?)?;
 
-  let codec = &*LATEST_CODEC;
+  let codec = codec::get_default();
   let tracking_dir = TrackingDirectoryWrapper::new(si1.info.dir.as_ref());
   let mut si = SegmentInfo::new(
     dir.clone(),
@@ -150,6 +150,7 @@ fn merge(
     -1,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),

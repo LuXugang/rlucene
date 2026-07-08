@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::LATEST_CODEC;
-use crate::core::codecs::lucene101_codec::Lucene101Codec;
+use crate::core::codecs::Codecs;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
 use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
 
@@ -41,9 +41,9 @@ impl BaseIndexFileFormatTestCase for TestCompressingStoredFieldsFormat {
     todo!()
   }
 
-  fn get_codec(&self) -> Result<Lucene101Codec> {
+  fn get_codec(&self) -> Result<Codecs> {
     // TODO IMPORTANT setCodec 未实现
-    Ok(LATEST_CODEC.clone())
+    Ok(TestUtil::get_default_codec())
   }
 }
 

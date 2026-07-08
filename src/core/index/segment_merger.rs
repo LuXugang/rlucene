@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
@@ -30,7 +31,6 @@ use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_infos::Builder;
 use crate::core::index::field_infos::FieldNumbersLock;
@@ -136,17 +136,25 @@ where
     _segment_write_state: &SegmentWriteState<&D2>,
     _segment_read_state: &SegmentReadState<&D2>,
   ) -> Result<()> {
-    LATEST_CODEC.field_infos_format().write(
-      &self.directory,
-      self.merge_state.segment_info,
-      "",
-      &self.merge_state.merge_field_infos,
-      self.context,
-    )
+    self
+      .merge_state
+      .segment_info
+      .get_codec()?
+      .field_infos_format()
+      .write(
+        &self.directory,
+        self.merge_state.segment_info,
+        "",
+        &self.merge_state.merge_field_infos,
+        self.context,
+      )
   }
 
   fn merge_doc_values(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
-    let mut consumer = LATEST_CODEC
+    let mut consumer = self
+      .merge_state
+      .segment_info
+      .get_codec()?
       .doc_values_format()
       .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
@@ -155,7 +163,10 @@ where
     IOUtils::use_or_suppress_result(merge_result, close_result)
   }
   fn merge_points(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
-    let mut writer = LATEST_CODEC
+    let mut writer = self
+      .merge_state
+      .segment_info
+      .get_codec()?
       .points_format()
       .fields_writer(segment_write_state, self.merge_state.segment_info)?;
 
@@ -164,7 +175,10 @@ where
     IOUtils::use_or_suppress_result(merge_result, close_result)
   }
   fn merge_norms(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
-    let mut consumer = LATEST_CODEC
+    let mut consumer = self
+      .merge_state
+      .segment_info
+      .get_codec()?
       .norms_format()
       .norms_consumer(segment_write_state, self.merge_state.segment_info)?;
 
@@ -179,7 +193,10 @@ where
   ) -> Result<()> {
     let mut norms = if self.merge_state.merge_field_infos.has_norms() {
       Some(
-        LATEST_CODEC
+        self
+          .merge_state
+          .segment_info
+          .get_codec()?
           .norms_format()
           .norms_producer(segment_read_state, self.merge_state.segment_info)?,
       )
@@ -195,7 +212,10 @@ where
       }
 
       if self.merge_state.merge_field_infos.has_postings() {
-        let mut consumer = LATEST_CODEC
+        let mut consumer = self
+          .merge_state
+          .segment_info
+          .get_codec()?
           .postings_format()
           .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
@@ -232,11 +252,12 @@ where
   ///
   /// Returns an error if the index is corrupt or if there is a low-level I/O error.
   fn merge_fields(&mut self) -> Result<i32> {
-    let mut fields_writer = LATEST_CODEC.stored_fields_format().fields_writer(
-      self.directory,
-      self.merge_state.segment_info,
-      self.context,
-    )?;
+    let mut fields_writer = self
+      .merge_state
+      .segment_info
+      .get_codec()?
+      .stored_fields_format()
+      .fields_writer(self.directory, self.merge_state.segment_info, self.context)?;
 
     let merge_result = fields_writer.merge(&mut self.merge_state, &self.directory);
     let close_result = fields_writer.close();
@@ -247,11 +268,12 @@ where
   ///
   /// Returns an error if there is a low-level I/O error.
   fn merge_term_vectors(&mut self) -> Result<i32> {
-    let mut term_vectors_writer = LATEST_CODEC.term_vectors_format().vectors_writer(
-      self.directory,
-      self.merge_state.segment_info,
-      self.context,
-    )?;
+    let mut term_vectors_writer = self
+      .merge_state
+      .segment_info
+      .get_codec()?
+      .term_vectors_format()
+      .vectors_writer(self.directory, self.merge_state.segment_info, self.context)?;
 
     let merge_result = term_vectors_writer.merge(&mut self.merge_state, &self.directory);
     let close_result = term_vectors_writer.close();
@@ -262,7 +284,10 @@ where
     Ok(num_merged)
   }
   fn merge_vector_values(&self, segment_write_state: &SegmentWriteState<&D2>) -> Result<()> {
-    let mut writer = LATEST_CODEC
+    let mut writer = self
+      .merge_state
+      .segment_info
+      .get_codec()?
       .knn_vectors_format()?
       .fields_writer(segment_write_state, self.merge_state.segment_info)?;
 

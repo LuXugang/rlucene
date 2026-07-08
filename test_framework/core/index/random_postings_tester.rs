@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::codecs::codec;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
@@ -286,6 +287,7 @@ impl RandomPostingsTester {
       self.max_doc,
       false,
       false,
+      Some(codec::get_default()),
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),

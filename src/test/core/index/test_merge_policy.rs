@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::codec;
 use crate::core::index::merge_policy::{
   DefaultMergeSpecification, MergeSpecification, MergeStat, OneMerge,
 };
@@ -194,6 +195,7 @@ where
       random.random_range(0..1000),
       random.random_bool(0.5),
       false,
+      Some(codec::get_default()),
       HashMap::new(),
       id,
       HashMap::new(),

@@ -19,7 +19,7 @@ use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::codecs::{Codec, codec};
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
@@ -113,6 +113,7 @@ fn test_fixed_postings() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -183,7 +184,7 @@ fn test_random_postings() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let field_infos = Arc::new(builder.finish()?);
 
-  let codec = LATEST_CODEC.clone();
+  let codec = codec::get_default();
   let si = SegmentInfo::new(
     Arc::clone(&dir),
     Some((*LATEST).clone()),
@@ -192,6 +193,7 @@ fn test_random_postings() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -1009,7 +1011,7 @@ fn write(
   dir: &DirEnum,
   fields: Vec<Arc<FieldData>>,
 ) -> Result<()> {
-  let codec = LATEST_CODEC.clone();
+  let codec = codec::get_default();
   let io_context = IOContext::default_io_context()?;
   let state = SegmentWriteState::new(get_default_info_stream(), dir, field_infos, &io_context);
   let mut consumer = codec.postings_format().fields_consumer(&state, si)?;

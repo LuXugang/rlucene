@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
-use crate::core::codecs::Codec;
-use crate::core::codecs::lucene101_codec::Lucene101Codec;
+use crate::core::codecs::{Codecs, codec};
 use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
@@ -63,9 +62,8 @@ pub trait LiveIndexWriterConfig: Display {
   /// Returns the [`MergeSchedulerEnum`] set on this configuration.
   fn get_merge_scheduler(&self) -> &MergeSchedulerEnum;
 
-  type Codec: Codec;
   /// Returns the current [`Codec`].
-  fn get_codec(&self) -> &Self::Codec;
+  fn get_codec(&self) -> &Codecs;
 
   /// Gets the index-time [`Sort`] order applied to all flushed and merged
   /// segments.
@@ -339,7 +337,7 @@ where
   /// [`SimilarityEnum`] to use when encoding norms.
   pub similarity: Arc<SimilarityEnum>,
   /// [`Codec`] used to write new segments.
-  pub codec: Lucene101Codec,
+  pub codec: Codecs,
   /// [`InfoStreamMT`] for debugging messages.
   pub info_stream: InfoStreamMT,
   /// [`MergePolicyEnum`] for selecting merges.
@@ -399,7 +397,7 @@ where
       use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
       open_mode: OpenMode::CreateOrAppend,
       similarity: Arc::new(get_default_similarity()?),
-      codec: Lucene101Codec,
+      codec: codec::get_default(),
       info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
       merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),
       flush_policy: Arc::new(FlushByRamOrCountsPolicy::new().into()),

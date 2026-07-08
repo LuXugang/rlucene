@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::document::Document;
 use crate::core::document::field::FieldBase;
 use crate::core::document::field::Store;
@@ -87,11 +87,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use strum::EnumCount;
 
 pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
-  fn get_vectors_max_dimensions(&self, field_name: &str) -> usize {
-    LATEST_CODEC
-      .knn_vectors_format()
-      .unwrap()
-      .get_max_dimensions(field_name)
+  fn get_vectors_max_dimensions(&self, field_name: &str) -> Result<usize> {
+    Ok(
+      self
+        .get_codec()?
+        .knn_vectors_format()
+        .unwrap()
+        .get_max_dimensions(field_name),
+    )
   }
 
   fn test_field_constructor<R>(&self, _random: &mut R) -> Result<()>
@@ -401,6 +404,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let field_infos = Arc::new(FieldInfos::new(vec![])?);
     let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
     let segment_info = SegmentInfo::new(
       dir.clone(),
       Some((*LATEST).clone()),
@@ -409,6 +413,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       10000,
       false,
       false,
+      Some(codec.clone()),
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
@@ -421,7 +426,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       field_infos,
       &io_context,
     );
-    let format = LATEST_CODEC.knn_vectors_format()?;
+    let format = codec.knn_vectors_format()?;
     let mut writer = format.fields_writer(&state, &segment_info)?;
     let ram_bytes_used = writer.ram_bytes_used()?;
     let mut dim = random.random_range(1..=64);
@@ -963,7 +968,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(_random)?;
     let w = IndexWriter::new(dir, new_index_writer_config(_random)?)?;
-    let max_dim = self.get_vectors_max_dimensions("f");
+    let max_dim = self.get_vectors_max_dimensions("f")?;
 
     let mut doc = Document::new();
     doc.add(KnnFloatVectorField::with_similarity_function(

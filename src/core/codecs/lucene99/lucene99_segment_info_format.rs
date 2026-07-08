@@ -162,6 +162,7 @@ impl Lucene99SegmentInfoFormat {
       doc_count,
       is_compound_file,
       has_blocks,
+      None,
       diagnostics,
       *segment_id,
       attributes,

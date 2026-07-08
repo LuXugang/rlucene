@@ -23,11 +23,11 @@ use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::norms_producer::{DefaultNormProducer, NormsProducer};
 use crate::core::codecs::points_reader::{DefaultPointsReader, PointsReader};
 
+use crate::core::codecs::Codec;
 use crate::core::codecs::fields_producer::DefaultFieldsProducer;
 use crate::core::codecs::knn_vectors_reader::{DefaultKnnVectorsReader, KnnVectorsReader};
 use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
@@ -121,7 +121,7 @@ where
       let si = &segment_reader.si;
       let (hard_live_docs, live_docs) = if si.has_deletions() {
         // NOTE: the bitvector is stored using the regular directory, not cfs
-        let ld = Arc::new(LATEST_CODEC.live_docs_format().read_live_docs(
+        let ld = Arc::new(si.info.get_codec()?.live_docs_format().read_live_docs(
           si.info.dir.as_ref(),
           si,
           &IOContext::read_once_io_context()?,
@@ -312,7 +312,7 @@ where
     }
 
     // updates always outside of CFS
-    let fis_format = LATEST_CODEC.field_infos_format();
+    let fis_format = si.info.get_codec()?.field_infos_format();
     let segment_suffix = num_bigint::BigInt::from(si.get_field_infos_gen()).to_str_radix(36);
 
     let infos = fis_format.read(

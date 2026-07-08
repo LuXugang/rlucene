@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::buffered_updates::BufferedUpdates;
@@ -220,6 +220,7 @@ where
       -1,
       false,
       false,
+      Some(index_writer_config.get_codec().clone()),
       HashMap::new(),
       random_id,
       HashMap::new(),
@@ -822,11 +823,10 @@ where
         // and 2) .si reflects useCompoundFile=true change
         // above:
         if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
-          LATEST_CODEC.segment_info_format().write(
-            self.directory.as_ref(),
-            segment_info,
-            &context,
-          )?;
+          let codec = segment_info.get_codec()?.clone();
+          codec
+            .segment_info_format()
+            .write(self.directory.as_ref(), segment_info, &context)?;
         } else {
           debug_assert!(Arc::strong_count(&new_segment.info) == 1);
         }
@@ -859,9 +859,10 @@ where
           // shortly-to-be-opened SegmentReader and let it
           // carry the changes; there's no reason to use
           // filesystem as intermediary here.
+          let codec = new_segment.info.get_codec()?.clone();
           match sort_map {
             Some(map) => {
-              LATEST_CODEC.live_docs_format().write_live_docs(
+              codec.live_docs_format().write_live_docs(
                 &Self::sort_live_docs(live_docs, map.as_ref())?,
                 self.directory.as_ref(),
                 new_segment,
@@ -870,7 +871,7 @@ where
               )?;
             },
             None => {
-              LATEST_CODEC.live_docs_format().write_live_docs(
+              codec.live_docs_format().write_live_docs(
                 live_docs,
                 self.directory.as_ref(),
                 new_segment,

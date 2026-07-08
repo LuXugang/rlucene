@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::Codec;
-use crate::core::codecs::LATEST_CODEC;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::index::base_composite_reader::{
   BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
@@ -367,11 +366,17 @@ where
           if old_reader.is_nrt {
             // We must load liveDocs/DV updates from disk:
             let (live_docs, hard_live_docs) = if commit_info.has_deletions() {
-              let live_docs = Arc::new(LATEST_CODEC.live_docs_format().read_live_docs(
-                commit_info.info.dir.as_ref(),
-                commit_info,
-                &IOContext::read_once_io_context()?,
-              )?);
+              let live_docs = Arc::new(
+                commit_info
+                  .info
+                  .get_codec()?
+                  .live_docs_format()
+                  .read_live_docs(
+                    commit_info.info.dir.as_ref(),
+                    commit_info,
+                    &IOContext::read_once_io_context()?,
+                  )?,
+              );
               (
                 Some(DocBits::A(live_docs.clone())),
                 Some(DocBits::A(live_docs)),
@@ -409,11 +414,17 @@ where
           } else {
             // both DV and liveDocs have changed
             let (live_docs, hard_live_docs) = if commit_info.has_deletions() {
-              let live_docs = Arc::new(LATEST_CODEC.live_docs_format().read_live_docs(
-                commit_info.info.dir.as_ref(),
-                commit_info,
-                &IOContext::read_once_io_context()?,
-              )?);
+              let live_docs = Arc::new(
+                commit_info
+                  .info
+                  .get_codec()?
+                  .live_docs_format()
+                  .read_live_docs(
+                    commit_info.info.dir.as_ref(),
+                    commit_info,
+                    &IOContext::read_once_io_context()?,
+                  )?,
+              );
               (
                 Some(DocBits::A(live_docs.clone())),
                 Some(DocBits::A(live_docs)),

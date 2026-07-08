@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::knn_vectors_format::{DefaultKnnVectorsWriter, KnnVectorsFormat};
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
-use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::codecs::{Codec, Codecs};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -35,6 +35,7 @@ where
   D: Directory,
 {
   pub(crate) writer: Option<DefaultKnnVectorsWriter<D::IndexOutput>>,
+  codec: Codecs,
   info_stream: InfoStreamMT,
   dir: D,
 }
@@ -42,9 +43,10 @@ impl<D> VectorValuesConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) fn new(dir: D, info_stream: InfoStreamMT) -> Self {
+  pub(crate) fn new(codec: Codecs, dir: D, info_stream: InfoStreamMT) -> Self {
     Self {
       writer: None,
+      codec,
       info_stream,
       dir,
     }
@@ -54,7 +56,7 @@ where
     D2: Directory,
   {
     if self.writer.is_none() {
-      let fmt = LATEST_CODEC.knn_vectors_format()?;
+      let fmt = self.codec.knn_vectors_format()?;
       let context = IOContext::default_io_context()?;
       let padding_fi = Arc::new(FieldInfos::default());
       let initial_write_state =

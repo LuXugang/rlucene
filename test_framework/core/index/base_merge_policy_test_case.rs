@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::codec;
 use crate::core::document::document::Document;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
@@ -165,6 +166,7 @@ pub trait BaseMergePolicyTestCase {
         random.random_range(0..i32::MAX),
         random.random_bool(0.5),
         false,
+        Some(codec::get_default()),
         HashMap::new(),
         id,
         HashMap::new(),
@@ -553,6 +555,7 @@ where
     max_doc,
     false,
     false,
+    Some(codec::get_default()),
     HashMap::new(),
     id,
     diagnostics,
@@ -685,6 +688,7 @@ where
         1,
         false,
         false,
+        Some(codec::get_default()),
         HashMap::new(),
         StringHelper::random_id(),
         HashMap::new(),

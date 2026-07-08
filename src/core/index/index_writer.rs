@@ -1912,7 +1912,7 @@ where
             let segment_info = Arc::get_mut(&mut sci.info)
               .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
 
-            LATEST_CODEC.segment_info_format().write(
+            self.config.get_codec().segment_info_format().write(
               self.directory.as_ref(),
               segment_info,
               &context,
@@ -3512,6 +3512,7 @@ where
       -1,
       false,
       has_blocks,
+      Some(self.config.get_codec().clone()),
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
@@ -3663,6 +3664,7 @@ where
       info.info.max_doc()?,
       info.info.get_use_compound_file(),
       info.info.get_has_blocks(),
+      Some(info.info.get_codec()?.clone()),
       info.info.get_diagnostics().clone(),
       *info.info.get_id(),
       info.info.get_attributes()?.clone(),
@@ -5303,6 +5305,7 @@ where
       -1,
       false,
       has_blocks,
+      Some(self.config.get_codec().clone()),
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
@@ -7755,7 +7758,7 @@ impl LongSupplier for LongSupplierImpl {
 
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC};
+use crate::core::codecs::{Codec, CompoundFormat};
 use crate::core::document::fields::Fields;
 use crate::core::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpdates;
 use crate::core::index::buffered_updates::MAX_INT;
@@ -7953,7 +7956,7 @@ pub(crate) fn read_field_infos<D>(si: &SegmentCommitInfo<D>) -> Result<FieldInfo
 where
   D: Directory,
 {
-  let codec = &*LATEST_CODEC;
+  let codec = si.info.get_codec()?;
   let reader = codec.field_infos_format();
 
   if si.has_field_updates() {
@@ -8017,9 +8020,8 @@ where
   }
   // Now merge all added files
   let write_result = (|| {
-    LATEST_CODEC
-      .compound_format()
-      .write(directory, info, context)?;
+    let codec = info.get_codec()?.clone();
+    codec.compound_format().write(directory, info, context)?;
     Ok(())
   })();
   let filename = std::mem::take(&mut directory.get_created_files().lock().created_filenames);

@@ -22,8 +22,8 @@ use num_bigint::BigInt;
 use rand::Rng;
 use rand::RngExt;
 
+use crate::core::codecs::Codec;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_writer::MAX_DOCS;
 
@@ -47,6 +47,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
     let id = StringHelper::random_id();
     let io_context = IOContext::default_io_context()?;
     let mut info = SegmentInfo::new(
@@ -57,16 +58,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       1,
       false,
       false,
+      Some(codec.clone()),
       HashMap::new(),
       id,
       HashMap::new(),
       None,
     )?;
     info.set_files(HashSet::new())?;
-    LATEST_CODEC
+    codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, &io_context)?;
-    let info2 = LATEST_CODEC
+    let info2 = codec
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(*info.files()?, *info2.files()?);
@@ -78,6 +80,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   {
     assert!(self.supports_has_blocks());
     let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
     let id = StringHelper::random_id();
     let has_blocks = random.random_bool(0.5);
     let io_context = IOContext::default_io_context()?;
@@ -89,16 +92,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       1,
       false,
       has_blocks,
+      Some(codec.clone()),
       HashMap::new(),
       id,
       HashMap::new(),
       None,
     )?;
     info.set_files(HashSet::new())?;
-    LATEST_CODEC
+    codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, &io_context)?;
-    let info2 = LATEST_CODEC
+    let info2 = codec
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(info.get_has_blocks(), info2.get_has_blocks());
@@ -111,6 +115,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
     let id = StringHelper::random_id();
     let io_context = IOContext::default_io_context()?;
 
@@ -122,6 +127,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       1,
       false,
       false,
+      Some(codec.clone()),
       HashMap::new(),
       id,
       HashMap::new(),
@@ -129,7 +135,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     )?;
     let original_files: HashSet<String> = ["_123.a".to_string()].iter().cloned().collect();
     info.set_files(original_files.clone())?;
-    LATEST_CODEC
+    codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, &io_context)?;
     let modified_files = info.files()?;
@@ -138,7 +144,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       modified_files.len() > original_files.len(),
       "did you forget to add yourself to files()"
     );
-    let info2 = LATEST_CODEC
+    let info2 = codec
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(*info.files()?, *info2.files()?);
@@ -158,6 +164,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
     let id = StringHelper::random_id();
     let mut diagnostics: HashMap<String, String> = HashMap::new();
     diagnostics.insert("key1".to_string(), "value1".to_string());
@@ -172,16 +179,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       1,
       false,
       false,
+      Some(codec.clone()),
       diagnostics.clone(),
       id,
       HashMap::new(),
       None,
     )?;
     info.set_files(HashSet::new())?;
-    LATEST_CODEC
+    codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, &io_context)?;
-    let info2 = LATEST_CODEC
+    let info2 = codec
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(diagnostics, *info2.get_diagnostics());
@@ -201,6 +209,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
     let id = StringHelper::random_id();
     let mut attributes: HashMap<String, String> = HashMap::new();
     attributes.insert("key1".to_string(), "value1".to_string());
@@ -215,16 +224,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       1,
       false,
       false,
+      Some(codec.clone()),
       HashMap::new(),
       id,
       attributes.clone(),
       None,
     )?;
     info.set_files(HashSet::new())?;
-    LATEST_CODEC
+    codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, &io_context)?;
-    let info2 = LATEST_CODEC
+    let info2 = codec
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(attributes, *info2.get_attributes()?);
@@ -247,6 +257,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
     let id = StringHelper::random_id();
     let io_context = IOContext::default_io_context()?;
 
@@ -258,16 +269,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       1,
       false,
       false,
+      Some(codec.clone()),
       HashMap::new(),
       id,
       HashMap::new(),
       None,
     )?;
     info.set_files(HashSet::new())?;
-    LATEST_CODEC
+    codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, &io_context)?;
-    let info2 = LATEST_CODEC
+    let info2 = codec
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(id, info2.get_id().as_slice());
@@ -279,6 +291,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
+    let codec = self.get_codec()?;
     let io_context = IOContext::default_io_context()?;
 
     for version in self.get_versions() {
@@ -293,19 +306,19 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
           1,
           false,
           false,
+          Some(codec.clone()),
           HashMap::new(),
           id,
           HashMap::new(),
           None,
         )?;
         info.set_files(HashSet::new())?;
-        LATEST_CODEC
+        codec
           .segment_info_format()
           .write(dir.as_ref(), &mut info, &io_context)?;
-        let info2 =
-          LATEST_CODEC
-            .segment_info_format()
-            .read(dir.clone(), "_123", &id, &io_context)?;
+        let info2 = codec
+          .segment_info_format()
+          .read(dir.clone(), "_123", &id, &io_context)?;
         assert!(info2.get_version_ref().is_some());
         assert_eq!(*info2.get_version_ref().unwrap(), version.clone());
         if self.supports_min_version() {
@@ -452,6 +465,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
       self.supports_index_sort(),
       "test requires a codec that can read/write index sort"
     );
+    let codec = self.get_codec()?;
     let io_context = IOContext::default_io_context()?;
 
     let iters = at_least(random, 5);
@@ -479,16 +493,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         1,
         false,
         false,
+        Some(codec.clone()),
         HashMap::new(),
         id,
         HashMap::new(),
         sort,
       )?;
       info.set_files(HashSet::new())?;
-      LATEST_CODEC
+      codec
         .segment_info_format()
         .write(dir.as_ref(), &mut info, &io_context)?;
-      let info2 = LATEST_CODEC
+      let info2 = codec
         .segment_info_format()
         .read(dir.clone(), "_123", &id, &io_context)?;
       if info2.get_index_sort().is_some() {
@@ -524,6 +539,7 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let versions = self.get_versions();
+    let codec = self.get_codec()?;
     let io_context = IOContext::default_io_context()?;
 
     for _ in 0..10 {
@@ -571,16 +587,17 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
         doc_count,
         is_compound_file,
         false,
+        Some(codec.clone()),
         diagnostics,
         id,
         attributes,
         None,
       )?;
       info.set_files(files.clone())?;
-      LATEST_CODEC
+      codec
         .segment_info_format()
         .write(dir.as_ref(), &mut info, &io_context)?;
-      let info2 = LATEST_CODEC
+      let info2 = codec
         .segment_info_format()
         .read(dir.clone(), &name, &id, &io_context)?;
       Self::assert_equals(&info, &info2)?;

@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_writer::{DefaultStoredFieldsWriter, StoredFieldsWriter};
-use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::codecs::{Codec, Codecs};
 use crate::core::document::field::FieldDataEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -35,6 +35,7 @@ where
   D: Directory,
 {
   directory: D,
+  codec: Codecs,
   pub(crate) writer: Option<DefaultStoredFieldsWriter<D>>,
   last_doc: i32,
   sub: Option<SortingStoredFieldsConsumer<D>>,
@@ -43,9 +44,14 @@ impl<D> StoredFieldsConsumer<D>
 where
   D: Directory + Clone,
 {
-  pub(crate) fn new(directory: D, sub: Option<SortingStoredFieldsConsumer<D>>) -> Self {
+  pub(crate) fn new(
+    codec: Codecs,
+    directory: D,
+    sub: Option<SortingStoredFieldsConsumer<D>>,
+  ) -> Self {
     Self {
       directory,
+      codec,
       writer: None,
       last_doc: -1,
       sub,
@@ -63,7 +69,7 @@ where
       },
       None => {
         if self.writer.is_none() {
-          let writer = LATEST_CODEC.stored_fields_format().fields_writer(
+          let writer = self.codec.stored_fields_format().fields_writer(
             self.directory.clone(),
             info,
             &IOContext::default_io_context()?,

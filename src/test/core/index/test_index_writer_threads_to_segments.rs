@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::codec::{Codec, LATEST_CODEC};
+use crate::core::codecs::codec::Codec;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
@@ -324,6 +324,8 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_ram_buffer_size_mb(0.2);
+  let codec = TestUtil::get_default_codec();
+  iwc.set_codec(codec.clone());
   iwc.set_merge_policy(NoMergePolicy::default());
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let starting_gun = Arc::new(Barrier::new(3));
@@ -378,12 +380,13 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
           if !seg_seen.contains(seg_name) {
             seg_seen.insert(seg_name.to_string());
             let id = read_segment_info_id(&*dir, &file_name)?;
-            let si = LATEST_CODEC.segment_info_format().read(
+            let mut si = TestUtil::get_default_codec().segment_info_format().read(
               dir.clone(),
               seg_name,
               &id,
               &IOContext::default_io_context()?,
             )?;
+            si.set_codec(codec.clone())?;
             let sci = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
             let sr = SegmentReader::new(&sci, LATEST.major, &IOContext::default_io_context()?)?;
             thread0_count += LeafReader::doc_freq(&sr, &Term::from_text("field", "threadID0"))?;

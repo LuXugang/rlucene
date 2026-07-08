@@ -21,9 +21,10 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use std::sync::LazyLock;
 
-use crate::core::codecs::lucene101_codec::Lucene101Codec;
+use crate::core::codecs::Codecs;
+use crate::core::codecs::codec;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-use crate::core::codecs::{Codec, CodecUtil, LATEST_CODEC};
+use crate::core::codecs::{Codec, CodecUtil};
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_commit::IndexCommit;
 
@@ -426,13 +427,13 @@ where
       debug_assert!(segment_id_len <= i32::MAX as usize);
       input.read_bytes(&mut segment_id, 0, segment_id_len)?;
       let codec = Self::read_codec(input)?;
-      let info = codec.segment_info_format().read(
+      let mut info = codec.segment_info_format().read(
         directory.clone(),
         &seg_name,
         &segment_id,
         &IO_CONTEXT_DEFAULT,
       )?;
-      // info.set_codec(codec)?;
+      info.set_codec(codec)?;
 
       let max_doc = info.max_doc()?;
       total_docs += max_doc;
@@ -553,16 +554,9 @@ where
     Ok(())
   }
 
-  pub fn read_codec(input: &mut impl DataInput) -> Result<Lucene101Codec> {
+  pub fn read_codec(input: &mut impl DataInput) -> Result<Codecs> {
     let name = input.read_string()?;
-    if LATEST_CODEC.get_name() != name {
-      return Err(LuceneError::corrupt_index(format!(
-        "codec name mismatch: {} != {}",
-        LATEST_CODEC.get_name(),
-        name
-      )));
-    }
-    Ok(Lucene101Codec)
+    codec::for_name(&name)
   }
   /// Find the latest commit (`segments_N` file) and load all
   /// `SegmentCommitInfo`s.
@@ -689,7 +683,7 @@ where
       }
       debug_assert!(segment_id_len <= i32::MAX as usize);
       out.write_bytes_with_len(segment_id, segment_id_len)?;
-      out.write_string(LATEST_CODEC.get_name())?;
+      out.write_string(si.get_codec()?.get_name())?;
 
       CodecUtil::write_be_long(out, si_per_commit.get_del_gen())?;
       let del_count = si_per_commit.get_del_count();

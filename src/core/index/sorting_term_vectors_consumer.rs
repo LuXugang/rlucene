@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::Codec;
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::codecs::term_vectors_writer::{DefaultTermVectorsWriter, TermVectorsWriter};
+use crate::core::codecs::{Codec, Codecs};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
@@ -51,13 +51,14 @@ where
 {
   pub(crate) writer: Option<DefaultTermVectorsWriter<TrackingTmpOutputDirectoryWrapper<D>>>,
   pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
+  codec: Codecs,
   tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
 where
   D: Directory + Clone,
 {
-  pub(crate) fn new(dir: D) -> Result<Self> {
+  pub(crate) fn new(codec: Codecs, dir: D) -> Result<Self> {
     let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
       "TempTermVectors",
       "",
@@ -70,6 +71,7 @@ where
     Ok(Self {
       writer: None,
       tmp_directory,
+      codec,
       tmp_term_vectors_format,
     })
   }
@@ -219,7 +221,6 @@ where
     &mut self,
     state: &SegmentWriteState<Self::Directory>,
     sort_map: Option<&DM>,
-    codec: &impl Codec,
     segment_info: &SegmentInfo<D1>,
   ) -> Result<()>
   where
@@ -235,7 +236,7 @@ where
     // Don't pull a merge instance, since merge instances optimize for
     // sequential access while term vectors will likely be accessed in random
     // order here.
-    let mut writer = codec.term_vectors_format().vectors_writer(
+    let mut writer = self.codec.term_vectors_format().vectors_writer(
       state.directory,
       segment_info,
       &state.context.clone(),

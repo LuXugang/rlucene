@@ -24,7 +24,7 @@ use rand::Rng;
 use rand::RngExt;
 
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
-use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
+use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, codec};
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
@@ -49,10 +49,11 @@ pub trait BaseCompoundFormatTestCase {
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     assert_eq!(0, cfs.list_all()?.len());
@@ -80,11 +81,12 @@ pub trait BaseCompoundFormatTestCase {
       )?;
 
       si.set_files(HashSet::from([test_file.clone()]))?;
-      LATEST_CODEC
+      si.get_codec()?
         .compound_format()
         .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
 
-      let cfs = LATEST_CODEC
+      let cfs = si
+        .get_codec()?
         .compound_format()
         .get_compound_reader(dir.as_ref(), &si)?;
 
@@ -118,10 +120,11 @@ pub trait BaseCompoundFormatTestCase {
 
     let files_set: HashSet<String> = files.iter().map(|&file| file.to_string()).collect();
     si.set_files(files_set)?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
 
@@ -183,7 +186,9 @@ pub trait BaseCompoundFormatTestCase {
 
     for si in infos.iter() {
       if si.info.get_use_compound_file() {
-        let cfs_dir = LATEST_CODEC
+        let cfs_dir = si
+          .info
+          .get_codec()?
           .compound_format()
           .get_compound_reader(dir.as_ref(), &si.info)?;
         let files = cfs_dir.list_all()?;
@@ -205,10 +210,11 @@ pub trait BaseCompoundFormatTestCase {
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let io_context = IOContext::default_io_context()?;
@@ -228,10 +234,11 @@ pub trait BaseCompoundFormatTestCase {
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let result = cfs.delete_file(testfile);
@@ -249,10 +256,11 @@ pub trait BaseCompoundFormatTestCase {
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let result = cfs.rename(testfile, "bogus");
@@ -270,10 +278,11 @@ pub trait BaseCompoundFormatTestCase {
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let sync_files = vec![testfile.to_string()];
@@ -294,10 +303,11 @@ pub trait BaseCompoundFormatTestCase {
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let result = cfs.obtain_lock("foobar");
@@ -396,10 +406,11 @@ pub trait BaseCompoundFormatTestCase {
       .filter(|file| file.starts_with(segment))
       .collect();
     si.set_files(files.iter().cloned().collect())?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
 
@@ -433,10 +444,11 @@ pub trait BaseCompoundFormatTestCase {
     }
     let file_sets = files.iter().cloned().collect();
     si.set_files(file_sets)?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let mut ins = Vec::with_capacity(file_count);
@@ -669,10 +681,11 @@ pub trait BaseCompoundFormatTestCase {
     let mut hash_set_file = HashSet::new();
     hash_set_file.insert(sub_file.to_string());
     si.set_files(hash_set_file)?;
-    LATEST_CODEC
+    si.get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-    let cfs = LATEST_CODEC
+    let cfs = si
+      .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let in_stream = cfs.open_input(sub_file, &new_io_context(random)?)?;
@@ -704,7 +717,8 @@ pub trait BaseCompoundFormatTestCase {
     hash_set_file.insert(sub_file.to_string());
     si.set_files(hash_set_file)?;
 
-    let result = LATEST_CODEC
+    let result = si
+      .get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT);
     assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
@@ -744,7 +758,8 @@ pub trait BaseCompoundFormatTestCase {
     hash_set_file.insert(sub_file.to_string());
     si.set_files(hash_set_file)?;
 
-    let result = LATEST_CODEC
+    let result = si
+      .get_codec()?
       .compound_format()
       .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT);
 
@@ -793,6 +808,7 @@ where
     10_000,
     false,
     false,
+    Some(codec::get_default()),
     HashMap::new(),
     id,
     HashMap::new(),
@@ -956,10 +972,11 @@ where
     files.insert(file_name);
   }
   si.set_files(files)?;
-  LATEST_CODEC
+  si.get_codec()?
     .compound_format()
     .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
-  let cfs = LATEST_CODEC
+  let cfs = si
+    .get_codec()?
     .compound_format()
     .get_compound_reader(dir.as_ref(), &si)?;
   Ok(cfs)

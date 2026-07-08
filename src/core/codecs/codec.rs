@@ -26,11 +26,9 @@ use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
-use std::sync::LazyLock;
 
-pub static LATEST_CODEC: LazyLock<Lucene101Codec> = LazyLock::new(|| Lucene101Codec);
 pub trait Codec: Display {
   type PostingsFormat: PostingsFormat;
   type DocValuesFormat: DocValuesFormat;
@@ -79,15 +77,40 @@ pub trait Codec: Display {
   fn get_name(&self) -> &str;
 }
 
-pub type DefaultCodec = Lucene101Codec;
-pub type DefaultPostingsFormat = <DefaultCodec as Codec>::PostingsFormat;
-pub type DefaultDocValuesFormat = <DefaultCodec as Codec>::DocValuesFormat;
-pub type DefaultStoredFieldsFormat = <DefaultCodec as Codec>::StoredFieldsFormat;
-pub type DefaultTermVectorsFormat = <DefaultCodec as Codec>::TermVectorsFormat;
-pub type DefaultFieldInfosFormat = <DefaultCodec as Codec>::FieldInfosFormat;
-pub type DefaultSegmentInfoFormat = <DefaultCodec as Codec>::SegmentInfoFormat;
-pub type DefaultNormsFormat = <DefaultCodec as Codec>::NormsFormat;
-pub type DefaultLiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
-pub type DefaultCompoundFormat = <DefaultCodec as Codec>::CompoundFormat;
-pub type DefaultPointsFormat = <DefaultCodec as Codec>::PointsFormat;
-pub type DefaultKnnVectorsFormat = <DefaultCodec as Codec>::KnnVectorsFormat;
+pub type Codecs = Lucene101Codec;
+
+/// Returns the current default codec.
+///
+/// This mirrors Java Lucene's `Codec.getDefault` entry point. For now the
+/// default codec is fixed; when codec selection becomes configurable at a wider
+/// scope this function is the single place to expose that behavior.
+pub fn get_default() -> Codecs {
+  Codecs::default()
+}
+
+/// Looks up a codec by name.
+///
+/// This mirrors Java Lucene's `Codec.forName` entry point. For now the registry
+/// only contains the default codec; when `DefaultCodec` becomes an enum this
+/// function should grow with the supported variants.
+pub fn for_name(name: &str) -> Result<Codecs> {
+  match name {
+    "Lucene101" => Ok(Codecs::default()),
+    _ => Err(LuceneError::illegal_argument(format!(
+      "Could not load codec named \"{}\"",
+      name
+    ))),
+  }
+}
+
+pub type DefaultPostingsFormat = <Codecs as Codec>::PostingsFormat;
+pub type DefaultDocValuesFormat = <Codecs as Codec>::DocValuesFormat;
+pub type DefaultStoredFieldsFormat = <Codecs as Codec>::StoredFieldsFormat;
+pub type DefaultTermVectorsFormat = <Codecs as Codec>::TermVectorsFormat;
+pub type DefaultFieldInfosFormat = <Codecs as Codec>::FieldInfosFormat;
+pub type DefaultSegmentInfoFormat = <Codecs as Codec>::SegmentInfoFormat;
+pub type DefaultNormsFormat = <Codecs as Codec>::NormsFormat;
+pub type DefaultLiveDocsFormat = <Codecs as Codec>::LiveDocsFormat;
+pub type DefaultCompoundFormat = <Codecs as Codec>::CompoundFormat;
+pub type DefaultPointsFormat = <Codecs as Codec>::PointsFormat;
+pub type DefaultKnnVectorsFormat = <Codecs as Codec>::KnnVectorsFormat;

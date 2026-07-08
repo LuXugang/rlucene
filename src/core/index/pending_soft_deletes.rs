@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::{Codec, CompoundFormat, LATEST_CODEC};
+use crate::core::codecs::{Codec, CompoundFormat};
 use crate::core::index::doc_values_field_updates::{
   DocValuesFieldIterator, DocValuesFieldIteratorEnum, MergedIterator,
 };
@@ -328,7 +328,7 @@ where
   D: Directory,
 {
   let seg_info = &info.info;
-  let codec = &*LATEST_CODEC;
+  let codec = seg_info.get_codec()?;
   if !info.has_field_updates() {
     // updates always outside of CFS
     if seg_info.get_use_compound_file() {

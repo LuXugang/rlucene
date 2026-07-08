@@ -20,7 +20,7 @@ use crate::core::analysis::analyzer::{
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{TokenStream, default_attribute};
 use crate::core::analysis::tokenizer::{Tokenizer, TokenizerBase};
-use crate::core::codecs::codec::{Codec, LATEST_CODEC};
+use crate::core::codecs::codec::{self, Codec};
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
@@ -167,7 +167,7 @@ fn test() -> Result<()> {
 fn test_reader() -> Result<()> {
   let setup = TestTermVectorsReader::setup()?;
   let mut random = random();
-  let mut reader = LATEST_CODEC.term_vectors_format().vectors_reader(
+  let mut reader = codec::get_default().term_vectors_format().vectors_reader(
     setup.dir.as_ref(),
     &setup.seg.info,
     setup.field_infos.clone(),
@@ -193,7 +193,7 @@ fn test_reader() -> Result<()> {
 fn test_docs_enum() -> Result<()> {
   let setup = TestTermVectorsReader::setup()?;
   let mut random = random();
-  let mut reader = LATEST_CODEC.term_vectors_format().vectors_reader(
+  let mut reader = codec::get_default().term_vectors_format().vectors_reader(
     setup.dir.as_ref(),
     &setup.seg.info,
     setup.field_infos.clone(),
@@ -225,7 +225,7 @@ fn test_docs_enum() -> Result<()> {
 fn test_position_reader() -> Result<()> {
   let setup = TestTermVectorsReader::setup()?;
   let mut random = random();
-  let mut reader = LATEST_CODEC.term_vectors_format().vectors_reader(
+  let mut reader = codec::get_default().term_vectors_format().vectors_reader(
     setup.dir.as_ref(),
     &setup.seg.info,
     setup.field_infos.clone(),
@@ -283,7 +283,7 @@ fn test_position_reader() -> Result<()> {
 fn test_offset_reader() -> Result<()> {
   let setup = TestTermVectorsReader::setup()?;
   let mut random = random();
-  let mut reader = LATEST_CODEC.term_vectors_format().vectors_reader(
+  let mut reader = codec::get_default().term_vectors_format().vectors_reader(
     setup.dir.as_ref(),
     &setup.seg.info,
     setup.field_infos.clone(),

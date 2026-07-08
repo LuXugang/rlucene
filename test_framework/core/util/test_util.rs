@@ -22,6 +22,7 @@ use rand::RngExt;
 use rand::prelude::IndexedRandom;
 use std::sync::{Arc, LazyLock};
 
+use crate::core::codecs::Codecs;
 use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::index_reader::IndexReader;
@@ -84,6 +85,11 @@ const BLOCK_ENDS: &[u32] = &[
 ];
 
 impl TestUtil {
+  /// Returns the actual default codec for this version of Lucene.
+  pub fn get_default_codec() -> Codecs {
+    Codecs::default()
+  }
+
   pub fn string_codepoint_comparator(a: &str, b: &str) -> std::cmp::Ordering {
     let mut a_chars = a.chars();
     let mut b_chars = b.chars();

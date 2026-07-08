@@ -24,7 +24,7 @@ use std::sync::Arc;
 use rand::RngExt;
 
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
-use crate::core::codecs::{Codec, CodecUtil, LATEST_CODEC};
+use crate::core::codecs::{Codec, CodecUtil, codec};
 use crate::core::index::IndexFileNames;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -83,7 +83,7 @@ fn test_versions_one_segment() -> Result<()> {
   let mut random = random();
   let dir = new_directory(&mut random)?;
   let directory = Arc::new(dir);
-  let codec = &*LATEST_CODEC;
+  let codec = codec::get_default();
   let io_context = IOContext::default_io_context()?;
   let mut sis = SegmentInfos::new(LATEST.major)?;
   let mut info = SegmentInfo::new(
@@ -94,6 +94,7 @@ fn test_versions_one_segment() -> Result<()> {
     1,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -124,7 +125,7 @@ fn test_versions_two_segments() -> Result<()> {
   let mut random = random();
   let dir = new_directory(&mut random)?;
   let directory = Arc::new(dir);
-  let codec = &*LATEST_CODEC;
+  let codec = codec::get_default();
   let mut sis = SegmentInfos::new(LATEST.major)?;
   let io_context = IOContext::default_io_context()?;
   // First Segment
@@ -136,6 +137,7 @@ fn test_versions_two_segments() -> Result<()> {
     1,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -160,6 +162,7 @@ fn test_versions_two_segments() -> Result<()> {
     1,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -232,6 +235,7 @@ fn test_to_string() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec::get_default()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -251,6 +255,7 @@ fn test_to_string() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec::get_default()),
     diagnostics.clone(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -273,6 +278,7 @@ fn test_to_string() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec::get_default()),
     HashMap::new(),
     StringHelper::random_id(),
     attributes.clone(),
@@ -295,6 +301,7 @@ fn test_to_string() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec::get_default()),
     diagnostics.clone(),
     StringHelper::random_id(),
     attributes.clone(),
@@ -323,6 +330,7 @@ fn test_id_changes_on_advance() -> Result<()> {
     1,
     false,
     false,
+    Some(codec::get_default()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -383,7 +391,7 @@ fn test_id_changes_on_advance() -> Result<()> {
 fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let codec = &*LATEST_CODEC;
+  let codec = codec::get_default();
   let mut sis = SegmentInfos::new(LATEST.major)?;
   let io_context = IOContext::default_io_context()?;
   let mut info_0 = SegmentInfo::new(
@@ -394,6 +402,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     1,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -416,6 +425,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     1,
     false,
     false,
+    Some(codec.clone()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -512,6 +522,7 @@ fn test_add_diagnostics() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec::get_default()),
     diagnostics.clone(),
     StringHelper::random_id(),
     HashMap::new(),
@@ -542,6 +553,7 @@ fn test_add_diagnostics() -> Result<()> {
     10000,
     false,
     false,
+    Some(codec::get_default()),
     diagnostics.clone(),
     StringHelper::random_id(),
     HashMap::new(),

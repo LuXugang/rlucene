@@ -16,7 +16,7 @@
  */
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
-use crate::core::codecs::lucene101_codec::Lucene101Codec;
+use crate::core::codecs::Codecs;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_writer::IndexReaderWarmerEnum;
@@ -116,6 +116,14 @@ where
     T: Into<SimilarityEnum>,
   {
     self.base.similarity = Arc::new(similarity.into());
+  }
+
+  /// Set the [`Codec`](crate::core::codecs::Codec).
+  ///
+  /// Only takes effect when `IndexWriter` is first created.
+  pub fn set_codec(&mut self, codec: Codecs) -> &mut Self {
+    self.base.codec = codec;
+    self
   }
 
   /// Specifies [`OpenMode`] of the index.
@@ -345,9 +353,7 @@ where
     &self.base.merge_scheduler
   }
 
-  type Codec = Lucene101Codec;
-
-  fn get_codec(&self) -> &Self::Codec {
+  fn get_codec(&self) -> &Codecs {
     &self.base.codec
   }
 

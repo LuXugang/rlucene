@@ -29,7 +29,7 @@ use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101Postings
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Lucene101Codec;
 
 impl Display for Lucene101Codec {

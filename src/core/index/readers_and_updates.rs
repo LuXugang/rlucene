@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
@@ -24,7 +25,6 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_field_updates::merged_iterator;
 use crate::core::index::doc_values_field_updates::{
@@ -575,7 +575,7 @@ where
     let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(&dir));
 
     let result = (|| -> Result<()> {
-      let codec = &*LATEST_CODEC;
+      let codec = info.info.get_codec()?.clone();
 
       let reader = if let Some(reader) = inner.reader.as_ref() {
         Arc::clone(reader)

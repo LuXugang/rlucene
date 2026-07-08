@@ -24,7 +24,7 @@ use strum::EnumCount;
 
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
-use crate::core::codecs::{Codec, LATEST_CODEC};
+use crate::core::codecs::{Codec, codec};
 use crate::core::document::field_type::FieldType;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -55,7 +55,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let codec = &*LATEST_CODEC;
+    let codec = self.get_codec()?;
     let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
 
     let fi = Arc::new(Self::create_field_info()?);
@@ -145,7 +145,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let codec = &*LATEST_CODEC;
+    let codec = self.get_codec()?;
     let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
     let num_fields = at_least(random, 2000);
     let mut field_names = HashSet::new();
@@ -260,11 +260,14 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn get_vectors_max_dimensions(field_name: &str) -> usize {
-    LATEST_CODEC
-      .knn_vectors_format()
-      .unwrap()
-      .get_max_dimensions(field_name)
+  fn get_vectors_max_dimensions(&self, field_name: &str) -> Result<usize> {
+    Ok(
+      self
+        .get_codec()?
+        .knn_vectors_format()
+        .unwrap()
+        .get_max_dimensions(field_name),
+    )
   }
 
   fn random_field_type<R>(&self, random: &mut R, field_name: &str) -> Result<FieldType>
@@ -318,8 +321,8 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
       field_type.set_dimensions_with_index(dimension, index_dimension, dimension_num_bytes)?;
     }
 
-    if random.random_bool(0.5) && Self::get_vectors_max_dimensions(field_name) > 0 {
-      let max_dims = Self::get_vectors_max_dimensions(field_name);
+    if random.random_bool(0.5) && self.get_vectors_max_dimensions(field_name)? > 0 {
+      let max_dims = self.get_vectors_max_dimensions(field_name)?;
       let dimension = 1 + random.random_range(0..max_dims);
       let similarity_function = VectorSimilarityFunction::from_repr(
         random.random_range(0..VectorSimilarityFunction::COUNT) as u8,
@@ -390,6 +393,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
       10_000,
       false,
       false,
+      Some(codec::get_default()),
       HashMap::new(),
       id,
       HashMap::new(),

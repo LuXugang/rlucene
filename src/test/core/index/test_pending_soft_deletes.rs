@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use super::test_pending_deletes::TestPendingDeletesBase;
+use crate::core::codecs::codec;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -263,6 +264,7 @@ fn test_apply_updates() -> Result<()> {
     10,
     false,
     false,
+    Some(codec::get_default()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),

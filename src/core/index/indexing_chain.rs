@@ -16,13 +16,13 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::token_stream::TokenStream;
+use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
-use crate::core::codecs::{Codec, LATEST_CODEC};
 use crate::core::document::fields::Fields;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BytesRef;
@@ -206,17 +206,28 @@ where
     D: Clone,
   {
     let bytes_used = Arc::new(AtomicCounter::new());
+    let codec = index_writer_config.get_codec().clone();
     let (stored_fields_consumer, term_vectors_writer) = if segment_info.get_index_sort().is_none() {
       (
-        StoredFieldsConsumer::new(directory.clone(), None),
-        TermVectorsConsumer::new(directory.clone(), None),
+        StoredFieldsConsumer::new(codec.clone(), directory.clone(), None),
+        TermVectorsConsumer::new(codec.clone(), directory.clone(), None),
       )
     } else {
-      let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new(directory.clone())?;
-      let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone())?;
+      let stored_fields_consumer_sub =
+        SortingStoredFieldsConsumer::new(codec.clone(), directory.clone())?;
+      let term_vector_consumer_sub =
+        SortingTermVectorsConsumer::new(codec.clone(), directory.clone())?;
       (
-        StoredFieldsConsumer::new(directory.clone(), Some(stored_fields_consumer_sub)),
-        TermVectorsConsumer::new(directory.clone(), Some(term_vector_consumer_sub)),
+        StoredFieldsConsumer::new(
+          codec.clone(),
+          directory.clone(),
+          Some(stored_fields_consumer_sub),
+        ),
+        TermVectorsConsumer::new(
+          codec.clone(),
+          directory.clone(),
+          Some(term_vector_consumer_sub),
+        ),
       )
     };
 
@@ -236,7 +247,8 @@ where
       freq_prox_term_int_pool,
       byte_pool,
     };
-    let vector_values_consumer = VectorValuesConsumer::new(directory.clone(), info_stream.clone());
+    let vector_values_consumer =
+      VectorValuesConsumer::new(codec.clone(), directory.clone(), info_stream.clone());
     Ok(IndexingChain {
       bytes_used,
       terms_hash,
@@ -939,7 +951,8 @@ where
       Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
     }
     if s.vector_dimension != 0 {
-      let max_dim = LATEST_CODEC
+      let max_dim = index_writer_config
+        .get_codec()
         .knn_vectors_format()?
         .get_max_dimensions(&pf.field_name);
       Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;

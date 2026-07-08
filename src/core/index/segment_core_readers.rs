@@ -25,7 +25,7 @@ use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 
-use crate::core::codecs::{Codec, CompoundFormat, DefaultCompoundReader, LATEST_CODEC};
+use crate::core::codecs::{Codec, CompoundFormat, DefaultCompoundReader};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -68,7 +68,7 @@ where
 {
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new(dir: &D, si: &SegmentCommitInfo<D>, context: &IOContext) -> Result<Self> {
-    let codec = &*LATEST_CODEC;
+    let codec = si.info.get_codec()?;
     let use_compound_file = si.info.get_use_compound_file();
 
     (|| {

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, LATEST_CODEC};
+use crate::core::codecs::{Codec, CodecUtil, CompoundFormat};
 use crate::core::index::IndexFileNames;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::term::Term;
@@ -92,7 +92,9 @@ where
     }
 
     if si.info.get_use_compound_file() {
-      let cfs_dir = LATEST_CODEC
+      let cfs_dir = si
+        .info
+        .get_codec()?
         .compound_format()
         .get_compound_reader(dir.as_ref(), &si.info)?;
 

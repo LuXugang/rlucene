@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::LATEST_CODEC;
 use crate::core::codecs::codec::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
@@ -249,7 +248,11 @@ where
     // files:
     if self.has_deletions() {
       // debug_assert!(self.info.codec.is_some());
-      LATEST_CODEC.live_docs_format().files(self, &mut files)?;
+      self
+        .info
+        .get_codec()?
+        .live_docs_format()
+        .files(self, &mut files)?;
     }
     for update_files in self.dv_updates_files.values() {
       files.extend(update_files.clone());
