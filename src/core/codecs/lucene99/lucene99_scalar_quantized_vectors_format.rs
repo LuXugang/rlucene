@@ -20,6 +20,7 @@ use crate::core::codecs::hnsw::flat_vectors_format::FlatVectorsFormat;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::Lucene99FlatVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_reader::Lucene99FlatVectorsReader;
+use crate::core::codecs::lucene99::lucene99_flat_vectors_writer::Lucene99FlatVectorsWriter;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::Lucene99ScalarQuantizedVectorScorer;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_reader::Lucene99ScalarQuantizedVectorsReader;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_writer::Lucene99ScalarQuantizedVectorsWriter;
@@ -159,6 +160,10 @@ impl Display for Lucene99ScalarQuantizedVectorsFormat {
 impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   type KnnVectorsWriter<T: IndexOutput> = Lucene99ScalarQuantizedVectorsWriter<
     T,
+    crate::core::codecs::lucene99::lucene99_flat_vectors_writer::Lucene99FlatVectorsWriter<
+      T,
+      DefaultFlatVectorScorer,
+    >,
     Lucene99ScalarQuantizedVectorScorer<DefaultFlatVectorScorer>,
   >;
 
@@ -200,19 +205,30 @@ impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
 impl FlatVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   type FlatVectorsWriter<T: IndexOutput> = Lucene99ScalarQuantizedVectorsWriter<
     T,
+    Lucene99FlatVectorsWriter<T, DefaultFlatVectorScorer>,
     Lucene99ScalarQuantizedVectorScorer<DefaultFlatVectorScorer>,
   >;
 
   fn fields_writer<D1, D2>(
     &self,
-    _state: &SegmentWriteState<D1>,
-    _segment_info: &SegmentInfo<D2>,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::FlatVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
     D2: Directory,
   {
-    todo!("Lucene99ScalarQuantizedVectorsWriter is not implemented yet")
+    let raw_vector_delegate =
+      FlatVectorsFormat::fields_writer(&*RAW_VECTOR_FORMAT, state, segment_info)?;
+    Lucene99ScalarQuantizedVectorsWriter::new(
+      state,
+      self.confidence_interval,
+      self.bits,
+      self.compress,
+      raw_vector_delegate,
+      self.flat_vector_scorer.clone(),
+      segment_info,
+    )
   }
 
   type FlatVectorsReader<T: IndexInput> = Lucene99ScalarQuantizedVectorsReader<
