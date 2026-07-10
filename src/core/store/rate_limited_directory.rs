@@ -22,7 +22,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::store::directory::Directory;
 use crate::core::store::rate_limited_index_output::RateLimitedIndexOutput;
 use crate::core::store::rate_limiter::RateLimiter;
-use crate::core::store::{Context, IOContext};
+use crate::core::store::{Context, IOContext, IndexOutputEnum2};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -99,7 +99,7 @@ where
     self.in_.file_length(name)
   }
 
-  type IndexOutput = RateLimitedIndexOutput<D::IndexOutput, R>;
+  type IndexOutput = IndexOutputEnum2<RateLimitedIndexOutput<D::IndexOutput, R>, D::IndexOutput>;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
     self.ensure_open()?;
@@ -108,10 +108,10 @@ where
       "got context={:?}",
       context.get_context()
     );
-    Ok(RateLimitedIndexOutput::new(
+    Ok(IndexOutputEnum2::A(RateLimitedIndexOutput::new(
       self.rate_limiter.clone(),
       self.in_.create_output(name, context)?,
-    ))
+    )))
   }
 
   fn create_temp_output(
@@ -121,13 +121,7 @@ where
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
     self.ensure_open()?;
-    debug_assert!(
-      matches!(context.get_context(), &Context::Merge),
-      "got context={:?}",
-      context.get_context()
-    );
-    Ok(RateLimitedIndexOutput::new(
-      self.rate_limiter.clone(),
+    Ok(IndexOutputEnum2::B(
       self.in_.create_temp_output(prefix, suffix, context)?,
     ))
   }
