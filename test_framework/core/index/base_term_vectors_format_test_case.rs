@@ -1721,6 +1721,26 @@ impl RandomTokenStream {
   where
     R: Rng + ?Sized,
   {
+    Self::new_with_random_payload(
+      random,
+      len,
+      sample_terms,
+      sample_term_bytes,
+      Self::random_payload,
+    )
+  }
+
+  pub fn new_with_random_payload<R, P>(
+    random: &mut R,
+    len: usize,
+    sample_terms: &[String],
+    sample_term_bytes: &[BytesRef<Vec<u8>>],
+    mut random_payload: P,
+  ) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+    P: FnMut(&mut R) -> Option<BytesRef<Vec<u8>>>,
+  {
     let mut terms = vec![String::new(); len];
     let mut term_bytes = vec![BytesRef::default(); len];
     let mut positions_increments = vec![0; len];
@@ -1754,11 +1774,11 @@ impl RandomTokenStream {
     }
 
     if rarely(random) {
-      let payload = Self::random_payload(random);
+      let payload = random_payload(random);
       payloads.fill(payload);
     } else {
       for payload in &mut payloads {
-        *payload = Self::random_payload(random);
+        *payload = random_payload(random);
       }
     }
 

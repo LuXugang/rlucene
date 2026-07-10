@@ -14,18 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::FieldTokenStreamEnum;
+use crate::core::index::BytesRef;
+use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{DefaultIndexWriter, IndexWriter};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::attribute_source::Attributes;
+use crate::core::util::close::Closeable;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::base_term_vectors_format_test_case::RandomTokenStream;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
@@ -154,8 +164,215 @@ fn test_full_merge_add_indexes_reader() -> Result<()> {
   verify_index(target.clone())?;
   Ok(())
 }
+/// Assert that a merged segment has payloads set up in field info, if at least 1 segment has
+/// payloads for this field.
 #[test]
 fn test_merge_with_payloads() -> Result<()> {
-  // TODO token_stream 未实现
+  let mut random = random();
+  let mut ft1 = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+  ft1.set_store_term_vectors(true)?;
+  ft1.set_store_term_vector_offsets(true)?;
+  ft1.set_store_term_vector_positions(true)?;
+  ft1.set_store_term_vector_payloads(true)?;
+  ft1.freeze();
+
+  let num_docs_in_segment = 10;
+  for has_payloads in [false, true] {
+    let dir = new_directory_shared(&mut random)?;
+    let mock = MockAnalyzer::new(&mut random);
+    let mut index_writer_config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+    index_writer_config.set_max_buffered_docs(num_docs_in_segment);
+    let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
+    let tkg1 = TokenStreamGenerator::new(&mut random, has_payloads);
+    let tkg2 = TokenStreamGenerator::new(&mut random, !has_payloads);
+
+    // create one segment with payloads, and another without payloads
+    for _ in 0..num_docs_in_segment {
+      let mut doc = Document::new();
+      doc.add(Field::from_token_stream(
+        "c",
+        FieldTokenStreamEnum::custom(tkg1.new_token_stream(&mut random)?),
+        ft1.clone(),
+      )?);
+      writer.add_document(doc)?;
+    }
+    for _ in 0..num_docs_in_segment {
+      let mut doc = Document::new();
+      doc.add(Field::from_token_stream(
+        "c",
+        FieldTokenStreamEnum::custom(tkg2.new_token_stream(&mut random)?),
+        ft1.clone(),
+      )?);
+      writer.add_document(doc)?;
+    }
+
+    let reader1 = directory_reader::open_from_writer(&writer)?;
+    {
+      let context = get_context(&reader1)?;
+      let leaves = context.leaves()?;
+      assert_eq!(2, leaves.len());
+      assert_eq!(
+        has_payloads,
+        leaves[0]
+          .reader()
+          .get_field_infos()?
+          .field_info_by_name("c")
+          .expect("field c must exist")
+          .has_payloads()
+      );
+      assert_ne!(
+        has_payloads,
+        leaves[1]
+          .reader()
+          .get_field_infos()?
+          .field_info_by_name("c")
+          .expect("field c must exist")
+          .has_payloads()
+      );
+    }
+
+    writer.force_merge(1)?;
+    let reader2 = directory_reader::open_from_writer(&writer)?;
+    {
+      let context = get_context(&reader2)?;
+      let leaves = context.leaves()?;
+      assert_eq!(1, leaves.len());
+      // assert that in the merged segments payloads set up for the field
+      assert!(
+        leaves[0]
+          .reader()
+          .get_field_infos()?
+          .field_info_by_name("c")
+          .expect("field c must exist")
+          .has_payloads()
+      );
+    }
+
+    let mut close_result = writer.close();
+    close_result = IOUtils::use_or_suppress_result(close_result, reader1.close());
+    close_result = IOUtils::use_or_suppress_result(close_result, reader2.close());
+    drop(writer);
+    drop(reader1);
+    drop(reader2);
+    let dir_close_result = match Arc::try_unwrap(dir) {
+      Ok(mut dir) => dir.close(),
+      Err(_) => Err(LuceneError::illegal_state(
+        "directory still has outstanding references",
+      )),
+    };
+    IOUtils::use_or_suppress_result(close_result, dir_close_result)?;
+  }
+
   Ok(())
+}
+
+/// A generator for token streams with optional null payloads.
+struct TokenStreamGenerator {
+  terms: Vec<String>,
+  term_bytes: Vec<BytesRef<Vec<u8>>>,
+  has_payloads: bool,
+}
+
+impl TokenStreamGenerator {
+  fn new<R>(random: &mut R, has_payloads: bool) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    let terms_count = 10;
+    let mut terms = Vec::with_capacity(terms_count);
+    let mut term_bytes = Vec::with_capacity(terms_count);
+    for _ in 0..terms_count {
+      let term = TestUtil::random_realistic_unicode_string(random);
+      term_bytes.push(BytesRef::from_string(&term));
+      terms.push(term);
+    }
+    Self {
+      terms,
+      term_bytes,
+      has_payloads,
+    }
+  }
+
+  fn new_token_stream<R>(&self, random: &mut R) -> Result<OptionalNullPayloadTokenStream>
+  where
+    R: Rng + ?Sized,
+  {
+    let len = TestUtil::next_int(random, 1, 5) as usize;
+    OptionalNullPayloadTokenStream::new(
+      random,
+      len,
+      &self.terms,
+      &self.term_bytes,
+      self.has_payloads,
+    )
+  }
+}
+
+#[derive(Clone)]
+struct OptionalNullPayloadTokenStream {
+  delegate: RandomTokenStream,
+}
+
+impl OptionalNullPayloadTokenStream {
+  fn new<R>(
+    random: &mut R,
+    len: usize,
+    sample_terms: &[String],
+    sample_term_bytes: &[BytesRef<Vec<u8>>],
+    has_payloads: bool,
+  ) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+  {
+    Ok(Self {
+      delegate: RandomTokenStream::new_with_random_payload(
+        random,
+        len,
+        sample_terms,
+        sample_term_bytes,
+        |random| Self::random_payload(random, has_payloads),
+      )?,
+    })
+  }
+
+  fn random_payload<R>(random: &mut R, has_payloads: bool) -> Option<BytesRef<Vec<u8>>>
+  where
+    R: Rng + ?Sized,
+  {
+    if !has_payloads {
+      return None;
+    }
+    let len = TestUtil::next_int(random, 1, 5) as usize;
+    let mut bytes = vec![0; len];
+    random.fill_bytes(&mut bytes);
+    Some(BytesRef::from_bytes(bytes))
+  }
+}
+
+impl Closeable for OptionalNullPayloadTokenStream {
+  fn close(&mut self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
+impl TokenStream for OptionalNullPayloadTokenStream {
+  fn increment_token(&mut self) -> Result<bool> {
+    self.delegate.increment_token()
+  }
+
+  fn end(&mut self) -> Result<()> {
+    self.delegate.end()
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    self.delegate.reset()
+  }
+
+  fn get_attribute_source(&self) -> &Attributes {
+    self.delegate.get_attribute_source()
+  }
+
+  fn get_attribute_source_mut(&mut self) -> &mut Attributes {
+    self.delegate.get_attribute_source_mut()
+  }
 }
