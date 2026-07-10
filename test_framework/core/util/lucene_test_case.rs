@@ -709,6 +709,15 @@ where
     }
   }
 }
+/// What level of concurrency is supported by the searcher being created
+pub enum Concurrency {
+  /// No concurrency, meaning an executor won't be provided to the searcher
+  None,
+  /// Inter-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search entire segments
+  InterSegment,
+  /// Intra-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search segment partitions
+  IntraSegment,
+}
 pub fn new_searcher<CR>(
   composite_reader: CR,
   _may_be_wrap: bool,
