@@ -513,19 +513,60 @@ where
   }
 }
 
-#[derive(Clone, Default)]
-pub struct KeepFullyDeletedSegmentsMergePolicy {
-  in_: NoMergePolicy,
+pub struct KeepFullyDeletedSegmentsMergePolicy<D>
+where
+  D: Directory,
+{
+  in_: Box<MergePolicyEnum<D>>,
   merge_fully_deleted_on_full_flush: bool,
   keep_fully_deleted_segments: Option<Arc<AtomicBool>>,
 }
 
-impl KeepFullyDeletedSegmentsMergePolicy {
+impl<D> Clone for KeepFullyDeletedSegmentsMergePolicy<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      in_: self.in_.clone(),
+      merge_fully_deleted_on_full_flush: self.merge_fully_deleted_on_full_flush,
+      keep_fully_deleted_segments: self.keep_fully_deleted_segments.clone(),
+    }
+  }
+}
+
+impl<D> Default for KeepFullyDeletedSegmentsMergePolicy<D>
+where
+  D: Directory,
+{
+  fn default() -> Self {
+    Self {
+      in_: Box::new(NoMergePolicy::default().into()),
+      merge_fully_deleted_on_full_flush: false,
+      keep_fully_deleted_segments: None,
+    }
+  }
+}
+
+impl<D> KeepFullyDeletedSegmentsMergePolicy<D>
+where
+  D: Directory,
+{
+  pub(crate) fn new<T>(in_: T) -> Self
+  where
+    T: Into<MergePolicyEnum<D>>,
+  {
+    Self {
+      in_: Box::new(in_.into()),
+      merge_fully_deleted_on_full_flush: false,
+      keep_fully_deleted_segments: None,
+    }
+  }
+
   pub(crate) fn with_full_flush_merges() -> Self {
     Self {
-      in_: NoMergePolicy::default(),
       merge_fully_deleted_on_full_flush: true,
-      keep_fully_deleted_segments: None,
+      ..Self::default()
     }
   }
 
@@ -533,38 +574,40 @@ impl KeepFullyDeletedSegmentsMergePolicy {
     keep_fully_deleted_segments: Arc<AtomicBool>,
   ) -> Self {
     Self {
-      in_: NoMergePolicy::default(),
-      merge_fully_deleted_on_full_flush: false,
       keep_fully_deleted_segments: Some(keep_fully_deleted_segments),
+      ..Self::default()
     }
   }
 }
 
-impl<D> From<KeepFullyDeletedSegmentsMergePolicy> for MergePolicyEnum<D>
+impl<D> From<KeepFullyDeletedSegmentsMergePolicy<D>> for MergePolicyEnum<D>
 where
   D: Directory,
 {
-  fn from(value: KeepFullyDeletedSegmentsMergePolicy) -> Self {
+  fn from(value: KeepFullyDeletedSegmentsMergePolicy<D>) -> Self {
     MergePolicyEnum::KeepFullyDeletedSegments(value)
   }
 }
 
-impl Display for KeepFullyDeletedSegmentsMergePolicy {
+impl<D> Display for KeepFullyDeletedSegmentsMergePolicy<D>
+where
+  D: Directory,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "KeepFullyDeletedSegmentsMergePolicy")
   }
 }
 
-impl<D> MergePolicy<D> for KeepFullyDeletedSegmentsMergePolicy
+impl<D> MergePolicy<D> for KeepFullyDeletedSegmentsMergePolicy<D>
 where
   D: Directory,
 {
   fn get_base(&self) -> &MergePolicyBase {
-    MergePolicy::<D>::get_base(&self.in_)
+    self.in_.get_base()
   }
 
   fn get_base_mut(&mut self) -> &mut MergePolicyBase {
-    MergePolicy::<D>::get_base_mut(&mut self.in_)
+    self.in_.get_base_mut()
   }
 
   fn find_merges<MC>(
@@ -681,7 +724,7 @@ where
   }
 
   fn max_full_flush_merge_size(&self) -> i64 {
-    MergePolicy::<D>::max_full_flush_merge_size(&self.in_)
+    self.in_.max_full_flush_merge_size()
   }
 
   fn keep_fully_deleted_segment<F>(&self, _reader_supplier: F) -> Result<bool>

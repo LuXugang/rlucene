@@ -47,6 +47,10 @@ use crate::test_framework::core::index::merge_policy::{
   KeepFullyDeletedSegmentsMergePolicy, MergeOnXMergePolicy, MockMergePolicy,
   OnlyForceMergeMergePolicy, RangeMergePolicy,
 };
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer::{
+  AbortOnMergeCompleteOneMerge, MergeFinishedOnceOneMerge,
+};
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -448,7 +452,7 @@ where
   #[cfg(test)]
   OnlyForceMerge(OnlyForceMergeMergePolicy),
   #[cfg(test)]
-  KeepFullyDeletedSegments(KeepFullyDeletedSegmentsMergePolicy),
+  KeepFullyDeletedSegments(KeepFullyDeletedSegmentsMergePolicy<D>),
   #[cfg(test)]
   Range(RangeMergePolicy),
   #[cfg(test)]
@@ -1850,6 +1854,10 @@ where
   #[default]
   Default,
   PointInTime(Box<PointInTimeOneMerge<D, CR>>),
+  #[cfg(test)]
+  MergeFinishedOnce(MergeFinishedOnceOneMerge<D, CR>),
+  #[cfg(test)]
+  AbortOnMergeComplete(AbortOnMergeCompleteOneMerge<D, CR>),
 }
 
 pub(crate) struct OneMergeDefaults;
@@ -1944,6 +1952,12 @@ where
     match self {
       Self::Default => OneMergeDefaults::merge_finished(inner, stat, success, segment_dropped),
       Self::PointInTime(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(hook) => {
+        hook.merge_finished(inner, stat, success, segment_dropped)
+      },
     }
   }
 
@@ -1951,6 +1965,10 @@ where
     match self {
       Self::Default => OneMergeDefaults::wrap_for_merge(reader),
       Self::PointInTime(hook) => hook.wrap_for_merge(reader),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(hook) => hook.wrap_for_merge(reader),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(hook) => hook.wrap_for_merge(reader),
     }
   }
 
@@ -1962,6 +1980,10 @@ where
     match self {
       Self::Default => OneMergeDefaults::reorder(reader, dir),
       Self::PointInTime(hook) => hook.reorder(reader, dir),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(hook) => hook.reorder(reader, dir),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(hook) => hook.reorder(reader, dir),
     }
   }
 
@@ -1974,6 +1996,10 @@ where
     match self {
       Self::Default => OneMergeDefaults::set_merge_info(stat, merge_info, info),
       Self::PointInTime(hook) => hook.set_merge_info(stat, merge_info, info),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(hook) => hook.set_merge_info(stat, merge_info, info),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(hook) => hook.set_merge_info(stat, merge_info, info),
     }
   }
 
@@ -1987,6 +2013,12 @@ where
     match self {
       Self::Default => OneMergeDefaults::on_merge_complete(inner, stat, merge_info, is_aborted),
       Self::PointInTime(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(hook) => {
+        hook.on_merge_complete(inner, stat, merge_info, is_aborted)
+      },
     }
   }
 
@@ -2002,6 +2034,12 @@ where
     match self {
       Self::Default => OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory),
       Self::PointInTime(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(hook) => {
+        hook.init_merge_readers(merge_readers, stat, reader_factory)
+      },
     }
   }
 }

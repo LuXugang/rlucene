@@ -57,9 +57,12 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
+use crate::core::index::log_doc_merge_policy::LogDocMergePolicy;
+use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::one_merge_wrapping_merge_policy::OneMergeWrappingMergePolicy;
 use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
@@ -97,15 +100,16 @@ use crate::test_framework::core::analysis::token;
 pub use crate::test_framework::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
 use crate::test_framework::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
 use crate::test_framework::core::index::test_index_writer::{
+  AbortOnMergeCompleteOneMergeUnaryOperator, MergeFinishedOnceOneMergeUnaryOperator,
   STORED_TEXT_TYPE, add_doc, add_doc_with_index, assert_no_unreferenced_files,
 };
 use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field, new_fs_directory,
-  new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
-  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_mock_directory,
-  new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field, new_text_field,
-  random, random_from_seed, rarely, slow_file_exists,
+  at_least, create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field,
+  new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
+  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_merge_policy,
+  new_mock_directory, new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field,
+  new_text_field, random, random_from_seed, rarely, slow_file_exists,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -1031,8 +1035,7 @@ fn test_deadlock() -> Result<()> {
 
 #[test]
 fn test_thread_interrupt_deadlock() -> Result<()> {
-  // TODO IMPORTANT
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
@@ -2414,20 +2417,229 @@ fn test_null_documents() -> Result<()> {
 
 #[test]
 fn test_iterable_field_throws_exception() -> Result<()> {
-  // TODO RandomFailingIterable未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir,
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
+  )?;
+  let iters = at_least(&mut random, 100);
+  let mut doc_count = 0;
+  let mut doc_id = 0;
+  let mut live_ids = HashSet::new();
+  for _ in 0..iters {
+    let num_docs = at_least(&mut random, 4);
+    for _ in 0..num_docs {
+      let id = doc_id.to_string();
+      doc_id += 1;
+      let fields = vec![
+        StringField::from_string("id", id.clone(), Store::Yes)?.into(),
+        StringField::from_string(
+          "foo",
+          TestUtil::random_simple_string(&mut random),
+          Store::No,
+        )?
+        .into(),
+      ];
+      doc_id += 1;
+
+      match writer.add_document(RandomFailingIterable::new(fields, &mut random)) {
+        Ok(_) => {
+          doc_count += 1;
+          live_ids.insert(id);
+        },
+        Err(error @ LuceneError::IllegalState(_)) => {
+          assert_eq!("boom", error.to_string());
+        },
+        Err(error) => return Err(error),
+      }
+    }
+  }
+  let reader = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(doc_count, reader.num_docs()?);
+  let context = get_context(&reader)?;
+  for leaf_reader_context in context.leaves()? {
+    let leaf_reader = leaf_reader_context.reader();
+    let live_docs = leaf_reader.get_live_docs()?;
+    let max_doc = leaf_reader.max_doc()?;
+    let mut stored_fields = leaf_reader.stored_fields()?;
+    for i in 0..max_doc {
+      let is_live = match &live_docs {
+        Some(live_docs) => live_docs.get(i as usize)?,
+        None => true,
+      };
+      if is_live {
+        let document = stored_fields.document(i)?;
+        let id = document
+          .get("id")?
+          .ok_or_else(|| LuceneError::illegal_state("missing id field"))?;
+        assert!(live_ids.remove(id.as_str()));
+      }
+    }
+  }
+  assert!(live_ids.is_empty());
+  writer.close()?;
+  reader.close()?;
   Ok(())
 }
 
 #[test]
 fn test_iterable_throws_exception() -> Result<()> {
-  // TODO RandomFailingIterable未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir,
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
+  )?;
+  let iters = at_least(&mut random, 100);
+  let mut doc_count = 0;
+  let mut doc_id = 0;
+  let mut live_ids = HashSet::new();
+  for _ in 0..iters {
+    let num_docs = at_least(&mut random, 4);
+    for _ in 0..num_docs {
+      let id = doc_id.to_string();
+      doc_id += 1;
+      let fields = vec![
+        StringField::from_string("id", id.clone(), Store::Yes)?.into(),
+        StringField::from_string(
+          "foo",
+          TestUtil::random_simple_string(&mut random),
+          Store::No,
+        )?
+        .into(),
+      ];
+      doc_id += 1;
+
+      match writer.add_document(RandomFailingIterable::new(fields, &mut random)) {
+        Ok(_) => {
+          doc_count += 1;
+          live_ids.insert(id);
+        },
+        Err(error @ LuceneError::IllegalState(_)) => {
+          assert_eq!("boom", error.to_string());
+        },
+        Err(error) => return Err(error),
+      }
+    }
+  }
+  let reader = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(doc_count, reader.num_docs()?);
+  let context = get_context(&reader)?;
+  for leaf_reader_context in context.leaves()? {
+    let leaf_reader = leaf_reader_context.reader();
+    let live_docs = leaf_reader.get_live_docs()?;
+    let max_doc = leaf_reader.max_doc()?;
+    let mut stored_fields = leaf_reader.stored_fields()?;
+    for i in 0..max_doc {
+      let is_live = match &live_docs {
+        Some(live_docs) => live_docs.get(i as usize)?,
+        None => true,
+      };
+      if is_live {
+        let document = stored_fields.document(i)?;
+        let id = document
+          .get("id")?
+          .ok_or_else(|| LuceneError::illegal_state("missing id field"))?;
+        assert!(live_ids.remove(id.as_str()));
+      }
+    }
+  }
+  assert!(live_ids.is_empty());
+  writer.close()?;
+  reader.close()?;
   Ok(())
 }
 
 #[test]
 fn test_iterable_throws_exception2() -> Result<()> {
-  // TODO RandomFailingIterable未实现
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let writer = IndexWriter::new(
+    dir,
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
+  )?;
+  let error = writer
+    .add_documents(FailingDocumentsIterable)
+    .expect_err("iterator should fail");
+  assert_eq!("boom", error.to_string());
+  writer.close()?;
   Ok(())
+}
+
+struct FailingDocumentsIterable;
+
+struct FailingDocumentsIterator;
+
+impl IntoIterator for FailingDocumentsIterable {
+  type Item = Document;
+  type IntoIter = FailingDocumentsIterator;
+
+  fn into_iter(self) -> Self::IntoIter {
+    FailingDocumentsIterator
+  }
+}
+
+impl Iterator for FailingDocumentsIterator {
+  type Item = Document;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    std::panic::resume_unwind(Box::new("boom".to_string()))
+  }
+}
+
+struct RandomFailingIterable<T> {
+  list: Vec<T>,
+  fail_on: usize,
+}
+
+impl<T> RandomFailingIterable<T> {
+  fn new<R>(list: Vec<T>, random: &mut R) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    Self {
+      list,
+      fail_on: random.random_range(0..5),
+    }
+  }
+}
+
+struct RandomFailingIterator<T> {
+  iterator: std::vec::IntoIter<T>,
+  fail_on: usize,
+  count: usize,
+}
+
+impl<T> IntoIterator for RandomFailingIterable<T> {
+  type Item = T;
+  type IntoIter = RandomFailingIterator<T>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    RandomFailingIterator {
+      iterator: self.list.into_iter(),
+      fail_on: self.fail_on,
+      count: 0,
+    }
+  }
+}
+
+impl<T> Iterator for RandomFailingIterator<T> {
+  type Item = T;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.iterator.len() == 0 {
+      return None;
+    }
+    if self.count == self.fail_on {
+      std::panic::resume_unwind(Box::new("boom".to_string()));
+    }
+    self.count += 1;
+    self.iterator.next()
+  }
 }
 
 #[test]
@@ -4077,7 +4289,30 @@ fn test_soft_and_hard_live_docs() -> Result<()> {
 
 #[test]
 fn test_abort_fully_deleted_segment() -> Result<()> {
-  // TODO IMPORTANT OneMergeWrappingMergePolicy未实现
+  let abort_merge_before_commit = Arc::new(AtomicBool::new(false));
+  let mut random = random();
+  let merge_policy = OneMergeWrappingMergePolicy::new(
+    new_merge_policy(&mut random)?,
+    AbortOnMergeCompleteOneMergeUnaryOperator::new(abort_merge_before_commit.clone()),
+  );
+  let merge_policy = KeepFullyDeletedSegmentsMergePolicy::new(merge_policy);
+
+  let dir = new_directory_shared(&mut random)?;
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
+  index_writer_config
+    .set_merge_policy(merge_policy)
+    .set_commit_on_close(false);
+  let writer = IndexWriter::new(dir, index_writer_config)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  writer.add_document(doc)?;
+  writer.flush()?;
+
+  writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+  abort_merge_before_commit.store(true, SeqCst);
+  writer.flush()?;
+  writer.force_merge(1)?;
+  writer.close()?;
   Ok(())
 }
 
@@ -4562,7 +4797,29 @@ fn test_segment_commit_info_id() -> Result<()> {
 
 #[test]
 fn test_merge_zero_docs_merge_is_closed_once() -> Result<()> {
-  // TODO IMPORTANT OneMergeWrappingMergePolicy未实现
+  let keep_all_segments =
+    KeepFullyDeletedSegmentsMergePolicy::new(LogMergePolicy::<LogDocMergePolicy>::log_doc());
+  let merge_policy =
+    OneMergeWrappingMergePolicy::new(keep_all_segments, MergeFinishedOnceOneMergeUnaryOperator);
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random)?;
+  config.set_merge_policy(merge_policy);
+  let writer = IndexWriter::new(dir, config)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::No)?);
+  writer.add_document(doc.clone())?;
+  writer.flush()?;
+  writer.add_document(doc)?;
+  writer.flush()?;
+  writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+  writer.flush()?;
+  assert_eq!(2, writer.get_segment_count());
+  assert_eq!(0, writer.get_doc_stats()?.num_docs);
+  assert_eq!(2, writer.get_doc_stats()?.max_doc);
+  writer.force_merge(1)?;
+  writer.close()?;
   Ok(())
 }
 

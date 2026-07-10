@@ -342,19 +342,27 @@ where
     let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
     let mut all_docs_indexed = false;
     let index_writer_config = writer.get_config();
-    let mut docs_iter = docs.into_iter().peekable();
+    let docs_iter = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| docs.into_iter()))
+      .map_err(|payload| {
+        LuceneError::illegal_state(LuceneError::panic_payload_message(payload.as_ref()))
+      });
     let result = (|| -> Result<i64> {
-      while let Some(doc) = docs_iter.next() {
-        let has_next_doc = docs_iter.peek().is_some();
-        let mut doc_fields: Vec<Fields> = doc.into_iter().collect();
-        if let Some(parent) = &self.parent_field {
-          if !has_next_doc {
-            doc_fields.insert(
-              0,
-              ReservedField::new(NumericDocValuesField::new(parent, -1)).into(),
-            );
-          }
-        } else if self.segment_info.index_sort.is_some()
+      let mut docs_iter = docs_iter?.peekable();
+      loop {
+        let doc = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| docs_iter.next()))
+          .map_err(|payload| {
+            LuceneError::illegal_state(LuceneError::panic_payload_message(payload.as_ref()))
+          })?;
+        let Some(doc) = doc else {
+          break;
+        };
+        let has_next_doc =
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| docs_iter.peek().is_some()))
+            .map_err(|payload| {
+              LuceneError::illegal_state(LuceneError::panic_payload_message(payload.as_ref()))
+            })?;
+        if self.parent_field.is_none()
+          && self.segment_info.index_sort.is_some()
           && has_next_doc
           && self.index_major_version_created >= LUCENE_10_0_0.major
         {
@@ -365,14 +373,31 @@ where
 
         self.reserve_one_doc()?;
         let doc_id = self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-        let process_result = self.indexing_chain.process_document(
-          doc_id,
-          doc_fields,
-          &mut self.segment_info,
-          &mut self.field_infos,
-          index_writer_config,
-          &self.aborting_exception,
-        );
+        let process_result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          doc.into_iter().collect::<Vec<Fields>>()
+        })) {
+          Ok(mut doc_fields) => {
+            if let Some(parent) = &self.parent_field
+              && !has_next_doc
+            {
+              doc_fields.insert(
+                0,
+                ReservedField::new(NumericDocValuesField::new(parent, -1)).into(),
+              );
+            }
+            self.indexing_chain.process_document(
+              doc_id,
+              doc_fields,
+              &mut self.segment_info,
+              &mut self.field_infos,
+              index_writer_config,
+              &self.aborting_exception,
+            )
+          },
+          Err(payload) => Err(LuceneError::illegal_state(
+            LuceneError::panic_payload_message(payload.as_ref()),
+          )),
+        };
         num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
         process_result?;
       }

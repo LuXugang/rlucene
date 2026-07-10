@@ -28,6 +28,10 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer::{
+  AbortOnMergeCompleteOneMergeUnaryOperator, MergeFinishedOnceOneMergeUnaryOperator,
+};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 /// A wrapping merge policy that wraps the `OneMerge` objects returned by the
@@ -95,6 +99,10 @@ where
   PointInTime(Box<PointInTimeOneMerge<D, DefaultLeafReader<D>>>),
   #[cfg(test)]
   NewOneMerge(NewOneMergeUnaryOperator),
+  #[cfg(test)]
+  MergeFinishedOnce(MergeFinishedOnceOneMergeUnaryOperator),
+  #[cfg(test)]
+  AbortOnMergeComplete(AbortOnMergeCompleteOneMergeUnaryOperator),
 }
 
 impl<D> Clone for OneMergeUnaryOperator<D>
@@ -107,6 +115,10 @@ where
       Self::PointInTime(operator) => Self::PointInTime(operator.clone()),
       #[cfg(test)]
       Self::NewOneMerge(operator) => Self::NewOneMerge(operator.clone()),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(operator) => Self::MergeFinishedOnce(operator.clone()),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(operator) => Self::AbortOnMergeComplete(operator.clone()),
     }
   }
 }
@@ -128,6 +140,10 @@ where
       Self::PointInTime(operator) => operator.apply(merge),
       #[cfg(test)]
       Self::NewOneMerge(operator) => operator.apply(merge),
+      #[cfg(test)]
+      Self::MergeFinishedOnce(operator) => operator.apply(merge),
+      #[cfg(test)]
+      Self::AbortOnMergeComplete(operator) => operator.apply(merge),
     }
   }
 }
@@ -173,6 +189,26 @@ where
 {
   fn from(value: NewOneMergeUnaryOperator) -> Self {
     Self::NewOneMerge(value)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<MergeFinishedOnceOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn from(value: MergeFinishedOnceOneMergeUnaryOperator) -> Self {
+    Self::MergeFinishedOnce(value)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<AbortOnMergeCompleteOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn from(value: AbortOnMergeCompleteOneMergeUnaryOperator) -> Self {
+    Self::AbortOnMergeComplete(value)
   }
 }
 
