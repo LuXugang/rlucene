@@ -16,6 +16,7 @@
  */
 use crate::core::index::directory_reader;
 use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
+use crate::core::index::flush_by_ram_or_counts_policy::FlushByRamOrCountsPolicy;
 use crate::core::index::flush_policy::FlushPolicyEnum;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
@@ -24,16 +25,19 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_flush_by_ram_or_counts_policy::MockDefaultFlushPolicy;
+use crate::test_framework::core::store::mock_directory_wrapper::Throttling;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, random,
-  random_from_seed, rarely,
+  at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_mock_directory, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
 
@@ -285,7 +289,62 @@ fn test_random() -> Result<()> {
 
 #[test]
 fn test_stall_control() -> Result<()> {
-  // TODO IMPORTANT MockDirectoryWrapper未实现
+  let mut random = random();
+  let num_threads = [4 + random.random_range(0..8), 1];
+  let num_documents_to_index = 50 + random.random_range(0..50);
+  let max_token_length = TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH);
+  for num_threads in num_threads {
+    let num_docs = AtomicI32::new(num_documents_to_index);
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+    // mock a very slow harddisk sometimes here so that flushing is very slow
+    dir.set_throttling(Throttling::Sometimes);
+    let mut analyzer = MockAnalyzer::new(&mut random);
+    analyzer.set_max_token_length(max_token_length);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    iwc.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
+    iwc.set_flush_policy(FlushByRamOrCountsPolicy::new());
+
+    // with such a small ram buffer we should be stalled quite quickly
+    iwc.set_ram_buffer_size_mb(0.25);
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
+    let seed = random.random();
+    thread::scope(|scope| -> Result<()> {
+      let mut threads = Vec::new();
+      for _ in 0..num_threads {
+        threads.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, false)));
+      }
+      for thread in threads {
+        thread.join().expect("thread panicked")?;
+      }
+      Ok(())
+    })?;
+
+    let docs_writer = writer.get_docs_writer();
+    let flush_control = &docs_writer.flush_control;
+    assert_eq!(
+      0,
+      docs_writer.get_flushing_bytes(),
+      " all flushes must be due"
+    );
+    let doc_stats = writer.get_doc_stats()?;
+    assert_eq!(num_documents_to_index, doc_stats.num_docs);
+    assert_eq!(num_documents_to_index, doc_stats.max_doc);
+    if num_threads == 1 {
+      assert!(
+        !flush_control.has_blocked(),
+        "single thread must not block numThreads: {num_threads}"
+      );
+    }
+    if flush_control.get_peak_net_bytes()
+      > (2.0 * writer.get_config().get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64
+    {
+      assert!(flush_control.was_stalled());
+    }
+    assert_active_bytes_after(flush_control)?;
+    writer.close()?;
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
+  }
   Ok(())
 }
 

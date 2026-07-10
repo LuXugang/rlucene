@@ -18,7 +18,7 @@ use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
 
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
+use crate::core::index::documents_writer_per_thread::{DocumentsWriterPerThread, State};
 use crate::core::index::documents_writer_per_thread_pool::{
   DocumentsWriterPerThreadPool, DwptWrapper,
 };
@@ -315,7 +315,7 @@ where
         {
           // Safety check to prevent a single DWPT exceeding its RAM limit. This
           // is super important since we can not address more than 2048 MB per DWPT
-          self.set_flush_pending(per_thread, Some(&mut inner), config)?;
+          self.set_flush_pending(&per_thread.state, Some(&mut inner), config)?;
         }
       }
       self.checkout(&mut inner, per_thread, false, config)
@@ -347,7 +347,7 @@ where
     } else {
       if mark_pending {
         debug_assert!(!per_thread.is_flush_pending());
-        self.set_flush_pending(per_thread, Some(inner), config)?;
+        self.set_flush_pending(&per_thread.state, Some(inner), config)?;
       }
       if per_thread.is_flush_pending() {
         return Ok(Some(self.check_out_for_flush(per_thread, inner, config)?));
@@ -449,11 +449,12 @@ where
       self.pausing.wait(&mut inner);
     }
   }
-  /// Sets flush pending state on the given [`DocumentsWriterPerThread`].
-  /// The [`DocumentsWriterPerThread`] must have indexed at least on Document and must not be already pending.
+  /// Sets flush pending state on the given [`DocumentsWriterPerThread`] state.
+  /// The [`DocumentsWriterPerThread`] must have indexed at least one document
+  /// and must not already be pending.
   pub(crate) fn set_flush_pending<L>(
     &self,
-    per_thread: &DocumentsWriterPerThread<D>,
+    state: &State,
     inner: Option<&mut Inner<D>>,
     config: &L,
   ) -> Result<()>
@@ -464,10 +465,10 @@ where
       Some(inner) => inner,
       None => &mut *self.inner.lock(),
     };
-    debug_assert!(!per_thread.is_flush_pending());
-    if per_thread.get_num_docs_in_ram() > 0 {
-      per_thread.set_flush_pending()?;
-      let bytes = per_thread.get_last_committed_bytes_used();
+    debug_assert!(!state.is_flush_pending());
+    if state.get_num_docs_in_ram() > 0 {
+      state.set_flush_pending()?;
+      let bytes = state.get_last_committed_bytes_used();
       inner.flush_bytes += bytes;
       inner.active_bytes -= bytes;
       inner.num_pending += 1;
@@ -740,7 +741,7 @@ where
           let flushing_dwpt = {
             let mut inner = self.inner.lock();
             if !next.is_flush_pending() {
-              self.set_flush_pending(&next, Some(&mut inner), config)?;
+              self.set_flush_pending(&next.state, Some(&mut inner), config)?;
             }
             self.check_out_for_flush(&next, &mut inner, config)?
           };

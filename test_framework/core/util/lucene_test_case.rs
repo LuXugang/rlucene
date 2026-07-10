@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::backtrace::Backtrace;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::ErrorKind;
@@ -1022,6 +1023,31 @@ pub(crate) fn random() -> StdRng {
 
 pub(crate) fn random_from_seed(seed: u64) -> StdRng {
   StdRng::seed_from_u64(seed)
+}
+
+/// Inspects the stack trace to figure out if a method of a specific type
+/// called us.
+#[inline(never)]
+pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
+  let type_name = std::any::type_name::<T>();
+  let type_name = type_name.split('<').next().unwrap_or(type_name);
+  let method_name = format!("::{method_name}");
+  Backtrace::force_capture()
+    .to_string()
+    .lines()
+    .any(|frame| frame.contains(type_name) && frame.contains(&method_name))
+}
+
+/// Inspects the stack trace to figure out if one of the given method names (no
+/// type restriction) called us.
+#[inline(never)]
+pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
+  let backtrace = Backtrace::force_capture().to_string();
+  method_names.iter().any(|method_name| {
+    backtrace
+      .lines()
+      .any(|frame| frame.contains(&format!("::{method_name}")))
+  })
 }
 
 pub fn is_night_mode() -> bool {

@@ -27,6 +27,8 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::composite_reader::get_context;
+#[cfg(feature = "nightly")]
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -41,12 +43,18 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
+#[cfg(feature = "nightly")]
+use crate::core::util::close::Closeable;
+#[cfg(feature = "nightly")]
+use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+#[cfg(feature = "nightly")]
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 #[cfg(feature = "nightly")]
@@ -55,6 +63,10 @@ use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_searcher_with_reader, new_string_field, new_text_field, random,
 };
+#[cfg(feature = "nightly")]
+use crate::test_framework::core::util::test_util::TestUtil;
+#[cfg(feature = "nightly")]
+use rand::RngExt;
 use std::collections::HashMap;
 #[cfg(feature = "nightly")]
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -618,18 +630,233 @@ where
   let reader = directory_reader::open(dir)?;
   let searcher = new_searcher_with_reader(reader)?;
   let top_docs = searcher.search(TermQuery::new(term.clone()), 1000)?;
-  Ok(top_docs.total_hits.value() as i64)
+  let hit_count = top_docs.total_hits.value() as i64;
+  searcher.get_index_reader().close()?;
+  Ok(hit_count)
 }
+// TODO: can we fix MockDirectoryWrapper disk full checking to be more efficient (not recompute on
+// every write)?
+#[cfg(feature = "nightly")]
 #[test]
 fn test_deletes_on_disk_full() -> Result<()> {
-  // TODO MockDirectoryWrapper未实现
-  Ok(())
+  do_test_operations_on_disk_full(false)
 }
 
+// TODO: can we fix MockDirectoryWrapper disk full checking to be more efficient (not recompute on
+// every write)?
+#[cfg(feature = "nightly")]
 #[test]
 fn test_updates_on_disk_full() -> Result<()> {
-  // TODO MockDirectoryWrapper未实现
-  Ok(())
+  do_test_operations_on_disk_full(true)
+}
+
+/// Make sure if modifier tries to commit but hits disk full that modifier
+/// remains consistent and usable. Similar to TestIndexReader.testDiskFull().
+#[cfg(feature = "nightly")]
+fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
+  let mut random = random();
+  let search_term = Term::from_text("content", "aaa");
+  const START_COUNT: i64 = 157;
+  const END_COUNT: i64 = 144;
+
+  // First build up a starting index:
+  let start_dir =
+    Arc::new(crate::test_framework::core::util::lucene_test_case::new_mock_directory(&mut random)?);
+
+  let analyzer =
+    MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let writer = IndexWriter::new(
+    start_dir.clone(),
+    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
+  )?;
+  for i in 0..157 {
+    let mut document = Document::new();
+    document.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+    document.add(TextField::from_string(
+      "content",
+      format!("aaa {i}"),
+      Store::No,
+    )?);
+    document.add(NumericDocValuesField::new("dv", i as i64));
+    writer.add_document(document)?;
+  }
+  writer.close()?;
+
+  let disk_usage = start_dir.size_in_bytes()? as i64;
+  let mut disk_free = disk_usage + 10;
+  let mut err = None;
+  let mut done = false;
+
+  // Iterate w/ ever-increasing free disk space:
+  while !done {
+    let copy = TestUtil::ram_copy_of(&mut random, start_dir.as_ref())?;
+    let dir = Arc::new(MockDirectoryWrapper::new(&mut random, copy));
+    dir.set_allow_random_file_not_found_exception(false);
+    let analyzer =
+      MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    config.set_max_buffered_docs(1000);
+    let merge_scheduler = ConcurrentMergeScheduler::new();
+    merge_scheduler.set_suppress_exceptions();
+    config.set_merge_scheduler(merge_scheduler);
+    let modifier = IndexWriter::new(dir.clone(), config)?;
+
+    // For each disk size, first try to commit against dir that will hit random
+    // IOExceptions & disk full; after, give it infinite disk space & turn off
+    // random IOExceptions & retry w/ same reader:
+    let mut success = false;
+
+    for x in 0..2 {
+      let mut rate = 0.1;
+      let disk_ratio = disk_free as f64 / disk_usage as f64;
+      let (this_disk_free, test_name) = if x == 0 {
+        if disk_ratio >= 2.0 {
+          rate /= 2.0;
+        }
+        if disk_ratio >= 4.0 {
+          rate /= 2.0;
+        }
+        if disk_ratio >= 6.0 {
+          rate = 0.0;
+        }
+        dir.set_random_io_exception_rate_on_open(random.random::<f64>() * 0.01);
+        (
+          disk_free,
+          format!("disk full during reader.close() @ {disk_free} bytes"),
+        )
+      } else {
+        rate = 0.0;
+        dir.set_random_io_exception_rate_on_open(0.0);
+        (0, "reader re-use after disk full".to_string())
+      };
+
+      dir.set_max_size_in_bytes(this_disk_free);
+      dir.set_random_io_exception_rate(rate);
+
+      let operation_result = (|| -> Result<()> {
+        if x == 0 {
+          let mut doc_id = 12;
+          for i in 0..13 {
+            if updates {
+              let mut document = Document::new();
+              document.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+              document.add(TextField::from_string(
+                "content",
+                format!("bbb {i}"),
+                Store::No,
+              )?);
+              document.add(NumericDocValuesField::new("dv", i as i64));
+              modifier
+                .update_document_with_term(Term::from_text("id", doc_id.to_string()), document)?;
+            } else {
+              modifier
+                .delete_documents_with_terms(vec![Term::from_text("id", doc_id.to_string())])?;
+            }
+            doc_id += 12;
+          }
+          match modifier.close() {
+            Ok(()) => {},
+            Err(LuceneError::IllegalState(mut error)) => {
+              // ok
+              if let Some(cause) = error.source.take() {
+                return Err(*cause);
+              }
+              return Err(LuceneError::IllegalState(error));
+            },
+            Err(error) => return Err(error),
+          }
+        }
+        Ok(())
+      })();
+
+      match operation_result {
+        Ok(()) => {
+          success = true;
+          if x == 0 {
+            done = true;
+          }
+        },
+        Err(error @ (LuceneError::Io { .. } | LuceneError::IoWithPath { .. })) => {
+          err = Some(error);
+          if x == 1 {
+            return Err(LuceneError::illegal_state(format!(
+              "{test_name} hit IOException after disk space was freed up"
+            )));
+          }
+        },
+        Err(error) => return Err(error),
+      }
+
+      // prevent throwing a random exception here!!
+      let random_io_exception_rate = dir.get_random_io_exception_rate();
+      let max_size_in_bytes = dir.get_max_size_in_bytes();
+      dir.set_random_io_exception_rate(0.0);
+      dir.set_random_io_exception_rate_on_open(0.0);
+      dir.set_max_size_in_bytes(0);
+      if !success {
+        // Must force the close else the writer can have open files which cause
+        // exc in MockRAMDir.close
+        modifier.rollback()?;
+      }
+
+      // If the close() succeeded, make sure index is OK:
+      if success {
+        TestUtil::check_index(dir.as_ref())?;
+      }
+      dir.set_random_io_exception_rate(random_io_exception_rate);
+      dir.set_max_size_in_bytes(max_size_in_bytes);
+
+      // Finally, verify index is not corrupt, and, if we succeeded, we see all
+      // docs changed, and if we failed, we see either all docs or no docs
+      // changed (transactional semantics):
+      let new_reader = directory_reader::open(dir.clone()).map_err(|error| {
+        LuceneError::illegal_state(format!(
+          "{test_name}:exception when creating IndexReader after disk full during close: {error}"
+        ))
+      })?;
+      let searcher = new_searcher_with_reader(new_reader)?;
+      let hits = searcher
+        .search(TermQuery::new(search_term.clone()), 1000)
+        .map_err(|error| {
+          LuceneError::illegal_state(format!("{test_name}: exception when searching: {error}"))
+        })?
+        .score_docs;
+      let result2 = hits.len() as i64;
+      if success {
+        if x == 0 && result2 != END_COUNT {
+          return Err(LuceneError::illegal_state(format!(
+            "{test_name}: method did not throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {END_COUNT}"
+          )));
+        } else if x == 1 && result2 != START_COUNT && result2 != END_COUNT {
+          // It's possible that the first exception was "recoverable" wrt
+          // pending deletes, in which case the pending deletes are retained
+          // and then re-flushing (with plenty of disk space) will succeed in
+          // flushing the deletes:
+          return Err(LuceneError::illegal_state(format!(
+            "{test_name}: method did not throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {START_COUNT} or {END_COUNT}"
+          )));
+        }
+      } else {
+        // On hitting exception we still may have added all docs:
+        if result2 != START_COUNT && result2 != END_COUNT {
+          return Err(LuceneError::illegal_state(format!(
+            "{test_name}: method did throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {START_COUNT} or {END_COUNT}: {err:?}"
+          )));
+        }
+      }
+      searcher.get_index_reader().close()?;
+      if result2 == END_COUNT {
+        break;
+      }
+    }
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
+
+    // Try again with more bytes of free space:
+    disk_free += std::cmp::max(10, disk_free >> 3);
+  }
+  let mut start_dir_to_close = start_dir.as_ref().clone();
+  start_dir_to_close.close()
 }
 
 #[test]

@@ -15,22 +15,28 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::Store;
+use crate::core::document::field::{Field, Store};
+use crate::core::document::field_type::FieldType;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
+use crate::core::index::BytesRef;
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, random,
-  random_from_seed, rarely,
+  at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_merge_factor, new_mock_directory, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -45,15 +51,214 @@ struct TestIndexWriterWithThreads;
 
 const SOFT_DELETES_FIELD: &str = "___soft_deletes";
 
-#[test]
-fn test_immediate_disk_full_with_threads() -> Result<()> {
-  // TODO MockDirectoryWrapper未实现
+// Used by test cases below
+fn indexer_thread<D>(
+  writer: &IndexWriter<D>,
+  no_errors: bool,
+  sync_start: &Barrier,
+  add_count: &AtomicUsize,
+) -> Result<()>
+where
+  D: crate::core::store::directory::Directory + 'static,
+{
+  sync_start.wait();
+
+  let mut document = Document::new();
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
+  custom_type.set_store_term_vectors(true)?;
+  custom_type.set_store_term_vector_positions(true)?;
+  custom_type.set_store_term_vector_offsets(true)?;
+
+  document.add(Field::new(
+    "field",
+    "aaa bbb ccc ddd eee fff ggg hhh iii jjj",
+    custom_type,
+  ));
+  document.add(NumericDocValuesField::new("dv", 5));
+
+  let mut id_upto = 0;
+  let mut full_count = 0;
+
+  loop {
+    let id = id_upto;
+    id_upto += 1;
+    match writer.update_document_with_term(Term::from_text("id", id.to_string()), document.clone())
+    {
+      Ok(_) => {
+        add_count.fetch_add(1, Ordering::SeqCst);
+      },
+      Err(error)
+        if error.to_string().contains("fake disk full at")
+          || error.to_string() == "now failing on purpose" =>
+      {
+        thread::sleep(Duration::from_millis(1));
+        if full_count >= 5 {
+          break;
+        }
+        full_count += 1;
+      },
+      Err(LuceneError::IllegalState(_)) | Err(LuceneError::AlreadyClosed(_)) => {
+        // OK: abort closes the writer
+        break;
+      },
+      Err(error) => {
+        if no_errors {
+          return Err(error);
+        }
+        break;
+      },
+    }
+  }
   Ok(())
 }
 
+// LUCENE-1130: make sure immediate disk full on creating
+// an IndexWriter (hit during DWPT#updateDocuments()), with
+// multiple threads, is OK:
+#[test]
+fn test_immediate_disk_full_with_threads() -> Result<()> {
+  const NUM_THREADS: usize = 3;
+  let num_iterations = if is_night_mode() { 10 } else { 1 };
+  let mut random = random();
+  for iter in 0..num_iterations {
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    config.set_max_buffered_docs(2);
+    let merge_scheduler = ConcurrentMergeScheduler::new();
+    merge_scheduler.set_suppress_exceptions();
+    config.set_merge_scheduler(merge_scheduler);
+    config.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
+    config.set_commit_on_close(false);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    dir.set_max_size_in_bytes(4 * 1024 + 20 * iter as i64);
+
+    let sync_start = Barrier::new(NUM_THREADS + 1);
+    let add_counts = (0..NUM_THREADS)
+      .map(|_| AtomicUsize::new(0))
+      .collect::<Vec<_>>();
+    thread::scope(|scope| -> Result<()> {
+      let mut threads = Vec::new();
+      for add_count in &add_counts {
+        let writer = &writer;
+        let sync_start = &sync_start;
+        threads.push(scope.spawn(move || indexer_thread(writer, true, sync_start, add_count)));
+      }
+      sync_start.wait();
+
+      for thread in threads {
+        // Without fix for LUCENE-1130: one of the threads will hang
+        thread.join().expect("thread panicked")?;
+      }
+      Ok(())
+    })?;
+
+    // Make sure once disk space is avail again, we can cleanly close:
+    dir.set_max_size_in_bytes(0);
+    match writer.commit() {
+      Ok(_) => {},
+      Err(LuceneError::AlreadyClosed(_)) => {
+        // OK: abort closes the writer
+        assert!(writer.is_deleter_closed()?);
+      },
+      Err(error) => return Err(error),
+    }
+    writer.close()?;
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
+  }
+  Ok(())
+}
+
+// LUCENE-1130: make sure we can close() even while
+// threads are trying to add documents. Strictly
+// speaking, this isn't valid use of Lucene's APIs, but we
+// still want to be robust to this case:
 #[test]
 fn test_close_with_threads() -> Result<()> {
-  // TODO IndexerThread未实现
+  const NUM_THREADS: usize = 3;
+  let num_iterations = if is_night_mode() { 7 } else { 3 };
+  let mut random = random();
+  for _ in 0..num_iterations {
+    let dir = new_directory_shared(&mut random)?;
+
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    config.set_max_buffered_docs(10);
+    let merge_scheduler = ConcurrentMergeScheduler::new();
+    merge_scheduler.set_suppress_exceptions();
+    config.set_merge_scheduler(merge_scheduler);
+    config.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
+    config.set_commit_on_close(false);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    let sync_start = Barrier::new(NUM_THREADS + 1);
+    let add_counts = (0..NUM_THREADS)
+      .map(|_| AtomicUsize::new(0))
+      .collect::<Vec<_>>();
+    thread::scope(|scope| -> Result<()> {
+      let mut threads = Vec::new();
+      for add_count in &add_counts {
+        let writer = &writer;
+        let sync_start = &sync_start;
+        threads.push(scope.spawn(move || indexer_thread(writer, false, sync_start, add_count)));
+      }
+      sync_start.wait();
+
+      let mut done = false;
+      while !done {
+        thread::sleep(Duration::from_millis(100));
+        for (thread, add_count) in threads.iter().zip(&add_counts) {
+          // only stop when at least one thread has added a doc
+          if add_count.load(Ordering::SeqCst) > 0 {
+            done = true;
+            break;
+          } else if thread.is_finished() {
+            return Err(LuceneError::illegal_state(
+              "thread failed before indexing a single document",
+            ));
+          }
+        }
+      }
+
+      let commit_result = writer.commit();
+      let close_result = writer.close();
+      close_result?;
+      commit_result?;
+
+      // Make sure threads that are adding docs are not hung:
+      for thread in threads {
+        // Without fix for LUCENE-1130: one of the threads will hang
+        thread.join().expect("thread panicked")?;
+      }
+      Ok(())
+    })?;
+
+    // Quick test to make sure index is not corrupt:
+    let reader = directory_reader::open(dir.clone())?;
+    let mut tdocs = TestUtil::docs_with_reader(
+      &mut random,
+      &reader,
+      "field",
+      &BytesRef::from_string("aaa"),
+      None,
+      0,
+    )?
+    .ok_or_else(|| LuceneError::illegal_state("term field:aaa does not exist"))?;
+    let mut count = 0;
+    while tdocs.next_doc()? != NO_MORE_DOCS {
+      count += 1;
+    }
+    assert!(count > 0);
+    drop(tdocs);
+    reader.close()?;
+    drop(reader);
+    drop(writer);
+
+    let mut dir = Arc::try_unwrap(dir)
+      .map_err(|_| LuceneError::illegal_state("directory still has outstanding references"))?;
+    dir.close()?;
+  }
   Ok(())
 }
 

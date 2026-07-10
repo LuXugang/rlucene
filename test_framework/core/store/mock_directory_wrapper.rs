@@ -26,13 +26,14 @@ use crate::core::store::{
 use crate::core::util::HasIdentity;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::base_directory_wrapper::BaseDirectoryWrapper;
 use crate::test_framework::core::store::mock_index_input_wrapper::{
   MockDirectoryIndexInput, MockIndexInputWrapper,
 };
 use crate::test_framework::core::store::mock_index_output_wrapper::MockIndexOutputWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
-  is_night_mode, new_io_context_with_default,
+  is_night_mode, new_io_context, new_io_context_with_default,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use crate::test_framework::core::util::throttled_index_output::ThrottledIndexOutput;
@@ -397,18 +398,19 @@ where
 
           let zeroes = [0u8; 256];
           let mut upto = 0;
-          let mut out = self
-            .state
-            .base
-            .lock()
-            .get_delegate()
-            .create_output(&name, &IOContext::default_io_context()?)?;
-          while upto < length {
-            let limit = (length - upto).min(zeroes.len());
-            out.write_bytes_range(&zeroes, 0, limit)?;
-            upto += limit;
-          }
-          out.close()?;
+          let mut out = self.state.base.lock().get_delegate().create_output(
+            &name,
+            &new_io_context(&mut *self.state.random_state.lock())?,
+          )?;
+          let result = (|| -> Result<()> {
+            while upto < length {
+              let limit = (length - upto).min(zeroes.len());
+              out.write_bytes_range(&zeroes, 0, limit)?;
+              upto += limit;
+            }
+            Ok(())
+          })();
+          IOUtils::use_or_suppress_result(result, out.close())?;
         },
 
         2 => {
@@ -417,40 +419,55 @@ where
 
           // First, make temp file and copy only half this
           // file over:
-          let temp_file_name = {
+          let temp_file_name = (|| -> Result<String> {
             let base = self.state.base.lock();
             let mut temp_out = base.get_delegate().create_temp_output(
               "name",
               "mdw_corrupt",
-              &IOContext::default_io_context()?,
+              &new_io_context(&mut *self.state.random_state.lock())?,
             )?;
-            let mut ii = base
-              .get_delegate()
-              .open_input(&name, &IOContext::default_io_context()?)?;
+            let mut ii = match base.get_delegate().open_input(
+              &name,
+              &new_io_context(&mut *self.state.random_state.lock())?,
+            ) {
+              Ok(ii) => ii,
+              Err(error) => {
+                return IOUtils::use_or_suppress_result(Err(error), temp_out.close());
+              },
+            };
             let temp_file_name = temp_out.get_name().to_string();
-            let length = ii.length()? / 2;
-            temp_out.copy_bytes(&mut ii, length)?;
-            ii.close()?;
-            temp_out.close()?;
-            temp_file_name
-          };
+            let result = (|| -> Result<String> {
+              let length = ii.length()? / 2;
+              temp_out.copy_bytes(&mut ii, length)?;
+              Ok(temp_file_name)
+            })();
+            let result = IOUtils::use_or_suppress_result(result, ii.close());
+            IOUtils::use_or_suppress_result(result, temp_out.close())
+          })()?;
 
           // Delete original and copy bytes back:
           self.delete_file(&name)?;
 
-          {
+          (|| -> Result<()> {
             let base = self.state.base.lock();
-            let mut out = base
-              .get_delegate()
-              .create_output(&name, &IOContext::default_io_context()?)?;
-            let mut ii = base
-              .get_delegate()
-              .open_input(&temp_file_name, &IOContext::default_io_context()?)?;
-            let length = ii.length()?;
-            out.copy_bytes(&mut ii, length)?;
-            ii.close()?;
-            out.close()?;
-          }
+            let mut out = base.get_delegate().create_output(
+              &name,
+              &new_io_context(&mut *self.state.random_state.lock())?,
+            )?;
+            let mut ii = match base.get_delegate().open_input(
+              &temp_file_name,
+              &new_io_context(&mut *self.state.random_state.lock())?,
+            ) {
+              Ok(ii) => ii,
+              Err(error) => return IOUtils::use_or_suppress_result(Err(error), out.close()),
+            };
+            let result = (|| -> Result<()> {
+              let length = ii.length()?;
+              out.copy_bytes(&mut ii, length)
+            })();
+            let result = IOUtils::use_or_suppress_result(result, ii.close());
+            IOUtils::use_or_suppress_result(result, out.close())
+          })()?;
           self.delete_file(&temp_file_name)?;
         },
 
@@ -462,62 +479,77 @@ where
         4 => {
           // Corrupt one bit randomly in the file:
           let mut action_text = "didn't change".to_string();
-          let temp_file_name = {
+          let temp_file_name = (|| -> Result<String> {
             let base = self.state.base.lock();
             let mut temp_out = base.get_delegate().create_temp_output(
               "name",
               "mdw_corrupt",
-              &IOContext::default_io_context()?,
+              &new_io_context(&mut *self.state.random_state.lock())?,
             )?;
-            let mut ii = base
-              .get_delegate()
-              .open_input(&name, &IOContext::default_io_context()?)?;
+            let mut ii = match base.get_delegate().open_input(
+              &name,
+              &new_io_context(&mut *self.state.random_state.lock())?,
+            ) {
+              Ok(ii) => ii,
+              Err(error) => {
+                return IOUtils::use_or_suppress_result(Err(error), temp_out.close());
+              },
+            };
             let temp_file_name = temp_out.get_name().to_string();
-            let length = ii.length()?;
-            if length > 0 {
-              // Copy first part unchanged:
-              let byte_to_corrupt =
-                (self.state.random_state.lock().random::<f64>() * length as f64) as usize;
-              if byte_to_corrupt > 0 {
-                temp_out.copy_bytes(&mut ii, byte_to_corrupt)?;
+            let result = (|| -> Result<String> {
+              let length = ii.length()?;
+              if length > 0 {
+                // Copy first part unchanged:
+                let byte_to_corrupt =
+                  (self.state.random_state.lock().random::<f64>() * length as f64) as usize;
+                if byte_to_corrupt > 0 {
+                  temp_out.copy_bytes(&mut ii, byte_to_corrupt)?;
+                }
+
+                // Randomly flip one bit from this byte:
+                let mut b = ii.read_byte()?;
+                let bit_to_flip = self.state.random_state.lock().random_range(0..8);
+                b ^= 1 << bit_to_flip;
+                temp_out.write_byte(b)?;
+
+                action_text =
+                  format!("flip bit {bit_to_flip} of byte {byte_to_corrupt} out of {length} bytes");
+
+                // Copy last part unchanged:
+                let bytes_left = length - byte_to_corrupt - 1;
+                if bytes_left > 0 {
+                  temp_out.copy_bytes(&mut ii, bytes_left)?;
+                }
               }
-
-              // Randomly flip one bit from this byte:
-              let mut b = ii.read_byte()?;
-              let bit_to_flip = self.state.random_state.lock().random_range(0..8);
-              b ^= 1 << bit_to_flip;
-              temp_out.write_byte(b)?;
-
-              action_text =
-                format!("flip bit {bit_to_flip} of byte {byte_to_corrupt} out of {length} bytes");
-
-              // Copy last part unchanged:
-              let bytes_left = length - byte_to_corrupt - 1;
-              if bytes_left > 0 {
-                temp_out.copy_bytes(&mut ii, bytes_left)?;
-              }
-            }
-            ii.close()?;
-            temp_out.close()?;
-            temp_file_name
-          };
+              Ok(temp_file_name)
+            })();
+            let result = IOUtils::use_or_suppress_result(result, ii.close());
+            IOUtils::use_or_suppress_result(result, temp_out.close())
+          })()?;
 
           // Delete original and copy bytes back:
           self.delete_file(&name)?;
 
-          {
+          (|| -> Result<()> {
             let base = self.state.base.lock();
-            let mut out = base
-              .get_delegate()
-              .create_output(&name, &IOContext::default_io_context()?)?;
-            let mut ii = base
-              .get_delegate()
-              .open_input(&temp_file_name, &IOContext::default_io_context()?)?;
-            let length = ii.length()?;
-            out.copy_bytes(&mut ii, length)?;
-            ii.close()?;
-            out.close()?;
-          }
+            let mut out = base.get_delegate().create_output(
+              &name,
+              &new_io_context(&mut *self.state.random_state.lock())?,
+            )?;
+            let mut ii = match base.get_delegate().open_input(
+              &temp_file_name,
+              &new_io_context(&mut *self.state.random_state.lock())?,
+            ) {
+              Ok(ii) => ii,
+              Err(error) => return IOUtils::use_or_suppress_result(Err(error), out.close()),
+            };
+            let result = (|| -> Result<()> {
+              let length = ii.length()?;
+              out.copy_bytes(&mut ii, length)
+            })();
+            let result = IOUtils::use_or_suppress_result(result, ii.close());
+            IOUtils::use_or_suppress_result(result, out.close())
+          })()?;
 
           self.delete_file(&temp_file_name)?;
           action = action_text;
@@ -528,14 +560,12 @@ where
           // Totally truncate the file to zero bytes
           self.delete_file(&name)?;
 
-          let mut out = self
-            .state
-            .base
-            .lock()
-            .get_delegate()
-            .create_output(&name, &IOContext::default_io_context()?)?;
-          let _ = out.get_file_pointer()?; // just fake access to prevent compiler warning
-          out.close()?;
+          let mut out = self.state.base.lock().get_delegate().create_output(
+            &name,
+            &new_io_context(&mut *self.state.random_state.lock())?,
+          )?;
+          let result = out.get_file_pointer().map(|_| ()); // just fake access to prevent compiler warning
+          IOUtils::use_or_suppress_result(result, out.close())?;
         },
 
         _ => {
@@ -915,8 +945,7 @@ where
     })();
 
     let close_result = self.state.base.lock().in_.close();
-    result?;
-    close_result
+    IOUtils::use_or_suppress_result(result, close_result)
   }
 }
 

@@ -35,6 +35,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::fields::Fields;
 use crate::core::index::flush_policy::ApplyDeletesFlushPolicy;
 use crate::core::index::index_commit::IndexCommit;
@@ -91,6 +92,7 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{LATEST, StringHelper};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_analyzer::{MockAnalyzer, MockTokenFilter};
@@ -104,10 +106,11 @@ use crate::test_framework::core::index::test_index_writer::{
   STORED_TEXT_TYPE, add_doc, add_doc_with_index, assert_no_unreferenced_files,
 };
 use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
+use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir, get_only_leaf_reader, new_directory_shared, new_field,
-  new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
-  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_merge_policy,
+  at_least, call_stack_contains, create_temp_dir, get_only_leaf_reader, new_directory_shared,
+  new_field, new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_io_context, new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_merge_policy,
   new_mock_directory, new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field,
   new_text_field, random, random_from_seed, rarely, slow_file_exists,
 };
@@ -3773,9 +3776,12 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
 #[test]
 fn test_check_pending_flush_post_update() -> Result<()> {
   let mut random = random();
-
-  // TODO IMPORTANT MockDirectoryWrapper未实现
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+  let flushing_threads = Arc::new(Mutex::new(HashSet::new()));
+  dir.fail_on(Box::new(FlushFailure {
+    flushing_threads: Arc::clone(&flushing_threads),
+    do_fail: false,
+  }));
   let mut config = IndexWriterConfig::new()?;
   config.get_base_mut().check_pending_flush_on_update = false;
   config.set_max_buffered_docs(i32::MAX);
@@ -3784,11 +3790,12 @@ fn test_check_pending_flush_post_update() -> Result<()> {
   let done = AtomicBool::new(false);
   let num_threads = 2 + random.random_range(0..3);
   let latch = Barrier::new(num_threads + 1);
+  let indexing_threads = Arc::new(Mutex::new(HashSet::new()));
 
-  thread::scope(|scope| -> Result<()> {
+  let body_result = thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::new();
     for _ in 0..num_threads {
-      threads.push(scope.spawn(|| -> Result<()> {
+      let thread = scope.spawn(|| -> Result<()> {
         latch.wait();
         let mut num_docs = 0;
         while !done.load(SeqCst) {
@@ -3801,7 +3808,12 @@ fn test_check_pending_flush_post_update() -> Result<()> {
           num_docs += 1;
         }
         Ok(())
-      }));
+      });
+      indexing_threads
+        .lock()
+        .unwrap()
+        .insert(thread.thread().id());
+      threads.push(thread);
     }
     latch.wait();
 
@@ -3814,7 +3826,28 @@ fn test_check_pending_flush_post_update() -> Result<()> {
       for _ in 0..num_iters {
         wait_for_docs_in_buffers(&w, std::cmp::min(2, num_threads));
         w.commit()?;
-        // TODO IMPORTANT MockDirectoryWrapper未实现, 无法断言flush发生在当前线程且不在indexing线程.
+        let mut flushing_threads = flushing_threads.lock().unwrap();
+        assert!(
+          flushing_threads.contains(&thread::current().id()),
+          "{flushing_threads:?}"
+        );
+        flushing_threads.retain(|thread| indexing_threads.lock().unwrap().contains(thread));
+        assert!(flushing_threads.is_empty(), "{flushing_threads:?}");
+      }
+      w.get_config_mut()
+        .get_base_mut()
+        .check_pending_flush_on_update = true;
+      let mut num_iters = 0;
+      loop {
+        assert!(num_iters < 100, "should finish in less than 100 iterations");
+        num_iters += 1;
+        wait_for_docs_in_buffers(&w, std::cmp::min(2, num_threads));
+        w.flush()?;
+        let mut flushing_threads = flushing_threads.lock().unwrap();
+        flushing_threads.retain(|thread| indexing_threads.lock().unwrap().contains(thread));
+        if !flushing_threads.is_empty() {
+          break;
+        }
       }
       Ok(())
     })();
@@ -3824,9 +3857,36 @@ fn test_check_pending_flush_post_update() -> Result<()> {
       handle.join().expect("thread panicked")?;
     }
     result
-  })?;
-  w.close()?;
-  Ok(())
+  });
+  let writer_close_result = w.close();
+  let mut dir_to_close = dir.as_ref().clone();
+  let close_result = IOUtils::use_or_suppress_result(writer_close_result, dir_to_close.close());
+  IOUtils::use_or_suppress_result(body_result, close_result)
+}
+
+struct FlushFailure {
+  flushing_threads: Arc<Mutex<HashSet<thread::ThreadId>>>,
+  do_fail: bool,
+}
+
+impl<D> Failure<D> for FlushFailure
+where
+  D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if call_stack_contains::<DocumentsWriterPerThread<D>>("flush") {
+      self
+        .flushing_threads
+        .lock()
+        .unwrap()
+        .insert(thread::current().id());
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
 }
 
 fn wait_for_docs_in_buffers<D>(w: &IndexWriter<D>, buffers_with_docs: usize)

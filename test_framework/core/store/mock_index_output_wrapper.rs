@@ -20,6 +20,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
@@ -230,24 +231,20 @@ where
     }
     self.closed = true;
 
-    let deterministic_result = self.dir.maybe_throw_deterministic_exception();
+    let result = self.dir.maybe_throw_deterministic_exception();
     let close_result = self.out.close();
+    let result = IOUtils::use_or_suppress_result(result, close_result);
     self.dir.remove_index_output(self.handle_id, &self.name);
-    let track_result = if self.dir.state.track_disk_usage.load(Ordering::SeqCst) {
+    if self.dir.state.track_disk_usage.load(Ordering::SeqCst) {
       // Now compute actual disk usage & track the maxUsedSize
       // in the MockDirectoryWrapper:
       let size = self.dir.size_in_bytes()? as i64;
       if size > self.dir.state.max_used_size.load(Ordering::SeqCst) {
         self.dir.state.max_used_size.store(size, Ordering::SeqCst);
       }
-      Ok(())
-    } else {
-      Ok(())
-    };
+    }
 
-    deterministic_result?;
-    close_result?;
-    track_result
+    result
   }
 }
 

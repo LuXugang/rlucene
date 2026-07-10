@@ -640,8 +640,9 @@ macro_rules! either_directory {
             $( $T: Directory ),+
         {
             fn close(&mut self) -> Result<()> {
-                // TODO
-                Ok(())
+                match self {
+                    $( Self::$Variant(inner) => inner.close(), )+
+                }
             }
         }
 

@@ -17,10 +17,12 @@
 use crate::core::store::data_input::DataInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
+use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::read_advice::ReadAdvice;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -156,13 +158,14 @@ where
       return Ok(());
     }
 
-    if self.parent.is_none() {
-      self.dir.remove_index_input(self.handle_id, &self.name);
-    }
-    let deterministic_result = self.dir.maybe_throw_deterministic_exception();
+    let result = {
+      if self.parent.is_none() {
+        self.dir.remove_index_input(self.handle_id, &self.name);
+      }
+      self.dir.maybe_throw_deterministic_exception()
+    };
     let close_result = self.in_.close();
-    deterministic_result?;
-    close_result
+    IOUtils::use_or_suppress_result(result, close_result)
   }
 }
 
@@ -417,6 +420,54 @@ where
     self.ensure_accessible()?;
     *self.read_advice.lock() = read_advice;
     self.in_.update_read_advice(read_advice)
+  }
+}
+
+impl<D, I> RandomAccessInput for MockIndexInputWrapper<D, I>
+where
+  D: Directory,
+  I: IndexInput + RandomAccessInput,
+{
+  fn length(&self) -> Result<usize> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::length(&self.in_)
+  }
+
+  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::read_byte(&mut self.in_, pos)
+  }
+
+  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::read_bytes(&mut self.in_, pos, buf, offset, len)
+  }
+
+  fn read_short(&mut self, pos: usize) -> Result<i16> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::read_short(&mut self.in_, pos)
+  }
+
+  fn read_int(&mut self, pos: usize) -> Result<i32> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::read_int(&mut self.in_, pos)
+  }
+
+  fn read_long(&mut self, pos: usize) -> Result<i64> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::read_long(&mut self.in_, pos)
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::prefetch(&mut self.in_, pos, len)
   }
 }
 
@@ -710,6 +761,68 @@ where
     match self {
       Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
         inner.update_read_advice(read_advice)
+      },
+    }
+  }
+}
+
+impl<D, I> RandomAccessInput for MockDirectoryIndexInput<D, I>
+where
+  D: Directory,
+  I: IndexInput + RandomAccessInput,
+{
+  fn length(&self) -> Result<usize> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::length(inner)
+      },
+    }
+  }
+
+  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::read_byte(inner, pos)
+      },
+    }
+  }
+
+  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::read_bytes(inner, pos, buf, offset, len)
+      },
+    }
+  }
+
+  fn read_short(&mut self, pos: usize) -> Result<i16> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::read_short(inner, pos)
+      },
+    }
+  }
+
+  fn read_int(&mut self, pos: usize) -> Result<i32> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::read_int(inner, pos)
+      },
+    }
+  }
+
+  fn read_long(&mut self, pos: usize) -> Result<i64> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::read_long(inner, pos)
+      },
+    }
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::prefetch(inner, pos, len)
       },
     }
   }

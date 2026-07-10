@@ -53,6 +53,7 @@ mod test_index_writer_force_merge;
 pub mod test_index_writer_merge_policy;
 pub(crate) mod test_index_writer_reader;
 mod test_index_writer_threads_to_segments;
+mod test_index_writer_with_threads;
 mod test_indexing_sequence_numbers;
 mod test_int_block_pool;
 mod test_lockable_concurrent_approximate_priority_queue;
