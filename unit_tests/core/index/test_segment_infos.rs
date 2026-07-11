@@ -33,8 +33,11 @@ use crate::core::search::sort::Sort;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{LATEST, LUCENE_9_0_0, LUCENE_10_1_1, StringHelper};
+use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
@@ -453,20 +456,27 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
           let mut input = directory.open_input(&file, &io_context)?;
           let mut output = corrupt_dir.create_output(&file, &io_context)?;
 
-          let mut input_length = IndexInput::length(&input)?;
-          let corrupt_index = TestUtil::next_usize(&mut random, 0, input_length - 1);
-          output.copy_bytes(&mut input, corrupt_index)?;
+          let copy_result = (|| -> Result<()> {
+            let mut input_length = IndexInput::length(&input)?;
+            let corrupt_index = TestUtil::next_usize(&mut random, 0, input_length - 1);
+            output.copy_bytes(&mut input, corrupt_index)?;
 
-          let byte = DataInput::read_byte(&mut input)?;
-          let value = random.random_range(0x01..=0xff);
-          let corrupt_byte = byte.wrapping_add(value);
-          output.write_byte(corrupt_byte)?;
-          input_length = IndexInput::length(&input)?;
-          let file_pointer = input.get_file_pointer()?;
-          output.copy_bytes(&mut input, input_length - file_pointer)?;
+            let byte = DataInput::read_byte(&mut input)?;
+            let value = random.random_range(0x01..=0xff);
+            let corrupt_byte = byte.wrapping_add(value);
+            output.write_byte(corrupt_byte)?;
+            input_length = IndexInput::length(&input)?;
+            let file_pointer = input.get_file_pointer()?;
+            output.copy_bytes(&mut input, input_length - file_pointer)?;
+            Ok(())
+          })();
+          let close_result = IOUtils::use_or_suppress_result(output.close(), input.close());
+          IOUtils::use_or_suppress_result(copy_result, close_result)?;
         }
-        let input = corrupt_dir.open_input(&file, &io_context)?;
-        match CodecUtil::checksum_entire_file(&input) {
+        let mut input = corrupt_dir.open_input(&file, &io_context)?;
+        let checksum_result = CodecUtil::checksum_entire_file(&input);
+        let checksum_result = IOUtils::use_or_suppress_result(checksum_result, input.close());
+        match checksum_result {
           Ok(_) => {
             if cfg!(feature = "test_log_verbose") {
               println!("TEST: Altering the file did not update the checksum, aborting...");
@@ -479,7 +489,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
           Err(err) => return Err(err),
         }
         corrupt = true;
-      } else if file.eq("extra0") {
+      } else if file != EXTRA_FILE_NAME {
         corrupt_dir.copy_from(directory, &file, &file, &io_context)?;
       }
     }
@@ -493,9 +503,8 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     Err(LuceneError::CorruptIndex(_))
     | Err(LuceneError::IndexFormatTooOld(_))
     | Err(LuceneError::IndexFormatTooNew(_)) => {},
-    _ => {
-      unreachable!()
-    },
+    Err(error) => panic!("unexpected error: {error:?}"),
+    Ok(_) => panic!("expected an error"),
   }
 
   Ok(())

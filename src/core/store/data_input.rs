@@ -221,7 +221,7 @@ pub trait DataInput: Display + Closeable {
     let length = self.read_vint()?.try_convert()?;
     let mut bytes = vec![0u8; length];
     self.read_bytes(&mut bytes, 0, length)?;
-    Ok(String::from_utf8(bytes)?)
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
   }
 
   /// Reads a `HashMap<String, String>` previously written with

@@ -87,7 +87,10 @@ impl Term {
   /// Returns a human-readable form of the term text. If the term is not valid
   /// UTF-8, the raw bytes will be printed instead.
   pub fn get_string(term_text: &BytesRef<Vec<u8>>) -> Result<String> {
-    term_text.utf8_to_string()
+    match term_text.utf8_to_string() {
+      Ok(text) => Ok(text),
+      Err(_) => Ok(term_text.to_string()),
+    }
   }
 
   /// Returns the text of this term. In the case of words, this is simply the

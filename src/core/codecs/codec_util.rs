@@ -429,7 +429,7 @@ impl CodecUtil {
     let suffix_length = data_input.read_byte()?;
     let mut suffix: Vec<u8> = vec![0u8; suffix_length as usize];
     data_input.read_bytes(&mut suffix, 0, suffix_length as usize)?;
-    let actual_suffix = String::from_utf8(suffix)?;
+    let actual_suffix = String::from_utf8_lossy(&suffix).into_owned();
     if actual_suffix != expected_suffix {
       return Err(LuceneError::corrupt_index(format!(
         "file mismatch, expected suffix={expected_suffix}, got={actual_suffix} (resource={data_input})"
