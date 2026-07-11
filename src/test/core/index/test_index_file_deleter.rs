@@ -18,20 +18,24 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
+  at_least, call_stack_contains, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy_with_merge_factor_cfs, new_mock_directory, new_string_field, new_text_field,
   random, slow_file_exists,
 };
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
+use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -42,13 +46,15 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::store::mock_directory_wrapper::{
+  Failure, FakeIOException, MockDirectoryWrapper, Throttling,
+};
 #[allow(dead_code)] // for quick search
 struct TestIndexFileDeleter;
 
-use crate::core::index::index_file_deleter::inflate_gens;
+use crate::core::index::index_file_deleter::{IndexFileDeleter, inflate_gens};
 use std::collections::HashSet;
-use std::fmt::{Display, Formatter};
 use std::io::Error;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -503,14 +509,174 @@ where
 
 #[test]
 fn test_exc_in_dec_ref() -> Result<()> {
-  // TODO IMPORTANT callStackContains(IndexFileDeleter::dec_ref) 失败注入未实现
+  // LUCENE-5919
+  let mut random = random();
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+
+  // disable slow things: we don't rely upon sleeps here.
+  dir.set_throttling(Throttling::Never);
+  dir.set_use_slow_open_closers(false);
+
+  let do_fail_exc = Arc::new(AtomicBool::new(false));
+  dir.fail_on(Box::new(FailInDecRef {
+    do_fail: false,
+    do_fail_exc: do_fail_exc.clone(),
+  }));
+
+  let mock = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  // TODO ConcurrentMergeScheduler未重载
+  if let MergeSchedulerEnum::Concurrent(cms) = config.get_merge_scheduler() {
+    cms.set_suppress_exceptions();
+  }
+
+  let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
+
+  // Since we hit exc during merging, a partial
+  // forceMerge can easily return when there are still
+  // too many segments in the index:
+  w.set_do_random_force_merge_assert(false);
+
+  do_fail_exc.store(true, Ordering::SeqCst);
+  let iters = at_least(&mut random, 1000);
+  let mut field_types = HashMap::new();
+  for _ in 0..iters {
+    let result = if random.random_range(0..10) == 5 {
+      w.commit(&mut random).map(|_| ())
+    } else if random.random_range(0..10) == 7 {
+      w.get_reader(&mut random).and_then(|reader| reader.close())
+    } else {
+      let mut doc = Document::new();
+      doc.add(new_text_field(
+        &mut random,
+        "field",
+        "some text",
+        Store::No,
+        &mut field_types,
+      )?);
+      w.add_document(&mut random, doc).map(|_| ())
+    };
+    if let Err(error) = result
+      && !error.to_string().contains("fake fail")
+    {
+      return Err(error);
+    }
+  }
+
+  do_fail_exc.store(false, Ordering::SeqCst);
+  w.close(&mut random)?;
+  let mut dir_to_close = dir.as_ref().clone();
+  dir_to_close.close()?;
   Ok(())
 }
 
+// LUCENE-6835: make sure best-effort to not create an "apparently but not really" corrupt index
+// is working:
 #[test]
 fn test_exc_in_delete_file() -> Result<()> {
-  // TODO IMPORTANT callStackContains未实现
+  let mut random = random();
+  let iters = at_least(&mut random, 10);
+  for iter in 0..iters {
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: iter={iter}");
+    }
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+    let do_fail_exc = Arc::new(AtomicBool::new(false));
+    dir.fail_on(Box::new(FailInDeleteFile {
+      do_fail: false,
+      do_fail_exc: do_fail_exc.clone(),
+    }));
+
+    let mut config = new_index_writer_config(&mut random)?;
+    config.set_merge_scheduler(SerialMergeScheduler::new());
+    let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
+    w.add_document(&mut random, Document::new())?;
+
+    // makes segments_1
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: now commit");
+    }
+    w.commit(&mut random)?;
+
+    w.add_document(&mut random, Document::new())?;
+    do_fail_exc.store(true, Ordering::SeqCst);
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: now close");
+    }
+    if let Err(error) = w.close(&mut random) {
+      assert!(
+        error.to_string().contains("a fake IOException"),
+        "unexpected error: {error}"
+      );
+      if cfg!(feature = "test_log_verbose") {
+        eprintln!("TEST: got expected exception: {error:?}");
+      }
+    } else if cfg!(feature = "test_log_verbose") {
+      println!("TEST: no exception (ok)");
+    }
+    do_fail_exc.store(false, Ordering::SeqCst);
+    assert!(!w.w.is_open());
+
+    for name in dir.list_all()? {
+      if name.starts_with(IndexFileNames::SEGMENTS) {
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: now read {name}");
+        }
+        SegmentInfos::read_commit(dir.clone(), &name)?;
+      }
+    }
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
+  }
   Ok(())
+}
+
+struct FailInDecRef {
+  do_fail: bool,
+  do_fail_exc: Arc<AtomicBool>,
+}
+
+impl<D> Failure<D> for FailInDecRef
+where
+  D: Directory,
+{
+  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.do_fail_exc.load(Ordering::SeqCst)
+      && dir.state.random_state.lock().random_range(0..4) == 1
+      && call_stack_contains::<IndexFileDeleter<D>>("dec_ref")
+    {
+      return Err(LuceneError::illegal_state("fake fail"));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
+}
+
+struct FailInDeleteFile {
+  do_fail: bool,
+  do_fail_exc: Arc<AtomicBool>,
+}
+
+impl<D> Failure<D> for FailInDeleteFile
+where
+  D: Directory,
+{
+  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.do_fail_exc.load(Ordering::SeqCst)
+      && dir.state.random_state.lock().random_range(0..4) == 1
+      && call_stack_contains::<MockDirectoryWrapper<D>>("delete_file")
+    {
+      return Err(LuceneError::io(Error::other(FakeIOException)));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
 }
 
 #[test]
@@ -545,8 +711,8 @@ fn test_throw_exception_while_delete_commits() -> Result<()> {
         assert!(
           source
             .get_ref()
-            .is_some_and(|source| source.is::<FakeDeleteCommitsIOException>()),
-          "expected FakeDeleteCommitsIOException, got {source}"
+            .is_some_and(|source| source.is::<FakeIOException>()),
+          "expected FakeIOException, got {source}"
         );
       },
       other => return Err(other),
@@ -560,21 +726,9 @@ fn test_throw_exception_while_delete_commits() -> Result<()> {
   writer.close()?;
   Ok(())
 }
-#[derive(Debug)]
-struct FakeDeleteCommitsIOException;
-
-impl Display for FakeDeleteCommitsIOException {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "fake delete commits IO exception")
-  }
-}
-
-impl std::error::Error for FakeDeleteCommitsIOException {}
-
 struct FailOnDeleteCommits {
   do_fail: bool,
   fail_on_delete_commits: Arc<AtomicBool>,
-  thrown: bool,
 }
 
 impl FailOnDeleteCommits {
@@ -582,7 +736,6 @@ impl FailOnDeleteCommits {
     Self {
       do_fail: true,
       fail_on_delete_commits,
-      thrown: false,
     }
   }
 }
@@ -592,9 +745,13 @@ where
   D: Directory,
 {
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.do_fail && self.fail_on_delete_commits.load(Ordering::SeqCst) && !self.thrown {
-      self.thrown = true;
-      return Err(LuceneError::io(Error::other(FakeDeleteCommitsIOException)));
+    if self.do_fail
+      && self.fail_on_delete_commits.load(Ordering::SeqCst)
+      && call_stack_contains::<IndexFileDeleter<D>>("delete_commits")
+      && call_stack_contains::<MockDirectoryWrapper<D>>("delete_file")
+      && _dir.state.random_state.lock().random_range(0..4) == 1
+    {
+      return Err(LuceneError::io(Error::other(FakeIOException)));
     }
     Ok(())
   }

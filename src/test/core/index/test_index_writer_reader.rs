@@ -43,21 +43,26 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::Comparator;
-use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
 use crate::test_framework::core::index::test_index_writer_reader::{count, create_index_no_close};
+use crate::test_framework::core::store::mock_directory_wrapper::{
+  Failure, FakeIOException, MockDirectoryWrapper,
+};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
-  new_mock_directory, new_text_field, random, random_from_seed,
+  at_least, call_stack_contains_any_of, is_night_mode, new_directory_shared,
+  new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_merge_factor, new_mock_directory, new_text_field, random,
+  random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::io::Error;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -1017,8 +1022,82 @@ fn test_reopen_after_no_real_change() -> Result<()> {
 
 #[test]
 fn test_nrt_open_exceptions() -> Result<()> {
-  // TODO callStackContainsAnyOf未实现
+  // LUCENE-5262: test that several failed attempts to obtain an NRT reader
+  // don't leak file handles.
+  let mut random = random();
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+  let should_fail = Arc::new(AtomicBool::new(false));
+  dir.fail_on(Box::new(FailOnGetReadOnlyClone {
+    do_fail: false,
+    should_fail: should_fail.clone(),
+  }));
+
+  let mock = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  conf.set_max_full_flush_merge_wait_millis(0);
+  conf.set_merge_policy(NoMergePolicy::default()); // prevent merges from getting in the way
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+
+  // create a segment and open an NRT reader
+  writer.add_document(Document::new())?;
+  directory_reader::open_from_writer(&writer)?.close()?;
+
+  // add a new document so a new NRT reader is required
+  writer.add_document(Document::new())?;
+
+  // try to obtain an NRT reader twice: first time it fails and closes all the
+  // other NRT readers. second time it fails, but also fails to close the
+  // other NRT reader, since it is already marked closed!
+  for _ in 0..2 {
+    should_fail.store(true, AtomicOrdering::SeqCst);
+    match directory_reader::open_from_writer(&writer) {
+      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+        assert!(
+          source
+            .get_ref()
+            .is_some_and(|source| source.is::<FakeIOException>()),
+          "expected FakeIOException, got {source}"
+        );
+      },
+      Err(error) => return Err(error),
+      Ok(reader) => {
+        reader.close()?;
+        panic!("expected FakeIOException");
+      },
+    }
+  }
+
+  writer.close()?;
+  let mut dir_to_close = dir.as_ref().clone();
+  dir_to_close.close()?;
   Ok(())
+}
+
+struct FailOnGetReadOnlyClone {
+  do_fail: bool,
+  should_fail: Arc<AtomicBool>,
+}
+
+impl<D> Failure<D> for FailOnGetReadOnlyClone
+where
+  D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.should_fail.load(AtomicOrdering::SeqCst)
+      && call_stack_contains_any_of(&["get_read_only_clone"])
+    {
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: now fail; exc:");
+      }
+      self.should_fail.store(false, AtomicOrdering::SeqCst);
+      return Err(LuceneError::io(Error::other(FakeIOException)));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
 }
 
 #[test]

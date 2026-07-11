@@ -29,21 +29,26 @@ use crate::core::index::index_writer::{IndexWriter, IndexWriterHooks, IndexWrite
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
+use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
+use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::lucene_test_case::{
-  is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, new_mock_directory, random,
+  call_stack_contains_any_of, is_night_mode, new_directory_shared,
+  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
+  new_mock_directory, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
+use std::io::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -52,9 +57,136 @@ use std::time::Duration;
 #[allow(dead_code)] // for quick search
 struct TestConcurrentMergeScheduler;
 
+#[derive(Clone)]
+struct FailOnlyOnFlush {
+  do_fail: Arc<AtomicBool>,
+  hit_exc: Arc<AtomicBool>,
+  test_thread: thread::ThreadId,
+  trait_do_fail: bool,
+}
+
+impl FailOnlyOnFlush {
+  fn set_do_fail(&self) {
+    self.do_fail.store(true, Ordering::SeqCst);
+    self.hit_exc.store(false, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&self) {
+    self.do_fail.store(false, Ordering::SeqCst);
+  }
+}
+
+impl<D> Failure<D> for FailOnlyOnFlush
+where
+  D: Directory,
+{
+  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.do_fail.load(Ordering::SeqCst)
+      && thread::current().id() == self.test_thread
+      && call_stack_contains_any_of(&["flush"])
+      && !call_stack_contains_any_of(&["close"])
+      && dir.state.random_state.lock().random_bool(0.5)
+    {
+      self.hit_exc.store(true, Ordering::SeqCst);
+      return Err(LuceneError::io(Error::other(format!(
+        "{:?}: now failing during flush",
+        thread::current().id()
+      ))));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.trait_do_fail
+  }
+}
+
+// Make sure running BG merges still work fine even when
+// we are hitting exceptions during flushing.
+#[allow(clippy::never_loop)]
 #[test]
 fn test_flush_exceptions() -> Result<()> {
-  // TODO callStackContainsAnyOf未实现
+  // TODO SuppressingConcurrentMergeScheduler未实现
+  let mut random = random();
+  let directory = Arc::new(new_mock_directory(&mut random)?);
+  let failure = FailOnlyOnFlush {
+    do_fail: Arc::new(AtomicBool::new(false)),
+    hit_exc: Arc::new(AtomicBool::new(false)),
+    test_thread: thread::current().id(),
+    trait_do_fail: false,
+  };
+  directory.fail_on(Box::new(failure.clone()));
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_max_buffered_docs(2);
+  if matches!(iwc.get_merge_scheduler(), MergeSchedulerEnum::Concurrent(_)) {
+    let merge_scheduler = ConcurrentMergeScheduler::new();
+    merge_scheduler.set_suppress_exceptions();
+    iwc.set_merge_scheduler(merge_scheduler);
+  }
+  let writer = IndexWriter::new(directory.clone(), iwc)?;
+
+  'outer: for i in 0..10 {
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: iter={i}");
+    }
+
+    for j in 0..20 {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string(
+        "id",
+        (i * 20 + j).to_string(),
+        Store::Yes,
+      )?);
+      // Add knn float vectors to test parallel merge
+      doc.add(KnnFloatVectorField::new(
+        "knn",
+        vec![random.random::<f32>(), random.random::<f32>()],
+      )?);
+      writer.add_document(doc)?;
+    }
+
+    // must cycle here because sometimes the merge flushes
+    // the doc we just added and so there's nothing to
+    // flush, and we don't hit the exception
+    loop {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("id", "", Store::Yes)?);
+      doc.add(KnnFloatVectorField::new("knn", vec![0.0, 0.0])?);
+      writer.add_document(doc)?;
+      failure.set_do_fail();
+      match writer.flush() {
+        Ok(()) => {
+          if failure.hit_exc.load(Ordering::SeqCst) {
+            return Err(LuceneError::illegal_state("failed to hit IOException"));
+          }
+        },
+        Err(error @ (LuceneError::Io { .. } | LuceneError::IoWithPath { .. })) => {
+          if cfg!(feature = "test_log_verbose") {
+            eprintln!("{error:?}");
+          }
+          failure.clear_do_fail();
+          // make sure we are closed or closing - if we are unlucky a merge does
+          // the actual closing for us. this is rare but might happen since the
+          // tragicEvent is checked by IFD and that might throw during a merge
+          assert!(matches!(
+            writer.ensure_open(),
+            Err(LuceneError::AlreadyClosed(_))
+          ));
+          // Abort should have closed the deleter:
+          assert!(writer.is_deleter_closed()?);
+          writer.close()?; // now wait for the close to actually happen if a merge thread did the
+          // close.
+          break 'outer;
+        },
+        Err(error) => return Err(error),
+      }
+    }
+  }
+
+  assert!(!directory_reader::index_exists(directory.as_ref())?);
+  let mut directory_to_close = directory.as_ref().clone();
+  directory_to_close.close()?;
   Ok(())
 }
 

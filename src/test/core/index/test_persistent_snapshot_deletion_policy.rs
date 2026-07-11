@@ -36,7 +36,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_mock_directory, random,
+  call_stack_contains, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_mock_directory, random,
 };
 
 #[allow(dead_code)] // for quick search
@@ -45,7 +46,6 @@ struct TestPersistentSnapshotDeletionPolicy;
 struct FailOnPersist {
   do_fail: bool,
   fail_on_persist: Arc<AtomicBool>,
-  thrown: bool,
 }
 
 impl FailOnPersist {
@@ -53,7 +53,6 @@ impl FailOnPersist {
     Self {
       do_fail: true,
       fail_on_persist,
-      thrown: false,
     }
   }
 }
@@ -63,8 +62,10 @@ where
   D: Directory,
 {
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.do_fail && self.fail_on_persist.load(Ordering::SeqCst) && !self.thrown {
-      self.thrown = true;
+    if self.do_fail
+      && self.fail_on_persist.load(Ordering::SeqCst)
+      && call_stack_contains::<PersistentSnapshotDeletionPolicy<D>>("persist")
+    {
       return Err(LuceneError::io(Error::other("now fail on purpose")));
     }
     Ok(())

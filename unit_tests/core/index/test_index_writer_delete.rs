@@ -37,15 +37,14 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
+use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
-#[cfg(feature = "nightly")]
 use crate::core::util::close::Closeable;
-#[cfg(feature = "nightly")]
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -53,14 +52,14 @@ use crate::test_framework::core::analysis::mock_tokenizer;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
-#[cfg(feature = "nightly")]
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::slow_file_exists;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  at_least, call_stack_contains_any_of, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_mock_directory,
   new_searcher_with_reader, new_string_field, new_text_field, random,
 };
 #[cfg(feature = "nightly")]
@@ -859,10 +858,163 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
   start_dir_to_close.close()
 }
 
+#[ignore]
 #[test]
 fn test_error_after_apply_deletes() -> Result<()> {
-  // TODO callStackContainsAnyOf未实现
+  // This test tests that buffered deletes are cleared when
+  // an Exception is hit during flush.
+  let mut random = random();
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+  dir.fail_on(Box::new(FailAfterApplyDeletes {
+    do_fail: false,
+    saw_maybe: false,
+    failed: false,
+    thread: thread::current().id(),
+  }));
+
+  // create a couple of files
+  let keywords = ["1", "2"];
+  let unindexed = ["Netherlands", "Italy"];
+  let unstored = ["Amsterdam has lots of bridges", "Venice has lots of canals"];
+  let text = ["Amsterdam", "Venice"];
+
+  let analyzer =
+    MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let mut merge_policy = new_log_merge_policy(&mut random)?;
+  merge_policy.get_base_mut().set_no_cfs_ratio(1.0)?;
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  config
+    .set_reader_pooling(false)
+    .set_merge_policy(merge_policy);
+  let modifier = IndexWriter::new(dir.clone(), config)?;
+
+  let mut custom1 = FieldType::new();
+  custom1.set_stored(true)?;
+  custom1.freeze();
+  for i in 0..keywords.len() {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", keywords[i], Store::Yes)?);
+    doc.add(Field::new("country", unindexed[i], custom1.clone()));
+    doc.add(TextField::from_string("contents", unstored[i], Store::No)?);
+    doc.add(TextField::from_string("city", text[i], Store::Yes)?);
+    modifier.add_document(doc)?;
+  }
+  // flush
+
+  if cfg!(feature = "test_log_verbose") {
+    println!("TEST: now full merge");
+  }
+  modifier.force_merge(1)?;
+  if cfg!(feature = "test_log_verbose") {
+    println!("TEST: now commit");
+  }
+  modifier.commit()?;
+
+  // one of the two files hits
+  let term = Term::from_text("city", "Amsterdam");
+  let mut hit_count = get_hit_count(dir.clone(), term.clone())?;
+  assert_eq!(1, hit_count);
+
+  // delete the doc
+  // max buf del terms is two, so this is buffered
+  if cfg!(feature = "test_log_verbose") {
+    println!("TEST: delete term={term}");
+  }
+  modifier.delete_documents_with_terms(vec![term.clone()])?;
+
+  // add a doc,
+  // doc remains buffered
+  if cfg!(feature = "test_log_verbose") {
+    println!("TEST: add empty doc");
+  }
+  modifier.add_document(Document::new())?;
+
+  // commit the changes, the buffered deletes, and the new doc
+
+  // The failure object will fail on the first write after the del
+  // file gets created when processing the buffered delete
+
+  // in the ac case, this will be when writing the new segments
+  // files so we really don't need the new doc, but it's harmless
+
+  // a new segments file won't be created but in this
+  // case, creation of the cfs file happens next so we
+  // need the doc (to test that it's okay that we don't
+  // lose deletes if failing while creating the cfs file)
+  if cfg!(feature = "test_log_verbose") {
+    println!("TEST: now commit for failure");
+  }
+  let expected = modifier
+    .commit()
+    .expect_err("commit should fail after applying deletes");
+  assert!(
+    expected.to_string().contains("fail after applyDeletes"),
+    "unexpected error: {expected}"
+  );
+
+  // The commit above failed, so we need to retry it (which will
+  // succeed, because the failure is a one-shot)
+  let writer_closed = match modifier.commit() {
+    Ok(_) => false,
+    Err(LuceneError::IllegalState(_)) | Err(LuceneError::AlreadyClosed(_)) => true,
+    Err(error) => return Err(error),
+  };
+
+  if !writer_closed {
+    hit_count = get_hit_count(dir.clone(), term)?;
+
+    // Make sure the delete was successfully flushed:
+    assert_eq!(0, hit_count);
+
+    modifier.close()?;
+  }
+  let mut dir_to_close = dir.as_ref().clone();
+  dir_to_close.close()?;
   Ok(())
+}
+
+struct FailAfterApplyDeletes {
+  do_fail: bool,
+  saw_maybe: bool,
+  failed: bool,
+  thread: thread::ThreadId,
+}
+
+impl<D> Failure<D> for FailAfterApplyDeletes
+where
+  D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if thread::current().id() != self.thread {
+      // don't fail during merging
+      return Ok(());
+    }
+    if cfg!(feature = "test_log_verbose") {
+      println!("FAIL EVAL:");
+    }
+    if self.saw_maybe && !self.failed {
+      let seen = call_stack_contains_any_of(&["apply_all_deletes_and_updates", "slow_file_exists"]);
+      if !seen {
+        // Only fail once we are no longer in applyDeletes
+        self.failed = true;
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: mock failure: now fail");
+        }
+        return Err(LuceneError::illegal_state("fail after applyDeletes"));
+      }
+    }
+    if !self.failed && call_stack_contains_any_of(&["apply_all_deletes_and_updates"]) {
+      if cfg!(feature = "test_log_verbose") {
+        println!("TEST: mock failure: saw applyDeletes");
+      }
+      self.saw_maybe = true;
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
 }
 
 #[test]

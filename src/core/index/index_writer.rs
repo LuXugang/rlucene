@@ -5726,6 +5726,12 @@ where
   pub fn get_tragic_exception(&self) -> TragicException {
     self.tragedy.clone()
   }
+
+  /// Returns `true` if this `IndexWriter` is still open.
+  pub fn is_open(&self) -> bool {
+    !self.closing.load(Ordering::SeqCst) && !self.closed.load(Ordering::SeqCst)
+  }
+
   fn test_point(&self, message: &str) -> Result<()> {
     if self.enable_test_points {
       debug_assert!(self.info_stream.is_enabled("TP"));

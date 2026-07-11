@@ -25,23 +25,34 @@ use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
+use crate::core::index::indexing_chain::IndexingChain;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::multi_bits;
+use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
+use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::store::ByteBuffersDirectory;
+use crate::core::store::directory::Directory;
+use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, new_mock_directory, random, random_from_seed, rarely,
+  at_least, call_stack_contains, call_stack_contains_any_of, is_night_mode, new_directory_shared,
+  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
+  new_mock_directory, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::Rng;
 use rand::RngExt;
+use std::io::Error;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
@@ -50,6 +61,8 @@ use std::time::Duration;
 struct TestIndexWriterWithThreads;
 
 const SOFT_DELETES_FIELD: &str = "___soft_deletes";
+
+type MockDirectoryDelegate = ByteBuffersDirectory<SingleInstanceLockFactory>;
 
 // Used by test cases below
 fn indexer_thread<D>(
@@ -89,7 +102,7 @@ where
       },
       Err(error)
         if error.to_string().contains("fake disk full at")
-          || error.to_string() == "now failing on purpose" =>
+          || error.to_string().contains("now failing on purpose") =>
       {
         thread::sleep(Duration::from_millis(1));
         if full_count >= 5 {
@@ -262,52 +275,314 @@ fn test_close_with_threads() -> Result<()> {
   Ok(())
 }
 
+// Runs test, with multiple threads, using the specific
+// failure to trigger an IOException
+fn test_multiple_threads_failure<F>(mut failure: F) -> Result<()>
+where
+  F: Failure<MockDirectoryDelegate> + Clone + 'static,
+{
+  const NUM_THREADS: usize = 3;
+  let mut random = random();
+
+  for iter in 0..2 {
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: iter={iter}");
+    }
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    config.set_max_buffered_docs(2);
+    let merge_scheduler = ConcurrentMergeScheduler::new();
+    merge_scheduler.set_suppress_exceptions();
+    config.set_merge_scheduler(merge_scheduler);
+    config.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
+    config.set_commit_on_close(false);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+
+    let sync_start = Barrier::new(NUM_THREADS + 1);
+    let add_counts = (0..NUM_THREADS)
+      .map(|_| AtomicUsize::new(0))
+      .collect::<Vec<_>>();
+    thread::scope(|scope| -> Result<()> {
+      let mut threads = Vec::new();
+      for add_count in &add_counts {
+        let writer = &writer;
+        let sync_start = &sync_start;
+        threads.push(scope.spawn(move || indexer_thread(writer, true, sync_start, add_count)));
+      }
+      sync_start.wait();
+
+      dir.fail_on(Box::new(failure.clone()));
+      failure.set_do_fail();
+
+      for thread in threads {
+        thread.join().expect("thread panicked")?;
+      }
+      Ok(())
+    })?;
+
+    let success = match (|| -> Result<()> {
+      writer.commit()?;
+      writer.close()
+    })() {
+      Ok(()) => true,
+      Err(LuceneError::AlreadyClosed(_)) => {
+        // OK: abort closes the writer
+        assert!(writer.is_deleter_closed()?);
+        false
+      },
+      Err(error @ (LuceneError::Io { .. } | LuceneError::IoWithPath { .. })) => {
+        if cfg!(feature = "test_log_verbose") {
+          eprintln!("{error:?}");
+        }
+        writer.rollback()?;
+        failure.clear_do_fail();
+        false
+      },
+      Err(error) => return Err(error),
+    };
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: success={success}");
+    }
+
+    if success {
+      let reader = directory_reader::open(dir.clone())?;
+      let del_docs = multi_bits::get_live_docs(&reader)?;
+      let mut stored_fields = reader.stored_fields()?;
+      let mut term_vectors = reader.term_vectors()?;
+      for j in 0..reader.max_doc()? {
+        if match &del_docs {
+          Some(del_docs) => !del_docs.get(j as usize)?,
+          None => true,
+        } {
+          stored_fields.document(j)?;
+          term_vectors.get(j)?;
+        }
+      }
+      reader.close()?;
+    }
+
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
+  }
+  Ok(())
+}
+
+// Runs test, with one thread, using the specific failure
+// to trigger an IOException
+fn test_single_thread_failure<F>(mut failure: F) -> Result<()>
+where
+  F: Failure<MockDirectoryDelegate> + Clone + 'static,
+{
+  // TODO SuppressingConcurrentMergeScheduler未实现
+  let mut random = random();
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  config.set_max_buffered_docs(2);
+  let merge_scheduler = ConcurrentMergeScheduler::new();
+  merge_scheduler.set_suppress_exceptions();
+  config.set_merge_scheduler(merge_scheduler);
+  config.set_commit_on_close(false);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  let mut doc = Document::new();
+  let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
+  custom_type.set_store_term_vectors(true)?;
+  custom_type.set_store_term_vector_positions(true)?;
+  custom_type.set_store_term_vector_offsets(true)?;
+  doc.add(Field::new(
+    "field",
+    "aaa bbb ccc ddd eee fff ggg hhh iii jjj",
+    custom_type,
+  ));
+
+  for _ in 0..6 {
+    writer.add_document(doc.clone())?;
+  }
+
+  dir.fail_on(Box::new(failure.clone()));
+  failure.set_do_fail();
+  let result = (|| -> Result<()> {
+    writer.add_document(doc.clone())?;
+    writer.add_document(doc.clone())?;
+    writer.commit()?;
+    Ok(())
+  })();
+  assert!(
+    matches!(
+      result,
+      Err(LuceneError::Io { .. }) | Err(LuceneError::IoWithPath { .. })
+    ),
+    "expected IOException, got {result:?}"
+  );
+
+  failure.clear_do_fail();
+  let result = (|| -> Result<()> {
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.close()
+  })();
+  assert!(
+    matches!(result, Err(LuceneError::AlreadyClosed(_))),
+    "expected AlreadyClosed, got {result:?}"
+  );
+
+  assert!(writer.is_deleter_closed()?);
+  let mut dir_to_close = dir.as_ref().clone();
+  dir_to_close.close()?;
+  Ok(())
+}
+
+// Throws IOException during FieldsWriter.flushDocument and during DocumentsWriter.abort
+#[derive(Clone)]
+struct FailOnlyOnAbortOrFlush {
+  only_once: bool,
+  do_fail: Arc<AtomicBool>,
+  trait_do_fail: bool,
+}
+
+impl FailOnlyOnAbortOrFlush {
+  fn new(only_once: bool) -> Self {
+    Self {
+      only_once,
+      do_fail: Arc::new(AtomicBool::new(false)),
+      trait_do_fail: false,
+    }
+  }
+}
+
+impl<D> Failure<D> for FailOnlyOnAbortOrFlush
+where
+  D: Directory,
+{
+  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    // Since we throw exc during abort, eg when IW is
+    // attempting to delete files, we will leave
+    // leftovers:
+    dir.set_assert_no_unrefenced_files_on_close(false);
+
+    if self.do_fail.load(Ordering::SeqCst)
+      && call_stack_contains_any_of(&["abort", "finish_document"])
+      && !call_stack_contains_any_of(&["merge", "close"])
+    {
+      if self.only_once {
+        self.do_fail.store(false, Ordering::SeqCst);
+      }
+      return Err(LuceneError::io(Error::other("now failing on purpose")));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.trait_do_fail
+  }
+
+  fn set_do_fail(&mut self) {
+    self.do_fail.store(true, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.do_fail.store(false, Ordering::SeqCst);
+  }
+}
+
+// LUCENE-1130: make sure initial IOException, and then 2nd
+// IOException during rollback(), is OK:
 #[test]
 fn test_io_exception_during_abort() -> Result<()> {
-  // TODO FailOnlyOnAbortOrFlush
-  Ok(())
+  test_single_thread_failure(FailOnlyOnAbortOrFlush::new(false))
 }
 
+// LUCENE-1130: make sure initial IOException, and then 2nd
+// IOException during rollback(), is OK:
 #[test]
 fn test_io_exception_during_abort_only_once() -> Result<()> {
-  // TODO FailOnlyOnAbortOrFlush
-  Ok(())
+  test_single_thread_failure(FailOnlyOnAbortOrFlush::new(true))
 }
 
+// LUCENE-1130: make sure initial IOException, and then 2nd
+// IOException during rollback(), with multiple threads, is OK:
 #[test]
 fn test_io_exception_during_abort_with_threads() -> Result<()> {
-  // TODO FailOnlyOnAbortOrFlush
-  Ok(())
+  test_multiple_threads_failure(FailOnlyOnAbortOrFlush::new(false))
 }
 
+// LUCENE-1130: make sure initial IOException, and then 2nd
+// IOException during rollback(), with multiple threads, is OK:
 #[test]
 fn test_io_exception_during_abort_with_threads_only_once() -> Result<()> {
-  // TODO FailOnlyOnAbortOrFlush
-  Ok(())
+  test_multiple_threads_failure(FailOnlyOnAbortOrFlush::new(true))
 }
 
+// Throws IOException during DocumentsWriter.writeSegment
+#[derive(Clone)]
+struct FailOnlyInWriteSegment {
+  only_once: bool,
+  enabled: Arc<AtomicBool>,
+  trait_do_fail: bool,
+}
+
+impl FailOnlyInWriteSegment {
+  fn new(only_once: bool) -> Self {
+    Self {
+      only_once,
+      enabled: Arc::new(AtomicBool::new(false)),
+      trait_do_fail: false,
+    }
+  }
+}
+
+impl<D> Failure<D> for FailOnlyInWriteSegment
+where
+  D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && call_stack_contains::<IndexingChain<D>>("flush") {
+      if self.only_once {
+        self.enabled.store(false, Ordering::SeqCst);
+      }
+      return Err(LuceneError::io(Error::other("now failing on purpose")));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.trait_do_fail
+  }
+
+  fn set_do_fail(&mut self) {
+    self.enabled.store(true, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.enabled.store(false, Ordering::SeqCst);
+  }
+}
+
+// LUCENE-1130: test IOException in writeSegment
 #[test]
 fn test_io_exception_during_write_segment() -> Result<()> {
-  // TODO FailOnlyInWriteSegment未实现
-  Ok(())
+  test_single_thread_failure(FailOnlyInWriteSegment::new(false))
 }
 
+// LUCENE-1130: test IOException in writeSegment
 #[test]
 fn test_io_exception_during_write_segment_only_once() -> Result<()> {
-  // TODO FailOnlyInWriteSegment未实现
-  Ok(())
+  test_single_thread_failure(FailOnlyInWriteSegment::new(true))
 }
 
+// LUCENE-1130: test IOException in writeSegment, with threads
 #[test]
 fn test_io_exception_during_write_segment_with_threads() -> Result<()> {
-  // TODO FailOnlyInWriteSegment未实现
-  Ok(())
+  test_multiple_threads_failure(FailOnlyInWriteSegment::new(false))
 }
 
+// LUCENE-1130: test IOException in writeSegment, with threads
 #[test]
 fn test_io_exception_during_write_segment_with_threads_only_once() -> Result<()> {
-  // TODO FailOnlyInWriteSegment未实现
-  Ok(())
+  test_multiple_threads_failure(FailOnlyInWriteSegment::new(true))
 }
 
 #[test]

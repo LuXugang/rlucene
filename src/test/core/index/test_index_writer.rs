@@ -54,6 +54,7 @@ use crate::core::index::index_writer::{
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
 use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexing_chain::IndexingChain;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -4042,8 +4043,72 @@ fn test_soft_updates_concurrently_mixed_deletes() -> Result<()> {
 
 #[test]
 fn test_delete_happens_before_while_flush() -> Result<()> {
-  // TODO callStackContains未实现
+  let mut random = random();
+  let latch = Arc::new(CountDownLatch::new(1));
+  let in_flush = Arc::new(CountDownLatch::new(1));
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+  dir.fail_on(Box::new(BlockOnIndexingChainFlush {
+    do_fail: false,
+    latch: latch.clone(),
+    in_flush: in_flush.clone(),
+  }));
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+
+  let mut document = Document::new();
+  document.add(StringField::from_string("id", "1", Store::Yes)?);
+  writer.add_document(document.clone())?;
+  let update_document = random.random_bool(0.5);
+  thread::scope(|scope| -> Result<()> {
+    let update_thread = scope.spawn(|| {
+      in_flush.wait();
+      writer.doc_writer.flush_control.set_apply_all_deletes();
+      let result = if update_document {
+        writer
+          .update_document_with_term(Term::from_text("id", "1"), document)
+          .map(|_| ())
+      } else {
+        writer
+          .delete_documents_with_terms(vec![Term::from_text("id", "1")])
+          .map(|_| ())
+      };
+      latch.count_down();
+      result
+    });
+
+    let reader = directory_reader::open_from_writer(&writer)?;
+    assert_eq!(1, reader.num_docs()?);
+    reader.close()?;
+    update_thread.join().expect("update thread panicked")?;
+    Ok(())
+  })?;
+
+  writer.close()?;
+  let mut dir_to_close = dir.as_ref().clone();
+  dir_to_close.close()?;
   Ok(())
+}
+
+struct BlockOnIndexingChainFlush {
+  do_fail: bool,
+  latch: Arc<CountDownLatch>,
+  in_flush: Arc<CountDownLatch>,
+}
+
+impl<D> Failure<D> for BlockOnIndexingChainFlush
+where
+  D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if call_stack_contains::<IndexingChain<D>>("flush") {
+      self.in_flush.count_down();
+      self.latch.wait();
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
 }
 
 fn assert_files<D>(writer: &IndexWriter<D>) -> Result<()>

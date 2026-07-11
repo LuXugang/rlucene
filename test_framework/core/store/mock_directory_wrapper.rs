@@ -80,6 +80,17 @@ pub(crate) enum Throttling {
   Never,
 }
 
+#[derive(Debug)]
+pub(crate) struct FakeIOException;
+
+impl Display for FakeIOException {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "a fake IOException")
+  }
+}
+
+impl std::error::Error for FakeIOException {}
+
 pub(crate) trait Failure<D>: Send
 where
   D: Directory,

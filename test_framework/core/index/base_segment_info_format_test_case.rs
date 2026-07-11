@@ -14,9 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test_framework::core::util::lucene_test_case::{at_least, new_directory_shared};
+use crate::test_framework::core::util::lucene_test_case::{
+  at_least, call_stack_contains_any_of, new_directory_shared, new_mock_directory, random,
+};
 use std::collections::{HashMap, HashSet};
+use std::io::Error;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use num_bigint::BigInt;
 use rand::Rng;
@@ -35,10 +39,15 @@ use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::Closeable;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, Version};
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::store::mock_directory_wrapper::{
+  Failure, FakeIOException, MockDirectoryWrapper,
+};
 use crate::test_framework::core::util::test_util::TestUtil;
+
 
 pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   /// Test files map
@@ -515,20 +524,220 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     Ok(())
   }
+  /// Test segment infos write that hits exception immediately on open. make sure we get our
+  /// exception back, no file handle leaks, etc.
   fn test_exception_on_create_output(&self) -> Result<()> {
-    // TODO
+    let mut random = random();
+    let enabled = Arc::new(AtomicBool::new(false));
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+    dir.fail_on(Box::new(FailOnCreateOutput {
+      do_fail: false,
+      enabled: enabled.clone(),
+    }));
+    let codec = self.get_codec()?;
+    let id = StringHelper::random_id();
+    let mut info = SegmentInfo::new(
+      dir.clone(),
+      Some(self.get_versions()[0].clone()),
+      Some(self.get_versions()[0].clone()),
+      "_123",
+      1,
+      false,
+      false,
+      Some(codec.clone()),
+      HashMap::new(),
+      id,
+      HashMap::new(),
+      None,
+    )?;
+    info.set_files(HashSet::new())?;
+
+    enabled.store(true, Ordering::SeqCst);
+    match codec.segment_info_format().write(
+      dir.as_ref(),
+      &mut info,
+      &IOContext::default_io_context()?,
+    ) {
+      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+        assert!(
+          source
+            .get_ref()
+            .is_some_and(|source| source.is::<FakeIOException>()),
+          "expected FakeIOException, got {source}"
+        );
+      },
+      Err(error) => return Err(error),
+      Ok(()) => panic!("expected FakeIOException"),
+    }
+    enabled.store(false, Ordering::SeqCst);
+
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
     Ok(())
   }
+  /// Test segment infos write that hits exception on close. make sure we get our exception back, no
+  /// file handle leaks, etc.
   fn test_exception_on_close_output(&self) -> Result<()> {
-    // TODO
+    let mut random = random();
+    let enabled = Arc::new(AtomicBool::new(false));
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+    dir.fail_on(Box::new(FailOnCloseOutput {
+      do_fail: false,
+      enabled: enabled.clone(),
+    }));
+    let codec = self.get_codec()?;
+    let id = StringHelper::random_id();
+    let mut info = SegmentInfo::new(
+      dir.clone(),
+      Some(self.get_versions()[0].clone()),
+      Some(self.get_versions()[0].clone()),
+      "_123",
+      1,
+      false,
+      false,
+      Some(codec.clone()),
+      HashMap::new(),
+      id,
+      HashMap::new(),
+      None,
+    )?;
+    info.set_files(HashSet::new())?;
+
+    enabled.store(true, Ordering::SeqCst);
+    match codec.segment_info_format().write(
+      dir.as_ref(),
+      &mut info,
+      &IOContext::default_io_context()?,
+    ) {
+      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+        assert!(
+          source
+            .get_ref()
+            .is_some_and(|source| source.is::<FakeIOException>()),
+          "expected FakeIOException, got {source}"
+        );
+      },
+      Err(error) => return Err(error),
+      Ok(()) => panic!("expected FakeIOException"),
+    }
+    enabled.store(false, Ordering::SeqCst);
+
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
     Ok(())
   }
+  /// Test segment infos read that hits exception immediately on open. make sure we get our exception
+  /// back, no file handle leaks, etc.
   fn test_exception_on_open_input(&self) -> Result<()> {
-    // TODO
+    let mut random = random();
+    let enabled = Arc::new(AtomicBool::new(false));
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+    dir.fail_on(Box::new(FailOnOpenInput {
+      do_fail: false,
+      enabled: enabled.clone(),
+    }));
+    let codec = self.get_codec()?;
+    let id = StringHelper::random_id();
+    let mut info = SegmentInfo::new(
+      dir.clone(),
+      Some(self.get_versions()[0].clone()),
+      Some(self.get_versions()[0].clone()),
+      "_123",
+      1,
+      false,
+      false,
+      Some(codec.clone()),
+      HashMap::new(),
+      id,
+      HashMap::new(),
+      None,
+    )?;
+    info.set_files(HashSet::new())?;
+    codec.segment_info_format().write(
+      dir.as_ref(),
+      &mut info,
+      &IOContext::default_io_context()?,
+    )?;
+
+    enabled.store(true, Ordering::SeqCst);
+    match codec.segment_info_format().read(
+      dir.clone(),
+      "_123",
+      &id,
+      &IOContext::default_io_context()?,
+    ) {
+      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+        assert!(
+          source
+            .get_ref()
+            .is_some_and(|source| source.is::<FakeIOException>()),
+          "expected FakeIOException, got {source}"
+        );
+      },
+      Err(error) => return Err(error),
+      Ok(_) => panic!("expected FakeIOException"),
+    }
+    enabled.store(false, Ordering::SeqCst);
+
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
     Ok(())
   }
+  /// Test segment infos read that hits exception on close make sure we get our exception back, no
+  /// file handle leaks, etc.
   fn test_exception_on_close_input(&self) -> Result<()> {
-    // TODO
+    let mut random = random();
+    let enabled = Arc::new(AtomicBool::new(false));
+    let dir = Arc::new(new_mock_directory(&mut random)?);
+    dir.fail_on(Box::new(FailOnCloseInput {
+      do_fail: false,
+      enabled: enabled.clone(),
+    }));
+    let codec = self.get_codec()?;
+    let id = StringHelper::random_id();
+    let mut info = SegmentInfo::new(
+      dir.clone(),
+      Some(self.get_versions()[0].clone()),
+      Some(self.get_versions()[0].clone()),
+      "_123",
+      1,
+      false,
+      false,
+      Some(codec.clone()),
+      HashMap::new(),
+      id,
+      HashMap::new(),
+      None,
+    )?;
+    info.set_files(HashSet::new())?;
+    codec.segment_info_format().write(
+      dir.as_ref(),
+      &mut info,
+      &IOContext::default_io_context()?,
+    )?;
+
+    enabled.store(true, Ordering::SeqCst);
+    match codec.segment_info_format().read(
+      dir.clone(),
+      "_123",
+      &id,
+      &IOContext::default_io_context()?,
+    ) {
+      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+        assert!(
+          source
+            .get_ref()
+            .is_some_and(|source| source.is::<FakeIOException>()),
+          "expected FakeIOException, got {source}"
+        );
+      },
+      Err(error) => return Err(error),
+      Ok(_) => panic!("expected FakeIOException"),
+    }
+    enabled.store(false, Ordering::SeqCst);
+
+    let mut dir_to_close = dir.as_ref().clone();
+    dir_to_close.close()?;
     Ok(())
   }
 
@@ -658,5 +867,88 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   /// Whether this format records min versions.  */
   fn supports_min_version(&self) -> bool {
     true
+  }
+}
+struct FailOnCreateOutput {
+  do_fail: bool,
+  enabled: Arc<AtomicBool>,
+}
+
+impl<D> Failure<D> for FailOnCreateOutput
+where
+    D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["create_output"]) {
+      return Err(LuceneError::io(Error::other(FakeIOException)));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
+}
+
+struct FailOnCloseOutput {
+  do_fail: bool,
+  enabled: Arc<AtomicBool>,
+}
+
+impl<D> Failure<D> for FailOnCloseOutput
+where
+    D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["close"]) {
+      return Err(LuceneError::io(Error::other(FakeIOException)));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
+}
+
+struct FailOnOpenInput {
+  do_fail: bool,
+  enabled: Arc<AtomicBool>,
+}
+
+impl<D> Failure<D> for FailOnOpenInput
+where
+    D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["open_input"]) {
+      return Err(LuceneError::io(Error::other(FakeIOException)));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
+  }
+}
+
+struct FailOnCloseInput {
+  do_fail: bool,
+  enabled: Arc<AtomicBool>,
+}
+
+impl<D> Failure<D> for FailOnCloseInput
+where
+    D: Directory,
+{
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["close"]) {
+      return Err(LuceneError::io(Error::other(FakeIOException)));
+    }
+    Ok(())
+  }
+
+  fn do_fail_mut(&mut self) -> &mut bool {
+    &mut self.do_fail
   }
 }
