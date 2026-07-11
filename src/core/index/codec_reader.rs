@@ -48,7 +48,9 @@ use crate::core::index::terms::TermsEnum2;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::{Bits, BitsEnum2};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{CoreHelper, TryIntoInt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -373,6 +375,8 @@ pub trait CodecReader: LeafReader {
   }
 
   fn default_check_integrity(&self) -> Result<()> {
+    self.ensure_open()?;
+
     // terms/postings
     if let Some(v) = self.get_postings_reader()? {
       v.check_integrity()?;
@@ -401,7 +405,9 @@ pub trait CodecReader: LeafReader {
     }
 
     // vectors
-    // self.get_vector_reader()?.check_integrity()
+    if let Some(v) = self.get_vector_reader()? {
+      v.check_integrity()?;
+    }
     Ok(())
   }
   fn default_do_close(&self) -> Result<()> {

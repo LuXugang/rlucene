@@ -452,7 +452,7 @@ where
 
           let old_infos =
             SegmentInfos::read_commit(directory_orig.clone(), commit.get_segments_file_name())?;
-          segment_infos.replace(old_infos);
+          segment_infos.replace(old_infos)?;
           changed(&mut change_count, &mut segment_infos);
 
           if info_stream.is_enabled("IW") {
@@ -2534,7 +2534,7 @@ where
       let rollback_segments = inner.rollback_segments.clone();
       inner
         .segment_infos
-        .rollback_segment_infos(rollback_segments);
+        .rollback_segment_infos(rollback_segments)?;
       let rollback_max_doc = inner.segment_infos.total_max_doc()?;
       // now we need to adjust this back to the rolled back SI but don't set it to the absolute
       // value
