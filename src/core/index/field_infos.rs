@@ -31,7 +31,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering::SeqCst;
+use std::sync::atomic::Ordering::Relaxed;
 
 /// Collection of FieldInfos (accessible by number or by name).
 ///
@@ -895,7 +895,7 @@ impl Builder {
     self.by_name.get(field_name).cloned()
   }
   fn assert_not_finished(&self) -> Result<()> {
-    if self.finished.load(SeqCst) {
+    if self.finished.load(Relaxed) {
       return Err(LuceneError::illegal_state(
         "FieldInfos.Builder was already finished; cannot add new fields",
       ));
@@ -903,7 +903,7 @@ impl Builder {
     Ok(())
   }
   pub fn finish(&self) -> Result<FieldInfos> {
-    self.finished.store(true, SeqCst);
+    self.finished.store(true, Relaxed);
     FieldInfos::new(self.by_name.values().cloned().collect())
   }
 }

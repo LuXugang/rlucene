@@ -56,7 +56,6 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
-use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::thread::{self, ThreadId};
 use std::time::{Duration, Instant};
@@ -1686,7 +1685,7 @@ where
   pub fn get_store_merge_info(&self) -> MergeInfo {
     MergeInfo::new(
       self.total_max_doc,
-      self.estimated_merge_bytes.load(Relaxed),
+      self.estimated_merge_bytes.load(Ordering::SeqCst),
       self.is_external,
       self.stat.max_num_segments(),
     )
@@ -2188,12 +2187,12 @@ impl OneMergeProgress {
   }
   /// Abort the merge this progress tracks at the next possible moment.
   pub fn abort(&self) {
-    self.aborted.store(true, Ordering::Relaxed);
+    self.aborted.store(true, Ordering::SeqCst);
     self.wakeup(); // wakeup any paused merge thread.
   }
   /// Return the aborted state of this merge.
   pub fn is_aborted(&self) -> bool {
-    self.aborted.load(Ordering::Relaxed)
+    self.aborted.load(Ordering::SeqCst)
   }
 
   /// Pauses the calling thread for at least `pause_nanos` nanoseconds unless
@@ -2229,7 +2228,7 @@ impl OneMergeProgress {
     let deadline = start + Duration::from_nanos(pause_nanos);
 
     let mut lock = self.pause_lock.lock();
-    while !self.aborted.load(Ordering::Relaxed) && condition() {
+    while !self.aborted.load(Ordering::SeqCst) && condition() {
       let now = Instant::now();
       if now >= deadline {
         break;
@@ -2244,9 +2243,9 @@ impl OneMergeProgress {
 
   fn add_pause_time(&self, reason: PauseReason, nanos: u64) {
     match reason {
-      PauseReason::Stopped => self.pause_times.stopped.fetch_add(nanos, Ordering::Relaxed),
-      PauseReason::Paused => self.pause_times.paused.fetch_add(nanos, Ordering::Relaxed),
-      PauseReason::Other => self.pause_times.other.fetch_add(nanos, Ordering::Relaxed),
+      PauseReason::Stopped => self.pause_times.stopped.fetch_add(nanos, Ordering::SeqCst),
+      PauseReason::Paused => self.pause_times.paused.fetch_add(nanos, Ordering::SeqCst),
+      PauseReason::Other => self.pause_times.other.fetch_add(nanos, Ordering::SeqCst),
     };
   }
   /// Request a wakeup for any threads stalled in
@@ -2260,15 +2259,15 @@ impl OneMergeProgress {
     let mut map = HashMap::new();
     map.insert(
       PauseReason::Stopped,
-      self.pause_times.stopped.load(Ordering::Relaxed),
+      self.pause_times.stopped.load(Ordering::SeqCst),
     );
     map.insert(
       PauseReason::Paused,
-      self.pause_times.paused.load(Ordering::Relaxed),
+      self.pause_times.paused.load(Ordering::SeqCst),
     );
     map.insert(
       PauseReason::Other,
-      self.pause_times.other.load(Ordering::Relaxed),
+      self.pause_times.other.load(Ordering::SeqCst),
     );
     map
   }

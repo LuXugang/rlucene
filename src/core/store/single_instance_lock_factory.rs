@@ -101,7 +101,7 @@ impl Display for SingleInstanceLock {
 impl CloseableRef for SingleInstanceLock {
   fn close(&self) -> Result<()> {
     let _guard = self.close_lock.lock();
-    if self.closed.load(Ordering::Acquire) {
+    if self.closed.load(Ordering::SeqCst) {
       return Ok(());
     }
 
@@ -117,14 +117,14 @@ impl CloseableRef for SingleInstanceLock {
         )));
       }
     }
-    self.closed.store(true, Ordering::Release);
+    self.closed.store(true, Ordering::SeqCst);
     result
   }
 }
 
 impl Lock for SingleInstanceLock {
   fn ensure_valid(&self) -> Result<()> {
-    if self.closed.load(Ordering::Acquire) {
+    if self.closed.load(Ordering::SeqCst) {
       return Err(LuceneError::already_closed(format!(
         "Lock instance already released: {}",
         self

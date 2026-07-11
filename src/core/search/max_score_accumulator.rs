@@ -57,7 +57,7 @@ impl MaxScoreAccumulator {
       let next = Self::max_encode(prev, encode);
       match self
         .acc
-        .compare_exchange(prev, next, Ordering::AcqRel, Ordering::Relaxed)
+        .compare_exchange(prev, next, Ordering::Relaxed, Ordering::Relaxed)
       {
         Ok(_) => break,
         Err(actual) => prev = actual,
@@ -74,6 +74,6 @@ impl MaxScoreAccumulator {
   }
 
   pub(crate) fn get_raw(&self) -> i64 {
-    self.acc.load(Ordering::Acquire)
+    self.acc.load(Ordering::Relaxed)
   }
 }

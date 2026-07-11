@@ -354,7 +354,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    assert!(!ex.load(Ordering::Relaxed));
+    assert!(!ex.load(Ordering::SeqCst));
     Ok(())
   }
 
@@ -394,7 +394,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
     writer.close()?;
 
-    assert!(!ex.load(Ordering::Relaxed));
+    assert!(!ex.load(Ordering::SeqCst));
     Ok(())
   }
 
@@ -2794,7 +2794,7 @@ impl MergeScheduler for TestMergeScheduler {
     while let Some(merge) = merge_source.get_next_merge()? {
       let result: Result<()> = merge_source.merge(merge);
       if result.is_err() {
-        self.ex.store(true, Ordering::Relaxed);
+        self.ex.store(true, Ordering::SeqCst);
         return result;
       }
     }

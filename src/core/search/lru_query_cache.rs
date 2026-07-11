@@ -211,7 +211,7 @@ where
   ) {
     self
       .ram_bytes_used
-      .fetch_add(ram_bytes_used, Ordering::Relaxed);
+      .fetch_add(ram_bytes_used, Ordering::SeqCst);
   }
   /// Expert: callback when a query is evicted from this cache.
   ///
@@ -226,7 +226,7 @@ where
   ) {
     self
       .ram_bytes_used
-      .fetch_sub(ram_bytes_used, Ordering::Relaxed);
+      .fetch_sub(ram_bytes_used, Ordering::SeqCst);
   }
   /// Expert: callback when a [`DocIdSet`] is added to this cache.
   /// Implementing this method is typically useful in order to compute
@@ -236,11 +236,11 @@ where
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_doc_id_set_cache(&self, _reader_core_key: &CacheKey, ram_bytes_used: i64) {
-    self.cache_size.fetch_add(1, Ordering::Relaxed);
-    self.cache_count.fetch_add(1, Ordering::Relaxed);
+    self.cache_size.fetch_add(1, Ordering::SeqCst);
+    self.cache_count.fetch_add(1, Ordering::SeqCst);
     self
       .ram_bytes_used
-      .fetch_add(ram_bytes_used, Ordering::Relaxed);
+      .fetch_add(ram_bytes_used, Ordering::SeqCst);
   }
 
   /// Expert: callback when one or more [`DocIdSet`]s are removed from this cache.
@@ -256,15 +256,15 @@ where
   ) {
     self
       .ram_bytes_used
-      .fetch_sub(sum_ram_bytes_used, Ordering::Relaxed);
-    self.cache_size.fetch_sub(num_entries, Ordering::Relaxed);
+      .fetch_sub(sum_ram_bytes_used, Ordering::SeqCst);
+    self.cache_size.fetch_sub(num_entries, Ordering::SeqCst);
   }
   /// Expert: callback when the cache is completely cleared.
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_clear(&self, _guard: &RwLockWriteGuard<Inner>) {
-    self.ram_bytes_used.store(0, Ordering::Relaxed);
-    self.cache_size.store(0, Ordering::Relaxed);
+    self.ram_bytes_used.store(0, Ordering::SeqCst);
+    self.cache_size.store(0, Ordering::SeqCst);
   }
   /// Whether evictions are required.
   pub(crate) fn requires_eviction(&self, guard: &RwLockWriteGuard<Inner>) -> bool {
@@ -273,7 +273,7 @@ where
       return false;
     }
     size as i32 > self.max_size
-      || self.ram_bytes_used.load(Ordering::Relaxed) > self.max_ram_bytes_used
+      || self.ram_bytes_used.load(Ordering::SeqCst) > self.max_ram_bytes_used
   }
   pub(crate) fn get<C>(
     &self,
@@ -358,7 +358,7 @@ where
         let lc_ref = cache.insert(leaf_cache);
         self.ram_bytes_used.fetch_add(
           HASHTABLE_RAM_BYTES_PER_ENTRY,
-          std::sync::atomic::Ordering::Relaxed,
+          std::sync::atomic::Ordering::SeqCst,
         );
         // TODO IMPORTANT 这里没有调用add_close_listener
         lc_ref
@@ -414,7 +414,7 @@ where
     if let Some(leaf_cache) = inner.cache.remove(core_key) {
       self.ram_bytes_used.fetch_sub(
         HASHTABLE_RAM_BYTES_PER_ENTRY,
-        std::sync::atomic::Ordering::Relaxed,
+        std::sync::atomic::Ordering::SeqCst,
       );
 
       let num_entries = leaf_cache.cache.len();
@@ -425,14 +425,14 @@ where
           num_entries as i64,
           leaf_cache
             .ram_bytes_used
-            .load(std::sync::atomic::Ordering::Relaxed),
+            .load(std::sync::atomic::Ordering::SeqCst),
         );
       } else {
         debug_assert_eq!(num_entries, 0);
         debug_assert_eq!(
           leaf_cache
             .ram_bytes_used
-            .load(std::sync::atomic::Ordering::Relaxed),
+            .load(std::sync::atomic::Ordering::SeqCst),
           0
         );
       }
@@ -497,7 +497,7 @@ where
   ///
   /// See also [`get_cache_count()`](Self::get_cache_count) and [`get_eviction_count()`](Self::get_eviction_count).
   pub fn get_cache_size(&self) -> i64 {
-    self.cache_size.load(Ordering::Relaxed)
+    self.cache_size.load(Ordering::SeqCst)
   }
   /// Return the total number of cache entries that have been generated and put in the cache.
   /// It is highly desirable to have a [`get_hit_count()`](Self::get_hit_count) that is much higher
@@ -506,7 +506,7 @@ where
   ///
   /// See also [`get_cache_size()`](Self::get_cache_size) and [`get_eviction_count()`](Self::get_eviction_count).
   pub fn get_cache_count(&self) -> i64 {
-    self.cache_count.load(Ordering::Relaxed)
+    self.cache_count.load(Ordering::SeqCst)
   }
   /// Return the number of cache entries that have been removed from the cache either in order to
   /// stay under the maximum configured size or RAM usage, or because a segment has been closed.
@@ -526,7 +526,7 @@ where
         "requires evictions: size={}, maxSize={}, ramBytesUsed={}, maxRamBytesUsed={}",
         inner.unique_queries.lock().len(),
         self.max_size,
-        self.ram_bytes_used.load(Ordering::Relaxed),
+        self.ram_bytes_used.load(Ordering::SeqCst),
         self.max_ram_bytes_used
       )));
     }
@@ -569,7 +569,7 @@ where
       }
     }
 
-    let current_ram = self.ram_bytes_used.load(Ordering::Relaxed);
+    let current_ram = self.ram_bytes_used.load(Ordering::SeqCst);
     if recomputed_ram_bytes_used != current_ram {
       return Err(LuceneError::illegal_state(format!(
         "ramBytesUsed mismatch : {} != {}",
@@ -603,7 +603,7 @@ where
   P: Predicate<TopParentMeta>,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(self.ram_bytes_used.load(Ordering::Relaxed))
+    Ok(self.ram_bytes_used.load(Ordering::SeqCst))
   }
 }
 impl<P, IRC> QueryCache<IRC> for Arc<LRUQueryCache<P>>
@@ -651,7 +651,7 @@ impl LeafCache {
   {
     self
       .ram_bytes_used
-      .fetch_add(ram_bytes_used, std::sync::atomic::Ordering::Relaxed);
+      .fetch_add(ram_bytes_used, std::sync::atomic::Ordering::SeqCst);
     parent.on_doc_id_set_cache(&self.key, ram_bytes_used);
   }
   pub(crate) fn on_doc_id_set_eviction<P>(&self, ram_bytes_used: i64, parent: &LRUQueryCache<P>)
@@ -660,7 +660,7 @@ impl LeafCache {
   {
     self
       .ram_bytes_used
-      .fetch_sub(ram_bytes_used, std::sync::atomic::Ordering::Relaxed);
+      .fetch_sub(ram_bytes_used, std::sync::atomic::Ordering::SeqCst);
     parent.on_doc_id_set_eviction(&self.key, 1, ram_bytes_used);
   }
 
@@ -711,7 +711,7 @@ impl LeafCache {
 }
 impl Accountable for LeafCache {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(self.ram_bytes_used.load(Ordering::Relaxed))
+    Ok(self.ram_bytes_used.load(Ordering::SeqCst))
   }
 }
 pub struct CachingWrapperWeight<P, IRC>

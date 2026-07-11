@@ -100,7 +100,7 @@ fn test() -> Result<()> {
         let mut tot_hits = 0i64;
         let mut tot_search = 0i64;
 
-        while tot_search < num_searches as i64 && !failed.load(Ordering::Relaxed) {
+        while tot_search < num_searches as i64 && !failed.load(Ordering::SeqCst) {
           tot_hits += searcher.search_with_collector_manager(
             TermQuery::new(Term::from_text("body", "aaa")),
             collector_manager.as_ref(),
@@ -116,7 +116,7 @@ fn test() -> Result<()> {
 
         assert!(tot_search > 0 && tot_hits > 0);
 
-        net_search.fetch_add(tot_search as u64, Ordering::Relaxed);
+        net_search.fetch_add(tot_search as u64, Ordering::SeqCst);
 
         Ok(())
       })();
@@ -124,7 +124,7 @@ fn test() -> Result<()> {
       match result {
         Ok(()) => Ok(()),
         Err(e) => {
-          failed.store(true, Ordering::Relaxed);
+          failed.store(true, Ordering::SeqCst);
           Err(e.to_string())
         },
       }
@@ -146,7 +146,7 @@ fn test() -> Result<()> {
     }
   }
 
-  assert!(!failed.load(Ordering::Relaxed));
-  assert!(net_search.load(Ordering::Relaxed) > 0);
+  assert!(!failed.load(Ordering::SeqCst));
+  assert!(net_search.load(Ordering::SeqCst) > 0);
   Ok(())
 }

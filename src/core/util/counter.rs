@@ -54,11 +54,11 @@ impl Counter for AtomicCounter {
   fn add_and_get(&self, delta: i64) -> i64 {
     self
       .count
-      .fetch_add(delta, std::sync::atomic::Ordering::Relaxed)
+      .fetch_add(delta, std::sync::atomic::Ordering::SeqCst)
       + delta
   }
   fn get(&self) -> i64 {
-    self.count.load(std::sync::atomic::Ordering::Relaxed)
+    self.count.load(std::sync::atomic::Ordering::SeqCst)
   }
 }
 

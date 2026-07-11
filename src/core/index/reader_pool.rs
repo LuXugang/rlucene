@@ -169,9 +169,7 @@ where
     let inner = self.inner.lock();
     let mut bytes: i64 = 0;
     for rld in inner.reader_map.values() {
-      bytes += rld
-        .ram_bytes_used
-        .load(std::sync::atomic::Ordering::Relaxed);
+      bytes += rld.ram_bytes_used.load(std::sync::atomic::Ordering::SeqCst);
     }
     bytes
   }
@@ -198,11 +196,11 @@ where
   pub(crate) fn enable_reader_pooling(&self) {
     self
       .pool_readers
-      .store(true, std::sync::atomic::Ordering::Relaxed);
+      .store(true, std::sync::atomic::Ordering::SeqCst);
   }
 
   pub(crate) fn is_reader_pooling_enabled(&self) -> bool {
-    self.pool_readers.load(std::sync::atomic::Ordering::Relaxed)
+    self.pool_readers.load(std::sync::atomic::Ordering::SeqCst)
   }
   /// Releases the `ReadersAndUpdates`. This should only be called if
   /// [`get(SegmentCommitInfo, bool)`](Self::get) is called with the `create` parameter set to `true`.
@@ -392,9 +390,7 @@ where
         .values()
         .map(|rld| RamRecordingHolder {
           updates: Arc::clone(rld),
-          ram_bytes_used: rld
-            .ram_bytes_used
-            .load(std::sync::atomic::Ordering::Relaxed),
+          ram_bytes_used: rld.ram_bytes_used.load(std::sync::atomic::Ordering::SeqCst),
         })
         .collect()
     };

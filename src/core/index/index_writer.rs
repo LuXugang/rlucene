@@ -1527,21 +1527,21 @@ where
 
   #[cfg(test)]
   pub fn get_flush_count(&self) -> i32 {
-    self.flush_count.load(Ordering::Acquire)
+    self.flush_count.load(Ordering::SeqCst)
   }
 
   #[cfg(test)]
   pub fn get_flush_deletes_count(&self) -> i32 {
-    self.flush_deletes_count.load(Ordering::Acquire)
+    self.flush_deletes_count.load(Ordering::SeqCst)
   }
   #[cfg(test)]
   pub fn flush_count(&self) -> i32 {
-    self.flush_count.load(Ordering::Acquire)
+    self.flush_count.load(Ordering::SeqCst)
   }
 
   #[cfg(test)]
   pub fn flush_deletes_count(&self) -> i32 {
-    self.flush_deletes_count.load(Ordering::Acquire)
+    self.flush_deletes_count.load(Ordering::SeqCst)
   }
 
   /// Performs the time-consuming merge work without holding the `IndexWriter` lock.
@@ -2473,7 +2473,7 @@ where
     }
 
     debug_assert!({
-      let pending_num_docs = self.pending_num_docs.load(Ordering::Acquire);
+      let pending_num_docs = self.pending_num_docs.load(Ordering::SeqCst);
       let total_max_doc = self.inner.lock().segment_infos.total_max_doc()? as i64;
       pending_num_docs == total_max_doc
     });
@@ -2570,7 +2570,7 @@ where
 
       self
         .last_commit_change_count
-        .store(inner.change_count, Ordering::Release);
+        .store(inner.change_count, Ordering::SeqCst);
       // Don't bother saving any changes in our segmentInfos
       self.reader_pool.close(&mut inner.segment_infos)?;
       // Must set closed while inside same sync block where we call deleter.refresh, else
@@ -3025,7 +3025,7 @@ where
     if !published {
       self.adjust_pending_num_docs(-(max_doc as i64));
     }
-    self.flush_count.fetch_add(1, Ordering::AcqRel);
+    self.flush_count.fetch_add(1, Ordering::SeqCst);
     if let Some(ref s) = self.hooks {
       s.do_after_flush()?
     }
@@ -3784,7 +3784,7 @@ where
         if !any_changes {
           // Prevent a double increment because `doc_writer::do_flush` increments the flush count.
           // if we flushed anything.
-          self.flush_count.fetch_add(1, Ordering::AcqRel);
+          self.flush_count.fetch_add(1, Ordering::SeqCst);
         }
 
         self.publish_flushed_segments(true)?;
@@ -3798,7 +3798,7 @@ where
         {
           let mut inner = self.inner.lock();
           self.write_reader_pool(true, &mut *inner)?;
-          if inner.change_count != self.last_commit_change_count.load(Ordering::Acquire) {
+          if inner.change_count != self.last_commit_change_count.load(Ordering::SeqCst) {
             // There are changes to commit, so we will write a new segments_N in startCommit.
             // The act of committing is itself an NRT-visible change (an NRT reader that was
             // just opened before this should see it on reopen) so we increment changeCount
@@ -3819,7 +3819,7 @@ where
           to_commit = Some(commit_infos.clone());
           self
             .pending_commit_change_count
-            .store(inner.change_count, Ordering::Release);
+            .store(inner.change_count, Ordering::SeqCst);
           // This protects the segmentInfos we are now going
           // to commit.  This is important in case, eg, while
           // we are trying to sync all referenced files, a
@@ -3906,7 +3906,7 @@ where
       {
         // we need to do this under lock since merge_finished above is also called under the IW lock
         let _inner = self.inner.lock();
-        stop_adding_merged_segments.store(true, Ordering::Release);
+        stop_adding_merged_segments.store(true, Ordering::SeqCst);
       }
     }
 
@@ -3917,7 +3917,7 @@ where
     commit_lock.files_to_commit = Some(to_commit.lock().files(false)?.into_iter().collect());
     let ret = (|| -> Result<i64> {
       if any_changes {
-        self.maybe_merge.store(true, Ordering::Release);
+        self.maybe_merge.store(true, Ordering::SeqCst);
       }
       let to_commit_for_commit = to_commit.lock().try_clone()?;
       self.start_commit(Some(to_commit_for_commit), commit_lock)?;
@@ -4297,7 +4297,7 @@ where
       self.finish_commit(commit_lock)?;
     }
 
-    if self.maybe_merge.swap(false, Ordering::AcqRel) {
+    if self.maybe_merge.swap(false, Ordering::SeqCst) {
       self.maybe_merge_with_max_num_segments(
         merge_policy,
         MergeTrigger::FullFlush,
@@ -4357,8 +4357,8 @@ where
             inner.segment_infos.update_generation(pending);
 
             self.last_commit_change_count.store(
-              self.pending_commit_change_count.load(Ordering::Acquire),
-              Ordering::Release,
+              self.pending_commit_change_count.load(Ordering::SeqCst),
+              Ordering::SeqCst,
             );
 
             inner.rollback_segments = pending.create_backup_segment_infos()?;
@@ -4511,7 +4511,7 @@ where
         self.apply_all_deletes_and_updates()?;
       }
 
-      let any_changes = any_changes | self.maybe_merge.swap(false, Ordering::AcqRel);
+      let any_changes = any_changes | self.maybe_merge.swap(false, Ordering::SeqCst);
 
       {
         let mut inner = self.inner.lock();
@@ -4545,7 +4545,7 @@ where
   where
     D: 'static,
   {
-    self.flush_deletes_count.fetch_add(1, Ordering::AcqRel);
+    self.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
                 "IW",
@@ -4606,7 +4606,7 @@ where
   where
     DM: DocMap,
   {
-    self.merge_finished_gen.fetch_add(1, Ordering::AcqRel);
+    self.merge_finished_gen.fetch_add(1, Ordering::SeqCst);
 
     self.test_point("startCommitMergeDeletes")?;
 
@@ -5164,8 +5164,8 @@ where
       inner.merging_segments.insert(info_id.clone());
     }
 
-    debug_assert!(merge.estimated_merge_bytes.load(Ordering::Relaxed) == 0);
-    debug_assert!(merge.total_merge_bytes.load(Ordering::Relaxed) == 0);
+    debug_assert!(merge.estimated_merge_bytes.load(Ordering::SeqCst) == 0);
+    debug_assert!(merge.total_merge_bytes.load(Ordering::SeqCst) == 0);
 
     let mut est_bytes: i64 = 0;
     let mut total_bytes: i64 = 0;
@@ -5188,10 +5188,8 @@ where
 
     merge
       .estimated_merge_bytes
-      .store(est_bytes, Ordering::Release);
-    merge
-      .total_merge_bytes
-      .store(total_bytes, Ordering::Release);
+      .store(est_bytes, Ordering::SeqCst);
+    merge.total_merge_bytes.store(total_bytes, Ordering::SeqCst);
     // Merge is now registered
     merge.stat.register_done.store(true, Ordering::Release);
     Ok(true)
@@ -5954,7 +5952,7 @@ where
   fn test_reserve_docs(&self, added_num_docs: i64) -> Result<()> {
     debug_assert!(added_num_docs >= 0);
 
-    if self.pending_num_docs.load(Ordering::Acquire) + added_num_docs > get_actual_max_docs() as i64
+    if self.pending_num_docs.load(Ordering::SeqCst) + added_num_docs > get_actual_max_docs() as i64
     {
       return self.too_many_docs(added_num_docs);
     }
@@ -5965,14 +5963,14 @@ where
     Err(LuceneError::illegal_argument(format!(
       "number of documents in the index cannot exceed {} (current document count is {}; added numDocs is {})",
       get_actual_max_docs(),
-      self.pending_num_docs.load(Ordering::Acquire),
+      self.pending_num_docs.load(Ordering::SeqCst),
       added_num_docs
     )))
   }
   /// Returns the number of documents in the index including documents are being added (i.e.,
   /// reserved).
   pub fn get_pending_num_docs(&self) -> i64 {
-    self.pending_num_docs.load(Ordering::Acquire)
+    self.pending_num_docs.load(Ordering::SeqCst)
   }
   /// Returns the highest sequence number across all completed operations,
   /// or 0 if no operations have finished yet.
@@ -5982,7 +5980,7 @@ where
     Ok(self.doc_writer.get_max_completed_sequence_number())
   }
   fn adjust_pending_num_docs(&self, num_docs: i64) -> i64 {
-    let count = self.pending_num_docs.fetch_add(num_docs, Ordering::AcqRel) + num_docs;
+    let count = self.pending_num_docs.fetch_add(num_docs, Ordering::SeqCst) + num_docs;
     debug_assert!(count >= 0, "pendingNumDocs is negative: {}", count);
     count
   }
@@ -6107,7 +6105,7 @@ where
       };
 
       let iter_start = Instant::now();
-      let merge_gen_start = self.merge_finished_gen.load(Ordering::Acquire);
+      let merge_gen_start = self.merge_finished_gen.load(Ordering::SeqCst);
 
       let mut del_files: HashSet<String> = HashSet::new();
       let mut seg_states;
@@ -6216,7 +6214,7 @@ where
         // we exit, we know mergeCommit will succeed
         // in pulling all our delGens into a merge:
         let _inner = self.inner.lock();
-        let merge_gen_cur = self.merge_finished_gen.load(Ordering::Acquire);
+        let merge_gen_cur = self.merge_finished_gen.load(Ordering::SeqCst);
 
         if merge_gen_cur == merge_gen_start {
           // Must do this while still holding IW lock else a merge could finish and skip carrying
@@ -6307,7 +6305,7 @@ where
     let result = close_res?;
 
     if result.any_deletes() {
-      self.maybe_merge.store(true, Ordering::Release);
+      self.maybe_merge.store(true, Ordering::SeqCst);
       self.checkpoint(inner)?;
     }
 
@@ -6602,7 +6600,7 @@ where
         let result2: Result<()> = (|| {
           any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
           if !any_changes {
-            self.flush_count.fetch_add(1, Ordering::AcqRel);
+            self.flush_count.fetch_add(1, Ordering::SeqCst);
           }
           self.publish_flushed_segments(true)?;
           self.process_events(false)?;
@@ -6723,7 +6721,7 @@ where
               }
             }
 
-            any_changes |= self.maybe_merge.swap(false, Ordering::AcqRel);
+            any_changes |= self.maybe_merge.swap(false, Ordering::SeqCst);
             if any_changes {
               self.maybe_merge_with_max_num_segments(
                 self.config.get_merge_policy(),
@@ -6811,7 +6809,7 @@ where
     point_in_time_merges.await_merges(Duration::from_millis(max_commit_merge_wait_millis as u64));
 
     let mut inner = self.inner.lock();
-    stop_collecting_merged_readers.store(true, Ordering::Release);
+    stop_collecting_merged_readers.store(true, Ordering::SeqCst);
     let reader = self.maybe_reopen_merged_nrt_reader(
       &merged_readers,
       &opened_read_only_clones,
@@ -6870,7 +6868,7 @@ where
       Some(inner) => inner,
       None => &mut *self.inner.lock(),
     };
-    stop_collecting_merged_readers.store(true, Ordering::Release);
+    stop_collecting_merged_readers.store(true, Ordering::SeqCst);
     let merged_readers = merged_readers.lock();
     IOUtils::close(merged_readers.values(), |reader| {
       let dec_ref_result = reader
@@ -6994,16 +6992,16 @@ where
     self.do_ensure_open(false)?;
     self
       .pending_seq_no
-      .store(self.prepare_commit_internal(None)?, Ordering::Release);
+      .store(self.prepare_commit_internal(None)?, Ordering::SeqCst);
     // we must do this outside of the commitLock else we can deadlock:
-    if self.maybe_merge.swap(false, Ordering::AcqRel) {
+    if self.maybe_merge.swap(false, Ordering::SeqCst) {
       self.maybe_merge_with_max_num_segments(
         self.config.get_merge_policy(),
         MergeTrigger::FullFlush,
         UNBOUNDED_MAX_MERGE_SEGMENTS,
       )?;
     }
-    Ok(self.pending_seq_no.load(Ordering::Acquire))
+    Ok(self.pending_seq_no.load(Ordering::SeqCst))
   }
   /// Commits all pending changes (added and deleted documents, segment merges, added indexes, etc.)
   /// to the index, and syncs all referenced index files, such that a reader will see the changes and
@@ -7422,7 +7420,7 @@ where
 {
   fn accept_ref(&mut self, sci: &SegmentCommitInfo<D>) -> Result<()> {
     debug_assert!(
-      !self.stop_collecting_merged_readers.load(Ordering::Acquire),
+      !self.stop_collecting_merged_readers.load(Ordering::SeqCst),
       "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
     );
     let apply = self.reader_factory.apply(sci, self.inner)?;
@@ -8692,7 +8690,7 @@ where
 
   fn accept(&self, inner: &mut Inner<D>, sci: &SegmentCommitInfo<D>) -> Result<()> {
     debug_assert!(
-      !self.stop_collecting_merged_readers.load(Ordering::Acquire),
+      !self.stop_collecting_merged_readers.load(Ordering::SeqCst),
       "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
     );
     let writer = self
@@ -8814,7 +8812,7 @@ where
     success: bool,
     segment_dropped: bool,
   ) -> Result<()> {
-    if !segment_dropped && success && !self.stop_collecting_merge_results.load(Ordering::Acquire) {
+    if !segment_dropped && success && !self.stop_collecting_merge_results.load(Ordering::SeqCst) {
       let orig_info = self
         .orig_info
         .lock()
@@ -8894,7 +8892,7 @@ where
     let info = merge_info
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("point-in-time merge info is none"))?;
-    if !self.stop_collecting_merge_results.load(Ordering::Acquire)
+    if !self.stop_collecting_merge_results.load(Ordering::SeqCst)
       && !is_aborted
       && info.info.max_doc()? > 0
     {
@@ -8918,7 +8916,7 @@ where
   {
     if self
       .only_once
-      .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+      .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
     {
       OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)

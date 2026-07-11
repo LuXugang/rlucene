@@ -691,9 +691,7 @@ fn test_get_reader_by_ram() -> Result<()> {
   assert_eq!(segment_infos.segments.len(), readers_by_ram.len());
   let mut previous_ram = i64::MAX;
   for rld in readers_by_ram {
-    let ram_bytes_used = rld
-      .ram_bytes_used
-      .load(std::sync::atomic::Ordering::Relaxed);
+    let ram_bytes_used = rld.ram_bytes_used.load(std::sync::atomic::Ordering::SeqCst);
     assert!(
       previous_ram >= ram_bytes_used,
       "previous: {} now: {}",

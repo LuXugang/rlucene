@@ -451,7 +451,7 @@ where
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     if self
       .iter_called
-      .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+      .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
       .is_err()
     {
       return Err(LuceneError::illegal_state(
@@ -667,7 +667,7 @@ where
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     if self
       .iter_called
-      .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+      .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
       .is_err()
     {
       return Err(LuceneError::illegal_state(

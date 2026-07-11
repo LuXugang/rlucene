@@ -761,7 +761,7 @@ where
         let searcher = new_searcher_with_reader(r.clone())?;
 
         for _ in 0..iters {
-          if failed.load(Ordering::Relaxed) {
+          if failed.load(Ordering::SeqCst) {
             break;
           }
 
@@ -799,7 +799,7 @@ where
               && values[id] <= upper;
 
             if hits.get(doc_id as usize)? != expected {
-              failed.store(true, Ordering::Relaxed);
+              failed.store(true, Ordering::SeqCst);
               return Err(LuceneError::illegal_state(format!(
                 "id={} docID={} value={} range={} TO {} expected {} but got {}",
                 id,
@@ -988,7 +988,7 @@ where
         let searcher = new_searcher_with_reader(r.clone())?;
 
         for _ in 0..iters {
-          if failed.load(Ordering::Relaxed) {
+          if failed.load(Ordering::SeqCst) {
             break;
           }
 
@@ -1035,7 +1035,7 @@ where
           }
 
           if fail_count != 0 {
-            failed.store(true, Ordering::Relaxed);
+            failed.store(true, Ordering::SeqCst);
             return Err(LuceneError::illegal_state(format!(
               "{} hits were wrong",
               fail_count
@@ -1739,7 +1739,7 @@ fn test_random_point_in_set_query() -> Result<()> {
         starting_gun.wait();
 
         for _ in 0..iters {
-          if failed.load(Ordering::Relaxed) {
+          if failed.load(Ordering::SeqCst) {
             break;
           }
 

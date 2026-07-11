@@ -121,16 +121,16 @@ pub trait IndexReader: Display {
     // only check ref_count here (don't call ensure_open()),
     // so we can still close the reader if it was made invalid by a child.
     let base = self.index_base();
-    let count = base.ref_count.load(Ordering::Acquire);
+    let count = base.ref_count.load(Ordering::SeqCst);
     if count <= 0 {
       return Err(LuceneError::already_closed(
         "this IndexReader is closed".to_string(),
       ));
     }
 
-    let rc = base.ref_count.fetch_sub(1, Ordering::AcqRel) - 1;
+    let rc = base.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
     if rc == 0 {
-      base.closed.store(true, Ordering::Release);
+      base.closed.store(true, Ordering::SeqCst);
       let close_result = {
         let notify_result = self.notify_reader_closed_listeners();
         IOUtils::use_or_suppress_result(notify_result, self.report_close_to_parent_readers())
@@ -150,7 +150,7 @@ pub trait IndexReader: Display {
   /// closed; otherwise returns `Ok(())`.
   fn ensure_open(&self) -> Result<()> {
     let base = self.index_base();
-    if base.ref_count.load(Ordering::Acquire) <= 0 {
+    if base.ref_count.load(Ordering::SeqCst) <= 0 {
       return Err(LuceneError::already_closed(
         "this IndexReader is closed".to_string(),
       ));
@@ -158,7 +158,7 @@ pub trait IndexReader: Display {
 
     // The "happens-before" rule on reading ref_count after a fake write
     // ensures visibility of closed_by_child state.
-    if base.closed_by_child.load(Ordering::Acquire) {
+    if base.closed_by_child.load(Ordering::SeqCst) {
       return Err(LuceneError::already_closed(
         "this IndexReader cannot be used anymore as one of its child readers was closed"
           .to_string(),
@@ -188,9 +188,9 @@ pub trait IndexReader: Display {
   /// No other methods should be called after this has been called.
   fn close(&self) -> Result<()> {
     let base = self.index_base();
-    if !base.closed.load(Ordering::Acquire) {
+    if !base.closed.load(Ordering::SeqCst) {
       self.dec_ref()?;
-      base.closed.store(true, Ordering::Release);
+      base.closed.store(true, Ordering::SeqCst);
     }
     Ok(())
   }
@@ -273,14 +273,14 @@ pub trait IndexReader: Display {
   fn try_inc_ref(&self) -> bool {
     let base = self.index_base();
     loop {
-      let count = base.ref_count.load(Ordering::Acquire);
+      let count = base.ref_count.load(Ordering::SeqCst);
       if count <= 0 {
         return false;
       }
 
       match base
         .ref_count
-        .compare_exchange(count, count + 1, Ordering::AcqRel, Ordering::Acquire)
+        .compare_exchange(count, count + 1, Ordering::SeqCst, Ordering::SeqCst)
       {
         Ok(_) => return true,
         Err(_) => continue,
@@ -291,7 +291,7 @@ pub trait IndexReader: Display {
   /// Expert: returns the current ref count for this reader.
   fn get_ref_count(&self) -> i32 {
     let base = self.index_base();
-    base.ref_count.load(Ordering::Acquire)
+    base.ref_count.load(Ordering::SeqCst)
   }
 }
 

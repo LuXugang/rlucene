@@ -208,7 +208,7 @@ where
     debug_assert!(self.assert_no_dup_gen(field_updates, &update));
     self
       .ram_bytes_used
-      .fetch_add(update_bytes, Ordering::Relaxed);
+      .fetch_add(update_bytes, Ordering::SeqCst);
 
     field_updates.push(update.clone());
 

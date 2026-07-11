@@ -57,7 +57,7 @@ fn test_threads() -> Result<()> {
       let mut bytes_since_last_pause: i64 = 0;
       for _ in 0..500 {
         let num_bytes = thread_random.random_range(1000..=10000) as i64;
-        tot_bytes.fetch_add(num_bytes, std::sync::atomic::Ordering::Relaxed);
+        tot_bytes.fetch_add(num_bytes, std::sync::atomic::Ordering::SeqCst);
         bytes_since_last_pause += num_bytes;
         if bytes_since_last_pause > limiter.get_min_pause_check_bytes() {
           limiter.pause(bytes_since_last_pause).unwrap();
@@ -74,7 +74,7 @@ fn test_threads() -> Result<()> {
   }
   let elapsed_secs = start.elapsed().as_secs_f64();
   let actual_mb_per_sec =
-    (tot_bytes.load(std::sync::atomic::Ordering::Relaxed) as f64 / 1024.0 / 1024.0) / elapsed_secs;
+    (tot_bytes.load(std::sync::atomic::Ordering::SeqCst) as f64 / 1024.0 / 1024.0) / elapsed_secs;
 
   // TODO: this may false trip .... could be we can only assert that it never exceeds the max, so
   // slow jenkins doesn't trip:

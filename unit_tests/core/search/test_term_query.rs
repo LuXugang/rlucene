@@ -184,7 +184,7 @@ fn test_with_different_score_modes() -> Result<()> {
     term_query.create_weight(&searcher, score_mode, 1f32)?;
     assert_eq!(
       score_mode.needs_scores(),
-      scorer_called.load(Ordering::Relaxed)
+      scorer_called.load(Ordering::SeqCst)
     );
   }
 
@@ -236,7 +236,7 @@ where
   ) -> Result<Self::SimScorer> {
     self
       .scorer_called
-      .store(true, std::sync::atomic::Ordering::Relaxed);
+      .store(true, std::sync::atomic::Ordering::SeqCst);
     Ok(Box::new(self.existing_similarity.scorer(
       boost,
       collection_stats,

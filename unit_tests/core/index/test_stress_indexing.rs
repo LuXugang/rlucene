@@ -94,7 +94,7 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
           loop {
             if all_threads
               .iter()
-              .any(|thread| thread.failed.load(Ordering::Acquire))
+              .any(|thread| thread.failed.load(Ordering::SeqCst))
             {
               break;
             }
@@ -133,7 +133,7 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
           Ok(())
         })();
         if result.is_err() {
-          thread_state.failed.store(true, Ordering::Release);
+          thread_state.failed.store(true, Ordering::SeqCst);
         }
         result
       }));
@@ -149,7 +149,7 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
           loop {
             if all_threads
               .iter()
-              .any(|thread| thread.failed.load(Ordering::Acquire))
+              .any(|thread| thread.failed.load(Ordering::SeqCst))
             {
               break;
             }
@@ -167,7 +167,7 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
           Ok(())
         })();
         if result.is_err() {
-          thread_state.failed.store(true, Ordering::Release);
+          thread_state.failed.store(true, Ordering::SeqCst);
         }
         result
       }));
@@ -191,7 +191,7 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
   modifier.close()?;
 
   for thread_state in threads.iter() {
-    assert!(!thread_state.failed.load(Ordering::Acquire));
+    assert!(!thread_state.failed.load(Ordering::SeqCst));
   }
 
   Ok(())

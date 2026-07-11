@@ -58,7 +58,7 @@ impl MergeRateLimiter {
 
   /// Returns total bytes written by this merge.
   pub fn get_total_bytes_written(&self) -> i64 {
-    self.total_bytes_written.load(Ordering::Relaxed)
+    self.total_bytes_written.load(Ordering::SeqCst)
   }
 
   /// Total NS merge was stopped.
@@ -184,7 +184,7 @@ impl RateLimiter for MergeRateLimiter {
   }
 
   fn pause(&self, bytes: i64) -> Result<i64> {
-    self.total_bytes_written.fetch_add(bytes, Ordering::Relaxed);
+    self.total_bytes_written.fetch_add(bytes, Ordering::SeqCst);
 
     // While loop because we may wake up and check again when our rate limit
     // is changed while we were pausing:

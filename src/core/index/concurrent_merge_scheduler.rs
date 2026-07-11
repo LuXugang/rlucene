@@ -330,11 +330,11 @@ impl ConcurrentMergeScheduler {
     active_merges.sort_by(|left, right| {
       inner.merge_threads[*right]
         .estimated_merge_bytes
-        .load(Ordering::Relaxed)
+        .load(Ordering::SeqCst)
         .cmp(
           &inner.merge_threads[*left]
             .estimated_merge_bytes
-            .load(Ordering::Relaxed),
+            .load(Ordering::SeqCst),
         )
     });
 
@@ -344,7 +344,7 @@ impl ConcurrentMergeScheduler {
 
     for thread_idx in (0..active_merge_count).rev() {
       let merge_thread = &inner.merge_threads[active_merges[thread_idx]];
-      if merge_thread.estimated_merge_bytes.load(Ordering::Relaxed)
+      if merge_thread.estimated_merge_bytes.load(Ordering::SeqCst)
         > (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
       {
         big_merge_count = 1 + thread_idx;
@@ -365,7 +365,7 @@ impl ConcurrentMergeScheduler {
         inner.force_merge_mb_per_sec
       } else if !inner.do_auto_io_throttle {
         f64::INFINITY
-      } else if merge_thread.estimated_merge_bytes.load(Ordering::Relaxed)
+      } else if merge_thread.estimated_merge_bytes.load(Ordering::SeqCst)
         < (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
       {
         // Don't rate limit small merges:
@@ -861,18 +861,18 @@ impl Display for ConcurrentMergeScheduler {
 
 impl ConcurrentMergeScheduler {
   fn is_backlog(inner: &Inner, now: Instant, merge_thread: &Arc<MergeThreadState>) -> bool {
-    let merge_mb = Self::bytes_to_mb(merge_thread.estimated_merge_bytes.load(Ordering::Relaxed));
+    let merge_mb = Self::bytes_to_mb(merge_thread.estimated_merge_bytes.load(Ordering::SeqCst));
     for other in &inner.merge_threads {
       if other.is_alive()
         && !Arc::ptr_eq(other, merge_thread)
-        && other.estimated_merge_bytes.load(Ordering::Relaxed)
+        && other.estimated_merge_bytes.load(Ordering::SeqCst)
           >= (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
         && now
           .saturating_duration_since(*other.merge_start_ns.lock())
           .as_secs_f64()
           > 3.0
       {
-        let other_merge_mb = Self::bytes_to_mb(other.estimated_merge_bytes.load(Ordering::Relaxed));
+        let other_merge_mb = Self::bytes_to_mb(other.estimated_merge_bytes.load(Ordering::SeqCst));
         let ratio = other_merge_mb / merge_mb;
         if ratio > 0.3 && ratio < 3.0 {
           return true;
@@ -892,7 +892,7 @@ impl ConcurrentMergeScheduler {
     let merge_mb = Self::bytes_to_mb(
       new_merge_thread
         .estimated_merge_bytes
-        .load(Ordering::Relaxed),
+        .load(Ordering::SeqCst),
     );
     if merge_mb < MIN_BIG_MERGE_MB {
       // Only watch non-trivial merges for throttling; this is safe because the MP must eventually

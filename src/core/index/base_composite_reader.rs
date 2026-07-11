@@ -189,7 +189,7 @@ where
     }
 
     debug_assert!(num_docs >= 0);
-    self.num_docs.store(num_docs, Ordering::Relaxed);
+    self.num_docs.store(num_docs, Ordering::SeqCst);
     Ok(num_docs)
   }
   pub fn max_doc(&self) -> i32 {

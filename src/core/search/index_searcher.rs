@@ -533,7 +533,7 @@ where
   }
   /// Returns true if any search hit the timeout.
   pub fn timeout(&self) -> bool {
-    self.partial_result.load(Ordering::Relaxed)
+    self.partial_result.load(Ordering::SeqCst)
   }
   fn search_with_first_collector<CM>(
     &self,
@@ -603,7 +603,7 @@ where
           for (i, leaf_slice, mut collector) in group {
             #[cfg(test)]
             if let Some(counter) = &self.offloaded_slice_counter {
-              counter.fetch_add(1, Ordering::Relaxed);
+              counter.fetch_add(1, Ordering::SeqCst);
             }
             self.search_partitions(
               leaf_slice.partitions.as_slice(),
@@ -731,7 +731,7 @@ where
           // continue with the following leaf
         },
         Err(LuceneError::TimeExceeded(_)) => {
-          self.partial_result.store(true, Ordering::Relaxed);
+          self.partial_result.store(true, Ordering::SeqCst);
         },
         Err(e) => return Err(e),
       }

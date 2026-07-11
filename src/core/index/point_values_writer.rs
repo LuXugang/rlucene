@@ -285,13 +285,12 @@ where
   >;
 
   fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    if self.taken.load(Relaxed) {
+    if self.taken.swap(true, Relaxed) {
       return Err(LuceneError::illegal_state(format!(
         "{} get_point_tree can only be called once",
         std::any::type_name::<Self>()
       )));
     }
-    self.taken.store(true, Relaxed);
     Ok(PointTreeEnum::Mutable(self.values.take()))
   }
 }

@@ -249,7 +249,7 @@ fn test_thread_safety() -> Result<()> {
           i,
           scope.spawn(move || -> Result<()> {
             let mut random = random_from_seed(seed);
-            while !task_for_thread.stopped.load(Ordering::Acquire) {
+            while !task_for_thread.stopped.load(Ordering::SeqCst) {
               if index % 2 == 0 {
                 // refresh reader synchronized
                 let c = {
@@ -336,7 +336,7 @@ fn test_thread_safety() -> Result<()> {
           i,
           scope.spawn(move || -> Result<()> {
             let mut random = random_from_seed(seed);
-            while !task_for_thread.stopped.load(Ordering::Acquire) {
+            while !task_for_thread.stopped.load(Ordering::SeqCst) {
               let c = {
                 let readers = readers.lock().expect("readers mutex poisoned");
                 if readers.is_empty() {
@@ -478,7 +478,7 @@ impl ReaderThreadTask {
   }
 
   fn stop(&self) {
-    self.stopped.store(true, Ordering::Release);
+    self.stopped.store(true, Ordering::SeqCst);
   }
 }
 

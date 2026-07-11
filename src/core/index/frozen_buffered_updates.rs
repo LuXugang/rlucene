@@ -130,7 +130,7 @@ impl FrozenBufferedUpdates {
       value.finish()?
     }
     let field_updates = std::mem::take(&mut updates.field_updates);
-    let field_updates_count = updates.num_field_updates.load(Ordering::Relaxed);
+    let field_updates_count = updates.num_field_updates.load(Ordering::SeqCst);
 
     let bytes_used = delete_terms
       .ram_bytes_used()?

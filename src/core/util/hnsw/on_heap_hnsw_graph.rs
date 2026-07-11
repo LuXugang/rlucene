@@ -126,7 +126,7 @@ impl OnHeapHnswGraph {
     if self.graph[node].is_empty() {
       // assumption: we always call this function from top level
       self.graph[node].resize(level + 1, None);
-      self.size.fetch_add(1, Ordering::AcqRel);
+      self.size.fetch_add(1, Ordering::SeqCst);
     } else {
       debug_assert!(
         self.graph[node].len() > level,
@@ -137,7 +137,7 @@ impl OnHeapHnswGraph {
     let neighbor_array = if level == 0 {
       NeighborArray::new(self.nsize0, true)
     } else {
-      self.non_zero_level_size.fetch_add(1, Ordering::Relaxed);
+      self.non_zero_level_size.fetch_add(1, Ordering::SeqCst);
       NeighborArray::new(self.nsize, true)
     };
 
@@ -145,7 +145,7 @@ impl OnHeapHnswGraph {
 
     let atomic = self.max_node_id.get_or_insert_with(|| AtomicUsize::new(0));
 
-    atomic.fetch_max(node, Ordering::AcqRel);
+    atomic.fetch_max(node, Ordering::SeqCst);
     Ok(())
   }
   /// Try to set the entry node if the graph does not already have one.
@@ -244,7 +244,7 @@ impl HnswGraph for OnHeapHnswGraph {
   }
 
   fn size(&self) -> usize {
-    self.size.load(Ordering::Acquire)
+    self.size.load(Ordering::SeqCst)
   }
 
   /// When we initialize from another graph, the max node id is different from
@@ -264,7 +264,7 @@ impl HnswGraph for OnHeapHnswGraph {
       // The graph cannot be concurrently modified (and searched) if
       // we don't know the size beforehand, so it's safe to return the
       // actual maxNodeId
-      self.max_node_id.as_ref().map(|v| v.load(Ordering::Acquire))
+      self.max_node_id.as_ref().map(|v| v.load(Ordering::SeqCst))
     }
   }
 

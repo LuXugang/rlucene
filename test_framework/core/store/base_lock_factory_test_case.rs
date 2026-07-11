@@ -145,7 +145,7 @@ where
       let barrier = barrier.clone();
       threads.push(thread::spawn(move || -> Result<()> {
         barrier.wait();
-        while running.load(Ordering::Acquire) {
+        while running.load(Ordering::SeqCst) {
           if let Ok(lock) = directory.obtain_lock("foo.lock") {
             if let Ok(asserting_guard) = asserting_lock.try_lock() {
               drop(asserting_guard);
@@ -154,8 +154,8 @@ where
             }
             lock.close()?;
           }
-          if atomic_counter.fetch_add(1, Ordering::AcqRel) + 1 > runs {
-            running.store(false, Ordering::Release);
+          if atomic_counter.fetch_add(1, Ordering::SeqCst) + 1 > runs {
+            running.store(false, Ordering::SeqCst);
           }
         }
         Ok(())

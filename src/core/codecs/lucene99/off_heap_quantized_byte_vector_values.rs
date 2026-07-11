@@ -403,7 +403,7 @@ where
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
     {
-      if self.iter_called.swap(true, Ordering::AcqRel) {
+      if self.iter_called.swap(true, Ordering::Relaxed) {
         unreachable!("iterator should only be called once, otherwise iter will be reset?")
       }
     }
@@ -874,7 +874,7 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     #[cfg(debug_assertions)]
     {
-      if self.iter_called.swap(true, Ordering::AcqRel) {
+      if self.iter_called.swap(true, Ordering::Relaxed) {
         unreachable!("iterator should only be called once, otherwise iter will be reset?")
       }
     }

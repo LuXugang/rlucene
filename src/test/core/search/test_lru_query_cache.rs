@@ -930,8 +930,8 @@ fn test_propagate_bulk_scorer() -> Result<()> {
   ));
   let weight = cache.do_cache(weight, never_cache())?;
   let _ = weight.bulk_scorer(leaf, &searcher)?;
-  assert!(bulk_scorer_called.load(Ordering::Relaxed));
-  assert!(!scorer_called.load(Ordering::Relaxed));
+  assert!(bulk_scorer_called.load(Ordering::SeqCst));
+  assert!(!scorer_called.load(Ordering::SeqCst));
   assert_eq!(0, cache.get_cache_count());
   Ok(())
 }
@@ -1078,13 +1078,13 @@ fn test_propagates_scorer_supplier() -> Result<()> {
   let mut supplier = weight
     .scorer_supplier(&searcher.get_leaf_contexts()?[0], &searcher)?
     .unwrap();
-  assert!(!scorer_created.load(Ordering::Relaxed));
+  assert!(!scorer_created.load(Ordering::SeqCst));
   supplier.get(
     random.random::<u64>() as i64 & 0x7FFF_FFFF_FFFF_FFFF,
     &searcher.get_leaf_contexts()?[0],
     &searcher,
   )?;
-  assert!(scorer_created.load(Ordering::Relaxed));
+  assert!(scorer_created.load(Ordering::SeqCst));
 
   w.close(&mut random)
 }
@@ -1505,7 +1505,7 @@ where
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
-    self.scorer_called.store(true, Ordering::Relaxed);
+    self.scorer_called.store(true, Ordering::SeqCst);
     self
       .scorer
       .take()
@@ -1517,7 +1517,7 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::BulkScorer>> {
-    self.bulk_scorer_called.store(true, Ordering::Relaxed);
+    self.bulk_scorer_called.store(true, Ordering::SeqCst);
     self.in_.bulk_scorer(context, searcher)
   }
 

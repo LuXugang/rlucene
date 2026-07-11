@@ -1307,7 +1307,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   {
-    searcher.count_invocations.store(0, Ordering::SeqCst);
+    searcher.count_invocations.store(0, Ordering::Relaxed);
 
     let mut builder = Builder::new();
     builder.add(
@@ -1325,7 +1325,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::SeqCst);
+    searcher.count_invocations.store(0, Ordering::Relaxed);
 
     let mut builder = Builder::new();
     builder.add(
@@ -1343,7 +1343,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::SeqCst);
+    searcher.count_invocations.store(0, Ordering::Relaxed);
 
     let mut builder = Builder::new();
     builder.add(
@@ -1357,11 +1357,11 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     let query = builder.build();
 
     assert_eq!(smaller_term_count, searcher.count(query)?);
-    assert_eq!(3, searcher.count_invocations.load(Ordering::SeqCst));
+    assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::SeqCst);
+    searcher.count_invocations.store(0, Ordering::Relaxed);
 
     let mut builder = Builder::new();
     builder.add(
@@ -1377,7 +1377,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     let count = searcher.count(query.clone())?;
 
     assert_eq!(larger_term_count + smaller_term_count, count);
-    assert_eq!(4, searcher.count_invocations.load(Ordering::SeqCst));
+    assert_eq!(4, searcher.count_invocations.load(Ordering::Relaxed));
 
     assert!(query.is_two_clause_pure_disjunction_with_terms());
     let queries = query.rewrite_two_clause_disjunction_with_terms_for_count(&searcher)?;
@@ -1387,7 +1387,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::SeqCst);
+    searcher.count_invocations.store(0, Ordering::Relaxed);
 
     let mut builder = Builder::new();
     builder.add(
@@ -1403,7 +1403,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     let count = searcher.count(query.clone())?;
 
     assert_eq!(larger_term_count + smaller_term_count, count);
-    assert_eq!(4, searcher.count_invocations.load(Ordering::SeqCst));
+    assert_eq!(4, searcher.count_invocations.load(Ordering::Relaxed));
 
     assert!(query.is_two_clause_pure_disjunction_with_terms());
     let queries = query.rewrite_two_clause_disjunction_with_terms_for_count(&searcher)?;
@@ -1413,7 +1413,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::SeqCst);
+    searcher.count_invocations.store(0, Ordering::Relaxed);
 
     let mut builder = Builder::new();
     builder.add(
@@ -1429,7 +1429,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     let count = searcher.count(query)?;
 
     assert_eq!(smaller_term_count, count);
-    assert_eq!(3, searcher.count_invocations.load(Ordering::SeqCst));
+    assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
   }
   Ok(())
 }

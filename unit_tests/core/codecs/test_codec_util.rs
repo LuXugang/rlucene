@@ -300,22 +300,22 @@ fn test_write_bogus_crc() -> Result<()> {
   let fake_checksum = AtomicI64::new(0);
   let mut fake_output = FakeOutput::new(output, &fake_checksum);
 
-  fake_checksum.store(-1, std::sync::atomic::Ordering::Relaxed); // bad
+  fake_checksum.store(-1, std::sync::atomic::Ordering::SeqCst); // bad
   let result = CodecUtil::write_crc(&mut fake_output);
   assert!(result.is_err());
   assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
-  fake_checksum.store(1 << 32, std::sync::atomic::Ordering::Relaxed); // bad
+  fake_checksum.store(1 << 32, std::sync::atomic::Ordering::SeqCst); // bad
   let result = CodecUtil::write_crc(&mut fake_output);
   assert!(result.is_err());
   assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
-  fake_checksum.store(-(1 << 32), std::sync::atomic::Ordering::Relaxed); // bad
+  fake_checksum.store(-(1 << 32), std::sync::atomic::Ordering::SeqCst); // bad
   let result = CodecUtil::write_crc(&mut fake_output);
   assert!(result.is_err());
   assert!(matches!(result, Err(LuceneError::IllegalState(_))));
 
-  fake_checksum.store((1 << 32) - 1, std::sync::atomic::Ordering::Relaxed); // ok
+  fake_checksum.store((1 << 32) - 1, std::sync::atomic::Ordering::SeqCst); // ok
   let result = CodecUtil::write_crc(&mut fake_output);
   assert!(result.is_ok());
 
@@ -392,11 +392,7 @@ impl IndexOutput for FakeOutput<'_> {
   }
 
   fn get_checksum(&mut self) -> Result<u64> {
-    Ok(
-      self
-        .fake_checksum
-        .load(std::sync::atomic::Ordering::Relaxed) as u64,
-    )
+    Ok(self.fake_checksum.load(std::sync::atomic::Ordering::SeqCst) as u64)
   }
 
   fn get_name(&self) -> &str {

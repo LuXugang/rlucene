@@ -677,12 +677,12 @@ fn test_during_add_indexes() -> Result<()> {
           .expect("failures lock poisoned")
           .push(format!("{e:?}"));
       }
-      thread_done.store(true, AtomicOrdering::Release);
+      thread_done.store(true, AtomicOrdering::SeqCst);
     })
   };
 
   let mut last_count = 0;
-  while !thread_done.load(AtomicOrdering::Acquire) {
+  while !thread_done.load(AtomicOrdering::SeqCst) {
     let r2 = directory_reader::open_if_changed(&r)?;
     if let Some(r2) = r2 {
       r.close()?;
@@ -764,12 +764,12 @@ fn test_during_add_delete() -> Result<()> {
           .expect("failures lock poisoned")
           .push(format!("{e:?}"));
       }
-      remaining_threads.fetch_sub(1, AtomicOrdering::AcqRel);
+      remaining_threads.fetch_sub(1, AtomicOrdering::SeqCst);
     }));
   }
 
   let mut sum = 0;
-  while remaining_threads.load(AtomicOrdering::Acquire) > 0 {
+  while remaining_threads.load(AtomicOrdering::SeqCst) > 0 {
     let r2 = directory_reader::open_if_changed(&r)?;
     if let Some(r2) = r2 {
       r.close()?;

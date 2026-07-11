@@ -161,12 +161,12 @@ where
   }
 
   pub(crate) fn get_ref_count(&self) -> i32 {
-    self.ref_.load(Ordering::Acquire)
+    self.ref_.load(Ordering::SeqCst)
   }
 
   pub(crate) fn inc_ref(&self) -> Result<()> {
     loop {
-      let count = self.ref_.load(Ordering::Acquire);
+      let count = self.ref_.load(Ordering::SeqCst);
 
       if count == 0 {
         return Err(LuceneError::already_closed(
@@ -179,7 +179,7 @@ where
 
       match self
         .ref_
-        .compare_exchange_weak(count, count + 1, Ordering::AcqRel, Ordering::Acquire)
+        .compare_exchange_weak(count, count + 1, Ordering::SeqCst, Ordering::SeqCst)
       {
         Ok(_) => return Ok(()),
         Err(_) => continue,
@@ -187,7 +187,7 @@ where
     }
   }
   pub(crate) fn dec_ref(&self) -> Result<()> {
-    self.ref_.load(Ordering::Acquire);
+    self.ref_.load(Ordering::SeqCst);
     // TODO
     Ok(())
   }

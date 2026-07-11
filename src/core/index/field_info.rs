@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::sync::atomic::Ordering::{Relaxed, SeqCst};
+use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 
 ///  Access to the Field Info file that describes document fields and whether or
@@ -525,7 +525,7 @@ impl FieldInfo {
 
   /// Sets the docValues generation of this field.
   pub fn set_doc_values_gen(&self, dv_gen: i64) -> Result<()> {
-    self.dv_gen.store(dv_gen, SeqCst);
+    self.dv_gen.store(dv_gen, Relaxed);
     self.check_consistency()?;
     Ok(())
   }
@@ -533,12 +533,12 @@ impl FieldInfo {
   /// Returns the docValues generation of this field, or -1 if no docValues
   /// updates exist for it.
   pub fn get_doc_values_gen(&self) -> i64 {
-    self.dv_gen.load(SeqCst)
+    self.dv_gen.load(Relaxed)
   }
 
   /// Set store term vectors
   pub fn set_store_term_vectors(&self) -> Result<()> {
-    self.store_term_vector.store(true, SeqCst);
+    self.store_term_vector.store(true, Relaxed);
     self.check_consistency()?;
     Ok(())
   }
@@ -546,7 +546,7 @@ impl FieldInfo {
   /// Set store payloads
   pub fn set_store_payloads(&self) -> Result<()> {
     if self.index_options >= IndexOptions::DocsAndFreqsAndPositions {
-      self.store_payloads.store(true, SeqCst);
+      self.store_payloads.store(true, Relaxed);
     }
     self.check_consistency()?;
     Ok(())

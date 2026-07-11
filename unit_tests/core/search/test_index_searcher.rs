@@ -357,7 +357,7 @@ fn test_slices_offloaded_to_the_executor() -> Result<()> {
 
   searcher.search(MatchAllDocsQuery::new(), 10)?;
   let expected_executions = if leaves_len > 1 { leaves_len } else { 0 };
-  assert_eq!(expected_executions, num_executions.load(Ordering::Relaxed));
+  assert_eq!(expected_executions, num_executions.load(Ordering::SeqCst));
 
   Ok(())
 }

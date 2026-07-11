@@ -1496,7 +1496,7 @@ where
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
     if let Some(scorer_created) = &self.scorer_created {
-      scorer_created.store(true, Ordering::Relaxed);
+      scorer_created.store(true, Ordering::SeqCst);
     }
     Ok(Box::new(ConstantScoreScorer::from_disi(
       self.score,
@@ -1540,7 +1540,7 @@ impl DVCacheQuery {
   }
 
   pub(crate) fn scorer_created_count(&self) -> i32 {
-    self.scorer_created_count.load(Ordering::Relaxed)
+    self.scorer_created_count.load(Ordering::SeqCst)
   }
 }
 
@@ -1696,7 +1696,7 @@ where
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
-    self.scorer_created_count.fetch_add(1, Ordering::Relaxed);
+    self.scorer_created_count.fetch_add(1, Ordering::SeqCst);
     Ok(Box::new(ConstantScoreScorer::from_disi(
       1.0,
       self.score_mode,
