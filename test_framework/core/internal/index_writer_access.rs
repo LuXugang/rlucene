@@ -16,9 +16,10 @@
  */
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 /// Access to [`IndexWriter`] internals exposed to the test framework.
 ///
@@ -38,10 +39,10 @@ pub(crate) trait IndexWriterAccess {
 
   fn get_reader<D>(
     &self,
-    iw: &IndexWriter<D>,
+    iw: &Arc<IndexWriter<D>>,
     apply_deletions: bool,
     write_all_deletes: bool,
-  ) -> Result<StandardDirectoryReaderType<D>>
+  ) -> Result<StandardDirectoryReader<D>>
   where
     D: Directory + 'static;
 

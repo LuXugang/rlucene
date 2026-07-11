@@ -46,6 +46,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_binary_doc_values_updates::{get_value, to_bytes};
+use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
@@ -140,7 +141,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
       writer.commit()?;
     }
 
-    let new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
+    let new_reader = directory_reader::open_if_changed(&reader)?.unwrap();
     reader.close()?;
     reader = new_reader;
 
@@ -245,7 +246,7 @@ fn test_stress_multi_threading() -> Result<()> {
           .name(format!("UpdateThread-{i}"))
           .spawn_scoped(scope, move || -> Result<()> {
             let mut random = random_from_seed(seed);
-            let mut reader = None;
+            let mut reader: Option<DefaultCRReader> = None;
             while num_updates.fetch_sub(1, Ordering::SeqCst) > 0 {
               let group = random.random::<f64>();
               let t = if group < 0.1 {
@@ -281,8 +282,7 @@ fn test_stress_multi_threading() -> Result<()> {
 
               if random.random_bool(0.1) {
                 if let Some(old_reader) = reader.take() {
-                  if let Some(new_reader) = directory_reader::open_if_changed(&old_reader, &writer)?
-                  {
+                  if let Some(new_reader) = directory_reader::open_if_changed(&old_reader)? {
                     old_reader.close()?;
                     reader = Some(new_reader);
                   } else {
@@ -668,7 +668,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
   Ok(())
 }
 
-fn do_update<D>(doc: Term, writer: &IndexWriter<D>, fields: Vec<Fields>) -> Result<()>
+fn do_update<D>(doc: Term, writer: &Arc<IndexWriter<D>>, fields: Vec<Fields>) -> Result<()>
 where
   D: Directory + 'static + std::marker::Send + Sync,
   <<D as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,

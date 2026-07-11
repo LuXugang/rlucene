@@ -107,7 +107,7 @@ fn test_index_too_many_docs() -> Result<()> {
             latch.wait();
             let mut open = directory_reader::open_from_writer(writer)?;
             while !done.load(Ordering::SeqCst) {
-              if let Some(directory_reader) = directory_reader::open_if_changed(&open, writer)? {
+              if let Some(directory_reader) = directory_reader::open_if_changed(&open)? {
                 open.close()?;
                 open = directory_reader;
               }

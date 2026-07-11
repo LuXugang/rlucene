@@ -108,17 +108,14 @@ fn test_commit_on_close() -> Result<()> {
     );
 
     assert!(
-      reader.is_current(&writer)?,
+      reader.is_current()?,
       "reader should have still been current"
     );
   }
 
   writer.close()?;
 
-  assert!(
-    !reader.is_current(&writer)?,
-    "reader should not be current now"
-  );
+  assert!(!reader.is_current()?, "reader should not be current now");
 
   {
     let r = directory_reader::open(dir.clone())?;
@@ -392,7 +389,7 @@ fn test_commit_thread_safety() -> Result<()> {
           writer.add_document(&mut thread_random, doc)?;
           writer.commit(&mut thread_random)?;
 
-          let reader2 = directory_reader::open_if_changed(&reader, &writer.w)?.unwrap();
+          let reader2 = directory_reader::open_if_changed(&reader)?.unwrap();
           reader.close()?;
           reader = reader2;
           assert_eq!(1, reader.doc_freq(&Term::from_text("f", &s))?);
@@ -447,7 +444,7 @@ fn test_force_commit() -> Result<()> {
   let reader = directory_reader::open(dir.clone())?;
   assert_eq!(0, reader.num_docs()?);
   writer.commit()?;
-  let reader2 = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
+  let reader2 = directory_reader::open_if_changed(&reader)?.unwrap();
   assert_eq!(0, reader.num_docs()?);
   assert_eq!(23, reader2.num_docs()?);
   reader.close()?;
@@ -513,7 +510,7 @@ fn test_future_commit() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     iwc,
-    IndexCommitWrapper::new(Some(commit), None, None)?,
+    IndexCommitWrapper::new(Some(commit), None)?,
   )?;
 
   assert_eq!(1, writer.get_doc_stats()?.num_docs);
@@ -589,7 +586,7 @@ fn test_prepare_commit() -> Result<()> {
 
   writer.commit()?;
 
-  let reader3 = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
+  let reader3 = directory_reader::open_if_changed(&reader)?.unwrap();
   assert_eq!(0, reader.num_docs()?);
   assert_eq!(0, reader2.num_docs()?);
   assert_eq!(23, reader3.num_docs()?);
@@ -648,7 +645,7 @@ fn test_prepare_commit_rollback() -> Result<()> {
 
   writer.rollback()?;
 
-  let reader3 = directory_reader::open_if_changed(&reader, &writer)?;
+  let reader3 = directory_reader::open_if_changed(&reader)?;
   assert!(reader3.is_none());
   assert_eq!(0, reader.num_docs()?);
   assert_eq!(0, reader2.num_docs()?);

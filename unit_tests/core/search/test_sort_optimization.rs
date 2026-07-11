@@ -2019,29 +2019,25 @@ where
 {
   type DirectoryReader = DR::DirectoryReader;
 
-  fn do_open_if_changed(
-    &self,
-    writer: &IndexWriter<Self::Directory>,
-  ) -> Result<Option<Self::DirectoryReader>> {
-    let v = self.in_.do_open_if_changed(writer)?;
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    let v = self.in_.do_open_if_changed()?;
     self.wrap_directory_reader(v)
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
     IC: crate::core::index::index_commit::IndexCommit<Directory = Arc<Self::Directory>>,
   {
-    let v = self.in_.do_open_if_changed_with_commit(writer, commit)?;
+    let v = self.in_.do_open_if_changed_with_commit(commit)?;
     self.wrap_directory_reader(v)
   }
 
   fn do_open_if_changed_with_deletes(
     &self,
-    writer: &IndexWriter<Self::Directory>,
+    writer: &Arc<IndexWriter<Self::Directory>>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
     let v = self
@@ -2054,11 +2050,8 @@ where
     self.in_.get_version()
   }
 
-  fn is_current<D>(&self, index_writer: &IndexWriter<D>) -> Result<bool>
-  where
-    D: Directory,
-  {
-    self.in_.is_current(index_writer)
+  fn is_current(&self) -> Result<bool> {
+    self.in_.is_current()
   }
 
   type IndexCommit = DR::IndexCommit;

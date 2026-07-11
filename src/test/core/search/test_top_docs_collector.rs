@@ -30,7 +30,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
@@ -216,7 +216,7 @@ impl TopDocsCollector for MyTopDocsCollector {
     }
   }
 }
-fn get_reader<D>(dir: Arc<D>) -> Result<StandardDirectoryReaderType<D>>
+fn get_reader<D>(dir: Arc<D>) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
 {

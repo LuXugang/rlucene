@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use crate::core::index::live_index_writer_config::LeafSorter;
 use crate::core::index::standard_directory_reader::{
-  ReaderCommit, StandardDirectoryReader, StandardDirectoryReaderType,
+  ReaderCommit, StandardDirectoryReader,
 };
 /// [`DirectoryReader`] is an implementation of [`CompositeReader`](crate::core::index::composite_reader::CompositeReader) that can read indexes
 /// from a [`Directory`].
@@ -50,6 +50,9 @@ use crate::core::index::standard_directory_reader::{
 /// objects.
 pub trait DirectoryReader: BaseCompositeReader {
   type DirectoryReader: DirectoryReader;
+  type Directory: Directory;
+  /// The index directory
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory>;
   /// If this reader does not support reopen, return `None` so that client code behaves correctly.
   /// This should be consistent with [`is_current`](Self::is_current),
   /// which should always return `true` if reopen is not supported.
@@ -62,13 +65,10 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// # Errors
   ///
   /// Returns an error if a low-level I/O failure occurs.
-  fn do_open_if_changed(
-    &self,
-    writer: &IndexWriter<Self::Directory>,
-  ) -> Result<Option<Self::DirectoryReader>>;
-  /// If this reader does not support reopen, return `None` so that client code behaves correctly.
-  /// This should be consistent with [`is_current`](Self::is_current),
-  /// which should always return `true` if reopen is not supported.
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>>;
+  /// If this reader does not support reopening from a specific [`IndexCommit`], return an
+  /// [`unsupported_operation`](crate::core::util::error::lucene_error::LuceneError::unsupported_operation)
+  /// error.
   ///
   /// # Returns
   ///
@@ -80,7 +80,6 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// Returns an error if a low-level I/O failure occurs.
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
@@ -98,7 +97,7 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// Returns an error if a low-level I/O failure occurs.
   fn do_open_if_changed_with_deletes(
     &self,
-    writer: &IndexWriter<Self::Directory>,
+    writer: &Arc<IndexWriter<Self::Directory>>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>>;
   /// Version number when this `IndexReader` was opened.
@@ -112,27 +111,21 @@ pub trait DirectoryReader: BaseCompositeReader {
   /// further commits (see `IndexWriter::commit`) have occurred in the directory.
   ///
   /// If instead this reader is a near real-time reader (ie, obtained by a call to
-  /// `DirectoryReader::open` with an [`IndexWriter`], or by calling
-  /// `open_if_changed_with_reader` on a near real-time reader), then this method checks
+  /// [`open_from_writer`], or by calling [`open_if_changed`] on a near real-time reader), then this method checks
   /// if either a new commit has occurred, or any new uncommitted changes have taken place via the
   /// writer. Note that even if the writer has only performed merging, this method will still return
   /// false.
   ///
-  /// In any event, if this returns false, you should call `open_if_changed_with_reader`
+  /// In any event, if this returns false, you should call [`open_if_changed`]
   /// to get a new reader that sees the changes.
   ///
   /// # Errors
   ///
   /// Returns an error if there is a low-level I/O error.
-  fn is_current<D>(&self, index_writer: &IndexWriter<D>) -> Result<bool>
-  where
-    D: Directory;
+  fn is_current(&self) -> Result<bool>;
   type IndexCommit: IndexCommit;
   /// Expert: return the IndexCommit that this reader has opened.
   fn get_index_commit(&self) -> Result<Self::IndexCommit>;
-  type Directory: Directory;
-  /// The index directory
-  fn directory(&self) -> &DirectoryReaderBase<Self::Directory>;
 }
 
 /// Returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given [`Directory`].
@@ -144,7 +137,7 @@ pub trait DirectoryReader: BaseCompositeReader {
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open<D>(directory: Arc<D>) -> Result<StandardDirectoryReaderType<D>>
+pub fn open<D>(directory: Arc<D>) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
 {
@@ -189,7 +182,7 @@ where
 ///
 /// * [`CorruptIndex`](crate::core::util::error::lucene_error::LuceneError::corrupt_index) – If the index is corrupt.
 /// * [`Io`](crate::core::util::error::lucene_error::LuceneError::io) – If a low-level I/O error occurs.
-pub fn open_from_writer<D>(writer: &IndexWriter<D>) -> Result<StandardDirectoryReaderType<D>>
+pub fn open_from_writer<D>(writer: &Arc<IndexWriter<D>>) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
 {
@@ -218,10 +211,10 @@ where
 ///
 /// This API is marked as **experimental** in Lucene.
 pub fn open_with_writer_deletes<D>(
-  writer: &IndexWriter<D>,
+  writer: &Arc<IndexWriter<D>>,
   apply_all_deletes: bool,
   write_all_deletes: bool,
-) -> Result<StandardDirectoryReaderType<D>>
+) -> Result<StandardDirectoryReader<D>>
 where
   D: Directory + 'static,
 {
@@ -245,6 +238,46 @@ where
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
 }
 
+/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given `IndexCommit`.
+///
+/// This method allows opening indices that were created with a Lucene version older than N-1,
+/// provided that all codecs for this index are available in the classpath and the segment file
+/// format used was created with Lucene 7 or newer.
+/// Users of this API must be aware that Lucene does not guarantee semantic compatibility for
+/// indices created with versions older than N-1. All backwards compatibility aside from the file
+/// format is optional and applied on a best-effort basis.
+///
+/// # Parameters
+///
+/// * `commit` – the commit point to open
+/// * `min_supported_major_version` – the minimum supported major index version
+/// * `leaf_sorter` – a comparator for sorting leaf readers.
+///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
+///   criteria (e.g., for time-based indices, this is usually a descending sort on timestamp).
+///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
+///   Providing `leaf_sorter` allows speeding up this type of sort queries by early termination
+///   while iterating through segments and their documents.
+///
+/// # Errors
+///
+/// Returns an error if there is a low-level I/O error.
+pub fn open_with_version<D, IC>(
+  commit: &IC,
+  min_supported_major_version: i32,
+  leaf_sorter: Option<LeafSorter<D>>,
+) -> Result<StandardDirectoryReader<D>>
+where
+  D: Directory + 'static,
+  IC: IndexCommit<Directory = Arc<D>>,
+{
+  StandardDirectoryReader::open_with_version(
+    commit.get_directory(),
+    min_supported_major_version,
+    Some(commit),
+    leaf_sorter,
+  )
+}
+
 /// If the index has changed since the provided reader was opened, open and return a new reader;
 /// otherwise, return `None`. The new reader, if any, will be the same type of reader as the
 /// previous one, i.e. an NRT reader will open a new NRT reader.
@@ -263,14 +296,11 @@ where
 /// # Errors
 ///
 /// Returns an error if the index is corrupt or if there is a low-level I/O error.
-pub fn open_if_changed<D>(
-  old_reader: &StandardDirectoryReader<D>,
-  writer: &IndexWriter<D>,
-) -> Result<Option<StandardDirectoryReader<D>>>
+pub fn open_if_changed<DR>(old_reader: &DR) -> Result<Option<DR::DirectoryReader>>
 where
-  D: Directory + 'static,
+  DR: DirectoryReader,
 {
-  old_reader.do_open_if_changed(writer)
+  old_reader.do_open_if_changed()
 }
 
 /// If the `IndexCommit` differs from what the provided reader is searching, open and return a new
@@ -279,16 +309,15 @@ where
 /// # Errors
 ///
 /// Returns an error if there is a low-level I/O error.
-pub fn open_if_changed_with_commit<D, IC>(
-  old_reader: &StandardDirectoryReader<D>,
+pub fn open_if_changed_with_commit<DR, IC>(
+  old_reader: &DR,
   commit: Option<&IC>,
-  writer: &IndexWriter<D>,
-) -> Result<Option<StandardDirectoryReader<D>>>
+) -> Result<Option<DR::DirectoryReader>>
 where
-  D: Directory + 'static,
-  IC: IndexCommit<Directory = Arc<D>>,
+  DR: DirectoryReader,
+  IC: IndexCommit<Directory = Arc<DR::Directory>>,
 {
-  old_reader.do_open_if_changed_with_commit(writer, commit)
+  old_reader.do_open_if_changed_with_commit(commit)
 }
 
 /// Expert: If there are committed or uncommitted changes in the [`IndexWriter`] versus what the
@@ -317,12 +346,12 @@ where
 /// # Lucene
 ///
 /// This API is marked as experimental in Lucene.
-pub fn open_if_changed_with_writer<D>(
-  old_reader: &StandardDirectoryReader<D>,
-  writer: &IndexWriter<D>,
-) -> Result<Option<StandardDirectoryReader<D>>>
+pub fn open_if_changed_with_writer<DR>(
+  old_reader: &DR,
+  writer: &Arc<IndexWriter<DR::Directory>>,
+) -> Result<Option<DR::DirectoryReader>>
 where
-  D: Directory + 'static,
+  DR: DirectoryReader,
 {
   open_if_changed_with_writer_deletes(old_reader, writer, true)
 }
@@ -345,13 +374,13 @@ where
 /// # Lucene
 ///
 /// This API is marked as experimental in Lucene.
-pub fn open_if_changed_with_writer_deletes<D>(
-  old_reader: &StandardDirectoryReader<D>,
-  writer: &IndexWriter<D>,
+pub fn open_if_changed_with_writer_deletes<DR>(
+  old_reader: &DR,
+  writer: &Arc<IndexWriter<DR::Directory>>,
   apply_all_deletes: bool,
-) -> Result<Option<StandardDirectoryReader<D>>>
+) -> Result<Option<DR::DirectoryReader>>
 where
-  D: Directory + 'static,
+  DR: DirectoryReader,
 {
   old_reader.do_open_if_changed_with_deletes(writer, apply_all_deletes)
 }
@@ -440,45 +469,6 @@ pub fn index_exists(directory: &impl Directory) -> Result<bool> {
   }
   Ok(false)
 }
-/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given `IndexCommit`.
-///
-/// This method allows opening indices that were created with a Lucene version older than N-1,
-/// provided that all codecs for this index are available in the classpath and the segment file
-/// format used was created with Lucene 7 or newer.
-/// Users of this API must be aware that Lucene does not guarantee semantic compatibility for
-/// indices created with versions older than N-1. All backwards compatibility aside from the file
-/// format is optional and applied on a best-effort basis.
-///
-/// # Parameters
-///
-/// * `commit` – the commit point to open
-/// * `min_supported_major_version` – the minimum supported major index version
-/// * `leaf_sorter` – a comparator for sorting leaf readers.
-///   Providing `leaf_sorter` is useful for indices expected to run many queries with particular sort
-///   criteria (e.g., for time-based indices, this is usually a descending sort on timestamp).
-///   In this case, `leaf_sorter` should sort leaves according to this sort criteria.
-///   Providing `leaf_sorter` allows speeding up this type of sort queries by early termination
-///   while iterating through segments and their documents.
-///
-/// # Errors
-///
-/// Returns an error if there is a low-level I/O error.
-pub fn open_with_version<D, IC>(
-  commit: &IC,
-  min_supported_major_version: i32,
-  leaf_sorter: Option<LeafSorter<D>>,
-) -> Result<StandardDirectoryReader<D>>
-where
-  D: Directory + 'static,
-  IC: IndexCommit<Directory = Arc<D>>,
-{
-  StandardDirectoryReader::open_with_version(
-    commit.get_directory(),
-    min_supported_major_version,
-    Some(commit),
-    leaf_sorter,
-  )
-}
 pub struct DirectoryReaderBase<D> {
   pub directory: Arc<D>,
 }
@@ -498,28 +488,29 @@ where
   T: DirectoryReader,
 {
   type DirectoryReader = T::DirectoryReader;
+  type Directory = T::Directory;
 
-  fn do_open_if_changed(
-    &self,
-    writer: &IndexWriter<Self::Directory>,
-  ) -> Result<Option<Self::DirectoryReader>> {
-    (**self).do_open_if_changed(writer)
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    (**self).directory()
+  }
+
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    (**self).do_open_if_changed()
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
     IC: IndexCommit<Directory = Arc<Self::Directory>>,
   {
-    (**self).do_open_if_changed_with_commit(writer, commit)
+    (**self).do_open_if_changed_with_commit(commit)
   }
 
   fn do_open_if_changed_with_deletes(
     &self,
-    writer: &IndexWriter<Self::Directory>,
+    writer: &Arc<IndexWriter<Self::Directory>>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
     (**self).do_open_if_changed_with_deletes(writer, apply_deletes)
@@ -529,22 +520,13 @@ where
     (**self).get_version()
   }
 
-  fn is_current<D>(&self, index_writer: &IndexWriter<D>) -> Result<bool>
-  where
-    D: Directory,
-  {
-    (**self).is_current(index_writer)
+  fn is_current(&self) -> Result<bool> {
+    (**self).is_current()
   }
 
   type IndexCommit = T::IndexCommit;
 
   fn get_index_commit(&self) -> Result<Self::IndexCommit> {
     (**self).get_index_commit()
-  }
-
-  type Directory = T::Directory;
-
-  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
-    (**self).directory()
   }
 }

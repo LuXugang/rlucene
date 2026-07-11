@@ -1716,8 +1716,7 @@ fn test_wicked_long_term() -> Result<()> {
   reader.close()?;
   Ok(())
 }
-
-// TODO IMPORTANT IndexReader::do_close需要重新设计
+#[test]
 fn test_delete_all_nrt_leftover_files() -> Result<()> {
   let mut random = random();
 
@@ -2392,7 +2391,7 @@ fn test_get_commit_data_from_old_snapshot() -> Result<()> {
   let mut iwc = new_snapshot_index_writer_config(&mut random)?;
   iwc.set_open_mode(OpenMode::Append);
   let index_commit_wrapper =
-    IndexCommitWrapper::<Arc<CommitPoint<DirEnum>>, DirEnum>::new(Some(index_commit), None, None)?;
+    IndexCommitWrapper::<Arc<CommitPoint<DirEnum>>, DirEnum>::new(Some(index_commit), None)?;
   let writer = IndexWriter::with_index_commit(dir.clone(), iwc, index_commit_wrapper)?;
   assert_eq!(
     Some("value"),
@@ -3102,7 +3101,7 @@ fn test_nrt_segments_file() -> Result<()> {
   let doc = Document::new();
   w.add_document(doc)?;
   w.commit()?;
-  let r3 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+  let r3 = directory_reader::open_if_changed(&r)?.unwrap();
   r.close()?;
 
   // reopened NRT reader should see gen=2 segments file
@@ -3169,7 +3168,7 @@ fn test_nrt_after_set_user_data_without_commit() -> Result<()> {
   w.set_live_commit_data(m);
 
   // setLiveCommitData with no other changes should count as an NRT change:
-  let r2 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+  let r2 = directory_reader::open_if_changed(&r)?.unwrap();
 
   r2.close()?;
   r.close()?;
@@ -3195,7 +3194,7 @@ fn test_nrt_after_set_user_data_with_commit() -> Result<()> {
   w.set_live_commit_data(m);
   w.commit()?;
   // setLiveCommitData and also commit, with no other changes, should count as an NRT change:
-  let r2 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+  let r2 = directory_reader::open_if_changed(&r)?.unwrap();
 
   r.close()?;
   r2.close()?;
@@ -3221,9 +3220,9 @@ fn test_commit_immediately_after_nrt_reopen() -> Result<()> {
   let r = directory_reader::open_from_writer(&w)?;
   w.commit()?;
 
-  assert!(!r.is_current(&w)?);
+  assert!(!r.is_current()?);
 
-  let r2 = directory_reader::open_if_changed(&r, &w)?.unwrap();
+  let r2 = directory_reader::open_if_changed(&r)?.unwrap();
   // segments_N should have changed:
   assert_ne!(
     r2.get_index_commit()?.get_segments_file_name(),
@@ -3988,7 +3987,7 @@ fn test_soft_update_documents() -> Result<()> {
   )?;
 
   let old_reader = reader;
-  reader = directory_reader::open_if_changed(&old_reader, &writer)?.expect("reader should change");
+  reader = directory_reader::open_if_changed(&old_reader)?.expect("reader should change");
   old_reader.close()?;
   let searcher = new_searcher_with_reader(directory_reader::open_from_writer(&writer)?)?;
   let top_docs = searcher.search(TermQuery::new(Term::from_text("id", "1")), 10)?;
@@ -4008,7 +4007,7 @@ fn test_soft_update_documents() -> Result<()> {
   )?;
 
   let old_reader = reader;
-  reader = directory_reader::open_if_changed(&old_reader, &writer)?.expect("reader should change");
+  reader = directory_reader::open_if_changed(&old_reader)?.expect("reader should change");
   old_reader.close()?;
   let searcher = new_searcher_with_reader(directory_reader::open_from_writer(&writer)?)?;
   let top_docs = searcher.search(TermQuery::new(Term::from_text("id", "1")), 10)?;
@@ -5461,7 +5460,7 @@ impl IndexWriterHooks for MockIndexWriter {
   }
 }
 
-fn assert_hard_live_docs<D>(writer: &IndexWriter<D>, unique_docs: &HashSet<i32>) -> Result<()>
+fn assert_hard_live_docs<D>(writer: &Arc<IndexWriter<D>>, unique_docs: &HashSet<i32>) -> Result<()>
 where
   D: Directory + 'static,
 {

@@ -113,7 +113,7 @@ fn test_indexing() -> Result<()> {
         "file {file_name} does not exist"
       );
     }
-    if let Some(r2) = directory_reader::open_if_changed(&r, &w.w)? {
+    if let Some(r2) = directory_reader::open_if_changed(&r)? {
       r.close()?;
       r = r2;
     }

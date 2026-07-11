@@ -24,7 +24,7 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::multi_reader::MultiReader;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
@@ -58,7 +58,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[allow(dead_code)]
 pub struct TestIndexSearcher {
   pub(crate) dir: Arc<DirEnum>,
-  pub(crate) reader: StandardDirectoryReaderType<DirEnum>,
+  pub(crate) reader: StandardDirectoryReader<DirEnum>,
 }
 
 impl TestIndexSearcher {

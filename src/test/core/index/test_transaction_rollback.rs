@@ -70,11 +70,8 @@ where
   let mock = MockAnalyzer::new(random);
   let mut config = new_index_writer_config_with_analyzer(random, mock)?;
   config.set_index_deletion_policy(RollbackDeletionPolicy::new(id));
-  let writer = IndexWriter::with_index_commit(
-    dir,
-    config,
-    IndexCommitWrapper::new(Some(last), None, None)?,
-  )?;
+  let writer =
+    IndexWriter::with_index_commit(dir, config, IndexCommitWrapper::new(Some(last), None)?)?;
   writer.set_live_commit_data(HashMap::from([(
     "index".to_string(),
     format!("Rolled back to 1-{id}"),

@@ -51,8 +51,9 @@ fn test_right_after_commit() -> Result<()> {
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   )?;
+  r.close()?;
 
   assert_eq!(1, w2.get_doc_stats()?.max_doc);
   w2.add_document(Document::new())?;
@@ -81,8 +82,10 @@ fn test_from_non_nrt_reader() -> Result<()> {
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), None)?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   )?;
+  assert_eq!(1, r.max_doc()?);
+  r.close()?;
 
   assert_eq!(1, w2.get_doc_stats()?.max_doc);
   w2.add_document(Document::new())?;
@@ -117,7 +120,7 @@ fn test_after_commit_then_index() -> Result<()> {
   let result = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   );
   match result {
     Err(err) => assert!(
@@ -127,6 +130,7 @@ fn test_after_commit_then_index() -> Result<()> {
     ),
     Ok(_) => panic!("expected stale reader error"),
   }
+  r.close()?;
   Ok(())
 }
 
@@ -149,7 +153,7 @@ fn test_nrt_rollback() -> Result<()> {
   let result = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   );
   match result {
     Err(err) => assert!(
@@ -159,6 +163,7 @@ fn test_nrt_rollback() -> Result<()> {
     ),
     Ok(_) => panic!("expected stale reader error"),
   }
+  r.close()?;
   Ok(())
 }
 
@@ -211,7 +216,7 @@ fn test_random() -> Result<()> {
         }
       },
       2 => {
-        if let Some(r2) = directory_reader::open_if_changed(&r, &w)? {
+        if let Some(r2) = directory_reader::open_if_changed(&r)? {
           r.close()?;
           r = r2;
           nrt_reader_num_docs = writer_num_docs;
@@ -235,7 +240,7 @@ fn test_random() -> Result<()> {
             w = IndexWriter::with_index_commit(
               dir.clone(),
               new_index_writer_config(&mut random)?,
-              IndexCommitWrapper::new(Some(commit), Some(r), None)?,
+              IndexCommitWrapper::new(Some(commit), Some(&r))?,
             )?;
           } else {
             w.rollback()?;
@@ -243,11 +248,12 @@ fn test_random() -> Result<()> {
             w = IndexWriter::with_index_commit(
               dir.clone(),
               new_index_writer_config(&mut random)?,
-              IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+              IndexCommitWrapper::new(Some(commit), Some(&r))?,
             )?;
           }
           writer_num_docs = nrt_reader_num_docs;
           live_ids = nrt_live_ids.clone();
+          r.close()?;
           r = directory_reader::open_from_writer(&w)?;
         }
       },
@@ -296,7 +302,7 @@ fn test_consistent_field_numbers() -> Result<()> {
   )?);
   w.add_document(doc)?;
 
-  let r2 = directory_reader::open_if_changed(&r, &w)?.expect("reader should change");
+  let r2 = directory_reader::open_if_changed(&r)?.expect("reader should change");
   r.close()?;
   assert_eq!(2, r2.max_doc()?);
   w.rollback()?;
@@ -305,8 +311,9 @@ fn test_consistent_field_numbers() -> Result<()> {
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r2), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r2))?,
   )?;
+  r2.close()?;
 
   let mut doc = Document::new();
   doc.add(new_string_field(
@@ -346,12 +353,13 @@ fn test_invalid_open_mode() -> Result<()> {
   let result = IndexWriter::with_index_commit(
     dir.clone(),
     iwc,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   );
   match result {
     Err(err) => assert!(err.to_string().contains("OpenMode.CREATE")),
     Ok(_) => panic!("expected invalid open mode error"),
   }
+  r.close()?;
   Ok(())
 }
 #[test]
@@ -371,7 +379,7 @@ fn test_on_closed_reader() -> Result<()> {
   let result = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   );
   match result {
     Err(LuceneError::AlreadyClosed(_)) => {},
@@ -393,7 +401,7 @@ fn test_stale_nrt_reader() -> Result<()> {
   assert_eq!(1, r.max_doc()?);
   w.add_document(Document::new())?;
 
-  let r2 = directory_reader::open_if_changed(&r, &w)?.expect("reader should change");
+  let r2 = directory_reader::open_if_changed(&r)?.expect("reader should change");
   r2.close()?;
   w.rollback()?;
 
@@ -401,15 +409,16 @@ fn test_stale_nrt_reader() -> Result<()> {
   let w = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   )?;
   assert_eq!(1, w.get_doc_stats()?.num_docs);
+  r.close()?;
 
   let r3 = directory_reader::open_from_writer(&w)?;
   assert_eq!(1, r3.num_docs()?);
 
   w.add_document(Document::new())?;
-  let r4 = directory_reader::open_if_changed(&r3, &w)?.expect("reader should change");
+  let r4 = directory_reader::open_if_changed(&r3)?.expect("reader should change");
   r3.close()?;
   assert_eq!(2, r4.num_docs()?);
   r4.close()?;
@@ -434,9 +443,10 @@ fn test_after_rollback() -> Result<()> {
   let w = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   )?;
   assert_eq!(2, w.get_doc_stats()?.num_docs);
+  r.close()?;
   w.close()?;
 
   let r2 = directory_reader::open(dir.clone())?;
@@ -471,9 +481,10 @@ fn test_after_commit_then_index_keep_commits() -> Result<()> {
   let w2 = IndexWriter::with_index_commit(
     dir.clone(),
     new_index_writer_config(&mut random)?,
-    IndexCommitWrapper::new(Some(commit), Some(r), Some(w))?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
   )?;
   assert_eq!(2, w2.get_doc_stats()?.max_doc);
+  r.close()?;
   w2.close()?;
   Ok(())
 }

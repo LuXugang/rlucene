@@ -102,32 +102,32 @@ fn test_add_close_open() -> Result<()> {
         _ => unreachable!(),
       }
     }
-    assert!(!reader.is_current(&writer)?);
+    assert!(!reader.is_current()?);
     reader.close()?;
   }
   writer.force_merge(1)?;
   let mut reader = directory_reader::open_from_writer(&writer)?;
   writer.commit()?;
 
-  assert!(!reader.is_current(&writer)?);
+  assert!(!reader.is_current()?);
   reader.close()?;
   reader = directory_reader::open_from_writer(&writer)?;
-  assert!(reader.is_current(&writer)?);
+  assert!(reader.is_current()?);
   writer.close()?;
 
-  assert!(reader.is_current(&writer)?);
+  assert!(reader.is_current()?);
   let iwc = new_index_writer_config(&mut random)?;
   drop(writer);
   writer = IndexWriter::new(dir1.clone(), iwc)?;
-  assert!(reader.is_current(&writer)?);
+  assert!(reader.is_current()?);
   writer.add_document(DocHelper::create_document(
     1,
     "x",
     1 + random.random_range(0..5),
   ))?;
-  assert!(reader.is_current(&writer)?);
+  assert!(reader.is_current()?);
   writer.close()?;
-  assert!(!reader.is_current(&writer)?);
+  assert!(!reader.is_current()?);
   reader.close()?;
   Ok(())
 }
@@ -148,7 +148,7 @@ fn test_update_document() -> Result<()> {
   create_index_no_close(!do_full_merge, "index1", &writer)?;
 
   let r1 = directory_reader::open_from_writer(&writer)?;
-  assert!(r1.is_current(&writer)?);
+  assert!(r1.is_current()?);
 
   let mut stored_fields = r1.stored_fields()?;
   let id10 = stored_fields
@@ -167,10 +167,10 @@ fn test_update_document() -> Result<()> {
     STRING_TYPE_STORED_WITH_TVS.clone(),
   ));
   writer.update_document_with_term(Term::from_text("id", id10.clone()), new_doc)?;
-  assert!(!r1.is_current(&writer)?);
+  assert!(!r1.is_current()?);
 
   let r2 = directory_reader::open_from_writer(&writer)?;
-  assert!(r2.is_current(&writer)?);
+  assert!(r2.is_current()?);
   assert_eq!(
     0,
     count(&mut random, &Term::from_text("id", id10.clone()), &r2)?
@@ -181,13 +181,13 @@ fn test_update_document() -> Result<()> {
   );
 
   r1.close()?;
-  assert!(r2.is_current(&writer)?);
+  assert!(r2.is_current()?);
   writer.close()?;
-  assert!(!r2.is_current(&writer)?);
+  assert!(!r2.is_current()?);
 
   let r3 = directory_reader::open(dir1.clone())?;
-  assert!(r3.is_current(&writer)?);
-  assert!(!r2.is_current(&writer)?);
+  assert!(r3.is_current()?);
+  assert!(!r2.is_current()?);
   assert_eq!(0, count(&mut random, &Term::from_text("id", id10), &r3)?);
   assert_eq!(
     1,
@@ -204,13 +204,13 @@ fn test_update_document() -> Result<()> {
     &mut Default::default(),
   )?);
   writer.add_document(doc)?;
-  assert!(!r2.is_current(&writer)?);
-  assert!(r3.is_current(&writer)?);
+  assert!(!r2.is_current()?);
+  assert!(r3.is_current()?);
 
   writer.close()?;
 
-  assert!(!r2.is_current(&writer)?);
-  assert!(!r3.is_current(&writer)?);
+  assert!(!r2.is_current()?);
+  assert!(!r3.is_current()?);
 
   r2.close()?;
   r3.close()?;
@@ -246,23 +246,23 @@ fn test_is_current() -> Result<()> {
     &mut field_to_type,
   )?);
   let nrt_reader = directory_reader::open_from_writer(&writer)?;
-  assert!(nrt_reader.is_current(&writer)?);
+  assert!(nrt_reader.is_current()?);
   writer.add_document(doc)?;
-  assert!(!nrt_reader.is_current(&writer)?);
+  assert!(!nrt_reader.is_current()?);
   writer.force_merge(1)?;
-  assert!(!nrt_reader.is_current(&writer)?);
+  assert!(!nrt_reader.is_current()?);
   nrt_reader.close()?;
 
   let dir_reader = directory_reader::open(dir.clone())?;
   let nrt_reader = directory_reader::open_from_writer(&writer)?;
 
-  assert!(dir_reader.is_current(&writer)?);
-  assert!(nrt_reader.is_current(&writer)?);
+  assert!(dir_reader.is_current()?);
+  assert!(nrt_reader.is_current()?);
   assert_eq!(2, nrt_reader.max_doc()?);
   assert_eq!(1, dir_reader.max_doc()?);
   writer.close()?;
-  assert!(!nrt_reader.is_current(&writer)?);
-  assert!(!dir_reader.is_current(&writer)?);
+  assert!(!nrt_reader.is_current()?);
+  assert!(!dir_reader.is_current()?);
 
   dir_reader.close()?;
   nrt_reader.close()?;
@@ -292,18 +292,18 @@ fn test_add_indexes() -> Result<()> {
   writer2.close()?;
 
   let r0 = directory_reader::open_from_writer(&writer)?;
-  assert!(r0.is_current(&writer)?);
+  assert!(r0.is_current()?);
   drop(writer2);
   writer.add_indexes_from_directory(std::slice::from_ref(&dir2))?;
-  assert!(!r0.is_current(&writer)?);
+  assert!(!r0.is_current()?);
   r0.close()?;
 
   let r1 = directory_reader::open_from_writer(&writer)?;
-  assert!(r1.is_current(&writer)?);
+  assert!(r1.is_current()?);
 
   writer.commit()?;
 
-  assert!(!r1.is_current(&writer)?);
+  assert!(!r1.is_current()?);
 
   assert_eq!(200, r1.max_doc()?);
 
@@ -582,7 +582,7 @@ fn test_after_commit() -> Result<()> {
   }
   cms.sync()?;
 
-  if let Some(r2) = directory_reader::open_if_changed(&r1, &writer)? {
+  if let Some(r2) = directory_reader::open_if_changed(&r1)? {
     r1.close()?;
     r1 = r2;
   }
@@ -610,7 +610,7 @@ fn test_after_close() -> Result<()> {
   let searcher = IndexSearcher::from_cr(r)?;
   assert_eq!(100, searcher.count(q)?);
 
-  let err = directory_reader::open_if_changed(searcher.reader_context.reader(), &writer);
+  let err = directory_reader::open_if_changed(searcher.reader_context.reader());
   assert!(err.is_err());
 
   searcher.reader_context.reader().close()?;
@@ -642,7 +642,7 @@ fn test_during_add_indexes() -> Result<()> {
     )?)));
   }
 
-  let mut r = directory_reader::open_from_writer(writer.as_ref())?;
+  let mut r = directory_reader::open_from_writer(&writer)?;
 
   let num_iterations = 10;
   let failures = Arc::new(Mutex::new(Vec::new()));
@@ -678,7 +678,7 @@ fn test_during_add_indexes() -> Result<()> {
 
   let mut last_count = 0;
   while !thread_done.load(AtomicOrdering::Acquire) {
-    let r2 = directory_reader::open_if_changed(&r, writer.as_ref())?;
+    let r2 = directory_reader::open_if_changed(&r)?;
     if let Some(r2) = r2 {
       r.close()?;
       r = r2;
@@ -690,7 +690,7 @@ fn test_during_add_indexes() -> Result<()> {
   }
 
   handle.join().expect("addIndexes thread panicked");
-  let r2 = directory_reader::open_if_changed(&r, writer.as_ref())?;
+  let r2 = directory_reader::open_if_changed(&r)?;
   if let Some(r2) = r2 {
     r.close()?;
     r = r2;
@@ -720,7 +720,7 @@ fn test_during_add_delete() -> Result<()> {
   create_index_no_close(false, "test", writer.as_ref())?;
   writer.commit()?;
 
-  let mut r = directory_reader::open_from_writer(writer.as_ref())?;
+  let mut r = directory_reader::open_from_writer(&writer)?;
 
   let iters = if is_night_mode() { 1000 } else { 10 };
   let failures = Arc::new(Mutex::new(Vec::new()));
@@ -765,7 +765,7 @@ fn test_during_add_delete() -> Result<()> {
 
   let mut sum = 0;
   while remaining_threads.load(AtomicOrdering::Acquire) > 0 {
-    let r2 = directory_reader::open_if_changed(&r, writer.as_ref())?;
+    let r2 = directory_reader::open_if_changed(&r)?;
     if let Some(r2) = r2 {
       r.close()?;
       r = r2;
@@ -777,7 +777,7 @@ fn test_during_add_delete() -> Result<()> {
   for handle in threads {
     handle.join().expect("add/delete thread panicked");
   }
-  let r2 = directory_reader::open_if_changed(&r, writer.as_ref())?;
+  let r2 = directory_reader::open_if_changed(&r)?;
   if let Some(r2) = r2 {
     r.close()?;
     r = r2;
@@ -988,20 +988,20 @@ fn test_reopen_after_no_real_change() -> Result<()> {
 
   let r = directory_reader::open_from_writer(&w)?;
 
-  let r2 = directory_reader::open_if_changed(&r, &w)?;
+  let r2 = directory_reader::open_if_changed(&r)?;
   assert!(r2.is_none());
 
   w.add_document(Document::new())?;
-  let r3 = directory_reader::open_if_changed(&r, &w)?;
+  let r3 = directory_reader::open_if_changed(&r)?;
   assert!(r3.is_some());
   let r3 = r3.unwrap();
   assert!(r3.get_version()? != r.get_version()?);
-  assert!(r3.is_current(&w)?);
+  assert!(r3.is_current()?);
 
   w.delete_documents_with_terms(vec![Term::from_text("foo", "bar")])?;
 
-  assert!(!r3.is_current(&w)?);
-  let r4 = directory_reader::open_if_changed(&r3, &w)?;
+  assert!(!r3.is_current()?);
+  let r4 = directory_reader::open_if_changed(&r3)?;
   assert!(r4.is_none());
 
   w.delete_documents_with_terms(vec![Term::from_text("foo", "bar")])?;
@@ -1055,7 +1055,7 @@ fn test_reopen_nrt_reader_on_commit() -> Result<()> {
 
   let commits = directory_reader::list_commits(dir.clone())?;
   assert_eq!(1, commits.len());
-  let r2 = directory_reader::open_if_changed_with_commit(&r1, Some(&commits[0]), &w)?
+  let r2 = directory_reader::open_if_changed_with_commit(&r1, Some(&commits[0]))?
     .expect("commit should produce changed reader");
   let r2_context = get_context(&r2)?;
   assert_eq!(2, r2_context.leaves()?.len());
@@ -1118,8 +1118,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
     }
     writer.commit()?;
 
-    let reader2 =
-      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    let reader2 = directory_reader::open_if_changed(&reader)?.expect("reader should have changed");
     assert_leaves_sorted(&reader2, &point_sorter)?;
     reader.close()?;
     reader2.close()?;
@@ -1139,8 +1138,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
     }
     writer.commit()?;
 
-    let reader2 =
-      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    let reader2 = directory_reader::open_if_changed(&reader)?.expect("reader should have changed");
     assert_leaves_sorted(&reader2, &point_sorter)?;
     reader.close()?;
     reader2.close()?;
@@ -1161,8 +1159,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
     }
     writer.commit()?;
 
-    let reader2 =
-      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    let reader2 = directory_reader::open_if_changed(&reader)?.expect("reader should have changed");
     assert_leaves_sorted(&reader2, &point_sorter)?;
     reader.close()?;
     reader2.close()?;
@@ -1188,8 +1185,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
     }
     writer.commit()?;
 
-    let reader2 =
-      directory_reader::open_if_changed(&reader, &writer)?.expect("reader should have changed");
+    let reader2 = directory_reader::open_if_changed(&reader)?.expect("reader should have changed");
     assert_leaves_sorted(&reader2, &point_sorter)?;
     reader.close()?;
     reader2.close()?;

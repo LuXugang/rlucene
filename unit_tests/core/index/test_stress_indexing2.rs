@@ -32,7 +32,7 @@ use crate::core::index::multi_bits;
 use crate::core::index::multi_terms;
 use crate::core::index::multi_terms::TermsType;
 use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
@@ -308,7 +308,7 @@ where
 
 fn verify_equals<D, R>(
   random: &mut R,
-  r1: &StandardDirectoryReaderType<D>,
+  r1: &StandardDirectoryReader<D>,
   dir2: Arc<D>,
   id_field: &str,
 ) -> Result<()>
@@ -354,8 +354,8 @@ where
 
 fn verify_equals_readers<D, R>(
   random: &mut R,
-  r1: &StandardDirectoryReaderType<D>,
-  r2: &StandardDirectoryReaderType<D>,
+  r1: &StandardDirectoryReader<D>,
+  r2: &StandardDirectoryReader<D>,
   id_field: &str,
 ) -> Result<()>
 where
@@ -468,9 +468,9 @@ where
   let mut fields2_enum = indexed_fields2.into_iter();
   let mut field1 = None;
   let mut field2 = None;
-  let mut terms_enum1: Option<<TermsType<&StandardDirectoryReaderType<D>> as Terms>::TermsEnum> =
+  let mut terms_enum1: Option<<TermsType<&StandardDirectoryReader<D>> as Terms>::TermsEnum> =
     None;
-  let mut terms_enum2: Option<<TermsType<&StandardDirectoryReaderType<D>> as Terms>::TermsEnum> =
+  let mut terms_enum2: Option<<TermsType<&StandardDirectoryReader<D>> as Terms>::TermsEnum> =
     None;
   let mut docs1 = None;
   let mut docs2 = None;

@@ -23,7 +23,7 @@ use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader_context::IRCLeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -43,7 +43,7 @@ use rand::prelude::IndexedRandom;
 #[allow(dead_code)] // for quick search
 struct TestBoolean2ScorerSupplier;
 type DummyIRC = CompositeReaderContext<
-  StandardDirectoryReaderType<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
+  StandardDirectoryReader<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
 >;
 
 struct FakeScorer {

@@ -19,6 +19,7 @@ use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader::{self, DirectoryReader};
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::tests::INDEX_WRITER_ACCESS;
 use crate::core::index::index_writer::{
   DefaultIndexWriter, DocStats, IndexCommitWrapper, IndexWriter, IndexWriterHooks,
@@ -28,7 +29,7 @@ use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::segment_reader::DefaultLeafReader;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::query::Query;
@@ -118,12 +119,24 @@ where
       }
       let reader = directory_reader::open(dir.clone())?;
       let commit = reader.get_index_commit()?;
-      IndexWriter::with_index_commit_and_hook(
-        dir,
-        conf,
-        Some(IndexWriterHooksEnum::custom(TestPointsIndexWriterHooks)),
-        IndexCommitWrapper::new(Some(commit), Some(reader), None)?,
-      )
+      let result = IndexCommitWrapper::new(Some(commit), Some(&reader)).and_then(|index_commit| {
+        IndexWriter::with_index_commit_and_hook(
+          dir,
+          conf,
+          Some(IndexWriterHooksEnum::custom(TestPointsIndexWriterHooks)),
+          index_commit,
+        )
+      });
+      match result {
+        Ok(writer) => {
+          reader.close()?;
+          Ok(writer)
+        },
+        Err(error) => {
+          let _ = reader.close();
+          Err(error)
+        },
+      }
     } else {
       IndexWriter::with_hooks(
         dir,
@@ -568,7 +581,7 @@ where
     self.w.delete_all()
   }
 
-  pub fn get_reader<R>(&self, r: &mut R) -> Result<StandardDirectoryReaderType<D>>
+  pub fn get_reader<R>(&self, r: &mut R) -> Result<StandardDirectoryReader<D>>
   where
     R: Rng + ?Sized,
   {
@@ -648,7 +661,7 @@ where
     r: &mut R,
     apply_deletions: bool,
     write_all_deletes: bool,
-  ) -> Result<StandardDirectoryReaderType<D>>
+  ) -> Result<StandardDirectoryReader<D>>
   where
     R: Rng + ?Sized,
   {

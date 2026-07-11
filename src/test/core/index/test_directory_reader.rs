@@ -221,7 +221,7 @@ fn test_is_current() -> Result<()> {
 
   // set up reader:
   let reader = directory_reader::open(d.clone())?;
-  assert!(reader.is_current(&writer)?);
+  assert!(reader.is_current()?);
   drop(writer);
 
   // modify index by adding another document:
@@ -232,7 +232,7 @@ fn test_is_current() -> Result<()> {
   add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
   writer.close()?;
 
-  assert!(!reader.is_current(&writer)?);
+  assert!(!reader.is_current()?);
   drop(writer);
 
   // re-create index:
@@ -243,7 +243,7 @@ fn test_is_current() -> Result<()> {
   add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
   writer.close()?;
 
-  assert!(!reader.is_current(&writer)?);
+  assert!(!reader.is_current()?);
 
   reader.close()?;
   Ok(())
@@ -822,7 +822,7 @@ fn test_get_index_commit() -> Result<()> {
   }
   writer.close()?;
 
-  let r2 = directory_reader::open_if_changed(&r, &writer)?.unwrap();
+  let r2 = directory_reader::open_if_changed(&r)?.unwrap();
   assert!(c != r2.get_index_commit()?);
   assert_ne!(1, r2.get_index_commit()?.get_segment_count());
   r2.close()?;
@@ -835,9 +835,9 @@ fn test_get_index_commit() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  let r2 = directory_reader::open_if_changed(&r, &writer)?.unwrap();
+  let r2 = directory_reader::open_if_changed(&r)?.unwrap();
   // TODO IMPORTANT Segmentinfos的版本跟 Java 不一样
-  assert!(directory_reader::open_if_changed(&r2, &writer)?.is_none());
+  assert!(directory_reader::open_if_changed(&r2)?.is_none());
   assert_eq!(1, r2.get_index_commit()?.get_segment_count());
 
   r.close()?;
@@ -936,7 +936,7 @@ fn test_unique_term_count() -> Result<()> {
   assert_eq!(10, r1.terms("number")?.unwrap().size()?);
   writer.add_document(doc)?;
   writer.commit()?;
-  let r2 = directory_reader::open_if_changed(&r, &writer)?.unwrap();
+  let r2 = directory_reader::open_if_changed(&r)?.unwrap();
   r.close()?;
 
   let context = get_context(&r2)?;
@@ -962,14 +962,14 @@ fn test_prepare_commit_is_current() -> Result<()> {
   let doc = Document::new();
   writer.add_document(doc.clone())?;
   let r = directory_reader::open(dir.clone())?;
-  assert!(r.is_current(&writer)?);
+  assert!(r.is_current()?);
   writer.add_document(doc)?;
   writer.prepare_commit()?;
-  assert!(r.is_current(&writer)?);
-  let r2 = directory_reader::open_if_changed(&r, &writer)?;
+  assert!(r.is_current()?);
+  let r2 = directory_reader::open_if_changed(&r)?;
   assert!(r2.is_none());
   writer.commit()?;
-  assert!(!r.is_current(&writer)?);
+  assert!(!r.is_current()?);
   writer.close()?;
   r.close()?;
   Ok(())

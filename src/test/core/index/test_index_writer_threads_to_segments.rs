@@ -132,12 +132,12 @@ const MAX_THREADS_AT_ONCE: usize = 10;
 struct CheckSegmentCount {
   max_thread_count_per_iter: Arc<AtomicUsize>,
   indexing_count: Arc<AtomicUsize>,
-  r: crate::core::index::standard_directory_reader::StandardDirectoryReaderType<DirEnum>,
+  r: crate::core::index::standard_directory_reader::StandardDirectoryReader<DirEnum>,
 }
 
 impl CheckSegmentCount {
   fn new(
-    w: &IndexWriter<DirEnum>,
+    w: &Arc<IndexWriter<DirEnum>>,
     max_thread_count_per_iter: Arc<AtomicUsize>,
     indexing_count: Arc<AtomicUsize>,
     random: &mut impl rand::Rng,
@@ -153,9 +153,9 @@ impl CheckSegmentCount {
     Ok(checker)
   }
 
-  fn run(&mut self, w: &IndexWriter<DirEnum>, random: &mut impl rand::Rng) -> Result<()> {
+  fn run(&mut self, random: &mut impl rand::Rng) -> Result<()> {
     let old_segment_count = get_context(&self.r)?.leaves()?.len();
-    let r2 = directory_reader::open_if_changed(&self.r, w)?.unwrap();
+    let r2 = directory_reader::open_if_changed(&self.r)?.unwrap();
     self.r.close()?;
     self.r = r2;
     let max_expected_segments =
@@ -241,10 +241,7 @@ fn test_segment_count_on_flush_random() -> Result<()> {
             }
           }
           if barrier.wait().is_leader() {
-            checker
-              .lock()
-              .unwrap()
-              .run(&w, &mut *random.lock().unwrap())?;
+            checker.lock().unwrap().run(&mut *random.lock().unwrap())?;
           }
           barrier.wait();
         }

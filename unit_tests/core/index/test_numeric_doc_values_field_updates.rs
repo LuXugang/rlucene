@@ -63,6 +63,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::IndexedRandom;
@@ -384,7 +385,7 @@ fn test_reopen() -> Result<()> {
     println!("TEST: openIfChanged");
   }
 
-  let reader2 = directory_reader::open_if_changed(&reader1, &writer)?.unwrap();
+  let reader2 = directory_reader::open_if_changed(&reader1)?.unwrap();
   assert_ne!(
     reader1.get_reader_cache_helper()?.unwrap().get_key(),
     reader2.get_reader_cache_helper()?.unwrap().get_key()
@@ -1187,7 +1188,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
       writer.commit()?;
     }
 
-    let new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
+    let new_reader = directory_reader::open_if_changed(&reader)?.unwrap();
     reader.close()?;
     reader = new_reader;
     if cfg!(feature = "test_log_verbose") {
@@ -1522,7 +1523,7 @@ fn test_stress_multi_threading() -> Result<()> {
         thread::Builder::new()
           .name(format!("UpdateThread-{i}"))
           .spawn_scoped(scope, move || -> Result<()> {
-            let mut reader = None;
+            let mut reader: Option<DefaultCRReader> = None;
             let mut random = random_from_seed(seed);
             while num_updates.fetch_sub(1, Ordering::SeqCst) > 0 {
               let group = random.random::<f64>();
@@ -1560,8 +1561,7 @@ fn test_stress_multi_threading() -> Result<()> {
 
               if random.random_bool(0.1) {
                 if let Some(old_reader) = reader.take() {
-                  if let Some(new_reader) = directory_reader::open_if_changed(&old_reader, &writer)?
-                  {
+                  if let Some(new_reader) = directory_reader::open_if_changed(&old_reader)? {
                     old_reader.close()?;
                     reader = Some(new_reader);
                   } else {

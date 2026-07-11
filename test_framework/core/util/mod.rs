@@ -23,7 +23,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::segment_reader::DefaultLeafReader;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::store::directory::DirEnum;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
@@ -45,8 +45,8 @@ pub mod test_util;
 pub mod test_vector_util;
 pub mod throttled_index_output;
 
-pub type DefaultCRReaderShared = Arc<StandardDirectoryReaderType<DirEnum>>;
-pub type DefaultCRReader = StandardDirectoryReaderType<DirEnum>;
+pub type DefaultCRReaderShared = Arc<StandardDirectoryReader<DirEnum>>;
+pub type DefaultCRReader = StandardDirectoryReader<DirEnum>;
 pub type DefaultLRReader = DefaultLeafReader<DirEnum>;
 pub type DefaultIRCRC = CompositeReaderContext<DefaultCRReader>;
 pub type DefaultIRCLR = LeafReaderContext<DefaultLRReader>;
@@ -54,7 +54,7 @@ pub type DefaultIndexSearchCRShared =
   DefaultIndexSearcher<CompositeReaderContext<DefaultCRReaderShared>>;
 pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
 pub type DefaultIndexSearchLR = DefaultIndexSearcher<LeafReaderContext<DefaultLRReader>>;
-pub type DummyCR = StandardDirectoryReaderType<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>;
+pub type DummyCR = StandardDirectoryReader<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>;
 
 pub(crate) fn dummy_directory() -> Result<Arc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>> {
   let temp_dir = TempDir::new()?;

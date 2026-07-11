@@ -25,7 +25,7 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -114,7 +114,7 @@ fn build<R>(
   index: &mut TestIndex,
   min_id: i32,
   max_id: i32,
-) -> Result<StandardDirectoryReaderType<DirEnum>>
+) -> Result<StandardDirectoryReader<DirEnum>>
 where
   R: Rng + ?Sized,
 {

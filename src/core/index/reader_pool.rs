@@ -91,7 +91,7 @@ where
     info_stream: InfoStreamMT,
     soft_deletes_field: Option<String>,
     completed_del_gen_supplier: F,
-    reader: Option<StandardDirectoryReader<D>>,
+    reader: Option<&StandardDirectoryReader<D>>,
     index_created_version_major: i32,
   ) -> Result<Self> {
     let mut reader_map = HashMap::new();
@@ -100,8 +100,8 @@ where
       // Pre-enroll all segment readers into the reader pool; this is necessary so
       // any in-memory NRT live docs are correctly carried over, and so NRT readers
       // pulled from this IW share the same segment reader:
-      let reader = get_context(reader)?;
-      let leaves = reader.leaves()?;
+      let context = get_context(reader)?;
+      let leaves = context.leaves()?;
       debug_assert_eq!(segment_infos.size(), leaves.len());
       for (i, leaf) in leaves.iter().enumerate() {
         let seg_reader = leaf.reader().as_ref();

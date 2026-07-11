@@ -35,7 +35,6 @@ use crate::core::index::pending_soft_deletes::apply_soft_deletes;
 use crate::core::index::term::Term;
 use crate::core::search::field_exists_query::get_doc_values_doc_id_set_iterator;
 use crate::core::search::knn_collector::KnnCollector;
-use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -257,11 +256,8 @@ where
 {
   type DirectoryReader = Self;
 
-  fn do_open_if_changed(
-    &self,
-    writer: &IndexWriter<Self::Directory>,
-  ) -> Result<Option<Self::DirectoryReader>> {
-    match self.in_.do_open_if_changed(writer)? {
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    match self.in_.do_open_if_changed()? {
       Some(reader) => Ok(Some(self.do_wrap_directory_reader_impl(reader)?)),
       None => Ok(None),
     }
@@ -269,13 +265,12 @@ where
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
     IC: IndexCommit<Directory = Arc<Self::Directory>>,
   {
-    match self.in_.do_open_if_changed_with_commit(writer, commit)? {
+    match self.in_.do_open_if_changed_with_commit(commit)? {
       Some(reader) => Ok(Some(self.do_wrap_directory_reader_impl(reader)?)),
       None => Ok(None),
     }
@@ -283,7 +278,7 @@ where
 
   fn do_open_if_changed_with_deletes(
     &self,
-    writer: &IndexWriter<Self::Directory>,
+    writer: &Arc<IndexWriter<Self::Directory>>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
     match self
@@ -299,11 +294,8 @@ where
     self.in_.get_version()
   }
 
-  fn is_current<D>(&self, index_writer: &IndexWriter<D>) -> Result<bool>
-  where
-    D: Directory,
-  {
-    self.in_.is_current(index_writer)
+  fn is_current(&self) -> Result<bool> {
+    self.in_.is_current()
   }
 
   type IndexCommit = DR::IndexCommit;

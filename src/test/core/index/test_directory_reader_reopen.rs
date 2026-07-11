@@ -38,7 +38,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{ALL, PostingsEnum};
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
@@ -164,7 +164,7 @@ where
     }
     iwriter.commit()?;
     if with_reopen {
-      if let Some(v) = directory_reader::open_if_changed(&reader, &iwriter)? {
+      if let Some(v) = directory_reader::open_if_changed(&reader)? {
         reader.close()?;
         reader = v;
       }
@@ -211,7 +211,7 @@ fn test_thread_safety() -> Result<()> {
 
     for i in 0..n {
       if i % 2 == 0 {
-        match directory_reader::open_if_changed(reader.as_ref(), &writer) {
+        match directory_reader::open_if_changed(reader.as_ref()) {
           Ok(Some(refreshed)) => {
             {
               let mut readers_to_close = readers_to_close
@@ -243,7 +243,6 @@ fn test_thread_safety() -> Result<()> {
         let readers_to_close = readers_to_close.clone();
         let create_reader_mutex = create_reader_mutex.clone();
         let test = &test;
-        let writer_ref = &writer;
         let seed = random.random();
         let task_for_thread = task.clone();
         threads.push(ReaderThread::new(
@@ -289,7 +288,7 @@ fn test_thread_safety() -> Result<()> {
                 break;
               } else {
                 // not synchronized
-                let refreshed = directory_reader::open_if_changed(r.as_ref(), writer_ref)?
+                let refreshed = directory_reader::open_if_changed(r.as_ref())?
                   .map(Arc::new)
                   .unwrap_or_else(|| r.clone());
 
@@ -444,8 +443,8 @@ struct ReaderCouple<D>
 where
   D: Directory,
 {
-  new_reader: Option<Arc<StandardDirectoryReaderType<D>>>,
-  refreshed_reader: Arc<StandardDirectoryReaderType<D>>,
+  new_reader: Option<Arc<StandardDirectoryReader<D>>>,
+  refreshed_reader: Arc<StandardDirectoryReader<D>>,
 }
 
 impl<D> ReaderCouple<D>
@@ -453,8 +452,8 @@ where
   D: Directory,
 {
   fn new(
-    new_reader: Option<Arc<StandardDirectoryReaderType<D>>>,
-    refreshed_reader: Arc<StandardDirectoryReaderType<D>>,
+    new_reader: Option<Arc<StandardDirectoryReader<D>>>,
+    refreshed_reader: Arc<StandardDirectoryReader<D>>,
   ) -> Self {
     Self {
       new_reader,
@@ -515,7 +514,7 @@ trait TestReopen<D>
 where
   D: Directory,
 {
-  fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>>;
+  fn open_reader(&self) -> Result<StandardDirectoryReader<D>>;
 
   fn modify_index<R>(&self, random: &mut R, i: i32) -> Result<Arc<IndexWriter<D>>>
   where
@@ -542,7 +541,7 @@ impl<D> TestReopen<D> for DefaultTestReopen<D>
 where
   D: Directory + 'static,
 {
-  fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
+  fn open_reader(&self) -> Result<StandardDirectoryReader<D>> {
     directory_reader::open(self.dir.clone())
   }
 
@@ -575,7 +574,7 @@ impl<D> TestReopen<D> for ThreadSafetyTestReopen<D>
 where
   D: Directory + 'static,
 {
-  fn open_reader(&self) -> Result<StandardDirectoryReaderType<D>> {
+  fn open_reader(&self) -> Result<StandardDirectoryReader<D>> {
     directory_reader::open(self.dir.clone())
   }
 
@@ -653,7 +652,7 @@ where
 
 fn refresh_reader<R, D>(
   random: &mut R,
-  reader: &Arc<StandardDirectoryReaderType<D>>,
+  reader: &Arc<StandardDirectoryReader<D>>,
   has_changes: bool,
   iw: Arc<IndexWriter<D>>,
 ) -> Result<(ReaderCouple<D>, Arc<IndexWriter<D>>)>
@@ -673,7 +672,7 @@ where
 
 fn refresh_reader_with_test<R, D, T>(
   random: &mut R,
-  reader: &Arc<StandardDirectoryReaderType<D>>,
+  reader: &Arc<StandardDirectoryReader<D>>,
   test: Option<&T>,
   modify: i32,
   has_changes: bool,
@@ -693,7 +692,7 @@ where
     iw.ok_or_else(|| LuceneError::illegal_state("missing IndexWriter for refreshReader"))?
   };
 
-  let refreshed_reader = match directory_reader::open_if_changed(reader, &iw) {
+  let refreshed_reader = match directory_reader::open_if_changed(reader) {
     Ok(Some(refreshed)) => Arc::new(refreshed),
     Ok(None) => reader.clone(),
     Err(err) => {
@@ -814,7 +813,7 @@ where
   }
 }
 
-fn assert_reader_closed<D>(reader: &StandardDirectoryReaderType<D>, _check_sub_readers: bool)
+fn assert_reader_closed<D>(reader: &StandardDirectoryReader<D>, _check_sub_readers: bool)
 where
   D: Directory,
 {
@@ -828,8 +827,8 @@ where
 }
 
 fn assert_index_equals<D>(
-  index1: &StandardDirectoryReaderType<D>,
-  index2: &StandardDirectoryReaderType<D>,
+  index1: &StandardDirectoryReader<D>,
+  index2: &StandardDirectoryReader<D>,
 ) -> Result<()>
 where
   D: Directory,
@@ -1013,7 +1012,7 @@ fn test_reopen_on_commit() -> Result<()> {
 
   let commits = directory_reader::list_commits(dir.clone())?;
   for commit in &commits {
-    let r2 = directory_reader::open_if_changed_with_commit(&r, Some(commit), &writer)?.unwrap();
+    let r2 = directory_reader::open_if_changed_with_commit(&r, Some(commit))?.unwrap();
 
     let s = commit.get_user_data();
     let v = if s.is_empty() {
@@ -1064,7 +1063,7 @@ fn test_open_if_changed_nrt_to_commit() -> Result<()> {
   let r = directory_reader::open_from_writer(&w)?;
 
   assert_eq!(2, r.num_docs()?);
-  let r2 = directory_reader::open_if_changed_with_commit(&r, Some(&commits[0]), &w)?.unwrap();
+  let r2 = directory_reader::open_if_changed_with_commit(&r, Some(&commits[0]))?.unwrap();
   r.close()?;
   assert_eq!(1, r2.num_docs()?);
   w.close()?;
@@ -1103,7 +1102,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
 
   // Now reopen:
   // System.out.println("TEST: now reopen");
-  match directory_reader::open_if_changed(&r, &w) {
+  match directory_reader::open_if_changed(&r) {
     Ok(_) => panic!("expected FakeIOException"),
     Err(LuceneError::IoWithPath { source, .. }) => {
       assert!(
@@ -1178,7 +1177,7 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
   w.commit()?;
   w.close()?;
 
-  let err = directory_reader::open_if_changed(&r, &w);
+  let err = directory_reader::open_if_changed(&r);
   assert!(matches!(err, Err(LuceneError::IllegalState(_))));
 
   r.close()?;
@@ -1226,7 +1225,7 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   w.add_document(doc)?;
   w.commit()?;
 
-  let err = directory_reader::open_if_changed(&r, &w);
+  let err = directory_reader::open_if_changed(&r);
   assert!(matches!(err, Err(LuceneError::IllegalState(_))));
 
   w.close()?;
@@ -1269,7 +1268,7 @@ fn test_nrt_mdeletes() -> Result<()> {
   assert_eq!(2, get_context(&latest)?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
-  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
     .expect("reader should change");
   assert_eq!(1, get_context(&oldest)?.leaves()?.len());
 
@@ -1328,7 +1327,7 @@ fn test_nrt_mdeletes2() -> Result<()> {
   assert_eq!(2, get_context(&latest)?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
-  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
     .expect("reader should change");
 
   // This reader should not see the deletion:
@@ -1388,7 +1387,7 @@ fn test_nrt_mupdates() -> Result<()> {
   assert_eq!(1, get_context(&latest)?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
-  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
     .expect("reader should change");
   assert_eq!(1, get_context(&oldest)?.leaves()?.len());
 
@@ -1455,7 +1454,7 @@ fn test_nrt_mupdates2() -> Result<()> {
   assert_eq!(1, get_context(&latest)?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
-  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1), &writer)?
+  let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
     .expect("reader should change");
   assert_eq!(1, get_context(&oldest)?.leaves()?.len());
 
@@ -1534,7 +1533,7 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
 
   w.add_document(doc)?;
   w.close()?;
-  let err = directory_reader::open_if_changed(&r, &w);
+  let err = directory_reader::open_if_changed(&r);
   assert!(matches!(err, Err(LuceneError::IllegalState(_))));
 
   r.close()?;
@@ -1572,7 +1571,7 @@ fn test_reuse_unchanged_leaf_reader_on_dv_update() -> Result<()> {
     vec![NumericDocValuesField::new("some_docvalue", 1).into()],
   )?;
   writer.commit()?;
-  let mut new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
+  let mut new_reader = directory_reader::open_if_changed(&reader)?.unwrap();
   reader.close()?;
   reader = new_reader;
   assert_eq!(2, reader.num_docs()?);
@@ -1585,7 +1584,7 @@ fn test_reuse_unchanged_leaf_reader_on_dv_update() -> Result<()> {
   writer.update_document_with_term(Some(Term::from_text("id", "3")), doc)?;
   writer.commit()?;
 
-  new_reader = directory_reader::open_if_changed(&reader, &writer)?.unwrap();
+  new_reader = directory_reader::open_if_changed(&reader)?.unwrap();
   assert_eq!(2, new_reader.get_sequential_sub_readers().len());
   assert_eq!(1, reader.get_sequential_sub_readers().len());
   reader.close()?;

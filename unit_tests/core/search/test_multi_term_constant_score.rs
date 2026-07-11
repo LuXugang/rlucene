@@ -19,7 +19,7 @@ use crate::core::document::field::Store::Yes;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
@@ -61,7 +61,7 @@ fn constant_score_rewrites() -> [RewriteMethodEnum; 2] {
   ]
 }
 
-fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReaderType<DirEnum>)> {
+fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReader<DirEnum>)> {
   let data = [
     Some("A 1 2 3 4 5 6"),
     Some("Z       4 5 6"),

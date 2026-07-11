@@ -1173,7 +1173,7 @@ fn test_try_delete_document() -> Result<()> {
   use crate::core::index::index_writer::ModifyReader;
   use crate::core::index::multi_bits;
   use crate::core::index::no_merge_policy::NoMergePolicy;
-  use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+  use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -1192,16 +1192,16 @@ fn test_try_delete_document() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let r = directory_reader::open_from_writer(&w)?;
   assert_ne!(w.try_delete_document(ModifyReader::Composite(&r), 1)?, -1);
-  assert!(!r.is_current(&w)?);
+  assert!(!r.is_current()?);
 
   let context = get_context(&r)?;
   let leaves = context.leaves()?;
   let leaf_reader = leaves[0].reader();
   assert_ne!(
-    w.try_delete_document::<StandardDirectoryReaderType<_>>(ModifyReader::Leaf(&**leaf_reader), 0)?,
+    w.try_delete_document::<StandardDirectoryReader<_>>(ModifyReader::Leaf(&**leaf_reader), 0)?,
     -1
   );
-  assert!(!r.is_current(&w)?);
+  assert!(!r.is_current()?);
   drop(r);
   w.close()?;
 
@@ -1248,8 +1248,8 @@ fn test_nrt_is_current_after_delete() -> Result<()> {
   let r = directory_reader::open_with_writer_deletes(&w, false, false)?;
   w.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
   let r2 = directory_reader::open_with_writer_deletes(&w, true, true)?;
-  assert!(!r.is_current(&w)?);
-  assert!(r2.is_current(&w)?);
+  assert!(!r.is_current()?);
+  assert!(r2.is_current()?);
 
   Ok(())
 }

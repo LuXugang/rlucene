@@ -40,7 +40,7 @@ use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::NONE;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_state::TermState;
@@ -364,7 +364,7 @@ fn test_intersect_random() -> Result<()> {
   Ok(())
 }
 
-fn make_index<R>(random: &mut R, terms: &[String]) -> Result<StandardDirectoryReaderType<DirEnum>>
+fn make_index<R>(random: &mut R, terms: &[String]) -> Result<StandardDirectoryReader<DirEnum>>
 where
   R: Rng + ?Sized,
 {

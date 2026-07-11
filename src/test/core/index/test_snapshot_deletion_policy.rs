@@ -390,7 +390,7 @@ fn test_rollback_to_old_snapshot() -> Result<()> {
   // now open the writer on "snapshot0" - make sure it succeeds
   let mut config = get_config(&mut random, Some(sdp.clone()))?;
   config.set_open_mode(OpenMode::CreateOrAppend);
-  let index_commit = IndexCommitWrapper::new(Some(snapshots[0].clone()), None, None)?;
+  let index_commit = IndexCommitWrapper::new(Some(snapshots[0].clone()), None)?;
   let writer = IndexWriter::with_index_commit(dir.clone(), config, index_commit)?;
   // this does the actual rollback.
   writer.commit()?;

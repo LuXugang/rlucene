@@ -67,7 +67,7 @@ fn test_delete_by_term_is_current() -> Result<()> {
 
   // assert index has a document and reader is up2date
   assert_eq!(1, writer.get_doc_stats()?.num_docs);
-  assert!(reader.is_current(&writer.w)?);
+  assert!(reader.is_current()?);
 
   // remove document
   let id_term = Term::from_text("UUID", "1");
@@ -76,7 +76,7 @@ fn test_delete_by_term_is_current() -> Result<()> {
 
   // assert document has been deleted (index changed), reader is stale
   assert_eq!(0, writer.get_doc_stats()?.num_docs);
-  assert!(!reader.is_current(&writer.w)?);
+  assert!(!reader.is_current()?);
 
   reader.close()?;
   writer.close(&mut random)?;
@@ -94,7 +94,7 @@ fn test_delete_all_is_current() -> Result<()> {
 
   // assert index has a document and reader is up2date
   assert_eq!(1, writer.get_doc_stats()?.num_docs);
-  assert!(reader.is_current(&writer.w)?);
+  assert!(reader.is_current()?);
 
   // remove all documents
   writer.w.delete_all()?;
@@ -102,7 +102,7 @@ fn test_delete_all_is_current() -> Result<()> {
 
   // assert document has been deleted (index changed), reader is stale
   assert_eq!(0, writer.get_doc_stats()?.num_docs);
-  assert!(!reader.is_current(&writer.w)?);
+  assert!(!reader.is_current()?);
 
   reader.close()?;
   writer.close(&mut random)?;

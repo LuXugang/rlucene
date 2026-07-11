@@ -21,7 +21,7 @@ use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::multi_terms::get_terms;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -63,8 +63,8 @@ fn set_up<R>(
   Arc<DirEnum>,
   BTreeSet<BytesRef<Vec<u8>>>,
   Automaton,
-  Arc<StandardDirectoryReaderType<DirEnum>>,
-  DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReaderType<DirEnum>>>>,
+  Arc<StandardDirectoryReader<DirEnum>>,
+  DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReader<DirEnum>>>>,
 )>
 where
   R: Rng + ?Sized,

@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
@@ -41,7 +41,7 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestLargeNumHitsTopDocsCollector;
 
-fn set_up<R>(random: &mut R) -> Result<(Arc<StandardDirectoryReaderType<DirEnum>>, Query)>
+fn set_up<R>(random: &mut R) -> Result<(Arc<StandardDirectoryReader<DirEnum>>, Query)>
 where
   R: Rng + ?Sized,
 {

@@ -538,7 +538,7 @@ where
       if force_merge && random.random_bool(0.5) {
         writer.force_merge(random, 1)?;
       }
-      if let Some(new_open) = directory_reader::open_if_changed(&open, &writer.w)? {
+      if let Some(new_open) = directory_reader::open_if_changed(&open)? {
         open.close()?;
         open = new_open;
       }

@@ -154,7 +154,7 @@ where
   event_queue: Arc<EventQueue>,
   write_doc_values_lock: Mutex<()>,
 
-  pub(crate) closed: Arc<AtomicBool>,
+  pub(crate) closed: AtomicBool,
   closing: AtomicBool,
 
   self_ref: OnceLock<Weak<IndexWriter<D>>>,
@@ -272,7 +272,7 @@ where
   pub fn with_index_commit<IC>(
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
-    index_commit: IndexCommitWrapper<IC, D>,
+    index_commit: IndexCommitWrapper<'_, IC, D>,
   ) -> Result<Arc<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
@@ -285,7 +285,7 @@ where
     d: Arc<D>,
     conf: IndexWriterConfig<D>,
     hooks: Option<IndexWriterHooksEnum>,
-    mut index_commit_wrapper: IndexCommitWrapper<IC, D>,
+    index_commit_wrapper: IndexCommitWrapper<'_, IC, D>,
   ) -> Result<Arc<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
@@ -353,8 +353,7 @@ where
         // Record that we have a change (zero out all segments) pending:
         changed(&mut change_count, &mut segment_infos);
         None
-      } else if index_commit_wrapper.reader.is_some() {
-        let reader = index_commit_wrapper.reader.take().unwrap();
+      } else if let Some(reader) = index_commit_wrapper.reader {
 
         if reader.segment_infos.get_index_created_version_major() < *MIN_SUPPORTED_MAJOR {
           // second line of defence in the case somebody tries to trick us.
@@ -414,27 +413,15 @@ where
             segments_file_name, e
           ))
         })?;
-        if let Some(_v) = &reader.writer_closed {
-          if let Some(si) = index_commit_wrapper.segment_infos.as_ref() {
-            // The old writer better be closed (we have the write lock now!):
-            #[cfg(debug_assertions)]
-            debug_assert!(
-              index_commit_wrapper
-                .old_index_writer_closed
-                .as_ref()
-                .unwrap()
-                .load(Ordering::SeqCst)
-            );
+        if let Some(writer) = &reader.writer {
+          // The old writer better be closed (we have the write lock now!):
+          debug_assert!(writer.closed.load(Ordering::SeqCst));
 
-            // In case the old writer wrote further segments (which we are now dropping),
-            // update SIS metadata so we remain write-once:
-            segment_infos.update_generation_version_and_counter(si);
-            last_commit.update_generation_version_and_counter(si);
-          } else {
-            return Err(LuceneError::illegal_state(
-              "StandardDirectoryReader build with IndexWriter, you should provide it",
-            ));
-          }
+          // In case the old writer wrote further segments (which we are now dropping),
+          // update SIS metadata so we remain write-once:
+          let inner = writer.inner.lock();
+          segment_infos.update_generation_version_and_counter(&inner.segment_infos);
+          last_commit.update_generation_version_and_counter(&inner.segment_infos);
         }
 
         rollback_segments = last_commit.create_backup_segment_infos()?;
@@ -570,7 +557,7 @@ where
         doc_writer,
         event_queue,
         write_doc_values_lock: Mutex::new(()),
-        closed: Arc::new(AtomicBool::new(false)),
+        closed: AtomicBool::new(false),
         closing: AtomicBool::new(false),
         self_ref: OnceLock::new(),
         maybe_merge: AtomicBool::new(false),
@@ -5739,11 +5726,6 @@ where
   pub fn get_tragic_exception(&self) -> TragicException {
     self.tragedy.clone()
   }
-  pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
-    let inner = self.inner.lock();
-    inner.deleter.is_closed(self)
-  }
-
   fn test_point(&self, message: &str) -> Result<()> {
     if self.enable_test_points {
       debug_assert!(self.info_stream.is_enabled("TP"));
@@ -5773,6 +5755,16 @@ where
     }
 
     Ok(is_current)
+  }
+
+  pub(crate) fn is_closed(&self) -> bool {
+    let _inner = self.inner.lock();
+    self.closed.load(Ordering::SeqCst)
+  }
+
+  pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
+    let inner = self.inner.lock();
+    inner.deleter.is_closed(self)
   }
 
   fn delete_new_files<'a, I>(&self, files: I, inner: Option<&Inner<D>>) -> Result<()>
@@ -6534,10 +6526,10 @@ where
   ///
   /// This API is experimental and might change in incompatible ways in the next release.
   pub(crate) fn get_reader(
-    &self,
+    self: &Arc<Self>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
-  ) -> Result<StandardDirectoryReaderType<D>>
+  ) -> Result<StandardDirectoryReader<D>>
   where
     D: 'static,
   {
@@ -6579,7 +6571,8 @@ where
     let merged_readers = Arc::new(Mutex::new(HashMap::new()));
     let opened_read_only_clones = Arc::new(Mutex::new(HashMap::new()));
     let mut opening_segment_infos: Option<Arc<Mutex<SegmentInfos<D>>>> = None;
-    let result1 = (|| {
+    let mut reader: Option<StandardDirectoryReader<D>> = None;
+    let result1 = {
       /*
       This is the essential part of the getReader method. We need to take care of the following things:
        - flush all currently in-memory DWPTs to disk
@@ -6599,9 +6592,9 @@ where
       */
 
       let mut success = false;
-      let res = {
+      let res: Result<StandardDirectoryReader<D>> = (|| {
         let _full_flush_lock = self.full_flush_lock.lock();
-        let result2: Result<StandardDirectoryReader<D>> = (|| {
+        let result2: Result<()> = (|| {
           any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
           if !any_changes {
             self.flush_count.fetch_add(1, Ordering::AcqRel);
@@ -6611,7 +6604,7 @@ where
           if apply_all_deletes {
             self.apply_all_deletes_and_updates()?;
           }
-          let r = {
+          {
             let mut inner = self.inner.lock();
             // NOTE: we cannot carry doc values updates in memory yet, so we always must write them
             // through to disk and re-open each
@@ -6625,7 +6618,7 @@ where
             // Prevent segmentInfos from changing while opening the
             // reader; in theory we could instead do similar retry logic,
             // just like we do when loading segments_N
-            let r = {
+            reader = Some({
               let mut opened_read_only_clones = opened_read_only_clones.lock();
               let mut reader_factory = IOFunctionImpl::new(
                 self,
@@ -6640,7 +6633,7 @@ where
                 apply_all_deletes,
                 write_all_deletes,
               )?
-            };
+            });
 
             if max_full_flush_merge_wait_millis > 0 {
               // we take the SIS from the reader which has already pruned away fully deleted readers
@@ -6656,6 +6649,9 @@ where
               // while holding that lock. Merging outside of the lock ie. after calling
               // docWriter.finishFullFlush(boolean) would
               // yield wrong results because deletes might sneak in during the merge
+              let r = reader
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("near-real-time reader is missing"))?;
               let opening_segment_infos_for_merge =
                 Arc::new(Mutex::new(r.get_segment_infos().try_clone()?));
               opening_segment_infos = Some(opening_segment_infos_for_merge.clone());
@@ -6680,10 +6676,9 @@ where
                 &mut inner,
               )?;
             }
-            r
           };
           success = true;
-          Ok(r)
+          Ok(())
         })();
         self.doc_writer.finish_full_flush(success, &self.config)?;
         if success {
@@ -6696,8 +6691,11 @@ where
             .info_stream
             .message("IW", "hit exception during NRT reader")?;
         }
-        result2
-      };
+        result2?;
+        reader
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("near-real-time reader is missing"))
+      })();
       match res {
         Ok(mut r) => {
           let result = (|| {
@@ -6733,20 +6731,14 @@ where
           match result {
             Ok(()) => Ok(r),
             Err(error) => {
-              let close_result = r.close();
-              if let Err(close_error) = close_result
-                && close_error.is_tragedy_error()
-              {
-                Err(close_error)
-              } else {
-                Err(error)
-              }
+              reader = Some(r);
+              Err(error)
             },
           }
         },
         Err(e) => Err(e),
       }
-    })();
+    };
 
     match result1 {
       Ok(v) => {
@@ -6765,21 +6757,27 @@ where
         } else {
           Ok(())
         };
-        let close_result = if on_get_reader_merges.is_some() {
-          self.close_get_reader_merge_resources(
-            stop_collecting_merged_readers,
-            merged_readers,
-            None,
-          )
-        } else {
-          Ok(())
-        };
+
+        let mut cleanup = CloseWhileHandlingError::new();
+        cleanup.close(|| match reader.take() {
+          Some(reader) => reader.close(),
+          None => Ok(()),
+        });
+        cleanup.close(|| {
+          if on_get_reader_merges.is_some() {
+            self.close_get_reader_merge_resources(
+              stop_collecting_merged_readers,
+              merged_readers,
+              None,
+            )
+          } else {
+            Ok(())
+          }
+        });
+        let cleanup_result = cleanup.finish();
+
         self.maybe_close_on_tragic_event(None)?;
-        if let Err(close_error) = close_result
-          && close_error.is_tragedy_error()
-        {
-          return Err(close_error);
-        }
+        cleanup_result?;
         tragic_result?;
         Err(e)
       },
@@ -6787,7 +6785,7 @@ where
   }
   #[allow(clippy::too_many_arguments)]
   fn finish_get_reader_merge(
-    &self,
+    self: &Arc<Self>,
     stop_collecting_merged_readers: Arc<AtomicBool>,
     merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
     opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
@@ -6826,7 +6824,7 @@ where
   }
   #[allow(clippy::too_many_arguments)]
   fn maybe_reopen_merged_nrt_reader(
-    &self,
+    self: &Arc<Self>,
     merged_readers: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
     opened_read_only_clones: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
     opening_segment_infos: &Arc<Mutex<SegmentInfos<D>>>,
@@ -7042,61 +7040,29 @@ where
     Ok(())
   }
 }
-pub struct IndexCommitWrapper<IC, D>
+pub struct IndexCommitWrapper<'a, IC, D>
 where
   IC: IndexCommit<Directory = Arc<D>>,
   D: Directory,
 {
   pub(crate) commit: Option<IC>,
-  pub(crate) reader: Option<StandardDirectoryReader<D>>,
-  #[cfg(debug_assertions)]
-  pub(crate) old_index_writer_closed: Option<Arc<AtomicBool>>,
-  pub segment_infos: Option<SegmentInfos<D>>,
+  pub(crate) reader: Option<&'a StandardDirectoryReader<D>>,
 }
-impl<IC, D> IndexCommitWrapper<IC, D>
+impl<'a, IC, D> IndexCommitWrapper<'a, IC, D>
 where
   IC: IndexCommit<Directory = Arc<D>>,
   D: Directory,
 {
-  pub fn new(
-    commit: Option<IC>,
-    reader: Option<StandardDirectoryReader<D>>,
-    old_writer: Option<Arc<IndexWriter<D>>>,
-  ) -> Result<Self> {
-    let (old_index_writer_closed, segment_infos) = if let (Some(reader), Some(old_writer)) =
-      (&reader, old_writer)
-      && let Some(v) = &reader.writer_closed
-    {
-      if !Arc::ptr_eq(v, &old_writer.closed) {
-        return Err(LuceneError::illegal_state(
-          "old_writer do not match reader's indexWriter ",
-        ));
-      }
-      let segment_infos = {
-        let mut inner = old_writer.inner.lock();
-        let version = inner.segment_infos.get_index_created_version_major();
-        std::mem::replace(&mut inner.segment_infos, SegmentInfos::new(version)?)
-      };
-      (Some(old_writer.closed.clone()), Some(segment_infos))
-    } else {
-      (None, None)
-    };
-
-    Ok(Self {
-      commit,
-      reader,
-      #[cfg(debug_assertions)]
-      old_index_writer_closed,
-      segment_infos,
-    })
+  pub fn new(commit: Option<IC>, reader: Option<&'a StandardDirectoryReader<D>>) -> Result<Self> {
+    Ok(Self { commit, reader })
   }
 }
-impl<D> Default for IndexCommitWrapper<DummyIndexCommit<D>, D>
+impl<'a, D> Default for IndexCommitWrapper<'a, DummyIndexCommit<D>, D>
 where
   D: Directory,
 {
   fn default() -> Self {
-    Self::new(None, None, None).expect("")
+    Self::new(None, None).expect("")
   }
 }
 /// If `open(IndexWriter)` has been called (ie, this writer is in near
@@ -7808,7 +7774,7 @@ use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
 use crate::core::index::sorter::DocMapImpl;
 use crate::core::index::sorting_codec_reader::wrap_with_doc_map;
 use crate::core::index::standard_directory_reader::{
-  StandardDirectoryReader, StandardDirectoryReaderType, open_with_reader_function,
+  StandardDirectoryReader, open_with_reader_function,
 };
 use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
@@ -8991,10 +8957,10 @@ pub(crate) mod tests {
 
     fn get_reader<D>(
       &self,
-      iw: &IndexWriter<D>,
+      iw: &Arc<IndexWriter<D>>,
       apply_deletions: bool,
       write_all_deletes: bool,
-    ) -> Result<StandardDirectoryReaderType<D>>
+    ) -> Result<StandardDirectoryReader<D>>
     where
       D: Directory + 'static,
     {

@@ -47,23 +47,21 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::Ordering::SeqCst;
 
 /// Default implementation of DirectoryReader.
 pub struct StandardDirectoryReader<D>
 where
   D: Directory,
 {
+  pub(crate) writer: Option<Arc<IndexWriter<D>>>,
+  pub(crate) segment_infos: SegmentInfos<D>,
+  apply_all_deletes: bool,
+  write_all_deletes: bool,
   base_composite_reader_base:
     BaseCompositeReaderBase<DefaultLeafReader<D>, DummyCompositeReader<DefaultLeafReader<D>>>,
   directory_reader_base: DirectoryReaderBase<D>,
-  apply_all_deletes: bool,
-  write_all_deletes: bool,
-  pub(crate) segment_infos: SegmentInfos<D>,
   sub_reader_sorter: Option<LeafSorter<D>>,
   index_base: IndexReaderBase,
-  pub(crate) writer_closed: Option<Arc<AtomicBool>>,
   cache_helper: CacheHelperImpl,
 }
 impl<D> StandardDirectoryReader<D>
@@ -73,24 +71,24 @@ where
   pub(crate) fn new(
     directory: Arc<D>,
     readers: Vec<DefaultLeafReader<D>>,
+    writer: Option<Arc<IndexWriter<D>>>,
     segment_infos: SegmentInfos<D>,
     leaf_sorter: Option<LeafSorter<D>>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
-    closed: Option<Arc<AtomicBool>>,
   ) -> Result<Self> {
     let base_composite_reader_base =
       BaseCompositeReaderBase::with_leaf_readers(readers, leaf_sorter.as_ref())?;
     let directory_reader_base = DirectoryReaderBase::new(directory);
     Ok(StandardDirectoryReader {
-      base_composite_reader_base,
-      directory_reader_base,
+      writer,
+      segment_infos,
       apply_all_deletes,
       write_all_deletes,
-      segment_infos,
+      base_composite_reader_base,
+      directory_reader_base,
       sub_reader_sorter: leaf_sorter,
       index_base: IndexReaderBase::new(),
-      writer_closed: closed,
       cache_helper: CacheHelperImpl::new(),
     })
   }
@@ -150,17 +148,18 @@ where
     }
   }
 
-  fn do_open_from_writer<IC>(
-    &self,
-    writer: &IndexWriter<D>,
-    commit: Option<&IC>,
-  ) -> Result<Option<Self>>
+  fn do_open_from_writer<IC>(&self, commit: Option<&IC>) -> Result<Option<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
   {
     if let Some(commit) = commit {
       return Ok(Some(self.do_open_from_commit(Some(commit))?));
     }
+
+    let writer = self
+      .writer
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("reader was not opened from an IndexWriter"))?;
 
     if writer.nrt_is_current(self.segment_infos.get_version())? {
       return Ok(None);
@@ -177,15 +176,15 @@ where
     Ok(Some(reader))
   }
 
-  fn do_open_no_writer<IC>(
-    &self,
-    writer: &IndexWriter<D>,
-    commit: Option<&IC>,
-  ) -> Result<Option<Self>>
+  fn do_open_no_writer<IC>(&self, commit: Option<&IC>) -> Result<Option<Self>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
   {
-    if let Some(commit) = commit {
+    if commit.is_none() {
+      if self.is_current()? {
+        return Ok(None);
+      }
+    } else if let Some(commit) = commit {
       if !self
         .directory()
         .directory
@@ -201,8 +200,6 @@ where
       {
         return Ok(None);
       }
-    } else if self.is_current(writer)? {
-      return Ok(None);
     }
 
     Ok(Some(self.do_open_from_commit(commit)?))
@@ -212,9 +209,8 @@ where
     &self.segment_infos
   }
 }
-pub type StandardDirectoryReaderType<D> = StandardDirectoryReader<D>;
 pub(crate) fn open_with_reader_function<D, IO>(
-  writer: &IndexWriter<D>,
+  writer: &Arc<IndexWriter<D>>,
   reader_function: &mut IO,
   infos: Option<&SegmentInfos<D>>,
   inner: &mut Inner<D>, // hold IndexWriter lock
@@ -242,9 +238,9 @@ where
       let mut infos_upto = 0;
       for i in 0..num_segments {
         // NOTE: important that we use infos not
-        // segmentInfos here, so that we are passing the
-        // actual instance of SegmentInfoPerCommit in
-        // IndexWriter's segmentInfos:
+        // segmentInfos here, so that we pass the unpruned entry from the
+        // IndexWriter snapshot. Rust's clone preserves the segment identity
+        // that the reader pool uses for lookup:
         let info = match infos.info(i) {
           Some(info) => info,
           None => {
@@ -273,9 +269,9 @@ where
     })();
     match result {
       Ok(segment_infos) => (segment_infos, dir, readers),
-      Err(e) => {
-        for r in readers {
-          let _ = r.dec_ref();
+      Err(mut e) => {
+        if let Err(e1) = IOUtils::apply_to_all(&readers, IndexReader::dec_ref) {
+          e.add_suppressed(e1);
         }
         return Err(e);
       },
@@ -289,11 +285,11 @@ where
     StandardDirectoryReader::new(
       dir,
       readers,
+      Some(writer.clone()),
       segment_infos,
       leaf_sorter,
       apply_all_deletes,
       write_all_deletes,
-      Some(writer.closed.clone()),
     )
   })();
   match result {
@@ -457,7 +453,7 @@ where
     .into_iter()
     .map(|reader| reader.ok_or_else(|| LuceneError::illegal_state("segment reader is missing")))
     .collect::<Result<Vec<_>>>()?;
-  StandardDirectoryReader::new(directory, readers, infos, leaf_sorter, false, false, None)
+  StandardDirectoryReader::new(directory, readers, None, infos, leaf_sorter, false, false)
 }
 
 fn dec_ref_while_handling_exception<D, I>(readers: I)
@@ -495,7 +491,7 @@ where
       buffer.push(':');
       buffer.push_str(&self.segment_infos.get_version().to_string());
     }
-    if self.writer_closed.is_some() {
+    if self.writer.is_some() {
       buffer.push_str(":nrt");
     }
     for r in self.get_sequential_sub_readers() {
@@ -534,9 +530,20 @@ where
   }
 
   fn do_close(&self) -> Result<()> {
-    // TODO IMPORTANT 这里需要调用writer的dec_ref_deleter 有点不好搞
+    // Try to close each reader, even if one returns an error.
     let sequential_sub_readers = self.get_sequential_sub_readers();
-    IOUtils::apply_to_all(sequential_sub_readers, IndexReader::dec_ref)
+    let result = IOUtils::apply_to_all(sequential_sub_readers, IndexReader::dec_ref);
+    let dec_ref_deleter_result = match &self.writer {
+      Some(writer) => match writer.dec_ref_deleter(&self.segment_infos, None) {
+        // This is OK, it just means our original writer was closed before we were,
+        // and this may leave some un-referenced files in the index, which is harmless.
+        // The next time IndexWriter is opened on the index, it will delete them.
+        Err(LuceneError::AlreadyClosed(_)) => Ok(()),
+        result => result,
+      },
+      None => Ok(()),
+    };
+    IOUtils::use_or_suppress_result(result, dec_ref_deleter_result)
   }
 
   type ReaderCacheHelper = CacheHelperImpl;
@@ -589,46 +596,38 @@ where
 {
   type DirectoryReader = StandardDirectoryReader<D>;
 
-  fn do_open_if_changed(
-    &self,
-    writer: &IndexWriter<Self::Directory>,
-  ) -> Result<Option<Self::DirectoryReader>> {
-    self.do_open_if_changed_with_commit::<DummyIndexCommit<D>>(writer, None)
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    self.do_open_if_changed_with_commit::<DummyIndexCommit<D>>(None)
   }
 
   fn do_open_if_changed_with_commit<IC>(
     &self,
-    writer: &IndexWriter<Self::Directory>,
     commit: Option<&IC>,
   ) -> Result<Option<Self::DirectoryReader>>
   where
     IC: IndexCommit<Directory = Arc<D>>,
   {
     self.ensure_open()?;
-    if let Some(ref closed) = self.writer_closed {
-      debug_assert!(
-        Arc::ptr_eq(closed, &writer.closed),
-        "NRT reader must be reopened with the writer it was opened from"
-      );
-      self.do_open_from_writer(writer, commit)
+    if self.writer.is_some() {
+      self.do_open_from_writer(commit)
     } else {
-      self.do_open_no_writer(writer, commit)
+      self.do_open_no_writer(commit)
     }
   }
 
   fn do_open_if_changed_with_deletes(
     &self,
-    writer: &IndexWriter<Self::Directory>,
+    writer: &Arc<IndexWriter<Self::Directory>>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>> {
     self.ensure_open()?;
     if self
-      .writer_closed
+      .writer
       .as_ref()
-      .is_some_and(|closed| Arc::ptr_eq(closed, &writer.closed))
+      .is_some_and(|current_writer| Arc::ptr_eq(current_writer, writer))
       && apply_deletes == self.apply_all_deletes
     {
-      self.do_open_from_writer::<DummyIndexCommit<D>>(writer, None)
+      self.do_open_from_writer::<DummyIndexCommit<D>>(None)
     } else {
       Ok(Some(
         writer.get_reader(apply_deletes, self.write_all_deletes)?,
@@ -641,22 +640,18 @@ where
     Ok(self.segment_infos.get_version())
   }
 
-  fn is_current<D1>(&self, index_writer: &IndexWriter<D1>) -> Result<bool>
-  where
-    D1: Directory,
-  {
+  fn is_current(&self) -> Result<bool> {
     self.ensure_open()?;
 
-    let reader_from_dir = match self.writer_closed {
-      Some(ref closed) => closed.load(SeqCst),
-      None => true,
-    };
-    if reader_from_dir {
-      let latest = SegmentInfos::read_latest_commit(self.directory().directory.clone())?;
-      let version = self.segment_infos.get_version();
-      Ok(latest.get_version() == version)
-    } else {
-      index_writer.nrt_is_current(self.segment_infos.get_version())
+    match &self.writer {
+      Some(writer) if !writer.is_closed() => {
+        writer.nrt_is_current(self.segment_infos.get_version())
+      },
+      _ => {
+        let latest = SegmentInfos::read_latest_commit(self.directory().directory.clone())?;
+        let version = self.segment_infos.get_version();
+        Ok(latest.get_version() == version)
+      },
     }
   }
 
@@ -738,31 +733,47 @@ where
       self.min_supported_major_version,
     )?;
 
-    let mut readers = Vec::with_capacity(sis.size());
-
-    // ensure cleanup on failure
-    for i in 0..sis.size() {
-      debug_assert!(sis.info(i).is_some());
-      let reader = SegmentReader::new(
-        sis.info(i).as_ref().unwrap(),
-        sis.get_index_created_version_major(),
-        &IOContext::default_io_context()?,
-      )?;
-      readers.push(Arc::new(reader));
+    let mut readers: Vec<Option<DefaultLeafReader<D>>> = (0..sis.size()).map(|_| None).collect();
+    let result = (|| {
+      for i in (0..sis.size()).rev() {
+        let info = sis
+          .info(i)
+          .ok_or_else(|| LuceneError::illegal_state("segment info is missing"))?;
+        readers[i] = Some(Arc::new(SegmentReader::new(
+          info,
+          sis.get_index_created_version_major(),
+          &IOContext::default_io_context()?,
+        )?));
+      }
+      let opened_readers = readers
+        .iter()
+        .map(|reader| {
+          reader
+            .clone()
+            .ok_or_else(|| LuceneError::illegal_state("segment reader is missing"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+      // This may return `LuceneError::CorruptIndex` if there are too many documents, so
+      // it must remain inside this guarded result so readers are closed in that case:
+      StandardDirectoryReader::new(
+        self.directory.clone(),
+        opened_readers,
+        None,
+        sis,
+        self.leaf_sorter.clone(),
+        false,
+        false,
+      )
+    })();
+    match result {
+      Ok(reader) => Ok(reader),
+      Err(error) => {
+        match IOUtils::close_while_handling_error(readers.iter().flatten(), IndexReader::dec_ref) {
+          Ok(()) => Err(error),
+          Err(close_error) => Err(close_error),
+        }
+      },
     }
-    // This may return `LuceneError::CorruptIndex` if there are too many documents, so
-    // it must be inside try clause so we close readers in that case:
-    let reader = StandardDirectoryReader::new(
-      self.directory.clone(),
-      readers,
-      sis,
-      self.leaf_sorter.take(),
-      false,
-      false,
-      None,
-    )?;
-
-    Ok(reader)
   }
 }
 

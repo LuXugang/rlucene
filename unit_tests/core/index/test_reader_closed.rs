@@ -19,7 +19,7 @@ use crate::core::document::field::Store;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -37,7 +37,7 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestReaderClosed;
 
-fn set_up() -> Result<Arc<StandardDirectoryReaderType<DirEnum>>> {
+fn set_up() -> Result<Arc<StandardDirectoryReader<DirEnum>>> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::KEYWORD.clone(), false);

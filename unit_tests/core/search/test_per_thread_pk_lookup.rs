@@ -91,7 +91,7 @@ fn test_reopen() -> Result<()> {
   assert_eq!(1, pk_lookup1.lookup(&BytesRef::from_string("2"))?);
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("5"))?);
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("8"))?);
-  let reader2 = Arc::new(directory_reader::open_if_changed(reader1.as_ref(), &writer)?.unwrap());
+  let reader2 = Arc::new(directory_reader::open_if_changed(reader1.as_ref())?.unwrap());
   let context2 = get_context(reader2.clone())?;
   let mut pk_lookup2 = pk_lookup1.reopen(Some(&context2))?.unwrap();
 
@@ -110,11 +110,11 @@ fn test_reopen() -> Result<()> {
   writer.flush()?;
 
   assert_eq!(-1, pk_lookup2.lookup(&BytesRef::from_string("9"))?);
-  let reader3 = Arc::new(directory_reader::open_if_changed(reader2.as_ref(), &writer)?.unwrap());
+  let reader3 = Arc::new(directory_reader::open_if_changed(reader2.as_ref())?.unwrap());
   let context3 = get_context(reader3.clone())?;
   let mut pk_lookup3 = pk_lookup2.reopen(Some(&context3))?.unwrap();
   assert_eq!(8, pk_lookup3.lookup(&BytesRef::from_string("9"))?);
-  let reader4 = directory_reader::open_if_changed(reader3.as_ref(), &writer)?;
+  let reader4 = directory_reader::open_if_changed(reader3.as_ref())?;
   assert!(reader4.is_none());
   writer.close()?;
   Ok(())

@@ -924,7 +924,11 @@ where
   Ok(names)
 }
 
-fn delete_pct_docs_from_each_seg<D>(w: &IndexWriter<D>, pct: i32, round_up: bool) -> Result<i32>
+fn delete_pct_docs_from_each_seg<D>(
+  w: &Arc<IndexWriter<D>>,
+  pct: i32,
+  round_up: bool,
+) -> Result<i32>
 where
   D: Directory + 'static,
 {

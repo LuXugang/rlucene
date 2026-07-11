@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -42,7 +42,7 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
 
-type DirReader = Arc<StandardDirectoryReaderType<crate::core::store::directory::DirEnum>>;
+type DirReader = Arc<StandardDirectoryReader<crate::core::store::directory::DirEnum>>;
 
 /// Corresponds to Java fields protected by `synchronized (TestStressNRT.this)`:
 /// `reader`, `committedModel`, `snapshotCount`, `committedModelClock`.
@@ -243,7 +243,7 @@ impl TestStressNRT {
                           std::thread::current().name().unwrap_or("unknown")
                         );
                       }
-                      match directory_reader::open_if_changed(&old_reader, &writer_ref.w)? {
+                      match directory_reader::open_if_changed(&old_reader)? {
                         Some(new_r) => Arc::new(new_r),
                         None => {
                           old_reader.inc_ref()?;

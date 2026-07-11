@@ -26,7 +26,7 @@ use std::sync::Arc;
 
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
@@ -160,7 +160,7 @@ fn test_optimize_top_level_clause_or_null() -> Result<()> {
   let scorer = ss
         .as_any()
         .downcast_mut::<BooleanScorerSupplier<
-            CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            CompositeReaderContext<StandardDirectoryReader<DirEnum>>,
         >>()
         .unwrap();
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
@@ -177,7 +177,7 @@ fn test_optimize_top_level_clause_or_null() -> Result<()> {
   let scorer = ss
         .as_any()
         .downcast_mut::<BooleanScorerSupplier<
-            CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            CompositeReaderContext<StandardDirectoryReader<DirEnum>>,
         >>()
         .unwrap();
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
@@ -221,7 +221,7 @@ fn test_optimize_prohibited_clauses() -> Result<()> {
   let scorer = ss
         .as_any()
         .downcast_mut::<BooleanScorerSupplier<
-            CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            CompositeReaderContext<StandardDirectoryReader<DirEnum>>,
         >>()
         .unwrap();
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
@@ -242,7 +242,7 @@ fn test_optimize_prohibited_clauses() -> Result<()> {
   let scorer = ss
         .as_any()
         .downcast_mut::<BooleanScorerSupplier<
-            CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            CompositeReaderContext<StandardDirectoryReader<DirEnum>>,
         >>()
         .unwrap();
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
@@ -262,7 +262,7 @@ fn test_optimize_prohibited_clauses() -> Result<()> {
   let scorer = ss
         .as_any()
         .downcast_mut::<BooleanScorerSupplier<
-            CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            CompositeReaderContext<StandardDirectoryReader<DirEnum>>,
         >>()
         .unwrap();
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();
@@ -282,7 +282,7 @@ fn test_optimize_prohibited_clauses() -> Result<()> {
   let scorer = ss
         .as_any()
         .downcast_mut::<BooleanScorerSupplier<
-            CompositeReaderContext<StandardDirectoryReaderType<DirEnum>>,
+            CompositeReaderContext<StandardDirectoryReader<DirEnum>>,
         >>()
         .unwrap();
   let bs = scorer.boolean_scorer(ctx, &searcher)?.unwrap();

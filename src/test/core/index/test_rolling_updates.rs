@@ -22,7 +22,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH, ModifyReader};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::standard_directory_reader::StandardDirectoryReaderType;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
@@ -66,7 +66,7 @@ fn test_rolling_updates() -> Result<()> {
   )?;
   let size = at_least(&mut random, 20);
   let mut id = 0;
-  let mut r: Option<Arc<StandardDirectoryReaderType<_>>> = None;
+  let mut r: Option<Arc<StandardDirectoryReader<_>>> = None;
   let num_updates = (size as f64 * (2.0 + 5.0 * random.random::<f64>())).floor() as i32;
   let mut update_count = 0;
 
@@ -206,7 +206,7 @@ fn test_update_same_doc() -> Result<()> {
 
 fn indexing_thread<D>(
   seed: u64,
-  writer: &IndexWriter<D>,
+  writer: &Arc<IndexWriter<D>>,
   num: i32,
   field_to_type: &Mutex<HashMap<String, FieldType>>,
 ) -> Result<()>
@@ -214,7 +214,7 @@ where
   D: Directory + 'static,
 {
   let mut random = random_from_seed(seed);
-  let mut open: Option<StandardDirectoryReaderType<D>> = None;
+  let mut open: Option<StandardDirectoryReader<D>> = None;
 
   for i in 0..num {
     let mut doc = Document::new();
@@ -227,7 +227,7 @@ where
 
     if TestUtil::next_int(&mut random, 0, 2) == 0 {
       if let Some(old_reader) = open.take() {
-        open = match directory_reader::open_if_changed(&old_reader, writer)? {
+        open = match directory_reader::open_if_changed(&old_reader)? {
           Some(new_reader) => {
             old_reader.close()?;
             Some(new_reader)
