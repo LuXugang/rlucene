@@ -42,7 +42,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
 use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
@@ -94,7 +94,7 @@ use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::io_utils::IOUtils;
-use crate::core::util::{LATEST, StringHelper};
+use crate::core::util::{HasIdentity, LATEST, StringHelper};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_analyzer::{MockAnalyzer, MockTokenFilter};
 use crate::test_framework::core::analysis::mock_token_filter::ENGLISH_STOPSET;
@@ -120,6 +120,7 @@ use rand::RngExt;
 use rand_xoshiro::rand_core::Rng;
 use std::clone::Clone;
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64};
 use std::sync::{Arc, Barrier, Condvar, LazyLock, Mutex, mpsc};
@@ -4050,12 +4051,11 @@ fn test_delete_happens_before_while_flush() -> Result<()> {
   let mut random = random();
   let latch = Arc::new(CountDownLatch::new(1));
   let in_flush = Arc::new(CountDownLatch::new(1));
-  let dir = Arc::new(new_mock_directory(&mut random)?);
-  dir.fail_on(Box::new(BlockOnIndexingChainFlush {
-    do_fail: false,
-    latch: latch.clone(),
-    in_flush: in_flush.clone(),
-  }));
+  let dir = Arc::new(BlockOnIndexingChainFlushDirectory::new(
+    new_mock_directory(&mut random)?,
+    latch.clone(),
+    in_flush.clone(),
+  ));
   let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
   let mut document = Document::new();
@@ -4087,35 +4087,132 @@ fn test_delete_happens_before_while_flush() -> Result<()> {
   })?;
 
   writer.close()?;
-  let mut dir_to_close = dir.as_ref().clone();
+  let mut dir_to_close = dir.in_.clone();
   dir_to_close.close()?;
   Ok(())
 }
 
-struct BlockOnIndexingChainFlush {
-  do_fail: bool,
-  latch: Arc<CountDownLatch>,
-  in_flush: Arc<CountDownLatch>,
-}
-
-impl<D> Failure<D> for BlockOnIndexingChainFlush
+struct BlockOnIndexingChainFlushDirectory<D>
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  in_: D,
+  latch: Arc<CountDownLatch>,
+  in_flush: Arc<CountDownLatch>,
+  id: Identity,
+}
+
+impl<D> BlockOnIndexingChainFlushDirectory<D>
+where
+  D: Directory,
+{
+  fn new(in_: D, latch: Arc<CountDownLatch>, in_flush: Arc<CountDownLatch>) -> Self {
+    Self {
+      in_,
+      latch,
+      in_flush,
+      id: Identity::new(),
+    }
+  }
+}
+
+impl<D> Display for BlockOnIndexingChainFlushDirectory<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "BlockOnIndexingChainFlushDirectory({})", self.in_)
+  }
+}
+
+impl<D> Closeable for BlockOnIndexingChainFlushDirectory<D>
+where
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    self.in_.close()
+  }
+}
+
+impl<D> HasIdentity for BlockOnIndexingChainFlushDirectory<D>
+where
+  D: Directory,
+{
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
+}
+
+impl<D> Directory for BlockOnIndexingChainFlushDirectory<D>
+where
+  D: Directory,
+{
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.in_.list_all()
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.in_.delete_file(name)
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.in_.file_length(name)
+  }
+
+  type IndexOutput = D::IndexOutput;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
     if call_stack_contains::<IndexingChain<D>>("flush") {
       self.in_flush.count_down();
       self.latch.wait();
     }
-    Ok(())
+    self.in_.create_output(name, context)
   }
 
-  fn set_do_fail(&mut self) {
-    self.do_fail = true;
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.in_.create_temp_output(prefix, suffix, context)
   }
 
-  fn clear_do_fail(&mut self) {
-    self.do_fail = false;
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.in_.sync(names)
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    self.in_.sync_metadata()
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.in_.rename(source, dest)
+  }
+
+  type IndexInput = D::IndexInput;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.in_.open_input(name, context)
+  }
+
+  type Lock = D::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.in_.obtain_lock(name)
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    self.in_.get_pending_deletions()
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    self.in_.is_fs_directory()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.in_.ensure_open()
   }
 }
 
