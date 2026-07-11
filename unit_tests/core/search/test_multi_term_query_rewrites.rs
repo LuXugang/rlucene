@@ -61,9 +61,7 @@ use std::sync::Arc;
 pub struct TestMultiTermQueryRewrites;
 
 type MultiTermRewriteSearcher = DefaultIndexSearcher<
-  CompositeReaderContext<
-    MultiReader<DefaultLeafReader<DirEnum>, StandardDirectoryReader<DirEnum>>,
-  >,
+  CompositeReaderContext<MultiReader<DefaultLeafReader<DirEnum>, StandardDirectoryReader<DirEnum>>>,
 >;
 
 fn set_up<R: Rng + ?Sized>(

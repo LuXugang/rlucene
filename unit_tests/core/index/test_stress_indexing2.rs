@@ -468,10 +468,8 @@ where
   let mut fields2_enum = indexed_fields2.into_iter();
   let mut field1 = None;
   let mut field2 = None;
-  let mut terms_enum1: Option<<TermsType<&StandardDirectoryReader<D>> as Terms>::TermsEnum> =
-    None;
-  let mut terms_enum2: Option<<TermsType<&StandardDirectoryReader<D>> as Terms>::TermsEnum> =
-    None;
+  let mut terms_enum1: Option<<TermsType<&StandardDirectoryReader<D>> as Terms>::TermsEnum> = None;
+  let mut terms_enum2: Option<<TermsType<&StandardDirectoryReader<D>> as Terms>::TermsEnum> = None;
   let mut docs1 = None;
   let mut docs2 = None;
   loop {

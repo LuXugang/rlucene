@@ -354,7 +354,6 @@ where
         changed(&mut change_count, &mut segment_infos);
         None
       } else if let Some(reader) = index_commit_wrapper.reader {
-
         if reader.segment_infos.get_index_created_version_major() < *MIN_SUPPORTED_MAJOR {
           // second line of defence in the case somebody tries to trick us.
           return Err(LuceneError::illegal_argument(format!(

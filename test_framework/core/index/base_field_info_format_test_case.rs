@@ -605,7 +605,7 @@ struct FailOnCreateOutput {
 
 impl<D> Failure<D> for FailOnCreateOutput
 where
-    D: Directory,
+  D: Directory,
 {
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
     if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["create_output"]) {
@@ -629,7 +629,7 @@ struct FailOnCloseOutput {
 
 impl<D> Failure<D> for FailOnCloseOutput
 where
-    D: Directory,
+  D: Directory,
 {
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
     if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["close"]) {
@@ -653,7 +653,7 @@ struct FailOnOpenInput {
 
 impl<D> Failure<D> for FailOnOpenInput
 where
-    D: Directory,
+  D: Directory,
 {
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
     if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["open_input"]) {
@@ -677,7 +677,7 @@ struct FailOnCloseInput {
 
 impl<D> Failure<D> for FailOnCloseInput
 where
-    D: Directory,
+  D: Directory,
 {
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
     if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["close"]) {

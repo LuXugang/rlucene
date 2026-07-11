@@ -42,9 +42,8 @@ use rand::prelude::IndexedRandom;
 
 #[allow(dead_code)] // for quick search
 struct TestBoolean2ScorerSupplier;
-type DummyIRC = CompositeReaderContext<
-  StandardDirectoryReader<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>,
->;
+type DummyIRC =
+  CompositeReaderContext<StandardDirectoryReader<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>;
 
 struct FakeScorer {
   it: AllDISI,

@@ -725,7 +725,6 @@ where
     }
     Ok(())
   }
-
 }
 
 // Throws IOException during MockDirectoryWrapper.sync
