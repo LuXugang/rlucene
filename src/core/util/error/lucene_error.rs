@@ -379,16 +379,36 @@ impl LuceneError {
   error_ctor!(fuzzy_terms, FuzzyTerms, FuzzyTermsError);
   error_ctor!(illegal_argument, IllegalArgument, IllegalArgumentError);
   error_ctor!(illegal_state, IllegalState, IllegalStateError);
-  error_ctor!(
-    index_format_too_new,
-    IndexFormatTooNew,
-    IndexFormatTooNewError
-  );
-  error_ctor!(
-    index_format_too_old,
-    IndexFormatTooOld,
-    IndexFormatTooOldError
-  );
+  pub fn index_format_too_new(
+    input: &impl fmt::Display,
+    version: i32,
+    min_version: i32,
+    max_version: i32,
+  ) -> Self {
+    LuceneError::IndexFormatTooNew(IndexFormatTooNewError::from_input(
+      input,
+      version,
+      min_version,
+      max_version,
+    ))
+  }
+  pub fn index_format_too_old(input: &impl fmt::Display, reason: impl Into<String>) -> Self {
+    LuceneError::IndexFormatTooOld(IndexFormatTooOldError::from_input(input, reason))
+  }
+
+  pub fn index_format_too_old_with_version(
+    input: &impl fmt::Display,
+    version: i32,
+    min_version: i32,
+    max_version: i32,
+  ) -> Self {
+    LuceneError::IndexFormatTooOld(IndexFormatTooOldError::from_input_with_version(
+      input,
+      version,
+      min_version,
+      max_version,
+    ))
+  }
   error_ctor!(index_not_found, IndexNotFound, IndexNotFound);
   error_ctor!(lock_already_held, LockAlreadyHeld, LockAlreadyHeldError);
   error_ctor!(lock_held_by_other, LockHeldByOther, LockHeldByOtherError);

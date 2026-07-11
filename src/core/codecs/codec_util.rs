@@ -23,7 +23,6 @@ use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{DataInput, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::version::MIN_SUPPORTED_MAJOR;
 use crate::core::util::{StringHelper, TryIntoInt};
 
 /// Utility struct for reading and writing versioned headers.
@@ -239,15 +238,20 @@ impl CodecUtil {
     }
     let actual_version = Self::read_be_int(data_input)?;
     if actual_version < min_version {
-      return Err(LuceneError::index_format_too_old(format!(
-        "Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later",
-        data_input, actual_version, min_version, max_version, *MIN_SUPPORTED_MAJOR
-      )));
+      return Err(LuceneError::index_format_too_old_with_version(
+        data_input,
+        actual_version,
+        min_version,
+        max_version,
+      ));
     }
     if actual_version > max_version {
-      return Err(LuceneError::index_format_too_new(format!(
-        "Format version is not supported (resource {data_input}): {actual_version} (needs to be between {min_version} and {max_version}) "
-      )));
+      return Err(LuceneError::index_format_too_new(
+        data_input,
+        actual_version,
+        min_version,
+        max_version,
+      ));
     }
     Ok(actual_version)
   }

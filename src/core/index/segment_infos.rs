@@ -335,14 +335,12 @@ where
       // corrupt_index), we need to read the magic ourselves.
       let magic = CodecUtil::read_be_int(input)?;
       if magic != CodecUtil::CODEC_MAGIC {
-        return Err(LuceneError::index_format_too_old(format!(
-          "Format version is not supported (resource {}): {} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later",
+        return Err(LuceneError::index_format_too_old_with_version(
           input,
           magic,
           CodecUtil::CODEC_MAGIC,
           CodecUtil::CODEC_MAGIC,
-          *MIN_SUPPORTED_MAJOR
-        )));
+        ));
       }
       format = CodecUtil::check_header_no_magic(input, "segments", VERSION_74, VERSION_CURRENT)?;
 
@@ -375,10 +373,7 @@ where
             format!("from version {min_supported_major_version} upwards")
           }
         );
-        return Err(LuceneError::index_format_too_old(format!(
-          "Format version is not supported (resource {}): {}. This version of Lucene only supports indexes created with release {}.0 and later by default.",
-          input, reason, *MIN_SUPPORTED_MAJOR
-        )));
+        return Err(LuceneError::index_format_too_old(input, reason));
       }
 
       let mut infos = Self::new(index_created_version)?;

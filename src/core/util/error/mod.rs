@@ -14,8 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod index_format_too_new_error;
+mod index_format_too_old_error;
 pub mod lucene_error;
 pub mod parse;
+
+pub use index_format_too_new_error::IndexFormatTooNewError;
+pub use index_format_too_old_error::IndexFormatTooOldError;
 
 #[macro_export]
 macro_rules! message_error {
@@ -81,8 +86,6 @@ message_error!(Eof);
 message_error!(FuzzyTermsError);
 message_error!(IllegalArgumentError);
 message_error!(IllegalStateError);
-message_error!(IndexFormatTooNewError);
-message_error!(IndexFormatTooOldError);
 message_error!(IndexNotFound);
 message_error!(LockAlreadyHeldError);
 message_error!(LockHeldByOtherError);
