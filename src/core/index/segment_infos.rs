@@ -882,7 +882,7 @@ where
 
     let mut success_rename_and_sync = false;
 
-    let result = (|| {
+    let result = (|| -> Result<String> {
       let src = IndexFileNames::file_name_from_generation(
         IndexFileNames::PENDING_SEGMENTS,
         "",
@@ -893,26 +893,30 @@ where
         IndexFileNames::file_name_from_generation(IndexFileNames::SEGMENTS, "", self.generation)
           .ok_or_else(|| LuceneError::illegal_state("Failed to generate destination file name."))?;
       directory.rename(&src, &dest)?;
-      directory.sync_metadata()?;
-      success_rename_and_sync = true;
+
+      let sync_result = directory.sync_metadata();
+      if sync_result.is_ok() {
+        success_rename_and_sync = true;
+      }
+      if !success_rename_and_sync {
+        // at this point we already created the file but missed to sync directory let's also
+        // remove the
+        // renamed file
+        IOUtils::delete_files_ignoring_exceptions(directory, std::iter::once(&dest));
+      }
+      sync_result?;
       Ok(dest)
     })();
 
-    match result {
-      Ok(dest_file) => {
-        self.pending_commit = false;
-        self.last_generation = self.generation;
-        Ok(dest_file)
-      },
-      Err(e) => {
-        if !success_rename_and_sync {
-          // Attempt to roll back the commit if renaming or syncing
-          // failed
-          self.rollback_commit(directory);
-        }
-        Err(e)
-      },
+    if !success_rename_and_sync {
+      // deletes pending_segments_N:
+      self.rollback_commit(directory);
     }
+    if result.is_ok() {
+      self.pending_commit = false;
+      self.last_generation = self.generation;
+    }
+    result
   }
   /// Writes and syncs to the Directory, taking care to remove the segment
   /// file on error.

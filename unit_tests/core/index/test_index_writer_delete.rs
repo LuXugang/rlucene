@@ -52,6 +52,7 @@ use crate::test_framework::core::analysis::mock_tokenizer;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
@@ -865,12 +866,14 @@ fn test_error_after_apply_deletes() -> Result<()> {
   // an Exception is hit during flush.
   let mut random = random();
   let dir = Arc::new(new_mock_directory(&mut random)?);
-  dir.fail_on(Box::new(FailAfterApplyDeletes {
+  let mut failure: Box<dyn Failure<_>> = Box::new(FailAfterApplyDeletes {
     do_fail: false,
     saw_maybe: false,
     failed: false,
     thread: thread::current().id(),
-  }));
+  });
+  failure.reset();
+  dir.fail_on(failure);
 
   // create a couple of files
   let keywords = ["1", "2"];
@@ -984,6 +987,12 @@ impl<D> Failure<D> for FailAfterApplyDeletes
 where
   D: Directory,
 {
+  fn reset(&mut self) {
+    self.thread = thread::current().id();
+    self.saw_maybe = false;
+    self.failed = false;
+  }
+
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
     if thread::current().id() != self.thread {
       // don't fail during merging
@@ -1021,9 +1030,85 @@ where
   }
 }
 
+struct FailInDocsWriterAdd {
+  do_fail: bool,
+  failed: bool,
+}
+
+impl<D> Failure<D> for FailInDocsWriterAdd
+where
+  D: Directory,
+{
+  fn reset(&mut self) {
+    self.failed = false;
+  }
+
+  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+    if !self.failed {
+      self.failed = true;
+      return Err(LuceneError::io(std::io::Error::other("fail in add doc")));
+    }
+    Ok(())
+  }
+
+  fn set_do_fail(&mut self) {
+    self.do_fail = true;
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.do_fail = false;
+  }
+}
+
 #[test]
 fn test_error_in_docs_writer_add() -> Result<()> {
-  // TODO
+  let mut failure: Box<dyn Failure<_>> = Box::new(FailInDocsWriterAdd {
+    do_fail: false,
+    failed: false,
+  });
+
+  // create a couple of files
+  let keywords = ["1", "2"];
+  let unindexed = ["Netherlands", "Italy"];
+  let unstored = ["Amsterdam has lots of bridges", "Venice has lots of canals"];
+  let text = ["Amsterdam", "Venice"];
+
+  let mut random = random();
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+  let analyzer =
+    MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+  let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let modifier = IndexWriter::new(dir.clone(), config)?;
+  modifier.commit()?;
+  failure.reset();
+  dir.fail_on(failure);
+
+  let mut custom1 = FieldType::new();
+  custom1.set_stored(true)?;
+  for i in 0..keywords.len() {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", keywords[i], Store::Yes)?);
+    doc.add(Field::new("country", unindexed[i], custom1.clone()));
+    doc.add(TextField::from_string("contents", unstored[i], Store::No)?);
+    doc.add(TextField::from_string("city", text[i], Store::Yes)?);
+    match modifier.add_document(doc) {
+      Ok(_) => {},
+      Err(error @ LuceneError::Io { .. }) | Err(error @ LuceneError::IoWithPath { .. }) => {
+        if cfg!(feature = "test_log_verbose") {
+          println!("TEST: got expected exc:\n{error:?}");
+        }
+        break;
+      },
+      Err(error) => return Err(error),
+    }
+  }
+  assert!(modifier.is_deleter_closed()?);
+
+  assert_no_unreferenced_files(
+    dir.clone(),
+    "docsWriter.abort() failed to delete unreferenced files",
+  )?;
+  dir.as_ref().close()?;
   Ok(())
 }
 

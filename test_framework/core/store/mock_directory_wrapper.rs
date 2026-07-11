@@ -106,14 +106,9 @@ where
   /// the fact that Failure implementations are often anonymous implementations
   /// makes reset difficult to do otherwise.
   ///
-  /// A typical example of use is Failure failure = new Failure() { ... }; ...
-  /// mock.failOn(failure.reset())
-  fn reset(&mut self) -> &mut Self
-  where
-    Self: Sized,
-  {
-    self
-  }
+  /// A typical example of use is to create a boxed failure, reset it, and
+  /// then pass it to `MockDirectoryWrapper::fail_on`.
+  fn reset(&mut self) {}
 
   fn set_do_fail(&mut self);
 
