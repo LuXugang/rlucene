@@ -531,7 +531,6 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     let enabled = Arc::new(AtomicBool::new(false));
     let dir = Arc::new(new_mock_directory(&mut random)?);
     dir.fail_on(Box::new(FailOnCreateOutput {
-      do_fail: false,
       enabled: enabled.clone(),
     }));
     let codec = self.get_codec()?;
@@ -582,7 +581,6 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     let enabled = Arc::new(AtomicBool::new(false));
     let dir = Arc::new(new_mock_directory(&mut random)?);
     dir.fail_on(Box::new(FailOnCloseOutput {
-      do_fail: false,
       enabled: enabled.clone(),
     }));
     let codec = self.get_codec()?;
@@ -633,7 +631,6 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     let enabled = Arc::new(AtomicBool::new(false));
     let dir = Arc::new(new_mock_directory(&mut random)?);
     dir.fail_on(Box::new(FailOnOpenInput {
-      do_fail: false,
       enabled: enabled.clone(),
     }));
     let codec = self.get_codec()?;
@@ -690,7 +687,6 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
     let enabled = Arc::new(AtomicBool::new(false));
     let dir = Arc::new(new_mock_directory(&mut random)?);
     dir.fail_on(Box::new(FailOnCloseInput {
-      do_fail: false,
       enabled: enabled.clone(),
     }));
     let codec = self.get_codec()?;
@@ -870,7 +866,6 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   }
 }
 struct FailOnCreateOutput {
-  do_fail: bool,
   enabled: Arc<AtomicBool>,
 }
 
@@ -885,13 +880,16 @@ where
     Ok(())
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.do_fail
+  fn set_do_fail(&mut self) {
+    self.enabled.store(true, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.enabled.store(false, Ordering::SeqCst);
   }
 }
 
 struct FailOnCloseOutput {
-  do_fail: bool,
   enabled: Arc<AtomicBool>,
 }
 
@@ -906,13 +904,16 @@ where
     Ok(())
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.do_fail
+  fn set_do_fail(&mut self) {
+    self.enabled.store(true, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.enabled.store(false, Ordering::SeqCst);
   }
 }
 
 struct FailOnOpenInput {
-  do_fail: bool,
   enabled: Arc<AtomicBool>,
 }
 
@@ -927,13 +928,16 @@ where
     Ok(())
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.do_fail
+  fn set_do_fail(&mut self) {
+    self.enabled.store(true, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.enabled.store(false, Ordering::SeqCst);
   }
 }
 
 struct FailOnCloseInput {
-  do_fail: bool,
   enabled: Arc<AtomicBool>,
 }
 
@@ -948,7 +952,11 @@ where
     Ok(())
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.do_fail
+  fn set_do_fail(&mut self) {
+    self.enabled.store(true, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.enabled.store(false, Ordering::SeqCst);
   }
 }

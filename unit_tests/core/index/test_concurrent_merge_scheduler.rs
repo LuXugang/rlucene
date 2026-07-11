@@ -62,7 +62,6 @@ struct FailOnlyOnFlush {
   do_fail: Arc<AtomicBool>,
   hit_exc: Arc<AtomicBool>,
   test_thread: thread::ThreadId,
-  trait_do_fail: bool,
 }
 
 impl FailOnlyOnFlush {
@@ -96,8 +95,13 @@ where
     Ok(())
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.trait_do_fail
+  fn set_do_fail(&mut self) {
+    self.do_fail.store(true, Ordering::SeqCst);
+    self.hit_exc.store(false, Ordering::SeqCst);
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.do_fail.store(false, Ordering::SeqCst);
   }
 }
 
@@ -113,7 +117,6 @@ fn test_flush_exceptions() -> Result<()> {
     do_fail: Arc::new(AtomicBool::new(false)),
     hit_exc: Arc::new(AtomicBool::new(false)),
     test_thread: thread::current().id(),
-    trait_do_fail: false,
   };
   directory.fail_on(Box::new(failure.clone()));
   let analyzer = MockAnalyzer::new(&mut random);

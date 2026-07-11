@@ -3884,8 +3884,12 @@ where
     Ok(())
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.do_fail
+  fn set_do_fail(&mut self) {
+    self.do_fail = true;
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.do_fail = false;
   }
 }
 
@@ -4106,8 +4110,12 @@ where
     Ok(())
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.do_fail
+  fn set_do_fail(&mut self) {
+    self.do_fail = true;
+  }
+
+  fn clear_do_fail(&mut self) {
+    self.do_fail = false;
   }
 }
 

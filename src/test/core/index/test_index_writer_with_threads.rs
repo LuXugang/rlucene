@@ -440,7 +440,6 @@ where
 struct FailOnlyOnAbortOrFlush {
   only_once: bool,
   do_fail: Arc<AtomicBool>,
-  trait_do_fail: bool,
 }
 
 impl FailOnlyOnAbortOrFlush {
@@ -448,7 +447,6 @@ impl FailOnlyOnAbortOrFlush {
     Self {
       only_once,
       do_fail: Arc::new(AtomicBool::new(false)),
-      trait_do_fail: false,
     }
   }
 }
@@ -473,10 +471,6 @@ where
       return Err(LuceneError::io(Error::other("now failing on purpose")));
     }
     Ok(())
-  }
-
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.trait_do_fail
   }
 
   fn set_do_fail(&mut self) {
@@ -521,7 +515,6 @@ fn test_io_exception_during_abort_with_threads_only_once() -> Result<()> {
 struct FailOnlyInWriteSegment {
   only_once: bool,
   enabled: Arc<AtomicBool>,
-  trait_do_fail: bool,
 }
 
 impl FailOnlyInWriteSegment {
@@ -529,7 +522,6 @@ impl FailOnlyInWriteSegment {
     Self {
       only_once,
       enabled: Arc::new(AtomicBool::new(false)),
-      trait_do_fail: false,
     }
   }
 }
@@ -546,10 +538,6 @@ where
       return Err(LuceneError::io(Error::other("now failing on purpose")));
     }
     Ok(())
-  }
-
-  fn do_fail_mut(&mut self) -> &mut bool {
-    &mut self.trait_do_fail
   }
 
   fn set_do_fail(&mut self) {

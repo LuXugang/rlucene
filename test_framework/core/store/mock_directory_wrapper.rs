@@ -115,15 +115,9 @@ where
     self
   }
 
-  fn do_fail_mut(&mut self) -> &mut bool;
+  fn set_do_fail(&mut self);
 
-  fn set_do_fail(&mut self) {
-    *self.do_fail_mut() = true;
-  }
-
-  fn clear_do_fail(&mut self) {
-    *self.do_fail_mut() = false;
-  }
+  fn clear_do_fail(&mut self);
 }
 
 pub(crate) struct MockDirectoryWrapperState<D>
