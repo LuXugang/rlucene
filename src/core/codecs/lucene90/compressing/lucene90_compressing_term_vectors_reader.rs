@@ -491,7 +491,7 @@ where
     if doc < doc_base || doc >= doc_base + chunk_docs || (doc_base + chunk_docs) > self.num_docs {
       return Err(LuceneError::corrupt_index(format!(
         "docBase={},chunkDocs={},doc={},resource={}",
-        doc_base, chunk_docs, doc, &self.vectors_stream
+        doc_base, chunk_docs, doc, self.vectors_stream
       )));
     }
     self.block_state = BlockState::new(Some(start_pointer), Some(doc_base as usize), chunk_docs);

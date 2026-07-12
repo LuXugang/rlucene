@@ -152,7 +152,7 @@ impl Display for Lucene99ScalarQuantizedVectorsFormat {
       self.bits,
       self.compress,
       self.flat_vector_scorer,
-      &*RAW_VECTOR_FORMAT
+      *RAW_VECTOR_FORMAT
     )
   }
 }

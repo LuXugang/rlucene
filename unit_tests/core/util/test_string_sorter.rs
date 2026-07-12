@@ -80,7 +80,7 @@ fn test_stable(
     assert_eq!(
       &expected[i], &refs[ord[i] as usize],
       "Mismatch at index {}: expected {:?}, found {:?}",
-      i, &expected[i], &refs[ord[i] as usize]
+      i, expected[i], refs[ord[i] as usize]
     );
 
     if i > 0 && expected[i] == expected[i - 1] {

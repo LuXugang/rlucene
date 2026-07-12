@@ -446,7 +446,7 @@ where
             return Err(LuceneError::illegal_argument(format!(
               "IndexCommit's directory doesn't match my directory, expected={}, got={}",
               directory_orig,
-              &*commit.get_directory()
+              *commit.get_directory()
             )));
           }
 

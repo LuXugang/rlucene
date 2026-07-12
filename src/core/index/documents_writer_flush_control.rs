@@ -782,7 +782,7 @@ where
   pub(crate) fn assert_active_delete_queue(&self) -> bool {
     let queue = self.delete_queue.lock().clone();
     let dwpts = self.per_thread_pool.iterator();
-    for (_, next) in dwpts.iter() {
+    for next in dwpts.values() {
       debug_assert!(
         Arc::ptr_eq(&next.state.delete_queue, &queue),
         "{}",

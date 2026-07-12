@@ -110,7 +110,7 @@ pub trait DataInput: Display + Closeable {
 
     while (b & 0x80) != 0 {
       b = self.read_byte()? as i32;
-      i |= (b & 0x7F) << shift;
+      i |= (b & 0x7F).wrapping_shl(shift);
       shift += 7;
     }
     Ok(i)
@@ -199,7 +199,7 @@ pub trait DataInput: Display + Closeable {
     let mut shift = 7;
     while (b & 0x80) != 0 {
       b = self.read_byte()? as i64;
-      i |= (b & 0x7F) << shift;
+      i |= (b & 0x7F).wrapping_shl(shift);
       shift += 7;
     }
     Ok(i)

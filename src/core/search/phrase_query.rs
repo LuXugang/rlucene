@@ -378,7 +378,7 @@ impl Builder {
     if let Some(&last_position) = self.positions.last()
       && position < last_position
     {
-      return Err(LuceneError::illegal_argument(format!(
+      Err(LuceneError::illegal_argument(format!(
         "Positions must be added in order, got {} after {}",
         position, last_position
       )))?;
@@ -387,7 +387,7 @@ impl Builder {
     if let Some(first_term) = self.terms.first()
       && term.field() != first_term.field()
     {
-      return Err(LuceneError::illegal_argument(format!(
+      Err(LuceneError::illegal_argument(format!(
         "All terms must be on the same field, got {} and {}",
         term.field(),
         first_term.field()

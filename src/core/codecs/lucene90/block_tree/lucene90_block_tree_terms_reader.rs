@@ -279,7 +279,7 @@ where
     CodecUtil::retrieve_checksum_with_expected(&mut terms_reader.terms_in, terms_length as usize)?;
     let terms_reader = Arc::new(terms_reader);
     let index_in = Arc::new(index_in);
-    for (_field_number, reader) in field_map.iter_mut() {
+    for reader in field_map.values_mut() {
       reader.parent = Some(Arc::clone(&terms_reader));
       FieldReader::init_field_reader(index_in.clone(), reader)?;
     }
