@@ -1050,6 +1050,18 @@ pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
   })
 }
 
+/// Inspects the stack trace to figure out if a method of a specific type
+/// called us.
+#[inline(never)]
+pub(crate) fn call_stack_contains_type<T>() -> bool {
+  let type_name = std::any::type_name::<T>();
+  let type_name = type_name.split('<').next().unwrap_or(type_name);
+  Backtrace::force_capture()
+    .to_string()
+    .lines()
+    .any(|frame| frame.contains(type_name))
+}
+
 pub fn is_night_mode() -> bool {
   std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
 }
