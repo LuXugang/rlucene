@@ -41,6 +41,7 @@ mod test_index_writer_from_reader;
 mod test_index_writer_lock_release;
 mod test_index_writer_max_docs;
 pub mod test_index_writer_merging;
+mod test_index_writer_nrt_is_current;
 mod test_index_writer_unicode;
 pub(crate) mod test_indexable_field;
 mod test_info_stream;
