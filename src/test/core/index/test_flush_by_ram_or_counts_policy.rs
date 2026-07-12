@@ -25,7 +25,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_flush_by_ram_or_counts_policy::MockDefaultFlushPolicy;
@@ -342,7 +342,7 @@ fn test_stall_control() -> Result<()> {
     }
     assert_active_bytes_after(flush_control)?;
     writer.close()?;
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
   }
   Ok(())

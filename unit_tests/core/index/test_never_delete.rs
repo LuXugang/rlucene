@@ -21,7 +21,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -42,7 +42,7 @@ pub struct TestNeverDelete;
 fn test_indexing() -> Result<()> {
   let mut random = random();
   let tmp_dir = create_temp_dir_with_prefix("TestNeverDelete")?;
-  let mut d = new_fs_directory(&mut random, tmp_dir)?;
+  let d = new_fs_directory(&mut random, tmp_dir)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;

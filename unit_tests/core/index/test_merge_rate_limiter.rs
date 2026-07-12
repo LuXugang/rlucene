@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::index::merge_policy::OneMergeProgress;
 use crate::core::index::merge_rate_limiter::MergeRateLimiter;
 use crate::core::store::rate_limiter::RateLimiter;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
@@ -30,7 +30,7 @@ struct TestMergeRateLimiter;
 #[test]
 fn test_init_defaults() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   w.add_document(&mut random, Document::new())?;
   w.close(&mut random)?;

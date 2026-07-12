@@ -20,7 +20,7 @@ use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashSet;
@@ -97,16 +97,16 @@ where
   }
 }
 
-impl<D> Closeable for BaseDirectoryWrapper<D>
+impl<D> CloseableRef for BaseDirectoryWrapper<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     if self.is_open.swap(false, Ordering::SeqCst)
       && self.check_index_on_close
       && directory_reader::index_exists(self)?
     {
-      TestUtil::check_index_with_level(&*self, self.level_for_check_on_close)?;
+      TestUtil::check_index_with_level(self, self.level_for_check_on_close)?;
     }
     self.in_.close()
   }

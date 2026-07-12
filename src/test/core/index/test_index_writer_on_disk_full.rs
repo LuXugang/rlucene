@@ -33,7 +33,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
@@ -135,7 +135,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
           directory_reader::open(dir.clone())?.close()?;
         }
 
-        let mut dir_to_close = dir.as_ref().clone();
+        let dir_to_close = dir.as_ref().clone();
         dir_to_close.close()?;
         // Now try again w/ more space:
 
@@ -148,7 +148,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
         // _TestUtil.syncConcurrentMerges(writer);
         dir.set_max_size_in_bytes(0);
         writer.close()?;
-        let mut dir_to_close = dir.as_ref().clone();
+        let dir_to_close = dir.as_ref().clone();
         dir_to_close.close()?;
         break;
       }
@@ -455,7 +455,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
       dir.set_random_io_exception_rate(0.0);
       dir.set_random_io_exception_rate_on_open(0.0);
       writer.close()?;
-      let mut dir_to_close = dir.as_ref().clone();
+      let dir_to_close = dir.as_ref().clone();
       dir_to_close.close()?;
 
       // Try again with more free space:
@@ -467,10 +467,10 @@ fn test_add_index_on_disk_full() -> Result<()> {
     }
   }
 
-  let mut start_dir_to_close = start_dir.as_ref().clone();
+  let start_dir_to_close = start_dir.as_ref().clone();
   start_dir_to_close.close()?;
   for dir in dirs {
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
   }
   Ok(())
@@ -593,7 +593,7 @@ fn test_corruption_after_disk_full_during_merge() -> Result<()> {
     Ok(_) => return Err(LuceneError::illegal_state("expected AlreadyClosed")),
   }
 
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()?;
   Ok(())
 }
@@ -632,7 +632,7 @@ fn test_immediate_disk_full() -> Result<()> {
   assert!(writer.is_deleter_closed()?);
   assert!(writer.is_closed());
 
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()?;
   Ok(())
 }

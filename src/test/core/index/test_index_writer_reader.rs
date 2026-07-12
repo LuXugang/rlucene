@@ -1068,7 +1068,7 @@ fn test_nrt_open_exceptions() -> Result<()> {
   }
 
   writer.close()?;
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()?;
   Ok(())
 }

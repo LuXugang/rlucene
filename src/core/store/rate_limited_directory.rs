@@ -24,7 +24,7 @@ use crate::core::store::rate_limited_index_output::RateLimitedIndexOutput;
 use crate::core::store::rate_limiter::RateLimiter;
 use crate::core::store::{Context, IOContext, IndexOutputEnum2};
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 
 /// A delegating [`Directory`] that rate-limits created outputs.
@@ -62,12 +62,12 @@ where
   }
 }
 
-impl<D, R> Closeable for RateLimitedDirectory<D, R>
+impl<D, R> CloseableRef for RateLimitedDirectory<D, R>
 where
   D: Directory,
   R: RateLimiter + Clone,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }

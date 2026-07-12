@@ -60,7 +60,7 @@ mod simple_fs_lock_factory_tests {
       assert!(lock.ensure_valid().is_err());
       let _ = lock.close();
 
-      let mut dir = dir;
+      let dir = dir;
       dir.close()?;
       Ok(())
     })

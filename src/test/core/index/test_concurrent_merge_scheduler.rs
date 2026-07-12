@@ -188,7 +188,7 @@ fn test_flush_exceptions() -> Result<()> {
   }
 
   assert!(!directory_reader::index_exists(directory.as_ref())?);
-  let mut directory_to_close = directory.as_ref().clone();
+  let directory_to_close = directory.as_ref().clone();
   directory_to_close.close()?;
   Ok(())
 }
@@ -615,7 +615,7 @@ fn test_change_max_merge_county_while_force_merge() -> Result<()> {
       Ok(writer) => writer,
       Err(err) => {
         let dir_close_result = match Arc::try_unwrap(dir) {
-          Ok(mut dir) => dir.close(),
+          Ok(dir) => dir.close(),
           Err(_) => Err(LuceneError::illegal_state(
             "directory still has outstanding references",
           )),
@@ -678,7 +678,7 @@ fn test_change_max_merge_county_while_force_merge() -> Result<()> {
     let close_result = writer.close();
     drop(writer);
     let dir_close_result = match Arc::try_unwrap(dir) {
-      Ok(mut dir) => dir.close(),
+      Ok(dir) => dir.close(),
       Err(_) => Err(LuceneError::illegal_state(
         "directory still has outstanding references",
       )),

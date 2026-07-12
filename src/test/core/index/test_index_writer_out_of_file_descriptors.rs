@@ -237,7 +237,7 @@ fn test() -> Result<()> {
   if let Some(reader) = reader {
     reader.close()?;
     if let Some(dir_copy) = dir_copy {
-      let mut dir_copy = dir_copy.as_ref().clone();
+      let dir_copy = dir_copy.as_ref().clone();
       dir_copy.close()?;
     } else {
       return Err(LuceneError::illegal_state(
@@ -245,6 +245,6 @@ fn test() -> Result<()> {
       ));
     }
   }
-  let mut dir = dir.as_ref().clone();
+  let dir = dir.as_ref().clone();
   dir.close()
 }

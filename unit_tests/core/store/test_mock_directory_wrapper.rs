@@ -23,7 +23,7 @@ use crate::core::store::{
 };
 use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -74,7 +74,7 @@ impl BaseDirectoryTestCase for TestMockDirectoryWrapper {
 fn test_disk_full() -> Result<()> {
   // test writeBytes
   let mut random = random();
-  let mut dir = new_mock_directory(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
   dir.set_max_size_in_bytes(3);
   let bytes = [1, 2];
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
@@ -89,7 +89,7 @@ fn test_disk_full() -> Result<()> {
   dir.close()?;
 
   // test copyBytes
-  let mut dir = new_mock_directory(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
   dir.set_max_size_in_bytes(3);
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
   let mut input = ByteArrayDataInput::with_bytes(bytes.as_slice());
@@ -119,7 +119,7 @@ fn test_mdw_inside_of_mdw() -> Result<()> {
     iw.commit(&mut random)?;
     iw.close(&mut random)?;
   }
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()
 }
 
@@ -153,11 +153,11 @@ where
   }
 }
 
-impl<D> Closeable for PreventCloseDirectoryWrapper<D>
+impl<D> CloseableRef for PreventCloseDirectoryWrapper<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     Ok(())
   }
 }
@@ -263,7 +263,7 @@ where
   let dir = Arc::new(PreventCloseDirectoryWrapper::new(raw_dir.clone()));
 
   {
-    let mut wrapped = MockDirectoryWrapper::new(random, dir.clone());
+    let wrapped = MockDirectoryWrapper::new(random, dir.clone());
 
     // otherwise MDW sometimes randomly leaves the file intact and we'll see
     // false test failures:
@@ -332,7 +332,7 @@ where
   );
 
   drop(dir);
-  let mut raw_dir = match Arc::try_unwrap(raw_dir) {
+  let raw_dir = match Arc::try_unwrap(raw_dir) {
     Ok(dir) => dir,
     Err(_) => {
       return Err(LuceneError::illegal_state(
@@ -346,7 +346,7 @@ where
 #[test]
 fn test_abuse_closed_index_input() -> Result<()> {
   let mut random = random();
-  let mut dir = new_mock_directory(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
   out.write_byte(42)?;
   out.close()?;
@@ -359,7 +359,7 @@ fn test_abuse_closed_index_input() -> Result<()> {
 #[test]
 fn test_abuse_clone_after_parent_closed() -> Result<()> {
   let mut random = random();
-  let mut dir = new_mock_directory(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
   out.write_byte(42)?;
   out.close()?;
@@ -373,7 +373,7 @@ fn test_abuse_clone_after_parent_closed() -> Result<()> {
 #[test]
 fn test_abuse_clone_of_clone_after_parent_closed() -> Result<()> {
   let mut random = random();
-  let mut dir = new_mock_directory(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
   out.write_byte(42)?;
   out.close()?;

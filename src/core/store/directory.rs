@@ -26,7 +26,7 @@ use crate::core::store::{
   IndexOutputEnum, IndexOutputEnum2, IndexOutputEnum3, NativeFSLockFactory,
 };
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use num_bigint::BigInt;
@@ -56,7 +56,7 @@ use std::sync::Arc;
 /// [`FSDirectory`]
 /// [`ByteBuffersDirectory`](crate::core::store::byte_buffers_directory::ByteBuffersDirectory)
 /// [`FilterDirectory`](crate::core::store::filter_directory::FilterDirectory)
-pub trait Directory: Display + Closeable + HasIdentity + Send + Sync {
+pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
   /// Returns the names of all files stored in this directory. The output must
   /// be sorted in UTF-8 order (using `str::cmp` for comparison).
   ///
@@ -476,8 +476,8 @@ impl Directory for DirectoryEnum {
   }
 }
 
-impl Closeable for DirectoryEnum {
-  fn close(&mut self) -> Result<()> {
+impl CloseableRef for DirectoryEnum {
+  fn close(&self) -> Result<()> {
     match self {
       Self::Fs(inner) => inner.close(),
       Self::Custom(inner) => inner.close(),
@@ -635,11 +635,11 @@ macro_rules! either_directory {
             }
         }
 
-        impl<$( $T ),+> Closeable for $name<$( $T ),+>
+        impl<$( $T ),+> CloseableRef for $name<$( $T ),+>
         where
             $( $T: Directory ),+
         {
-            fn close(&mut self) -> Result<()> {
+            fn close(&self) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.close(), )+
                 }
@@ -719,12 +719,6 @@ impl<D: Directory> Directory for &D {
   }
 }
 
-impl<D: Directory> Closeable for &D {
-  fn close(&mut self) -> Result<()> {
-    // TODO
-    Ok(())
-  }
-}
 impl<D: Directory> Directory for Arc<D> {
   fn list_all(&self) -> Result<Vec<String>> {
     (**self).list_all()

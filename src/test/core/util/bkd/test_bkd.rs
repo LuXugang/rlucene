@@ -35,7 +35,7 @@ use crate::core::util::bkd::bkd_writer::{
   BKDWriter, DEFAULT_MAX_MB_SORT_IN_HEAP, VERSION_META_FILE,
 };
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -414,7 +414,7 @@ fn test_with_exceptions() -> Result<()> {
   // random IOExc from MDW:
   let mut done = false;
   while !done {
-    let mut dir = new_mock_directory(&mut random)?;
+    let dir = new_mock_directory(&mut random)?;
     dir.set_random_io_exception_rate(0.05);
     dir.set_random_io_exception_rate_on_open(0.05);
 
@@ -1445,7 +1445,7 @@ fn test_bit_flipped_on_partition1() -> Result<()> {
     }
   }
 
-  let mut dir0 = new_mock_directory(&mut random)?;
+  let dir0 = new_mock_directory(&mut random)?;
   let result = {
     let dir = CorruptingTempOutputDirectory::new(&dir0, 22, |prefix, suffix| {
       prefix == "_0" && suffix == "bkd_left0"
@@ -1497,7 +1497,7 @@ fn test_bit_flippedon_partition2() -> Result<()> {
     }
   }
 
-  let mut dir0 = new_mock_directory(&mut random)?;
+  let dir0 = new_mock_directory(&mut random)?;
   let result = {
     let dir = CorruptingTempOutputDirectory::new(&dir0, 22072, |_prefix, suffix| {
       // System.out.println("prefix=" + prefix + " suffix=" + suffix);
@@ -2311,12 +2311,12 @@ where
   }
 }
 
-impl<D, F> Closeable for CorruptingTempOutputDirectory<'_, D, F>
+impl<D, F> CloseableRef for CorruptingTempOutputDirectory<'_, D, F>
 where
   D: Directory,
   F: Fn(&str, &str) -> bool + Send + Sync,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     Ok(())
   }
 }

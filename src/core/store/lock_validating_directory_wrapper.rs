@@ -19,7 +19,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::lock::Lock;
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 
 /// This struct makes a best-effort check that a provided [`Lock`] is valid before any destructive filesystem operation.
@@ -54,13 +54,12 @@ where
   }
 }
 
-impl<D> Closeable for LockValidatingDirectoryWrapper<D>
+impl<D> CloseableRef for LockValidatingDirectoryWrapper<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
-    // TODO
-    Ok(())
+  fn close(&self) -> Result<()> {
+    self.in_.close()
   }
 }
 

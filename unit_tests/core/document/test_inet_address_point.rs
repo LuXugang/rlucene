@@ -17,7 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::inet_address_point::InetAddressPoint;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -34,7 +34,7 @@ struct TestInetAddressPoint;
 #[test]
 fn test_basics() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with an address
@@ -104,7 +104,7 @@ fn test_basics() -> Result<()> {
 #[test]
 fn test_basics_v6() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with an address

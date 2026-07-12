@@ -19,7 +19,7 @@ use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -62,12 +62,12 @@ where
   }
 }
 
-impl<A, B> Closeable for CompoundDirectoryEnum<'_, A, B>
+impl<A, B> CloseableRef for CompoundDirectoryEnum<'_, A, B>
 where
   A: Directory,
   B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     match self {
       CompoundDirectoryEnum::A(dir) => dir.close(),
       CompoundDirectoryEnum::B(dir) => dir.close(),

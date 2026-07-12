@@ -24,7 +24,7 @@ use crate::core::store::{
   Context, DataInput, DataOutput, IOContext, IndexOutput, IndexOutputEnum2, ReadAdvice,
 };
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::base_directory_wrapper::BaseDirectoryWrapper;
@@ -853,11 +853,11 @@ where
   }
 }
 
-impl<D> Closeable for MockDirectoryWrapper<D>
+impl<D> CloseableRef for MockDirectoryWrapper<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     let was_open = self.state.base.lock().is_open.swap(false, Ordering::SeqCst);
     if !was_open {
       return self.state.base.lock().in_.close();

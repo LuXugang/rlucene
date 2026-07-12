@@ -44,7 +44,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -849,13 +849,13 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
         break;
       }
     }
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
 
     // Try again with more bytes of free space:
     disk_free += std::cmp::max(10, disk_free >> 3);
   }
-  let mut start_dir_to_close = start_dir.as_ref().clone();
+  let start_dir_to_close = start_dir.as_ref().clone();
   start_dir_to_close.close()
 }
 
@@ -971,7 +971,7 @@ fn test_error_after_apply_deletes() -> Result<()> {
 
     modifier.close()?;
   }
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()?;
   Ok(())
 }

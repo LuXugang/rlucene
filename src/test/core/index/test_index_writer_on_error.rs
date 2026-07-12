@@ -139,7 +139,7 @@ where
   'start_over: for _ in 0..num_iterations {
     // close from last run
     if let Some(previous_dir) = dir.take() {
-      let mut previous_dir = previous_dir.as_ref().clone();
+      let previous_dir = previous_dir.as_ref().clone();
       previous_dir.close()?;
     }
     // disable slow things: we don't rely upon sleeps here.
@@ -364,7 +364,7 @@ where
   }
 
   if let Some(dir) = dir {
-    let mut dir = dir.as_ref().clone();
+    let dir = dir.as_ref().clone();
     dir.close()?;
   }
   Ok(())

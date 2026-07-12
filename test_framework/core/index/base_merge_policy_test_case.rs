@@ -35,7 +35,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::dummy::dummy_lock::DummyLock;
-use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::{HasIdentity, LATEST, LUCENE_10_1_1, StringHelper};
@@ -789,8 +789,8 @@ impl Display for FakeDirectory {
   }
 }
 
-impl Closeable for FakeDirectory {
-  fn close(&mut self) -> Result<()> {
+impl CloseableRef for FakeDirectory {
+  fn close(&self) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

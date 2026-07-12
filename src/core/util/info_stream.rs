@@ -31,15 +31,6 @@ pub trait InfoStream: Send + Sync + CloseableRef {
   fn is_enabled(&self, component: &str) -> bool;
 }
 
-impl<T> CloseableRef for Arc<T>
-where
-  T: InfoStream + ?Sized,
-{
-  fn close(&self) -> Result<()> {
-    CloseableRef::close(self.as_ref())
-  }
-}
-
 impl<T> InfoStream for Arc<T>
 where
   T: InfoStream + ?Sized,

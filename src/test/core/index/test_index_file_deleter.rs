@@ -42,7 +42,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IndexInput};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -565,7 +565,7 @@ fn test_exc_in_dec_ref() -> Result<()> {
 
   do_fail_exc.store(false, Ordering::SeqCst);
   w.close(&mut random)?;
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()?;
   Ok(())
 }
@@ -625,7 +625,7 @@ fn test_exc_in_delete_file() -> Result<()> {
         SegmentInfos::read_commit(dir.clone(), &name)?;
       }
     }
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
   }
   Ok(())

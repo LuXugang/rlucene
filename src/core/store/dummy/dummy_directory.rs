@@ -21,7 +21,7 @@ use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::dummy::dummy_lock::DummyLock;
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -34,8 +34,8 @@ impl Display for DummyDirectory {
   }
 }
 
-impl Closeable for DummyDirectory {
-  fn close(&mut self) -> Result<()> {
+impl CloseableRef for DummyDirectory {
+  fn close(&self) -> Result<()> {
     dummy_unreachable!()
   }
 }

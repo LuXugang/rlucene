@@ -26,7 +26,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::lock::Lock;
-use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -166,7 +166,7 @@ where
       thread.join().expect("thread panicked")?;
     }
 
-    let mut directory = directory;
+    let directory = directory;
     directory.close()?;
     Ok(())
   }

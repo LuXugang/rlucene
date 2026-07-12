@@ -123,7 +123,7 @@ fn test_direct_instantiation() -> Result<()> {
 fn test_not_directory() -> Result<()> {
   let path = create_temp_dir_with_prefix("testnotdir")?;
   let mut random = random();
-  let mut fs_dir = NIOFSDirectory::new(path.path().to_path_buf())?;
+  let fs_dir = NIOFSDirectory::new(path.path().to_path_buf())?;
   let mut out = fs_dir.create_output("afile", &new_io_context(&mut random)?)?;
   out.close()?;
   assert!(slow_file_exists(&fs_dir, "afile")?);

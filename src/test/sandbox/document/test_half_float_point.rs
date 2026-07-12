@@ -16,7 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::sandbox::document::half_float_point::HalfFloatPoint;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -197,7 +197,7 @@ fn test_sortable_bytes() {
 #[test]
 fn test_basics() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with an single dimension
@@ -259,7 +259,7 @@ fn test_basics() -> Result<()> {
 #[test]
 fn test_basics_multi_dims() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with two dimensions

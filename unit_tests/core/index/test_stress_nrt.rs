@@ -26,7 +26,7 @@ use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -136,7 +136,7 @@ impl TestStressNRT {
 
     let num_committing = Arc::new(AtomicI32::new(0));
 
-    let mut dir = new_directory_shared(&mut rand)?;
+    let dir = new_directory_shared(&mut rand)?;
 
     let writer = {
       let analyzer = MockAnalyzer::new(&mut rand);

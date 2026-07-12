@@ -20,7 +20,7 @@ use crate::core::store::directory::{Directory, get_temp_file_name};
 use crate::core::store::fs_directory_base::FSDirectoryBase;
 use crate::core::store::lock_factory::LockFactory;
 use crate::core::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, IOUtils};
 use parking_lot::Mutex;
@@ -448,12 +448,12 @@ where
   }
 }
 
-impl<D, T> Closeable for FSDirectory<D, T>
+impl<D, T> CloseableRef for FSDirectory<D, T>
 where
   D: LockFactory,
   T: FSDirectoryBase,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.base.close();
     let mut pending_deletes = self.pending_deletes.lock();
     Self::delete_pending_files(&self.directory, &mut pending_deletes)?;

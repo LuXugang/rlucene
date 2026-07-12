@@ -37,7 +37,7 @@ use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::store::{ByteBuffersDirectory, IOContext, NoLockFactory};
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -83,7 +83,7 @@ where
   }
 }
 
-impl<D> Closeable for AddIndexesFilterDirectory<D> where D: Directory {}
+impl<D> CloseableRef for AddIndexesFilterDirectory<D> where D: Directory {}
 
 impl<D> HasIdentity for AddIndexesFilterDirectory<D>
 where

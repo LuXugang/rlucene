@@ -26,7 +26,7 @@ use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::boolean_scorer::SIZE;
 use crate::core::search::query::IntoQuery;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::search_tests::test_simple_explanations::SimpleExplanations;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;

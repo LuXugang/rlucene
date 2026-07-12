@@ -44,7 +44,7 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::io_utils::IOUtils;
@@ -227,7 +227,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     // Keep retrying until we 1) we allow a big enough heap, and 2) we hit a random IOExc from MDW:
     let mut done = false;
     while !done {
-      let mut dir = new_mock_fs_directory(random, create_temp_dir()?)?;
+      let dir = new_mock_fs_directory(random, create_temp_dir()?)?;
       dir.set_random_io_exception_rate(0.05);
       dir.set_random_io_exception_rate_on_open(0.05);
 

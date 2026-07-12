@@ -24,7 +24,7 @@ use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -58,7 +58,7 @@ impl ReaderHolder {
 #[test]
 fn test_is_current_with_threads() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = IndexWriter::new(dir.clone(), conf)?;

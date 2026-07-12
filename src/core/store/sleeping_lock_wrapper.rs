@@ -18,7 +18,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -92,11 +92,11 @@ where
   }
 }
 
-impl<D> Closeable for SleepingLockWrapper<D>
+impl<D> CloseableRef for SleepingLockWrapper<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }

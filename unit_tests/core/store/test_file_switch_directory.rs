@@ -41,7 +41,7 @@ use crate::core::store::{
   BufferedIndexInput, ByteBuffersDirectory, DataOutput, FSDirectory, IOContext, IndexOutput,
   NativeFSLockFactory,
 };
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_index_writer_reader::create_index_no_close;
@@ -159,7 +159,7 @@ impl TestFileSwitchDirectory {
     R: Rng + ?Sized,
   {
     {
-      let mut directory = self.get_directory(
+      let directory = self.get_directory(
         Builder::new()
           .prefix("renameTmp")
           .tempdir()?
@@ -214,7 +214,7 @@ impl TestFileSwitchDirectory {
     {
       let mut primary_extensions = HashSet::new();
       primary_extensions.insert("bar".to_string());
-      let mut directory = Self::new_fs_switch_directory(primary_extensions)?;
+      let directory = Self::new_fs_switch_directory(primary_extensions)?;
       let broken_name;
       {
         let mut out =
@@ -276,7 +276,7 @@ impl TestFileSwitchDirectory {
     let index_path = path.path().to_path_buf();
     let mut primary_extensions = HashSet::new();
     primary_extensions.insert("tim".to_string());
-    let mut dir = FileSwitchDirectory::new(
+    let dir = FileSwitchDirectory::new(
       primary_extensions,
       NIOFSDirectory::new(index_path.clone())?,
       NIOFSDirectory::new(index_path)?,

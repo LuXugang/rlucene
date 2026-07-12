@@ -43,7 +43,7 @@ use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
@@ -211,7 +211,7 @@ fn test_sort(use_from: bool) -> Result<()> {
   let num_docs = at_least(&mut random, 100) as usize;
   let tokens = ["a", "b", "c", "d", "e"];
 
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut content = Vec::with_capacity(at_least(&mut random, 20) as usize);

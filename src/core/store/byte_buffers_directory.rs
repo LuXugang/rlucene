@@ -28,7 +28,7 @@ use crate::core::store::{
 };
 use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crc32fast::Hasher;
 use num_bigint::BigInt;
@@ -406,11 +406,11 @@ where
   }
 }
 
-impl<LF> Closeable for ByteBuffersDirectory<LF>
+impl<LF> CloseableRef for ByteBuffersDirectory<LF>
 where
   LF: LockFactory,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.base.close();
     self.files.lock().clear();
     Ok(())

@@ -3860,7 +3860,7 @@ fn test_check_pending_flush_post_update() -> Result<()> {
     result
   });
   let writer_close_result = w.close();
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   let close_result = IOUtils::use_or_suppress_result(writer_close_result, dir_to_close.close());
   IOUtils::use_or_suppress_result(body_result, close_result)
 }
@@ -4087,7 +4087,7 @@ fn test_delete_happens_before_while_flush() -> Result<()> {
   })?;
 
   writer.close()?;
-  let mut dir_to_close = dir.in_.clone();
+  let dir_to_close = dir.in_.clone();
   dir_to_close.close()?;
   Ok(())
 }
@@ -4125,11 +4125,11 @@ where
   }
 }
 
-impl<D> Closeable for BlockOnIndexingChainFlushDirectory<D>
+impl<D> CloseableRef for BlockOnIndexingChainFlushDirectory<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }

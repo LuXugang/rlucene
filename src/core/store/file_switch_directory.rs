@@ -19,9 +19,10 @@ use crate::core::store::directory::{Directory, DirectoryEnum2, get_temp_file_nam
 use crate::core::store::lock::LockEnum2;
 use crate::core::store::{IOContext, IndexInputEnum2, IndexOutputEnum2};
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
+use parking_lot::Mutex;
 use regex::Regex;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -68,7 +69,7 @@ where
   secondary_dir: S,
   primary_dir: P,
   primary_extensions: HashSet<String>,
-  do_close: bool,
+  do_close: Mutex<bool>,
   id: Identity,
 }
 
@@ -90,7 +91,7 @@ where
       secondary_dir,
       primary_dir,
       primary_extensions,
-      do_close,
+      do_close: Mutex::new(do_close),
       id: Identity::new(),
     })
   }
@@ -141,13 +142,14 @@ where
   }
 }
 
-impl<P, S> Closeable for FileSwitchDirectory<P, S>
+impl<P, S> CloseableRef for FileSwitchDirectory<P, S>
 where
   P: Directory,
   S: Directory,
 {
-  fn close(&mut self) -> Result<()> {
-    if self.do_close {
+  fn close(&self) -> Result<()> {
+    let mut do_close = self.do_close.lock();
+    if *do_close {
       let mut error = None;
       if let Err(err) = self.primary_dir.close() {
         error = Some(IOUtils::use_or_suppress(error, err));
@@ -158,7 +160,7 @@ where
       if let Some(error) = error {
         return Err(error);
       }
-      self.do_close = false;
+      *do_close = false;
     }
     Ok(())
   }

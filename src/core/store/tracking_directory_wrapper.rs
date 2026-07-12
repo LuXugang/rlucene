@@ -18,7 +18,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::Mutex;
 use std::collections::HashSet;
@@ -72,13 +72,12 @@ where
   }
 }
 
-impl<D> Closeable for TrackingDirectoryWrapper<D>
+impl<D> CloseableRef for TrackingDirectoryWrapper<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
-    // TODO
-    Ok(())
+  fn close(&self) -> Result<()> {
+    self.in_.close()
   }
 }
 

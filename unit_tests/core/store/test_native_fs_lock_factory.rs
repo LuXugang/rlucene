@@ -75,7 +75,7 @@ mod native_fs_lock_factory_tests {
     assert!(lock.ensure_valid().is_err());
 
     lock.close()?;
-    let mut dir = dir;
+    let dir = dir;
     dir.close()?;
     Ok(())
   }
@@ -93,7 +93,7 @@ mod native_fs_lock_factory_tests {
     lock.close()?;
     assert!(lock.ensure_valid().is_err());
 
-    let mut dir = dir;
+    let dir = dir;
     dir.close()?;
     Ok(())
   }
@@ -113,7 +113,7 @@ mod native_fs_lock_factory_tests {
     assert!(lock.ensure_valid().is_err());
 
     lock.close()?;
-    let mut dir = dir;
+    let dir = dir;
     dir.close()?;
     Ok(())
   }
@@ -135,7 +135,7 @@ mod native_fs_lock_factory_tests {
 
     assert!(result.is_err());
 
-    let mut dir = dir;
+    let dir = dir;
     dir.close()?;
     Ok(())
   }

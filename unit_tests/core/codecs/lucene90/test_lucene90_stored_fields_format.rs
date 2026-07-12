@@ -27,7 +27,7 @@ use crate::core::store::random_access_input::RandomAccessInputWrapper;
 use crate::core::store::{DataInput, IOContext, IndexInput};
 use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
@@ -225,12 +225,12 @@ where
   }
 }
 
-impl<D> Closeable for CountingPrefetchDirectory<D>
+impl<D> CloseableRef for CountingPrefetchDirectory<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
-    Ok(())
+  fn close(&self) -> Result<()> {
+    self.in_.close()
   }
 }
 

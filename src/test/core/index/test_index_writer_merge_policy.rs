@@ -68,7 +68,7 @@ use crate::core::store::io_context::IOContext;
 use crate::core::store::random_access_input::RandomAccessInputWrapper;
 use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
@@ -1092,11 +1092,11 @@ where
   }
 }
 
-impl<D> Closeable for MockAssertFileExistDirectory<D>
+impl<D> CloseableRef for MockAssertFileExistDirectory<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }

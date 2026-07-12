@@ -34,7 +34,7 @@ use crate::core::index::segment_info::named_for_this_segment;
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::close::CloseableRef;
 use crate::core::util::counter::{Counter, new_counter};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -7945,7 +7945,7 @@ where
     )
   } else if si.info.get_use_compound_file() {
     // cfs
-    let mut cfs = codec
+    let cfs = codec
       .compound_format()
       .get_compound_reader(si.info.dir.as_ref(), &si.info)?;
     let result = (|| reader.read(&cfs, &si.info, "", &IOContext::read_once_io_context()?))();

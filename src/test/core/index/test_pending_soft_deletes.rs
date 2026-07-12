@@ -47,7 +47,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{LATEST, StringHelper};
 use crate::test_framework::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldUpdates;
@@ -103,7 +103,7 @@ impl TestPendingDeletesBase for TestPendingSoftDeletes {
 #[test]
 fn test_hard_delete_soft_deleted() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")
@@ -166,7 +166,7 @@ fn test_hard_delete_soft_deleted() -> Result<()> {
 #[test]
 fn test_delete_soft() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")
@@ -255,7 +255,7 @@ fn test_delete_soft() -> Result<()> {
 #[test]
 fn test_apply_updates() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let si = SegmentInfo::new(
     dir.clone(),
     Some((*LATEST).clone()),
@@ -372,7 +372,7 @@ fn test_apply_updates() -> Result<()> {
 #[test]
 fn test_update_applied_only_once() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")
@@ -462,7 +462,7 @@ fn test_update_applied_only_once() -> Result<()> {
 #[test]
 fn test_reset_on_update() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let mut config = IndexWriterConfig::new()?;
   config
     .set_soft_deletes_field("_soft_deletes")

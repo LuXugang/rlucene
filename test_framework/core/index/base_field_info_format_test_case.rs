@@ -42,7 +42,7 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper, TryIntoInt};
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
@@ -156,7 +156,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
     Ok(())
   }
@@ -202,7 +202,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
     Ok(())
   }
@@ -255,7 +255,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
     Ok(())
   }
@@ -308,7 +308,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
     Ok(())
   }

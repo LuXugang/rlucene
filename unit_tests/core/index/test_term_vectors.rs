@@ -31,7 +31,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::store::directory::Directory;
 use crate::core::util::attribute_source::Attributes;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -255,7 +255,7 @@ fn test_merge_with_payloads() -> Result<()> {
     drop(reader1);
     drop(reader2);
     let dir_close_result = match Arc::try_unwrap(dir) {
-      Ok(mut dir) => dir.close(),
+      Ok(dir) => dir.close(),
       Err(_) => Err(LuceneError::illegal_state(
         "directory still has outstanding references",
       )),

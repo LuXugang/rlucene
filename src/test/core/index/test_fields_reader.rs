@@ -36,7 +36,7 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{BufferedIndexInput, BufferedIndexInputBase, IOContext, IndexInput};
 use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -227,7 +227,14 @@ where
   }
 }
 
-impl<D> Closeable for FaultyFSDirectory<D> where D: Directory {}
+impl<D> CloseableRef for FaultyFSDirectory<D>
+where
+  D: Directory,
+{
+  fn close(&self) -> Result<()> {
+    self.in_.close()
+  }
+}
 
 impl<D> HasIdentity for FaultyFSDirectory<D>
 where

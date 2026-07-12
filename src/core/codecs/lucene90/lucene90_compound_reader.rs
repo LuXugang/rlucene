@@ -17,6 +17,8 @@
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
+use parking_lot::Mutex;
+
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
@@ -25,7 +27,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IO_CONTEXT_DEFAULT, IOContext, IndexInput, ReadAdvice};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, IOUtils, StringHelper, TryIntoInt};
 
@@ -46,7 +48,7 @@ where
 {
   segment_name: String,
   entries: HashMap<String, FileEntry>,
-  handle: D::IndexInput,
+  handle: Mutex<D::IndexInput>,
 
   version: i32,
   dir_fmt: String,
@@ -112,7 +114,7 @@ where
     Ok(Self {
       segment_name,
       entries,
-      handle,
+      handle: Mutex::new(handle),
       version,
       dir_fmt,
       id: Identity::new(),
@@ -248,7 +250,7 @@ where
         )));
       },
     };
-    let input = self.handle.slice_with_read_advice(
+    let input = self.handle.lock().slice_with_read_advice(
       name,
       entry.offset,
       entry.length,
@@ -280,12 +282,12 @@ where
   }
 }
 
-impl<D> Closeable for Lucene90CompoundReader<D>
+impl<D> CloseableRef for Lucene90CompoundReader<D>
 where
   D: Directory,
 {
-  fn close(&mut self) -> Result<()> {
-    self.handle.close()
+  fn close(&self) -> Result<()> {
+    self.handle.lock().close()
   }
 }
 
@@ -294,7 +296,7 @@ where
   D: Directory,
 {
   fn check_integrity(&self) -> Result<()> {
-    let _ = CodecUtil::checksum_entire_file(&self.handle)?;
+    let _ = CodecUtil::checksum_entire_file(&*self.handle.lock())?;
     Ok(())
   }
 }

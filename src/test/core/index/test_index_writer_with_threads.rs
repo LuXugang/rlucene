@@ -37,7 +37,7 @@ use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::bits::Bits;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -177,7 +177,7 @@ fn test_immediate_disk_full_with_threads() -> Result<()> {
       Err(error) => return Err(error),
     }
     writer.close()?;
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
   }
   Ok(())
@@ -268,7 +268,7 @@ fn test_close_with_threads() -> Result<()> {
     drop(reader);
     drop(writer);
 
-    let mut dir = Arc::try_unwrap(dir)
+    let dir = Arc::try_unwrap(dir)
       .map_err(|_| LuceneError::illegal_state("directory still has outstanding references"))?;
     dir.close()?;
   }
@@ -363,7 +363,7 @@ where
       reader.close()?;
     }
 
-    let mut dir_to_close = dir.as_ref().clone();
+    let dir_to_close = dir.as_ref().clone();
     dir_to_close.close()?;
   }
   Ok(())
@@ -430,7 +430,7 @@ where
   );
 
   assert!(writer.is_deleter_closed()?);
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()?;
   Ok(())
 }

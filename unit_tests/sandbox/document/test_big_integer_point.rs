@@ -16,7 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::sandbox::document::big_integer_point::BigIntegerPoint;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -34,7 +34,7 @@ struct TestBigIntegerPoint;
 #[test]
 fn test_basics() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with a large biginteger value
@@ -87,7 +87,7 @@ fn test_basics() -> Result<()> {
 #[test]
 fn test_negative() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // add a doc with a large biginteger value

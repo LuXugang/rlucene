@@ -52,7 +52,7 @@ use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -182,7 +182,7 @@ where
 #[test]
 fn test_thread_safety() -> Result<()> {
   let mut random = random();
-  let mut dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   // NOTE: this also controls the number of threads!
   let n = TestUtil::next_int(&mut random, 20, 40);
 
@@ -1122,7 +1122,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
 
   s.get_index_reader().close()?;
   w.close()?;
-  let mut dir_to_close = dir.as_ref().clone();
+  let dir_to_close = dir.as_ref().clone();
   dir_to_close.close()?;
   Ok(())
 }

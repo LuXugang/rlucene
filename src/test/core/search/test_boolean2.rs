@@ -34,7 +34,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::store::IOContext;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -177,7 +177,7 @@ where
   }
 
   loop {
-    let mut copy = copy_of(random, dir2.as_ref())?;
+    let copy = copy_of(random, dir2.as_ref())?;
 
     let analyzer = MockAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
