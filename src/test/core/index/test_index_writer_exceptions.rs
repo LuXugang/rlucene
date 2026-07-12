@@ -2567,6 +2567,7 @@ fn test_random_exception_during_rollback() -> Result<()> {
 }
 
 // TODO: can be super slow in pathological cases (merge config?)
+#[cfg(feature = "nightly")]
 #[test]
 #[ignore = "nightly"]
 fn test_merge_exception_is_tragic() -> Result<()> {

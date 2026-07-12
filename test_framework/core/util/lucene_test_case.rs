@@ -1032,10 +1032,13 @@ pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
   let type_name = std::any::type_name::<T>();
   let type_name = type_name.split('<').next().unwrap_or(type_name);
   let method_name = format!("::{method_name}");
-  Backtrace::force_capture()
-    .to_string()
-    .lines()
-    .any(|frame| frame.contains(type_name) && frame.contains(&method_name))
+  Backtrace::force_capture().to_string().lines().any(|frame| {
+    frame.contains(type_name)
+      && frame.match_indices(&method_name).any(|(index, _)| {
+        let suffix = &frame[index + method_name.len()..];
+        suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
+      })
+  })
 }
 
 /// Inspects the stack trace to figure out if one of the given method names (no
@@ -1044,9 +1047,13 @@ pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
 pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
   let backtrace = Backtrace::force_capture().to_string();
   method_names.iter().any(|method_name| {
-    backtrace
-      .lines()
-      .any(|frame| frame.contains(&format!("::{method_name}")))
+    let method_name = format!("::{method_name}");
+    backtrace.lines().any(|frame| {
+      frame.match_indices(&method_name).any(|(index, _)| {
+        let suffix = &frame[index + method_name.len()..];
+        suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
+      })
+    })
   })
 }
 
