@@ -55,6 +55,7 @@ mod test_index_writer_force_merge;
 pub mod test_index_writer_merge_policy;
 mod test_index_writer_on_disk_full;
 mod test_index_writer_on_error;
+mod test_index_writer_out_of_file_descriptors;
 pub(crate) mod test_index_writer_reader;
 mod test_index_writer_threads_to_segments;
 mod test_index_writer_with_threads;

@@ -357,6 +357,25 @@ impl LuceneError {
     matches!(self, LuceneError::Tragedy(_))
   }
 
+  /// Returns whether this error corresponds to a Java `IOException` subtype.
+  pub fn is_io_error(&self) -> bool {
+    matches!(
+      self,
+      LuceneError::CorruptIndex(_)
+        | LuceneError::Eof(_)
+        | LuceneError::IndexFormatTooNew(_)
+        | LuceneError::IndexFormatTooOld(_)
+        | LuceneError::IndexNotFound(_)
+        | LuceneError::Io { .. }
+        | LuceneError::IoWithPath { .. }
+        | LuceneError::LockAlreadyHeld(_)
+        | LuceneError::LockHeldByOther(_)
+        | LuceneError::LockObtainFailed(_)
+        | LuceneError::LockReleaseFailed(_)
+        | LuceneError::NoSuchFile(_)
+    )
+  }
+
   error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);
   error_ctor!(
     array_index_out_of_bounds,
