@@ -39,7 +39,8 @@ use crate::core::util::counter::{Counter, new_counter};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
-use parking_lot::{Condvar, Mutex, MutexGuard};
+use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
+use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
 use std::sync::{Arc, OnceLock, Weak};
 /// An `IndexWriter` creates and maintains an index.
@@ -173,7 +174,7 @@ where
   pub(crate) inner: Mutex<Inner<D>>,
   pausing: Condvar,
   pub(crate) hooks: Option<IndexWriterHooksEnum>,
-  commit_lock: Mutex<CommitInner<D>>,
+  commit_lock: ReentrantMutex<CommitInner<D>>,
   full_flush_lock: Mutex<()>,
 }
 pub type IndexWriterDir<D> = LockValidatingDirectoryWrapper<Arc<D>>;
@@ -208,9 +209,9 @@ pub struct CommitInner<D>
 where
   D: Directory,
 {
-  pending_commit: Option<SegmentInfos<D>>,
-  files_to_commit: Option<Vec<String>>,
-  start_commit_time: Instant,
+  pending_commit: RefCell<Option<SegmentInfos<D>>>,
+  files_to_commit: RefCell<Option<Vec<String>>>,
+  start_commit_time: Cell<Instant>,
 }
 
 pub type DefaultIndexWriter<D> = Arc<IndexWriter<D>>;
@@ -589,10 +590,10 @@ where
         }),
         pausing: Condvar::new(),
         hooks,
-        commit_lock: Mutex::new(CommitInner {
-          pending_commit: None,
-          files_to_commit: None,
-          start_commit_time: Instant::now(),
+        commit_lock: ReentrantMutex::new(CommitInner {
+          pending_commit: RefCell::new(None),
+          files_to_commit: RefCell::new(None),
+          start_commit_time: Cell::new(Instant::now()),
         }),
         full_flush_lock: Mutex::new(()),
       };
@@ -684,7 +685,7 @@ where
   where
     D: 'static,
   {
-    if self.commit_lock.lock().pending_commit.is_some() {
+    if self.commit_lock.lock().pending_commit.borrow().is_some() {
       return Err(LuceneError::illegal_state(
         "cannot close: prepareCommit was already called with no corresponding call to commit",
       ));
@@ -2458,7 +2459,7 @@ where
     Ok(!inner.pending_merges.is_empty())
   }
 
-  fn rollback_internal(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<()>
+  fn rollback_internal(&self, commit_lock: Option<&CommitInner<D>>) -> Result<()>
   where
     D: 'static,
   {
@@ -2467,8 +2468,8 @@ where
     match commit_lock {
       Some(commit_lock) => self.rollback_internal_no_commit(commit_lock)?,
       None => {
-        let mut commit_lock = self.commit_lock.lock();
-        self.rollback_internal_no_commit(&mut commit_lock)?;
+        let commit_lock = self.commit_lock.lock();
+        self.rollback_internal_no_commit(&commit_lock)?;
       },
     }
 
@@ -2480,7 +2481,7 @@ where
     Ok(())
   }
 
-  fn rollback_internal_no_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()>
+  fn rollback_internal_no_commit(&self, commit_lock: &CommitInner<D>) -> Result<()>
   where
     D: 'static,
   {
@@ -2519,7 +2520,8 @@ where
 
       let mut inner = self.inner.lock();
 
-      if let Some(mut pending_commit) = commit_lock.pending_commit.take() {
+      let pending_commit = commit_lock.pending_commit.borrow_mut().take();
+      if let Some(mut pending_commit) = pending_commit {
         pending_commit.rollback_commit(self.directory.as_ref());
         let dec_res = inner.deleter.dec_ref_from_segment(&pending_commit);
         self.pausing.notify_all();
@@ -2600,7 +2602,8 @@ where
         cleanup.close(|| {
           let mut inner = self.inner.lock();
 
-          if let Some(mut pending_commit) = commit_lock.pending_commit.take() {
+          let pending_commit = commit_lock.pending_commit.borrow_mut().take();
+          if let Some(mut pending_commit) = pending_commit {
             match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
               pending_commit.rollback_commit(self.directory.as_ref());
               inner.deleter.dec_ref_from_segment(&pending_commit)?;
@@ -3725,15 +3728,20 @@ where
     result
   }
 
-  fn prepare_commit_internal(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<i64>
+  fn prepare_commit_internal(&self, commit_lock: Option<&CommitInner<D>>) -> Result<i64>
   where
     D: 'static,
   {
+    let commit_guard = if commit_lock.is_none() {
+      Some(self.commit_lock.lock())
+    } else {
+      None
+    };
     let commit_lock = match commit_lock {
       Some(lock) => lock,
-      None => &mut *self.commit_lock.lock(),
+      None => commit_guard.as_deref().unwrap(),
     };
-    commit_lock.start_commit_time = Instant::now();
+    commit_lock.start_commit_time.set(Instant::now());
 
     self.do_ensure_open(false)?;
     if self.info_stream.is_enabled("IW") {
@@ -3751,7 +3759,7 @@ where
       )));
     }
 
-    if commit_lock.pending_commit.is_some() {
+    if commit_lock.pending_commit.borrow().is_some() {
       return Err(LuceneError::illegal_state(
         "prepareCommit was already called with no corresponding call to commit",
       ));
@@ -3873,13 +3881,13 @@ where
     let tragic_res = match tragic_res {
       Err(e) => {
         if e.is_tragedy_error() {
-          self.tragic_event(e.clone(), "prepareCommit", Some(&mut *commit_lock))?;
+          self.tragic_event(e.clone(), "prepareCommit", Some(commit_lock))?;
         }
         Err(e)
       },
       Ok(()) => Ok(()),
     };
-    self.maybe_close_on_tragic_event(Some(&mut *commit_lock))?;
+    self.maybe_close_on_tragic_event(Some(commit_lock))?;
     tragic_res?;
 
     if let Some(ref point_in_time_merges) = point_in_time_merges {
@@ -3914,14 +3922,15 @@ where
     // merges
     // did complete
     let to_commit = to_commit.ok_or_else(|| LuceneError::illegal_state("toCommit is none"))?;
-    commit_lock.files_to_commit = Some(to_commit.lock().files(false)?.into_iter().collect());
+    *commit_lock.files_to_commit.borrow_mut() =
+      Some(to_commit.lock().files(false)?.into_iter().collect());
     let ret = (|| -> Result<i64> {
       if any_changes {
         self.maybe_merge.store(true, Ordering::SeqCst);
       }
       let to_commit_for_commit = to_commit.lock().try_clone()?;
       self.start_commit(Some(to_commit_for_commit), commit_lock)?;
-      if commit_lock.pending_commit.is_none() {
+      if commit_lock.pending_commit.borrow().is_none() {
         Ok(-1)
       } else {
         Ok(seq_no)
@@ -3931,7 +3940,7 @@ where
       Ok(v) => Ok(v),
       Err(mut t) => {
         let mut inner = self.inner.lock();
-        match std::mem::take(&mut commit_lock.files_to_commit) {
+        match commit_lock.files_to_commit.borrow_mut().take() {
           Some(files_to_commit) => {
             if let Err(e) = inner.deleter.dec_ref(files_to_commit.iter()) {
               t.add_suppressed(e);
@@ -4276,25 +4285,25 @@ where
     let seq_no: i64;
 
     {
-      let commit_lock = &mut *self.commit_lock.lock();
+      let commit_lock = self.commit_lock.lock();
       self.do_ensure_open(false)?;
 
       if self.info_stream.is_enabled("IW") {
         self.info_stream.message("IW", "commit: enter lock")?;
       }
 
-      if commit_lock.pending_commit.is_none() {
+      if commit_lock.pending_commit.borrow().is_none() {
         if self.info_stream.is_enabled("IW") {
           self.info_stream.message("IW", "commit: now prepare")?;
         }
-        seq_no = self.prepare_commit_internal(Some(commit_lock))?;
+        seq_no = self.prepare_commit_internal(Some(&commit_lock))?;
       } else {
         if self.info_stream.is_enabled("IW") {
           self.info_stream.message("IW", "commit: already prepared")?;
         }
         seq_no = self.pending_seq_no.load(Ordering::SeqCst);
       }
-      self.finish_commit(commit_lock)?;
+      self.finish_commit(&commit_lock)?;
     }
 
     if self.maybe_merge.swap(false, Ordering::SeqCst) {
@@ -4308,7 +4317,7 @@ where
     Ok(seq_no)
   }
 
-  pub(crate) fn finish_commit(&self, commit_lock: &mut CommitInner<D>) -> Result<()>
+  pub(crate) fn finish_commit(&self, commit_lock: &CommitInner<D>) -> Result<()>
   where
     D: 'static,
   {
@@ -4324,7 +4333,8 @@ where
         )));
       }
 
-      match commit_lock.pending_commit.as_mut() {
+      let mut pending_commit = commit_lock.pending_commit.borrow_mut().take();
+      match pending_commit.as_mut() {
         Some(pending) => {
           let mut body_res: Result<()> = (|| {
             if self.info_stream.is_enabled("IW") {
@@ -4366,21 +4376,19 @@ where
             Ok(())
           })();
 
-          let close_res = commit_lock
-            .files_to_commit
+          let files_to_commit = commit_lock.files_to_commit.borrow_mut().take();
+          let close_res = files_to_commit
             .as_ref()
             .ok_or_else(|| LuceneError::illegal_state("no files"))
             .and_then(|files| inner.deleter.dec_ref(files.iter()));
           body_res = IOUtils::use_or_suppress_result(body_res, close_res);
 
           self.pausing.notify_all();
-          commit_lock.pending_commit = None;
-          commit_lock.files_to_commit = None;
 
           body_res?;
         },
         None => {
-          debug_assert!(commit_lock.files_to_commit.is_none());
+          debug_assert!(commit_lock.files_to_commit.borrow().is_none());
           if self.info_stream.is_enabled("IW") {
             self
               .info_stream
@@ -4399,7 +4407,7 @@ where
           .message("IW", &format!("hit exception during finishCommit: {}", t))?;
       }
       if commit_completed {
-        self.tragic_event(t.clone(), "finishCommit", Some(&mut *commit_lock))?;
+        self.tragic_event(t.clone(), "finishCommit", Some(commit_lock))?;
       }
       return Err(t);
     }
@@ -4409,7 +4417,7 @@ where
         "IW",
         &format!(
           "commit: took {:.1} msec",
-          commit_lock.start_commit_time.elapsed().as_millis() as f64
+          commit_lock.start_commit_time.get().elapsed().as_millis() as f64
         ),
       )?;
       self.info_stream.message("IW", "commit: done")?;
@@ -5482,16 +5490,16 @@ where
   pub(crate) fn start_commit(
     &self,
     mut to_sync: Option<SegmentInfos<D>>,
-    commit_lock: &mut CommitInner<D>,
+    commit_lock: &CommitInner<D>,
   ) -> Result<()>
   where
     D: 'static,
   {
-    debug_assert!(commit_lock.files_to_commit.is_some());
+    debug_assert!(commit_lock.files_to_commit.borrow().is_some());
     // wrap with Option for easily take ownership
     debug_assert!(to_sync.is_some());
     self.test_point("startStartCommit")?;
-    debug_assert!(commit_lock.pending_commit.is_none());
+    debug_assert!(commit_lock.pending_commit.borrow().is_none());
     if let Some(t) = self.tragedy.get() {
       return Err(LuceneError::illegal_state(format!(
         "this writer hit an unrecoverable error; cannot commit {}",
@@ -5529,7 +5537,7 @@ where
               .info_stream
               .message("IW", "  skip startCommit(): no changes pending")?;
           }
-          let files = commit_lock.files_to_commit.take().unwrap();
+          let files = commit_lock.files_to_commit.borrow_mut().take().unwrap();
           inner.deleter.dec_ref(files.iter())?;
           return Ok(());
         }
@@ -5549,7 +5557,7 @@ where
 
         {
           let inner = self.inner.lock();
-          debug_assert!(commit_lock.pending_commit.is_none());
+          debug_assert!(commit_lock.pending_commit.borrow().is_none());
           debug_assert!(
             inner.segment_infos.get_generation() == to_sync.as_ref().unwrap().get_generation()
           );
@@ -5574,32 +5582,31 @@ where
           }
 
           pending_commit_set = true;
-          commit_lock.pending_commit = to_sync.take();
+          *commit_lock.pending_commit.borrow_mut() = to_sync.take();
         }
         // This call can take a long time -- 10s of seconds
         // or more.  We do it without syncing on this:
         let mut files_to_sync_list = Vec::new();
         let sync_res: Result<()> = (|| {
-          files_to_sync_list = commit_lock
-            .pending_commit
-            .as_ref()
-            .unwrap()
-            .files(false)?
-            .into_iter()
-            .collect();
+          files_to_sync_list = {
+            let pending_commit = commit_lock.pending_commit.borrow();
+            pending_commit
+              .as_ref()
+              .unwrap()
+              .files(false)?
+              .into_iter()
+              .collect()
+          };
           self.directory.sync(&files_to_sync_list)?;
           Ok(())
         })();
 
         if let Err(e) = sync_res {
           pending_commit_set = false;
-          debug_assert!(commit_lock.pending_commit.is_some());
-          commit_lock
-            .pending_commit
-            .as_mut()
-            .unwrap()
-            .rollback_commit(self.directory.as_ref());
-          to_sync = commit_lock.pending_commit.take();
+          debug_assert!(commit_lock.pending_commit.borrow().is_some());
+          let mut pending_commit = commit_lock.pending_commit.borrow_mut().take().unwrap();
+          pending_commit.rollback_commit(self.directory.as_ref());
+          to_sync = Some(pending_commit);
           return Err(e);
         }
 
@@ -5623,7 +5630,7 @@ where
                 .info_stream
                 .message("IW", "hit exception committing segments file")?;
             }
-            let files = commit_lock.files_to_commit.take().unwrap();
+            let files = commit_lock.files_to_commit.borrow_mut().take().unwrap();
             match inner.deleter.dec_ref(files.iter()) {
               Ok(()) => Err(t),
               Err(e) => {
@@ -5645,9 +5652,10 @@ where
         // double-write a segments_N file.
         match pending_commit_set {
           true => {
+            let pending_commit = commit_lock.pending_commit.borrow();
             inner
               .segment_infos
-              .update_generation(commit_lock.pending_commit.as_ref().unwrap());
+              .update_generation(pending_commit.as_ref().unwrap());
           },
           false => {
             inner
@@ -5662,7 +5670,7 @@ where
       Ok(()) => {},
       Err(e) => {
         if e.is_tragedy_error() {
-          self.tragic_event(e.clone(), "startCommit", Some(&mut *commit_lock))?;
+          self.tragic_event(e.clone(), "startCommit", Some(commit_lock))?;
         }
         return Err(e);
       },
@@ -5698,7 +5706,7 @@ where
     &self,
     tragedy: LuceneError,
     location: &str,
-    commit_lock: Option<&mut CommitInner<D>>,
+    commit_lock: Option<&CommitInner<D>>,
   ) -> Result<()>
   where
     D: 'static,
@@ -5708,7 +5716,7 @@ where
     result
   }
 
-  fn maybe_close_on_tragic_event(&self, commit_lock: Option<&mut CommitInner<D>>) -> Result<()>
+  fn maybe_close_on_tragic_event(&self, commit_lock: Option<&CommitInner<D>>) -> Result<()>
   where
     D: 'static,
   {
@@ -7810,8 +7818,6 @@ use crate::core::util::{
 use crate::test_framework::core::internal::index_writer_access::IndexWriterAccess;
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
-#[cfg(test)]
-use std::cell::Cell;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
