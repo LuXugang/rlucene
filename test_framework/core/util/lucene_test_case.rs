@@ -1032,8 +1032,10 @@ pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
   let type_name = std::any::type_name::<T>();
   let type_name = type_name.split('<').next().unwrap_or(type_name);
   let method_name = format!("::{method_name}");
+  let helper_name = concat!(module_path!(), "::call_stack_contains");
   Backtrace::force_capture().to_string().lines().any(|frame| {
-    frame.contains(type_name)
+    !frame.contains(helper_name)
+      && frame.contains(type_name)
       && frame.match_indices(&method_name).any(|(index, _)| {
         let suffix = &frame[index + method_name.len()..];
         suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
@@ -1046,13 +1048,15 @@ pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
 #[inline(never)]
 pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
   let backtrace = Backtrace::force_capture().to_string();
+  let helper_name = concat!(module_path!(), "::call_stack_contains");
   method_names.iter().any(|method_name| {
     let method_name = format!("::{method_name}");
     backtrace.lines().any(|frame| {
-      frame.match_indices(&method_name).any(|(index, _)| {
-        let suffix = &frame[index + method_name.len()..];
-        suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
-      })
+      !frame.contains(helper_name)
+        && frame.match_indices(&method_name).any(|(index, _)| {
+          let suffix = &frame[index + method_name.len()..];
+          suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
+        })
     })
   })
 }
@@ -1063,10 +1067,11 @@ pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
 pub(crate) fn call_stack_contains_type<T>() -> bool {
   let type_name = std::any::type_name::<T>();
   let type_name = type_name.split('<').next().unwrap_or(type_name);
+  let helper_name = concat!(module_path!(), "::call_stack_contains");
   Backtrace::force_capture()
     .to_string()
     .lines()
-    .any(|frame| frame.contains(type_name))
+    .any(|frame| !frame.contains(helper_name) && frame.contains(type_name))
 }
 
 pub fn is_night_mode() -> bool {
