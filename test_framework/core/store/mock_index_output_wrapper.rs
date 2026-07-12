@@ -231,9 +231,10 @@ where
     }
     self.closed = true;
 
-    let result = self.dir.maybe_throw_deterministic_exception();
-    let close_result = self.out.close();
-    let result = IOUtils::use_or_suppress_result(result, close_result);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.dir.maybe_throw_deterministic_exception()
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.out.close()));
     self.dir.remove_index_output(self.handle_id, &self.name);
     if self.dir.state.track_disk_usage.load(Ordering::SeqCst) {
       // Now compute actual disk usage & track the maxUsedSize
@@ -244,7 +245,17 @@ where
       }
     }
 
-    result
+    match result {
+      Err(payload) => std::panic::resume_unwind(payload),
+      Ok(Err(error)) => match close_result {
+        Ok(close_result) => IOUtils::use_or_suppress_result(Err(error), close_result),
+        Err(_) => Err(error),
+      },
+      Ok(Ok(())) => match close_result {
+        Ok(close_result) => close_result,
+        Err(payload) => std::panic::resume_unwind(payload),
+      },
+    }
   }
 }
 

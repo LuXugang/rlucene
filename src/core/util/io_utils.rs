@@ -23,23 +23,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-macro_rules! close_objects {
-  ($objects:expr, $close:expr) => {{
-    let mut error = None;
-    for object in $objects {
-      if let Err(e) = $close(object) {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-    }
-
-    if let Some(error) = error {
-      Err(error)
-    } else {
-      Ok(())
-    }
-  }};
-}
-
 pub struct IOUtils;
 pub(crate) struct CloseWhileHandlingError {
   first_error: Option<LuceneError>,
@@ -120,14 +103,43 @@ impl IOUtils {
 
   /// Closes all given objects.
   ///
-  /// After everything is closed, the method either returns the first error it hit
-  /// while closing, or completes normally if there were no errors.
+  /// After everything is closed, the method either returns or resumes the first
+  /// failure it hit while closing, or completes normally if there were no failures.
   pub fn close<I, F>(objects: I, mut close: F) -> Result<()>
   where
     I: IntoIterator,
     F: FnMut(I::Item) -> Result<()>,
   {
-    close_objects!(objects, close)
+    let mut error = None;
+    let mut panic_payload = None;
+    let mut failure_seen = false;
+    for object in objects {
+      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| close(object))) {
+        Ok(Ok(())) => {},
+        Ok(Err(e)) => {
+          if !failure_seen {
+            failure_seen = true;
+            error = Some(e);
+          } else if error.is_some() {
+            error = Some(IOUtils::use_or_suppress(error, e));
+          }
+        },
+        Err(payload) => {
+          if !failure_seen {
+            failure_seen = true;
+            panic_payload = Some(payload);
+          }
+        },
+      }
+    }
+
+    if let Some(payload) = panic_payload {
+      std::panic::resume_unwind(payload)
+    } else if let Some(error) = error {
+      Err(error)
+    } else {
+      Ok(())
+    }
   }
 
   /// Closes the given object by shared reference.
