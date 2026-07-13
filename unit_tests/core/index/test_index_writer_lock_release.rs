@@ -16,7 +16,8 @@
  */
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::CloseableRef;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer, random,
@@ -31,15 +32,47 @@ fn test_index_writer_lock_release() -> Result<()> {
   let tmp = create_temp_dir_with_prefix("testLockRelease")?;
   let dir = new_fs_directory(&mut random, tmp)?;
 
-  let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  iwc.set_open_mode(OpenMode::Append);
-
-  if IndexWriter::new(dir.clone(), iwc).is_err() {
+  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
     let mock = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
     iwc.set_open_mode(OpenMode::Append);
-    let _ = IndexWriter::new(dir.clone(), iwc);
+
+    if let Err(error) = IndexWriter::new(dir.clone(), iwc) {
+      match &error {
+        LuceneError::IndexNotFound(_) | LuceneError::NoSuchFile(_) => {},
+        LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. }
+          if source.kind() == std::io::ErrorKind::NotFound => {},
+        _ => return Err(error),
+      }
+
+      let mock = MockAnalyzer::new(&mut random);
+      let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+      iwc.set_open_mode(OpenMode::Append);
+      let result = IndexWriter::new(dir.clone(), iwc);
+      let error = result.as_ref().err();
+      let expected = match error {
+        None => true,
+        Some(LuceneError::IndexNotFound(_) | LuceneError::NoSuchFile(_)) => true,
+        Some(LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. })
+          if source.kind() == std::io::ErrorKind::NotFound =>
+        {
+          true
+        },
+        Some(_) => false,
+      };
+      assert!(
+        expected,
+        "expected FileNotFoundException or NoSuchFileException, got {error:?}"
+      );
+    }
+    Ok(())
+  }));
+
+  match dir.close() {
+    Err(error) => Err(error),
+    Ok(()) => match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    },
   }
-  Ok(())
 }
