@@ -42,12 +42,13 @@ use crate::core::store::{
 };
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone as OtherClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{IOUtils, SliceCopyOps, TryIntoInt};
 use std::cmp::min;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 const PREFETCH_CACHE_SIZE: usize = 1 << 4;
 const PREFETCH_CACHE_MASK: usize = PREFETCH_CACHE_SIZE - 1;
@@ -80,7 +81,7 @@ where
   // scanned.
   prefetched_block_id_cache: [i64; PREFETCH_CACHE_SIZE],
   prefetched_block_id_cache_index: usize,
-  closed: bool,
+  closed: AtomicBool,
 }
 
 impl<I> Lucene90CompressingStoredFieldsReader<I>
@@ -217,7 +218,7 @@ where
         num_dirty_docs,
         prefetched_block_id_cache,
         prefetched_block_id_cache_index: 0,
-        closed: false,
+        closed: AtomicBool::new(false),
       };
       CodecUtil::check_footer(meta)?;
       Ok(reader)
@@ -232,7 +233,7 @@ where
         }
       },
     };
-    if let Some(mut meta) = meta_in {
+    if let Some(meta) = meta_in {
       IOUtils::use_or_suppress_result(result, meta.close())
     } else {
       result
@@ -265,7 +266,7 @@ where
       num_dirty_docs: reader.num_dirty_docs,
       prefetched_block_id_cache: [-1i64; PREFETCH_CACHE_SIZE],
       prefetched_block_id_cache_index: 0,
-      closed: false,
+      closed: AtomicBool::new(false),
     })
   }
 
@@ -275,7 +276,7 @@ where
   ///
   /// Returns `LuceneError::AlreadyClosed` if this `FieldsReader` is closed.
   pub fn ensure_open(&self) -> Result<()> {
-    if self.closed {
+    if self.closed.load(Ordering::Relaxed) {
       Err(LuceneError::already_closed("this FieldsReader is closed"))
     } else {
       Ok(())
@@ -430,21 +431,21 @@ where
   }
 }
 
-impl<I> Closeable for Lucene90CompressingStoredFieldsReader<I>
+impl<I> CloseableRef for Lucene90CompressingStoredFieldsReader<I>
 where
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
-    if self.closed {
+  fn close(&self) -> Result<()> {
+    if self.closed.load(Ordering::Relaxed) {
       return Ok(());
     }
 
     let mut close_result = self.index_reader.close();
-    if let Err(fields_error) = self.get_fields_stream().close() {
+    if let Err(fields_error) = self.state.fields_stream.close() {
       close_result = Err(IOUtils::use_or_suppress(close_result.err(), fields_error));
     }
     close_result?;
-    self.closed = true;
+    self.closed.store(true, Ordering::Relaxed);
     Ok(())
   }
 }

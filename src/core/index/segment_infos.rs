@@ -35,7 +35,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::output_enum::OutputEnum;
 use crate::core::util::{

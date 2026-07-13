@@ -21,6 +21,7 @@ use crate::core::store::random_access_input::{
 use crate::core::store::{BufferedIndexInput, DataInput, ReadAdvice};
 use crate::core::util::TryIntoInt;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -42,7 +43,7 @@ use std::sync::Arc;
 /// # See Also
 /// - [`Directory`](crate::core::store::directory::Directory) for file-based
 ///   operations.
-pub trait IndexInput: DataInput + TryClone + crate::core::util::close::Closeable {
+pub trait IndexInput: DataInput + TryClone + CloseableRef {
   /// The index input type returned by slicing operations.
   type IndexInput: IndexInput;
   /// Returns the current position in this file, where the next read will
@@ -168,11 +169,11 @@ impl IndexInputEnum {
   }
 }
 
-impl crate::core::util::close::Closeable for IndexInputEnum {
-  fn close(&mut self) -> Result<()> {
+impl CloseableRef for IndexInputEnum {
+  fn close(&self) -> Result<()> {
     match self {
-      IndexInputEnum::Fs(inner) => crate::core::util::close::Closeable::close(inner),
-      IndexInputEnum::Custom(inner) => crate::core::util::close::Closeable::close(inner.as_mut()),
+      IndexInputEnum::Fs(inner) => inner.close(),
+      IndexInputEnum::Custom(inner) => inner.close(),
     }
   }
 }
@@ -459,7 +460,16 @@ macro_rules! either_index_input {
             $( $Variant($T), )+
         }
 
-        impl<$( $T ),+> crate::core::util::close::Closeable for $name<$( $T ),+> {}
+        impl<$( $T ),+> CloseableRef for $name<$( $T ),+>
+        where
+            $( $T: IndexInput ),+
+        {
+            fn close(&self) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.close(), )+
+                }
+            }
+        }
 
         impl<$( $T ),+> DataInput for $name<$( $T ),+>
         where

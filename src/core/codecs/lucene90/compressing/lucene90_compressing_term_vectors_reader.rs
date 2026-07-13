@@ -55,7 +55,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
@@ -70,6 +70,7 @@ use std::borrow::Cow;
 use std::io::Cursor;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct Lucene90CompressingTermVectorsReader<I>
 where
@@ -84,7 +85,7 @@ where
   decompressor: DecompressorEnum,
   chunk_size: i32,
   num_docs: i32,
-  closed: bool,
+  closed: AtomicBool,
   // number of written blocks
   num_chunks: i64,
   // number of incomplete compressed blocks written
@@ -217,7 +218,7 @@ where
         decompressor,
         prefetched_block_id_cache,
         prefetched_block_id_cache_index: 0,
-        closed: false,
+        closed: AtomicBool::new(false),
         block_state: BlockState::new(None, None, 0),
       };
       CodecUtil::check_footer(meta)?;
@@ -234,7 +235,7 @@ where
         }
       },
     };
-    if let Some(mut meta) = meta_in {
+    if let Some(meta) = meta_in {
       IOUtils::use_or_suppress_result(result, meta.close())
     } else {
       result
@@ -256,7 +257,7 @@ where
       num_dirty_chunks: reader.num_dirty_chunks,
       num_dirty_docs: reader.num_dirty_docs,
       max_pointer: reader.max_pointer,
-      closed: false,
+      closed: AtomicBool::new(false),
       block_state: BlockState::new(None, None, 0),
       prefetched_block_id_cache: [-1; PREFETCH_CACHE_SIZE],
       prefetched_block_id_cache_index: 0,
@@ -319,7 +320,7 @@ where
     0
   }
   pub fn ensure_open(&self) -> Result<()> {
-    if self.closed {
+    if self.closed.load(Ordering::Relaxed) {
       Err(LuceneError::already_closed("this FieldsReader is closed"))
     } else {
       Ok(())
@@ -424,13 +425,13 @@ where
   }
 }
 
-impl<I> Closeable for Lucene90CompressingTermVectorsReader<I>
+impl<I> CloseableRef for Lucene90CompressingTermVectorsReader<I>
 where
   I: IndexInput,
 {
   /// Close the underlying [`IndexInput`]s.
-  fn close(&mut self) -> Result<()> {
-    if !self.closed {
+  fn close(&self) -> Result<()> {
+    if !self.closed.load(Ordering::Relaxed) {
       let mut result = None;
       if let Err(e) = self.index_reader.close() {
         result = Some(IOUtils::use_or_suppress(result, e));
@@ -441,7 +442,7 @@ where
       if let Some(e) = result {
         return Err(e);
       }
-      self.closed = true;
+      self.closed.store(true, Ordering::Relaxed);
     }
     Ok(())
   }

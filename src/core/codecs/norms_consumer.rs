@@ -24,7 +24,7 @@ use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -116,7 +116,7 @@ where
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D, CR> Closeable for NormsProducerMerge<'_, D, CR>
+impl<D, CR> CloseableRef for NormsProducerMerge<'_, D, CR>
 where
   D: Directory,
   CR: CodecReader,

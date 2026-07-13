@@ -30,7 +30,7 @@ use crate::core::index::term::Term;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::mismatched_leaf_reader::{
   MismatchedVisitor, shuffle_infos,
@@ -392,11 +392,11 @@ where
   }
 }
 
-impl<SFR> Closeable for MismatchedStoredFieldsReader<SFR>
+impl<SFR> CloseableRef for MismatchedStoredFieldsReader<SFR>
 where
   SFR: StoredFieldsReader + RawStoredFieldsReader,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
@@ -445,11 +445,11 @@ where
   }
 }
 
-impl<DVP> Closeable for MismatchedDocValuesProducer<DVP>
+impl<DVP> CloseableRef for MismatchedDocValuesProducer<DVP>
 where
   DVP: DocValuesProducer,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
@@ -534,11 +534,11 @@ where
   }
 }
 
-impl<NP> Closeable for MismatchedNormsProducer<NP>
+impl<NP> CloseableRef for MismatchedNormsProducer<NP>
 where
   NP: NormsProducer,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }

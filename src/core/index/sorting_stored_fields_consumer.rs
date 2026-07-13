@@ -39,7 +39,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext};
 use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;

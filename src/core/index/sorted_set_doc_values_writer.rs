@@ -46,7 +46,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::{
   BytesRefHash, DEFAULT_CAPACITY, DirectBytesRefHash, DirectBytesStartArray,
 };
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::growable_writer::GrowableWriter;
@@ -381,7 +381,7 @@ pub(crate) struct DocValuesProducerImpl1 {
   doc_ords: Option<DocOrds>,
 }
 
-impl Closeable for DocValuesProducerImpl1 {}
+impl CloseableRef for DocValuesProducerImpl1 {}
 
 impl DocValuesProducerImpl1 {
   #[allow(clippy::too_many_arguments)]
@@ -456,7 +456,7 @@ pub(crate) struct DocValuesProducerImpl2 {
   single_value_producer: crate::core::index::sorted_doc_values_writer::DocValuesProducerImpl,
 }
 
-impl Closeable for DocValuesProducerImpl2 {}
+impl CloseableRef for DocValuesProducerImpl2 {}
 
 impl DocValuesProducerImpl2 {
   pub(crate) fn new(

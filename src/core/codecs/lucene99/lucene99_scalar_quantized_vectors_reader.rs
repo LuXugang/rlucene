@@ -48,7 +48,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
@@ -82,7 +82,7 @@ where
 {
   pub(crate) fn new<D1, D2>(
     state: &SegmentReadState<D1>,
-    mut raw_vectors_reader: R,
+    raw_vectors_reader: R,
     flat_vector_scorer: F,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self>
@@ -147,7 +147,7 @@ where
     if let Err(e) = result {
       let mut result: Result<()> = Err(e);
       if !success {
-        if let Some(mut input) = quantized_vector_data {
+        if let Some(input) = quantized_vector_data {
           result = IOUtils::use_or_suppress_result(result, input.close());
         }
         result = IOUtils::use_or_suppress_result(result, raw_vectors_reader.close());
@@ -305,13 +305,13 @@ where
   }
 }
 
-impl<I, R, F> Closeable for Lucene99ScalarQuantizedVectorsReader<I, R, F>
+impl<I, R, F> CloseableRef for Lucene99ScalarQuantizedVectorsReader<I, R, F>
 where
   I: IndexInput,
   R: FlatVectorsReader,
   F: FlatVectorsScorer,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     let close_result = self.quantized_vector_data.close();
     IOUtils::use_or_suppress_result(close_result, self.raw_vectors_reader.close())
   }

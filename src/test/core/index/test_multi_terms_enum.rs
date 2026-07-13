@@ -48,7 +48,7 @@ use crate::core::util::ToInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -443,11 +443,11 @@ where
   }
 }
 
-impl<SFR> Closeable for MigratingStoredFieldsReader<SFR>
+impl<SFR> CloseableRef for MigratingStoredFieldsReader<SFR>
 where
   SFR: StoredFieldsReader + RawStoredFieldsReader,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
@@ -485,11 +485,11 @@ where
   }
 }
 
-impl<FP> Closeable for MigratingFieldsProducer<FP>
+impl<FP> CloseableRef for MigratingFieldsProducer<FP>
 where
   FP: FieldsProducer,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }

@@ -17,12 +17,12 @@
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use std::sync::Arc;
 
 pub struct DummyNormsProducer;
 
-impl Closeable for DummyNormsProducer {}
+impl CloseableRef for DummyNormsProducer {}
 
 impl NormsProducer for DummyNormsProducer {
   type NumericDocValues = DummyNumericDocValues;

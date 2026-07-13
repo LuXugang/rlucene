@@ -120,7 +120,7 @@ where
   }
 }
 
-impl<T: IndexInput> crate::core::util::close::Closeable for InterceptingChecksumIndexInput<T> {}
+impl<T: IndexInput> crate::core::util::close::CloseableRef for InterceptingChecksumIndexInput<T> {}
 
 impl<T> Display for InterceptingChecksumIndexInput<T>
 where

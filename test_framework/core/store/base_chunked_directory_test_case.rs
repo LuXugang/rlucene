@@ -33,7 +33,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, write_group_vints_i64};
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -78,7 +78,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let mut one = dir.open_input("bytes", &IOContext::default_io_context()?)?;
     let mut two = one.try_clone()?;
     let mut three = two.try_clone()?;
-    Closeable::close(&mut two)?;
+    CloseableRef::close(&two)?;
 
     assert_eq!(5, one.read_vint()?);
     assert!(matches!(
@@ -91,8 +91,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       Err(LuceneError::AlreadyClosed(_))
     ));
     assert_eq!(5, three.read_vint()?);
-    Closeable::close(&mut one)?;
-    Closeable::close(&mut three)?;
+    CloseableRef::close(&one)?;
+    CloseableRef::close(&three)?;
     Ok(())
   }
 
@@ -115,7 +115,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let slicer = dir.open_input("bytes", &new_io_context(random)?)?;
     let mut one = slicer.slice("first int", 0, 4 + 5)?;
     let mut two = slicer.slice("second int", 4, 4)?;
-    Closeable::close(&mut one)?;
+    CloseableRef::close(&one)?;
 
     assert!(matches!(
       DataInput::read_int(&mut one),
@@ -130,8 +130,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
 
     let mut another = slicer.slice("first int", 0, 4)?;
     assert_eq!(1, DataInput::read_int(&mut another)?);
-    Closeable::close(&mut another)?;
-    Closeable::close(&mut two)?;
+    CloseableRef::close(&another)?;
+    CloseableRef::close(&two)?;
     Ok(())
   }
 
@@ -147,7 +147,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       dir.create_output("zeroBytes", &io_context)?;
       let mut ii = dir.open_input("zeroBytes", &new_io_context(random)?)?;
       ii.seek(0)?;
-      Closeable::close(&mut ii)?;
+      CloseableRef::close(&ii)?;
     }
     Ok(())
   }
@@ -165,7 +165,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let slicer = dir.open_input("zeroBytes", &new_io_context(random)?)?;
       let mut ii = slicer.slice("zero-length slice", 0, 0)?;
       ii.seek(0)?;
-      Closeable::close(&mut ii)?;
+      CloseableRef::close(&ii)?;
     }
     Ok(())
   }
@@ -191,7 +191,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       DataInput::read_bytes(&mut ii, &mut actual, 0, actual_len)?;
       assert_eq!(bytes, actual);
       ii.seek(1 << i)?;
-      Closeable::close(&mut ii)?;
+      CloseableRef::close(&ii)?;
     }
     Ok(())
   }
@@ -218,7 +218,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       DataInput::read_bytes(&mut ii, &mut actual, 0, actual_len)?;
       assert_eq!(bytes, actual);
       ii.seek(1 << i)?;
-      Closeable::close(&mut ii)?;
+      CloseableRef::close(&ii)?;
     }
     Ok(())
   }
@@ -252,7 +252,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
           assert_eq!(&bytes[slice_start..slice_start + slice_length], &slice[..]);
         }
       }
-      Closeable::close(&mut ii)?;
+      CloseableRef::close(&ii)?;
     }
     Ok(())
   }
@@ -279,7 +279,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let mut actual = vec![0_u8; 1 << (i + 1)];
       let actual_len = actual.len();
       DataInput::read_bytes(&mut ii, &mut actual, 0, actual_len)?;
-      Closeable::close(&mut ii)?;
+      CloseableRef::close(&ii)?;
       assert_eq!(bytes, actual);
 
       let slicer = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -312,7 +312,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let mut actual = vec![0_u8; 1 << (i + 1)];
       let actual_len = actual.len();
       DataInput::read_bytes(&mut ii, &mut actual, 0, actual_len)?;
-      Closeable::close(&mut ii)?;
+      CloseableRef::close(&ii)?;
       assert_eq!(bytes, actual);
 
       let outer_slicer = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -351,7 +351,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let mut slice = vec![0_u8; slice_length];
     let mut input = slicer.slice("bytesSlice", slice_start, slice_length)?;
     DataInput::read_bytes(&mut input, &mut slice, 0, slice_length)?;
-    Closeable::close(&mut input)?;
+    CloseableRef::close(&input)?;
     assert_eq!(
       &bytes[outer_slice_start + slice_start..outer_slice_start + slice_start + slice_length],
       &slice[..]
@@ -467,7 +467,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       Self::assert_bytes(&mut whole, &bytes, 0, random)?;
     }
 
-    Closeable::close(&mut input)?;
+    CloseableRef::close(&input)?;
     Ok(())
   }
 

@@ -27,7 +27,7 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{IOUtils, TryIntoInt};
 use std::sync::Arc;

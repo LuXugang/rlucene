@@ -19,7 +19,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexOutput};
 use crate::core::util::StringHelper;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;

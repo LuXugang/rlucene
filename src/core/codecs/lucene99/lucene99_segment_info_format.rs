@@ -26,7 +26,7 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{IOUtils, StringHelper, Version};
 

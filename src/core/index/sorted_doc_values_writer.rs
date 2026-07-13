@@ -40,7 +40,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::{
   BytesRefHash, DEFAULT_CAPACITY, DirectBytesRefHash, DirectBytesStartArray,
 };
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
@@ -266,7 +266,7 @@ pub(crate) struct DocValuesProducerImpl {
   sorted: Option<Arc<Vec<i32>>>,
 }
 
-impl Closeable for DocValuesProducerImpl {}
+impl CloseableRef for DocValuesProducerImpl {}
 
 impl DocValuesProducerImpl {
   pub(crate) fn new(

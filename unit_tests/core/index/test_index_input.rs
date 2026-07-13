@@ -269,7 +269,7 @@ impl InterceptingIndexInput {
   }
 }
 
-impl crate::core::util::close::Closeable for InterceptingIndexInput {}
+impl crate::core::util::close::CloseableRef for InterceptingIndexInput {}
 
 impl DataInput for InterceptingIndexInput {
   fn read_byte(&mut self) -> Result<u8> {

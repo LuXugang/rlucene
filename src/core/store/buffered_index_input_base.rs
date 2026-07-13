@@ -18,9 +18,10 @@ use std::io::Cursor;
 
 use crate::core::store::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 
-pub trait BufferedIndexInputBase: crate::core::util::clone::TryClone {
+pub trait BufferedIndexInputBase: crate::core::util::clone::TryClone + CloseableRef {
   /// Expert: Implements seek functionality. Sets the current position in this
   /// file, where the next call to
   /// [`read_internal`](BufferedIndexInputBase::read_internal) will occur.

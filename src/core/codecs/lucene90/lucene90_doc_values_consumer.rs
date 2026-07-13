@@ -53,7 +53,7 @@ use crate::core::util::access::SharedAccessVec;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::compress::lz4::{FastCompressionHashTable, HashTableEnum, LZ4};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
@@ -1234,7 +1234,7 @@ where
   values_producer: &'a D,
 }
 
-impl<D> Closeable for EmptyDocValuesProducerSub1<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub1<'_, D> where D: DocValuesProducer {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<'_, D>
 where
@@ -1259,7 +1259,7 @@ where
   values_producer: &'a D,
 }
 
-impl<D> Closeable for EmptyDocValuesProducerSub2<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub2<'_, D> where D: DocValuesProducer {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<'_, D>
 where
@@ -1288,7 +1288,7 @@ where
   values_producer: &'a D,
 }
 
-impl<D> Closeable for EmptyDocValuesProducerSub3<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub3<'_, D> where D: DocValuesProducer {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub3<'_, D>
 where
@@ -1315,7 +1315,7 @@ where
   values_producer: &'a D,
 }
 
-impl<D> Closeable for EmptyDocValuesProducerSub4<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub4<'_, D> where D: DocValuesProducer {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<'_, D>
 where

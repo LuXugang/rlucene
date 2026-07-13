@@ -68,7 +68,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
@@ -616,13 +616,13 @@ where
   }
 }
 
-impl<SFR> Closeable for SlowCompositeStoredFieldsReaderWrapper<SFR>
+impl<SFR> CloseableRef for SlowCompositeStoredFieldsReaderWrapper<SFR>
 where
   SFR: StoredFieldsReader,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     let mut result = None;
-    for reader in self.readers.iter_mut().flatten() {
+    for reader in self.readers.iter().flatten() {
       if let Err(e) = reader.close() {
         result = Some(IOUtils::use_or_suppress(result, e));
       }
@@ -878,13 +878,13 @@ where
   }
 }
 
-impl<TVR> Closeable for SlowCompositeTermVectorsReaderWrapper<TVR>
+impl<TVR> CloseableRef for SlowCompositeTermVectorsReaderWrapper<TVR>
 where
   TVR: TermVectorsReader,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     let mut result = None;
-    for reader in self.readers.iter_mut().flatten() {
+    for reader in self.readers.iter().flatten() {
       if let Err(e) = reader.close() {
         result = Some(IOUtils::use_or_suppress(result, e));
       }
@@ -936,14 +936,12 @@ where
   }
 }
 
-impl<CR> Closeable for SlowCompositeNormsProducer<CR>
+impl<CR> CloseableRef for SlowCompositeNormsProducer<CR>
 where
   CR: CodecReader + Clone,
 {
-  fn close(&mut self) -> Result<()> {
-    IOUtils::close(self.producers.iter_mut().flatten(), |producer| {
-      producer.close()
-    })
+  fn close(&self) -> Result<()> {
+    IOUtils::close(self.producers.iter().flatten(), |producer| producer.close())
   }
 }
 
@@ -1000,12 +998,12 @@ where
   }
 }
 
-impl<CR> Closeable for SlowCompositeDocValuesProducerWrapper<CR>
+impl<CR> CloseableRef for SlowCompositeDocValuesProducerWrapper<CR>
 where
   CR: CodecReader + Clone,
 {
-  fn close(&mut self) -> Result<()> {
-    IOUtils::close(self.producers.iter_mut().flatten(), Closeable::close)
+  fn close(&self) -> Result<()> {
+    IOUtils::close(self.producers.iter().flatten(), CloseableRef::close)
   }
 }
 
@@ -1204,12 +1202,12 @@ where
   }
 }
 
-impl<FP> Closeable for SlowCompositeFieldsProducerWrapper<FP>
+impl<FP> CloseableRef for SlowCompositeFieldsProducerWrapper<FP>
 where
   FP: FieldsProducer,
 {
-  fn close(&mut self) -> Result<()> {
-    IOUtils::close(self.fields.subs.iter_mut(), Closeable::close)
+  fn close(&self) -> Result<()> {
+    IOUtils::close(self.fields.subs.iter(), CloseableRef::close)
   }
 }
 
@@ -1291,12 +1289,12 @@ where
   }
 }
 
-impl<CR> Closeable for SlowCompositeKnnVectorsReaderWrapper<CR>
+impl<CR> CloseableRef for SlowCompositeKnnVectorsReaderWrapper<CR>
 where
   CR: CodecReader + Clone,
 {
-  fn close(&mut self) -> Result<()> {
-    IOUtils::close(self.readers.iter_mut().flatten(), Closeable::close)
+  fn close(&self) -> Result<()> {
+    IOUtils::close(self.readers.iter().flatten(), CloseableRef::close)
   }
 }
 
@@ -1494,12 +1492,12 @@ where
   }
 }
 
-impl<CR> Closeable for SlowCompositePointsReaderWrapper<CR>
+impl<CR> CloseableRef for SlowCompositePointsReaderWrapper<CR>
 where
   CR: CodecReader + Clone,
 {
-  fn close(&mut self) -> Result<()> {
-    IOUtils::close(self.readers.iter_mut().flatten(), Closeable::close)
+  fn close(&self) -> Result<()> {
+    IOUtils::close(self.readers.iter().flatten(), CloseableRef::close)
   }
 }
 

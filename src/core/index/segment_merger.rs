@@ -41,7 +41,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::Context::Merge;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::{IOUtils, LATEST, StringHelper};

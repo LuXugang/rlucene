@@ -78,7 +78,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -523,12 +523,12 @@ where
   }
 }
 
-impl<T, DM> Closeable for TermVectorsReaderImpl<T, DM>
+impl<T, DM> CloseableRef for TermVectorsReaderImpl<T, DM>
 where
   T: TermVectorsReader,
   DM: DocMap + Clone,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }
@@ -568,12 +568,12 @@ where
   }
 }
 
-impl<NP, DM> Closeable for NormsProducerImpl<NP, DM>
+impl<NP, DM> CloseableRef for NormsProducerImpl<NP, DM>
 where
   NP: NormsProducer,
   DM: DocMap,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }
@@ -641,12 +641,12 @@ where
   }
 }
 
-impl<DVP, DM> Closeable for DocValuesProducerImpl<DVP, DM>
+impl<DVP, DM> CloseableRef for DocValuesProducerImpl<DVP, DM>
 where
   DVP: DocValuesProducer,
   DM: DocMap + Clone,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }
@@ -948,12 +948,12 @@ where
   }
 }
 
-impl<PR, DM> Closeable for PointsReaderImpl<PR, DM>
+impl<PR, DM> CloseableRef for PointsReaderImpl<PR, DM>
 where
   PR: PointsReader,
   DM: DocMap + Clone,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }
@@ -997,12 +997,12 @@ where
   }
 }
 
-impl<KVR, DM> Closeable for KnnVectorsReaderImpl<KVR, DM>
+impl<KVR, DM> CloseableRef for KnnVectorsReaderImpl<KVR, DM>
 where
   KVR: KnnVectorsReader,
   DM: DocMap,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }
@@ -1536,12 +1536,12 @@ where
   }
 }
 
-impl<SFR, DM> Closeable for StoredFieldsReaderImpl<SFR, DM>
+impl<SFR, DM> CloseableRef for StoredFieldsReaderImpl<SFR, DM>
 where
   SFR: StoredFieldsReader,
   DM: DocMap + Clone,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }
@@ -1596,12 +1596,12 @@ where
   }
 }
 
-impl<FP, DM> Closeable for FieldsProducerImpl<FP, DM>
+impl<FP, DM> CloseableRef for FieldsProducerImpl<FP, DM>
 where
   FP: FieldsProducer,
   DM: DocMap + Clone,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.postings_reader.close()
   }
 }

@@ -33,7 +33,7 @@ use crate::core::search::sort::Sort;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{LATEST, LUCENE_9_0_0, LUCENE_10_1_1, StringHelper};
@@ -473,7 +473,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
           let close_result = IOUtils::use_or_suppress_result(output.close(), input.close());
           IOUtils::use_or_suppress_result(copy_result, close_result)?;
         }
-        let mut input = corrupt_dir.open_input(&file, &io_context)?;
+        let input = corrupt_dir.open_input(&file, &io_context)?;
         let checksum_result = CodecUtil::checksum_entire_file(&input);
         let checksum_result = IOUtils::use_or_suppress_result(checksum_result, input.close());
         match checksum_result {

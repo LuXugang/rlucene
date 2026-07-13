@@ -36,7 +36,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::accountable::Accountable;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
@@ -214,7 +214,7 @@ pub(crate) struct DocValuesProducerImpl {
   sorted: Option<BinaryDVs>,
 }
 
-impl Closeable for DocValuesProducerImpl {}
+impl CloseableRef for DocValuesProducerImpl {}
 
 impl DocValuesProducerImpl {
   pub(crate) fn new(

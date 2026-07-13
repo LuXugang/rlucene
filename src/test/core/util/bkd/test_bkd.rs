@@ -886,7 +886,7 @@ fn verify_with_max_mb<D, R>(
 ) -> Result<()>
 where
   D: Directory,
-  D::IndexInput: Closeable,
+  D::IndexInput: CloseableRef,
   R: Rng + ?Sized,
 {
   let num_values = doc_values.len();
@@ -2334,7 +2334,7 @@ where
 impl<'a, D, F> Directory for CorruptingTempOutputDirectory<'a, D, F>
 where
   D: Directory,
-  D::IndexInput: Closeable,
+  D::IndexInput: CloseableRef,
   F: Fn(&str, &str) -> bool + Send + Sync,
 {
   fn list_all(&self) -> Result<Vec<String>> {

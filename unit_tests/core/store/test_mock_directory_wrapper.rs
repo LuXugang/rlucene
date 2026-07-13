@@ -363,7 +363,7 @@ fn test_abuse_clone_after_parent_closed() -> Result<()> {
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
   out.write_byte(42)?;
   out.close()?;
-  let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
   let mut clone = input.try_clone()?;
   input.close()?;
   assert!(clone.read_byte().is_err());
@@ -377,7 +377,7 @@ fn test_abuse_clone_of_clone_after_parent_closed() -> Result<()> {
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
   out.write_byte(42)?;
   out.close()?;
-  let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
   let clone1 = input.try_clone()?;
   let mut clone2 = clone1.try_clone()?;
   input.close()?;

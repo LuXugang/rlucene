@@ -27,7 +27,7 @@ use crate::core::index::point_values::{
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::rc::Rc;
@@ -133,7 +133,7 @@ where
   doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
 }
 
-impl<P, CR> Closeable for PointsReaderImpl<P, CR>
+impl<P, CR> CloseableRef for PointsReaderImpl<P, CR>
 where
   P: PointValues,
   CR: CodecReader,

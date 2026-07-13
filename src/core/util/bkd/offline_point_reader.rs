@@ -23,7 +23,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 
@@ -134,12 +134,12 @@ where
       }
     }
 
-    if let Some(mut input) = self.input.take()
+    if let Some(input) = self.input.take()
       && let Err(e) = input.close()
     {
       error = Some(IOUtils::use_or_suppress(error, e));
     }
-    if let Some(mut check_sum_input) = self.check_sum_input.take()
+    if let Some(check_sum_input) = self.check_sum_input.take()
       && let Err(e) = check_sum_input.close()
     {
       error = Some(IOUtils::use_or_suppress(error, e));

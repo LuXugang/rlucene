@@ -48,7 +48,7 @@ use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VECTOR_UTIL;
@@ -132,7 +132,7 @@ where
         None => Err(e),
       },
     };
-    if let Some(mut meta_in) = meta_in_opt {
+    if let Some(meta_in) = meta_in_opt {
       IOUtils::use_or_suppress_result(result, meta_in.close())?;
     } else {
       result?;
@@ -368,21 +368,21 @@ where
   }
 }
 
-impl<I> Closeable for Lucene101PostingsReader<I>
+impl<I> CloseableRef for Lucene101PostingsReader<I>
 where
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     let mut error = None;
     if let Err(e) = self.doc_in.close() {
       error = Some(IOUtils::use_or_suppress(error, e));
     }
-    if let Some(ref mut pos_in) = self.pos_in
+    if let Some(pos_in) = self.pos_in.as_ref()
       && let Err(e) = pos_in.close()
     {
       error = Some(IOUtils::use_or_suppress(error, e));
     }
-    if let Some(ref mut pay_in) = self.pay_in
+    if let Some(pay_in) = self.pay_in.as_ref()
       && let Err(e) = pay_in.close()
     {
       error = Some(IOUtils::use_or_suppress(error, e));

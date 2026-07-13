@@ -18,10 +18,10 @@ use crate::core::codecs::DefaultPostingsFormat;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::fields::{FieldIterEnum2, Fields};
 use crate::core::index::terms::TermsEnum2;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
-pub trait FieldsProducer: Fields + Closeable {
+pub trait FieldsProducer: Fields + CloseableRef {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -45,11 +45,11 @@ macro_rules! either_fields_producer {
             $( $Variant($T), )+
         }
 
-        impl<$( $T ),+> Closeable for $name<$( $T ),+>
+        impl<$( $T ),+> CloseableRef for $name<$( $T ),+>
         where
             $( $T: FieldsProducer ),+
         {
-            fn close(&mut self) -> Result<()> {
+            fn close(&self) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.close(), )+
                 }

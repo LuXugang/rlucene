@@ -38,7 +38,7 @@ use crate::core::util::IOUtils;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, EmptyHnswGraph, HnswGraph, HnswGraphEnum2,
@@ -294,13 +294,13 @@ where
   }
 }
 
-impl<F, I> Closeable for Lucene99HnswVectorsReader<F, I>
+impl<F, I> CloseableRef for Lucene99HnswVectorsReader<F, I>
 where
   F: FlatVectorsReader,
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
-    Ok(())
+  fn close(&self) -> Result<()> {
+    IOUtils::use_or_suppress_result(self.flat_vectors_reader.close(), self.vector_index.close())
   }
 }
 

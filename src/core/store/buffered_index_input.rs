@@ -551,9 +551,13 @@ where
   }
 }
 
-impl<T> crate::core::util::close::Closeable for BufferedIndexInput<T> where
-  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>
+impl<T> crate::core::util::close::CloseableRef for BufferedIndexInput<T>
+where
+  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
+  fn close(&self) -> Result<()> {
+    self.sub_index_input.close()
+  }
 }
 
 impl<T> DataInput for BufferedIndexInput<T>

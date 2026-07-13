@@ -31,7 +31,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::packed::PackedInts;
@@ -139,7 +139,7 @@ impl NormsProducerImpl {
   }
 }
 
-impl Closeable for NormsProducerImpl {}
+impl CloseableRef for NormsProducerImpl {}
 
 impl NormsProducer for NormsProducerImpl {
   type NumericDocValues =

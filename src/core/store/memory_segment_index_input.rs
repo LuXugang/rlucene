@@ -36,7 +36,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{CoreHelper, TryIntoInt};
@@ -50,7 +50,7 @@ pub struct MemorySegmentIndexInput {
   chunk_size_mask: usize,
   cur_segment_index: usize,
   cur_position: usize,
-  closed: bool,
+  closed: AtomicBool,
   owns_shared: bool,
   #[cfg(unix)]
   native_access: PosixNativeAccess,
@@ -144,7 +144,7 @@ impl MemorySegmentIndexInput {
       chunk_size_mask: chunk_size - 1,
       cur_segment_index: 0,
       cur_position: 0,
-      closed: false,
+      closed: AtomicBool::new(false),
       owns_shared: true,
       #[cfg(unix)]
       native_access,
@@ -181,7 +181,7 @@ impl MemorySegmentIndexInput {
       chunk_size_mask: self.chunk_size_mask,
       cur_segment_index,
       cur_position,
-      closed: false,
+      closed: AtomicBool::new(false),
       owns_shared: false,
       #[cfg(unix)]
       native_access: self.native_access,
@@ -226,7 +226,7 @@ impl MemorySegmentIndexInput {
   }
 
   fn ensure_open(&self) -> Result<()> {
-    if self.closed || self.shared.closed.load(Ordering::SeqCst) {
+    if self.closed.load(Ordering::Relaxed) || self.shared.closed.load(Ordering::SeqCst) {
       return Err(LuceneError::already_closed(format!(
         "Already closed: {}",
         self.resource_desc
@@ -580,12 +580,11 @@ impl Display for MemorySegmentIndexInput {
   }
 }
 
-impl Closeable for MemorySegmentIndexInput {
-  fn close(&mut self) -> Result<()> {
-    if self.closed {
+impl CloseableRef for MemorySegmentIndexInput {
+  fn close(&self) -> Result<()> {
+    if self.closed.swap(true, Ordering::Relaxed) {
       return Ok(());
     }
-    self.closed = true;
     if self.owns_shared {
       self.shared.closed.store(true, Ordering::SeqCst);
     }
@@ -608,7 +607,7 @@ impl TryClone for MemorySegmentIndexInput {
       chunk_size_mask: self.chunk_size_mask,
       cur_segment_index: self.cur_segment_index,
       cur_position: self.cur_position,
-      closed: false,
+      closed: AtomicBool::new(false),
       owns_shared: false,
       #[cfg(unix)]
       native_access: self.native_access,

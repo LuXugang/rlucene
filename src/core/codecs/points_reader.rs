@@ -17,11 +17,11 @@
 use crate::core::codecs::DefaultPointsFormat;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::index::point_values::{PointValues, PointValuesEnum2};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 /// Abstract API to visit point values.
-pub trait PointsReader: Closeable {
+pub trait PointsReader: CloseableRef {
   /// Checks consistency of this reader.
   ///
   /// Note that this may be costly in terms of I/O, e.g. may involve computing
@@ -51,12 +51,12 @@ macro_rules! either_points_reader {
             B($B),
         }
 
-        impl<$A, $B> Closeable for $name<$A, $B>
+        impl<$A, $B> CloseableRef for $name<$A, $B>
         where
             $A: PointsReader,
             $B: PointsReader,
         {
-            fn close(&mut self) -> Result<()> {
+            fn close(&self) -> Result<()> {
                 match self {
                     Self::A(inner) => inner.close(),
                     Self::B(inner) => inner.close(),

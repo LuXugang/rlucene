@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
-pub(crate) trait FieldsIndex: TryClone + Closeable {
+pub(crate) trait FieldsIndex: TryClone + CloseableRef {
   /// Get the ID of the block that contains the given docID.
   fn get_block_id(&mut self, doc_id: i32) -> Result<i64>;
 

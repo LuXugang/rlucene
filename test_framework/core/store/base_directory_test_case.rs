@@ -41,7 +41,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataOutput, IOContext, ReadAdvice, write_group_vints_i64};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::clone::TryClone as OtherClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::packed::PackedInts;

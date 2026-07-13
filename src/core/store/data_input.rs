@@ -26,7 +26,7 @@ use std::fmt::Display;
 /// # Note
 /// [`DataInput`] is not thread-safe as it maintains internal state (e.g., file
 /// position).
-pub trait DataInput: Display + Closeable {
+pub trait DataInput: Display {
   /// Reads and returns a single byte.
   ///
   /// # See Also

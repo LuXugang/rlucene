@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 use crate::core::util::accountable::Accountable;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 
 /// Quantized vector reader
-pub trait QuantizedVectorsReader: Accountable + Closeable {
+pub trait QuantizedVectorsReader: Accountable + CloseableRef {
   type QuantizedByteVectorValues: QuantizedByteVectorValues;
 
   fn get_quantized_vector_values(

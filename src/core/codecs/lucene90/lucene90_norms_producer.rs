@@ -40,7 +40,7 @@ use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::IOUtils;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use parking_lot::Mutex;
@@ -371,7 +371,7 @@ where
   offset: usize,
 }
 
-impl<I> crate::core::util::close::Closeable for IndexInputImpl<I> where I: IndexInput {}
+impl<I> crate::core::util::close::CloseableRef for IndexInputImpl<I> where I: IndexInput {}
 
 impl<I> DataInput for IndexInputImpl<I>
 where
@@ -457,11 +457,11 @@ where
     Ok(())
   }
 }
-impl<I> Closeable for Lucene90NormsProducer<I>
+impl<I> CloseableRef for Lucene90NormsProducer<I>
 where
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.data.close()
   }
 }

@@ -29,7 +29,7 @@ use crate::core::store::{
   DataInput, DataOutput, FSDirectory, IOContext, IndexInput, NativeFSLockFactory,
 };
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
@@ -483,7 +483,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
     let mut one = mmap_dir.open_input("bytes", &IOContext::default_io_context()?)?;
     let mut two = one.try_clone()?;
     let mut three = two.try_clone()?;
-    Closeable::close(&mut one)?;
+    CloseableRef::close(&one)?;
 
     assert!(matches!(
       one.read_vint(),
@@ -498,9 +498,9 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       Err(LuceneError::AlreadyClosed(_))
     ));
 
-    Closeable::close(&mut two)?;
-    Closeable::close(&mut three)?;
-    Closeable::close(&mut one)?;
+    CloseableRef::close(&two)?;
+    CloseableRef::close(&three)?;
+    CloseableRef::close(&one)?;
     Ok(())
   }
 
@@ -516,12 +516,12 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       io.write_int(2)?;
     }
 
-    let mut slicer = mmap_dir.open_input("bytes", &new_io_context(random)?)?;
+    let slicer = mmap_dir.open_input("bytes", &new_io_context(random)?)?;
     let mut one = slicer.slice("first int", 0, 4)?;
     let mut two = slicer.slice("second int", 4, 4)?;
     let mut three = one.try_clone()?;
     let mut four = two.try_clone()?;
-    Closeable::close(&mut slicer)?;
+    CloseableRef::close(&slicer)?;
 
     assert!(matches!(one.read_int(), Err(LuceneError::AlreadyClosed(_))));
     assert!(matches!(two.read_int(), Err(LuceneError::AlreadyClosed(_))));
@@ -534,11 +534,11 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       Err(LuceneError::AlreadyClosed(_))
     ));
 
-    Closeable::close(&mut one)?;
-    Closeable::close(&mut two)?;
-    Closeable::close(&mut three)?;
-    Closeable::close(&mut four)?;
-    Closeable::close(&mut slicer)?;
+    CloseableRef::close(&one)?;
+    CloseableRef::close(&two)?;
+    CloseableRef::close(&three)?;
+    CloseableRef::close(&four)?;
+    CloseableRef::close(&slicer)?;
     Ok(())
   }
 

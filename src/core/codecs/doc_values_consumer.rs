@@ -50,7 +50,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
@@ -465,7 +465,7 @@ where
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D, CR> Closeable for EmptyDocValuesProducerMerge1<'_, D, CR>
+impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge1<'_, D, CR>
 where
   D: Directory,
   CR: CodecReader,
@@ -631,7 +631,7 @@ where
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D, CR> Closeable for EmptyDocValuesProducerMerge2<'_, D, CR>
+impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge2<'_, D, CR>
 where
   D: Directory,
   CR: CodecReader,
@@ -820,7 +820,7 @@ where
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D, CR> Closeable for EmptyDocValuesProducerMerge3<'_, D, CR>
+impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge3<'_, D, CR>
 where
   D: Directory,
   CR: CodecReader,
@@ -999,7 +999,7 @@ where
   map: Rc<OrdinalMap>,
 }
 
-impl<D, CR> Closeable for EmptyDocValuesProducerMerge4<'_, D, CR>
+impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge4<'_, D, CR>
 where
   D: Directory,
   CR: CodecReader,
@@ -1477,7 +1477,7 @@ where
   map: Rc<OrdinalMap>,
 }
 
-impl<D, CR> Closeable for EmptyDocValuesProducerMerge5<'_, D, CR>
+impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge5<'_, D, CR>
 where
   D: Directory,
   CR: CodecReader,

@@ -29,7 +29,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::data_input::DataInput;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::io_context::IOContext;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;

@@ -80,8 +80,8 @@ where
   }
 }
 
-impl<T: IndexInput> crate::core::util::close::Closeable for BufferedChecksumIndexInput<T> {
-  fn close(&mut self) -> Result<()> {
+impl<T: IndexInput> crate::core::util::close::CloseableRef for BufferedChecksumIndexInput<T> {
+  fn close(&self) -> Result<()> {
     self.main.close()
   }
 }

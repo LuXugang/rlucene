@@ -357,6 +357,15 @@ where
   }
 }
 
+impl<I> CloseableRef for FaultyIndexInput<I>
+where
+  I: IndexInput<IndexInput = I>,
+{
+  fn close(&self) -> Result<()> {
+    self.delegate.close()
+  }
+}
+
 impl<I> BufferedIndexInputBase for FaultyIndexInput<I>
 where
   I: IndexInput<IndexInput = I>,

@@ -552,6 +552,8 @@ impl crate::core::util::clone::TryClone for MyBufferedIndexInput {
   }
 }
 
+impl crate::core::util::close::CloseableRef for MyBufferedIndexInput {}
+
 impl BufferedIndexInputBase for MyBufferedIndexInput {
   fn seek_internal(&mut self, pos: usize) -> Result<()> {
     self.pos = pos;

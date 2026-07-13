@@ -18,6 +18,9 @@ use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use parking_lot::RwLock;
 
 use crate::core::store::fs_directory::FSDirectory;
 use crate::core::store::fs_directory_base::FSDirectoryBase;
@@ -27,13 +30,14 @@ use crate::core::store::native_fs_lock_factory::NativeFSLockFactory;
 use crate::core::store::{
   BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase, IOContext, fs_lock_factory,
 };
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ReadableCursorExt, TryIntoInt};
 
 /// An implementation of
 /// `FSDirectory` that uses
 /// `std::fs::File` for positional reads, allowing multiple threads to read from
-/// the same file without synchronization.
+/// the same file without sharing a mutable file cursor.
 ///
 /// # Read and Write Modes
 ///
@@ -111,8 +115,10 @@ fn read_at(file: &File, buf: &mut [u8], pos: u64) -> std::io::Result<usize> {
 }
 
 pub struct NIOFSIndexInput {
-  /// the file we will read from
-  file: File,
+  /// The shared file we will read from.
+  shared: Arc<NIOFSIndexInputShared>,
+  /// Whether this input is a clone or slice and hence does not own the file to close it.
+  is_clone: bool,
   /// start offset: non-zero in the slice case
   off: usize,
   /// end offset (start+length)
@@ -121,27 +127,35 @@ pub struct NIOFSIndexInput {
   buffer_size: usize,
 }
 
+struct NIOFSIndexInputShared {
+  file: RwLock<Option<File>>,
+}
+
 impl NIOFSIndexInput {
   pub fn new(file: File, resource_desc: &str) -> Result<Self> {
     let metadata = file.metadata()?;
     let len = metadata.len().try_convert()?;
     Ok(Self {
-      file,
+      shared: Arc::new(NIOFSIndexInputShared {
+        file: RwLock::new(Some(file)),
+      }),
+      is_clone: false,
       off: 0,
       end: len,
       resource_desc: resource_desc.to_string(),
       buffer_size: BUFFER_SIZE,
     })
   }
-  pub fn with_range(
-    file: File,
+  fn with_range(
+    shared: Arc<NIOFSIndexInputShared>,
     off: usize,
     length: usize,
     resource_desc: &str,
     buffer_size: usize,
   ) -> Self {
     Self {
-      file,
+      shared,
+      is_clone: true,
       off,
       end: off + length,
       resource_desc: resource_desc.to_string(),
@@ -159,12 +173,28 @@ impl crate::core::util::clone::TryClone for NIOFSIndexInput {
     Self: Sized,
   {
     Ok(Self {
-      file: self.file.try_clone()?,
+      shared: Arc::clone(&self.shared),
+      is_clone: true,
       off: self.off,
       end: self.end,
       resource_desc: self.resource_desc.clone(),
       buffer_size: self.buffer_size,
     })
+  }
+}
+
+impl CloseableRef for NIOFSIndexInput {
+  fn close(&self) -> Result<()> {
+    if !self.is_clone {
+      self.shared.file.write().take();
+    }
+    Ok(())
+  }
+}
+
+impl Drop for NIOFSIndexInput {
+  fn drop(&mut self) {
+    let _ = self.close();
   }
 }
 
@@ -229,6 +259,10 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
   ) -> Result<()> {
     debug_assert!(buffer.remain()? >= len, "buffer overflow");
     let mut pos = file_pointer + self.off;
+    let file = self.shared.file.read();
+    let file = file
+      .as_ref()
+      .ok_or_else(|| LuceneError::already_closed(format!("Already closed: {self}")))?;
 
     // Check if the requested read exceeds the file's end
     if pos + len > self.end {
@@ -248,7 +282,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
       let buffer_end = buffer_start + to_read;
       let buffer_slice = &mut buffer.get_mut()[buffer_start..buffer_end];
 
-      let bytes_read = read_at(&self.file, buffer_slice, pos as u64).map_err(LuceneError::io)?;
+      let bytes_read = read_at(file, buffer_slice, pos as u64).map_err(LuceneError::io)?;
 
       if bytes_read == 0 {
         return Err(LuceneError::eof(format!(
@@ -288,9 +322,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
 
     let resource_desc = get_full_slice_description(slice_description);
     let sub_index_input = NIOFSIndexInput::with_range(
-      // Clone the file handle to create a new `File` instance pointing
-      // to the same file resource.
-      self.file.try_clone().map_err(LuceneError::io)?,
+      Arc::clone(&self.shared),
       self.off + offset,
       length,
       &resource_desc,

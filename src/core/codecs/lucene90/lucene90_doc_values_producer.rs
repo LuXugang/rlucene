@@ -61,7 +61,7 @@ use crate::core::util::IOUtils;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::compress::lz4::LZ4;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -759,12 +759,12 @@ where
   }
 }
 
-impl<I> Closeable for Lucene90DocValuesProducer<I>
+impl<I> CloseableRef for Lucene90DocValuesProducer<I>
 where
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
-    Closeable::close(&mut self.data)
+  fn close(&self) -> Result<()> {
+    CloseableRef::close(&self.data)
   }
 }
 

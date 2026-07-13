@@ -1227,11 +1227,11 @@ where
   }
 }
 
-impl<I> Closeable for MockAssertFileExistIndexInput<I>
+impl<I> CloseableRef for MockAssertFileExistIndexInput<I>
 where
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     self.delegate.close()
   }
 }

@@ -29,7 +29,7 @@ use crate::core::index::snapshot_deletion_policy::{
 };
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IO_CONTEXT_DEFAULT};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 

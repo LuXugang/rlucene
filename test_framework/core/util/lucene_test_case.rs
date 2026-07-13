@@ -51,7 +51,7 @@ use crate::core::store::{
 };
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
@@ -820,7 +820,7 @@ where
 
 pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
   match dir.open_input(name, &IOContext::read_once_io_context()?) {
-    Ok(mut input) => {
+    Ok(input) => {
       input.close()?;
       Ok(true)
     },

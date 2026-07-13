@@ -27,7 +27,7 @@ use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use crate::core::util::io_utils::IOUtils;

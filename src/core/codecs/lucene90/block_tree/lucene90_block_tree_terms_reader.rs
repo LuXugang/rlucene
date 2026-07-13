@@ -26,9 +26,10 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -64,7 +65,7 @@ where
   terms_reader: Arc<TermsReader<I, PR>>,
   // Open input to the terms index file (_X.tip)
   index_in: Arc<I>,
-  field_map: HashMap<i32, FieldReader<I, PR>>,
+  field_map: RwLock<HashMap<i32, FieldReader<I, PR>>>,
   field_list: Vec<String>,
   field_infos: Arc<FieldInfos>,
 }
@@ -80,12 +81,12 @@ where
   pub(crate) version: i32,
 }
 
-impl<I, PR> Closeable for TermsReader<I, PR>
+impl<I, PR> CloseableRef for TermsReader<I, PR>
 where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     let mut error = None;
     if let Err(e) = self.terms_in.close() {
       error = Some(IOUtils::use_or_suppress(error, e));
@@ -287,7 +288,7 @@ where
     Ok(Lucene90BlockTreeTermsReader {
       terms_reader,
       index_in,
-      field_map,
+      field_map: RwLock::new(field_map),
       field_list,
       field_infos: Arc::clone(&state.field_infos),
     })
@@ -312,11 +313,11 @@ where
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     let field_info = self.field_infos.field_info_by_name(field);
-    Ok(field_info.and_then(|f| self.field_map.get(&f.number).cloned()))
+    Ok(field_info.and_then(|f| self.field_map.read().get(&f.number).cloned()))
   }
 
   fn size(&self) -> Result<i32> {
-    self.field_map.len().try_convert()
+    self.field_map.read().len().try_convert()
   }
 }
 impl<I, PR> Display for Lucene90BlockTreeTermsReader<I, PR>
@@ -328,54 +329,29 @@ where
     write!(
       f,
       "Lucene90BlockTreeTermsReader(fields={}, delegate={})",
-      self.field_map.len(),
+      self.field_map.read().len(),
       self.terms_reader.postings_reader
     )
   }
 }
 
-impl<I, PR> Closeable for Lucene90BlockTreeTermsReader<I, PR>
+impl<I, PR> CloseableRef for Lucene90BlockTreeTermsReader<I, PR>
 where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
-  fn close(&mut self) -> Result<()> {
-    // Drop this reader's FieldReader references so the shared inputs become
-    // uniquely owned and can be closed explicitly.
-    self.field_map.clear();
-
+  fn close(&self) -> Result<()> {
     let mut error = None;
-    match Arc::get_mut(&mut self.index_in) {
-      Some(index_in) => {
-        if let Err(e) = index_in.close() {
-          error = Some(IOUtils::use_or_suppress(error, e));
-        }
-      },
-      None => {
-        error = Some(IOUtils::use_or_suppress(
-          error,
-          LuceneError::illegal_state(
-            "cannot close Lucene90BlockTreeTermsReader index input while it is shared",
-          ),
-        ));
-      },
+    if let Err(e) = self.index_in.close() {
+      error = Some(IOUtils::use_or_suppress(error, e));
     }
 
-    match Arc::get_mut(&mut self.terms_reader) {
-      Some(terms_reader) => {
-        if let Err(e) = terms_reader.close() {
-          error = Some(IOUtils::use_or_suppress(error, e));
-        }
-      },
-      None => {
-        error = Some(IOUtils::use_or_suppress(
-          error,
-          LuceneError::illegal_state(
-            "cannot close Lucene90BlockTreeTermsReader terms reader while it is shared",
-          ),
-        ));
-      },
+    if let Err(e) = self.terms_reader.close() {
+      error = Some(IOUtils::use_or_suppress(error, e));
     }
+
+    // Clear so refs to terms index are releasable even if the caller hangs onto us.
+    self.field_map.write().clear();
 
     if let Some(error) = error {
       Err(error)

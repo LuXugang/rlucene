@@ -22,7 +22,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -38,7 +38,7 @@ use std::sync::Arc;
 // Block) TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 // TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub trait PostingsReaderBase: Display + Closeable {
+pub trait PostingsReaderBase: Display + CloseableRef {
   /// Performs any initialization, such as reading and verifying the header
   /// from the provided terms dictionary [`IndexInput`].
   fn init<D1, D2>(

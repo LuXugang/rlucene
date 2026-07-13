@@ -38,7 +38,7 @@ use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
@@ -348,7 +348,7 @@ where
   }
 }
 
-impl<LR> Closeable for PointsReaderImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for PointsReaderImpl<LR> where LR: LeafReader {}
 
 impl<LR> PointsReader for PointsReaderImpl<LR>
 where
@@ -388,11 +388,11 @@ where
   }
 }
 
-impl<LR> Closeable for NormsProducerImpl<LR>
+impl<LR> CloseableRef for NormsProducerImpl<LR>
 where
   LR: LeafReader,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     Ok(())
   }
 }
@@ -438,7 +438,7 @@ where
   }
 }
 
-impl<LR> Closeable for DocValuesProducerImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for DocValuesProducerImpl<LR> where LR: LeafReader {}
 
 impl<LR> DocValuesProducer for DocValuesProducerImpl<LR>
 where
@@ -574,7 +574,7 @@ where
   }
 }
 
-impl<LR> Closeable for StoredFieldsReaderImpl<LR> where LR: LeafReader + Clone {}
+impl<LR> CloseableRef for StoredFieldsReaderImpl<LR> where LR: LeafReader + Clone {}
 
 impl<LR> StoredFieldsReader for StoredFieldsReaderImpl<LR>
 where
@@ -665,7 +665,7 @@ where
   }
 }
 
-impl<LR> Closeable for TermVectorsReaderImpl<LR> where LR: LeafReader + Clone {}
+impl<LR> CloseableRef for TermVectorsReaderImpl<LR> where LR: LeafReader + Clone {}
 
 impl<LR> TermVectorsReader for TermVectorsReaderImpl<LR>
 where
@@ -713,7 +713,7 @@ where
   }
 }
 
-impl<LR> Closeable for FieldsProducerImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for FieldsProducerImpl<LR> where LR: LeafReader {}
 
 impl<LR> Fields for FieldsProducerImpl<LR>
 where
@@ -767,7 +767,7 @@ where
   }
 }
 
-impl<LR> Closeable for KnnVectorsReaderImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for KnnVectorsReaderImpl<LR> where LR: LeafReader {}
 
 impl<LR> HnswGraphProvider for KnnVectorsReaderImpl<LR>
 where

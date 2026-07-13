@@ -592,7 +592,7 @@ where
 
   fn check_integrity(&self) -> Result<()> {
     CodecReader::default_check_integrity(self)?;
-    if let Some(dv) = &self.core.cfs_reader {
+    if let Some(dv) = self.core.cfs_reader.as_ref() {
       dv.check_integrity()?;
     }
     Ok(())

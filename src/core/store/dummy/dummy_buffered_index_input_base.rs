@@ -30,6 +30,8 @@ impl crate::core::util::clone::TryClone for DummyBufferedIndexInputBase {
   }
 }
 
+impl crate::core::util::close::CloseableRef for DummyBufferedIndexInputBase {}
+
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
   fn seek_internal(&mut self, _pos: usize) -> Result<()> {
     dummy_unreachable!()

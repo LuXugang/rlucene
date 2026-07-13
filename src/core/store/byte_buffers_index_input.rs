@@ -16,6 +16,7 @@
  */
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::core::store::DataInput;
 use crate::core::store::byte_buffers_data_input::{
@@ -33,7 +34,7 @@ pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
 pub struct ByteBuffersIndexInput<B: ByteBuffersDataInputBlock> {
   in_: ByteBuffersDataInput<B>,
   resource_description: String,
-  closed: bool,
+  closed: AtomicBool,
 }
 impl<B> ByteBuffersIndexInput<B>
 where
@@ -43,12 +44,12 @@ where
     Self {
       in_: data_input,
       resource_description: resource_description.to_string(),
-      closed: false,
+      closed: AtomicBool::new(false),
     }
   }
 
   fn ensure_open(&self) -> Result<()> {
-    if self.closed {
+    if self.closed.load(Ordering::Relaxed) {
       Err(LuceneError::already_closed("Already closed."))
     } else {
       Ok(())
@@ -56,12 +57,12 @@ where
   }
 }
 
-impl<B> crate::core::util::close::Closeable for ByteBuffersIndexInput<B>
+impl<B> crate::core::util::close::CloseableRef for ByteBuffersIndexInput<B>
 where
   B: ByteBuffersDataInputBlock,
 {
-  fn close(&mut self) -> Result<()> {
-    self.closed = true;
+  fn close(&self) -> Result<()> {
+    self.closed.store(true, Ordering::Relaxed);
     Ok(())
   }
 }

@@ -20,7 +20,7 @@ use crate::core::store::index_input::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::read_advice::ReadAdvice;
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
@@ -147,12 +147,12 @@ where
   }
 }
 
-impl<D, I> Closeable for MockIndexInputWrapper<D, I>
+impl<D, I> CloseableRef for MockIndexInputWrapper<D, I>
 where
   D: Directory,
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     if self.closed.swap(true, Ordering::SeqCst) {
       self.in_.close()?;
       return Ok(());
@@ -493,12 +493,12 @@ where
   }
 }
 
-impl<D, I> Closeable for MockDirectoryIndexInput<D, I>
+impl<D, I> CloseableRef for MockDirectoryIndexInput<D, I>
 where
   D: Directory,
   I: IndexInput,
 {
-  fn close(&mut self) -> Result<()> {
+  fn close(&self) -> Result<()> {
     match self {
       Self::Mock(inner) | Self::SlowOpening(inner) => inner.close(),
       Self::SlowClosing(inner) => {
