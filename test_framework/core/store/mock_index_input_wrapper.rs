@@ -403,9 +403,7 @@ where
     Ok(MockIndexInputWrapper::new(
       self.dir.clone(),
       description,
-      self
-        .in_
-        .slice_with_read_advice(description, offset, length, read_advice)?,
+      self.in_.slice(description, offset, length)?,
       Some(self.original_closed_state()),
       *read_advice,
       self.confined,

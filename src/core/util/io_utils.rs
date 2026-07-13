@@ -105,15 +105,11 @@ impl_closeable_ref_tuple!(
 
 pub struct IOUtils;
 pub(crate) struct CloseWhileHandlingError {
-  first_error: Option<LuceneError>,
-  first_throwable: Option<LuceneError>,
+  first_panic: Option<Box<dyn std::any::Any + Send>>,
 }
 impl CloseWhileHandlingError {
   pub(crate) fn new() -> Self {
-    Self {
-      first_error: None,
-      first_throwable: None,
-    }
+    Self { first_panic: None }
   }
 
   pub(crate) fn close<F>(&mut self, close: F)
@@ -121,29 +117,19 @@ impl CloseWhileHandlingError {
     F: FnOnce() -> Result<()>,
   {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(close)) {
-      Ok(Ok(())) => {},
-      Ok(Err(error)) if error.is_tragedy_error() => {
-        self.first_error = Some(IOUtils::use_or_suppress(self.first_error.take(), error));
+      Ok(_) => {},
+      Err(payload) if self.first_panic.is_none() => {
+        self.first_panic = Some(payload);
       },
-      Ok(Err(error)) => {
-        self.first_throwable = Some(IOUtils::use_or_suppress(self.first_throwable.take(), error));
-      },
-      Err(payload) => {
-        let error = LuceneError::tragedy_from_panic("panic while closing", payload.as_ref());
-        self.first_error = Some(IOUtils::use_or_suppress(self.first_error.take(), error));
-      },
+      Err(_) => {},
     }
   }
 
   pub(crate) fn finish(self) -> Result<()> {
-    if let Some(mut first_error) = self.first_error {
-      if let Some(first_throwable) = self.first_throwable {
-        first_error.add_suppressed(first_throwable);
-      }
-      Err(first_error)
-    } else {
-      Ok(())
+    if let Some(payload) = self.first_panic {
+      std::panic::resume_unwind(payload);
     }
+    Ok(())
   }
 }
 
@@ -293,10 +279,10 @@ impl IOUtils {
     objects.close_refs()
   }
 
-  /// Closes all given objects, suppressing all returned non-tragic errors.
+  /// Closes all given objects, suppressing all returned errors.
   ///
-  /// Even if a panic is raised or a tragedy is returned, all given closeables
-  /// are closed before the first tragedy is returned as an error.
+  /// Even if a panic is raised, all given closeables are closed before the
+  /// first panic is resumed.
   pub fn close_while_handling_error<I, F>(objects: I, mut close: F) -> Result<()>
   where
     I: IntoIterator,
@@ -310,11 +296,10 @@ impl IOUtils {
   }
 
   /// Closes one or more resources of different concrete types, suppressing all
-  /// returned non-tragic errors.
+  /// returned errors.
   ///
-  /// `None` resources are ignored. Even if a panic is raised or a tragedy is
-  /// returned, all given resources are closed before the first tragedy is
-  /// returned as an error.
+  /// `None` resources are ignored. Even if a panic is raised, all given
+  /// resources are closed before the first panic is resumed.
   pub(crate) fn close_resources_while_handling_error<T>(resources: T) -> Result<()>
   where
     T: CloseWhileHandlingResource,
