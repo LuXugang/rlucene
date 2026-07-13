@@ -192,12 +192,6 @@ impl CloseableRef for NIOFSIndexInput {
   }
 }
 
-impl Drop for NIOFSIndexInput {
-  fn drop(&mut self) {
-    let _ = self.close();
-  }
-}
-
 impl BufferedIndexInputBase for NIOFSIndexInput {
   fn seek_internal(&mut self, pos: usize) -> Result<()> {
     if pos > self.length() {

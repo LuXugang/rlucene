@@ -26,6 +26,7 @@ use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
@@ -43,6 +44,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -423,8 +425,8 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.commit()?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader::open(dir)?;
-    let mut terms_enum = get_only_leaf_reader(reader)?
+    let reader = directory_reader::open_from_writer(&iw)?;
+    let mut terms_enum = get_only_leaf_reader(&reader)?
       .terms("id")?
       .unwrap()
       .iterator()?;
@@ -438,6 +440,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(terms_enum.term()?.as_ref(), &target);
     }
 
+    reader.close()?;
+    iw.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -476,8 +481,8 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.commit()?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader::open(dir)?;
-    let mut terms_enum = get_only_leaf_reader(reader)?
+    let reader = directory_reader::open_from_writer(&iw)?;
+    let mut terms_enum = get_only_leaf_reader(&reader)?
       .terms("id")?
       .unwrap()
       .iterator()?;
@@ -517,6 +522,9 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       terms_enum.seek_ceil(&BytesRef::from_string("100400"))?
     );
 
+    reader.close()?;
+    iw.close()?;
+    dir.close()?;
     Ok(())
   }
 
