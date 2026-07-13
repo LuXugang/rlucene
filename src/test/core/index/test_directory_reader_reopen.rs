@@ -1071,6 +1071,7 @@ fn test_open_if_changed_nrt_to_commit() -> Result<()> {
   Ok(())
 }
 
+#[test]
 fn test_over_dec_ref_during_reopen() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(new_mock_directory(&mut random)?);
