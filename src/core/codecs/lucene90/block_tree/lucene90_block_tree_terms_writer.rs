@@ -454,21 +454,13 @@ where
         close_result
       },
       Err(err) => {
-        let mut close_error = IOUtils::close_while_handling_error(
-          [&mut self.meta_out, &mut self.terms_out, &mut self.index_out],
-          Closeable::close,
-        )
-        .err();
-        if let Err(postings_error) =
-          IOUtils::close_while_handling_error([&mut self.postings_writer], Closeable::close)
-        {
-          close_error = Some(IOUtils::use_or_suppress(close_error, postings_error));
-        }
-        if let Some(close_error) = close_error {
-          Err(IOUtils::use_or_suppress(Some(err), close_error))
-        } else {
-          Err(err)
-        }
+        IOUtils::close_resources_while_handling_error((
+          &mut self.meta_out,
+          &mut self.terms_out,
+          &mut self.index_out,
+          &mut self.postings_writer,
+        ))?;
+        Err(err)
       },
     }
   }

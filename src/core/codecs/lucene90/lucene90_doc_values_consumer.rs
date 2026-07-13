@@ -922,7 +922,7 @@ where
         IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?;
       },
       Err(err) => {
-        IOUtils::close_while_handling_error([&mut self.data, &mut self.meta], Closeable::close)?;
+        IOUtils::close_resources_while_handling_error((&mut self.data, &mut self.meta))?;
         return Err(err);
       },
     }

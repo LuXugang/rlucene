@@ -373,26 +373,15 @@ where
   I: IndexInput,
 {
   fn close(&self) -> Result<()> {
-    let mut error = None;
-    if let Err(e) = self.doc_in.close() {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
-    if let Some(pos_in) = self.pos_in.as_ref()
-      && let Err(e) = pos_in.close()
-    {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
-    if let Some(pay_in) = self.pay_in.as_ref()
-      && let Err(e) = pay_in.close()
-    {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
-
-    if let Some(error) = error {
-      Err(error)
-    } else {
-      Ok(())
-    }
+    IOUtils::close_refs(
+      [
+        Some(&self.doc_in),
+        self.pos_in.as_ref(),
+        self.pay_in.as_ref(),
+      ]
+      .into_iter()
+      .flatten(),
+    )
   }
 }
 

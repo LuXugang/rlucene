@@ -168,15 +168,9 @@ where
   I: IndexInput,
 {
   fn close(&self) -> Result<()> {
-    let mut first_error = None;
-    if let Err(e) = CloseableRef::close(&self.index_in) {
-      first_error = Some(e);
-    }
-    if let Err(e) = CloseableRef::close(&*self.data_in.lock()) {
-      first_error = Some(IOUtils::use_or_suppress(first_error, e));
-    }
-    if let Some(error) = first_error {
-      return Err(error);
+    {
+      let data_in = self.data_in.lock();
+      IOUtils::close_refs([self.index_in.as_ref(), &*data_in])?;
     }
     // Free up heap:
     self.readers.write().clear();

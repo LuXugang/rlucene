@@ -432,16 +432,7 @@ where
   /// Close the underlying [`IndexInput`]s.
   fn close(&self) -> Result<()> {
     if !self.closed.load(Ordering::Relaxed) {
-      let mut result = None;
-      if let Err(e) = self.index_reader.close() {
-        result = Some(IOUtils::use_or_suppress(result, e));
-      }
-      if let Err(e) = self.vectors_stream.close() {
-        result = Some(IOUtils::use_or_suppress(result, e));
-      }
-      if let Some(e) = result {
-        return Err(e);
-      }
+      IOUtils::close_refs_tuple((Some(&self.index_reader), Some(&self.vectors_stream)))?;
       self.closed.store(true, Ordering::Relaxed);
     }
     Ok(())

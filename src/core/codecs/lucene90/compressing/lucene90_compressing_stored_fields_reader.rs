@@ -440,11 +440,7 @@ where
       return Ok(());
     }
 
-    let mut close_result = self.index_reader.close();
-    if let Err(fields_error) = self.state.fields_stream.close() {
-      close_result = Err(IOUtils::use_or_suppress(close_result.err(), fields_error));
-    }
-    close_result?;
+    IOUtils::close_refs_tuple((Some(&self.index_reader), Some(&self.state.fields_stream)))?;
     self.closed.store(true, Ordering::Relaxed);
     Ok(())
   }

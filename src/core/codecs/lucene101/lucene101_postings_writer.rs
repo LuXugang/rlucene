@@ -535,16 +535,12 @@ where
         Ok(())
       },
       Err(err) => {
-        IOUtils::close_while_handling_error(
-          [&mut self.meta_out, &mut self.doc_out],
-          Closeable::close,
-        )?;
-        if let Some(ref mut pos_out) = self.pos_out {
-          IOUtils::close_while_handling_error([pos_out], Closeable::close)?;
-        }
-        if let Some(ref mut pay_out) = self.pay_out {
-          IOUtils::close_while_handling_error([pay_out], Closeable::close)?;
-        }
+        IOUtils::close_resources_while_handling_error((
+          &mut self.meta_out,
+          &mut self.doc_out,
+          self.pos_out.as_mut(),
+          self.pay_out.as_mut(),
+        ))?;
         self.pos_out = None;
         self.pay_out = None;
         self.closed = true;

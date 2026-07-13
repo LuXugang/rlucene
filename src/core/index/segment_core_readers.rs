@@ -31,7 +31,6 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 
@@ -191,43 +190,15 @@ where
   pub(crate) fn dec_ref(&self) -> Result<()> {
     let count = self.ref_.fetch_sub(1, Ordering::SeqCst) - 1;
     if count == 0 {
-      let mut error = None;
-      if let Some(fields) = self.fields.as_ref()
-        && let Err(e) = fields.close()
-      {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-      if let Some(term_vectors_reader) = self.term_vectors_reader_orig.as_ref()
-        && let Err(e) = term_vectors_reader.close()
-      {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-      if let Err(e) = self.fields_reader_orig.close() {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-      if let Some(cfs_reader) = self.cfs_reader.as_ref()
-        && let Err(e) = cfs_reader.close()
-      {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-      if let Some(norms_producer) = self.norms_producer.as_ref()
-        && let Err(e) = norms_producer.close()
-      {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-      if let Some(points_reader) = self.points_reader.as_ref()
-        && let Err(e) = points_reader.close()
-      {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-      if let Some(knn_vectors_reader) = self.knn_vectors_reader.as_ref()
-        && let Err(e) = knn_vectors_reader.close()
-      {
-        error = Some(IOUtils::use_or_suppress(error, e));
-      }
-      if let Some(error) = error {
-        return Err(error);
-      }
+      IOUtils::close_refs_tuple((
+        self.fields.as_ref(),
+        self.term_vectors_reader_orig.as_ref(),
+        Some(&self.fields_reader_orig),
+        self.cfs_reader.as_ref(),
+        self.norms_producer.as_ref(),
+        self.points_reader.as_ref(),
+        self.knn_vectors_reader.as_ref(),
+      ))?;
     }
     Ok(())
   }

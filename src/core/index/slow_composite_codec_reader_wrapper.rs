@@ -621,13 +621,7 @@ where
   SFR: StoredFieldsReader,
 {
   fn close(&self) -> Result<()> {
-    let mut result = None;
-    for reader in self.readers.iter().flatten() {
-      if let Err(e) = reader.close() {
-        result = Some(IOUtils::use_or_suppress(result, e));
-      }
-    }
-    if let Some(e) = result { Err(e) } else { Ok(()) }
+    IOUtils::close_refs(self.readers.iter().flatten())
   }
 }
 
@@ -883,13 +877,7 @@ where
   TVR: TermVectorsReader,
 {
   fn close(&self) -> Result<()> {
-    let mut result = None;
-    for reader in self.readers.iter().flatten() {
-      if let Err(e) = reader.close() {
-        result = Some(IOUtils::use_or_suppress(result, e));
-      }
-    }
-    if let Some(e) = result { Err(e) } else { Ok(()) }
+    IOUtils::close_refs(self.readers.iter().flatten())
   }
 }
 
@@ -941,7 +929,7 @@ where
   CR: CodecReader + Clone,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.producers.iter().flatten(), |producer| producer.close())
+    IOUtils::close_refs(self.producers.iter().flatten())
   }
 }
 
@@ -1003,7 +991,7 @@ where
   CR: CodecReader + Clone,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.producers.iter().flatten(), CloseableRef::close)
+    IOUtils::close_refs(self.producers.iter().flatten())
   }
 }
 
@@ -1207,7 +1195,7 @@ where
   FP: FieldsProducer,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.fields.subs.iter(), CloseableRef::close)
+    IOUtils::close_refs(self.fields.subs.iter())
   }
 }
 
@@ -1294,7 +1282,7 @@ where
   CR: CodecReader + Clone,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.readers.iter().flatten(), CloseableRef::close)
+    IOUtils::close_refs(self.readers.iter().flatten())
   }
 }
 
@@ -1497,7 +1485,7 @@ where
   CR: CodecReader + Clone,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.readers.iter().flatten(), CloseableRef::close)
+    IOUtils::close_refs(self.readers.iter().flatten())
   }
 }
 

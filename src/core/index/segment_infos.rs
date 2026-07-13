@@ -607,7 +607,7 @@ where
         })();
         if result.is_err() {
           // We hit an error above; try to close the file but suppress any non-tragic error.
-          IOUtils::close_while_handling_error(std::iter::once(&mut segn_output), Closeable::close)?;
+          IOUtils::close_resources_while_handling_error(&mut segn_output)?;
         }
         result
       },

@@ -312,8 +312,10 @@ where
   F: FlatVectorsScorer,
 {
   fn close(&self) -> Result<()> {
-    let close_result = self.quantized_vector_data.close();
-    IOUtils::use_or_suppress_result(close_result, self.raw_vectors_reader.close())
+    IOUtils::close_refs_tuple((
+      Some(&self.quantized_vector_data),
+      Some(&self.raw_vectors_reader),
+    ))
   }
 }
 

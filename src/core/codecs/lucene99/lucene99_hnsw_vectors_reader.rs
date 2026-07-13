@@ -300,7 +300,7 @@ where
   I: IndexInput,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::use_or_suppress_result(self.flat_vectors_reader.close(), self.vector_index.close())
+    IOUtils::close_refs_tuple((Some(&self.flat_vectors_reader), Some(&self.vector_index)))
   }
 }
 

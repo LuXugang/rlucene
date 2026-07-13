@@ -87,19 +87,7 @@ where
   PR: PostingsReaderBase,
 {
   fn close(&self) -> Result<()> {
-    let mut error = None;
-    if let Err(e) = self.terms_in.close() {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
-    if let Err(e) = self.postings_reader.close() {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
-
-    if let Some(error) = error {
-      Err(error)
-    } else {
-      Ok(())
-    }
+    IOUtils::close_refs_tuple((Some(&self.terms_in), Some(&self.postings_reader)))
   }
 }
 
@@ -341,23 +329,14 @@ where
   PR: PostingsReaderBase,
 {
   fn close(&self) -> Result<()> {
-    let mut error = None;
-    if let Err(e) = self.index_in.close() {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
-
-    if let Err(e) = self.terms_reader.close() {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
+    let close_result = IOUtils::close_refs_tuple((
+      Some(self.index_in.as_ref()),
+      Some(self.terms_reader.as_ref()),
+    ));
 
     // Clear so refs to terms index are releasable even if the caller hangs onto us.
     self.field_map.write().clear();
-
-    if let Some(error) = error {
-      Err(error)
-    } else {
-      Ok(())
-    }
+    close_result
   }
 }
 

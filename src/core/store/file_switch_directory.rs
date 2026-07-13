@@ -150,16 +150,7 @@ where
   fn close(&self) -> Result<()> {
     let mut do_close = self.do_close.lock();
     if *do_close {
-      let mut error = None;
-      if let Err(err) = self.primary_dir.close() {
-        error = Some(IOUtils::use_or_suppress(error, err));
-      }
-      if let Err(err) = self.secondary_dir.close() {
-        error = Some(IOUtils::use_or_suppress(error, err));
-      }
-      if let Some(error) = error {
-        return Err(error);
-      }
+      IOUtils::close_refs_tuple((Some(&self.primary_dir), Some(&self.secondary_dir)))?;
       *do_close = false;
     }
     Ok(())

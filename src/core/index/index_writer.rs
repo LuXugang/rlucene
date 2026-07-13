@@ -610,10 +610,7 @@ where
     if result.is_err()
       && let Some(directory) = directory_for_cleanup.as_ref()
     {
-      IOUtils::close_while_handling_error(
-        std::iter::once(&directory.write_lock),
-        CloseableRef::close,
-      )?;
+      IOUtils::close_resources_while_handling_error(&directory.write_lock)?;
     }
     result.map(Self::into_arc)
   }
@@ -3063,8 +3060,13 @@ where
   fn acquire_write_locks(&self, dirs: &[Arc<D>]) -> Result<Vec<D::Lock>> {
     let mut locks = Vec::with_capacity(dirs.len());
     for dir in dirs {
-      let lock = dir.obtain_lock(WRITE_LOCK_NAME)?;
-      locks.push(lock);
+      match dir.obtain_lock(WRITE_LOCK_NAME) {
+        Ok(lock) => locks.push(lock),
+        Err(error) => {
+          IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
+          return Err(error);
+        },
+      }
     }
     Ok(locks)
   }
@@ -3201,10 +3203,8 @@ where
         self.maybe_merge()?;
         Ok(seq_no)
       },
-      Err(mut err) => {
-        if let Err(close_err) = IOUtils::close_while_handling_error(&locks, CloseableRef::close) {
-          err.add_suppressed(close_err);
-        }
+      Err(err) => {
+        IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
         Err(err)
       },
     }

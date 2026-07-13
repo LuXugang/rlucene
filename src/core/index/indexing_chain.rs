@@ -560,7 +560,7 @@ where
       },
       Err(err) => {
         if let Some(mut w) = points_writer {
-          IOUtils::close_while_handling_error(std::iter::once(&mut w), Closeable::close)?;
+          IOUtils::close_resources_while_handling_error(&mut w)?;
         }
         return Err(err);
       },
@@ -647,7 +647,7 @@ where
       },
       Err(err) => {
         if let Some(mut consumer) = dv_consumer {
-          IOUtils::close_while_handling_error(std::iter::once(&mut consumer), Closeable::close)?;
+          IOUtils::close_resources_while_handling_error(&mut consumer)?;
         }
         return Err(err);
       },
@@ -707,10 +707,7 @@ where
     match body_result {
       Ok(()) => norms_consumer.close()?,
       Err(err) => {
-        IOUtils::close_while_handling_error(
-          std::iter::once(&mut norms_consumer),
-          Closeable::close,
-        )?;
+        IOUtils::close_resources_while_handling_error(&mut norms_consumer)?;
         return Err(err);
       },
     }
