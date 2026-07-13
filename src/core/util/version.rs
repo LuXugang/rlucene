@@ -21,6 +21,7 @@ use regex::Regex;
 use std::sync::LazyLock;
 use thiserror::Error;
 
+use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::parse::Parse;
 use crate::core::util::error::{IllegalArgumentError, IllegalStateError};
 use crate::core::util::strict_string_tokenizer::StrictStringTokenizer;
@@ -202,7 +203,7 @@ impl Version {
     if let Err(e) = result {
       return Err(VersionError::parse_error_with_error(
         format!("failed to parse version string {version}"),
-        e,
+        e.into(),
       ));
     }
     debug_assert!(result.is_ok());
@@ -234,7 +235,7 @@ impl Version {
             Ok(r) => r,
             Err(e) => {
               let err = IllegalArgumentError::new(e.to_string());
-              return Err(VersionError::parse_error_with_error("", err));
+              return Err(VersionError::parse_error_with_error("", err.into()));
             },
           };
           version = re.replace_all(&version, *replacement).to_string();
@@ -243,9 +244,9 @@ impl Version {
         // Try parsing the modified version string
         match Self::parse(&version) {
           Ok(v) => Ok(v),
-          Err(e) => Err(VersionError::parse_error_with_pos(
-            format!("failed to parse lenient version string {version_orig}: {e}"),
-            0,
+          Err(e) => Err(VersionError::parse_error_with_error(
+            format!("failed to parse lenient version string {version_orig}"),
+            e.into(),
           )),
         }
       },
@@ -310,7 +311,7 @@ impl VersionError {
   pub fn parse_error_with_pos(msg: impl Into<String>, position: i32) -> Self {
     VersionError::Parse(Parse::new(msg, position))
   }
-  pub fn parse_error_with_error(msg: impl Into<String>, error: IllegalArgumentError) -> Self {
+  pub fn parse_error_with_error(msg: impl Into<String>, error: LuceneError) -> Self {
     VersionError::Parse(Parse::with_error(msg, Option::from(error)))
   }
   pub fn parse_int_error(input: impl Into<String>, source: ParseIntError) -> Self {

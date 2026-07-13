@@ -25,7 +25,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms_enum::SeekStatus;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use std::sync::Arc;
 
@@ -275,7 +275,14 @@ impl SegmentTermsEnumFrame {
     }
 
     let alg_code = (code_l & 0x03) as u8;
-    frame.compression_alg = CompressionAlgorithm::by_code(alg_code)?;
+    frame.compression_alg = match CompressionAlgorithm::by_code(alg_code) {
+      Ok(alg) => alg,
+      Err(e) => {
+        let mut error = LuceneError::corrupt_index(format!("{e} (resource={input})"));
+        error.add_suppressed(e);
+        return Err(error);
+      },
+    };
 
     frame
       .compression_alg

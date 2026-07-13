@@ -301,9 +301,11 @@ where
           _ => false,
         };
         if is_unexpected_file_read_error {
-          Err(LuceneError::corrupt_index(format!(
-            "Unexpected file read error while reading index: {error}"
-          )))
+          let mut corrupt_index_error = LuceneError::corrupt_index(format!(
+            "Unexpected file read error while reading index. (resource={input})"
+          ));
+          corrupt_index_error.add_suppressed(error);
+          Err(corrupt_index_error)
         } else {
           Err(error)
         }

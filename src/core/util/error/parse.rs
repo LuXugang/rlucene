@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::IllegalArgumentError;
+use crate::core::util::error::lucene_error::LuceneError;
 
 #[derive(Debug, Clone)]
 pub struct Parse {
   pub message: String,
   pub position: i32,
-  pub error: Option<IllegalArgumentError>,
+  pub error: Option<Box<LuceneError>>,
 }
 
 impl Parse {
@@ -31,11 +31,11 @@ impl Parse {
       error: None,
     }
   }
-  pub fn with_error(msg: impl Into<String>, error: Option<IllegalArgumentError>) -> Self {
+  pub fn with_error(msg: impl Into<String>, error: Option<LuceneError>) -> Self {
     Self {
       message: msg.into(),
       position: 0,
-      error,
+      error: error.map(Box::new),
     }
   }
 }
@@ -46,7 +46,7 @@ impl std::fmt::Display for Parse {
       write!(
         f,
         "Parse Error at {}: {} reason: {}",
-        self.position, self.message, error.message
+        self.position, self.message, error
       )
     } else {
       write!(f, "Parse Error at {}: {}", self.position, self.message)
@@ -54,4 +54,8 @@ impl std::fmt::Display for Parse {
   }
 }
 
-impl std::error::Error for Parse {}
+impl std::error::Error for Parse {
+  fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+    self.error.as_deref().map(|e| e as &dyn std::error::Error)
+  }
+}

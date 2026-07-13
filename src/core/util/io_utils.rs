@@ -354,12 +354,9 @@ impl IOUtils {
         .open(file_to_sync)
         .map_err(|e| LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e))?;
 
-      file.sync_all().map_err(|e| {
-        LuceneError::io_with_path(
-          file_to_sync.to_string_lossy().to_string(),
-          io::Error::new(e.kind(), format!("Failed to sync file: {e}")),
-        )
-      })?;
+      file
+        .sync_all()
+        .map_err(|e| LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e))?;
     }
 
     Ok(())

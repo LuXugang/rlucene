@@ -263,9 +263,7 @@ where
     let mut snapshot_files = Vec::new();
     for file in self.dir.list_all()? {
       if let Some(gen_part) = file.strip_prefix(SNAPSHOTS_PREFIX) {
-        let gen_: i64 = gen_part
-          .parse()
-          .map_err(|error| LuceneError::illegal_argument(format!("{error}")))?;
+        let gen_: i64 = gen_part.parse()?;
         if gen_loaded == -1 || gen_ > gen_loaded {
           snapshot_files.push(file.clone());
           let mut ref_counts = HashMap::new();

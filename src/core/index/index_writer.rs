@@ -403,16 +403,15 @@ where
             "the provided reader is stale: it has no segments file associated with it",
           )
         })?;
-        let mut last_commit = SegmentInfos::read_commit(
-          directory_orig.clone(),
-          &segments_file_name,
-        )
-        .map_err(|e| {
-          LuceneError::illegal_argument(format!(
-            "the provided reader is stale: its prior commit file \"{}\" is missing from index: {}",
-            segments_file_name, e
-          ))
-        })?;
+        let mut last_commit =
+          SegmentInfos::read_commit(directory_orig.clone(), &segments_file_name).map_err(|e| {
+            let mut error = LuceneError::illegal_argument(format!(
+              "the provided reader is stale: its prior commit file \"{}\" is missing from index",
+              segments_file_name
+            ));
+            error.add_suppressed(e);
+            error
+          })?;
         if let Some(writer) = &reader.writer {
           // The old writer better be closed (we have the write lock now!):
           debug_assert!(writer.closed.load(Ordering::SeqCst));
@@ -2116,10 +2115,11 @@ where
       let mut inner = self.inner.lock();
       loop {
         if let Some(t) = self.tragedy.get() {
-          return Err(LuceneError::illegal_state(format!(
-            "this writer hit an unrecoverable error; cannot complete forceMergeDeletes {}",
-            t
-          )));
+          let mut error = LuceneError::illegal_state(
+            "this writer hit an unrecoverable error; cannot complete forceMergeDeletes",
+          );
+          error.add_suppressed(t.clone());
+          return Err(error);
         }
 
         let running = requested_merges.iter().any(|merge_stat| {
@@ -2224,10 +2224,11 @@ where
       let mut inner = self.inner.lock();
       loop {
         if let Some(t) = self.tragedy.get() {
-          return Err(LuceneError::illegal_state(format!(
-            "this writer hit an unrecoverable error; cannot complete forceMerge {}",
-            t
-          )));
+          let mut error = LuceneError::illegal_state(
+            "this writer hit an unrecoverable error; cannot complete forceMerge",
+          );
+          error.add_suppressed(t.clone());
+          return Err(error);
         }
 
         if !inner.merge_exceptions.is_empty() {
@@ -2428,10 +2429,10 @@ where
     let mut inner = self.inner.lock();
 
     if let Some(t) = self.tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot merge: {}",
-        t
-      )));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot merge");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
     match inner.pending_merges.pop_front() {
       Some(merge) => {
@@ -2447,10 +2448,10 @@ where
     let inner = self.inner.lock();
 
     if let Some(t) = self.tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot merge: {}",
-        t
-      )));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot merge");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
 
     Ok(!inner.pending_merges.is_empty())
@@ -3753,10 +3754,10 @@ where
     }
 
     if let Some(t) = self.tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot commit {}",
-        t
-      )));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot commit");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
 
     if commit_lock.pending_commit.borrow().is_some() {
@@ -4331,10 +4332,11 @@ where
       self.do_ensure_open(false)?;
 
       if let Some(t) = self.tragedy.get() {
-        return Err(LuceneError::illegal_state(format!(
-          "this writer hit an unrecoverable error; cannot complete commit {}",
-          t
-        )));
+        let mut error = LuceneError::illegal_state(
+          "this writer hit an unrecoverable error; cannot complete commit",
+        );
+        error.add_suppressed(t.clone());
+        return Err(error);
       }
 
       let mut pending_commit = commit_lock.pending_commit.borrow_mut().take();
@@ -4475,10 +4477,10 @@ where
     D: 'static,
   {
     if let Some(t) = self.tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot flush {}",
-        t
-      )));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot flush");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
 
     if let Some(ref s) = self.hooks {
@@ -4835,10 +4837,10 @@ where
     self.test_point("startCommitMerge")?;
 
     if let Some(t) = self.tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot complete merge: {}",
-        t
-      )));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot complete merge");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
 
     debug_assert!(merge.stat.register_done.load(Ordering::Acquire));
@@ -5242,10 +5244,10 @@ where
     );
 
     if let Some(t) = self.tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot merge: {}",
-        t
-      )));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot merge");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
 
     if merge.info.is_some() {
@@ -5505,16 +5507,10 @@ where
     self.test_point("startStartCommit")?;
     debug_assert!(commit_lock.pending_commit.borrow().is_none());
     if let Some(t) = self.tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot commit {}",
-        t
-      )));
-    }
-
-    if self.tragedy.get().is_some() {
-      return Err(LuceneError::illegal_state(
-        "this writer hit an unrecoverable error; cannot commit",
-      ));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot commit");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
     // did to_sync's ownership move to pending_commit?
     // after pending_commit has to_sync's ownership, and error happens, we have to pass to to_sync_error
@@ -8362,10 +8358,10 @@ where
 
   fn has_pending_merges(&self, inner: Option<&mut Inner<D>>) -> Result<bool> {
     if let Some(t) = self.writer().tragedy.get() {
-      return Err(LuceneError::illegal_state(format!(
-        "this writer hit an unrecoverable error; cannot merge: {}",
-        t
-      )));
+      let mut error =
+        LuceneError::illegal_state("this writer hit an unrecoverable error; cannot merge");
+      error.add_suppressed(t.clone());
+      return Err(error);
     }
     match inner {
       Some(inner) => Ok(!inner.pending_merges.is_empty()),
@@ -8867,13 +8863,7 @@ where
 
         let mut applicable_merge = OneMerge::<D, CR>::new(to_commit_merged_away_segments)?;
         applicable_merge.info = Some(orig_info.clone());
-        let segment_counter = i64::from_str_radix(orig_info.info.name.trim_start_matches('_'), 36)
-          .map_err(|e| {
-            LuceneError::illegal_state(format!(
-              "failed to parse merged segment name {}: {}",
-              orig_info.info.name, e
-            ))
-          })?;
+        let segment_counter = i64::from_str_radix(orig_info.info.name.trim_start_matches('_'), 36)?;
         merging_segment_infos.counter =
           std::cmp::max(merging_segment_infos.counter, segment_counter + 1);
         merging_segment_infos.apply_merge_changes(&mut applicable_merge, false)?;

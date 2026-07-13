@@ -188,9 +188,11 @@ where
       // try now to explicitly open this commit point:
       let sis = SegmentInfos::read_commit(directory_orig.clone(), &file);
       let sis = sis.map_err(|e| {
-        LuceneError::corrupt_index(format!(
-          "unable to read current segments_N file {file},(resource={e})"
-        ))
+        let mut error = LuceneError::corrupt_index(format!(
+          "unable to read current segments_N file (resource={file})"
+        ));
+        error.add_suppressed(e);
+        error
       })?;
       if index_file_deleter.info_stream.is_enabled("IFD") {
         index_file_deleter.info_stream.message(
@@ -276,9 +278,11 @@ where
     let tragic_arc = index_writer.get_tragic_exception();
     let error = tragic_arc.get();
     if let Some(e) = error {
-      return Err(LuceneError::already_closed(format!(
-        "refusing to delete any files: this IndexWriter hit an unrecoverable exception: {e}",
-      )));
+      let mut error = LuceneError::already_closed(
+        "refusing to delete any files: this IndexWriter hit an unrecoverable exception",
+      );
+      error.add_suppressed(e.clone());
+      return Err(error);
     }
 
     Ok(())

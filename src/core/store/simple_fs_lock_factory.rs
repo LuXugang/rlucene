@@ -153,15 +153,19 @@ impl CloseableRef for SimpleFSLock {
 
     let result = (|| -> Result<()> {
       self.ensure_valid().map_err(|e| {
-        LuceneError::lock_release_failed(format!(
-          "Lock file cannot be safely removed. Manual intervention is recommended. {e}"
-        ))
+        let mut error = LuceneError::lock_release_failed(
+          "Lock file cannot be safely removed. Manual intervention is recommended.",
+        );
+        error.add_suppressed(e);
+        error
       })?;
 
       fs::remove_file(&self.path).map_err(|e| {
-        LuceneError::lock_release_failed(format!(
-          "Unable to remove lock file. Manual intervention is recommended: {e}"
-        ))
+        let mut error = LuceneError::lock_release_failed(
+          "Unable to remove lock file. Manual intervention is recommended",
+        );
+        error.add_suppressed(e.into());
+        error
       })?;
       Ok(())
     })();

@@ -136,7 +136,7 @@ where
   pub unsynced_files: Mutex<HashSet<String>>,
   pub created_files: Mutex<HashSet<String>>,
   pub open_files_for_write: Mutex<HashSet<String>>,
-  pub open_locks: Mutex<HashMap<String, String>>,
+  pub open_locks: Mutex<HashMap<String, LuceneError>>,
   pub crashed: AtomicBool,
   pub throttled_output: Mutex<ThrottledOutputTemplate>,
   pub throttling: Mutex<Throttling>,
@@ -148,7 +148,7 @@ where
 
   // use this for tracking files for crash.
   // additionally: provides debugging information in case you leave one open
-  pub open_file_handles: Mutex<HashMap<usize, String>>,
+  pub open_file_handles: Mutex<HashMap<usize, LuceneError>>,
 
   pub open_files: Mutex<HashMap<String, i32>>,
 
@@ -751,7 +751,7 @@ where
 
     self.state.open_file_handles.lock().insert(
       handle_id,
-      format!("unclosed Index{}: {name}", handle.name()),
+      LuceneError::illegal_state(format!("unclosed Index{}: {name}", handle.name())),
     );
   }
 
@@ -871,28 +871,29 @@ where
       let open_files = self.state.open_files.lock();
       if !open_files.is_empty() {
         // print the first one as it's very verbose otherwise
-        let cause = self
-          .state
-          .open_file_handles
-          .lock()
-          .values()
-          .next()
-          .cloned()
-          .unwrap_or_default();
-        return Err(LuceneError::illegal_state(format!(
-          "MockDirectoryWrapper: cannot close: there are still {} open files: {:?}; {cause}",
+        let cause = self.state.open_file_handles.lock().values().next().cloned();
+        let mut error = LuceneError::illegal_state(format!(
+          "MockDirectoryWrapper: cannot close: there are still {} open files: {:?}",
           open_files.len(),
           *open_files
-        )));
+        ));
+        if let Some(cause) = cause {
+          error.add_suppressed(cause);
+        }
+        return Err(error);
       }
       drop(open_files);
       let open_locks = self.state.open_locks.lock();
       if !open_locks.is_empty() {
-        let cause = open_locks.values().next().cloned().unwrap_or_default();
-        return Err(LuceneError::illegal_state(format!(
-          "MockDirectoryWrapper: cannot close: there are still open locks: {:?}; {cause}",
+        let cause = open_locks.values().next().cloned();
+        let mut error = LuceneError::illegal_state(format!(
+          "MockDirectoryWrapper: cannot close: there are still open locks: {:?}",
           *open_locks
-        )));
+        ));
+        if let Some(cause) = cause {
+          error.add_suppressed(cause);
+        }
+        return Err(error);
       }
       drop(open_locks);
       *self.state.random_io_exception_rate.lock() = 0.0;

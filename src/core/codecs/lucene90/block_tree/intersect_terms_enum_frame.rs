@@ -290,10 +290,9 @@ impl IntersectTermsEnumFrame {
     let compression_alg = match CompressionAlgorithm::by_code((code_l & 0x03).try_convert()?) {
       Ok(alg) => alg,
       Err(e) => {
-        return Err(LuceneError::corrupt_index(format!(
-          "Corrupted suffix compression algorithm: {}",
-          e
-        )));
+        let mut error = LuceneError::corrupt_index(format!("{e} (resource={in_})"));
+        error.add_suppressed(e);
+        return Err(error);
       },
     };
 
