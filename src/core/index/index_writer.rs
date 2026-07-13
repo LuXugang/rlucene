@@ -8085,18 +8085,28 @@ impl EventQueue {
   }
   pub(crate) fn add(&self, event: EventEnum) -> Result<()> {
     self.acquire()?;
-    self.queue.push(event);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.queue.push(event);
+    }));
     self.permits.release();
-    Ok(())
+    match result {
+      Ok(()) => Ok(()),
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
   pub(crate) fn process_events<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
     D: Directory + 'static,
   {
     self.acquire()?;
-    let result = self.process_events_internal(writer);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.process_events_internal(writer)
+    }));
     self.permits.release();
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
   fn process_events_internal<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
@@ -8133,10 +8143,15 @@ impl EventQueue {
     // now we acquire all the permits to ensure we are the only one processing the queue
     self.permits.acquire_all();
 
-    let result = self.process_events_internal(writer);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.process_events_internal(writer)
+    }));
     self.permits.release_all();
     drop(_guard);
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 }
 
