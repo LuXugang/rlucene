@@ -411,18 +411,21 @@ where
   }
 
   fn do_close(&self) -> Result<()> {
-    if self.core.dec_ref().is_err()
-      && let Some(dv) = &self.doc_values_producer
-    {
-      match dv.as_ref() {
-        DocValuesProducerEnum2::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens)?,
-        DocValuesProducerEnum2::B(_) => {
-          let gens = vec![-1_i64, 1];
-          self.seg_doc_values.dec_ref(&gens)?
-        },
-      }
+    let core_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.core.dec_ref()));
+    let doc_values_result = match &self.doc_values_producer {
+      Some(dv) => match dv.as_ref() {
+        DocValuesProducerEnum2::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens),
+        DocValuesProducerEnum2::B(_) => self.seg_doc_values.dec_ref(&[-1]),
+      },
+      None => Ok(()),
+    };
+
+    doc_values_result?;
+    match core_result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
     }
-    Ok(())
   }
 
   type ReaderCacheHelper = CacheHelperImpl;
