@@ -24,28 +24,42 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 macro_rules! record_close_result {
-  ($result:expr, $error:ident) => {
+  ($result:expr, $errors:ident, $first_panic:ident) => {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $result)) {
       Ok(Ok(())) => {},
       Ok(Err(e)) => {
-        $error = Some(IOUtils::use_or_suppress($error, e));
+        $errors.push(e);
       },
-      Err(payload) => {
-        let error = LuceneError::tragedy_from_panic("panic while closing", payload.as_ref());
-        $error = Some(IOUtils::use_or_suppress($error, error));
+      Err(payload) if $errors.is_empty() && $first_panic.is_none() => {
+        $first_panic = Some(payload);
       },
+      Err(payload) => $errors.push(LuceneError::tragedy_from_panic(
+        "panic while closing",
+        payload.as_ref(),
+      )),
     }
   };
 }
 
 macro_rules! finish_close_result {
-  ($error:ident) => {
-    if let Some(error) = $error {
-      Err(error)
-    } else {
-      Ok(())
+  ($errors:ident, $first_panic:ident) => {{
+    if let Some(payload) = $first_panic {
+      std::panic::resume_unwind(payload);
     }
-  };
+
+    let mut error = None;
+    for mut current in $errors.into_iter().rev() {
+      if let Some(error) = error {
+        current.add_suppressed(error);
+      }
+      error = Some(current);
+    }
+
+    match error {
+      Some(error) => Err(error),
+      None => Ok(()),
+    }
+  }};
 }
 
 pub(crate) trait CloseableRefTuple {
@@ -59,13 +73,14 @@ macro_rules! impl_closeable_ref_tuple {
       $($T: CloseableRef + ?Sized + 'a),+
     {
       fn close_refs(self) -> Result<()> {
-        let mut error = None;
+        let mut errors = Vec::new();
+        let mut first_panic = None;
         $(
           if let Some(object) = self.$index {
-            record_close_result!(object.close(), error);
+            record_close_result!(object.close(), errors, first_panic);
           }
         )+
-        finish_close_result!(error)
+        finish_close_result!(errors, first_panic)
       }
     }
   };
@@ -238,11 +253,12 @@ impl IOUtils {
     I: IntoIterator,
     F: FnMut(I::Item) -> Result<()>,
   {
-    let mut error = None;
+    let mut errors = Vec::new();
+    let mut first_panic = None;
     for object in objects {
-      record_close_result!(close(object), error);
+      record_close_result!(close(object), errors, first_panic);
     }
-    finish_close_result!(error)
+    finish_close_result!(errors, first_panic)
   }
 
   /// Closes the given object by shared reference.
@@ -388,8 +404,8 @@ impl IOUtils {
     }
   }
 
-  /// Applies the consumer to all elements in the collection even if an error is returned.
-  /// The first error returned by the consumer is returned and subsequent errors are suppressed.
+  /// Applies the consumer to all elements in the collection even if an error or panic occurs.
+  /// The first failure is propagated and subsequent failures are suppressed.
   pub fn apply_to_all<T, F>(collection: &[T], consumer: F) -> Result<()>
   where
     F: FnMut(&T) -> Result<()>,

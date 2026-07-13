@@ -34,13 +34,25 @@ where
       object,
     }
   }
-  /// Decrements the reference count. Calls [`Self::release`] when it reaches zero.
-  pub fn dec_ref(&self) -> Result<bool> {
+  /// Decrements the reference count. Calls `release` when it reaches zero and restores the
+  /// reference count if `release` fails.
+  pub fn dec_ref<F>(&self, release: F) -> Result<bool>
+  where
+    F: FnOnce() -> Result<()>,
+  {
     let rc = self.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
 
     if rc == 0 {
-      // TODO IMPORTANT 目前没有实现字段的close 但是rust中的自动释放资源能满足我们的close吗
-      Ok(true)
+      let release_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(release));
+      if !matches!(&release_result, Ok(Ok(()))) {
+        // Put reference back on failure
+        self.ref_count.fetch_add(1, Ordering::SeqCst);
+      }
+      match release_result {
+        Ok(Ok(())) => Ok(true),
+        Ok(Err(error)) => Err(error),
+        Err(payload) => std::panic::resume_unwind(payload),
+      }
     } else if rc < 0 {
       Err(LuceneError::illegal_state(format!(
         "too many decRef calls: refCount is {} after decrement",

@@ -158,14 +158,25 @@ where
       return Ok(());
     }
 
-    let result = {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       if self.parent.is_none() {
         self.dir.remove_index_input(self.handle_id, &self.name);
       }
       self.dir.maybe_throw_deterministic_exception()
-    };
-    let close_result = self.in_.close();
-    IOUtils::use_or_suppress_result(result, close_result)
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.in_.close()));
+
+    match result {
+      Err(payload) => std::panic::resume_unwind(payload),
+      Ok(Err(error)) => match close_result {
+        Ok(close_result) => IOUtils::use_or_suppress_result(Err(error), close_result),
+        Err(_) => Err(error),
+      },
+      Ok(Ok(())) => match close_result {
+        Ok(close_result) => close_result,
+        Err(payload) => std::panic::resume_unwind(payload),
+      },
+    }
   }
 }
 

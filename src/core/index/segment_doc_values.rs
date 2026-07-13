@@ -23,6 +23,8 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::IOUtils;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ref_count::RefCount;
 use num_bigint::BigInt;
@@ -115,15 +117,15 @@ where
   pub(crate) fn dec_ref(&self, gens: &[i64]) -> Result<()> {
     let mut inner = self.inner.lock();
 
-    for &gen_ in gens {
+    IOUtils::apply_to_all(gens, |&gen_| {
       if let Some(dvp) = inner.gen_dv_producers.get_mut(&gen_) {
-        if dvp.dec_ref()? {
+        if dvp.dec_ref(|| dvp.get().close())? {
           inner.gen_dv_producers.remove(&gen_);
         }
       } else {
         debug_assert!(false, "gen={} not found in gen_dv_producers", gen_);
       }
-    }
-    Ok(())
+      Ok(())
+    })
   }
 }

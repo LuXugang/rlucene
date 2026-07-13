@@ -327,6 +327,8 @@ impl LuceneError {
       (*message).to_string()
     } else if let Some(message) = payload.downcast_ref::<String>() {
       message.clone()
+    } else if let Some(error) = payload.downcast_ref::<LuceneError>() {
+      error.to_string()
     } else {
       "unknown panic payload".to_string()
     }
