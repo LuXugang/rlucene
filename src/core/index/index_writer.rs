@@ -4241,7 +4241,11 @@ where
       let error_opt = self.tragedy.get();
       let message = "this IndexWriter is closed";
       match error_opt {
-        Some(err) => Err(LuceneError::already_closed(format!("{} {}", message, err))),
+        Some(err) => {
+          let mut error = LuceneError::already_closed(message);
+          error.add_suppressed(err.clone());
+          Err(error)
+        },
         None => Err(LuceneError::already_closed(message)),
       }
     } else {

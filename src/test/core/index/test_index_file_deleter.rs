@@ -556,10 +556,14 @@ fn test_exc_in_dec_ref() -> Result<()> {
       )?);
       w.add_document(&mut random, doc).map(|_| ())
     };
-    if let Err(error) = result
-      && !error.to_string().contains("fake fail")
-    {
-      return Err(error);
+    if let Err(error) = result {
+      let is_fake_fail = error.to_string().contains("fake fail")
+        || error
+          .get_suppressed()?
+          .is_some_and(|cause| cause.to_string().contains("fake fail"));
+      if !is_fake_fail {
+        return Err(error);
+      }
     }
   }
 
