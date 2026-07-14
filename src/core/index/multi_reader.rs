@@ -18,17 +18,15 @@ use crate::core::index::base_composite_reader::{
   BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
 };
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 #[cfg(test)]
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-use crate::core::index::index_reader::{
-  IndexReader, IndexReaderBase, IndexReaderEnum, IndexReaderEnumCacheHelperType,
-};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 
 /// A [`CompositeReader`] which reads multiple indexes, appending their content.
 /// It can be used to create a view on several sub-readers (like [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader))
@@ -44,45 +42,105 @@ use std::fmt::{Display, Formatter};
 /// threads can call any of its methods concurrently. If your application requires
 /// external synchronization, you should **not** synchronize on the `IndexReader`
 /// instance; instead, use your own (non-Lucene) objects.
-pub struct MultiReader<LR, CR>
+pub struct MultiReader<R, K>
 where
-  LR: LeafReader + Clone,
-  CR: CompositeReader,
+  R: IndexReader,
 {
-  base_composite_reader_base: BaseCompositeReaderBase<LR, CR>,
+  base_composite_reader_base: BaseCompositeReaderBase<R>,
   index_reader_base: IndexReaderBase,
   close_sub_readers: bool,
+  marker: PhantomData<K>,
 }
-pub type MultiLeafReader<CR> = MultiReader<CR, DummyCompositeReader<CR>>;
+
+pub struct LeafSubReaders;
+
+pub struct CompositeSubReaders;
+
+#[doc(hidden)]
+pub trait MultiReaderKind<R>
+where
+  R: IndexReader,
+{
+  type LeafReader: LeafReader + Clone;
+
+  fn visit_leaves<F>(sub_readers: &[R], visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>;
+}
+
+impl<LR> MultiReaderKind<LR> for LeafSubReaders
+where
+  LR: LeafReader + Clone,
+{
+  type LeafReader = LR;
+
+  fn visit_leaves<F>(sub_readers: &[LR], visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for leaf_reader in sub_readers {
+      visitor(leaf_reader)?;
+    }
+    Ok(())
+  }
+}
+
+impl<CR> MultiReaderKind<CR> for CompositeSubReaders
+where
+  CR: CompositeReader,
+{
+  type LeafReader = CR::LeafReader;
+
+  fn visit_leaves<F>(sub_readers: &[CR], visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for composite_reader in sub_readers {
+      composite_reader.visit_leaves(visitor)?;
+    }
+    Ok(())
+  }
+}
+
+pub type MultiLeafReader<LR> = MultiReader<LR, LeafSubReaders>;
+pub type MultiCompositeReader<CR> = MultiReader<CR, CompositeSubReaders>;
+
 #[cfg(test)]
-impl MultiReader<DummyLeafReader, DummyCompositeReader<DummyLeafReader>> {
+impl MultiReader<DummyLeafReader, LeafSubReaders> {
   pub fn empty() -> Result<Self> {
     Self::with_leaf_reader(vec![])
   }
 }
-impl<LR> MultiReader<LR, DummyCompositeReader<LR>>
+
+impl<LR> MultiReader<LR, LeafSubReaders>
 where
   LR: LeafReader + Clone,
 {
   pub fn with_leaf_reader(sub_readers: Vec<LR>) -> Result<Self> {
     let base_composite_reader_base =
-      BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(sub_readers, None)?;
+      BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None)?;
     Self::new(base_composite_reader_base, IndexReaderBase::new(), true)
   }
 }
 
-impl<LR, CR> MultiReader<LR, CR>
+impl<CR> MultiReader<CR, CompositeSubReaders>
 where
-  CR: CompositeReader<LeafReader = LR>,
-  LR: LeafReader + Clone,
+  CR: CompositeReader,
 {
   pub fn with_composite_reader(sub_readers: Vec<CR>) -> Result<Self> {
     let base_composite_reader_base =
-      BaseCompositeReaderBase::with_composite_readers::<DummyComparator>(sub_readers, None)?;
+      BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None)?;
     Self::new(base_composite_reader_base, IndexReaderBase::new(), true)
   }
+}
+
+impl<R, K> MultiReader<R, K>
+where
+  R: IndexReader,
+  K: MultiReaderKind<R>,
+{
   fn new(
-    base_composite_reader_base: BaseCompositeReaderBase<LR, CR>,
+    base_composite_reader_base: BaseCompositeReaderBase<R>,
     index_reader_base: IndexReaderBase,
     close_sub_readers: bool,
   ) -> Result<Self> {
@@ -95,15 +153,17 @@ where
       base_composite_reader_base,
       index_reader_base,
       close_sub_readers,
+      marker: PhantomData,
     })
   }
 }
-impl<LR, CR> IndexReader for MultiReader<LR, CR>
+
+impl<R, K> IndexReader for MultiReader<R, K>
 where
-  CR: CompositeReader<LeafReader = LR>,
-  LR: LeafReader + Clone,
+  R: IndexReader,
+  K: MultiReaderKind<R>,
 {
-  type TermVectors = BCRTermVectorsImpl<LR, CR>;
+  type TermVectors = BCRTermVectorsImpl<R>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     self.base_composite_reader_base.term_vector(self)
@@ -117,7 +177,7 @@ where
     self.base_composite_reader_base.num_docs()
   }
 
-  type StoredFields = BCRStoredFieldsImpl<LR, CR>;
+  type StoredFields = BCRStoredFieldsImpl<R>;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
     self.base_composite_reader_base.stored_fields(self)
@@ -149,8 +209,7 @@ where
     }
   }
 
-  type ReaderCacheHelper =
-    IndexReaderEnumCacheHelperType<LR::ReaderCacheHelper, CR::ReaderCacheHelper>;
+  type ReaderCacheHelper = R::ReaderCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
     let readers = self.get_sequential_sub_readers();
@@ -190,38 +249,43 @@ where
   }
 }
 
-impl<LR, CR> Display for MultiReader<LR, CR>
+impl<R, K> Display for MultiReader<R, K>
 where
-  CR: CompositeReader<LeafReader = LR>,
-  LR: LeafReader + Clone,
+  R: IndexReader,
+  K: MultiReaderKind<R>,
 {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
     todo!()
   }
 }
 
-impl<LR, CR> CompositeReader for MultiReader<LR, CR>
+impl<R, K> CompositeReader for MultiReader<R, K>
 where
-  LR: LeafReader + Clone,
-  CR: CompositeReader<LeafReader = LR>,
+  R: IndexReader,
+  K: MultiReaderKind<R>,
 {
-  type LeafReader = LR;
+  type LeafReader = K::LeafReader;
 
-  type SubCompositeReader = CR;
+  type SubReader = R;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     self.base_composite_reader_base.get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    K::visit_leaves(self.get_sequential_sub_readers(), visitor)
   }
 
   fn to_string(&self) -> String {
     todo!()
   }
 }
-impl<LR, CR> BaseCompositeReader for MultiReader<LR, CR>
+impl<R, K> BaseCompositeReader for MultiReader<R, K>
 where
-  LR: LeafReader + Clone,
-  CR: CompositeReader<LeafReader = LR>,
+  R: IndexReader,
+  K: MultiReaderKind<R>,
 {
 }

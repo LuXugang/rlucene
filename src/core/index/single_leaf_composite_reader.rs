@@ -15,12 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
-use crate::core::index::index_reader::{
-  IRStoredFields, IRTermVectors, IndexReader, IndexReaderBase, IndexReaderEnum,
-  IndexReaderEnumCacheHelperType,
-};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
@@ -31,16 +26,15 @@ pub struct SingleLeafCompositeReader<LR>
 where
   LR: LeafReader + Clone,
 {
-  leaf_reader: Arc<Vec<IndexReaderEnum<LR, DummyCompositeReader<LR>>>>,
+  leaf_reader: Arc<[LR]>,
 }
 impl<LR> SingleLeafCompositeReader<LR>
 where
   LR: LeafReader + Clone,
 {
   pub fn new(lr: LR) -> Self {
-    let v = IndexReaderEnum::Leaf(lr);
     Self {
-      leaf_reader: Arc::new(vec![v]),
+      leaf_reader: Arc::from([lr]),
     }
   }
 }
@@ -49,7 +43,7 @@ impl<LR> IndexReader for SingleLeafCompositeReader<LR>
 where
   LR: LeafReader + Clone,
 {
-  type TermVectors = IRTermVectors<LR, DummyCompositeReader<LR>>;
+  type TermVectors = LR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     self.leaf_reader[0].term_vectors()
@@ -63,20 +57,20 @@ where
     self.leaf_reader[0].num_docs()
   }
 
-  type StoredFields = IRStoredFields<LR, DummyCompositeReader<LR>>;
+  type StoredFields = LR::StoredFields;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
     self.leaf_reader[0].stored_fields()
   }
 
-  type ReaderCacheHelper = IndexReaderEnumCacheHelperType<LR::ReaderCacheHelper, DummyCacheHelper>;
+  type ReaderCacheHelper = LR::ReaderCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
     self.leaf_reader[0].get_reader_cache_helper()
   }
 
   fn doc_freq(&self, term: &Term) -> Result<i32> {
-    self.leaf_reader[0].doc_freq(term)
+    IndexReader::doc_freq(&self.leaf_reader[0], term)
   }
 
   fn total_term_freq(&self, term: &Term) -> Result<i64> {
@@ -84,15 +78,15 @@ where
   }
 
   fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-    self.leaf_reader[0].get_sum_doc_freq(field)
+    LeafReader::get_sum_doc_freq(&self.leaf_reader[0], field)
   }
 
   fn get_doc_count(&self, field: &str) -> Result<i32> {
-    self.leaf_reader[0].get_doc_count(field)
+    LeafReader::get_doc_count(&self.leaf_reader[0], field)
   }
 
   fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-    self.leaf_reader[0].get_sum_total_term_freq(field)
+    LeafReader::get_sum_total_term_freq(&self.leaf_reader[0], field)
   }
 
   fn index_base(&self) -> &IndexReaderBase {
@@ -114,12 +108,17 @@ where
   LR: LeafReader + Clone,
 {
   type LeafReader = LR;
-  type SubCompositeReader = DummyCompositeReader<LR>;
+  type SubReader = LR;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     &self.leaf_reader
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    visitor(&self.leaf_reader[0])
   }
 
   fn to_string(&self) -> String {

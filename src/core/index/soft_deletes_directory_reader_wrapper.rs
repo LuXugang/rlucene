@@ -20,14 +20,11 @@ use crate::core::index::base_composite_reader::{
 use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::filter_directory_reader::{
   DelegatingCacheHelper, FilterDirectoryReader, SubReaderWrapper,
 };
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::{
-  CacheHelper, CacheKey, IndexReader, IndexReaderBase, IndexReaderEnum,
-};
+use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader, IndexReaderBase};
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -48,7 +45,6 @@ pub type SoftDeletesCodecReader<CR> = CodecReaderEnum2<CR, SoftDeletesFilterCode
 /// This reader filters out documents that have a doc values value in the given field and treats
 /// these documents as soft deleted. Hard deleted documents are also filtered out in the live docs of
 /// this reader.
-// TODO IMPORTANT SoftDeletesDirectoryReaderWrapper目前的实现不好 优化BaseCompositeReaderBase的实现再来改这个吧
 pub struct SoftDeletesDirectoryReaderWrapper<DR>
 where
   DR: DirectoryReader,
@@ -58,10 +54,7 @@ where
 {
   in_: DR,
   field: String,
-  base: BaseCompositeReaderBase<
-    SoftDeletesCodecReader<DR::LeafReader>,
-    DummyCompositeReader<SoftDeletesCodecReader<DR::LeafReader>>,
-  >,
+  base: BaseCompositeReaderBase<SoftDeletesCodecReader<DR::LeafReader>>,
   index_base: IndexReaderBase,
   reader_cache_helper: Option<DelegatingCacheHelper<DR::ReaderCacheHelper>>,
 }
@@ -85,23 +78,11 @@ where
     in_: DR,
     wrapper: SoftDeletesSubReaderWrapper<DR::LeafReader>,
   ) -> Result<Self> {
-    let sub_readers = in_.get_sequential_sub_readers();
-    let mut leaf_reads = Vec::with_capacity(sub_readers.len());
-    for reader in sub_readers {
-      match reader {
-        IndexReaderEnum::Leaf(leaf_reader) => leaf_reads.push(leaf_reader.clone()),
-        IndexReaderEnum::Composite(_) => {
-          return Err(LuceneError::illegal_state(
-            "DirectoryReader should only expose leaf sub readers",
-          ));
-        },
-      }
-    }
+    let leaf_reads = in_.get_sequential_sub_readers().to_vec();
 
     let field = wrapper.field.clone();
     let wrapped_readers = wrapper.wrap_readers(leaf_reads)?;
-    let base =
-      BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(wrapped_readers, None)?;
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(wrapped_readers, None)?;
     let reader_cache_helper = in_
       .get_reader_cache_helper()?
       .map(DelegatingCacheHelper::new);
@@ -118,7 +99,7 @@ where
   fn do_wrap_directory_reader_impl(&self, in_: DR) -> Result<Self> {
     let mut reader_cache = HashMap::new();
     for reader in self.get_sequential_sub_readers() {
-      if let IndexReaderEnum::Leaf(CodecReaderEnum2::B(reader)) = reader
+      if let CodecReaderEnum2::B(reader) = reader
         && let Some(reader_cache_helper) = reader.get_delegate().get_reader_cache_helper()?
       {
         reader_cache.insert(
@@ -151,12 +132,20 @@ where
   DR::ReaderCacheHelper: Clone,
 {
   type LeafReader = SoftDeletesCodecReader<DR::LeafReader>;
-  type SubCompositeReader = DummyCompositeReader<Self::LeafReader>;
+  type SubReader = Self::LeafReader;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     self.base.get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for leaf_reader in self.get_sequential_sub_readers() {
+      visitor(leaf_reader)?;
+    }
+    Ok(())
   }
 
   fn to_string(&self) -> String {
@@ -174,10 +163,7 @@ where
   <DR::LeafReader as IndexReader>::ReaderCacheHelper: Clone,
   DR::ReaderCacheHelper: Clone,
 {
-  type TermVectors = BCRTermVectorsImpl<
-    <Self as CompositeReader>::LeafReader,
-    DummyCompositeReader<<Self as CompositeReader>::LeafReader>,
-  >;
+  type TermVectors = BCRTermVectorsImpl<<Self as CompositeReader>::LeafReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     self.base.term_vector(self)
@@ -191,10 +177,7 @@ where
     self.base.num_docs()
   }
 
-  type StoredFields = BCRStoredFieldsImpl<
-    <Self as CompositeReader>::LeafReader,
-    DummyCompositeReader<<Self as CompositeReader>::LeafReader>,
-  >;
+  type StoredFields = BCRStoredFieldsImpl<<Self as CompositeReader>::LeafReader>;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
     self.base.stored_fields(self)

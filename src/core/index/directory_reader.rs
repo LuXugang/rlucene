@@ -16,6 +16,7 @@
  */
 use crate::core::index::IndexFileNames;
 use crate::core::index::base_composite_reader::BaseCompositeReader;
+use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer::IndexWriter;
@@ -46,7 +47,9 @@ use crate::core::index::standard_directory_reader::{ReaderCommit, StandardDirect
 /// If your application requires external synchronization, you should **not** synchronize
 /// on the `IndexReader` instance itself; instead, use your own (non-Lucene) synchronization
 /// objects.
-pub trait DirectoryReader: BaseCompositeReader {
+pub trait DirectoryReader:
+  BaseCompositeReader<SubReader = <Self as CompositeReader>::LeafReader>
+{
   type DirectoryReader: DirectoryReader;
   type Directory: Directory;
   /// The index directory

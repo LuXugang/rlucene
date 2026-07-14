@@ -19,7 +19,7 @@ use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
@@ -29,13 +29,12 @@ pub struct DummyCompositeReader<LR>
 where
   LR: LeafReader + Clone,
 {
-  lr: Vec<IndexReaderEnum<LR, DummyCompositeReader<LR>>>,
+  lr: Vec<LR>,
 }
 
 impl DummyCompositeReader<DummyLeafReader> {
   pub fn new(lr: DummyLeafReader) -> Self {
-    let v = IndexReaderEnum::Leaf(lr);
-    Self { lr: vec![v] }
+    Self { lr: vec![lr] }
   }
 }
 
@@ -113,12 +112,20 @@ where
 {
   type LeafReader = LR;
 
-  type SubCompositeReader = DummyCompositeReader<LR>;
+  type SubReader = LR;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     self.lr.as_slice()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for leaf_reader in self.get_sequential_sub_readers() {
+      visitor(leaf_reader)?;
+    }
+    Ok(())
   }
 
   fn to_string(&self) -> String {

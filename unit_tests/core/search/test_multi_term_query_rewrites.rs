@@ -24,8 +24,7 @@ use crate::core::index::filtered_terms_enum::{
 };
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::multi_reader::MultiReader;
-use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::multi_reader::{MultiCompositeReader, MultiReader};
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
@@ -61,7 +60,7 @@ use std::sync::Arc;
 pub struct TestMultiTermQueryRewrites;
 
 type MultiTermRewriteSearcher = DefaultIndexSearcher<
-  CompositeReaderContext<MultiReader<DefaultLeafReader<DirEnum>, StandardDirectoryReader<DirEnum>>>,
+  CompositeReaderContext<MultiCompositeReader<StandardDirectoryReader<DirEnum>>>,
 >;
 
 fn set_up<R: Rng + ?Sized>(

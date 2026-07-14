@@ -19,11 +19,8 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::fields::Fields;
-use crate::core::index::index_reader::{
-  IRStoredFields, IRTermVectors, IndexReader, IndexReaderEnum,
-};
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::get_actual_max_docs;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
@@ -60,37 +57,19 @@ use std::sync::atomic::{AtomicI32, Ordering};
 ///
 /// *Lucene internal API*
 pub trait BaseCompositeReader: CompositeReader {}
-pub struct BaseCompositeReaderBase<LR, CR>
+pub struct BaseCompositeReaderBase<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
-  pub(crate) sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
-  starts: Arc<Vec<usize>>,
+  pub(crate) sub_reader: Arc<[R]>,
+  starts: Arc<[usize]>,
   max_doc: i32,
   num_docs: AtomicI32,
 }
-impl<LR, CR> BaseCompositeReaderBase<LR, CR>
+impl<R> BaseCompositeReaderBase<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
-  pub fn with_leaf_readers<C>(sub_readers: Vec<LR>, sub_reader_sorter: Option<&C>) -> Result<Self>
-  where
-    C: Comparator<LR>,
-  {
-    Self::build_from_sub_readers(sub_readers, sub_reader_sorter, IndexReaderEnum::Leaf)
-  }
-
-  pub fn with_composite_readers<C>(
-    sub_readers: Vec<CR>,
-    sub_reader_sorter: Option<&C>,
-  ) -> Result<Self>
-  where
-    C: Comparator<CR>,
-  {
-    Self::build_from_sub_readers(sub_readers, sub_reader_sorter, IndexReaderEnum::Composite)
-  }
   /// Constructs a [`BaseCompositeReader`] on the given sub-readers.
   ///
   /// # Parameters
@@ -103,15 +82,9 @@ where
   ///
   /// * `sub_readers_sorter` – a comparator for sorting sub-readers.
   ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
-  fn build_from_sub_readers<IR, C, F>(
-    mut sub_readers: Vec<IR>,
-    sub_reader_sorter: Option<&C>,
-    to_index_reader_enum: F,
-  ) -> Result<Self>
+  pub fn new<C>(mut sub_readers: Vec<R>, sub_reader_sorter: Option<&C>) -> Result<Self>
   where
-    IR: IndexReader,
-    C: Comparator<IR>,
-    F: FnMut(IR) -> IndexReaderEnum<LR, CR>,
+    C: Comparator<R>,
   {
     if let Some(sorter) = sub_reader_sorter {
       let mut err: Option<LuceneError> = None;
@@ -147,20 +120,15 @@ where
     let max_doc_i32 = max_doc.try_convert()?;
     starts[sub_readers.len()] = max_doc_i32;
 
-    let sub_reader = sub_readers.into_iter().map(to_index_reader_enum).collect();
-
     Ok(Self {
-      sub_reader: Arc::new(sub_reader),
-      starts: Arc::new(starts),
+      sub_reader: Arc::from(sub_readers),
+      starts: Arc::from(starts),
       max_doc: max_doc_i32 as i32,
       num_docs: AtomicI32::new(-1),
     })
   }
 
-  pub fn term_vector(
-    &self,
-    reader: &impl BaseCompositeReader,
-  ) -> Result<BCRTermVectorsImpl<LR, CR>> {
+  pub fn term_vector(&self, reader: &impl BaseCompositeReader) -> Result<BCRTermVectorsImpl<R>> {
     reader.ensure_open()?;
     Ok(TermVectorsImpl::new(
       self.sub_reader.clone(),
@@ -195,10 +163,7 @@ where
   pub fn max_doc(&self) -> i32 {
     self.max_doc
   }
-  pub fn stored_fields(
-    &self,
-    reader: &impl BaseCompositeReader,
-  ) -> Result<BCRStoredFieldsImpl<LR, CR>> {
+  pub fn stored_fields(&self, reader: &impl BaseCompositeReader) -> Result<BCRStoredFieldsImpl<R>> {
     reader.ensure_open()?;
     Ok(StoredFieldsImpl::new(
       self.sub_reader.clone(),
@@ -281,33 +246,27 @@ where
     }
     Ok(self.starts[reader_index])
   }
-  pub fn get_sequential_sub_readers(&self) -> &[IndexReaderEnum<LR, CR>] {
-    self.sub_reader.as_slice()
+  pub fn get_sequential_sub_readers(&self) -> &[R] {
+    self.sub_reader.as_ref()
   }
 }
-pub type BCRTermVectorsImpl<LR, CR> = TermVectorsImpl<LR, CR>;
-pub type BCRStoredFieldsImpl<LR, CR> = StoredFieldsImpl<LR, CR>;
+pub type BCRTermVectorsImpl<R> = TermVectorsImpl<R>;
+pub type BCRStoredFieldsImpl<R> = StoredFieldsImpl<R>;
 
-pub struct TermVectorsImpl<LR, CR>
+pub struct TermVectorsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
-  sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
-  starts: Arc<Vec<usize>>,
-  sub_term_vectors: Vec<Option<IRTermVectors<LR, CR>>>,
+  sub_reader: Arc<[R]>,
+  starts: Arc<[usize]>,
+  sub_term_vectors: Vec<Option<R::TermVectors>>,
   max_doc: i32,
 }
-impl<LR, CR> TermVectorsImpl<LR, CR>
+impl<R> TermVectorsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
-  pub fn new(
-    sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
-    starts: Arc<Vec<usize>>,
-    max_doc: i32,
-  ) -> Self {
+  pub fn new(sub_reader: Arc<[R]>, starts: Arc<[usize]>, max_doc: i32) -> Self {
     let mut sub_term_vectors = Vec::with_capacity(starts.len());
     for _ in 0..sub_reader.len() {
       sub_term_vectors.push(None);
@@ -320,10 +279,9 @@ where
     }
   }
 }
-impl<LR, CR> TermVectors for TermVectorsImpl<LR, CR>
+impl<R> TermVectors for TermVectorsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
   fn prefetch(&mut self, doc_id: i32) -> Result<()> {
     let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
@@ -338,7 +296,7 @@ where
     Ok(())
   }
 
-  type Fields = <IRTermVectors<LR, CR> as TermVectors>::Fields;
+  type Fields = <R::TermVectors as TermVectors>::Fields;
 
   fn get(&mut self, doc_id: i32) -> Result<Option<Self::Fields>> {
     let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
@@ -365,12 +323,12 @@ where
   }
 }
 
-impl<LR, CR> RawTermVectors for TermVectorsImpl<LR, CR>
+impl<R> RawTermVectors for TermVectorsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
+  R::TermVectors: RawTermVectors,
 {
-  type IndexInput = <IRTermVectors<LR, CR> as RawTermVectors>::IndexInput;
+  type IndexInput = <R::TermVectors as RawTermVectors>::IndexInput;
 
   fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
     Err(LuceneError::illegal_state(
@@ -384,27 +342,21 @@ where
     ))
   }
 }
-pub struct StoredFieldsImpl<LR, CR>
+pub struct StoredFieldsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
-  sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
-  starts: Arc<Vec<usize>>,
-  sub_stored_fields: Vec<Option<IRStoredFields<LR, CR>>>,
+  sub_reader: Arc<[R]>,
+  starts: Arc<[usize]>,
+  sub_stored_fields: Vec<Option<R::StoredFields>>,
   max_doc: i32,
 }
 
-impl<LR, CR> StoredFieldsImpl<LR, CR>
+impl<R> StoredFieldsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
-  pub fn new(
-    sub_reader: Arc<Vec<IndexReaderEnum<LR, CR>>>,
-    starts: Arc<Vec<usize>>,
-    max_doc: i32,
-  ) -> Self {
+  pub fn new(sub_reader: Arc<[R]>, starts: Arc<[usize]>, max_doc: i32) -> Self {
     let mut sub_stored_fields = Vec::with_capacity(starts.len());
     for _ in 0..sub_reader.len() {
       sub_stored_fields.push(None);
@@ -418,13 +370,12 @@ where
   }
 }
 
-impl<LR, CR> StoredFields for StoredFieldsImpl<LR, CR>
+impl<R> StoredFields for StoredFieldsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
+  R: IndexReader,
 {
   fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-    let i = reader_index(doc_id, self.max_doc, self.starts.as_slice())?;
+    let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
 
     match self.sub_stored_fields[i] {
       Some(ref mut sf) => sf.prefetch(doc_id - self.starts[i] as i32)?,
@@ -459,13 +410,12 @@ where
   }
 }
 
-impl<LR, CR> RawStoredFieldsReader for StoredFieldsImpl<LR, CR>
+impl<R> RawStoredFieldsReader for StoredFieldsImpl<R>
 where
-  LR: LeafReader,
-  CR: CompositeReader,
-  IRStoredFields<LR, CR>: RawStoredFieldsReader,
+  R: IndexReader,
+  R::StoredFields: RawStoredFieldsReader,
 {
-  type IndexInput = <IRStoredFields<LR, CR> as RawStoredFieldsReader>::IndexInput;
+  type IndexInput = <R::StoredFields as RawStoredFieldsReader>::IndexInput;
 
   fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
     Err(LuceneError::illegal_state(

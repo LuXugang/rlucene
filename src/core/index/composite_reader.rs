@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader_context::{CompositeReaderContext, create};
-use crate::core::index::index_reader::{IndexReader, IndexReaderEnum};
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
@@ -53,7 +53,7 @@ use std::sync::Arc;
 /// use your own non-Lucene objects instead.
 pub trait CompositeReader: IndexReader {
   type LeafReader: LeafReader + Clone;
-  type SubCompositeReader: CompositeReader<LeafReader = Self::LeafReader>;
+  type SubReader: IndexReader;
 
   /// Expert: returns the sequential sub-readers that this reader is logically
   /// composed of.
@@ -63,9 +63,12 @@ pub trait CompositeReader: IndexReader {
   /// NOTE: In contrast to previous Lucene versions, code that wants to get all
   /// [`LeafReader`]s this composite is composed of should use
   /// [`IndexReaderContext::leaves`](crate::core::index::index_reader_context::IndexReaderContext::leaves).
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>];
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader];
+
+  #[doc(hidden)]
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>;
 
   fn to_string(&self) -> String {
     String::new()
@@ -85,12 +88,17 @@ where
   CR: CompositeReader,
 {
   type LeafReader = CR::LeafReader;
-  type SubCompositeReader = CR::SubCompositeReader;
+  type SubReader = CR::SubReader;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     (**self).get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    (**self).visit_leaves(visitor)
   }
 
   fn to_string(&self) -> String {
@@ -102,12 +110,17 @@ where
   CR: CompositeReader,
 {
   type LeafReader = CR::LeafReader;
-  type SubCompositeReader = CR::SubCompositeReader;
+  type SubReader = CR::SubReader;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     (**self).get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    (**self).visit_leaves(visitor)
   }
 
   fn to_string(&self) -> String {
@@ -119,12 +132,17 @@ where
   CR: CompositeReader,
 {
   type LeafReader = CR::LeafReader;
-  type SubCompositeReader = CR::SubCompositeReader;
+  type SubReader = CR::SubReader;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     (**self).get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    (**self).visit_leaves(visitor)
   }
 
   fn to_string(&self) -> String {

@@ -21,12 +21,9 @@ use crate::core::index::base_composite_reader::{
 };
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
-use crate::core::index::index_reader::{
-  CacheHelper, CacheKey, IndexReader, IndexReaderBase, IndexReaderEnum,
-};
+use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader, IndexReaderBase};
 use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 pub use crate::core::index::live_index_writer_config::LeafSorter;
@@ -57,8 +54,7 @@ where
   pub(crate) segment_infos: SegmentInfos<D>,
   apply_all_deletes: bool,
   write_all_deletes: bool,
-  base_composite_reader_base:
-    BaseCompositeReaderBase<DefaultLeafReader<D>, DummyCompositeReader<DefaultLeafReader<D>>>,
+  base_composite_reader_base: BaseCompositeReaderBase<DefaultLeafReader<D>>,
   directory_reader_base: DirectoryReaderBase<D>,
   sub_reader_sorter: Option<LeafSorter<D>>,
   index_base: IndexReaderBase,
@@ -77,8 +73,7 @@ where
     apply_all_deletes: bool,
     write_all_deletes: bool,
   ) -> Result<Self> {
-    let base_composite_reader_base =
-      BaseCompositeReaderBase::with_leaf_readers(readers, leaf_sorter.as_ref())?;
+    let base_composite_reader_base = BaseCompositeReaderBase::new(readers, leaf_sorter.as_ref())?;
     let directory_reader_base = DirectoryReaderBase::new(directory);
     Ok(StandardDirectoryReader {
       writer,
@@ -127,15 +122,7 @@ where
   where
     IC: IndexCommit<Directory = Arc<D>>,
   {
-    let mut leaf_reads = Vec::new();
-    for v in self.get_sequential_sub_readers() {
-      match v {
-        IndexReaderEnum::Leaf(lr) => {
-          leaf_reads.push(lr.clone());
-        },
-        _ => return Err(LuceneError::illegal_state("should leaf reader")),
-      }
-    }
+    let leaf_reads = self.get_sequential_sub_readers().to_vec();
     let mut finder = FindSegmentsFileImpl2::new(
       self.directory().directory.clone(),
       leaf_reads,
@@ -474,12 +461,20 @@ where
 {
   type LeafReader = DefaultLeafReader<D>;
 
-  type SubCompositeReader = DummyCompositeReader<DefaultLeafReader<D>>;
+  type SubReader = DefaultLeafReader<D>;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     self.base_composite_reader_base.get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for leaf_reader in self.get_sequential_sub_readers() {
+      visitor(leaf_reader)?;
+    }
+    Ok(())
   }
 
   fn to_string(&self) -> String {
@@ -507,8 +502,7 @@ impl<D> IndexReader for StandardDirectoryReader<D>
 where
   D: Directory,
 {
-  type TermVectors =
-    BCRTermVectorsImpl<DefaultLeafReader<D>, DummyCompositeReader<DefaultLeafReader<D>>>;
+  type TermVectors = BCRTermVectorsImpl<DefaultLeafReader<D>>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     self.base_composite_reader_base.term_vector(self)
@@ -522,8 +516,7 @@ where
     self.base_composite_reader_base.num_docs()
   }
 
-  type StoredFields =
-    BCRStoredFieldsImpl<DefaultLeafReader<D>, DummyCompositeReader<DefaultLeafReader<D>>>;
+  type StoredFields = BCRStoredFieldsImpl<DefaultLeafReader<D>>;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
     self.base_composite_reader_base.stored_fields(self)

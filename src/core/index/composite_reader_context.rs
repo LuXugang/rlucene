@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::index_reader::IndexReaderEnum;
 use crate::core::index::index_reader_context::{IndexReaderContext, IndexReaderContextBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::util::TryIntoInt;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 /// [`IndexReaderContext`] for CompositeReader instance.
 pub struct CompositeReaderContext<CR>
@@ -43,20 +42,11 @@ pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
 where
   CR: CompositeReader,
 {
-  let v = IndexReaderEnum::new(reader);
   let base = IndexReaderContextBase::new(true, 0, 0);
   let mut builder = Builder::<CR::LeafReader>::new();
-  builder.build(&v, 0, 0)?;
+  reader.visit_leaves(&mut |leaf_reader| builder.add_leaf(leaf_reader))?;
   let max_doc = builder.max_doc;
   let leaves = builder.leaves;
-  let reader = match v {
-    IndexReaderEnum::Composite(composite_reader) => composite_reader,
-    _ => {
-      return Err(LuceneError::illegal_state(
-        "CompositeReaderContext can only be created from CompositeReader",
-      ));
-    },
-  };
   let mut ctx = CompositeReaderContext {
     leaves,
     reader,
@@ -118,33 +108,20 @@ impl<LR> Builder<LR>
 where
   LR: LeafReader + Clone,
 {
-  fn build<CR>(&mut self, reader: &IndexReaderEnum<LR, CR>, ord: i32, doc_base: usize) -> Result<()>
-  where
-    CR: CompositeReader<LeafReader = LR>,
-  {
-    match &reader {
-      IndexReaderEnum::Leaf(ar) => {
-        let leaves_size = self.leaves.len();
-        let atomic = LeafReaderContext::new(
-          ar.clone(),
-          ord,
-          doc_base,
-          leaves_size,
-          self.leaf_doc_base,
-          TopParentMeta::default(),
-        );
-        self.leaves.push(atomic);
-        let max_doc = ar.max_doc()?;
-        self.leaf_doc_base += max_doc.try_convert()?;
-        self.max_doc += max_doc;
-      },
-      IndexReaderEnum::Composite(composite_reader) => {
-        let sequential_sub_readers = composite_reader.get_sequential_sub_readers();
-        for sub_reader in sequential_sub_readers {
-          self.build::<CR::SubCompositeReader>(sub_reader, ord, doc_base + self.leaf_doc_base)?;
-        }
-      },
-    }
+  fn add_leaf(&mut self, reader: &LR) -> Result<()> {
+    let leaves_size = self.leaves.len();
+    let atomic = LeafReaderContext::new(
+      reader.clone(),
+      0,
+      self.leaf_doc_base,
+      leaves_size,
+      self.leaf_doc_base,
+      TopParentMeta::default(),
+    );
+    self.leaves.push(atomic);
+    let max_doc = reader.max_doc()?;
+    self.leaf_doc_base += max_doc.try_convert()?;
+    self.max_doc += max_doc;
     Ok(())
   }
 }

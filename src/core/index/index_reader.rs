@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_fields::{StoredFields, StoredFieldsEnum2};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{TermVectors, TermVectorsEnum2};
@@ -44,21 +42,25 @@ use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 ///
 /// There are two different types of index readers:
 ///
-/// - [`LeafReader`]: atomic readers that do not consist of several sub-readers.
+/// - [`LeafReader`](crate::core::index::leaf_reader::LeafReader): atomic readers
+///   that do not consist of several sub-readers.
 ///   They support retrieval of stored fields, doc values, terms, and postings.
-/// - [`CompositeReader`]: instances, such as
+/// - [`CompositeReader`](crate::core::index::composite_reader::CompositeReader):
+///   instances, such as
 ///   [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader),
 ///   can only be used to get stored fields from the underlying
-///   [`LeafReader`]s. It is not possible to directly retrieve postings from a
-///   composite reader; to do that, get the sub-readers via
-///   [`CompositeReader::get_sequential_sub_readers`].
+///   [`LeafReader`](crate::core::index::leaf_reader::LeafReader)s. It is not
+///   possible to directly retrieve postings from a composite reader; to do that,
+///   get the sub-readers via
+///   [`CompositeReader::get_sequential_sub_readers`](crate::core::index::composite_reader::CompositeReader::get_sequential_sub_readers).
 ///
 /// [`IndexReader`] instances for indexes on disk are usually constructed with a
 /// call to one of the `DirectoryReader::open` methods, for example
 /// [`directory_reader::open`](crate::core::index::directory_reader::open).
 /// [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)
-/// implements the [`CompositeReader`] interface, so it is not possible to
-/// directly get postings from it.
+/// implements the
+/// [`CompositeReader`](crate::core::index::composite_reader::CompositeReader)
+/// interface, so it is not possible to directly get postings from it.
 ///
 /// For efficiency, this API often refers to documents via document numbers:
 /// non-negative integers that each name a unique document in the index. These
@@ -343,186 +345,6 @@ where
 /// A cache key identifying a resource that is being cached on.
 pub type CacheKey = Identity;
 
-pub type IRTermVectors<LR, CR> =
-  TermVectorsEnum2<<LR as IndexReader>::TermVectors, <CR as IndexReader>::TermVectors>;
-pub type IRStoredFields<LR, CR> =
-  StoredFieldsEnum2<<LR as IndexReader>::StoredFields, <CR as IndexReader>::StoredFields>;
-
-pub type IndexReaderEnumCacheHelperType<A, B> = CacheHelperEnum2<A, B>;
-
-pub enum IndexReaderEnum<LR, CR>
-where
-  LR: LeafReader,
-  CR: CompositeReader,
-{
-  Leaf(LR),
-  Composite(CR),
-}
-impl<CR> IndexReaderEnum<CR::LeafReader, CR>
-where
-  CR: CompositeReader,
-{
-  pub(crate) fn new(reader: CR) -> Self {
-    IndexReaderEnum::Composite(reader)
-  }
-}
-
-impl<LR, CR> Display for IndexReaderEnum<LR, CR>
-where
-  CR: CompositeReader,
-  LR: LeafReader,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => write!(f, "LeafReader: {}", leaf),
-      IndexReaderEnum::Composite(comp) => write!(f, "CompositeReader: {}", comp),
-    }
-  }
-}
-
-impl<LR, CR> IndexReader for IndexReaderEnum<LR, CR>
-where
-  LR: LeafReader,
-  CR: CompositeReader,
-{
-  type TermVectors = IRTermVectors<LR, CR>;
-
-  fn term_vectors(&self) -> Result<Self::TermVectors> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => Ok(TermVectorsEnum2::A(leaf.term_vectors()?)),
-      IndexReaderEnum::Composite(comp) => Ok(TermVectorsEnum2::B(comp.term_vectors()?)),
-    }
-  }
-
-  fn max_doc(&self) -> Result<i32> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.max_doc(),
-      IndexReaderEnum::Composite(comp) => comp.max_doc(),
-    }
-  }
-
-  fn num_docs(&self) -> Result<i32> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.num_docs(),
-      IndexReaderEnum::Composite(comp) => comp.num_docs(),
-    }
-  }
-
-  fn num_deleted_docs(&self) -> Result<i32> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.num_deleted_docs(),
-      IndexReaderEnum::Composite(comp) => comp.num_deleted_docs(),
-    }
-  }
-
-  fn inc_ref(&self) -> Result<()> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.inc_ref(),
-      IndexReaderEnum::Composite(comp) => comp.inc_ref(),
-    }
-  }
-
-  fn dec_ref(&self) -> Result<()> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.dec_ref(),
-      IndexReaderEnum::Composite(comp) => comp.dec_ref(),
-    }
-  }
-
-  fn ensure_open(&self) -> Result<()> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.ensure_open(),
-      IndexReaderEnum::Composite(comp) => comp.ensure_open(),
-    }
-  }
-
-  type StoredFields = IRStoredFields<LR, CR>;
-
-  fn stored_fields(&self) -> Result<Self::StoredFields> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => Ok(StoredFieldsEnum2::A(leaf.stored_fields()?)),
-      IndexReaderEnum::Composite(comp) => Ok(StoredFieldsEnum2::B(comp.stored_fields()?)),
-    }
-  }
-
-  fn has_deletions(&self) -> Result<bool> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.has_deletions(),
-      IndexReaderEnum::Composite(comp) => comp.has_deletions(),
-    }
-  }
-
-  fn do_close(&self) -> Result<()> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.do_close(),
-      IndexReaderEnum::Composite(comp) => comp.do_close(),
-    }
-  }
-
-  type ReaderCacheHelper =
-    IndexReaderEnumCacheHelperType<LR::ReaderCacheHelper, CR::ReaderCacheHelper>;
-
-  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => {
-        if let Some(helper) = leaf.get_reader_cache_helper()? {
-          Ok(Some(IndexReaderEnumCacheHelperType::A(helper)))
-        } else {
-          Ok(None)
-        }
-      },
-      IndexReaderEnum::Composite(comp) => {
-        if let Some(helper) = comp.get_reader_cache_helper()? {
-          Ok(Some(IndexReaderEnumCacheHelperType::B(helper)))
-        } else {
-          Ok(None)
-        }
-      },
-    }
-  }
-
-  fn doc_freq(&self, term: &Term) -> Result<i32> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => <LR as IndexReader>::doc_freq(leaf, term),
-      IndexReaderEnum::Composite(comp) => comp.doc_freq(term),
-    }
-  }
-
-  fn total_term_freq(&self, term: &Term) -> Result<i64> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => <LR as IndexReader>::total_term_freq(leaf, term),
-      IndexReaderEnum::Composite(comp) => comp.total_term_freq(term),
-    }
-  }
-
-  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => LeafReader::get_sum_doc_freq(leaf, field),
-      IndexReaderEnum::Composite(comp) => comp.get_sum_doc_freq(field),
-    }
-  }
-
-  fn get_doc_count(&self, field: &str) -> Result<i32> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => LeafReader::get_doc_count(leaf, field),
-      IndexReaderEnum::Composite(comp) => comp.get_doc_count(field),
-    }
-  }
-
-  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => LeafReader::get_sum_total_term_freq(leaf, field),
-      IndexReaderEnum::Composite(comp) => comp.get_sum_total_term_freq(field),
-    }
-  }
-
-  fn index_base(&self) -> &IndexReaderBase {
-    match self {
-      IndexReaderEnum::Leaf(leaf) => leaf.index_base(),
-      IndexReaderEnum::Composite(comp) => comp.index_base(),
-    }
-  }
-}
 impl<IR> IndexReader for &IR
 where
   IR: IndexReader,

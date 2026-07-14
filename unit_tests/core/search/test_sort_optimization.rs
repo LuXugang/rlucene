@@ -31,14 +31,13 @@ use crate::core::index::base_composite_reader::{BaseCompositeReader, BaseComposi
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
-use crate::core::index::dummy::dummy_composite_reader::DummyCompositeReader;
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase, IndexReaderEnum};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -1980,32 +1979,18 @@ where
   DR: DirectoryReader,
 {
   in_: DR,
-  base: BaseCompositeReaderBase<
-    NoIndexLeafReader<DR::LeafReader>,
-    DummyCompositeReader<<DR as CompositeReader>::LeafReader>,
-  >,
+  base: BaseCompositeReaderBase<NoIndexLeafReader<DR::LeafReader>>,
 }
 impl<DR> NoIndexDirectoryReader<DR>
 where
   DR: DirectoryReader,
 {
   pub fn new(in_: DR) -> Result<Self> {
-    let sub_readers = in_.get_sequential_sub_readers();
     let wrap = SubReaderWrapperImpl;
-    let mut leaf_reads = Vec::new();
-    for v in sub_readers {
-      match v {
-        IndexReaderEnum::Leaf(lr) => {
-          leaf_reads.push(lr.clone());
-        },
-        _ => unreachable!(""),
-      }
-    }
+    let leaf_reads = in_.get_sequential_sub_readers().to_vec();
     let wrap_readers = wrap.wrap_readers(leaf_reads)?;
-    let base_composite_reader_base: BaseCompositeReaderBase<
-      NoIndexLeafReader<_>,
-      DummyCompositeReader<<DR as CompositeReader>::LeafReader>,
-    > = BaseCompositeReaderBase::with_leaf_readers::<DummyComparator>(wrap_readers, None)?;
+    let base_composite_reader_base: BaseCompositeReaderBase<NoIndexLeafReader<_>> =
+      BaseCompositeReaderBase::new::<DummyComparator>(wrap_readers, None)?;
     Ok(Self {
       in_,
       base: base_composite_reader_base,
@@ -2074,12 +2059,17 @@ where
   DR: DirectoryReader,
 {
   type LeafReader = DR::LeafReader;
-  type SubCompositeReader = DR::SubCompositeReader;
+  type SubReader = DR::SubReader;
 
-  fn get_sequential_sub_readers(
-    &self,
-  ) -> &[IndexReaderEnum<Self::LeafReader, Self::SubCompositeReader>] {
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
     self.in_.get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    self.in_.visit_leaves(visitor)
   }
 }
 
