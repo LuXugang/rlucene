@@ -29,7 +29,7 @@ pub(crate) fn check_norms<LR>(reader: LR) -> crate::core::util::error::lucene_er
 where
   LR: LeafReader + Clone,
 {
-  let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+  let multi_readers = MultiReader::new(vec![reader.clone()])?;
   for f in FIELDS.iter() {
     if *f.field_type().index_options() != IndexOptions::None {
       let field_name = f.name();

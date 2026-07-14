@@ -720,7 +720,7 @@ fn test_tie_breaker() -> Result<()> {
   let ir1 = writer.get_reader(&mut random)?;
   let ir2 = writer2.get_reader(&mut random)?;
 
-  let mr = MultiReader::with_composite_reader(vec![ir1, ir2])?;
+  let mr = MultiReader::new(vec![ir1, ir2])?;
   let searcher = new_searcher_with_reader(mr)?;
   let fq = FuzzyQuery::with_options(Term::from_text("field", "z123456"), 1, 0, 2, false)?;
   let docs = searcher.search(fq, 2)?;

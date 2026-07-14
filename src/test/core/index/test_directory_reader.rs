@@ -147,8 +147,8 @@ fn test_multi_term_docs() -> Result<()> {
   let reader2_1 = directory_reader::open(ram_dir2.clone())?;
   let reader2_2 = directory_reader::open(ram_dir3.clone())?;
 
-  let mr2 = MultiReader::with_composite_reader(vec![reader1_0, reader1_1])?;
-  let mr3 = MultiReader::with_composite_reader(vec![reader2_0, reader2_1, reader2_2])?;
+  let mr2 = MultiReader::new(vec![reader1_0, reader1_1])?;
+  let mr3 = MultiReader::new(vec![reader2_0, reader2_1, reader2_2])?;
 
   // test mixing up TermDocs and TermEnums from different readers.
   let terms2 = multi_terms::get_terms(&mr2, "body")?.unwrap();

@@ -449,7 +449,7 @@ fn test_multi_reader_exact_limit() -> Result<()> {
   let mut sub_readers = vec![ir.clone(); copies as usize + 1];
   sub_readers[copies as usize] = ir2;
 
-  let mr = MultiReader::with_composite_reader(sub_readers)?;
+  let mr = MultiReader::new(sub_readers)?;
   assert_eq!(MAX_DOCS, mr.max_doc()?);
   assert_eq!(MAX_DOCS, mr.num_docs()?);
 
@@ -485,7 +485,7 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
   let mut sub_readers = vec![ir.clone(); copies as usize + 1];
   sub_readers[copies as usize] = ir2;
 
-  let err = MultiReader::with_composite_reader(sub_readers);
+  let err = MultiReader::new(sub_readers);
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
   Ok(())

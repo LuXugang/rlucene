@@ -47,7 +47,7 @@ use crate::core::index::multi_doc_values::{
   MultiSortedSetDocValues, MultiSortedSetDocValuesType,
 };
 use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
-use crate::core::index::multi_reader::{MultiLeafReader, MultiReader};
+use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
@@ -109,7 +109,7 @@ where
   codec_readers: Vec<CR>,
   doc_stats: Arc<Vec<usize>>,
   field_infos: Arc<FieldInfos>,
-  live_docs: Option<Arc<BitsType<MultiLeafReader<CR>>>>,
+  live_docs: Option<Arc<BitsType<MultiReader<CR>>>>,
   inner: Mutex<Inner>,
   index_base: IndexReaderBase,
 }
@@ -160,7 +160,7 @@ where
 
     let meta = LeafMetaData::new(major_version, min_version, None, has_blocks)?;
 
-    let multi_reader: MultiLeafReader<CR> = MultiReader::with_leaf_reader(codec_readers.clone())?;
+    let multi_reader: MultiReader<CR> = MultiReader::new(codec_readers.clone())?;
     let field_infos = get_merged_field_infos(&multi_reader)?;
     let live_docs = get_live_docs(multi_reader)?.map(Arc::new);
     let inner = Mutex::new(Inner { num_docs: -1 });
@@ -290,7 +290,7 @@ where
     Ok(self.field_infos.clone())
   }
 
-  type Bits = Arc<BitsType<MultiLeafReader<CR>>>;
+  type Bits = Arc<BitsType<MultiReader<CR>>>;
 
   fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
     Ok(self.live_docs.clone())
@@ -939,10 +939,10 @@ impl<CR> NormsProducer for SlowCompositeNormsProducer<CR>
 where
   CR: CodecReader + Clone,
 {
-  type NumericDocValues = MultiNormNumericDocValues<MultiLeafReader<CR>>;
+  type NumericDocValues = MultiNormNumericDocValues<MultiReader<CR>>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    let multi_reader = MultiReader::with_leaf_reader(self.codec_readers.clone())?;
+    let multi_reader = MultiReader::new(self.codec_readers.clone())?;
     match MultiDocValues::get_norm_values(multi_reader, &field.name)? {
       Some(norms) => Ok(norms),
       None => Err(LuceneError::illegal_state(format!(
@@ -1001,10 +1001,10 @@ impl<CR> DocValuesProducer for SlowCompositeDocValuesProducerWrapper<CR>
 where
   CR: CodecReader + Clone,
 {
-  type NumericDocValues = MultiNumericDocValues<MultiLeafReader<CR>>;
+  type NumericDocValues = MultiNumericDocValues<MultiReader<CR>>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    let mr = MultiReader::with_leaf_reader(self.codec_readers.clone())?;
+    let mr = MultiReader::new(self.codec_readers.clone())?;
     match MultiDocValues::get_numeric_values(mr, &field.name)? {
       Some(numeric) => Ok(numeric),
       None => Err(LuceneError::illegal_state(format!(
@@ -1014,10 +1014,10 @@ where
     }
   }
 
-  type BinaryDocValues = MultiBinaryDocValues<MultiLeafReader<CR>>;
+  type BinaryDocValues = MultiBinaryDocValues<MultiReader<CR>>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    let mr = MultiReader::with_leaf_reader(self.codec_readers.clone())?;
+    let mr = MultiReader::new(self.codec_readers.clone())?;
     match MultiDocValues::get_binary_values(mr, &field.name)? {
       Some(binary) => Ok(binary),
       None => Err(LuceneError::illegal_state(format!(
@@ -1028,7 +1028,7 @@ where
   }
 
   type SortedDocValues = SortedDocValuesEnum2<
-    MultiSortedDocValuesType<MultiLeafReader<CR>>,
+    MultiSortedDocValuesType<MultiReader<CR>>,
     MultiSortedDocValues<LRSortedDocValuesEmpty<CR>>,
   >;
 
@@ -1059,7 +1059,7 @@ where
       )));
     }
 
-    let mr: MultiLeafReader<CR> = MultiReader::with_leaf_reader(self.codec_readers.clone())?;
+    let mr: MultiReader<CR> = MultiReader::new(self.codec_readers.clone())?;
 
     let dv = MultiDocValues::get_sorted_values(mr, &field.name)?.ok_or_else(|| {
       LuceneError::illegal_state(format!(
@@ -1078,10 +1078,10 @@ where
     Ok(SortedDocValuesEnum2::A(dv))
   }
 
-  type SortedNumericDocValues = MultiSortedNumericDocValues<MultiLeafReader<CR>>;
+  type SortedNumericDocValues = MultiSortedNumericDocValues<MultiReader<CR>>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-    let mr = MultiReader::with_leaf_reader(self.codec_readers.clone())?;
+    let mr = MultiReader::new(self.codec_readers.clone())?;
     match MultiDocValues::get_sorted_numeric_values(mr, &field.name)? {
       Some(sorted_numeric) => Ok(sorted_numeric),
       None => Err(LuceneError::illegal_state(format!(
@@ -1092,7 +1092,7 @@ where
   }
 
   type SortedSetDocValues = SortedSetDocValuesEnum2<
-    MultiSortedSetDocValuesType<MultiLeafReader<CR>>,
+    MultiSortedSetDocValuesType<MultiReader<CR>>,
     MultiSortedSetDocValues<
       SortedSetDocValuesEnum2<LRSortedSetDocValues<CR>, SingletonSortedSetDocValues<EmptySorted>>,
     >,
@@ -1125,7 +1125,7 @@ where
       )));
     }
 
-    let mr: MultiLeafReader<CR> = MultiReader::with_leaf_reader(self.codec_readers.clone())?;
+    let mr: MultiReader<CR> = MultiReader::new(self.codec_readers.clone())?;
 
     let dv = MultiDocValues::get_sorted_set_values(mr, &field.name)?.ok_or_else(|| {
       LuceneError::illegal_state(format!(

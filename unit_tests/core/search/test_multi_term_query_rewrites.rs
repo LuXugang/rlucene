@@ -24,7 +24,7 @@ use crate::core::index::filtered_terms_enum::{
 };
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::multi_reader::{MultiCompositeReader, MultiReader};
+use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
@@ -59,9 +59,8 @@ use std::sync::Arc;
 
 pub struct TestMultiTermQueryRewrites;
 
-type MultiTermRewriteSearcher = DefaultIndexSearcher<
-  CompositeReaderContext<MultiCompositeReader<StandardDirectoryReader<DirEnum>>>,
->;
+type MultiTermRewriteSearcher =
+  DefaultIndexSearcher<CompositeReaderContext<MultiReader<StandardDirectoryReader<DirEnum>>>>;
 
 fn set_up<R: Rng + ?Sized>(
   random: &mut R,
@@ -116,13 +115,13 @@ fn set_up<R: Rng + ?Sized>(
   let searcher = new_searcher_with_reader(reader)?;
   // TODO IMPORTANT 这里没有调用close方法，有必要吗
 
-  let multi_reader = MultiReader::with_composite_reader(vec![
+  let multi_reader = MultiReader::new(vec![
     directory_reader::open(sdir1.clone())?,
     directory_reader::open(sdir2.clone())?,
   ])?;
   let multi_searcher = new_searcher_with_reader(multi_reader)?;
 
-  let multi_reader_dupls = MultiReader::with_composite_reader(vec![
+  let multi_reader_dupls = MultiReader::new(vec![
     directory_reader::open(sdir1)?,
     directory_reader::open(dir)?,
   ])?;

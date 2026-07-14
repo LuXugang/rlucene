@@ -57,7 +57,7 @@ impl TestSegmentReader {
   where
     LR: LeafReader + Clone,
   {
-    let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+    let multi_readers = MultiReader::new(vec![reader.clone()])?;
     for f in FIELDS.iter() {
       if *f.field_type().index_options() != IndexOptions::None {
         let field_name = f.name();
@@ -164,7 +164,7 @@ fn test_terms() -> Result<()> {
   let mut random = random();
   let (_dir, _doc, reader) = set_up(&mut random)?;
   let reader = Arc::new(reader);
-  let multi_reader = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+  let multi_reader = MultiReader::new(vec![reader.clone()])?;
   let fields = get_indexed_fields(&multi_reader)?;
   for field in fields {
     let terms = get_terms(&multi_reader, &field)?;
@@ -231,7 +231,7 @@ fn test_term_vectors() -> Result<()> {
   let (_dir, _doc, reader) = set_up(&mut random)?;
   let reader = Arc::new(reader);
 
-  let multi_reader = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+  let multi_reader = MultiReader::new(vec![reader.clone()])?;
 
   let mut term_vectors = multi_reader.term_vectors()?;
   let tv0 = term_vectors.get(0)?.expect("tv0 should exist");

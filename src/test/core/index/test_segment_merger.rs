@@ -130,7 +130,7 @@ fn test_merge() -> Result<()> {
     DocHelper::num_fields(&new_doc2),
     DocHelper::num_fields(&doc2) - DATA.unstored.len()
   );
-  let multi_readers = MultiReader::with_leaf_reader(vec![merged_reader.clone()])?;
+  let multi_readers = MultiReader::new(vec![merged_reader.clone()])?;
 
   let term_docs = TestUtil::docs_with_reader(
     &mut random,

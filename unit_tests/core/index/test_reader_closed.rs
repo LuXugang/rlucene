@@ -90,7 +90,7 @@ fn test_reader_chaining() -> Result<()> {
   // We wrap with a MultiReader so that closing the underlying reader
   // does not terminate the threadpool if that index searcher uses one.
   // TODO OwnCacheKeyMultiReader未实现
-  let multi_reader = MultiReader::with_leaf_reader(vec![wrapped_reader])?;
+  let multi_reader = MultiReader::new(vec![wrapped_reader])?;
   let searcher = new_searcher(multi_reader, false, false)?;
 
   let query = TermRangeQuery::new_string_range("field", Some("a"), Some("z"), true, true)?;

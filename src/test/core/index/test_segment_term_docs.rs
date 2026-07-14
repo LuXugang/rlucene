@@ -94,7 +94,7 @@ fn test_bad_seek() -> Result<()> {
       &new_io_context(&mut random)?,
     )?);
     assert!(reader.max_doc()? >= 0);
-    let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+    let multi_readers = MultiReader::new(vec![reader.clone()])?;
 
     let term_docs = TestUtil::docs_with_reader(
       &mut random,
@@ -116,7 +116,7 @@ fn test_bad_seek() -> Result<()> {
       &new_io_context(&mut random)?,
     )?);
     assert!(reader.max_doc()? >= 0);
-    let multi_readers = MultiReader::with_leaf_reader(vec![reader.clone()])?;
+    let multi_readers = MultiReader::new(vec![reader.clone()])?;
     let term_docs = TestUtil::docs_with_reader(
       &mut random,
       &multi_readers,
