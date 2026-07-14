@@ -1623,7 +1623,11 @@ impl RunAddIndexesThreadBody for CommitAndAddIndexes3 {
       LuceneError::NoSuchFile(_) => !did_close,
       LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. }
         if source.kind() == std::io::ErrorKind::NotFound
-          || error.to_string().contains("aborted") =>
+          || error.to_string().contains("aborted")
+          || matches!(
+            error.get_suppressed(),
+            Ok(Some(LuceneError::MergeAborted(_)))
+          ) =>
       {
         !did_close
       },

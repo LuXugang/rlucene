@@ -194,7 +194,7 @@ where
   pub(crate) commit_user_data: Option<HashMap<String, String>>,
   pending_merges: VecDeque<OneMergeSR<D>>,
   running_merges: HashSet<MergeStat>,
-  merge_exceptions: Vec<MergeStat>,
+  merge_exceptions: Vec<(MergeStat, LuceneError)>,
   merge_gen: i64,
   // used by forceMerge to note those needing merging
   segments_to_merge: HashMap<String, Option<bool>>,
@@ -1966,13 +1966,18 @@ where
     res?;
     Ok(max_doc)
   }
-  fn add_merge_exception<CR>(&self, merge: &OneMerge<D, CR>)
+  fn add_merge_exception<CR>(&self, merge: &OneMerge<D, CR>, error: LuceneError)
   where
     CR: CodecReader,
   {
     let mut inner = self.inner.lock();
-    if !inner.merge_exceptions.contains(&merge.stat) && inner.merge_gen == merge.stat.merge_gen {
-      inner.merge_exceptions.push(merge.stat.clone());
+    if !inner
+      .merge_exceptions
+      .iter()
+      .any(|(merge_stat, _)| merge_stat == &merge.stat)
+      && inner.merge_gen == merge.stat.merge_gen
+    {
+      inner.merge_exceptions.push((merge.stat.clone(), error));
     }
   }
 
@@ -2234,9 +2239,16 @@ where
         }
 
         if !inner.merge_exceptions.is_empty() {
-          for merge in &inner.merge_exceptions {
+          // Forward any exceptions in background merge
+          // threads to the current thread:
+          for (merge, exception) in &inner.merge_exceptions {
             if merge.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS {
-              return Err(LuceneError::illegal_state("background merge hit exception"));
+              let mut error = LuceneError::from(std::io::Error::other(format!(
+                "background merge hit exception: {}",
+                Self::segment_ids_to_string(&merge.segments)
+              )));
+              error.add_suppressed(exception.clone());
+              return Err(error);
             }
           }
         }
@@ -5035,7 +5047,7 @@ where
     // forceMerge is waiting on us it sees the root
     // cause exception:
     merge.set_exception(t.clone());
-    self.add_merge_exception(merge);
+    self.add_merge_exception(merge, t.clone());
 
     if matches!(t, LuceneError::MergeAborted(_)) {
       // We can ignore this exception (it happens when
