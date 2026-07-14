@@ -98,18 +98,22 @@ where
       del_count,
       soft_del_count,
       del_gen,
-      next_write_del_gen: if del_gen == -1 { 1 } else { del_gen + 1 },
+      next_write_del_gen: if del_gen == -1 {
+        1
+      } else {
+        del_gen.wrapping_add(1)
+      },
       field_infos_gen,
       next_write_field_infos_gen: if field_infos_gen == -1 {
         1
       } else {
-        field_infos_gen + 1
+        field_infos_gen.wrapping_add(1)
       },
       doc_values_gen,
       next_write_doc_values_gen: if doc_values_gen == -1 {
         1
       } else {
-        doc_values_gen + 1
+        doc_values_gen.wrapping_add(1)
       },
       id,
       dv_updates_files: HashMap::new(),
@@ -155,14 +159,14 @@ where
   /// Called when we succeed in writing deletes.
   pub fn advance_del_gen(&mut self) {
     self.del_gen = self.next_write_del_gen;
-    self.next_write_del_gen = self.del_gen + 1;
+    self.next_write_del_gen = self.del_gen.wrapping_add(1);
     self.generation_advanced();
   }
 
   /// Called if there was an error while writing deletes, so that we don't
   /// try to write to the same file more than once.
   pub fn advance_next_write_del_gen(&mut self) {
-    self.next_write_del_gen += 1;
+    self.next_write_del_gen = self.next_write_del_gen.wrapping_add(1);
   }
 
   /// Gets the `nextWriteDelGen`.
@@ -178,7 +182,7 @@ where
   /// Called when we succeed in writing a new FieldInfos generation.
   pub fn advance_field_infos_gen(&mut self) {
     self.field_infos_gen = self.next_write_field_infos_gen;
-    self.next_write_field_infos_gen = self.field_infos_gen + 1;
+    self.next_write_field_infos_gen = self.field_infos_gen.wrapping_add(1);
     self.generation_advanced();
   }
 
@@ -186,7 +190,7 @@ where
   /// FieldInfos, so that we don't try to write to the same file more than
   /// once.
   pub fn advance_next_write_field_infos_gen(&mut self) {
-    self.next_write_field_infos_gen += 1;
+    self.next_write_field_infos_gen = self.next_write_field_infos_gen.wrapping_add(1);
   }
 
   /// Gets the `nextWriteFieldInfosGen`.
@@ -202,7 +206,7 @@ where
   /// Called when we succeed in writing a new DocValues generation.
   pub fn advance_doc_values_gen(&mut self) {
     self.doc_values_gen = self.next_write_doc_values_gen;
-    self.next_write_doc_values_gen = self.doc_values_gen + 1;
+    self.next_write_doc_values_gen = self.doc_values_gen.wrapping_add(1);
     self.generation_advanced();
   }
 
@@ -210,7 +214,7 @@ where
   /// DocValues, so that we don't try to write to the same file more than
   /// once.
   pub fn advance_next_write_doc_values_gen(&mut self) {
-    self.next_write_doc_values_gen += 1;
+    self.next_write_doc_values_gen = self.next_write_doc_values_gen.wrapping_add(1);
   }
 
   /// Gets the `nextWriteDocValuesGen`.
