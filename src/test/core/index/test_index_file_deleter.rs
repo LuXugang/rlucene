@@ -569,8 +569,7 @@ fn test_exc_in_dec_ref() -> Result<()> {
 
   do_fail_exc.store(false, Ordering::SeqCst);
   w.close(&mut random)?;
-  let dir_to_close = dir.as_ref().clone();
-  dir_to_close.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 
@@ -629,8 +628,7 @@ fn test_exc_in_delete_file() -> Result<()> {
         SegmentInfos::read_commit(dir.clone(), &name)?;
       }
     }
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
   }
   Ok(())
 }

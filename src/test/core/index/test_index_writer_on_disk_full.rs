@@ -135,8 +135,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
           directory_reader::open(dir.clone())?.close()?;
         }
 
-        let dir_to_close = dir.as_ref().clone();
-        dir_to_close.close()?;
+        dir.as_ref().close()?;
         // Now try again w/ more space:
 
         disk_free += if is_night_mode() {
@@ -148,8 +147,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
         // _TestUtil.syncConcurrentMerges(writer);
         dir.set_max_size_in_bytes(0);
         writer.close()?;
-        let dir_to_close = dir.as_ref().clone();
-        dir_to_close.close()?;
+        dir.as_ref().close()?;
         break;
       }
     }
@@ -455,8 +453,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
       dir.set_random_io_exception_rate(0.0);
       dir.set_random_io_exception_rate_on_open(0.0);
       writer.close()?;
-      let dir_to_close = dir.as_ref().clone();
-      dir_to_close.close()?;
+      dir.as_ref().close()?;
 
       // Try again with more free space:
       disk_free += if is_night_mode() {
@@ -467,11 +464,9 @@ fn test_add_index_on_disk_full() -> Result<()> {
     }
   }
 
-  let start_dir_to_close = start_dir.as_ref().clone();
-  start_dir_to_close.close()?;
+  start_dir.as_ref().close()?;
   for dir in dirs {
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
   }
   Ok(())
 }
@@ -593,8 +588,7 @@ fn test_corruption_after_disk_full_during_merge() -> Result<()> {
     Ok(_) => return Err(LuceneError::illegal_state("expected AlreadyClosed")),
   }
 
-  let dir_to_close = dir.as_ref().clone();
-  dir_to_close.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 
@@ -632,8 +626,7 @@ fn test_immediate_disk_full() -> Result<()> {
   assert!(writer.is_deleter_closed()?);
   assert!(writer.is_closed());
 
-  let dir_to_close = dir.as_ref().clone();
-  dir_to_close.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 

@@ -849,14 +849,12 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
         break;
       }
     }
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
 
     // Try again with more bytes of free space:
     disk_free += std::cmp::max(10, disk_free >> 3);
   }
-  let start_dir_to_close = start_dir.as_ref().clone();
-  start_dir_to_close.close()
+  start_dir.as_ref().close()
 }
 
 #[ignore]
@@ -971,8 +969,7 @@ fn test_error_after_apply_deletes() -> Result<()> {
 
     modifier.close()?;
   }
-  let dir_to_close = dir.as_ref().clone();
-  dir_to_close.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 

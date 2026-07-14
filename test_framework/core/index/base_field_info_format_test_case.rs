@@ -156,8 +156,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
     Ok(())
   }
   /// Test field infos write that hits exception on close. make sure we get our exception back, no
@@ -202,8 +201,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
     Ok(())
   }
   /// Test field infos read that hits exception immediately on open. make sure we get our exception
@@ -255,8 +253,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
     Ok(())
   }
   /// Test field infos read that hits exception on close. make sure we get our exception back, no
@@ -308,8 +305,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     }
     enabled.store(false, Ordering::SeqCst);
 
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
     Ok(())
   }
   // Test field infos read/write with random fields, with different values.

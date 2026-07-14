@@ -1123,8 +1123,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
 
   s.get_index_reader().close()?;
   w.close()?;
-  let dir_to_close = dir.as_ref().clone();
-  dir_to_close.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 

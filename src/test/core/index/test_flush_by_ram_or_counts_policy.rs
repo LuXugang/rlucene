@@ -342,8 +342,7 @@ fn test_stall_control() -> Result<()> {
     }
     assert_active_bytes_after(flush_control)?;
     writer.close()?;
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
   }
   Ok(())
 }

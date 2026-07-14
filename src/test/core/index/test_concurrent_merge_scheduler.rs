@@ -188,8 +188,7 @@ fn test_flush_exceptions() -> Result<()> {
   }
 
   assert!(!directory_reader::index_exists(directory.as_ref())?);
-  let directory_to_close = directory.as_ref().clone();
-  directory_to_close.close()?;
+  directory.as_ref().close()?;
   Ok(())
 }
 

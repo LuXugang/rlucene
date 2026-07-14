@@ -139,8 +139,7 @@ where
   'start_over: for _ in 0..num_iterations {
     // close from last run
     if let Some(previous_dir) = dir.take() {
-      let previous_dir = previous_dir.as_ref().clone();
-      previous_dir.close()?;
+      previous_dir.as_ref().close()?;
     }
     // disable slow things: we don't rely upon sleeps here.
     let new_dir = Arc::new(new_mock_directory(random)?);
@@ -364,8 +363,7 @@ where
   }
 
   if let Some(dir) = dir {
-    let dir = dir.as_ref().clone();
-    dir.close()?;
+    dir.as_ref().close()?;
   }
   Ok(())
 }

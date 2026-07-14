@@ -237,14 +237,12 @@ fn test() -> Result<()> {
   if let Some(reader) = reader {
     reader.close()?;
     if let Some(dir_copy) = dir_copy {
-      let dir_copy = dir_copy.as_ref().clone();
-      dir_copy.close()?;
+      dir_copy.as_ref().close()?;
     } else {
       return Err(LuceneError::illegal_state(
         "index copy is missing while its reader is open",
       ));
     }
   }
-  let dir = dir.as_ref().clone();
-  dir.close()
+  dir.as_ref().close()
 }

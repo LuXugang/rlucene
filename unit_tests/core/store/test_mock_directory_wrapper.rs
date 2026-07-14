@@ -119,8 +119,7 @@ fn test_mdw_inside_of_mdw() -> Result<()> {
     iw.commit(&mut random)?;
     iw.close(&mut random)?;
   }
-  let dir_to_close = dir.as_ref().clone();
-  dir_to_close.close()
+  dir.as_ref().close()
 }
 
 // just shields the wrapped directory from being closed

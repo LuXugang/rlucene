@@ -177,8 +177,7 @@ fn test_immediate_disk_full_with_threads() -> Result<()> {
       Err(error) => return Err(error),
     }
     writer.close()?;
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
   }
   Ok(())
 }
@@ -363,8 +362,7 @@ where
       reader.close()?;
     }
 
-    let dir_to_close = dir.as_ref().clone();
-    dir_to_close.close()?;
+    dir.as_ref().close()?;
   }
   Ok(())
 }
@@ -430,8 +428,7 @@ where
   );
 
   assert!(writer.is_deleter_closed()?);
-  let dir_to_close = dir.as_ref().clone();
-  dir_to_close.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 
