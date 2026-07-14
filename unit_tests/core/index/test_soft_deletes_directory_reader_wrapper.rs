@@ -1,0 +1,249 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+use crate::core::document::document::Document;
+use crate::core::document::field::Store;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::string_field::StringField;
+use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::directory_reader;
+use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::soft_deletes_directory_reader_wrapper::{
+  SoftDeletesCodecReader, SoftDeletesDirectoryReaderWrapper,
+};
+use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::search::index_searcher;
+use crate::core::search::term_query::TermQuery;
+use crate::core::util::close::CloseableRef;
+use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
+use crate::test_framework::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, random,
+};
+use rand::RngExt;
+use std::collections::HashSet;
+
+#[allow(dead_code)] // for quick search
+struct TestSoftDeletesDirectoryReaderWrapper;
+
+#[test]
+fn test_drop_fully_deleted_segments() -> Result<()> {
+  // TODO IMPORTANT: SoftDeletesRetentionMergePolicy 未实现
+  Ok(())
+}
+
+#[test]
+fn test_reuse_unchanged_leaf_reader() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
+  let soft_deletes_field = "soft_delete";
+  index_writer_config
+    .set_soft_deletes_field(soft_deletes_field)
+    .set_merge_policy(NoMergePolicy::default());
+  let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  writer.add_document(doc)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  writer.add_document(doc)?;
+  writer.commit()?;
+  let mut reader = SoftDeletesDirectoryReaderWrapper::new(
+    directory_reader::open(dir.clone())?,
+    soft_deletes_field,
+  )?;
+  assert_eq!(2, reader.num_docs()?);
+  assert_eq!(2, reader.max_doc()?);
+  assert_eq!(0, reader.num_deleted_docs()?);
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "2", Store::Yes)?);
+  writer.soft_update_document(
+    Term::from_text("id", "1"),
+    doc,
+    vec![NumericDocValuesField::new("soft_delete", 1).into()],
+  )?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "3", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  writer.add_document(doc)?;
+  writer.commit()?;
+
+  let new_reader = directory_reader::open_if_changed(&reader)?.expect("reader should change");
+  assert_ne!(
+    new_reader
+      .get_reader_cache_helper()?
+      .expect("reader cache helper should exist")
+      .get_key(),
+    reader
+      .get_reader_cache_helper()?
+      .expect("reader cache helper should exist")
+      .get_key()
+  );
+  reader.close()?;
+  reader = new_reader;
+  assert_eq!(3, reader.num_docs()?);
+  assert_eq!(4, reader.max_doc()?);
+  assert_eq!(1, reader.num_deleted_docs()?);
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "3", Store::Yes)?);
+  writer.soft_update_document(
+    Term::from_text("id", "1"),
+    doc,
+    vec![NumericDocValuesField::new("soft_delete", 1).into()],
+  )?;
+  writer.commit()?;
+
+  let new_reader = directory_reader::open_if_changed(&reader)?.expect("reader should change");
+  assert_ne!(
+    new_reader
+      .get_reader_cache_helper()?
+      .expect("reader cache helper should exist")
+      .get_key(),
+    reader
+      .get_reader_cache_helper()?
+      .expect("reader cache helper should exist")
+      .get_key()
+  );
+  assert_eq!(3, new_reader.get_sequential_sub_readers().len());
+  assert_eq!(2, reader.get_sequential_sub_readers().len());
+  assert_eq!(
+    reader_cache_key(&reader.get_sequential_sub_readers()[0])?,
+    reader_cache_key(&new_reader.get_sequential_sub_readers()[0])?
+  );
+  assert_ne!(
+    reader_cache_key(&reader.get_sequential_sub_readers()[1])?,
+    reader_cache_key(&new_reader.get_sequential_sub_readers()[1])?
+  );
+  assert!(is_wrapped(&reader.get_sequential_sub_readers()[0]));
+  // The last one has no soft deletes.
+  assert!(!is_wrapped(&reader.get_sequential_sub_readers()[1]));
+
+  assert!(is_wrapped(&new_reader.get_sequential_sub_readers()[0]));
+  assert!(is_wrapped(&new_reader.get_sequential_sub_readers()[1]));
+  // The last one has no soft deletes.
+  assert!(!is_wrapped(&new_reader.get_sequential_sub_readers()[2]));
+  reader.close()?;
+  reader = new_reader;
+  assert_eq!(3, reader.num_docs()?);
+  assert_eq!(5, reader.max_doc()?);
+  assert_eq!(2, reader.num_deleted_docs()?);
+
+  let close_result = IOUtils::use_or_suppress_result(reader.close(), writer.close());
+  IOUtils::use_or_suppress_result(close_result, dir.close())
+}
+
+fn is_wrapped<CR>(reader: &SoftDeletesCodecReader<CR>) -> bool
+where
+  CR: CodecReader,
+  CR::ReaderCacheHelper: Clone,
+{
+  matches!(reader, CodecReaderEnum2::B(_))
+}
+
+fn reader_cache_key<CR>(reader: &SoftDeletesCodecReader<CR>) -> Result<CacheKey>
+where
+  CR: CodecReader,
+  CR::ReaderCacheHelper: Clone,
+{
+  match reader {
+    CodecReaderEnum2::A(reader) => Ok(
+      reader
+        .get_reader_cache_helper()?
+        .expect("reader cache helper should exist")
+        .get_key(),
+    ),
+    CodecReaderEnum2::B(reader) => Ok(
+      reader
+        .get_reader_cache_helper()?
+        .expect("reader cache helper should exist")
+        .get_key(),
+    ),
+  }
+}
+
+#[test]
+fn test_mix_soft_and_hard_deletes() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
+  let soft_deletes_field = "soft_delete";
+  index_writer_config.set_soft_deletes_field(soft_deletes_field);
+  let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
+  let mut unique_docs = HashSet::new();
+  for _ in 0..100 {
+    let doc_id = random.random_range(0..5);
+    unique_docs.insert(doc_id);
+    let mut doc = Document::new();
+    doc.add(StringField::from_string(
+      "id",
+      doc_id.to_string(),
+      Store::Yes,
+    )?);
+    if doc_id % 2 == 0 {
+      writer.update_document_with_term(Term::from_text("id", doc_id.to_string()), doc)?;
+    } else {
+      writer.soft_update_document(
+        Term::from_text("id", doc_id.to_string()),
+        doc,
+        vec![NumericDocValuesField::new(soft_deletes_field, 0).into()],
+      )?;
+    }
+  }
+
+  writer.commit()?;
+  writer.close()?;
+  let reader = SoftDeletesDirectoryReaderWrapper::new(
+    directory_reader::open(dir.clone())?,
+    soft_deletes_field,
+  )?;
+  assert_eq!(unique_docs.len() as i32, reader.num_docs()?);
+  let searcher = index_searcher::from_reader(reader)?;
+  for doc_id in unique_docs {
+    assert_eq!(
+      1,
+      searcher.count(TermQuery::new(Term::from_text("id", doc_id.to_string())))?
+    );
+  }
+
+  let close_result = searcher.get_index_reader().close();
+  IOUtils::use_or_suppress_result(close_result, dir.close())
+}
+
+#[test]
+fn test_reader_cache_key() -> Result<()> {
+  // TODO IMPORTANT: CacheHelper.addClosedListener and reader closed listeners are not implemented
+  Ok(())
+}
+
+#[test]
+fn test_avoid_wrapping_readers_without_soft_deletes() -> Result<()> {
+  // TODO IMPORTANT: SoftDeletesRetentionMergePolicy 未实现
+  Ok(())
+}

@@ -75,6 +75,7 @@ mod test_same_scores_with_threads;
 mod test_same_token_same_position;
 mod test_segment_infos;
 mod test_size_bounded_force_merge;
+mod test_soft_deletes_directory_reader_wrapper;
 mod test_sorting_codec_reader;
 mod test_stress_advance;
 mod test_stress_deletes;
