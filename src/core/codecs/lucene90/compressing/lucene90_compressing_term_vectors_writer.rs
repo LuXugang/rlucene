@@ -848,7 +848,11 @@ where
   {
     match merge_state.term_vectors_readers[reader_index] {
       Some(ref reader) => {
-        let reader = reader.raw_term_vectors()?;
+        let reader = match reader.raw_term_vectors() {
+          Ok(reader) => reader,
+          Err(LuceneError::UnsupportedOperation(_)) => return Ok(false),
+          Err(err) => return Err(err),
+        };
         let v = *BULK_MERGE_ENABLED
           && matching_readers.matching_readers[reader_index]
           && *reader.get_compression_mode() == self.compression_mode

@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::index_writer::Inner;
-use crate::core::index::merge_policy::{MergeStat, OneMergeSR};
+use crate::core::index::merge_policy::{MergeStat, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
@@ -28,6 +29,10 @@ use crate::impl_from_for_enum;
 use crate::test_framework::core::index::base_knn_vectors_format_test_case::TestMergeScheduler;
 #[cfg(test)]
 use crate::test_framework::core::index::base_merge_policy_test_case::SerialMergeSchedulerImpl;
+#[cfg(test)]
+use crate::test_framework::core::index::test_add_indexes::{
+  CountingSerialMergeScheduler, PartialMergeScheduler,
+};
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_writer_merge_policy::LatchedSerialMergeScheduler;
 #[cfg(test)]
@@ -47,7 +52,7 @@ pub trait MergeScheduler: CloseableRef {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static;
+    OneMerge<D, MS::Reader>: Send + 'static;
   type Directory<D>: Directory
   where
     D: Directory;
@@ -71,9 +76,11 @@ pub trait MergeSource<D>: Send
 where
   D: Directory,
 {
+  type Reader: CodecReader;
+
   /// The `MergeScheduler` calls this method to retrieve the next merge
   /// requested by the `MergePolicy`.
-  fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>>;
+  fn get_next_merge(&self) -> Result<Option<OneMerge<D, Self::Reader>>>;
 
   /// Does finishing for a merge.
   fn on_merge_finished(&self, merge: &MergeStat, inner: Option<&mut Inner<D>>);
@@ -83,7 +90,7 @@ where
 
   /// Merges the indicated segments, replacing them in the stack
   /// with a single segment.
-  fn merge(&self, merge: OneMergeSR<D>) -> Result<()>
+  fn merge(&self, merge: OneMerge<D, Self::Reader>) -> Result<()>
   where
     D: 'static;
 }
@@ -100,6 +107,10 @@ pub enum MergeSchedulerEnum {
   KnnMergeScheduler(TestMergeScheduler),
   #[cfg(test)]
   IndexWriterMerging(MyMergeScheduler),
+  #[cfg(test)]
+  PartialAddIndexes(PartialMergeScheduler),
+  #[cfg(test)]
+  CountingAddIndexes(CountingSerialMergeScheduler),
 }
 impl_from_for_enum!(
     MergeSchedulerEnum,
@@ -127,6 +138,10 @@ impl CloseableRef for MergeSchedulerEnum {
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.close(),
       #[cfg(test)]
       MergeSchedulerEnum::IndexWriterMerging(s) => s.close(),
+      #[cfg(test)]
+      MergeSchedulerEnum::PartialAddIndexes(s) => s.close(),
+      #[cfg(test)]
+      MergeSchedulerEnum::CountingAddIndexes(s) => s.close(),
     }
   }
 }
@@ -136,7 +151,7 @@ impl MergeScheduler for MergeSchedulerEnum {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     match self {
       MergeSchedulerEnum::Serial(s) => s.merge(merge_source, trigger),
@@ -150,6 +165,10 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.merge(merge_source, trigger),
       #[cfg(test)]
       MergeSchedulerEnum::IndexWriterMerging(s) => s.merge(merge_source, trigger),
+      #[cfg(test)]
+      MergeSchedulerEnum::PartialAddIndexes(s) => s.merge(merge_source, trigger),
+      #[cfg(test)]
+      MergeSchedulerEnum::CountingAddIndexes(s) => s.merge(merge_source, trigger),
     }
   }
 
@@ -178,6 +197,10 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::KnnMergeScheduler(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
       #[cfg(test)]
       MergeSchedulerEnum::IndexWriterMerging(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
+      #[cfg(test)]
+      MergeSchedulerEnum::PartialAddIndexes(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
+      #[cfg(test)]
+      MergeSchedulerEnum::CountingAddIndexes(s) => Ok(DirectoryEnum3::A(s.wrap_for_merge(in_)?)),
     }
   }
 
@@ -197,6 +220,10 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::KnnMergeScheduler(s) => s.initialize(directory),
       #[cfg(test)]
       MergeSchedulerEnum::IndexWriterMerging(s) => s.initialize(directory),
+      #[cfg(test)]
+      MergeSchedulerEnum::PartialAddIndexes(s) => s.initialize(directory),
+      #[cfg(test)]
+      MergeSchedulerEnum::CountingAddIndexes(s) => s.initialize(directory),
     }
   }
 }

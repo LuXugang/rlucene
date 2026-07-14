@@ -22,6 +22,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
@@ -148,6 +149,8 @@ fn do_test_change_index_options_add_indexes_codec_reader(
   reader.close()?;
   w1.close()?;
   w2.close()?;
+  dir1.close()?;
+  dir2.close()?;
   Ok(())
 }
 #[test]

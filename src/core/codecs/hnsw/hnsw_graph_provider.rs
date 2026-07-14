@@ -22,6 +22,11 @@ use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 pub trait HnswGraphProvider {
   type HnswGraph: HnswGraph;
 
+  /// Whether this reader corresponds to Java's `HnswGraphProvider` capability.
+  fn is_hnsw_graph_provider(&self) -> bool {
+    false
+  }
+
   /// Return the stored HnswGraph for the given field.
   ///
   /// # Arguments

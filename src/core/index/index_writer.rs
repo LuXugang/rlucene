@@ -201,7 +201,6 @@ where
   merges: Merges,
   merging_segments: HashSet<String>,
   merge_max_num_segments: i32,
-  pending_add_indexes_merges: VecDeque<OneMergeSR<D>>,
   running_add_indexes_merges: HashSet<String>,
 }
 
@@ -244,13 +243,16 @@ where
     Ok(IndexWriterMergeSource::new(writer))
   }
 
-  fn new_add_indexes_merge_source(&self) -> Result<AddIndexesMergeSource<D>> {
+  fn new_add_indexes_merge_source<CR>(&self) -> Result<Arc<AddIndexesMergeSource<D, CR>>>
+  where
+    CR: CodecReader,
+  {
     let writer = self.arc_self().ok_or_else(|| {
       LuceneError::illegal_state(
         "background addIndexes merges require IndexWriter to be constructed as Arc<IndexWriter>",
       )
     })?;
-    Ok(AddIndexesMergeSource::new(writer))
+    Ok(Arc::new(AddIndexesMergeSource::new(writer)))
   }
 
   fn into_arc(self) -> Arc<Self> {
@@ -584,7 +586,6 @@ where
           merges: Merges::new(),
           merging_segments: HashSet::new(),
           merge_max_num_segments: 0,
-          pending_add_indexes_merges: VecDeque::new(),
           running_add_indexes_merges: HashSet::new(),
         }),
         pausing: Condvar::new(),
@@ -1965,7 +1966,10 @@ where
     res?;
     Ok(max_doc)
   }
-  fn add_merge_exception(&self, merge: &OneMergeSR<D>) {
+  fn add_merge_exception<CR>(&self, merge: &OneMerge<D, CR>)
+  where
+    CR: CodecReader,
+  {
     let mut inner = self.inner.lock();
     if !inner.merge_exceptions.contains(&merge.stat) && inner.merge_gen == merge.stat.merge_gen {
       inner.merge_exceptions.push(merge.stat.clone());
@@ -2775,11 +2779,6 @@ where
       Ok(())
     })?;
 
-    // abort any merges pending from addIndexes(CodecReader...)
-    self
-      .new_add_indexes_merge_source()?
-      .abort_pending_merges(inner)?;
-
     for merge_stat in &inner.running_merges {
       if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
@@ -3184,14 +3183,18 @@ where
           let seq_no = self.doc_writer.get_next_sequence_number();
           Ok(seq_no)
         })();
-        if publish_result.is_err() {
-          for sipc in &infos {
-            self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
-          }
-        }
+        let seq_no = match publish_result {
+          Ok(seq_no) => seq_no,
+          Err(error) => {
+            for sipc in &infos {
+              self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
+            }
+            return Err(error);
+          },
+        };
         inner.segment_infos.add_all(infos)?;
         self.checkpoint(&mut inner)?;
-        publish_result?
+        seq_no
       };
       Ok(seq_no)
     })();
@@ -3281,23 +3284,26 @@ where
   /// - [`LuceneError::CorruptIndex`] if the index is corrupt
   /// - an error if there is a low-level IO error
   /// - [`LuceneError::IllegalArgument`] if `add_indexes` would cause the index to exceed `MAX_DOCS`
-  pub fn add_indexes_from_codec_readers(&self, readers: Vec<DefaultLeafReader<D>>) -> Result<i64>
+  pub fn add_indexes_from_codec_readers<CR>(&self, readers: Vec<CR>) -> Result<i64>
   where
     D: 'static,
+    CR: CodecReader + 'static,
+    OneMerge<D, Arc<CR>>: Send + 'static,
   {
     self.ensure_open()?;
+    let readers: Vec<_> = readers.into_iter().map(Arc::new).collect();
     let res = (|| {
       let mut num_docs = 0_i64;
-      {
-        let global_field_number_map = self.global_field_number_map.lock();
-        for leaf in &readers {
-          self.validate_merge_reader(leaf)?;
-          let field_infos = leaf.get_field_infos()?;
+      for leaf in &readers {
+        self.validate_merge_reader(leaf)?;
+        let field_infos = leaf.get_field_infos()?;
+        {
+          let global_field_number_map = self.global_field_number_map.lock();
           for fi in field_infos.iter() {
             global_field_number_map.verify_field_info(fi)?;
           }
-          num_docs += i64::from(leaf.num_docs()?);
         }
+        num_docs += i64::from(leaf.num_docs()?);
       }
       self.test_reserve_docs(num_docs)?;
 
@@ -3311,9 +3317,9 @@ where
         }
       }
       let merge_policy = self.config.get_merge_policy();
-      let mut merges = match merge_policy.find_merges_readers(readers)? {
+      let (mut merges, merge_stats) = match merge_policy.find_merges_readers(readers)? {
         Some(spec) if !spec.merges.is_empty() => {
-          let merge_source = self.new_add_indexes_merge_source()?;
+          let merge_source = self.new_add_indexes_merge_source::<Arc<CR>>()?;
           let mut merge_stats = Vec::with_capacity(spec.merges.len());
           {
             let mut inner = self.inner.lock();
@@ -3322,30 +3328,43 @@ where
               merge_source.register_merge(om, &mut inner);
             }
           }
-          self
+          let schedule_result = self
             .config
             .get_merge_scheduler()
-            .merge(merge_source.clone(), MergeTrigger::AddIndexes)?;
-          MergeSpecification::<D, DefaultLeafReader<D>>::await_(&merge_stats);
-          merge_source.take_processed_merges()
+            .merge(merge_source.clone(), MergeTrigger::AddIndexes);
+          let abort_result = {
+            let mut inner = self.inner.lock();
+            if schedule_result.is_err() || !inner.merges.are_enabled() {
+              merge_source.abort_pending_merges(&mut inner)
+            } else {
+              Ok(())
+            }
+          };
+          IOUtils::use_or_suppress_result(schedule_result, abort_result)?;
+          MergeSpecification::<D, Arc<CR>>::await_(&merge_stats);
+          (merge_source.take_processed_merges(), merge_stats)
         },
         None => {
-          self.info_stream.message(
-            "addIndexes(CodecReaders...)",
-            "received None mergeSpecification from MergePolicy. No indexes to add, returning..",
-          )?;
+          if self.info_stream.is_enabled("IW") {
+            self.info_stream.message(
+              "addIndexes(CodecReaders...)",
+              "received None mergeSpecification from MergePolicy. No indexes to add, returning..",
+            )?;
+          }
           return Ok(self.doc_writer.get_next_sequence_number());
         },
         Some(_) => {
-          self.info_stream.message(
-            "addIndexes(CodecReaders...)",
-            "received empty mergeSpecification from MergePolicy. No indexes to add, returning..",
-          )?;
+          if self.info_stream.is_enabled("IW") {
+            self.info_stream.message(
+              "addIndexes(CodecReaders...)",
+              "received empty mergeSpecification from MergePolicy. No indexes to add, returning..",
+            )?;
+          }
           return Ok(self.doc_writer.get_next_sequence_number());
         },
       };
 
-      let merge_success = merges
+      let merge_success = merge_stats
         .iter()
         .all(|merge| merge.has_completed_successfully().unwrap_or(false));
 
@@ -3625,15 +3644,18 @@ where
       info.set_use_compound_file(true);
     }
 
+    merge.set_merge_info(sci);
+    let info = merge
+      .get_merge_info_mut()
+      .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
     let info =
-      Arc::get_mut(&mut sci.info).ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
+      Arc::get_mut(&mut info.info).ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
     self
       .config
       .get_codec()
       .segment_info_format()
       .write(&tracking_dir, info, &context)?;
     info.add_files(tracking_dir.take_created_files())?;
-    merge.set_merge_info(sci);
 
     Ok(())
   }
@@ -4994,7 +5016,10 @@ where
     Ok(true)
   }
 
-  fn handle_merge_exception(&self, t: LuceneError, merge: &OneMergeSR<D>) -> Result<()> {
+  fn handle_merge_exception<CR>(&self, t: LuceneError, merge: &OneMerge<D, CR>) -> Result<()>
+  where
+    CR: CodecReader,
+  {
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
@@ -8345,6 +8370,8 @@ impl<D> MergeSource<D> for IndexWriterMergeSource<D>
 where
   D: Directory,
 {
+  type Reader = DefaultLeafReader<D>;
+
   fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>> {
     self.writer().get_next_merge()
   }
@@ -8373,34 +8400,26 @@ where
     self.writer().merge(&mut merge)
   }
 }
-struct AddIndexesMergeSource<D>
+struct AddIndexesMergeSource<D, CR>
 where
   D: Directory,
+  CR: CodecReader,
 {
   writer: Arc<IndexWriter<D>>,
-  processed_merges: Arc<Mutex<Vec<OneMergeSR<D>>>>,
+  pending_merges: Mutex<VecDeque<OneMerge<D, CR>>>,
+  processed_merges: Mutex<Vec<OneMerge<D, CR>>>,
 }
 
-impl<D> Clone for AddIndexesMergeSource<D>
+impl<D, CR> AddIndexesMergeSource<D, CR>
 where
   D: Directory,
-{
-  fn clone(&self) -> Self {
-    Self {
-      writer: self.writer.clone(),
-      processed_merges: self.processed_merges.clone(),
-    }
-  }
-}
-
-impl<D> AddIndexesMergeSource<D>
-where
-  D: Directory,
+  CR: CodecReader,
 {
   fn new(writer: Arc<IndexWriter<D>>) -> Self {
     Self {
       writer,
-      processed_merges: Arc::new(Mutex::new(Vec::new())),
+      pending_merges: Mutex::new(VecDeque::new()),
+      processed_merges: Mutex::new(Vec::new()),
     }
   }
 
@@ -8408,54 +8427,60 @@ where
     self.writer.as_ref()
   }
 
-  fn register_merge(&self, merge: OneMergeSR<D>, inner: &mut MutexGuard<'_, Inner<D>>) {
-    inner.pending_add_indexes_merges.push_back(merge);
+  fn register_merge(&self, merge: OneMerge<D, CR>, _inner: &mut MutexGuard<'_, Inner<D>>) {
+    self.pending_merges.lock().push_back(merge);
   }
 
-  fn abort_pending_merges(&self, inner: &mut Inner<D>) -> Result<()> {
-    let mut pending_add_indexes_merges = std::mem::take(&mut inner.pending_add_indexes_merges);
-    IOUtils::close(
-      pending_add_indexes_merges.make_contiguous().iter_mut(),
-      |merge| {
-        if self.writer().info_stream.is_enabled("IW") {
-          self
-            .writer()
-            .info_stream
-            .message("IW", "now abort pending addIndexes merge")?;
-        }
-        merge.set_aborted()?;
-        merge.close(inner, false, false, |_, _| Ok(()))?;
-        self.on_merge_finished(&merge.stat, Some(inner));
-        Ok(())
-      },
-    )?;
-
-    Ok(())
-  }
-
-  fn has_pending_merges_locked(inner: &Inner<D>) -> bool {
-    !inner.pending_add_indexes_merges.is_empty()
+  fn has_pending_merges_locked(&self, inner: &Inner<D>) -> bool {
+    inner.merges.are_enabled() && !self.pending_merges.lock().is_empty()
   }
 
   fn on_merge_finished_locked(&self, merge: &MergeStat, inner: &mut Inner<D>) {
     inner.running_merges.remove(merge);
   }
-  fn take_processed_merges(&self) -> Vec<OneMergeSR<D>> {
+  fn take_processed_merges(&self) -> Vec<OneMerge<D, CR>> {
     let mut processed_merges = self.processed_merges.lock();
     std::mem::take(&mut *processed_merges)
   }
+
+  fn abort_pending_merges(&self, inner: &mut Inner<D>) -> Result<()> {
+    let mut pending_merges = {
+      let mut pending_merges = self.pending_merges.lock();
+      std::mem::take(&mut *pending_merges)
+    };
+    let result = IOUtils::close(pending_merges.make_contiguous().iter_mut(), |merge| {
+      if self.writer().info_stream.is_enabled("IW") {
+        self
+          .writer()
+          .info_stream
+          .message("IW", "now abort pending addIndexes merge")?;
+      }
+      merge.set_aborted()?;
+      merge.close(inner, false, false, |_, _| Ok(()))?;
+      self.on_merge_finished_locked(&merge.stat, inner);
+      Ok(())
+    });
+    self.processed_merges.lock().extend(pending_merges);
+    result
+  }
 }
-impl<D> MergeSource<D> for AddIndexesMergeSource<D>
+
+impl<D, CR> MergeSource<D> for Arc<AddIndexesMergeSource<D, CR>>
 where
-  D: Directory,
+  D: Directory + 'static,
+  CR: CodecReader + Clone + 'static,
+  OneMerge<D, CR>: Send + 'static,
 {
-  fn get_next_merge(&self) -> Result<Option<OneMergeSR<D>>> {
+  type Reader = CR;
+
+  fn get_next_merge(&self) -> Result<Option<OneMerge<D, CR>>> {
     let mut inner = self.writer().inner.lock();
-    if !Self::has_pending_merges_locked(&inner) {
+    if !self.has_pending_merges_locked(&inner) {
       return Ok(None);
     }
-    let merge = inner
-      .pending_add_indexes_merges
+    let merge = self
+      .pending_merges
+      .lock()
       .pop_front()
       .ok_or_else(|| LuceneError::illegal_state("should have pending merges"))?;
     inner.running_merges.insert(merge.stat.clone());
@@ -8474,15 +8499,15 @@ where
 
   fn has_pending_merges(&self, inner: Option<&mut Inner<D>>) -> Result<bool> {
     match inner {
-      Some(inner) => Ok(Self::has_pending_merges_locked(inner)),
+      Some(inner) => Ok(self.has_pending_merges_locked(inner)),
       None => {
         let inner = self.writer().inner.lock();
-        Ok(Self::has_pending_merges_locked(&inner))
+        Ok(self.has_pending_merges_locked(&inner))
       },
     }
   }
 
-  fn merge(&self, mut merge: OneMergeSR<D>) -> Result<()>
+  fn merge(&self, mut merge: OneMerge<D, CR>) -> Result<()>
   where
     D: 'static,
   {
@@ -8500,14 +8525,16 @@ where
         &merge,
       ),
     };
-    let mut processed_merges = self.processed_merges.lock();
-    processed_merges.push(merge);
-    let merge = processed_merges.last_mut().unwrap();
-    {
+    let close_result = {
       let mut inner = self.writer().inner.lock();
-      merge.close(&mut inner, success, false, |_, _| Ok(()))?;
-      self.on_merge_finished(&merge.stat, Some(&mut *inner));
-    }
+      let mut processed_merges = self.processed_merges.lock();
+      processed_merges.push(merge);
+      let merge = processed_merges.last_mut().unwrap();
+      let close_result = merge.close(&mut inner, success, false, |_, _| Ok(()));
+      self.on_merge_finished_locked(&merge.stat, &mut inner);
+      close_result
+    };
+    close_result?;
     result
   }
 }

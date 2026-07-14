@@ -280,7 +280,16 @@ where
   }
 }
 
-impl<T> DocValuesIterator for SortingNumericDocValues<T> where T: BitSet {}
+impl<T> DocValuesIterator for SortingNumericDocValues<T>
+where
+  T: BitSet,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    // needed in IndexSorter#{Long|Int|Double|Float}Sorter
+    self.doc_id = target;
+    Ok(self.dvs.advance_exact(target))
+  }
+}
 
 impl<T> DocIdSetIterator for SortingNumericDocValues<T>
 where

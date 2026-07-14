@@ -16,7 +16,6 @@
  */
 pub(crate) mod force_merge_policy;
 mod mismatched_codec_reader;
-mod test_add_indexes;
 mod test_all_file_have_codec_header;
 mod test_all_files_have_checksum_footer;
 mod test_atomic_update;

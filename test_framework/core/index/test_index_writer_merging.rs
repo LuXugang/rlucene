@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::merge_policy::OneMergeSR;
+use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
@@ -35,7 +35,7 @@ impl MergeScheduler for MyMergeScheduler {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     loop {
       let merge = match merge_source.get_next_merge()? {

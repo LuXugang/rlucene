@@ -620,7 +620,7 @@ where
   input: S,
   ords: DocOrds,
   doc_id: i32,
-  ord_upto: usize,
+  ord_upto: i64,
   count: i32,
 }
 
@@ -640,7 +640,7 @@ where
 
   fn init_count(&mut self) -> Result<()> {
     let doc_id = self.doc_id.try_convert()?;
-    self.ord_upto = self.ords.offsets[doc_id] - 1;
+    self.ord_upto = self.ords.offsets[doc_id] as i64 - 1;
     self.count = self.ords.doc_value_counts.get(doc_id) as i32;
     Ok(())
   }
@@ -695,7 +695,7 @@ where
   S: SortedSetDocValues,
 {
   fn next_ord(&mut self) -> Result<i64> {
-    let ord = self.ords.ords.get(self.ord_upto)?;
+    let ord = self.ords.ords.get(self.ord_upto.try_convert()?)?;
     self.ord_upto += 1;
     Ok(ord)
   }
@@ -722,15 +722,7 @@ where
     self.default_terms_enum()
   }
 
-  fn is_single_valued(&self) -> bool {
-    self.input.is_single_valued()
-  }
-
-  type SortedDocValues = S::SortedDocValues;
-
-  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
-    self.input.get_sorted_doc_values()
-  }
+  type SortedDocValues = DummySortedDocValues;
 }
 
 #[derive(Clone)]

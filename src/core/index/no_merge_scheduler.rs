@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::store::directory::Directory;
@@ -50,7 +51,7 @@ impl MergeScheduler for NoMergeScheduler {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    crate::core::index::merge_policy::OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     Ok(())
   }

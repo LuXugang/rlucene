@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
-use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
+use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
@@ -364,14 +364,6 @@ where
   SFR: StoredFieldsReader + RawStoredFieldsReader,
 {
   type IndexInput = SFR::IndexInput;
-
-  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-    self.in_.raw_stored_fields_mut()
-  }
-
-  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-    self.in_.raw_stored_fields()
-  }
 }
 
 impl<SFR> StoredFields for MismatchedStoredFieldsReader<SFR>

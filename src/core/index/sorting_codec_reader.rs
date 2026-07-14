@@ -23,9 +23,7 @@ use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
-use crate::core::codecs::stored_fields_reader::{
-  DefaultStoredFieldsReader, StoredFieldsReader, StoredFieldsReaderEnum2,
-};
+use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{
   DefaultTermVectorsReader, TermVectorsReader, TermVectorsReaderEnum2,
@@ -169,49 +167,56 @@ where
     LeafReader::terms(&self.in_, field)
   }
 
-  type NumericDocValues = <CR as LeafReader>::NumericDocValues;
+  type NumericDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::NumericDocValues;
 
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
-    LeafReader::get_numeric_doc_values(&self.in_, field)
+    CodecReader::get_numeric_doc_values(self, field)
   }
 
-  type BinaryDocValues = <CR as LeafReader>::BinaryDocValues;
+  type BinaryDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::BinaryDocValues;
 
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
-    LeafReader::get_binary_doc_values(&self.in_, field)
+    CodecReader::get_binary_doc_values(self, field)
   }
 
-  type SortedDocValues = <CR as LeafReader>::SortedDocValues;
+  type SortedDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedDocValues;
 
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
-    LeafReader::get_sorted_doc_values(&self.in_, field)
+    CodecReader::get_sorted_doc_values(self, field)
   }
 
-  type SortedNumericDocValues = <CR as LeafReader>::SortedNumericDocValues;
+  type SortedNumericDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedNumericDocValues;
 
   fn get_sorted_numeric_doc_values(
     &self,
     field: &str,
   ) -> Result<Option<Self::SortedNumericDocValues>> {
-    LeafReader::get_sorted_numeric_doc_values(&self.in_, field)
+    CodecReader::get_sorted_numeric_doc_values(self, field)
   }
 
-  type SortedSetDocValues = <CR as LeafReader>::SortedSetDocValues;
+  type SortedSetDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedSetDocValues;
 
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-    LeafReader::get_sorted_set_doc_values(&self.in_, field)
+    CodecReader::get_sorted_set_doc_values(self, field)
   }
 
-  type NormNumericDocValues = <CR as LeafReader>::NormNumericDocValues;
+  type NormNumericDocValues =
+    <<Self as CodecReader>::NormsProducer as NormsProducer>::NumericDocValues;
 
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-    LeafReader::get_norm_values(&self.in_, field)
+    CodecReader::get_norm_values(self, field)
   }
 
-  type DocValuesSkipper = <CR as LeafReader>::DocValuesSkipper;
+  type DocValuesSkipper =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::DocValuesSkipper;
 
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-    LeafReader::get_doc_values_skipper(&self.in_, field)
+    CodecReader::get_doc_values_skipper(self, field)
   }
 
   type FloatVectorValues = <CR as LeafReader>::FloatVectorValues;
@@ -503,11 +508,15 @@ where
   type IndexInput = <T as RawTermVectors>::IndexInput;
 
   fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
-    self.delegate.raw_term_vectors_mut()
+    Err(LuceneError::unsupported_operation(
+      "raw term vectors are not available for SortingCodecReader",
+    ))
   }
 
   fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
-    self.delegate.raw_term_vectors()
+    Err(LuceneError::unsupported_operation(
+      "raw term vectors are not available for SortingCodecReader",
+    ))
   }
 }
 
@@ -877,7 +886,7 @@ where
   let mut docs_with_field = FixedBitSet::new(max_doc);
   let mut values = vec![0i64; max_doc];
 
-  let doc_id = old_numerics.next_doc()?;
+  let mut doc_id = old_numerics.next_doc()?;
   loop {
     if doc_id == NO_MORE_DOCS {
       break;
@@ -885,6 +894,7 @@ where
     let new_doc_id = doc_map.old_to_new(doc_id)? as usize;
     docs_with_field.set(new_doc_id);
     values[new_doc_id] = old_numerics.long_value()?;
+    doc_id = old_numerics.next_doc()?;
   }
 
   Ok(NumericDVs::new(values, Some(docs_with_field)))
@@ -1558,6 +1568,16 @@ where
   fn check_integrity(&self) -> Result<()> {
     self.delegate.check_integrity()
   }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self.delegate.get_merge_instance()? {
+      Some(delegate) => Ok(Some(new_stored_fields_reader(
+        delegate,
+        self.doc_map.clone(),
+      ))),
+      None => Ok(None),
+    }
+  }
 }
 
 impl<SFR, DM> RawStoredFieldsReader for StoredFieldsReaderImpl<SFR, DM>
@@ -1566,14 +1586,6 @@ where
   DM: DocMap + Clone,
 {
   type IndexInput = SFR::IndexInput;
-
-  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-    self.delegate.raw_stored_fields_mut()
-  }
-
-  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-    self.delegate.raw_stored_fields()
-  }
 }
 
 pub struct FieldsProducerImpl<FP, DM>
@@ -1991,78 +2003,56 @@ where
     }
   }
 
-  type NumericDocValues = <CR as LeafReader>::NumericDocValues;
+  type NumericDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::NumericDocValues;
 
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => LeafReader::get_numeric_doc_values(reader, field),
-      SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_numeric_doc_values(reader, field),
-    }
+    CodecReader::get_numeric_doc_values(self, field)
   }
 
-  type BinaryDocValues = <CR as LeafReader>::BinaryDocValues;
+  type BinaryDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::BinaryDocValues;
 
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => LeafReader::get_binary_doc_values(reader, field),
-      SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_binary_doc_values(reader, field),
-    }
+    CodecReader::get_binary_doc_values(self, field)
   }
 
-  type SortedDocValues = <CR as LeafReader>::SortedDocValues;
+  type SortedDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedDocValues;
 
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => LeafReader::get_sorted_doc_values(reader, field),
-      SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_sorted_doc_values(reader, field),
-    }
+    CodecReader::get_sorted_doc_values(self, field)
   }
 
-  type SortedNumericDocValues = <CR as LeafReader>::SortedNumericDocValues;
+  type SortedNumericDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedNumericDocValues;
 
   fn get_sorted_numeric_doc_values(
     &self,
     field: &str,
   ) -> Result<Option<Self::SortedNumericDocValues>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => {
-        LeafReader::get_sorted_numeric_doc_values(reader, field)
-      },
-      SortingCodecReaderEnum::Sorting(reader) => {
-        LeafReader::get_sorted_numeric_doc_values(reader, field)
-      },
-    }
+    CodecReader::get_sorted_numeric_doc_values(self, field)
   }
 
-  type SortedSetDocValues = <CR as LeafReader>::SortedSetDocValues;
+  type SortedSetDocValues =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::SortedSetDocValues;
 
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => {
-        LeafReader::get_sorted_set_doc_values(reader, field)
-      },
-      SortingCodecReaderEnum::Sorting(reader) => {
-        LeafReader::get_sorted_set_doc_values(reader, field)
-      },
-    }
+    CodecReader::get_sorted_set_doc_values(self, field)
   }
 
-  type NormNumericDocValues = <CR as LeafReader>::NormNumericDocValues;
+  type NormNumericDocValues =
+    <<Self as CodecReader>::NormsProducer as NormsProducer>::NumericDocValues;
 
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => LeafReader::get_norm_values(reader, field),
-      SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_norm_values(reader, field),
-    }
+    CodecReader::get_norm_values(self, field)
   }
 
-  type DocValuesSkipper = <CR as LeafReader>::DocValuesSkipper;
+  type DocValuesSkipper =
+    <<Self as CodecReader>::DocValuesProducer as DocValuesProducer>::DocValuesSkipper;
 
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-    match self {
-      SortingCodecReaderEnum::Filter(reader) => LeafReader::get_doc_values_skipper(reader, field),
-      SortingCodecReaderEnum::Sorting(reader) => LeafReader::get_doc_values_skipper(reader, field),
-    }
+    CodecReader::get_doc_values_skipper(self, field)
   }
 
   type FloatVectorValues = <CR as LeafReader>::FloatVectorValues;

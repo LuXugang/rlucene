@@ -326,6 +326,10 @@ where
 {
   type HnswGraph = HnswGraphEnum2<Box<OffHeapHnswGraph<I>>, EmptyHnswGraph>;
 
+  fn is_hnsw_graph_provider(&self) -> bool {
+    true
+  }
+
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     let info = self
       .field_infos

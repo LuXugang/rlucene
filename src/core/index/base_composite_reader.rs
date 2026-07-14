@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::composite_reader::CompositeReader;
@@ -416,18 +415,6 @@ where
   R::StoredFields: RawStoredFieldsReader,
 {
   type IndexInput = <R::StoredFields as RawStoredFieldsReader>::IndexInput;
-
-  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-    Err(LuceneError::illegal_state(
-      "Raw stored fields are not available for composite readers",
-    ))
-  }
-
-  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-    Err(LuceneError::illegal_state(
-      "Raw stored fields are not available for composite readers",
-    ))
-  }
 }
 /// Helper method for implementations to get the corresponding reader for a document ID.
 pub fn reader_index(doc_id: i32, max_doc: i32, starts: &[usize]) -> Result<usize> {

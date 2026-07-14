@@ -20,7 +20,6 @@ use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
-use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
@@ -1272,16 +1271,4 @@ impl StoredFields for EmptyStoredFields {
 
 impl RawStoredFieldsReader for EmptyStoredFields {
   type IndexInput = DummyIndexInput;
-
-  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-    Err(LuceneError::illegal_state(
-      "raw stored fields are not available".to_string(),
-    ))
-  }
-
-  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-    Err(LuceneError::illegal_state(
-      "raw stored fields are not available".to_string(),
-    ))
-  }
 }

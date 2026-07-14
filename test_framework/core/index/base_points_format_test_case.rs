@@ -699,7 +699,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
         }
       }
     }
-    // TODO add_indexes 未实现 这里就不定义 save_dir save_w;
+    // TODO switchIndex 及 save_dir/save_w 尚未迁移。
     let field_type = {
       let mut field_type = FieldType::new();
       field_type.set_dimensions_with_index(num_dims, num_index_dims, num_bytes_per_dim)?;
@@ -1131,7 +1131,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    // TODO MismatchedCodecReader未实现
     Ok(())
   }
 }

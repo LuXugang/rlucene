@@ -18,6 +18,7 @@ use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::tests::INDEX_WRITER_ACCESS;
@@ -27,8 +28,7 @@ use crate::core::index::index_writer::{
 };
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::MergePolicyEnum;
-use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::merge_policy::{MergePolicyEnum, OneMerge};
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -450,13 +450,11 @@ where
     self.w.add_indexes_from_directory(dirs)
   }
 
-  pub fn add_indexes_from_codec_readers<R>(
-    &self,
-    r: &mut R,
-    readers: Vec<DefaultLeafReader<D>>,
-  ) -> Result<i64>
+  pub fn add_indexes_from_codec_readers<R, CR>(&self, r: &mut R, readers: Vec<CR>) -> Result<i64>
   where
     R: Rng + ?Sized,
+    CR: CodecReader + 'static,
+    OneMerge<D, Arc<CR>>: Send + 'static,
   {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     self.w.add_indexes_from_codec_readers(readers)

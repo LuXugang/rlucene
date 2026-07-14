@@ -181,6 +181,13 @@ macro_rules! either_knn_vectors_reader {
                 $graph_ty<$( < $T as $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider >::HnswGraph ),+>;
 
             #[inline]
+            fn is_hnsw_graph_provider(&self) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => inner.is_hnsw_graph_provider(), )+
+                }
+            }
+
+            #[inline]
             fn get_graph(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Self::HnswGraph> {
                 match self {
                     $( Self::$Variant(inner) => inner.get_graph(field).map($graph_ty::$Variant), )+
@@ -356,6 +363,10 @@ where
   T: HnswGraphProvider,
 {
   type HnswGraph = T::HnswGraph;
+
+  fn is_hnsw_graph_provider(&self) -> bool {
+    (**self).is_hnsw_graph_provider()
+  }
 
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     (**self).get_graph(field)

@@ -244,7 +244,7 @@ where
     B: Bits,
   {
     // TODO IMPORTANT PerFieldKnnVectorsFormat 未实现
-    if !no_deletes(live_docs)? {
+    if !reader.is_hnsw_graph_provider() || !no_deletes(live_docs)? {
       return Ok(());
     }
 

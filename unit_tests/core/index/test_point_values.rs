@@ -43,6 +43,7 @@ use crate::core::index::point_values::{
 };
 use crate::core::index::term::Term;
 use crate::core::store::ByteBuffersDirectory;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -292,6 +293,8 @@ fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
 
   reader.close()?;
   w2.close()?;
+  dir.close()?;
+  dir2.close()?;
   Ok(())
 }
 #[test]
@@ -325,6 +328,8 @@ fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
 
   reader.close()?;
   w2.close()?;
+  dir.close()?;
+  dir2.close()?;
   Ok(())
 }
 #[test]
@@ -527,6 +532,8 @@ fn test_illegal_num_bytes_change_via_add_indexes_codec_reader() -> Result<()> {
 
   reader.close()?;
   w2.close()?;
+  dir.close()?;
+  dir2.close()?;
   Ok(())
 }
 #[test]
@@ -560,6 +567,8 @@ fn test_illegal_num_bytes_change_via_add_indexes_slow_codec_reader() -> Result<(
 
   reader.close()?;
   w2.close()?;
+  dir.close()?;
+  dir2.close()?;
   Ok(())
 }
 #[test]

@@ -141,11 +141,11 @@ where
       doc_values_producers.push(doc_values);
 
       let stored_fields = if let Some(stored_reader) = reader.get_fields_reader()? {
-        Some(
-          stored_reader
-            .get_merge_instance()?
-            .ok_or_else(|| LuceneError::illegal_argument("stored_reader is None"))?,
-        )
+        if let Some(stored_fields) = stored_reader.get_merge_instance()? {
+          Some(stored_fields)
+        } else {
+          Some(stored_reader)
+        }
       } else {
         None
       };
@@ -153,11 +153,11 @@ where
       stored_fields_readers.push(stored_fields);
 
       let term_vectors = if let Some(tv_reader) = reader.get_term_vectors_reader()? {
-        Some(
-          tv_reader
-            .get_merge_instance()?
-            .ok_or_else(|| LuceneError::illegal_argument("term_verctors_reader is None"))?,
-        )
+        if let Some(term_vectors) = tv_reader.get_merge_instance()? {
+          Some(term_vectors)
+        } else {
+          Some(tv_reader)
+        }
       } else {
         None
       };

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod test_add_indexes;
 mod test_approximate_priority_queue;
 mod test_buffered_updates;
 mod test_byte_slice_pool;

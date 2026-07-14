@@ -42,7 +42,7 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::{MergePolicyEnum, OneMergeSR};
+use crate::core::index::merge_policy::{MergePolicyEnum, OneMerge};
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -2767,7 +2767,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO add_indexes未实现
+    // TODO MismatchedCodecReader未实现
     Ok(())
   }
 }
@@ -2788,7 +2788,7 @@ impl MergeScheduler for TestMergeScheduler {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     while let Some(merge) = merge_source.get_next_merge()? {
       let result: Result<()> = merge_source.merge(merge);

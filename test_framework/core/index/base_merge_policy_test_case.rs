@@ -22,7 +22,7 @@ use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_writer::{IndexWriter, Inner, SOURCE, SOURCE_FLUSH, SOURCE_MERGE};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  MergeContext, MergePolicy, MergePolicyEnum, MergeSpecification, OneMerge, OneMergeSR,
+  MergeContext, MergePolicy, MergePolicyEnum, MergeSpecification, OneMerge,
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
@@ -902,7 +902,7 @@ impl MergeScheduler for SerialMergeSchedulerImpl {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     if !self.may_merge.load(Ordering::SeqCst) {
       let merge = merge_source.get_next_merge()?;

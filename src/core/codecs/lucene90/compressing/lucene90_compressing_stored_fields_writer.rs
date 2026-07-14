@@ -440,16 +440,19 @@ where
         ));
       },
     };
-    // Currently we only allow to hanlde same version
-    let (is_lucene90_compressing_stored_fields_reader, same_version) = { (false, false) };
-    if !matching_readers.matching_readers[reader_index]
-      || is_lucene90_compressing_stored_fields_reader
-      || same_version
-    {
+    if !matching_readers.matching_readers[reader_index] {
       return Ok(MergeStrategy::Visitor);
     }
 
-    let reader = candidate.raw_stored_fields()?;
+    let reader = match candidate.raw_stored_fields() {
+      Ok(reader) => reader,
+      Err(LuceneError::UnsupportedOperation(_)) => return Ok(MergeStrategy::Visitor),
+      Err(err) => return Err(err),
+    };
+    // Currently we only allow to handle the same version.
+    if reader.get_version() != VERSION_CURRENT {
+      return Ok(MergeStrategy::Visitor);
+    }
     if *BULK_MERGE_ENABLED
       && discriminant(reader.get_compression_mode()) == discriminant(&self.compression_mode)
       && reader.get_chunk_size() == self.chunk_size
@@ -653,15 +656,6 @@ where
     while let Some(sub_idx) = sub_opt {
       let sub = &doc_id_merger.get_subs()[sub_idx];
       debug_assert_eq!(sub.mapped_doc_id, doc_count);
-      let reader = match merge_state.stored_fields_readers[sub.sub.reader_index] {
-        Some(ref mut r) => r,
-        _ => {
-          return Err(LuceneError::illegal_state(
-            "Expected Lucene90CompressingStoredFieldsReader",
-          ));
-        },
-      };
-      let raw_reader = reader.raw_stored_fields_mut()?;
       match sub.sub.merge_strategy {
         MergeStrategy::Bulk => {
           let from_doc = sub.sub.doc_id;
@@ -686,6 +680,15 @@ where
           doc_count += to_doc_id - from_doc;
         },
         MergeStrategy::Doc => {
+          let reader = match merge_state.stored_fields_readers[sub.sub.reader_index] {
+            Some(ref mut reader) => reader,
+            None => {
+              return Err(LuceneError::illegal_state(
+                "Expected Lucene90CompressingStoredFieldsReader",
+              ));
+            },
+          };
+          let raw_reader = reader.raw_stored_fields_mut()?;
           self.copy_one_doc(raw_reader, sub.sub.doc_id)?;
           doc_count += 1;
           sub_opt = doc_id_merger.next()?;
@@ -695,7 +698,15 @@ where
           self.start_document()?;
           match visitors[sub.sub.reader_index] {
             Some(ref mut visitor) => {
-              raw_reader.document_with_visitor(sub.sub.doc_id, visitor, Some(self))?;
+              let reader = match merge_state.stored_fields_readers[sub.sub.reader_index] {
+                Some(ref mut reader) => reader,
+                None => {
+                  return Err(LuceneError::illegal_state(
+                    "StoredFieldsReader must exist for VISITOR strategy",
+                  ));
+                },
+              };
+              reader.document_with_visitor(sub.sub.doc_id, visitor, Some(self))?;
               self.finish_document()?;
               doc_count += 1;
             },

@@ -20,7 +20,7 @@ use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
-use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
+use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
@@ -554,14 +554,6 @@ where
   LR::StoredFields: RawStoredFieldsReader,
 {
   type IndexInput = <LR::StoredFields as RawStoredFieldsReader>::IndexInput;
-
-  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-    self.stored_fields.raw_stored_fields_mut()
-  }
-
-  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-    self.stored_fields.raw_stored_fields()
-  }
 }
 
 impl<LR> TryClone for StoredFieldsReaderImpl<LR>
@@ -647,11 +639,15 @@ where
   type IndexInput = <LR::TermVectors as RawTermVectors>::IndexInput;
 
   fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
-    self.term_vectors.raw_term_vectors_mut()
+    Err(LuceneError::unsupported_operation(
+      "raw term vectors are not available for SlowCodecReaderWrapper",
+    ))
   }
 
   fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
-    self.term_vectors.raw_term_vectors()
+    Err(LuceneError::unsupported_operation(
+      "raw term vectors are not available for SlowCodecReaderWrapper",
+    ))
   }
 }
 

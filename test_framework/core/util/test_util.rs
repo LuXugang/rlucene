@@ -34,6 +34,7 @@ use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
 use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::slow_codec_reader_wrapper::SlowCodecReaderWrapper;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, IndexFileNames};
@@ -187,7 +188,9 @@ impl TestUtil {
     for reader in readers {
       let reader_context = reader.get_context()?;
       for context in reader_context.leaves()? {
-        leaves.push(context.reader().clone());
+        leaves.push(SlowCodecReaderWrapper::wrap_leaf_reader(
+          context.reader().clone(),
+        ));
       }
     }
     writer.add_indexes_from_codec_readers(leaves)

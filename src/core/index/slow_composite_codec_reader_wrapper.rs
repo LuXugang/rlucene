@@ -644,18 +644,6 @@ where
   SFR: RawStoredFieldsReader + StoredFieldsReader,
 {
   type IndexInput = SFR::IndexInput;
-
-  fn raw_stored_fields_mut(&mut self) -> Result<&mut DefaultStoredFieldsReader<Self::IndexInput>> {
-    Err(LuceneError::illegal_state(
-      "Raw stored fields are not available for composite readers",
-    ))
-  }
-
-  fn raw_stored_fields(&self) -> Result<&DefaultStoredFieldsReader<Self::IndexInput>> {
-    Err(LuceneError::illegal_state(
-      "Raw stored fields are not available for composite readers",
-    ))
-  }
 }
 
 pub struct StoredFieldVisitorImpl<'a, SFV>

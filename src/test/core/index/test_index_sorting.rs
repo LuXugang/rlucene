@@ -78,6 +78,7 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -2459,9 +2460,11 @@ fn test_bad_add_indexes() -> Result<()> {
     );
 
     reader.close()?;
+    dir2.close()?;
   }
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 fn do_test_add_indexes<R>(random: &mut R, with_deletes: bool, use_readers: bool) -> Result<()>
@@ -2565,8 +2568,13 @@ where
       assert_eq!(value1, value2);
     }
   }
+  drop(searcher);
+  drop(searcher2);
+  reader.close()?;
   reader2.close()?;
   w2.close()?;
+  dir.close()?;
+  dir2.close()?;
   Ok(())
 }
 #[test]

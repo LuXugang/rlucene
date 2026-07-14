@@ -25,7 +25,8 @@ use std::time::{Duration, Instant};
 
 use parking_lot::{Condvar, Mutex, MutexGuard};
 
-use crate::core::index::merge_policy::{MergeStat, OneMergeSR};
+use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::merge_policy::{MergeStat, OneMerge};
 use crate::core::index::merge_rate_limiter::MergeRateLimiter;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
@@ -486,7 +487,7 @@ impl MergeScheduler for ConcurrentMergeScheduler {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     let mut inner = self.inner.lock();
     self.merge_locked(&mut inner, merge_source, trigger)
@@ -503,7 +504,7 @@ impl ConcurrentMergeScheduler {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     if trigger == MergeTrigger::Closing {
       // Disable throttling on close:
@@ -608,7 +609,7 @@ impl ConcurrentMergeScheduler {
   /**
    * Does the actual merge, by calling `MergeSource::merge`.
    */
-  fn do_merge<MS, D>(&self, merge_source: &MS, merge: OneMergeSR<D>) -> Result<()>
+  fn do_merge<MS, D>(&self, merge_source: &MS, merge: OneMerge<D, MS::Reader>) -> Result<()>
   where
     MS: MergeSource<D>,
     D: Directory + 'static,
@@ -620,12 +621,12 @@ impl ConcurrentMergeScheduler {
   fn get_merge_thread<MS, D>(
     inner: &mut Inner,
     merge_source: MS,
-    merge: OneMergeSR<D>,
+    merge: OneMerge<D, MS::Reader>,
   ) -> MergeThread<MS, D>
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     let name = format!("Lucene Merge Thread #{}", inner.merge_thread_count);
     inner.merge_thread_count += 1;
@@ -637,7 +638,7 @@ impl ConcurrentMergeScheduler {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     let mut inner = self.inner.lock();
     // The merge call as well as the merge thread handling in the finally
@@ -689,9 +690,10 @@ struct MergeThreadState {
 
 impl MergeThreadState {
   /** Sole constructor. */
-  fn new<D>(name: String, merge: &OneMergeSR<D>) -> Self
+  fn new<D, CR>(name: String, merge: &OneMerge<D, CR>) -> Self
   where
     D: Directory,
+    CR: CodecReader,
   {
     Self {
       name,
@@ -728,21 +730,22 @@ impl MergeThreadState {
 /** Runs a merge to execute a single merge, then exits. */
 struct MergeThread<MS, D>
 where
+  MS: MergeSource<D>,
   D: Directory,
 {
   state: Arc<MergeThreadState>,
   merge_source: MS,
-  merge: OneMergeSR<D>,
+  merge: OneMerge<D, MS::Reader>,
 }
 
 impl<MS, D> MergeThread<MS, D>
 where
   MS: MergeSource<D> + Clone + 'static,
   D: Directory + 'static,
-  OneMergeSR<D>: Send + 'static,
+  OneMerge<D, MS::Reader>: Send + 'static,
 {
   /** Sole constructor. */
-  fn new(state: Arc<MergeThreadState>, merge_source: MS, merge: OneMergeSR<D>) -> Self {
+  fn new(state: Arc<MergeThreadState>, merge_source: MS, merge: OneMerge<D, MS::Reader>) -> Self {
     Self {
       state,
       merge_source,

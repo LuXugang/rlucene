@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::merge_policy::OneMergeSR;
+use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
@@ -96,7 +96,7 @@ impl MergeScheduler for LatchedSerialMergeScheduler {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMergeSR<D>: Send + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
   {
     self.merge_started.count_down();
     self.merge_released.wait();

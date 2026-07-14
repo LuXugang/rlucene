@@ -42,10 +42,12 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::slow_codec_reader_wrapper::SlowCodecReaderWrapper;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -53,11 +55,13 @@ pub use crate::test_framework::core::document::FieldImpl;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
-  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier};
@@ -69,11 +73,18 @@ struct TestDocValuesIndexing;
 #[test]
 fn test_add_indexes() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
 
   let d1 = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, d1.clone())?;
   let mut doc = Document::new();
-  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   doc.add(NumericDocValuesField::new("dv", 1));
   w.add_document(&mut random, doc)?;
   let r1 = w.get_reader(&mut random)?;
@@ -82,7 +93,13 @@ fn test_add_indexes() -> Result<()> {
   let d2 = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, d2.clone())?;
   let mut doc = Document::new();
-  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "2",
+    Store::Yes,
+    &mut field_types,
+  )?);
   doc.add(NumericDocValuesField::new("dv", 2));
   w.add_document(&mut random, doc)?;
   let r2 = w.get_reader(&mut random)?;
@@ -90,13 +107,17 @@ fn test_add_indexes() -> Result<()> {
 
   let d3 = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, d3.clone())?;
-  // TODO IMPORTANT add_indexes_from_codec_readers不支持其他 CR 类型
   w.add_indexes_from_codec_readers(
     &mut random,
-    vec![get_only_leaf_reader(&r1)?, get_only_leaf_reader(&r2)?],
+    vec![
+      SlowCodecReaderWrapper::wrap_leaf_reader(get_only_leaf_reader(&r1)?),
+      SlowCodecReaderWrapper::wrap_leaf_reader(get_only_leaf_reader(&r2)?),
+    ],
   )?;
   r1.close()?;
+  d1.close()?;
   r2.close()?;
+  d2.close()?;
 
   w.force_merge(&mut random, 1)?;
   let r3 = w.get_reader(&mut random)?;
@@ -106,6 +127,7 @@ fn test_add_indexes() -> Result<()> {
   let doc_values = sr.get_numeric_doc_values("dv")?;
   assert!(doc_values.is_some());
   r3.close()?;
+  d3.close()?;
   Ok(())
 }
 #[test]

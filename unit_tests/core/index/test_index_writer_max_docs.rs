@@ -21,6 +21,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_DOCS, set_max_docs};
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -506,7 +507,7 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
     &mut random,
     NoLockFactory,
   )?);
-  let w = IndexWriter::new(source.clone(), new_index_writer_config(&mut random)?)?;
+  let w = IndexWriter::new(source.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..100000 {
     w.add_document(Document::new())?;
   }
@@ -568,11 +569,8 @@ fn test_add_too_many_indexes_codec_reader() -> Result<()> {
   w.close()?;
 
   // wrap this with disk full, so test fails faster and doesn't fill up real disks.
-  let target = Arc::new(new_mock_directory_with_lock_factory(
-    &mut random,
-    NoLockFactory,
-  )?);
-  let w = IndexWriter::new(target.clone(), new_index_writer_config(&mut random)?)?;
+  let target = Arc::new(new_mock_directory(&mut random)?);
+  let w = IndexWriter::new(target.clone(), IndexWriterConfig::new()?)?;
   w.commit()?; // don't confuse checkindex
   target.set_max_size_in_bytes(target.size_in_bytes()? as i64 + 65536); // 64KB
   let r = directory_reader::open(source.clone())?;
@@ -598,6 +596,8 @@ fn test_add_too_many_indexes_codec_reader() -> Result<()> {
 
   r.close()?;
   w.close()?;
+  source.close()?;
+  target.close()?;
   Ok(())
 }
 #[test]

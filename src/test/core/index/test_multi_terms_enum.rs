@@ -85,7 +85,7 @@ fn test_no_terms_in_field() -> Result<()> {
     new_index_writer_config_with_analyzer(&mut random, a)?,
   )?;
 
-  let irc = reader.get_context()?;
+  let irc = (&reader).get_context()?;
   let leaves = irc.leaves()?;
   let mut codec_readers = Vec::with_capacity(leaves.len());
   for leaf in leaves {
@@ -95,10 +95,11 @@ fn test_no_terms_in_field() -> Result<()> {
       leaf.reader().get_field_infos()?,
     )?);
   }
-  // TODO IMPORTANT add_indexes_from_codec_readers未实现
-  // writer.add_indexes_from_codec_readers(codec_readers)?;
+  writer.add_indexes_from_codec_readers(codec_readers)?;
 
   writer.close()?;
+  reader.close()?;
+  directory.close()?;
 
   Ok(())
 }
@@ -459,6 +460,13 @@ where
 {
   fn check_integrity(&self) -> Result<()> {
     self.in_.check_integrity()
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self.in_.get_merge_instance()? {
+      Some(in_) => Ok(Some(Self::new(in_, self.field_infos.clone()))),
+      None => Ok(None),
+    }
   }
 }
 
