@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
@@ -195,7 +195,7 @@ fn test_negative_scores() -> Result<()> {
   writer.commit(&mut random)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let context = get_context(reader)?;
+  let context = reader.get_context()?;
   let leaves = context.leaves()?;
   writer.close(&mut random)?;
 

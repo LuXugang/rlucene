@@ -17,8 +17,8 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
-use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::field_infos::get_indexed_fields;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::postings_enum::NONE;
 use crate::core::index::terms::Terms;
@@ -91,16 +91,16 @@ where
   Ok(doc)
 }
 
-fn verify_count<CR, R>(reader: &CR, random: &mut R) -> Result<()>
+fn verify_count<IR, R>(reader: IR, random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
-  CR: CompositeReader,
+  IR: IndexReader + Clone,
 {
   let max_doc = reader.max_doc()?;
-  let fields = get_indexed_fields(reader)?;
+  let fields = get_indexed_fields(reader.clone())?;
 
   for field in fields {
-    let Some(terms) = get_terms(reader, &field)? else {
+    let Some(terms) = get_terms(reader.clone(), &field)? else {
       continue;
     };
 

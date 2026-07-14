@@ -23,7 +23,9 @@ use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
-use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{
+  CacheHelper, CacheKey, CompositeReaderContextKind, IndexReader, IndexReaderBase,
+};
 use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::leaf_reader::LeafReader;
 pub use crate::core::index::live_index_writer_config::LeafSorter;
@@ -502,6 +504,8 @@ impl<D> IndexReader for StandardDirectoryReader<D>
 where
   D: Directory,
 {
+  type ContextKind = CompositeReaderContextKind;
+
   type TermVectors = BCRTermVectorsImpl<DefaultLeafReader<D>>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

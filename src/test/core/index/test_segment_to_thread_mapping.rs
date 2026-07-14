@@ -21,7 +21,6 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::document::document::Document;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
@@ -30,12 +29,12 @@ use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::term::Term;
-use crate::core::search::index_searcher::{IndexSearcher, do_slices};
+use crate::core::search::index_searcher::{self, IndexSearcher, do_slices};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
@@ -68,6 +67,8 @@ impl Display for DummyIndexReader {
 }
 
 impl IndexReader for DummyIndexReader {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = DummyTermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -497,7 +498,7 @@ fn test_intra_slice_doc_id_order() -> Result<()> {
   let r = w.get_reader(&mut random)?;
   w.close(&mut random)?;
 
-  let s = IndexSearcher::from_cr(r)?;
+  let s = index_searcher::from_reader(r)?;
   let slices = s.get_slices()?;
   assert!(!slices.is_empty());
 
@@ -526,7 +527,7 @@ fn test_intra_slice_doc_id_order_with_partitions() -> Result<()> {
   let r = w.get_reader(&mut random)?;
   w.close(&mut random)?;
 
-  let context = get_context(r)?;
+  let context = r.get_context()?;
   let mut s = IndexSearcher::with_threads(context, 2)?;
   s.set_slice_strategy(|leaves| do_slices(leaves, 1, 1, true));
   let slices = s.get_slices()?;

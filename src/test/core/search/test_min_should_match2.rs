@@ -50,7 +50,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::bulk_scorer_wrapper_scorer::BulkScorerWrapperScorer;
 use crate::test_framework::core::util::DefaultIndexSearchLR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, new_directory_shared, new_searcher_with_leaf_reader, random,
+  at_least, get_only_leaf_reader, new_directory_shared, new_searcher_with_reader, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
@@ -101,7 +101,7 @@ where
   let reader = iw.get_reader(random)?;
   iw.close(random)?;
 
-  let mut searcher = new_searcher_with_leaf_reader(get_only_leaf_reader(&reader)?)?;
+  let mut searcher = new_searcher_with_reader(get_only_leaf_reader(&reader)?)?;
   searcher.set_similarity(classic_similarity::new());
   Ok(searcher)
 }

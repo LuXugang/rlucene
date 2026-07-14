@@ -27,7 +27,7 @@ use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues
 use crate::core::index::dummy::dummy_point_value_base::DummyPointValues;
 use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -1078,6 +1078,8 @@ impl Display for EmptyLeafReader {
 }
 
 impl IndexReader for EmptyLeafReader {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = EmptyTermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

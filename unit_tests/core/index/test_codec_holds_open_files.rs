@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
@@ -66,7 +66,7 @@ fn test() -> Result<()> {
     d.delete_file(&name)?;
   }
 
-  let ctx = get_context(r)?;
+  let ctx = r.get_context()?;
   for cxt in ctx.leaves()? {
     TestUtil::check_reader(cxt.reader())?;
   }

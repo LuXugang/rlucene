@@ -25,7 +25,6 @@ use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::{CodecReader, TermVectorsType};
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -33,7 +32,7 @@ use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_metadata::LeafMetaData;
@@ -86,7 +85,7 @@ fn test_no_terms_in_field() -> Result<()> {
     new_index_writer_config_with_analyzer(&mut random, a)?,
   )?;
 
-  let irc = get_context(reader)?;
+  let irc = reader.get_context()?;
   let leaves = irc.leaves()?;
   let mut codec_readers = Vec::with_capacity(leaves.len());
   for leaf in leaves {
@@ -137,6 +136,8 @@ where
   CR: CodecReader,
   CR::StoredFieldsReader: RawStoredFieldsReader,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = TermVectorsType<CR::TermVectorsReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

@@ -26,10 +26,10 @@ use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields as IndexFields;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
+use crate::core::index::index_reader_context::IRCLeafReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::postings_enum::{
@@ -2246,12 +2246,13 @@ pub fn add_id(mut doc: Document, id: &str) -> Result<Document> {
   Ok(doc)
 }
 
-pub fn doc_id<CR>(reader: CR, id: &str) -> Result<i32>
+pub fn doc_id<IR>(reader: IR, id: &str) -> Result<i32>
 where
-  CR: CompositeReader + 'static + std::marker::Sync,
-  <CR as CompositeReader>::LeafReader: std::marker::Sync + Send,
+  IR: IndexReader + 'static + std::marker::Sync,
+  IndexReaderContextType<IR>: std::marker::Sync,
+  IRCLeafReader<IndexReaderContextType<IR>>: std::marker::Sync + Send,
 {
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = IndexSearcher::new(reader.get_context()?)?;
   let top_docs = searcher.search(TermQuery::new(Term::from_text("id", id)), 1)?;
   Ok(top_docs.score_docs[0].doc)
 }

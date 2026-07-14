@@ -20,7 +20,7 @@ use crate::core::index::base_composite_reader::{
 use crate::core::index::composite_reader::CompositeReader;
 #[cfg(test)]
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{CompositeReaderContextKind, IndexReader, IndexReaderBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
@@ -163,6 +163,8 @@ where
   R: IndexReader,
   K: MultiReaderKind<R>,
 {
+  type ContextKind = CompositeReaderContextKind;
+
   type TermVectors = BCRTermVectorsImpl<R>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

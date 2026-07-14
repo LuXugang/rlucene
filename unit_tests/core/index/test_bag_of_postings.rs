@@ -19,7 +19,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
@@ -127,7 +127,7 @@ fn test() -> Result<()> {
 
   iw.force_merge(&mut random, 1)?;
   let ir = iw.get_reader(&mut random)?;
-  let top_reader_context = get_context(&ir)?;
+  let top_reader_context = (&ir).get_context()?;
   let leaves = top_reader_context.leaves()?;
   assert_eq!(1, leaves.len());
   let leaf_reader = leaves[0].reader();

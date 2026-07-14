@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -288,11 +288,11 @@ impl FieldInfos {
 pub(crate) static EMPTY: LazyLock<Arc<FieldInfos>> =
   LazyLock::new(|| Arc::new(FieldInfos::new(vec![]).expect("should not fail")));
 
-pub fn get_merged_field_infos<CR>(reader: CR) -> Result<Arc<FieldInfos>>
+pub fn get_merged_field_infos<IR>(reader: IR) -> Result<Arc<FieldInfos>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
-  let crc = get_context(reader)?;
+  let crc = reader.get_context()?;
   let leaves = crc.leaves()?;
 
   if leaves.is_empty() {
@@ -355,11 +355,11 @@ where
 }
 /// Returns a set of field names that have a terms index.
 /// The order is undefined.
-pub fn get_indexed_fields<CR>(reader: CR) -> Result<HashSet<String>>
+pub fn get_indexed_fields<IR>(reader: IR) -> Result<HashSet<String>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
 
   let mut fields = HashSet::new();

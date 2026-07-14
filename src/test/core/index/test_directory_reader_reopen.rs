@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::composite_reader::{CompositeReader, get_context};
+use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{CacheHelper, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -46,7 +46,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{directory_reader, field_infos, multi_bits, multi_terms};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
@@ -292,7 +292,7 @@ fn test_thread_safety() -> Result<()> {
                   .map(Arc::new)
                   .unwrap_or_else(|| r.clone());
 
-                let searcher = IndexSearcher::from_cr(refreshed.clone())?;
+                let searcher = index_searcher::from_reader(refreshed.clone())?;
                 let max_doc = refreshed.max_doc()?;
                 let hits = searcher
                   .search(
@@ -742,9 +742,9 @@ where
 
   let r = directory_reader::open(dir.clone())?;
   if multi_segment {
-    assert!(get_context(&r)?.leaves()?.len() > 1);
+    assert!((&r).get_context()?.leaves()?.len() > 1);
   } else {
-    assert_eq!(1, get_context(&r)?.leaves()?.len());
+    assert_eq!(1, (&r).get_context()?.leaves()?.len());
   }
   r.close()?;
 
@@ -837,8 +837,8 @@ where
   assert_eq!(index1.max_doc()?, index2.max_doc()?);
   assert_eq!(index1.has_deletions()?, index2.has_deletions()?);
   assert_eq!(
-    get_context(index1)?.leaves()?.len() == 1,
-    get_context(index2)?.leaves()?.len() == 1
+    index1.get_context()?.leaves()?.len() == 1,
+    index2.get_context()?.leaves()?.len() == 1
   );
 
   let field_infos1 = field_infos::get_merged_field_infos(index1)?;
@@ -1118,7 +1118,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
     Err(err) => return Err(err),
   }
 
-  let s = IndexSearcher::from_cr(r)?;
+  let s = index_searcher::from_reader(r)?;
   assert_eq!(1, s.count(TermQuery::new(Term::from_text("id", "id")))?);
 
   s.get_index_reader().close()?;
@@ -1269,21 +1269,21 @@ fn test_nrt_mdeletes() -> Result<()> {
 
   let ic2 = snapshotter.snapshot()?;
   let latest = directory_reader::open_from_commit(&ic2)?;
-  assert_eq!(2, get_context(&latest)?.leaves()?.len());
+  assert_eq!(2, (&latest).get_context()?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
   let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
     .expect("reader should change");
-  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+  assert_eq!(1, (&oldest).get_context()?.leaves()?.len());
 
   // sharing same core
   assert_eq!(
-    get_context(&latest)?.leaves()?[0]
+    (&latest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")
       .get_key(),
-    get_context(&oldest)?.leaves()?[0]
+    (&oldest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")
@@ -1328,7 +1328,7 @@ fn test_nrt_mdeletes2() -> Result<()> {
   writer.update_document_with_term(Term::from_text("key", "value1"), doc)?;
 
   let latest = directory_reader::open_from_writer(&writer)?;
-  assert_eq!(2, get_context(&latest)?.leaves()?.len());
+  assert_eq!(2, (&latest).get_context()?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
   let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
@@ -1339,16 +1339,16 @@ fn test_nrt_mdeletes2() -> Result<()> {
   assert!(!oldest.has_deletions()?);
 
   snapshotter.release(&ic1)?;
-  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+  assert_eq!(1, (&oldest).get_context()?.leaves()?.len());
 
   // sharing same core
   assert_eq!(
-    get_context(&latest)?.leaves()?[0]
+    (&latest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")
       .get_key(),
-    get_context(&oldest)?.leaves()?[0]
+    (&oldest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")
@@ -1388,21 +1388,21 @@ fn test_nrt_mupdates() -> Result<()> {
 
   let ic2 = snapshotter.snapshot()?;
   let latest = directory_reader::open_from_commit(&ic2)?;
-  assert_eq!(1, get_context(&latest)?.leaves()?.len());
+  assert_eq!(1, (&latest).get_context()?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
   let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
     .expect("reader should change");
-  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+  assert_eq!(1, (&oldest).get_context()?.leaves()?.len());
 
   // sharing same core
   assert_eq!(
-    get_context(&latest)?.leaves()?[0]
+    (&latest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")
       .get_key(),
-    get_context(&oldest)?.leaves()?[0]
+    (&oldest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")
@@ -1455,21 +1455,21 @@ fn test_nrt_mupdates2() -> Result<()> {
   writer.update_numeric_doc_value(Term::from_text("key", "value1"), "dv", 2)?;
 
   let latest = directory_reader::open_from_writer(&writer)?;
-  assert_eq!(1, get_context(&latest)?.leaves()?.len());
+  assert_eq!(1, (&latest).get_context()?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
   let oldest = directory_reader::open_if_changed_with_commit(&latest, Some(&ic1))?
     .expect("reader should change");
-  assert_eq!(1, get_context(&oldest)?.leaves()?.len());
+  assert_eq!(1, (&oldest).get_context()?.leaves()?.len());
 
   // sharing same core
   assert_eq!(
-    get_context(&latest)?.leaves()?[0]
+    (&latest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")
       .get_key(),
-    get_context(&oldest)?.leaves()?[0]
+    (&oldest).get_context()?.leaves()?[0]
       .reader()
       .get_core_cache_helper()?
       .expect("core cache helper should exist")

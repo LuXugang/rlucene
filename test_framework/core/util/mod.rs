@@ -17,8 +17,8 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -73,7 +73,7 @@ pub(crate) fn dummy_index_searcher(
   )?);
   iw.add_document(doc)?;
   let reader = iw.get_reader(true, true)?;
-  let irc = get_context(reader)?;
+  let irc = reader.get_context()?;
   iw.close()?;
   IndexSearcher::new(irc)
 }

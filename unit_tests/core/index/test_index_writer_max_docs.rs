@@ -26,7 +26,7 @@ use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field::SortFieldType::Doc;
@@ -204,7 +204,7 @@ fn test_exactly_at_true_limit() -> Result<()> {
     assert_eq!(max_docs, ir.max_doc()?);
     assert_eq!(max_docs, ir.num_docs()?);
 
-    let searcher = IndexSearcher::from_cr(ir)?;
+    let searcher = index_searcher::from_reader(ir)?;
     let collector_manager = TopScoreDocCollectorManager::with_after(10, None, i32::MAX as usize)?;
 
     let hits = searcher.search_with_collector_manager(

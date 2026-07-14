@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -48,7 +48,7 @@ fn test_collection() -> Result<()> {
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
 
   // Setup two collectors, one that will only collect even doc ids and one that

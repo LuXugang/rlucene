@@ -27,7 +27,6 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -1274,7 +1273,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let r = w.get_reader(random)?;
-    let r = get_context(r)?;
+    let r = r.get_context()?;
     for field in 0..num_fields as usize {
       let mut doc_count = 0i32;
       let mut checksum = 0f64;
@@ -1381,7 +1380,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let vector_to_score = Self::random_normalized_vector(random, dimension)?;
     let reader = directory_reader::open_from_writer(&iw)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
 
     for ctx in reader.leaves()? {
       let vector_values = ctx.reader().get_float_vector_values(field_name)?;
@@ -1471,7 +1470,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let vector_to_score = Self::random_vector8(random, dimension)?;
     let reader = directory_reader::open_from_writer(&iw)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
 
     for ctx in reader.leaves()? {
       let vector_values = ctx.reader().get_byte_vector_values(field_name)?;
@@ -1834,7 +1833,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     iw.force_merge(1)?;
 
-    let reader = get_context(directory_reader::open_from_writer(&iw)?)?;
+    let reader = (directory_reader::open_from_writer(&iw)?).get_context()?;
     let leaf = &reader.leaves()?[0].reader();
 
     let vector_values = leaf.get_float_vector_values("field1")?.unwrap();
@@ -1938,7 +1937,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut num_deletes = 0i32;
     let reader = directory_reader::open_from_writer(&iw)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let mut value_count = 0i32;
     let mut total_size = 0i32;
 
@@ -2064,7 +2063,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     let mut num_deletes = 0i32;
     let reader = directory_reader::open_from_writer(&iw)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let mut value_count = 0i32;
     let mut total_size = 0i32;
 
@@ -2153,7 +2152,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let reader = directory_reader::open_from_writer(&iw)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     for ctx in reader.leaves()? {
       let live_docs = ctx.reader().get_live_docs()?;
       let vector_values = ctx.reader().get_float_vector_values(field_name)?;
@@ -2224,7 +2223,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let reader = directory_reader::open_from_writer(&iw)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     for ctx in reader.leaves()? {
       let live_docs = ctx.reader().get_live_docs()?;
       let vector_values = ctx.reader().get_float_vector_values(field_name)?;
@@ -2656,7 +2655,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let reader = w.get_reader(random)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let mut checksum = 0f64;
     let mut doc_count = 0usize;
     let mut sum_doc_ids = 0i64;

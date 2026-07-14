@@ -17,6 +17,7 @@
 
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
+use crate::core::index::index_reader::IndexReader;
 use crate::test_framework::core::util::lucene_test_case::{
   new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
   new_searcher_with_reader, random,
@@ -46,7 +47,6 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_options::IndexOptions;
 
@@ -1781,7 +1781,7 @@ fn test_knn_vector_field() -> Result<()> {
   writer.add_document(&mut random, doc)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   assert_eq!(1, context.leaves()?.len());
   let leaf = context.leaves()?[0].reader();
 

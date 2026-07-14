@@ -21,7 +21,7 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
@@ -77,6 +77,8 @@ where
   CR: CodecReader,
   CR::StoredFieldsReader: RawStoredFieldsReader,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = CR::TermVectorsReader;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

@@ -31,7 +31,9 @@ use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{
+  CacheHelper, CacheKey, IndexReader, IndexReaderBase, LeafReaderContextKind,
+};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::DocBits;
@@ -390,6 +392,8 @@ impl<D> IndexReader for SegmentReader<D>
 where
   D: Directory,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = TermVectorsType<<Self as CodecReader>::TermVectorsReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

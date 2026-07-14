@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::collector::Collector;
@@ -28,18 +27,18 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
 
 #[allow(dead_code)] // for quick search
-pub struct ScorerIndexSearcher<CR>
+pub struct ScorerIndexSearcher<IR>
 where
-  CR: CompositeReader + 'static,
+  IR: IndexReader + 'static,
 {
-  pub s: IndexSearcher<CompositeReaderContext<CR>>,
+  pub s: IndexSearcher<IndexReaderContextType<IR>>,
 }
-impl<CR> ScorerIndexSearcher<CR>
+impl<IR> ScorerIndexSearcher<IR>
 where
-  CR: CompositeReader + 'static,
+  IR: IndexReader + 'static,
 {
-  pub fn new(cr: CR) -> Self {
-    let mut s = IndexSearcher::from_cr(cr).unwrap();
+  pub fn new(reader: IR) -> Self {
+    let mut s = IndexSearcher::new(reader.get_context().unwrap()).unwrap();
     s.use_scorer_search = true;
     Self { s }
   }

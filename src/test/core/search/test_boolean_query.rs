@@ -44,7 +44,7 @@ use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
+use crate::core::search::index_searcher::{self, IndexSearcher, get_max_clause_count};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::multi_term_query::SCORING_BOOLEAN_REWRITE;
@@ -397,7 +397,7 @@ fn test_de_morgan() -> Result<()> {
   let searcher = new_searcher_with_reader(multi_reader.clone())?;
   assert_eq!(0, searcher.search(query.clone(), 10)?.total_hits.value());
 
-  let searcher = IndexSearcher::from_cr_with_thread(multi_reader, 2)?;
+  let searcher = index_searcher::from_reader_with_threads(multi_reader, 2)?;
   assert_eq!(0, searcher.search(query, 10)?.total_hits.value());
   Ok(())
 }
@@ -741,7 +741,7 @@ fn test_conjunction_propagates_approximations() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   // not new_searcher_with_reader to not have the asserting wrappers
   // and perform type checks.
-  let mut searcher = IndexSearcher::from_cr(reader)?;
+  let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
   let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
@@ -783,7 +783,7 @@ fn test_disjunction_propagates_approximations() -> Result<()> {
   writer.commit(&mut random)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let mut searcher = IndexSearcher::from_cr(reader)?;
+  let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
   let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
@@ -827,7 +827,7 @@ fn test_boosted_scorer_propagates_approximations() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   // not new_searcher_with_reader to not have the asserting wrappers
   // and perform type checks.
-  let mut searcher = IndexSearcher::from_cr(reader)?;
+  let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
   let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
@@ -869,7 +869,7 @@ fn test_exclusion_propagates_approximations() -> Result<()> {
   writer.commit(&mut random)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let mut searcher = IndexSearcher::from_cr(reader)?;
+  let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
   let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
@@ -914,7 +914,7 @@ fn test_req_opt_propagates_approximations() -> Result<()> {
   writer.commit(&mut random)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let mut searcher = IndexSearcher::from_cr(reader)?;
+  let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
   let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
@@ -976,7 +976,7 @@ fn test_query_matches_count() -> Result<()> {
   writer.commit(&mut random)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   let mut b = Builder::new();
   b.add(
@@ -1013,7 +1013,7 @@ fn test_conjunction_matches_count() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
 
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   let mut builder = Builder::new();
   builder
@@ -1108,7 +1108,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   writer.add_document(doc)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   let leaf = &searcher.get_leaf_contexts()?[0];
 

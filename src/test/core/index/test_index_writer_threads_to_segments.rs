@@ -20,7 +20,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_file_names::IndexFileNames;
 use crate::core::index::index_reader::IndexReader;
@@ -102,7 +101,7 @@ fn test_segment_count_on_flush_basic() -> Result<()> {
 
     let r = directory_reader::open_from_writer(&w)?;
     assert_eq!(2, r.num_docs()?);
-    let num_segments = get_context(&r)?.leaves()?.len();
+    let num_segments = (&r).get_context()?.leaves()?.len();
     // 1 segment if the threads ran sequentially, else 2.
     assert!(num_segments <= 2);
     r.close()?;
@@ -117,7 +116,7 @@ fn test_segment_count_on_flush_basic() -> Result<()> {
     assert_eq!(4, r.num_docs()?);
     // Both threads should have shared a single thread state since they did not try to index
     // concurrently.
-    assert_eq!(1 + num_segments, get_context(&r)?.leaves()?.len());
+    assert_eq!(1 + num_segments, (&r).get_context()?.leaves()?.len());
     r.close()?;
     Ok(())
   })?;
@@ -143,7 +142,7 @@ impl CheckSegmentCount {
     random: &mut impl rand::Rng,
   ) -> Result<Self> {
     let r = directory_reader::open_from_writer(w)?;
-    assert_eq!(0, get_context(&r)?.leaves()?.len());
+    assert_eq!(0, (&r).get_context()?.leaves()?.len());
     let mut checker = CheckSegmentCount {
       max_thread_count_per_iter,
       indexing_count,
@@ -154,13 +153,13 @@ impl CheckSegmentCount {
   }
 
   fn run(&mut self, random: &mut impl rand::Rng) -> Result<()> {
-    let old_segment_count = get_context(&self.r)?.leaves()?.len();
+    let old_segment_count = (&self.r).get_context()?.leaves()?.len();
     let r2 = directory_reader::open_if_changed(&self.r)?.unwrap();
     self.r.close()?;
     self.r = r2;
     let max_expected_segments =
       old_segment_count + self.max_thread_count_per_iter.load(Ordering::SeqCst);
-    assert!(get_context(&self.r)?.leaves()?.len() <= max_expected_segments);
+    assert!((&self.r).get_context()?.leaves()?.len() <= max_expected_segments);
     self.set_next_iter_thread_count(random);
     Ok(())
   }

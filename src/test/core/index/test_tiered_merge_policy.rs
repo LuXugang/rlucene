@@ -19,7 +19,6 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -933,7 +932,7 @@ where
   D: Directory + 'static,
 {
   let reader = directory_reader::open_from_writer(w)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let mut to_delete = Vec::new();
   for ctx in reader.leaves()? {
     to_delete.extend(get_rand_terms(ctx, pct, round_up)?);
@@ -1107,7 +1106,7 @@ fn test_unbalanced_merge_selection() -> Result<()> {
     w.add_document(doc)?;
   }
 
-  let r = get_context(directory_reader::open_from_writer(&w)?)?;
+  let r = (directory_reader::open_from_writer(&w)?).get_context()?;
 
   for ctx in r.leaves()? {
     let num_docs = ctx.reader().num_docs()?;

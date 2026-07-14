@@ -18,8 +18,8 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::text_field::TextField;
-use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::multi_terms::get_terms;
@@ -43,7 +43,7 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
 use crate::core::search::hit_queue::{self, HitQueueComparator};
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::max_score_accumulator::{DEFAULT_INTERVAL, MaxScoreAccumulator};
@@ -240,35 +240,35 @@ where
   let cm = MyTopDocsCollectorMananger::new(num_results);
   searcher.search_with_collector_manager(query, &cm)
 }
-fn do_search_with_threshold<R, CR>(
+fn do_search_with_threshold<R, IR>(
   random: &mut R,
   num_results: usize,
   threshold: usize,
   query: Query,
-  index_reader: CR,
+  index_reader: IR,
 ) -> Result<TopDocs<ScoreDoc>>
 where
-  CR: CompositeReader + 'static + std::marker::Sync,
-  <CR as CompositeReader>::LeafReader: 'static,
+  IR: IndexReader + 'static + std::marker::Sync,
+  IndexReaderContextType<IR>: 'static + std::marker::Sync,
   R: Rng + ?Sized,
-  <CR as CompositeReader>::LeafReader: std::marker::Sync,
+  IRCLeafReader<IndexReaderContextType<IR>>: 'static + std::marker::Sync,
 {
   let searcher = new_searcher_with_threads(random, index_reader, true, true, false)?;
   let collector_manager = TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
   searcher.search_with_collector_manager(query, &collector_manager)
 }
-fn do_concurrent_search_with_threshold<R, CR>(
+fn do_concurrent_search_with_threshold<R, IR>(
   random: &mut R,
   num_results: usize,
   threshold: usize,
   query: Query,
-  index_reader: CR,
+  index_reader: IR,
 ) -> Result<TopDocs<ScoreDoc>>
 where
-  CR: CompositeReader + 'static + std::marker::Sync,
-  <CR as CompositeReader>::LeafReader: 'static,
+  IR: IndexReader + 'static + std::marker::Sync,
+  IndexReaderContextType<IR>: 'static + std::marker::Sync,
   R: Rng + ?Sized,
-  <CR as CompositeReader>::LeafReader: std::marker::Sync,
+  IRCLeafReader<IndexReaderContextType<IR>>: 'static + std::marker::Sync,
 {
   let searcher = new_searcher_with_threads(random, index_reader, true, true, true)?;
   let collector_manager = TopScoreDocCollectorManager::with_after(num_results, None, threshold)?;
@@ -454,7 +454,7 @@ fn test_set_min_competitive_score() -> Result<()> {
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let v = get_context(reader)?;
+  let v = reader.get_context()?;
   assert_eq!(v.leaves()?.len(), 2);
   writer.close()?;
 
@@ -526,7 +526,7 @@ fn test_shared_count_collector_manager() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   let reader2 = directory_reader::open_from_writer(&writer)?;
-  let v = get_context(&reader)?;
+  let v = (&reader).get_context()?;
   assert_eq!(v.leaves()?.len(), 2);
   writer.close()?;
 
@@ -565,7 +565,7 @@ fn test_total_hits() -> Result<()> {
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let v = get_context(reader)?;
+  let v = reader.get_context()?;
   assert_eq!(v.leaves()?.len(), 2);
   writer.close()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(v.leaves()?[0].reader().clone());
@@ -626,7 +626,7 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
   writer.flush()?;
 
   let reader = writer.get_reader(false, false)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   let manager = TopScoreDocCollectorManager::new(2, 10)?;
   let top_docs = searcher
@@ -668,7 +668,7 @@ fn test_concurrent_min_score() -> Result<()> {
   w.flush()?;
 
   let reader = directory_reader::open_from_writer(&w)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   assert_eq!(3, reader.leaves()?.len());
   w.close()?;
 

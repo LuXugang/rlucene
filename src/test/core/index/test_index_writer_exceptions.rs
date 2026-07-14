@@ -35,7 +35,6 @@ use crate::core::document::text_field::{
   TYPE_NOT_STORED as TEXT_NOT_STORED, TYPE_STORED as TEXT_STORED, TextField,
 };
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_file_names::IndexFileNames;
@@ -2084,7 +2083,7 @@ fn test_term_vector_exceptions() -> Result<()> {
       let reader = directory_reader::open(dir.clone())?;
       assert!(reader.num_docs()? > 0);
       SegmentInfos::read_latest_commit(dir.clone())?;
-      let context = get_context(&reader)?;
+      let context = (&reader).get_context()?;
       for leaf in context.leaves()? {
         assert!(!leaf.reader().get_field_infos()?.has_term_vectors());
       }

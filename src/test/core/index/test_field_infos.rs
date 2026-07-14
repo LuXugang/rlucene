@@ -19,6 +19,7 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{EMPTY, FieldNumbers, get_merged_field_infos};
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -31,7 +32,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, read_field_infos};
@@ -257,7 +257,7 @@ fn test_merged_field_infos_single_leaf() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   let actual = get_merged_field_infos(&reader)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
   let expected = leaves[0].reader().get_field_infos()?;
 

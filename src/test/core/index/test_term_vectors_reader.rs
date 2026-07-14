@@ -26,10 +26,10 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::stored_field_type;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, read_field_infos};
 use crate::core::index::leaf_reader::LeafReader;
@@ -153,7 +153,7 @@ impl TestTermVectorsReader {
 fn test() -> Result<()> {
   let setup = TestTermVectorsReader::setup()?;
   let reader = directory_reader::open(setup.dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
 
   for ctx in leaves {

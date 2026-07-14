@@ -26,7 +26,6 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::composite_reader::get_context;
 #[cfg(feature = "nightly")]
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
@@ -1405,13 +1404,10 @@ fn test_deletes_check_index_output() -> Result<()> {
 
 #[test]
 fn test_try_delete_document() -> Result<()> {
-  use crate::core::index::composite_reader::get_context;
   use crate::core::index::directory_reader;
   use crate::core::index::directory_reader::DirectoryReader;
-  use crate::core::index::index_writer::ModifyReader;
   use crate::core::index::multi_bits;
   use crate::core::index::no_merge_policy::NoMergePolicy;
-  use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -1429,16 +1425,13 @@ fn test_try_delete_document() -> Result<()> {
   iwc.set_merge_policy(NoMergePolicy::default());
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let r = directory_reader::open_from_writer(&w)?;
-  assert_ne!(w.try_delete_document(ModifyReader::Composite(&r), 1)?, -1);
+  assert_ne!(w.try_delete_document(&r, 1)?, -1);
   assert!(!r.is_current()?);
 
-  let context = get_context(&r)?;
+  let context = (&r).get_context()?;
   let leaves = context.leaves()?;
   let leaf_reader = leaves[0].reader();
-  assert_ne!(
-    w.try_delete_document::<StandardDirectoryReader<_>>(ModifyReader::Leaf(&**leaf_reader), 0)?,
-    -1
-  );
+  assert_ne!(w.try_delete_document(leaf_reader.clone(), 0)?, -1);
   assert!(!r.is_current()?);
   drop(r);
   w.close()?;
@@ -1529,7 +1522,7 @@ fn test_only_deletes_triggers_merge_on_close() -> Result<()> {
   w.close()?;
 
   let r = directory_reader::open(dir.clone())?;
-  let reader = get_context(r)?;
+  let reader = r.get_context()?;
   assert_eq!(1, reader.leaves()?.len());
   Ok(())
 }
@@ -1572,7 +1565,7 @@ fn test_only_deletes_triggers_merge_on_get_reader() -> Result<()> {
   let _ = directory_reader::open_from_writer(&w)?;
 
   let r = directory_reader::open_from_writer(&w)?;
-  let reader = get_context(r)?;
+  let reader = r.get_context()?;
   assert_eq!(1, reader.leaves()?.len());
 
   w.close()?;
@@ -1615,7 +1608,7 @@ fn test_only_deletes_triggers_merge_on_flush() -> Result<()> {
 
   let _ = directory_reader::open_from_writer(&w)?;
   let reader = directory_reader::open_from_writer(&w)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   assert_eq!(1, reader.leaves()?.len());
   w.close()?;
   Ok(())
@@ -1656,7 +1649,7 @@ fn test_only_deletes_delete_all_docs() -> Result<()> {
 
   let r = directory_reader::open_from_writer(&w)?;
   assert_eq!(0, r.max_doc()?);
-  let reader = get_context(r)?;
+  let reader = r.get_context()?;
   assert_eq!(0, reader.leaves()?.len());
   w.close()?;
   Ok(())
@@ -1695,7 +1688,7 @@ fn test_merging_after_delete_all() -> Result<()> {
   writer.force_merge(1)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  assert_eq!(1, get_context(&reader)?.leaves()?.len());
+  assert_eq!(1, (&reader).get_context()?.leaves()?.len());
   reader.close()?;
 
   writer.close()?;

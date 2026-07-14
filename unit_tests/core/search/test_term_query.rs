@@ -17,8 +17,8 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::field_invert_state::FieldInvertState;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
@@ -62,7 +62,7 @@ fn test_equals() -> Result<()> {
   );
 
   let multi_reader = MultiReader::empty()?;
-  let context = get_context(multi_reader)?;
+  let context = multi_reader.get_context()?;
   let searcher = IndexSearcher::new(context)?;
 
   QueryUtils::check_equal::<Query>(

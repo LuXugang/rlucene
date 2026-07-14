@@ -29,7 +29,6 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
@@ -228,7 +227,7 @@ fn test_doc_with_missing_schema_options_throws_error() -> Result<()> {
   }
   writer.flush()?;
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader = get_context(&reader)?;
+  let reader = (&reader).get_context()?;
   assert_eq!(1, reader.leaves()?.len());
   assert_eq!(1, reader.leaves()?[0].reader().num_docs()?);
   assert_eq!(
@@ -253,7 +252,7 @@ fn test_doc_with_missing_schema_options_throws_error() -> Result<()> {
   writer.add_document(doc0)?;
   writer.flush()?;
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader = get_context(&reader)?;
+  let reader = (&reader).get_context()?;
   assert_eq!(2, reader.leaves()?.len());
   assert_eq!(1, reader.leaves()?[1].reader().num_docs()?);
   assert_eq!(
@@ -297,7 +296,7 @@ fn test_doc_with_extra_schema_options_throws_error() -> Result<()> {
   }
   writer.flush()?;
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader = get_context(&reader)?;
+  let reader = (&reader).get_context()?;
   assert_eq!(1, reader.leaves()?.len());
   assert_eq!(1, reader.leaves()?[0].reader().num_docs()?);
   assert_eq!(
@@ -323,7 +322,7 @@ fn test_doc_with_extra_schema_options_throws_error() -> Result<()> {
   writer.add_document(doc0)?;
   writer.flush()?;
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader = get_context(&reader)?;
+  let reader = (&reader).get_context()?;
   assert_eq!(2, reader.leaves()?.len());
   assert_eq!(1, reader.leaves()?[1].reader().num_docs()?);
   assert_eq!(

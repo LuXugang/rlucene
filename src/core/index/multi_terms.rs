@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::{CompositeReader, CompositeReaderTerms, get_context};
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
 use crate::core::index::postings_enum::ALL;
@@ -218,15 +218,18 @@ where
   }
 }
 
-pub type TermsType<CR> = TermsEnum2<CompositeReaderTerms<CR>, MultiTerms<CompositeReaderTerms<CR>>>;
-pub type TermsPostingType<CR> = <<TermsType<CR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
+pub type TermsType<IR> = TermsEnum2<
+  <IRCLeafReader<IndexReaderContextType<IR>> as LeafReader>::Terms,
+  MultiTerms<<IRCLeafReader<IndexReaderContextType<IR>> as LeafReader>::Terms>,
+>;
+pub type TermsPostingType<IR> = <<TermsType<IR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
 /// This method may return `None` if the field does not exist or if it has no terms.
-pub fn get_terms<CR>(reader: CR, field: &str) -> Result<Option<TermsType<CR>>>
+pub fn get_terms<IR>(reader: IR, field: &str) -> Result<Option<TermsType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
   let max_doc = reader.max_doc()?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
 
   if leaves.len() == 1 {
@@ -264,13 +267,13 @@ where
 /// This returns `None` if the field or term does not exist, or if positions were not indexed.
 ///
 /// See `get_term_postings_enum` with flags.
-pub fn get_term_postings_enum<CR>(
-  reader: CR,
+pub fn get_term_postings_enum<IR>(
+  reader: IR,
   field: &str,
   term: &BytesRef<Vec<u8>>,
-) -> Result<Option<TermsPostingType<CR>>>
+) -> Result<Option<TermsPostingType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
   get_term_postings_enum_with_flag(reader, field, term, ALL as i32)
 }
@@ -280,14 +283,14 @@ where
 ///
 /// This returns `None` if the field or term does not exist.
 /// See `TermsEnum::postings`.
-pub fn get_term_postings_enum_with_flag<CR>(
-  reader: CR,
+pub fn get_term_postings_enum_with_flag<IR>(
+  reader: IR,
   field: &str,
   term: &BytesRef<Vec<u8>>,
   flags: i32,
-) -> Result<Option<TermsPostingType<CR>>>
+) -> Result<Option<TermsPostingType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
   if let Some(terms) = get_terms(reader, field)? {
     let mut terms_enum = terms.iterator()?;

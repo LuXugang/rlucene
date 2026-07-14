@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::point_values::PointValues;
@@ -58,7 +58,7 @@ impl CheckIndex {
     Level::check_if_level_in_bounds(level)?;
 
     let reader = directory_reader::open(directory)?;
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     let mut status = Status::default();
 
     for leaf in context.leaves()? {

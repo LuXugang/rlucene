@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::{CompositeReader, CompositeReaderBits, get_context};
-use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::index_reader::{Identity, IndexReader, IndexReaderContextType};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::{LRBits, LeafReader};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
@@ -134,15 +133,15 @@ where
 /// **NOTE:** this is a very slow way to access live docs.
 /// For example, each `Bits` access will require a binary search.
 /// It's better to get the sub-readers and iterate through them yourself.
-pub fn get_live_docs<CR>(reader: CR) -> Result<Option<BitsType<CR>>>
+pub fn get_live_docs<IR>(reader: IR) -> Result<Option<BitsType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
   if !reader.has_deletions()? {
     return Ok(None);
   }
   let max_doc = reader.max_doc()?;
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let size = leaves.len();
   debug_assert!(
@@ -168,8 +167,11 @@ where
 
   starts.push(max_doc.try_convert()?);
 
-  Ok(Some(BitsType::<CR>::B(MultiBits::new(
+  Ok(Some(BitsType::<IR>::B(MultiBits::new(
     live_docs, starts, true,
   ))))
 }
-pub type BitsType<CR> = BitsEnum2<CompositeReaderBits<CR>, MultiBits<CompositeReaderBits<CR>>>;
+pub type BitsType<IR> = BitsEnum2<
+  LRBits<IRCLeafReader<IndexReaderContextType<IR>>>,
+  MultiBits<LRBits<IRCLeafReader<IndexReaderContextType<IR>>>>,
+>;

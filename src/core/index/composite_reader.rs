@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader_context::{CompositeReaderContext, create};
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{CompositeReaderContextKind, IndexReader};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::Result;
 use std::rc::Rc;
@@ -51,7 +50,7 @@ use std::sync::Arc;
 /// threads can call any of their methods concurrently. If your application
 /// requires external synchronization, do not synchronize on the reader instance;
 /// use your own non-Lucene objects instead.
-pub trait CompositeReader: IndexReader {
+pub trait CompositeReader: IndexReader<ContextKind = CompositeReaderContextKind> + Sized {
   type LeafReader: LeafReader + Clone;
   type SubReader: IndexReader;
 
@@ -75,14 +74,6 @@ pub trait CompositeReader: IndexReader {
   }
 }
 
-/// Returns the [`CompositeReaderContext`] for this reader.
-pub fn get_context<CR>(composite_reader: CR) -> Result<CompositeReaderContext<CR>>
-where
-  CR: CompositeReader,
-{
-  composite_reader.ensure_open()?;
-  create(composite_reader)
-}
 impl<CR> CompositeReader for &CR
 where
   CR: CompositeReader,
@@ -149,6 +140,3 @@ where
     (**self).to_string()
   }
 }
-
-pub type CompositeReaderBits<CR> = <<CR as CompositeReader>::LeafReader as LeafReader>::Bits;
-pub type CompositeReaderTerms<CR> = <<CR as CompositeReader>::LeafReader as LeafReader>::Terms;

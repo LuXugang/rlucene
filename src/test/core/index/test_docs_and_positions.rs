@@ -20,7 +20,6 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LeafReader};
@@ -96,7 +95,7 @@ fn test_positions_simple() -> Result<()> {
   let num = at_least(&mut random, 13);
   for _ in 0..num {
     let bytes = new_bytes_ref_from_string(&mut random, "1")?;
-    let top_reader_context = get_context(&reader)?;
+    let top_reader_context = (&reader).get_context()?;
 
     for leaf_reader_context in top_reader_context.leaves()? {
       let leaf_reader = leaf_reader_context.reader();
@@ -225,7 +224,7 @@ fn test_random_positions() -> Result<()> {
 
   for i in 0..num_outer {
     let bytes = new_bytes_ref_from_string(&mut random, &format!("{}", term))?;
-    let top_reader_context = get_context(&reader)?;
+    let top_reader_context = (&reader).get_context()?;
 
     for leaf_ctx in top_reader_context.leaves()? {
       let leaf_reader = leaf_ctx.reader();
@@ -331,7 +330,7 @@ fn test_random_docs() -> Result<()> {
   let num = at_least(&mut random, 13);
   for i in 0..num {
     let bytes = BytesRef::from_string(&term.to_string());
-    let top_reader_context = get_context(&reader)?;
+    let top_reader_context = (&reader).get_context()?;
     for context in top_reader_context.leaves()? {
       let max_doc = context.reader().max_doc()? as usize;
       let reader = SingleLeafCompositeReader::new(context.reader().clone());
@@ -448,7 +447,7 @@ fn test_large_number_of_positions() -> Result<()> {
 
   for i in 0..num_outer {
     let bytes = new_bytes_ref_from_string(&mut random, "even")?;
-    let top_reader_context = get_context(&reader)?;
+    let top_reader_context = (&reader).get_context()?;
 
     for leaf_ctx in top_reader_context.leaves()? {
       let leaf_reader = leaf_ctx.reader();

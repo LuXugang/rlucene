@@ -37,7 +37,7 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::point_in_set_query::{
   DefaultPointInSetQuery, PointInSetBase, PointInSetBaseEnum, PointInSetQuery,
 };
@@ -102,7 +102,7 @@ fn test_basic_ints() -> Result<()> {
   }
 
   let r = directory_reader::open_from_writer(&w)?;
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   assert_eq!(
     2,
@@ -147,7 +147,7 @@ fn test_basic_floats() -> Result<()> {
   }
 
   let r = directory_reader::open_from_writer(&w)?;
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   assert_eq!(
     2,
@@ -199,7 +199,7 @@ fn test_basic_longs() -> Result<()> {
   }
 
   let r = directory_reader::open_from_writer(&w)?;
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   assert_eq!(
     2,
@@ -251,7 +251,7 @@ fn test_basic_doubles() -> Result<()> {
   }
 
   let r = directory_reader::open_from_writer(&w)?;
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   assert_eq!(
     2,
@@ -327,7 +327,7 @@ fn test_crazy_doubles() -> Result<()> {
   }
 
   let r = directory_reader::open_from_writer(&w)?;
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   // exact queries
   assert_eq!(
@@ -479,7 +479,7 @@ fn test_crazy_floats() -> Result<()> {
   }
 
   let r = directory_reader::open_from_writer(&w)?;
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   // exact queries
   assert_eq!(
@@ -1419,7 +1419,7 @@ fn test_numeric_no_values_match() -> Result<()> {
   }
 
   let r = w.get_reader(&mut random)?;
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   assert_eq!(
     0,
@@ -1468,7 +1468,7 @@ fn test_wrong_num_dims() -> Result<()> {
   let r = w.get_reader(&mut random)?;
 
   // no wrapping, else the exc might happen in executor thread:
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
 
   let point = [vec![0u8; 8], vec![0u8; 8]];
 
@@ -2721,7 +2721,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
 
   let query = {
     let reader = w.get_reader(&mut random)?;
-    let mut searcher = IndexSearcher::from_cr(reader)?;
+    let mut searcher = index_searcher::from_reader(reader)?;
     searcher.set_query_cache(None);
 
     let mut lower = Vec::with_capacity(num_dims);
@@ -2745,7 +2745,7 @@ fn test_range_optimizes_if_all_points_match() -> Result<()> {
   w.commit(&mut random)?;
 
   let reader = w.get_reader(&mut random)?;
-  let mut searcher = IndexSearcher::from_cr(reader)?;
+  let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None);
 
   let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
@@ -2799,7 +2799,7 @@ fn test_point_range_weight_count() -> Result<()> {
   w.force_merge(&mut random, 1)?;
 
   let reader = w.get_reader(&mut random)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   // we need at least 1 leaf in the segment
   if !searcher.get_leaf_contexts()?.is_empty() {

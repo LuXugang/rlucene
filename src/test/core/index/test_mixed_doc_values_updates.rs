@@ -23,7 +23,6 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -50,7 +49,7 @@ use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
-  new_searcher_with_leaf_reader, new_searcher_with_reader, random, random_from_seed, rarely,
+  new_searcher_with_reader, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -146,7 +145,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
     reader = new_reader;
 
     assert!(reader.num_docs()? > 0);
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     for context in context.leaves()? {
       let r = context.reader();
       let live_docs = r.get_live_docs()?;
@@ -314,7 +313,7 @@ fn test_stress_multi_threading() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   for context in reader.leaves()? {
     let r = context.reader();
     for i in 0..num_fields {
@@ -381,7 +380,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
     }
 
     let reader = directory_reader::open_from_writer(&writer)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     for context in reader.leaves()? {
       let r = context.reader();
       let mut fbdv = r.get_binary_doc_values("f")?.unwrap();
@@ -469,7 +468,7 @@ fn test_tons_of_updates() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   for context in reader.leaves()? {
     for i in 0..num_binary_fields {
       let r = context.reader();
@@ -516,11 +515,11 @@ fn test_try_update_doc_values() -> Result<()> {
   )?;
 
   let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let context = get_context(reader.clone())?;
+  let context = reader.clone().get_context()?;
   let mut numeric_id_values = None;
   let mut binary_id_values = None;
   for c in context.leaves()? {
-    let searcher = new_searcher_with_leaf_reader(c.reader().clone())?;
+    let searcher = new_searcher_with_reader(c.reader().clone())?;
     let top_docs = searcher.search(TermQuery::new(Term::from_text("id", doc.to_string())), 10)?;
     if top_docs.total_hits.value() == 1 {
       assert!(numeric_id_values.is_none());
@@ -638,7 +637,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
 
   let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
   let searcher = new_searcher_with_reader(reader.clone())?;
-  let context = get_context(reader.clone())?;
+  let context = reader.clone().get_context()?;
   for i in 0..values.len() {
     let value_guard = values[i].lock();
     let value = *value_guard;
@@ -681,7 +680,7 @@ where
     let top_docs = searcher.search(TermQuery::new(doc.clone()), 10)?;
     assert_eq!(1, top_docs.total_hits.value());
     let the_doc = top_docs.score_docs()[0].doc;
-    seq_id = writer.try_update_doc_value(reader.as_ref().into(), the_doc, fields.clone())?;
+    seq_id = writer.try_update_doc_value(reader.as_ref(), the_doc, fields.clone())?;
     reader.close()?;
   }
   Ok(())
@@ -708,7 +707,7 @@ fn test_reset_value() -> Result<()> {
   }
   {
     let reader = directory_reader::open_from_writer(&writer)?;
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     let leaves = context.leaves()?;
     assert_eq!(1, leaves.len());
     let r = leaves[0].reader();
@@ -736,7 +735,7 @@ fn test_reset_value() -> Result<()> {
   )?;
   {
     let reader = directory_reader::open_from_writer(&writer)?;
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     let leaves = context.leaves()?;
     assert_eq!(1, leaves.len());
     let r = leaves[0].reader();
@@ -802,7 +801,7 @@ fn test_reset_value_multiple_docs() -> Result<()> {
     let is_live = searcher.search(FieldExistsQuery::new("is_live"), 5)?;
     assert_eq!(num_hits, is_live.total_hits.value());
     let mut stored_fields = reader.stored_fields()?;
-    let context = get_context(reader.clone())?;
+    let context = reader.clone().get_context()?;
     for doc in is_live.score_docs {
       let id = stored_fields
         .document(doc.doc)?
@@ -891,7 +890,7 @@ fn test_update_field_with_no_previous_doc_values_throws_error() -> Result<()> {
   writer.add_document(doc)?;
   if random.random_bool(0.5) {
     let reader = directory_reader::open_from_writer(&writer)?;
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     let id = context.leaves()?[0].reader().get_numeric_doc_values("id")?;
     assert!(id.is_none());
     reader.close()?;

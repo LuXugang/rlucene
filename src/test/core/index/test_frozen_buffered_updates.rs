@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::frozen_buffered_updates::{TermDocsIterator, TermsProviderImpl2};
 use crate::core::index::index_reader::IndexReader;
@@ -107,7 +106,7 @@ fn test_term_docs_iterator() -> Result<()> {
     writer.commit()?;
 
     let reader = directory_reader::open(dir.clone())?;
-    let irc = get_context(&reader)?;
+    let irc = (&reader).get_context()?;
     let leaves = irc.leaves()?;
     assert_eq!(1, leaves.len());
 

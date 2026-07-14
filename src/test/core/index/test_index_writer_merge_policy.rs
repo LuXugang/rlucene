@@ -20,7 +20,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{Identity, IndexReader};
@@ -52,7 +51,7 @@ use crate::core::index::soft_deletes_directory_reader_wrapper::SoftDeletesDirect
 use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::{SegmentDocAndID, TieredMergePolicy};
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::data_input::DataInput;
@@ -429,7 +428,7 @@ fn test_merge_on_commit() -> Result<()> {
   // Check 5 leaf segments
   {
     let first_reader = directory_reader::open_from_writer(&first_writer)?;
-    let first_ctx = get_context(first_reader)?;
+    let first_ctx = first_reader.get_context()?;
     assert_eq!(5, first_ctx.leaves()?.len());
   }
   first_writer.close()?;
@@ -447,7 +446,7 @@ fn test_merge_on_commit() -> Result<()> {
 
   {
     let unmerged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
-    let unmerged_ctx = get_context(unmerged_reader)?;
+    let unmerged_ctx = unmerged_reader.get_context()?;
     let leaf_count = unmerged_ctx.leaves()?.len();
     assert_eq!(5, leaf_count);
   }
@@ -458,14 +457,14 @@ fn test_merge_on_commit() -> Result<()> {
 
   {
     let merged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
-    let merged_ctx = get_context(merged_reader)?;
+    let merged_ctx = merged_reader.get_context()?;
     assert_eq!(1, merged_ctx.leaves()?.len());
   }
 
   let reader = Arc::new(directory_reader::open_from_writer(
     &writer_with_merge_policy,
   )?);
-  let searcher = IndexSearcher::from_cr(reader.clone())?;
+  let searcher = index_searcher::from_reader(reader.clone())?;
   assert_eq!(5, reader.num_docs()?);
   assert_eq!(5, searcher.count(MatchAllDocsQuery::new())?);
 
@@ -495,7 +494,7 @@ fn test_merge_on_commit_with_event_listener() -> Result<()> {
   }
 
   let first_reader = directory_reader::open_from_writer(&first_writer)?;
-  assert_eq!(5, get_context(&first_reader)?.leaves()?.len());
+  assert_eq!(5, (&first_reader).get_context()?.leaves()?.len());
   first_reader.close()?;
   first_writer.close()?; // When this writer closes, it does not merge on commit.
 
@@ -514,7 +513,7 @@ fn test_merge_on_commit_with_event_listener() -> Result<()> {
 
   // No changes. Refresh doesn't trigger a merge.
   let unmerged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
-  assert_eq!(5, get_context(&unmerged_reader)?.leaves()?.len());
+  assert_eq!(5, (&unmerged_reader).get_context()?.leaves()?.len());
   unmerged_reader.close()?;
 
   assert!(!event_listener.is_events_recorded());
@@ -786,7 +785,7 @@ fn stress_update_same_document_with_merge_on_x(use_get_reader: bool) -> Result<(
   while !done.load(Ordering::SeqCst) {
     if use_get_reader {
       let reader = directory_reader::open_from_writer(&writer)?;
-      let searcher = IndexSearcher::from_cr(reader)?;
+      let searcher = index_searcher::from_reader(reader)?;
       assert_eq!(
         1,
         searcher.count(TermQuery::new(Term::from_text("id", "1")))?
@@ -797,7 +796,7 @@ fn stress_update_same_document_with_merge_on_x(use_get_reader: bool) -> Result<(
       }
       let delegate = directory_reader::open(directory.clone())?;
       let open = SoftDeletesDirectoryReaderWrapper::new(delegate, "soft_delete")?;
-      let searcher = IndexSearcher::from_cr(open)?;
+      let searcher = index_searcher::from_reader(open)?;
       assert_eq!(
         1,
         searcher.count(TermQuery::new(Term::from_text("id", "1")))?
@@ -834,7 +833,7 @@ fn test_merge_on_get_reader() -> Result<()> {
   }
   {
     let first_reader = directory_reader::open_from_writer(&first_writer)?;
-    let first_ctx = get_context(first_reader)?;
+    let first_ctx = first_reader.get_context()?;
     assert_eq!(5, first_ctx.leaves()?.len());
   }
   first_writer.close()?;
@@ -851,7 +850,7 @@ fn test_merge_on_get_reader() -> Result<()> {
 
   {
     let unmerged_reader = directory_reader::open(dir.clone())?;
-    let unmerged_ctx = get_context(unmerged_reader)?;
+    let unmerged_ctx = unmerged_reader.get_context()?;
     assert_eq!(5, unmerged_ctx.leaves()?.len());
   }
 
@@ -862,7 +861,7 @@ fn test_merge_on_get_reader() -> Result<()> {
   )?;
   {
     let merged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
-    let merged_ctx = get_context(merged_reader)?;
+    let merged_ctx = merged_reader.get_context()?;
     assert_eq!(1, merged_ctx.leaves()?.len());
   }
 

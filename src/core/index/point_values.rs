@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::mutable_point_tree::{MutablePointTree, MutablePointTreeEnum2};
-use crate::core::index::composite_reader::{CompositeReader, get_context};
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -112,11 +112,11 @@ pub trait PointValues: Clone {
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::size`].
-pub fn size<CR>(reader: CR, field: &str) -> Result<i64>
+pub fn size<IR>(reader: IR, field: &str) -> Result<i64>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
-  let leaves = get_context(reader)?;
+  let leaves = reader.get_context()?;
   let leaves = leaves.leaves()?;
   let mut size = 0_i64;
 
@@ -135,11 +135,11 @@ where
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::get_doc_count`].
-pub fn get_doc_count<CR>(reader: CR, field: &str) -> Result<i32>
+pub fn get_doc_count<IR>(reader: IR, field: &str) -> Result<i32>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
-  let leaves = get_context(reader)?;
+  let leaves = reader.get_context()?;
   let leaves = leaves.leaves()?;
   let mut count = 0;
 
@@ -156,11 +156,11 @@ where
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::get_min_packed_value`].
-pub fn get_min_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
+pub fn get_min_packed_value<IR>(reader: IR, field: &str) -> Result<Option<Vec<u8>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
-  let leaves = get_context(reader)?;
+  let leaves = reader.get_context()?;
   let leaves = leaves.leaves()?;
   let mut min_value = None;
 
@@ -202,11 +202,11 @@ where
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::get_max_packed_value`].
-pub fn get_max_packed_value<CR>(reader: CR, field: &str) -> Result<Option<Vec<u8>>>
+pub fn get_max_packed_value<IR>(reader: IR, field: &str) -> Result<Option<Vec<u8>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let mut max_value: Option<Vec<u8>> = None;
 

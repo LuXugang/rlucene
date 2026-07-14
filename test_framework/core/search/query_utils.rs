@@ -33,7 +33,7 @@ use crate::core::util::CoreHelper;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::search::check_hits::CheckHits;
-use crate::test_framework::core::util::lucene_test_case::new_searcher_with_lr_wrap;
+use crate::test_framework::core::util::lucene_test_case::new_searcher;
 use rand::{Rng, RngExt};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
@@ -160,7 +160,7 @@ impl QueryUtils {
       if let Some(last_reader_idx) = collector.last_reader_idx {
         let previous_reader = reader_context_array[last_reader_idx].reader().clone();
 
-        let mut index_searcher = new_searcher_with_lr_wrap(previous_reader, false)?;
+        let mut index_searcher = new_searcher(previous_reader, false, true)?;
         index_searcher.set_similarity(s.get_similarity().clone());
 
         let rewritten = index_searcher.rewrite(q.clone())?;
@@ -217,7 +217,7 @@ impl QueryUtils {
     s.search_with_collector(q, &mut collector)?;
     if let Some(last_reader_idx) = collector.last_reader_idx {
       let previous_reader = s.get_leaf_contexts()?[last_reader_idx].reader().clone();
-      let mut index_searcher = new_searcher_with_lr_wrap(previous_reader, false)?;
+      let mut index_searcher = new_searcher(previous_reader, false, true)?;
       index_searcher.set_similarity(s.get_similarity().clone());
       let weight = index_searcher.create_weight(rewritten.clone(), ScoreMode::Complete, 1.0)?;
       let top = index_searcher.get_top_reader_context();
@@ -635,7 +635,7 @@ where
       let lr = self.s.get_leaf_contexts()?[previous_reader_idx]
         .reader()
         .clone();
-      let mut index_searcher = new_searcher_with_lr_wrap(lr, false)?;
+      let mut index_searcher = new_searcher(lr, false, true)?;
       index_searcher.set_similarity(self.s.get_similarity().clone());
 
       let weight =
@@ -841,7 +841,7 @@ where
         .reader()
         .clone();
 
-      let mut index_searcher = new_searcher_with_lr_wrap(lr, false)?;
+      let mut index_searcher = new_searcher(lr, false, true)?;
       index_searcher.set_similarity(self.s.get_similarity().clone());
 
       let rewritten = index_searcher.rewrite(self.q.clone())?;

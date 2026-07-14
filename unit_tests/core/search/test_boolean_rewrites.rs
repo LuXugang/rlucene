@@ -36,7 +36,7 @@ use crate::core::search::boolean_query;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::phrase_query::PhraseQuery;
@@ -113,7 +113,7 @@ fn test_single_filter_clause() -> Result<()> {
   writer.commit()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   let mut query1 = Builder::new();
   query1.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
@@ -654,8 +654,8 @@ fn test_random() -> Result<()> {
   let reader2 = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;
 
-  let searcher1 = IndexSearcher::from_cr(reader1)?;
-  let mut searcher2 = IndexSearcher::from_cr(reader2)?;
+  let searcher1 = index_searcher::from_reader(reader1)?;
+  let mut searcher2 = index_searcher::from_reader(reader2)?;
   searcher2.disable_rewrite = true;
   searcher2.set_similarity(searcher1.get_similarity());
 

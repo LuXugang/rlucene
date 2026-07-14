@@ -37,7 +37,9 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{
+  CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
+};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -1751,6 +1753,8 @@ impl<LR> IndexReader for NoIndexLeafReader<LR>
 where
   LR: LeafReader,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = LR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -2077,6 +2081,8 @@ impl<DR> IndexReader for NoIndexDirectoryReader<DR>
 where
   DR: DirectoryReader,
 {
+  type ContextKind = CompositeReaderContextKind;
+
   type TermVectors = DR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

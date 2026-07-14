@@ -28,7 +28,6 @@ use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::index_options::IndexOptions;
@@ -330,7 +329,7 @@ fn test_random() -> Result<()> {
   w.close(&mut random)?;
 
   let terms = ["a", "b", "c", "d"];
-  for ctx in get_context(&r)?.leaves()? {
+  for ctx in (&r).get_context()?.leaves()? {
     let sub = ctx.reader();
     let mut terms_enum = sub
       .terms("content")?

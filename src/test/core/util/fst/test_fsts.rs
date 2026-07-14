@@ -31,7 +31,7 @@ use crate::core::index::multi_terms;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
@@ -884,7 +884,7 @@ fn test_random_term_lookup() -> Result<()> {
   }
 
   let reader = writer.get_reader(&mut random)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
   writer.close(&mut random)?;
 
   let mut all_terms_list: Vec<String> = all_terms.iter().cloned().collect();

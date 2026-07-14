@@ -24,7 +24,10 @@ use crate::core::index::filter_directory_reader::{
   DelegatingCacheHelper, FilterDirectoryReader, SubReaderWrapper,
 };
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{
+  CacheHelper, CacheKey, CompositeReaderContextKind, IndexReader, IndexReaderBase,
+  LeafReaderContextKind,
+};
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -163,6 +166,8 @@ where
   <DR::LeafReader as IndexReader>::ReaderCacheHelper: Clone,
   DR::ReaderCacheHelper: Clone,
 {
+  type ContextKind = CompositeReaderContextKind;
+
   type TermVectors = BCRTermVectorsImpl<<Self as CompositeReader>::LeafReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -486,6 +491,8 @@ where
   LR: LeafReader,
   LR::ReaderCacheHelper: Clone,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = LR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -724,6 +731,8 @@ where
   CR: CodecReader,
   CR::ReaderCacheHelper: Clone,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = CR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

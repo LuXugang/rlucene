@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
@@ -47,7 +47,7 @@ fn test_illegal_argument_exception_on_zero() -> Result<()> {
 
 #[test]
 fn test_flatten_inner_disjunctions_with_more_than_1024_terms() -> Result<()> {
-  let searcher = IndexSearcher::new(get_context(MultiReader::empty()?)?)?;
+  let searcher = IndexSearcher::new((MultiReader::empty()?).get_context()?)?;
 
   let mut builder1024 = Builder::new();
   for i in 0..1024 {
@@ -72,7 +72,7 @@ fn test_flatten_inner_disjunctions_with_more_than_1024_terms() -> Result<()> {
 
 #[test]
 fn test_large_terms_nested_first() -> Result<()> {
-  let searcher = IndexSearcher::new(get_context(MultiReader::empty()?)?)?;
+  let searcher = IndexSearcher::new((MultiReader::empty()?).get_context()?)?;
 
   let mut nested_builder = Builder::new();
   nested_builder.set_minimum_number_should_match(5);
@@ -104,7 +104,7 @@ fn test_large_terms_nested_first() -> Result<()> {
 
 #[test]
 fn test_large_terms_nested_last() -> Result<()> {
-  let searcher = IndexSearcher::new(get_context(MultiReader::empty()?)?)?;
+  let searcher = IndexSearcher::new((MultiReader::empty()?).get_context()?)?;
 
   let mut nested_builder = Builder::new();
   nested_builder.set_minimum_number_should_match(5);
@@ -137,7 +137,7 @@ fn test_large_terms_nested_last() -> Result<()> {
 
 #[test]
 fn test_large_disjunction_max_query() -> Result<()> {
-  let searcher = IndexSearcher::new(get_context(MultiReader::empty()?)?)?;
+  let searcher = IndexSearcher::new((MultiReader::empty()?).get_context()?)?;
 
   let mut clauses = Vec::with_capacity(1050);
 
@@ -159,7 +159,7 @@ fn test_large_disjunction_max_query() -> Result<()> {
 
 #[test]
 fn test_multi_exact_with_repeats() -> Result<()> {
-  let _searcher = IndexSearcher::new(get_context(MultiReader::empty()?)?)?;
+  let _searcher = IndexSearcher::new((MultiReader::empty()?).get_context()?)?;
 
   let mut qb = MultiPhraseQuery::builder();
 

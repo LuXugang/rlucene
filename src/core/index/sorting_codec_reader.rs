@@ -45,7 +45,9 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::freq_prox_terms_writer::SortingTerms;
-use crate::core::index::index_reader::{Identity, IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{
+  Identity, IndexReader, IndexReaderBase, LeafReaderContextKind,
+};
 use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -283,6 +285,8 @@ where
   CR: CodecReader,
   DM: DocMap + Clone,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = <CR as IndexReader>::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -1801,6 +1805,8 @@ impl<CR> IndexReader for FilterCodecReaderImpl<CR>
 where
   CR: CodecReader,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = <CR as IndexReader>::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -2157,6 +2163,8 @@ where
   CR: CodecReader,
   DM: Clone + DocMap,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = <CR as IndexReader>::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

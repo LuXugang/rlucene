@@ -34,7 +34,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
 use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, LeafReaderContextKind};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::point_values::PointValuesEnum2;
@@ -509,6 +509,8 @@ macro_rules! either_codec_reader {
             $A: CodecReader,
             $B: CodecReader,
         {
+            type ContextKind = LeafReaderContextKind;
+
             type TermVectors =
                 TermVectorsEnum2<<$A as IndexReader>::TermVectors, <$B as IndexReader>::TermVectors>;
 

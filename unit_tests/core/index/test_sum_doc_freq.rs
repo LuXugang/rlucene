@@ -17,9 +17,9 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
-use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos::get_indexed_fields;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
@@ -74,7 +74,7 @@ fn test_sum_doc_freq() -> Result<()> {
 
   {
     let ir = writer.get_reader(&mut random)?;
-    assert_sum_doc_freq(ir)?;
+    assert_sum_doc_freq(&ir)?;
   }
 
   let num_deletions = at_least(&mut random, 20);
@@ -88,19 +88,19 @@ fn test_sum_doc_freq() -> Result<()> {
 
   {
     let ir = directory_reader::open(dir.clone())?;
-    assert_sum_doc_freq(ir)?;
+    assert_sum_doc_freq(&ir)?;
   }
   Ok(())
 }
 
-fn assert_sum_doc_freq<CR>(reader: CR) -> Result<()>
+fn assert_sum_doc_freq<IR>(reader: IR) -> Result<()>
 where
-  CR: CompositeReader,
+  IR: IndexReader + Clone,
 {
-  let fields = get_indexed_fields(&reader)?;
+  let fields = get_indexed_fields(reader.clone())?;
 
   for field in fields {
-    let Some(terms) = get_terms(&reader, &field)? else {
+    let Some(terms) = get_terms(reader.clone(), &field)? else {
       continue;
     };
 

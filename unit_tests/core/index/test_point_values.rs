@@ -22,7 +22,6 @@ use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
 use crate::core::index::check_index::{CheckIndex, Level};
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -754,7 +753,7 @@ fn test_tie_break_by_doc_id() -> Result<()> {
   }
 
   let reader = directory_reader::open_from_writer(&w)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
 
   for leaf in reader.leaves()? {
     let points = leaf.reader().get_point_values("int")?;
@@ -795,7 +794,7 @@ fn test_delete_all_point_docs() -> Result<()> {
   w.force_merge(1)?;
   let reader = directory_reader::open_from_writer(&w)?;
 
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let leaf = &leaves[0];
 
@@ -873,7 +872,7 @@ fn test_sparse_points() -> Result<()> {
   }
 
   let reader = w.get_reader(&mut random)?;
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
 
   for field in 0..num_fields {

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
@@ -109,9 +110,9 @@ fn test_deletes1() -> Result<()> {
   Ok(())
 }
 
-fn to_docs_array<CR>(term: Term, reader: &CR) -> Result<Option<Vec<i32>>>
+fn to_docs_array<IR>(term: Term, reader: IR) -> Result<Option<Vec<i32>>>
 where
-  CR: crate::core::index::composite_reader::CompositeReader,
+  IR: IndexReader,
 {
   if let Some(postings_enum) =
     get_term_postings_enum_with_flag(reader, &term.field, &term.bytes, NONE as i32)?

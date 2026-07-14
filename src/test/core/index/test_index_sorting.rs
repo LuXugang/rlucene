@@ -33,7 +33,6 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TYPE_NOT_STORED, TextField};
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_invert_state::FieldInvertState;
@@ -2049,7 +2048,7 @@ fn test_random1() -> Result<()> {
   }
 
   let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let irc = get_context(reader.clone())?;
+  let irc = reader.clone().get_context()?;
   for ctx in irc.leaves()? {
     let leaf = ctx.reader();
 
@@ -2443,7 +2442,7 @@ fn test_bad_add_indexes() -> Result<()> {
         .to_string()
         .contains("cannot change index sort")
     );
-    let reader_context = get_context(&reader)?;
+    let reader_context = (&reader).get_context()?;
     let leaves = reader_context.leaves()?;
     let mut codec_readers = Vec::with_capacity(leaves.len());
     for leaf in leaves {
@@ -2531,7 +2530,7 @@ where
   let w2 = IndexWriter::new(dir2.clone(), iwc)?;
 
   if use_readers {
-    let reader_context = get_context(reader.clone())?;
+    let reader_context = reader.clone().get_context()?;
     let leaves = reader_context.leaves()?;
     let mut codec_readers = Vec::with_capacity(leaves.len());
     for leaf in leaves {
@@ -3335,7 +3334,7 @@ fn test_index_sort_with_sparse_field() -> Result<()> {
   writer.commit()?;
   writer.force_merge(1)?;
 
-  let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
+  let reader = (directory_reader::open_from_writer(&writer)?).get_context()?;
   let leaves = reader.leaves()?;
   assert_eq!(1, leaves.len());
 
@@ -3398,7 +3397,7 @@ fn test_index_sort_on_sparse_field() -> Result<()> {
   writer.commit()?;
   writer.force_merge(1)?;
 
-  let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
+  let reader = (directory_reader::open_from_writer(&writer)?).get_context()?;
   let leaves = reader.leaves()?;
   assert_eq!(1, leaves.len());
 
@@ -3539,7 +3538,7 @@ fn test_delete_by_term_or_query() -> Result<()> {
   }
 
   let mut doc_count = 0;
-  let reader = get_context(directory_reader::open_from_writer(&writer)?)?;
+  let reader = (directory_reader::open_from_writer(&writer)?).get_context()?;
 
   for leaf_ctx in reader.leaves()? {
     let leaf = leaf_ctx.reader();
@@ -4119,7 +4118,7 @@ fn test_index_sort_with_blocks() -> Result<()> {
     writer.close()?;
   }
 
-  let reader = get_context(directory_reader::open(dir.clone())?)?;
+  let reader = (directory_reader::open(dir.clone())?).get_context()?;
   for ctx in reader.leaves()? {
     let leaf = ctx.reader();
     let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();
@@ -4249,7 +4248,7 @@ fn test_mix_random_documents_with_blocks() -> Result<()> {
   }
 
   random_index_writer.close(&mut random)?;
-  let reader = get_context(directory_reader::open(dir.clone())?)?;
+  let reader = (directory_reader::open(dir.clone())?).get_context()?;
   for ctx in reader.leaves()? {
     let leaf = ctx.reader();
     let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();

@@ -22,7 +22,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
@@ -572,7 +571,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.force_merge(1)?;
 
     let reader = directory_reader::open(dir)?;
-    let searcher = IndexSearcher::new(get_context(reader)?)?;
+    let searcher = IndexSearcher::new(reader.get_context()?)?;
     assert_eq!(
       1,
       searcher.count(TermQuery::new(Term::from_text("id", "1")))?

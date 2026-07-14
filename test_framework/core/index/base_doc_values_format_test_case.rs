@@ -20,7 +20,6 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -674,7 +673,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     }
 
     let ireader = writer.get_reader(random)?;
-    let context = get_context(&ireader)?;
+    let context = (&ireader).get_context()?;
     let mut read_docs = 0;
     for reader_context in context.leaves()? {
       // TODO IMPORTANT CheckIndex未实现

@@ -24,7 +24,7 @@ use std::sync::{Arc, LazyLock};
 
 use crate::core::codecs::Codecs;
 use crate::core::index::CODEC_FILE_PATTERN;
-use crate::core::index::composite_reader::{CompositeReader, get_context};
+use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -185,7 +185,7 @@ impl TestUtil {
   {
     let mut leaves = Vec::new();
     for reader in readers {
-      let reader_context = get_context(reader)?;
+      let reader_context = reader.get_context()?;
       for context in reader_context.leaves()? {
         leaves.push(context.reader().clone());
       }
@@ -691,17 +691,17 @@ impl TestUtil {
       s
     }
   }
-  pub fn docs_with_reader<R, CR>(
+  pub fn docs_with_reader<R, IR>(
     random: &mut R,
-    r: &CR,
+    r: IR,
     field: &str,
     term: &BytesRef<Vec<u8>>,
-    reuse: Option<<<TermsType<CR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
+    reuse: Option<<<TermsType<IR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum>,
     flags: i32,
-  ) -> Result<Option<<<TermsType<CR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum>>
+  ) -> Result<Option<<<TermsType<IR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum>>
   where
     R: Rng + ?Sized,
-    CR: CompositeReader,
+    IR: IndexReader,
   {
     match get_terms(r, field)? {
       Some(terms) => {

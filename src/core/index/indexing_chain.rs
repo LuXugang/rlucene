@@ -47,7 +47,7 @@ use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::index_sorter::DocComparatorEnum2;
 use crate::core::index::index_sorter::{DocComparator, IndexSorter};
 use std::borrow::Cow;
@@ -2199,6 +2199,8 @@ impl<D> IndexReader for DocValuesLeafReaderImpl1<'_, D>
 where
   D: Directory + Clone,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -2514,6 +2516,8 @@ impl<SFB> IndexReader for DocValuesLeafReaderImpl2<'_, SFB>
 where
   SFB: SortFiledBase,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = <DocValuesLeafReader as IndexReader>::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

@@ -19,7 +19,6 @@ use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::directory_reader;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_reader::IndexReader;
@@ -530,11 +529,11 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn check_norms_vs_doc_values<IR>(&self, reader: &IR) -> Result<()>
+  fn check_norms_vs_doc_values<IR>(&self, reader: IR) -> Result<()>
   where
-    IR: CompositeReader,
+    IR: IndexReader,
   {
-    let context = get_context(reader)?;
+    let context = reader.get_context()?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
       let expected = leaf_reader.get_numeric_doc_values("dv")?;

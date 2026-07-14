@@ -1053,9 +1053,10 @@ where
   /// **NOTE**: this method can only delete documents visible to the currently open NRT reader.
   /// If you need to delete documents indexed after opening the NRT reader you must use
   /// [`Self::delete_documents_with_terms`].
-  pub fn try_delete_document<CR>(&self, reader: ModifyReader<'_, D, CR>, doc_id: i32) -> Result<i64>
+  pub fn try_delete_document<IR>(&self, reader: IR, doc_id: i32) -> Result<i64>
   where
-    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+    IR: IndexReader,
+    IndexReaderContextType<IR>: IndexReaderContext<LeafReader = DefaultLeafReader<D>>,
   {
     let mut inner = self.inner.lock();
     self.try_modify_document(reader, doc_id, &DocModifierImpl1, &mut inner)
@@ -1073,14 +1074,15 @@ where
   /// **NOTE**: this method can only update documents visible to the currently open NRT reader.
   /// If you need to update documents indexed after opening the NRT reader you must use
   /// [`Self::update_doc_values`].
-  pub fn try_update_doc_value<CR>(
+  pub fn try_update_doc_value<IR>(
     &self,
-    reader: ModifyReader<'_, D, CR>,
+    reader: IR,
     doc_id: i32,
     fields: Vec<Fields>,
   ) -> Result<i64>
   where
-    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+    IR: IndexReader,
+    IndexReaderContextType<IR>: IndexReaderContext<LeafReader = DefaultLeafReader<D>>,
   {
     let mut inner = self.inner.lock();
     let dv_updates = self.build_doc_values_update(None::<Arc<Term>>, fields)?;
@@ -1088,34 +1090,30 @@ where
     self.try_modify_document(reader, doc_id, &modifier, &mut inner)
   }
 
-  fn try_modify_document<DM, CR>(
+  fn try_modify_document<DM, IR>(
     &self,
-    reader: ModifyReader<'_, D, CR>,
+    reader: IR,
     doc_id: i32,
     to_apply: &DM,
     inner: &mut Inner<D>,
   ) -> Result<i64>
   where
     DM: DocModifier,
-    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+    IR: IndexReader,
+    IndexReaderContextType<IR>: IndexReaderContext<LeafReader = DefaultLeafReader<D>>,
   {
-    use crate::core::index::composite_reader::get_context;
     use crate::core::index::reader_util::ReaderUtil;
 
-    let (info_id_owned, leaf_doc_id) = match reader {
-      ModifyReader::Leaf(r) => (r.original_si_id.clone(), doc_id),
-      ModifyReader::Composite(cr) => {
-        let context = get_context(cr)?;
-        let leaves = context.leaves()?;
-        let sub_index = ReaderUtil::sub_index_with_leaves(doc_id, leaves);
-        let leaf_ctx = &leaves[sub_index];
-        let leaf_reader = leaf_ctx.reader();
-        let rebased_doc_id = doc_id - leaf_ctx.doc_base as i32;
-        debug_assert!(rebased_doc_id >= 0);
-        debug_assert!(rebased_doc_id < leaf_reader.max_doc()?);
-        (leaf_reader.original_si_id.clone(), rebased_doc_id)
-      },
-    };
+    let context = reader.get_context()?;
+    let leaves = context.leaves()?;
+    let sub_index = ReaderUtil::sub_index_with_leaves(doc_id, leaves);
+    let leaf_ctx = &leaves[sub_index];
+    let leaf_reader = leaf_ctx.reader();
+    let leaf_doc_id = doc_id - leaf_ctx.doc_base as i32;
+    debug_assert!(leaf_doc_id >= 0);
+    debug_assert!(leaf_doc_id < leaf_reader.max_doc()?);
+
+    let info_id_owned = leaf_reader.get_original_segment_info_id().to_string();
     let info_id = info_id_owned.as_str();
     if let Some(info) = inner.segment_infos.index_of_live(info_id) {
       let rld_opt = self.get_pooled_instance(info.to_meta()?, false)?;
@@ -3463,7 +3461,7 @@ where
       for reader in merge_reader.iter() {
         let leaf = &reader.reader;
         num_docs += i64::from(leaf.num_docs()?);
-        let v = get_context(leaf)?;
+        let v = leaf.get_context()?;
         let contexts = v.leaves()?;
         for context in contexts {
           has_blocks |= context.reader().get_metadata()?.has_blocks
@@ -7741,7 +7739,6 @@ use crate::core::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpd
 use crate::core::index::buffered_updates::MAX_INT;
 use crate::core::index::caching_merge_context::CachingMergeContext;
 use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
-use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_field_updates::{
   DocValuesFieldIterator, DocValuesFieldUpdates, DocValuesFieldUpdatesBase,
@@ -7758,12 +7755,12 @@ use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers, FieldNumbersLock};
 use crate::core::index::filter_codec_reader::wrap_live_docs;
 use crate::core::index::index_commit::IndexCommit;
-use crate::core::index::index_reader::{Identity, IndexReader};
+use crate::core::index::index_reader::{Identity, IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::index_writer_event_listener::IndexWriterEventListener;
 use crate::core::index::indexable_field::IndexableField;
-use crate::core::index::leaf_reader::{LeafReader, get_context};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{
   MergeReader, OneMerge, OneMergeBase, OneMergeDefaults, OneMergeHook,
 };
@@ -7779,7 +7776,7 @@ use crate::core::index::segment_commit_info::{
   SegmentCommitInfo, SegmentCommitInfoMeta, validate_soft_del_count,
 };
 use crate::core::index::segment_merger::SegmentMerger;
-use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::simple_merged_segment_warmer::SimpleMergedSegmentWarmer;
 use crate::core::index::slow_composite_codec_reader_wrapper::wrap;
 use crate::core::index::sorter::DocMapImpl;
@@ -9116,26 +9113,5 @@ where
     merge_states.extend(self.registered_merges.iter().cloned());
     merge_states.extend(self.rejected_merges.iter().map(|merge| merge.stat.clone()));
     merge_states
-  }
-}
-/// Unified reader wrapper for try_modify_document.
-pub enum ModifyReader<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> {
-  Leaf(&'a SegmentReader<D>),
-  Composite(&'a CR),
-}
-
-impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>>
-  From<&'a SegmentReader<D>> for ModifyReader<'a, D, CR>
-{
-  fn from(r: &'a SegmentReader<D>) -> Self {
-    ModifyReader::Leaf(r)
-  }
-}
-
-impl<'a, D: Directory, CR: CompositeReader<LeafReader = DefaultLeafReader<D>>> From<&'a CR>
-  for ModifyReader<'a, D, CR>
-{
-  fn from(r: &'a CR) -> Self {
-    ModifyReader::Composite(r)
   }
 }

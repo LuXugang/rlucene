@@ -19,9 +19,9 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
@@ -280,7 +280,7 @@ fn test_background_force_merge() -> Result<()> {
 
     if pass == 0 {
       writer.close()?;
-      let reader = get_context(directory_reader::open(dir.clone())?)?;
+      let reader = (directory_reader::open(dir.clone())?).get_context()?;
       assert_eq!(1, reader.leaves()?.len());
     } else {
       // Get another segment to flush so we can verify it is NOT included in the merging.
@@ -288,7 +288,7 @@ fn test_background_force_merge() -> Result<()> {
       writer.add_document(doc.clone())?;
       writer.close()?;
 
-      let reader = get_context(directory_reader::open(dir.clone())?)?;
+      let reader = (directory_reader::open(dir.clone())?).get_context()?;
       assert!(reader.leaves()?.len() > 1);
 
       let infos = SegmentInfos::read_latest_commit(dir.clone())?;

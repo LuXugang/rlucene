@@ -20,7 +20,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::multi_reader::MultiReader;
@@ -32,7 +31,7 @@ use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::field_comparator::FieldComparatorValue;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::index_searcher::{
-  IndexSearcher, LeafReaderContextPartition, LeafSlice, do_slices,
+  self, IndexSearcher, LeafReaderContextPartition, LeafSlice, do_slices,
 };
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
@@ -113,8 +112,8 @@ fn test_huge_n() -> Result<()> {
 
   let reader = Arc::new(reader);
   let searchers = vec![
-    IndexSearcher::from_cr(reader.clone())?,
-    IndexSearcher::from_cr_with_thread(reader.clone(), 4)?,
+    index_searcher::from_reader(reader.clone())?,
+    index_searcher::from_reader_with_threads(reader.clone(), 4)?,
   ];
   let queries: Vec<Query> = vec![
     MatchAllDocsQuery::new().into(),
@@ -184,7 +183,7 @@ fn test_search_after_passed_max_doc() -> Result<()> {
   w.close(&mut random)?;
 
   let max_doc = r.max_doc()?;
-  let s = IndexSearcher::from_cr(r)?;
+  let s = index_searcher::from_reader(r)?;
   let err = match s.search_after_score(
     Some(ScoreDoc::new(max_doc, 0.54)),
     MatchAllDocsQuery::new(),
@@ -225,7 +224,7 @@ fn test_count() -> Result<()> {
     }
 
     let reader = w.get_reader(&mut random)?;
-    let searcher = IndexSearcher::from_cr(reader)?;
+    let searcher = index_searcher::from_reader(reader)?;
 
     let mut boolean_query = Builder::new();
     boolean_query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
@@ -253,7 +252,7 @@ fn test_count() -> Result<()> {
 
 #[test]
 fn test_get_query_cache() -> Result<()> {
-  let mut searcher = IndexSearcher::from_cr(MultiReader::empty()?)?;
+  let mut searcher = index_searcher::from_reader(MultiReader::empty()?)?;
   assert!(searcher.get_query_cache().is_some());
 
   let dummy_cache = QueryCacheEnum::custom(DummyQueryCache);
@@ -271,7 +270,7 @@ fn test_get_query_cache() -> Result<()> {
 
 #[test]
 fn test_get_query_caching_policy() -> Result<()> {
-  let mut searcher = IndexSearcher::from_cr(MultiReader::empty()?)?;
+  let mut searcher = index_searcher::from_reader(MultiReader::empty()?)?;
   assert!(matches!(
     searcher.get_query_caching_policy().as_ref(),
     QueryCachingPolicyEnum::UsageTracking(_)
@@ -288,14 +287,14 @@ fn test_get_query_caching_policy() -> Result<()> {
 
 #[test]
 fn test_get_slices_no_leaves_no_executor() -> Result<()> {
-  let searcher = IndexSearcher::from_cr(MultiReader::empty()?)?;
+  let searcher = index_searcher::from_reader(MultiReader::empty()?)?;
   let slices = searcher.get_slices()?;
   assert_eq!(0, slices.len());
   Ok(())
 }
 #[test]
 fn test_get_slices_no_leaves_with_executor() -> Result<()> {
-  let searcher = IndexSearcher::from_cr(MultiReader::empty()?)?;
+  let searcher = index_searcher::from_reader(MultiReader::empty()?)?;
   let slices = searcher.get_slices()?;
   assert_eq!(0, slices.len());
   Ok(())
@@ -315,14 +314,14 @@ fn test_get_slices() -> Result<()> {
   let r = Arc::new(w.get_reader(&mut random)?);
   w.close(&mut random)?;
 
-  let context = get_context(r.clone())?;
+  let context = r.clone().get_context()?;
   let leaves_len = context.leaves()?.len();
   let searcher = IndexSearcher::new(context)?;
   let slices = searcher.get_slices()?;
   assert_eq!(1, slices.len());
   assert_eq!(leaves_len, slices[0].partitions.len());
 
-  let context = get_context(r)?;
+  let context = r.get_context()?;
   let mut searcher = IndexSearcher::with_threads(context, 2)?;
   searcher.set_slice_strategy(|leaves| do_slices(leaves, 1, 1, false));
   let slices = searcher.get_slices()?;
@@ -339,7 +338,7 @@ fn test_slices_offloaded_to_the_executor() -> Result<()> {
   let mut random = random();
   let TestIndexSearcher { dir: _dir, reader } = TestIndexSearcher::set_up(&mut random)?;
 
-  let context = get_context(reader)?;
+  let context = reader.get_context()?;
   let leaves_len = context.leaves()?.len();
   let mut searcher = IndexSearcher::with_threads(context, leaves_len.max(1))?;
   searcher.set_slice_strategy(|leaves| {
@@ -372,7 +371,7 @@ fn test_segment_partitions_same_slice() -> Result<()> {
   let mut random = random();
   let TestIndexSearcher { dir: _dir, reader } = TestIndexSearcher::set_up(&mut random)?;
 
-  let context = get_context(reader)?;
+  let context = reader.get_context()?;
   let mut searcher = IndexSearcher::with_threads(context, 2)?;
   searcher.set_slice_strategy(|leaves| {
     leaves

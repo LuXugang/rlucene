@@ -21,10 +21,9 @@ use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::index_reader::{CacheHelper, IndexReader};
+use crate::core::index::index_reader::{CacheHelper, IndexReader, LeafReaderContextKind};
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::leaf_metadata::LeafMetaData;
-use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::postings_enum::{FREQS, PostingsEnumEnum2};
@@ -61,7 +60,7 @@ use std::sync::Arc;
 /// threads can call any of their methods concurrently. If your application
 /// requires external synchronization, do not synchronize on the reader instance;
 /// use your own non-Lucene objects instead.
-pub trait LeafReader: IndexReader {
+pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   type CacheHelper: CacheHelper;
 
   /// Optional method: return a [`CacheHelper`] that can be used to cache based
@@ -462,13 +461,6 @@ pub trait LeafReader: IndexReader {
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   fn get_metadata(&self) -> Result<&LeafMetaData>;
-}
-pub(crate) fn get_context<LR>(leaf_reader: LR) -> Result<LeafReaderContext<LR>>
-where
-  LR: LeafReader,
-{
-  leaf_reader.ensure_open()?;
-  Ok(LeafReaderContext::from_top_lr(leaf_reader))
 }
 
 // DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum

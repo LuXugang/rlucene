@@ -26,7 +26,7 @@ use crate::core::index::field_term_iterator::FieldTermIterator;
 use crate::core::index::field_updates_buffer::FieldUpdatesBuffer;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{Identity, IndexReader};
-use crate::core::index::leaf_reader::{LeafReader, get_context};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values_field_updates::{
   NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
 };
@@ -464,7 +464,7 @@ impl FrozenBufferedUpdates {
         continue;
       }
 
-      let reader_context = Arc::new(get_context(seg_state.reader.clone())?);
+      let reader_context = Arc::new((seg_state.reader.clone()).get_context()?);
 
       for (i, query0) in self.delete_queries.iter().cloned().enumerate() {
         let limit = if self.del_gen == seg_state.del_gen {

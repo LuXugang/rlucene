@@ -28,7 +28,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::query::{Query, QueryBase};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
@@ -205,7 +205,7 @@ where
   let r = get_only_leaf_reader(&reader)?;
   writer.close(random)?;
 
-  let mut s = IndexSearcher::from_lr(r)?;
+  let mut s = index_searcher::from_reader(r)?;
   s.set_similarity(sim);
 
   Ok(s)

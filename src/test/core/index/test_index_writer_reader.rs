@@ -18,7 +18,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldBase, Store};
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_commit::IndexCommit;
@@ -39,7 +38,7 @@ use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::util::Comparator;
@@ -612,7 +611,7 @@ fn test_after_close() -> Result<()> {
 
   assert_eq!(100, r.num_docs()?);
   let q = TermQuery::new(Term::from_text("indexname", "test"));
-  let searcher = IndexSearcher::from_cr(r)?;
+  let searcher = index_searcher::from_reader(r)?;
   assert_eq!(100, searcher.count(q)?);
 
   let err = directory_reader::open_if_changed(searcher.reader_context.reader());
@@ -1114,7 +1113,7 @@ fn test_too_many_segments() -> Result<()> {
     doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
     w.add_document(doc)?;
     let r = directory_reader::open_from_writer(&w)?;
-    let context = get_context(&r)?;
+    let context = (&r).get_context()?;
     assert!(context.leaves()?.len() < 100);
     r.close()?;
   }
@@ -1130,7 +1129,7 @@ fn test_reopen_nrt_reader_on_commit() -> Result<()> {
   w.add_document(Document::new())?;
 
   let r1 = directory_reader::open_from_writer(&w)?;
-  let r1_context = get_context(&r1)?;
+  let r1_context = (&r1).get_context()?;
   assert_eq!(1, r1_context.leaves()?.len());
   w.add_document(Document::new())?;
   w.commit()?;
@@ -1139,7 +1138,7 @@ fn test_reopen_nrt_reader_on_commit() -> Result<()> {
   assert_eq!(1, commits.len());
   let r2 = directory_reader::open_if_changed_with_commit(&r1, Some(&commits[0]))?
     .expect("commit should produce changed reader");
-  let r2_context = get_context(&r2)?;
+  let r2_context = (&r2).get_context()?;
   assert_eq!(2, r2_context.leaves()?.len());
 
   assert!(Arc::ptr_eq(
@@ -1288,7 +1287,7 @@ fn assert_leaves_sorted<D>(
 where
   D: Directory,
 {
-  let context = get_context(reader)?;
+  let context = reader.get_context()?;
   let leaves = context.leaves()?;
   let lrs: Vec<_> = leaves.iter().map(|l| Arc::clone(l.reader())).collect();
   let mut expected = lrs.clone();
@@ -1374,7 +1373,7 @@ where
   D: Directory + 'static,
 {
   fn warm(&self, reader: &DefaultLeafReader<D>) -> Result<()> {
-    let searcher = IndexSearcher::from_lr(reader.clone())?;
+    let searcher = index_searcher::from_reader(reader.clone())?;
     let count = searcher.count(TermQuery::new(Term::from_text("foo", "bar")))?;
     assert_eq!(20, count);
     self.did_warm.store(true, AtomicOrdering::SeqCst);

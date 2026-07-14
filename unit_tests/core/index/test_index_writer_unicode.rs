@@ -19,7 +19,6 @@ use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -334,7 +333,7 @@ fn test_term_utf16_sort_order() -> Result<()> {
   }
 
   let r = writer.get_reader(&mut random)?;
-  let top_reader_context = get_context(&r)?;
+  let top_reader_context = (&r).get_context()?;
   for ctx in top_reader_context.leaves()? {
     if let Some(terms) = ctx.reader().terms("f")? {
       check_terms_order(&terms, &all_terms, false)?;

@@ -19,7 +19,6 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
@@ -314,7 +313,7 @@ fn test_commit_on_close_force_merge() -> Result<()> {
 
   let reader = directory_reader::open(dir.clone())?;
   assert!(
-    get_context(&reader)?.leaves()?.len() > 1,
+    (&reader).get_context()?.leaves()?.len() > 1,
     "Reader incorrectly sees one segment"
   );
   reader.close()?;
@@ -325,7 +324,7 @@ fn test_commit_on_close_force_merge() -> Result<()> {
 
   let reader = directory_reader::open(dir.clone())?;
   assert!(
-    get_context(&reader)?.leaves()?.len() > 1,
+    (&reader).get_context()?.leaves()?.len() > 1,
     "Reader incorrectly sees one segment"
   );
   reader.close()?;
@@ -342,7 +341,7 @@ fn test_commit_on_close_force_merge() -> Result<()> {
   let reader = directory_reader::open(dir.clone())?;
   assert_eq!(
     1,
-    get_context(&reader)?.leaves()?.len(),
+    (&reader).get_context()?.leaves()?.len(),
     "Reader incorrectly sees more than one segment"
   );
   reader.close()?;

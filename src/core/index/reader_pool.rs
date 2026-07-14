@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::field_infos::FieldNumbers;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -100,7 +99,7 @@ where
       // Pre-enroll all segment readers into the reader pool; this is necessary so
       // any in-memory NRT live docs are correctly carried over, and so NRT readers
       // pulled from this IW share the same segment reader:
-      let context = get_context(reader)?;
+      let context = reader.get_context()?;
       let leaves = context.leaves()?;
       debug_assert_eq!(segment_infos.size(), leaves.len());
       for (i, leaf) in leaves.iter().enumerate() {

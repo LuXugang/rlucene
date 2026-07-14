@@ -20,7 +20,6 @@ use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
@@ -208,7 +207,7 @@ fn test_merge_with_payloads() -> Result<()> {
 
     let reader1 = directory_reader::open_from_writer(&writer)?;
     {
-      let context = get_context(&reader1)?;
+      let context = (&reader1).get_context()?;
       let leaves = context.leaves()?;
       assert_eq!(2, leaves.len());
       assert_eq!(
@@ -234,7 +233,7 @@ fn test_merge_with_payloads() -> Result<()> {
     writer.force_merge(1)?;
     let reader2 = directory_reader::open_from_writer(&writer)?;
     {
-      let context = get_context(&reader2)?;
+      let context = (&reader2).get_context()?;
       let leaves = context.leaves()?;
       assert_eq!(1, leaves.len());
       // assert that in the merged segments payloads set up for the field

@@ -23,7 +23,6 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{CacheHelper, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -172,7 +171,7 @@ fn test_simple() -> Result<()> {
     r
   };
 
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   assert_eq!(1, reader.leaves()?.len());
   let leaf = &reader.leaves()?[0];
   let r = leaf.reader();
@@ -225,7 +224,7 @@ fn test_update_few_segments() -> Result<()> {
     writer.close()?;
     r
   };
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   for context in reader.leaves()?.iter() {
     let r = context.reader();
     let bdv = r.get_binary_doc_values("val")?;
@@ -280,11 +279,11 @@ fn test_reopen() -> Result<()> {
     reader2.get_reader_cache_helper()?.unwrap().get_key()
   );
 
-  let v = get_context(reader1)?;
+  let v = reader1.get_context()?;
   let leaves1 = v.leaves()?;
   let mut bdv1 = leaves1[0].reader().get_binary_doc_values("val")?.unwrap();
 
-  let v = get_context(reader2)?;
+  let v = reader2.get_context()?;
   let leaves2 = v.leaves()?;
   let mut bdv2 = leaves2[0].reader().get_binary_doc_values("val")?.unwrap();
 
@@ -398,7 +397,7 @@ fn test_updates_with_deletes() -> Result<()> {
     writer.close()?;
     r
   };
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
   let r = leaves[0].reader();
   let live_docs = r.get_live_docs()?.unwrap();
@@ -453,7 +452,7 @@ fn test_multiple_doc_values_types() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
   let r = leaves[0].reader();
 
@@ -535,7 +534,7 @@ fn test_multiple_binary_doc_values() -> Result<()> {
 
   // open reader
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
   let r = leaves[0].reader();
 
@@ -586,7 +585,7 @@ fn test_document_with_no_value() -> Result<()> {
 
   // open reader
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
   assert_eq!(1, leaves.len());
   let r = leaves[0].reader();
@@ -805,7 +804,7 @@ fn test_segment_merges() -> Result<()> {
     } else {
       directory_reader::open_from_writer(&writer)?
     };
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     assert_eq!(1, reader.leaves()?.len());
 
     let leaf = &reader.leaves()?[0];
@@ -950,7 +949,7 @@ fn test_sorted_index() -> Result<()> {
       r = r2;
 
       let mut live_count = 0i32;
-      let reader = get_context(r)?;
+      let reader = r.get_context()?;
       for ctx in reader.leaves()? {
         let leaf_reader = ctx.reader();
         let mut values = leaf_reader.get_binary_doc_values("number")?.unwrap();
@@ -1103,7 +1102,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
 
     assert!(reader.num_docs()? > 0);
 
-    let reader_ctx = get_context(&reader)?;
+    let reader_ctx = (&reader).get_context()?;
     for context in reader_ctx.leaves()? {
       let r = context.reader();
       let live_docs = r.get_live_docs()?;
@@ -1191,7 +1190,7 @@ fn test_update_segment_with_no_doc_values() -> Result<()> {
 
   // Validation phase
   let reader = directory_reader::open(dir)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   for ctx in reader.leaves()? {
     let r = ctx.reader();
     let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
@@ -1257,7 +1256,7 @@ fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
   let r1 = leaves[0].reader();
   let mut bdv1 = r1.get_binary_doc_values("bdv")?.unwrap();
@@ -1303,7 +1302,7 @@ fn test_update_binary_dv_field_with_same_name_as_posting_field() -> Result<()> {
 
   // verify BDV content unchanged
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let mut bdv = reader.leaves()?[0]
     .reader()
     .get_binary_doc_values("f")?
@@ -1455,7 +1454,7 @@ fn test_stress_multi_threading() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
 
   for context in reader.leaves()? {
     let r = context.reader();
@@ -1528,7 +1527,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
     )?;
 
     let reader = directory_reader::open_from_writer(&writer)?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
 
     for ctx in reader.leaves()? {
       let r = ctx.reader();
@@ -1686,7 +1685,7 @@ fn test_tons_of_updates() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   for context in reader.leaves()? {
     let r = context.reader();
     let max_doc = r.max_doc()?;
@@ -1765,7 +1764,7 @@ fn test_updates_order() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
 
   let leaf = &reader.leaves()?[0];
   let r = leaf.reader();
@@ -1827,7 +1826,7 @@ fn test_update_all_deleted_segment() -> Result<()> {
 
   // open reader and verify
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
 
   let leaf = &reader.leaves()?[0];
   let r = leaf.reader();
@@ -1871,7 +1870,7 @@ fn test_update_two_nonexisting_terms() -> Result<()> {
 
   // open reader and verify value not changed
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
 
   let leaf = &reader.leaves()?[0];
   let r = leaf.reader();

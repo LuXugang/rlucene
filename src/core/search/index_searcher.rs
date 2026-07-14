@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::{CompositeReader, get_context};
-use crate::core::index::composite_reader_context::CompositeReaderContext;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -172,36 +170,27 @@ where
     Ok(searcher)
   }
 }
-impl<LR> DefaultIndexSearcher<LeafReaderContext<LR>>
+pub fn from_reader<IR>(reader: IR) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
-  LR: LeafReader + Clone,
+  IR: IndexReader,
 {
-  pub fn from_lr(leaf_reader: LR) -> Result<Self>
-  where
-    LR: LeafReader,
-  {
-    let context = crate::core::index::leaf_reader::get_context(leaf_reader)?;
-    Self::new(context)
-  }
+  IndexSearcher::new(reader.get_context()?)
+}
+
+pub fn from_reader_with_threads<IR>(
+  reader: IR,
+  thread_num: usize,
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
+where
+  IR: IndexReader,
+{
+  let mut searcher = IndexSearcher::new(reader.get_context()?)?;
+  searcher.set_threads(thread_num)?;
+  Ok(searcher)
 }
 
 pub fn get_default_similarity() -> Result<SimilarityEnum> {
   Ok(BM25Similarity::new()?.into())
-}
-impl<CR> IndexSearcher<CompositeReaderContext<CR>>
-where
-  CR: CompositeReader,
-{
-  pub fn from_cr(context: CR) -> Result<Self> {
-    let reader = get_context(context)?;
-    Self::new(reader)
-  }
-  pub fn from_cr_with_thread(context: CR, thread_num: usize) -> Result<Self> {
-    let reader = get_context(context)?;
-    let mut is = Self::new(reader)?;
-    is.set_threads(thread_num)?;
-    Ok(is)
-  }
 }
 
 impl<IRC> IndexSearcher<IRC>

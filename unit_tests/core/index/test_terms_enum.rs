@@ -28,7 +28,6 @@ use crate::test_framework::core::util::lucene_test_case::{
   random_from_seed, random_multiplier,
 };
 
-use crate::core::index::composite_reader::{CompositeReader, get_context};
 #[cfg(feature = "nightly")]
 use crate::core::index::index_reader_context::IndexReaderContext;
 #[cfg(feature = "nightly")]
@@ -556,10 +555,10 @@ where
   term: BytesRef<Vec<u8>>,
   state: Option<TS>,
 }
-fn test_random_seeks<R, CR>(random: &mut R, reader: CR, valid_term_strings: &[String]) -> Result<()>
+fn test_random_seeks<R, IR>(random: &mut R, reader: IR, valid_term_strings: &[String]) -> Result<()>
 where
   R: Rng + ?Sized,
-  CR: CompositeReader,
+  IR: IndexReader,
 {
   let mut valid_terms: Vec<BytesRef<Vec<u8>>> = valid_term_strings
     .iter()
@@ -1023,7 +1022,7 @@ fn test_common_prefix_terms() -> Result<()> {
   let r = w.get_reader(&mut random)?;
   let mut terms_enum = get_terms(&r, "id")?.unwrap().iterator()?;
   let mut postings_enum = None;
-  let context = get_context(&r)?;
+  let context = (&r).get_context()?;
   let mut pk_lookup = PerThreadPKLookup::new(&context, "id")?;
   let mut stored_fields = r.stored_fields()?;
 
@@ -1113,7 +1112,7 @@ fn test_varying_terms_per_segment() -> Result<()> {
     writer.add_document(&mut random, doc)?;
 
     let reader = writer.get_reader(&mut random)?;
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     let leaves = context.leaves()?;
     assert_eq!(1, leaves.len());
     let terms = leaves[0]

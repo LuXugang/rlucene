@@ -24,14 +24,11 @@ use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::{CompositeReader, get_context};
-use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field_type::IndexableFieldType;
-use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase};
 use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
@@ -116,11 +113,14 @@ fn default_random_multiplier() -> i32 {
   if is_night_mode() { 2 } else { 1 }
 }
 
-pub fn get_only_leaf_reader<CR>(reader: CR) -> Result<<CR as CompositeReader>::LeafReader>
+pub fn get_only_leaf_reader<IR>(
+  reader: IR,
+) -> Result<<IndexReaderContextType<IR> as IndexReaderContext>::LeafReader>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
+  <IndexReaderContextType<IR> as IndexReaderContext>::LeafReader: Clone,
 {
-  let irc = get_context(reader)?;
+  let irc = reader.get_context()?;
   let sub_readers = irc.leaves()?;
   if sub_readers.len() != 1 {
     return Err(LuceneError::illegal_argument(format!(
@@ -719,78 +719,53 @@ pub enum Concurrency {
   /// Intra-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search segment partitions
   IntraSegment,
 }
-pub fn new_searcher<CR>(
-  composite_reader: CR,
+pub fn new_searcher<IR>(
+  reader: IR,
   _may_be_wrap: bool,
   _wrap_with_assertions: bool,
-) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
 {
-  let irc = get_context(composite_reader)?;
+  let irc = reader.get_context()?;
   IndexSearcher::new(irc)
 }
-pub fn new_searcher_with_lr<LR>(
-  leaf_reader: LR,
-) -> Result<DefaultIndexSearcher<LeafReaderContext<LR>>>
-where
-  LR: LeafReader,
-{
-  new_searcher_with_lr_wrap(leaf_reader, false)
-}
-pub fn new_searcher_with_lr_wrap<LR>(
-  leaf_reader: LR,
-  _may_be_wrap: bool,
-) -> Result<DefaultIndexSearcher<LeafReaderContext<LR>>>
-where
-  LR: LeafReader,
-{
-  // TODO 多线程未实现
-  let irc = crate::core::index::leaf_reader::get_context(leaf_reader)?;
-  IndexSearcher::new(irc)
-}
-pub fn new_searcher_with_wrap<CR, R>(
+pub fn new_searcher_with_wrap<IR, R>(
   random: &mut R,
-  composite_reader: CR,
+  reader: IR,
   may_be_wrap: bool,
-) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
   R: Rng + ?Sized,
 {
-  new_searcher_with_wrap_assert(random, composite_reader, may_be_wrap, true)
+  new_searcher_with_wrap_assert(random, reader, may_be_wrap, true)
 }
-pub fn new_searcher_with_wrap_assert<CR, R>(
+pub fn new_searcher_with_wrap_assert<IR, R>(
   random: &mut R,
-  composite_reader: CR,
+  reader: IR,
   may_be_wrap: bool,
   wrap_with_assertions: bool,
-) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
   R: Rng + ?Sized,
 {
   let threads = random.random_bool(0.5);
-  new_searcher_with_threads(
-    random,
-    composite_reader,
-    may_be_wrap,
-    wrap_with_assertions,
-    threads,
-  )
+  new_searcher_with_threads(random, reader, may_be_wrap, wrap_with_assertions, threads)
 }
-pub fn new_searcher_with_threads<R, CR>(
+pub fn new_searcher_with_threads<R, IR>(
   random: &mut R,
-  composite_reader: CR,
+  reader: IR,
   _may_be_wrap: bool,
   _wrap_with_assertions: bool,
   use_threads: bool,
-) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
-  CR: CompositeReader,
+  IR: IndexReader,
   R: Rng + ?Sized,
 {
-  let irc = get_context(composite_reader)?;
+  let irc = reader.get_context()?;
   if use_threads {
     let threads = random.random_range(2..=5);
     IndexSearcher::with_threads(irc, threads)
@@ -799,22 +774,13 @@ where
   }
 }
 
-pub fn new_searcher_with_leaf_reader<LR>(
-  lr_reader: LR,
-) -> Result<DefaultIndexSearcher<LeafReaderContext<LR>>>
+pub fn new_searcher_with_reader<IR>(
+  reader: IR,
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
-  LR: LeafReader,
+  IR: IndexReader,
 {
-  let irc = crate::core::index::leaf_reader::get_context(lr_reader)?;
-  IndexSearcher::new(irc)
-}
-pub fn new_searcher_with_reader<CR>(
-  composite_reader: CR,
-) -> Result<DefaultIndexSearcher<CompositeReaderContext<CR>>>
-where
-  CR: CompositeReader,
-{
-  let irc = get_context(composite_reader)?;
+  let irc = reader.get_context()?;
   IndexSearcher::new(irc)
 }
 

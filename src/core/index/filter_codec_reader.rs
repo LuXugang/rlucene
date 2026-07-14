@@ -17,7 +17,7 @@
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
@@ -104,6 +104,8 @@ where
   CR: CodecReader,
   B: Bits + Clone,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = CR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

@@ -21,7 +21,6 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -164,7 +163,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     let r = directory_reader::open(dir)?;
     assert_eq!(1, r.num_docs()?);
     let live_docs = get_live_docs(&r)?;
-    let r = get_context(&r)?;
+    let r = (&r).get_context()?;
     for ctx in r.leaves()? {
       let values = ctx.reader().get_point_values("dim")?;
       let mut id_values = ctx.reader().get_numeric_doc_values("id")?;
@@ -462,7 +461,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
       w.add_document(random, doc)?;
     }
 
-    let r = get_context(w.get_reader(random)?)?;
+    let r = (w.get_reader(random)?).get_context()?;
     w.close(random)?;
 
     let iters = at_least(random, 100);
@@ -806,7 +805,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
       println!("TEST: reader opened");
     }
 
-    let context = get_context(&r)?;
+    let context = (&r).get_context()?;
     let mut doc_id_to_id = vec![0i32; r.max_doc()? as usize];
     let mut id_values = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
     loop {

@@ -30,7 +30,6 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -1517,7 +1516,7 @@ fn test_no_unwanted_tv_files() -> Result<()> {
   assert_no_unreferenced_files(dir.clone(), "no tv files")?;
 
   let reader = directory_reader::open(dir)?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   for ctx in context.leaves()? {
     assert!(!ctx.reader().get_field_infos()?.has_term_vectors());
   }
@@ -1858,7 +1857,7 @@ fn test_has_blocks_merge_fully_del_segments() -> Result<()> {
   writer.commit()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
   assert_eq!(1, leaves.len());
 
@@ -1939,7 +1938,7 @@ fn test_carry_over_has_blocks() -> Result<()> {
 
   {
     let reader = directory_reader::open(dir.clone())?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let leaves = reader.leaves()?;
     let segment_info = leaves[0].reader().get_segment_info();
     assert!(!segment_info.info.get_has_blocks());
@@ -1952,7 +1951,7 @@ fn test_carry_over_has_blocks() -> Result<()> {
 
   {
     let reader = directory_reader::open(dir.clone())?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let leaves = reader.leaves()?;
     assert_eq!(2, leaves.len());
 
@@ -1968,7 +1967,7 @@ fn test_carry_over_has_blocks() -> Result<()> {
 
   {
     let reader = directory_reader::open(dir.clone())?;
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let leaves = reader.leaves()?;
     assert_eq!(1, leaves.len());
 
@@ -2462,7 +2461,7 @@ fn test_iterable_field_throws_exception() -> Result<()> {
   }
   let reader = directory_reader::open_from_writer(&writer)?;
   assert_eq!(doc_count, reader.num_docs()?);
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   for leaf_reader_context in context.leaves()? {
     let leaf_reader = leaf_reader_context.reader();
     let live_docs = leaf_reader.get_live_docs()?;
@@ -2531,7 +2530,7 @@ fn test_iterable_throws_exception() -> Result<()> {
   }
   let reader = directory_reader::open_from_writer(&writer)?;
   assert_eq!(doc_count, reader.num_docs()?);
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   for leaf_reader_context in context.leaves()? {
     let leaf_reader = leaf_reader_context.reader();
     let live_docs = leaf_reader.get_live_docs()?;
@@ -3070,7 +3069,7 @@ fn test_many_separate_threads() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir)?;
-  assert_eq!(1, get_context(&reader)?.leaves()?.len());
+  assert_eq!(1, (&reader).get_context()?.leaves()?.len());
   reader.close()?;
   Ok(())
 }
@@ -4025,7 +4024,7 @@ fn test_soft_update_documents() -> Result<()> {
   let doc_stats = writer.get_doc_stats()?;
   assert_eq!(doc_stats.max_doc - doc_stats.num_docs, num_soft_deleted);
 
-  for leaf in get_context(reader)?.leaves()? {
+  for leaf in reader.get_context()?.leaves()? {
     assert!(leaf.reader().get_hard_live_docs()?.is_none());
   }
 
@@ -4292,7 +4291,7 @@ fn test_segment_info_is_snapshot() -> Result<()> {
   writer.add_document(d)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let context = get_context(reader)?;
+  let context = reader.get_context()?;
   let r = context.leaves()?;
   let segment_reader = r.first().unwrap().reader();
   let segment_info = segment_reader.get_segment_info();
@@ -5634,7 +5633,7 @@ where
 {
   let reader = directory_reader::open_from_writer(writer)?;
   assert_eq!(unique_docs.len() as i32, reader.num_docs()?);
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   for ctx in context.leaves()? {
     let sr = ctx.reader();
     if let Some(hard_live_docs) = sr.get_hard_live_docs()? {

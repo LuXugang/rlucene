@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::multi_bits::get_live_docs;
 use crate::core::index::term::Term;
@@ -28,18 +28,18 @@ use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterReader;
 
-pub(crate) fn count<R, CR>(
+pub(crate) fn count<R, IR>(
   random: &mut R,
   t: &Term,
-  r: &CR,
+  r: IR,
 ) -> crate::core::util::error::lucene_error::Result<i32>
 where
   R: rand::Rng + ?Sized,
-  CR: CompositeReader,
+  IR: IndexReader + Clone,
 {
   let mut count = 0;
   let term_bytes = BytesRef::from_string(&t.text()?);
-  let mut td = TestUtil::docs_with_reader(random, r, t.field(), &term_bytes, None, 0)?;
+  let mut td = TestUtil::docs_with_reader(random, r.clone(), t.field(), &term_bytes, None, 0)?;
 
   if let Some(td) = td.as_mut() {
     let live_docs = get_live_docs(r)?;

@@ -19,7 +19,7 @@ use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::dummy::dummy_stored_fields::DummyStoredFields;
 use crate::core::index::dummy::dummy_term_vectors::DummyTermVectors;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{CompositeReaderContextKind, IndexReader, IndexReaderBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
@@ -42,6 +42,8 @@ impl<LR> IndexReader for DummyCompositeReader<LR>
 where
   LR: LeafReader + Clone,
 {
+  type ContextKind = CompositeReaderContextKind;
+
   type TermVectors = DummyTermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

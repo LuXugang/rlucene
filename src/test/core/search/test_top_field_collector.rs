@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, new_directory_shared, new_searcher_with_reader,
   new_searcher_with_threads, random,
@@ -23,7 +24,6 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
-use crate::core::index::composite_reader::{CompositeReader, get_context};
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::index_writer::IndexWriter;
@@ -95,16 +95,17 @@ fn setup() -> Result<DefaultIndexSearchCR> {
   let is = new_searcher_with_threads(&mut random, ir, true, true, false)?;
   Ok(is)
 }
-fn do_search_with_threshold<CR>(
+fn do_search_with_threshold<IR>(
   num_results: usize,
   threshold: usize,
   q: Query,
   sort: Sort,
-  index_reader: CR,
+  index_reader: IR,
 ) -> Result<TopFieldDocs>
 where
-  CR: CompositeReader + 'static + std::marker::Sync,
-  <CR as CompositeReader>::LeafReader: std::marker::Sync + Send,
+  IR: IndexReader + 'static + std::marker::Sync,
+  IndexReaderContextType<IR>: 'static + std::marker::Sync,
+  IRCLeafReader<IndexReaderContextType<IR>>: std::marker::Sync + Send,
 {
   let searcher = new_searcher_with_reader(index_reader)?;
 
@@ -112,18 +113,19 @@ where
 
   searcher.search_with_collector_manager(q, &manager)
 }
-fn do_concurrent_search_with_threshold<R, CR>(
+fn do_concurrent_search_with_threshold<R, IR>(
   random: &mut R,
   num_results: usize,
   threshold: usize,
   q: Query,
   sort: Sort,
-  index_reader: CR,
+  index_reader: IR,
 ) -> Result<TopFieldDocs>
 where
-  CR: CompositeReader + 'static + std::marker::Sync,
+  IR: IndexReader + 'static + std::marker::Sync,
+  IndexReaderContextType<IR>: 'static + std::marker::Sync,
   R: Rng + ?Sized,
-  <CR as CompositeReader>::LeafReader: std::marker::Sync + Send,
+  IRCLeafReader<IndexReaderContextType<IR>>: std::marker::Sync + Send,
 {
   let searcher = new_searcher_with_threads(random, index_reader, true, true, true)?;
 
@@ -291,7 +293,7 @@ fn test_total_hits() -> Result<()> {
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   assert_eq!(2, reader.leaves()?.len());
   writer.close()?;
 
@@ -374,7 +376,7 @@ fn test_set_min_competitive_score() -> Result<()> {
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   assert_eq!(2, reader.leaves()?.len());
   writer.close()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
@@ -448,7 +450,7 @@ fn test_total_hits_with_score() -> Result<()> {
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   assert_eq!(2, reader.leaves()?.len());
   writer.close()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(reader.leaves()?[0].reader().clone());
@@ -668,7 +670,7 @@ fn test_concurrent_min_score() -> Result<()> {
   w.flush()?;
 
   let reader = directory_reader::open_from_writer(&w)?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   assert_eq!(3, reader.leaves()?.len());
   w.close()?;
 
@@ -875,7 +877,7 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
   writer.flush()?;
 
   let reader = writer.get_reader(false, false)?;
-  let searcher = IndexSearcher::new(get_context(reader)?)?;
+  let searcher = IndexSearcher::new(reader.get_context()?)?;
 
   let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 10)?;
   let top_docs = searcher

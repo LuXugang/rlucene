@@ -36,7 +36,7 @@ use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{FieldInfos, get_merged_field_infos};
 use crate::core::index::fields::Fields;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::{LRSortedDocValuesEmpty, LRSortedSetDocValues, LeafReader};
@@ -311,6 +311,8 @@ impl<CR> IndexReader for SlowCompositeCodecReaderWrapper<CR>
 where
   CR: Clone + CodecReader,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = TermVectorsEnum2<<Self as CodecReader>::TermVectorsReader, EmptyTermVectors>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

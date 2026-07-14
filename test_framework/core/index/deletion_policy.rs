@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
@@ -91,7 +90,7 @@ where
   fn on_commit(&self, commits: &[IC]) -> Result<()> {
     let last_commit = commits.last().unwrap();
     let r = directory_reader::open(self.dir.clone())?;
-    let reader_segment_count = get_context(&r)?.leaves()?.len();
+    let reader_segment_count = (&r).get_context()?.leaves()?.len();
     let last_commit_segment_count = last_commit.get_segment_count();
     assert_eq!(
       reader_segment_count, last_commit_segment_count,

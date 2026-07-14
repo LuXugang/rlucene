@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -48,7 +48,7 @@ fn test_collection() -> Result<()> {
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
 
   // Setup two collector managers, one that will only collect even doc ids and one that
@@ -102,7 +102,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -159,7 +159,7 @@ fn test_score_wrapping() -> Result<()> {
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -203,7 +203,7 @@ fn test_early_termination() -> Result<()> {
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
 
   let docs = TestUtil::next_int(&mut random, 1000, 10000);

@@ -19,8 +19,8 @@ use crate::core::document::document::Document;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
@@ -75,7 +75,7 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
   let index_sort = Sort::with_fields(vec![SortedSetSortField::with_selector("foo", false, Min)?])?;
 
   let reader = directory_reader::open(tmp_dir.clone())?;
-  let reader = get_context(reader)?;
+  let reader = reader.get_context()?;
   for ctx in reader.leaves()? {
     let leaf_reader = ctx.reader().clone();
     let slow = SlowCodecReaderWrapper::wrap_leaf_reader(leaf_reader);

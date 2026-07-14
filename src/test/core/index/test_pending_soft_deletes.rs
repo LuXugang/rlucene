@@ -20,7 +20,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_field_updates::{
   DocValuesFieldIteratorEnum, DocValuesFieldUpdates, merged_iterator,
@@ -135,7 +134,7 @@ fn test_hard_delete_soft_deleted() -> Result<()> {
   )?;
   writer.commit()?;
   let reader = directory_reader::open(dir.clone())?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
@@ -198,7 +197,7 @@ fn test_delete_soft() -> Result<()> {
   )?;
   writer.commit()?;
   let mut reader = directory_reader::open(dir.clone())?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
@@ -226,7 +225,7 @@ fn test_delete_soft() -> Result<()> {
   writer.commit()?;
   reader.close()?;
   reader = directory_reader::open(dir.clone())?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
@@ -279,7 +278,7 @@ fn test_apply_updates() -> Result<()> {
   writer.force_merge(1)?;
   writer.commit()?;
   let reader = directory_reader::open_from_writer(&writer)?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
@@ -403,7 +402,7 @@ fn test_update_applied_only_once() -> Result<()> {
   )?;
   writer.commit()?;
   let reader = directory_reader::open(dir.clone())?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
@@ -493,7 +492,7 @@ fn test_reset_on_update() -> Result<()> {
   )?;
   writer.commit()?;
   let reader = directory_reader::open(dir.clone())?;
-  let context = get_context(&reader)?;
+  let context = (&reader).get_context()?;
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();

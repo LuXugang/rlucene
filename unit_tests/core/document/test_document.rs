@@ -31,7 +31,7 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::term_query::TermQuery;
@@ -207,7 +207,7 @@ fn test_get_values_for_indexed_document() -> Result<()> {
   writer.add_document(&mut random, make_document_with_fields()?)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   // search for something that does exist
   let query = TermQuery::new(Term::from_text("keyword", "test1"));
@@ -380,7 +380,7 @@ fn test_field_set_value() -> Result<()> {
   writer.add_document(&mut random, doc.clone())?;
 
   let reader = writer.get_reader(&mut random)?;
-  let searcher = IndexSearcher::from_cr(reader)?;
+  let searcher = index_searcher::from_reader(reader)?;
 
   let query = TermQuery::new(Term::from_text("keyword", "test"));
   // ensure that queries return expected results without DateFilter first

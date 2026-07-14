@@ -14,13 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::stored_fields::{StoredFields, StoredFieldsEnum2};
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::composite_reader_context::{CompositeReaderContext, create};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
-use crate::core::index::term_vectors::{TermVectors, TermVectorsEnum2};
+use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -202,6 +207,29 @@ pub trait IndexReader: Display {
     Ok(())
   }
 
+  #[doc(hidden)]
+  type ContextKind: IndexReaderContextKind<Self>
+  where
+    Self: Sized;
+
+  /// Expert: returns the root [`IndexReaderContext`] for this [`IndexReader`]'s
+  /// sub-reader tree.
+  ///
+  /// If this reader is composed of sub-readers, this method returns a
+  /// [`CompositeReaderContext`] holding a view of the reader tree's atomic leaf
+  /// contexts. All contexts referenced from this reader's top-level context are
+  /// private to this reader and are not shared with another context tree. For
+  /// example, `IndexSearcher` uses this API to drive searching one atomic leaf
+  /// reader at a time. If this reader is not composed of child readers, this
+  /// method returns a [`LeafReaderContext`].
+  fn get_context(self) -> Result<IndexReaderContextType<Self>>
+  where
+    Self: Sized,
+  {
+    self.ensure_open()?;
+    Self::ContextKind::create(self)
+  }
+
   fn notify_reader_closed_listeners(&self) -> Result<()> {
     Ok(())
   }
@@ -345,10 +373,54 @@ where
 /// A cache key identifying a resource that is being cached on.
 pub type CacheKey = Identity;
 
-impl<IR> IndexReader for &IR
+#[doc(hidden)]
+pub trait IndexReaderContextKind<R>
+where
+  R: IndexReader,
+{
+  type Context: IndexReaderContext<IndexReader = R>;
+
+  fn create(reader: R) -> Result<Self::Context>;
+}
+
+#[doc(hidden)]
+pub struct LeafReaderContextKind;
+
+impl<LR> IndexReaderContextKind<LR> for LeafReaderContextKind
+where
+  LR: LeafReader,
+{
+  type Context = LeafReaderContext<LR>;
+
+  fn create(reader: LR) -> Result<Self::Context> {
+    Ok(LeafReaderContext::from_top_lr(reader))
+  }
+}
+
+#[doc(hidden)]
+pub struct CompositeReaderContextKind;
+
+impl<CR> IndexReaderContextKind<CR> for CompositeReaderContextKind
+where
+  CR: CompositeReader,
+{
+  type Context = CompositeReaderContext<CR>;
+
+  fn create(reader: CR) -> Result<Self::Context> {
+    create(reader)
+  }
+}
+
+pub type IndexReaderContextType<IR> =
+  <<IR as IndexReader>::ContextKind as IndexReaderContextKind<IR>>::Context;
+
+impl<'a, IR> IndexReader for &'a IR
 where
   IR: IndexReader,
+  IR::ContextKind: IndexReaderContextKind<&'a IR>,
 {
+  type ContextKind = IR::ContextKind;
+
   type TermVectors = IR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -426,7 +498,10 @@ where
 impl<IR> IndexReader for Arc<IR>
 where
   IR: IndexReader,
+  IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
 {
+  type ContextKind = IR::ContextKind;
+
   type TermVectors = IR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -504,7 +579,10 @@ where
 impl<IR> IndexReader for Rc<IR>
 where
   IR: IndexReader,
+  IR::ContextKind: IndexReaderContextKind<Rc<IR>>,
 {
+  type ContextKind = IR::ContextKind;
+
   type TermVectors = IR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
@@ -639,256 +717,3 @@ impl Hash for Identity {
     (self.ptr() as usize).hash(state);
   }
 }
-
-macro_rules! either_index_reader_type {
-    (term_vectors; $A:ident, $B:ident) => {
-        TermVectorsEnum2<<$A as IndexReader>::TermVectors, <$B as IndexReader>::TermVectors>
-    };
-    (term_vectors; $A:ident, $B:ident, $C:ident) => {
-        TermVectorsEnum2<
-            <$A as IndexReader>::TermVectors,
-            TermVectorsEnum2<<$B as IndexReader>::TermVectors, <$C as IndexReader>::TermVectors>,
-        >
-    };
-    (stored_fields; $A:ident, $B:ident) => {
-        StoredFieldsEnum2<<$A as IndexReader>::StoredFields, <$B as IndexReader>::StoredFields>
-    };
-    (stored_fields; $A:ident, $B:ident, $C:ident) => {
-        StoredFieldsEnum2<
-            <$A as IndexReader>::StoredFields,
-            StoredFieldsEnum2<<$B as IndexReader>::StoredFields, <$C as IndexReader>::StoredFields>,
-        >
-    };
-    (cache_helper; $A:ident, $B:ident) => {
-        CacheHelperEnum2<<$A as IndexReader>::ReaderCacheHelper, <$B as IndexReader>::ReaderCacheHelper>
-    };
-    (cache_helper; $A:ident, $B:ident, $C:ident) => {
-        CacheHelperEnum2<
-            <$A as IndexReader>::ReaderCacheHelper,
-            CacheHelperEnum2<
-                <$B as IndexReader>::ReaderCacheHelper,
-                <$C as IndexReader>::ReaderCacheHelper,
-            >,
-        >
-    };
-}
-
-macro_rules! either_index_reader_wrap {
-  (TermVectorsEnum2; $expr:expr; A; [A: $A:ident, B: $B:ident]) => {
-    TermVectorsEnum2::A($expr)
-  };
-  (TermVectorsEnum2; $expr:expr; B; [A: $A:ident, B: $B:ident]) => {
-    TermVectorsEnum2::B($expr)
-  };
-  (TermVectorsEnum2; $expr:expr; A; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    TermVectorsEnum2::A($expr)
-  };
-  (TermVectorsEnum2; $expr:expr; B; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    TermVectorsEnum2::B(TermVectorsEnum2::A($expr))
-  };
-  (TermVectorsEnum2; $expr:expr; C; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    TermVectorsEnum2::B(TermVectorsEnum2::B($expr))
-  };
-  (StoredFieldsEnum2; $expr:expr; A; [A: $A:ident, B: $B:ident]) => {
-    StoredFieldsEnum2::A($expr)
-  };
-  (StoredFieldsEnum2; $expr:expr; B; [A: $A:ident, B: $B:ident]) => {
-    StoredFieldsEnum2::B($expr)
-  };
-  (StoredFieldsEnum2; $expr:expr; A; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    StoredFieldsEnum2::A($expr)
-  };
-  (StoredFieldsEnum2; $expr:expr; B; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    StoredFieldsEnum2::B(StoredFieldsEnum2::A($expr))
-  };
-  (StoredFieldsEnum2; $expr:expr; C; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    StoredFieldsEnum2::B(StoredFieldsEnum2::B($expr))
-  };
-  (CacheHelperEnum2; $expr:expr; A; [A: $A:ident, B: $B:ident]) => {
-    CacheHelperEnum2::A($expr)
-  };
-  (CacheHelperEnum2; $expr:expr; B; [A: $A:ident, B: $B:ident]) => {
-    CacheHelperEnum2::B($expr)
-  };
-  (CacheHelperEnum2; $expr:expr; A; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    CacheHelperEnum2::A($expr)
-  };
-  (CacheHelperEnum2; $expr:expr; B; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    CacheHelperEnum2::B(CacheHelperEnum2::A($expr))
-  };
-  (CacheHelperEnum2; $expr:expr; C; [A: $A:ident, B: $B:ident, C: $C:ident]) => {
-    CacheHelperEnum2::B(CacheHelperEnum2::B($expr))
-  };
-}
-
-macro_rules! either_index_reader {
-    (
-        $vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }
-    ) => {
-        either_index_reader!(@impl $vis $name { $( $Variant : $T ),+ } [ $( $Variant : $T ),+ ]);
-    };
-    (
-        @impl
-        $vis:vis $name:ident
-        { $( $Variant:ident : $T:ident ),+ }
-        $all:tt
-    ) => {
-        $vis enum $name<$( $T ),+> {
-            $( $Variant($T), )+
-        }
-
-        impl<$( $T ),+> Display for $name<$( $T ),+>
-        where
-            $( $T: IndexReader ),+
-        {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-                match self {
-                    $( Self::$Variant(inner) => write!(f, "{}", inner), )+
-                }
-            }
-        }
-
-        impl<$( $T ),+> IndexReader for $name<$( $T ),+>
-        where
-            $( $T: IndexReader ),+
-        {
-            type TermVectors = either_index_reader_type!(term_vectors; $( $T ),+);
-
-            fn term_vectors(&self) -> Result<Self::TermVectors> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            Ok(either_index_reader_wrap!(
-                                TermVectorsEnum2;
-                                inner.term_vectors()?;
-                                $Variant;
-                                $all
-                            ))
-                        }
-                    ),+
-                }
-            }
-
-            fn max_doc(&self) -> Result<i32> {
-                match self {
-                    $( Self::$Variant(inner) => inner.max_doc(), )+
-                }
-            }
-
-            fn num_docs(&self) -> Result<i32> {
-                match self {
-                    $( Self::$Variant(inner) => inner.num_docs(), )+
-                }
-            }
-
-            fn num_deleted_docs(&self) -> Result<i32> {
-                match self {
-                    $( Self::$Variant(inner) => inner.num_deleted_docs(), )+
-                }
-            }
-
-            fn inc_ref(&self) -> Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.inc_ref(), )+
-                }
-            }
-
-            fn dec_ref(&self) -> Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.dec_ref(), )+
-                }
-            }
-
-            fn ensure_open(&self) -> Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.ensure_open(), )+
-                }
-            }
-
-            type StoredFields = either_index_reader_type!(stored_fields; $( $T ),+);
-
-            fn stored_fields(&self) -> Result<Self::StoredFields> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            Ok(either_index_reader_wrap!(
-                                StoredFieldsEnum2;
-                                inner.stored_fields()?;
-                                $Variant;
-                                $all
-                            ))
-                        }
-                    ),+
-                }
-            }
-
-            fn has_deletions(&self) -> Result<bool> {
-                match self {
-                    $( Self::$Variant(inner) => inner.has_deletions(), )+
-                }
-            }
-
-            fn do_close(&self) -> Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.do_close(), )+
-                }
-            }
-
-            type ReaderCacheHelper = either_index_reader_type!(cache_helper; $( $T ),+);
-
-            fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-                match self {
-                    $(
-                        Self::$Variant(inner) => Ok(inner.get_reader_cache_helper()?.map(|helper| {
-                            either_index_reader_wrap!(
-                                CacheHelperEnum2;
-                                helper;
-                                $Variant;
-                                $all
-                            )
-                        })),
-                    )+
-                }
-            }
-
-            fn doc_freq(&self, term: &Term) -> Result<i32> {
-                match self {
-                    $( Self::$Variant(inner) => inner.doc_freq(term), )+
-                }
-            }
-
-            fn total_term_freq(&self, term: &Term) -> Result<i64> {
-                match self {
-                    $( Self::$Variant(inner) => inner.total_term_freq(term), )+
-                }
-            }
-
-            fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_sum_doc_freq(field), )+
-                }
-            }
-
-            fn get_doc_count(&self, field: &str) -> Result<i32> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_doc_count(field), )+
-                }
-            }
-
-            fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_sum_total_term_freq(field), )+
-                }
-            }
-
-            fn index_base(&self) -> &IndexReaderBase {
-                match self {
-                    $( Self::$Variant(inner) => inner.index_base(), )+
-                }
-            }
-        }
-    };
-}
-
-either_index_reader!(pub IndexReaderEnum2 { A: A, B: B });
-either_index_reader!(pub IndexReaderEnum3 { A: A, B: B, C: C });

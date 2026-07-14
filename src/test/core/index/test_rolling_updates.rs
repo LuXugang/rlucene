@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::Fields;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH, ModifyReader};
+use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
@@ -95,7 +95,7 @@ fn test_rolling_updates() -> Result<()> {
         let s = new_searcher_with_reader(reader.clone())?;
         let hits = s.search(TermQuery::new(id_term.clone()), 1)?;
         assert_eq!(1, hits.total_hits.value());
-        w.try_delete_document(ModifyReader::Composite(reader), hits.score_docs[0].doc)? == -1
+        w.try_delete_document(reader, hits.score_docs[0].doc)? == -1
       } else {
         true
       }

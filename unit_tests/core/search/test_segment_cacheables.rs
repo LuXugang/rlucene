@@ -17,9 +17,9 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
@@ -139,7 +139,7 @@ fn test_multiple_doc_values_delegates() -> Result<()> {
   writer.commit()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let reader_context = get_context(reader)?;
+  let reader_context = reader.get_context()?;
   let ctx = &reader_context.leaves()?[0];
 
   assert!(is_cacheable(&seg_dv1, ctx)?);
@@ -152,7 +152,7 @@ fn test_multiple_doc_values_delegates() -> Result<()> {
   drop(reader_context);
   let reader = directory_reader::open(dir.clone())?;
 
-  let reader_context = get_context(reader)?;
+  let reader_context = reader.get_context()?;
   let ctx = &reader_context.leaves()?[0];
   assert!(is_cacheable(&seg_dv1, ctx)?);
   assert!(!is_cacheable(&dv34, ctx)?);

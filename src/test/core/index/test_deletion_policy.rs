@@ -18,7 +18,6 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::IndexFileNames;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
@@ -228,7 +227,7 @@ fn test_keep_all_deletion_policy() -> Result<()> {
     let needs_merging;
     {
       let r = directory_reader::open(dir.clone())?;
-      needs_merging = get_context(&r)?.leaves()?.len() != 1;
+      needs_merging = (&r).get_context()?.leaves()?.len() != 1;
       r.close()?;
     }
 
@@ -350,7 +349,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   writer.rollback()?;
   drop(writer);
   let r = directory_reader::open(dir.clone())?;
-  assert_eq!(1, get_context(&r)?.leaves()?.len());
+  assert_eq!(1, (&r).get_context()?.leaves()?.len());
   assert_eq!(11, r.num_docs()?);
   r.close()?;
 
@@ -370,7 +369,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   assert_eq!(7, directory_reader::list_commits(dir.clone())?.len());
 
   let r = directory_reader::open(dir.clone())?;
-  assert!(get_context(&r)?.leaves()?.len() > 1);
+  assert!((&r).get_context()?.leaves()?.len() > 1);
   assert_eq!(10, r.num_docs()?);
   r.close()?;
 
@@ -383,7 +382,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   drop(writer);
 
   let r = directory_reader::open(dir.clone())?;
-  assert_eq!(1, get_context(&r)?.leaves()?.len());
+  assert_eq!(1, (&r).get_context()?.leaves()?.len());
   assert_eq!(10, r.num_docs()?);
   r.close()?;
 
@@ -398,7 +397,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
 
   let r = directory_reader::open(dir.clone())?;
-  assert_eq!(1, get_context(&r)?.leaves()?.len());
+  assert_eq!(1, (&r).get_context()?.leaves()?.len());
   assert_eq!(10, r.num_docs()?);
   r.close()?;
 
@@ -406,7 +405,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   drop(writer);
 
   let r = directory_reader::open(dir.clone())?;
-  assert!(get_context(&r)?.leaves()?.len() > 1);
+  assert!((&r).get_context()?.leaves()?.len() > 1);
   assert_eq!(10, r.num_docs()?);
   r.close()?;
 

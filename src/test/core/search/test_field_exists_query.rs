@@ -48,7 +48,6 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -1074,7 +1073,7 @@ fn test_delete_all_point_docs() -> Result<()> {
 
   let reader = iw.get_reader(&mut random)?;
   assert!(!reader.has_deletions()?);
-  let r = get_context(&reader)?;
+  let r = (&reader).get_context()?;
   assert_eq!(1, r.leaves()?.len());
 
   let searcher = new_searcher_with_reader(reader)?;
@@ -1113,7 +1112,7 @@ fn test_delete_all_term_docs() -> Result<()> {
 
   let reader = iw.get_reader(&mut random)?;
   assert!(!reader.has_deletions()?);
-  let r = get_context(&reader)?;
+  let r = (&reader).get_context()?;
   assert_eq!(1, r.leaves()?.len());
 
   let searcher = new_searcher_with_reader(reader)?;

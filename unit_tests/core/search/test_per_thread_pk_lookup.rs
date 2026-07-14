@@ -18,8 +18,8 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::keyword_field::KeywordField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -64,7 +64,7 @@ fn test_reopen() -> Result<()> {
   writer.flush()?;
 
   let reader1 = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let context1 = get_context(reader1.clone())?;
+  let context1 = reader1.clone().get_context()?;
   let mut pk_lookup1 = PerThreadPKLookup::new(&context1, "PK")?;
 
   doc = Document::new();
@@ -92,7 +92,7 @@ fn test_reopen() -> Result<()> {
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("5"))?);
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("8"))?);
   let reader2 = Arc::new(directory_reader::open_if_changed(reader1.as_ref())?.unwrap());
-  let context2 = get_context(reader2.clone())?;
+  let context2 = reader2.clone().get_context()?;
   let mut pk_lookup2 = pk_lookup1.reopen(Some(&context2))?.unwrap();
 
   assert_eq!(-1, pk_lookup2.lookup(&BytesRef::from_string("1"))?);
@@ -111,7 +111,7 @@ fn test_reopen() -> Result<()> {
 
   assert_eq!(-1, pk_lookup2.lookup(&BytesRef::from_string("9"))?);
   let reader3 = Arc::new(directory_reader::open_if_changed(reader2.as_ref())?.unwrap());
-  let context3 = get_context(reader3.clone())?;
+  let context3 = reader3.clone().get_context()?;
   let mut pk_lookup3 = pk_lookup2.reopen(Some(&context3))?.unwrap();
   assert_eq!(8, pk_lookup3.lookup(&BytesRef::from_string("9"))?);
   let reader4 = directory_reader::open_if_changed(reader3.as_ref())?;
@@ -148,7 +148,7 @@ fn test_pk_lookup_with_update() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir)?;
-  let context = get_context(reader)?;
+  let context = reader.get_context()?;
   let mut pk = PerThreadPKLookup::new(&context, "PK")?;
 
   let doc_id = pk.lookup(&BytesRef::from_string("1"))?;

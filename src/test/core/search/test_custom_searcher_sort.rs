@@ -20,8 +20,8 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
-use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
+use crate::core::index::index_reader_context::IRCLeafReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
@@ -143,22 +143,24 @@ where
   }
 }
 
-pub struct CustomSearcher<CR>
+pub struct CustomSearcher<IR>
 where
-  CR: CompositeReader + Sync + 'static,
-  <CR as CompositeReader>::LeafReader: Sync,
+  IR: IndexReader + Sync + 'static,
+  IndexReaderContextType<IR>: Sync,
+  IRCLeafReader<IndexReaderContextType<IR>>: Sync,
 {
-  searcher: IndexSearcher<CompositeReaderContext<CR>>,
+  searcher: IndexSearcher<IndexReaderContextType<IR>>,
   switcher: i32,
 }
 
-impl<CR> CustomSearcher<CR>
+impl<IR> CustomSearcher<IR>
 where
-  CR: CompositeReader + Sync + 'static,
-  <CR as CompositeReader>::LeafReader: Sync,
+  IR: IndexReader + Sync + 'static,
+  IndexReaderContextType<IR>: Sync,
+  IRCLeafReader<IndexReaderContextType<IR>>: Sync,
 {
-  pub fn new(cr: CR, switcher: i32) -> Self {
-    let s = IndexSearcher::from_cr(cr).unwrap();
+  pub fn new(reader: IR, switcher: i32) -> Self {
+    let s = IndexSearcher::new(reader.get_context().unwrap()).unwrap();
     Self {
       searcher: s,
       switcher,

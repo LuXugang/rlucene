@@ -21,7 +21,6 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
@@ -285,7 +284,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close(random)?;
     assert_eq!(num_docs as i32, reader.num_docs()?);
 
-    for leaf in get_context(reader)?.leaves()? {
+    for leaf in reader.get_context()?.leaves()? {
       let sub = leaf.reader().clone();
       let mut ids = sub.get_numeric_doc_values("id")?.unwrap();
       let mut stored_fields = sub.stored_fields()?;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::index::composite_reader::get_context;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
@@ -601,7 +601,7 @@ fn test_null_collectors() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -643,7 +643,7 @@ fn test_collector() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -683,7 +683,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -785,7 +785,7 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -835,7 +835,7 @@ fn test_disables_set_min_score() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -856,7 +856,7 @@ fn test_disables_set_min_score_with_early_termination() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -886,7 +886,7 @@ fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -968,7 +968,7 @@ fn test_collection_termination() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -1016,7 +1016,7 @@ fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = get_context(reader)?;
+  let ctx = reader.get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 

@@ -27,7 +27,6 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
@@ -939,7 +938,7 @@ fn test_unique_term_count() -> Result<()> {
   let r2 = directory_reader::open_if_changed(&r)?.unwrap();
   r.close()?;
 
-  let context = get_context(&r2)?;
+  let context = (&r2).get_context()?;
   for leaf_context in context.leaves()? {
     assert_eq!(26, leaf_context.reader().terms("field")?.unwrap().size()?);
     assert_eq!(10, leaf_context.reader().terms("number")?.unwrap().size()?);

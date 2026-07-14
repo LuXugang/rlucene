@@ -18,13 +18,11 @@ use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum2};
-use crate::core::index::composite_reader::{CompositeReader, get_context};
-use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
-use crate::core::index::index_reader::CacheHelper;
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader::{CacheHelper, IndexReader, IndexReaderContextType};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{
   LRBinaryDocValues, LRNormNumericDocValues, LRNumericDocValues, LRSortedDocValues,
   LRSortedNumericDocValues, LRSortedSetDocValues, LeafReader,
@@ -60,33 +58,33 @@ use std::sync::Arc;
 /// **NOTE**: This is very costly.
 pub struct MultiDocValues;
 
-pub type MultiNormNumericDocValues<CR> = NumericDocValuesEnum2<
-  LRNormNumericDocValues<<CR as CompositeReader>::LeafReader>,
-  NumericDocValuesImpl<CR>,
+pub type MultiNormNumericDocValues<IR> = NumericDocValuesEnum2<
+  LRNormNumericDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
+  NumericDocValuesImpl<IndexReaderContextType<IR>>,
 >;
-pub type MultiNumericDocValues<CR> = NumericDocValuesEnum2<
-  LRNumericDocValues<<CR as CompositeReader>::LeafReader>,
-  NumericDocValuesImpl1<CR>,
+pub type MultiNumericDocValues<IR> = NumericDocValuesEnum2<
+  LRNumericDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
+  NumericDocValuesImpl1<IndexReaderContextType<IR>>,
 >;
-pub type MultiBinaryDocValues<CR> = BinaryDocValuesEnum2<
-  LRBinaryDocValues<<CR as CompositeReader>::LeafReader>,
-  BinaryDocValuesImpl<CR>,
+pub type MultiBinaryDocValues<IR> = BinaryDocValuesEnum2<
+  LRBinaryDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
+  BinaryDocValuesImpl<IndexReaderContextType<IR>>,
 >;
-pub type MultiSortedNumericDocValues<CR> = SortedNumericDocValuesEnum2<
-  LRSortedNumericDocValues<<CR as CompositeReader>::LeafReader>,
-  SortedNumericDocValuesImpl<CR>,
+pub type MultiSortedNumericDocValues<IR> = SortedNumericDocValuesEnum2<
+  LRSortedNumericDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
+  SortedNumericDocValuesImpl<IndexReaderContextType<IR>>,
 >;
-pub type MultiSortedDocValuesType<CR> = SortedDocValuesEnum2<
-  LRSortedDocValues<<CR as CompositeReader>::LeafReader>,
+pub type MultiSortedDocValuesType<IR> = SortedDocValuesEnum2<
+  LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   MultiSortedDocValues<
-    SortedDocValuesEnum2<LRSortedDocValues<<CR as CompositeReader>::LeafReader>, EmptySorted>,
+    SortedDocValuesEnum2<LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>, EmptySorted>,
   >,
 >;
-pub type MultiSortedSetDocValuesType<CR> = SortedSetDocValuesEnum2<
-  LRSortedSetDocValues<<CR as CompositeReader>::LeafReader>,
+pub type MultiSortedSetDocValuesType<IR> = SortedSetDocValuesEnum2<
+  LRSortedSetDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   MultiSortedSetDocValues<
     SortedSetDocValuesEnum2<
-      LRSortedSetDocValues<<CR as CompositeReader>::LeafReader>,
+      LRSortedSetDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
       EmptySortedSet,
     >,
   >,
@@ -94,14 +92,14 @@ pub type MultiSortedSetDocValuesType<CR> = SortedSetDocValuesEnum2<
 
 impl MultiDocValues {
   ///  Returns a NumericDocValues for a reader's norms (potentially merging on-the-fly).
-  pub fn get_norm_values<CR>(
-    reader: CR,
+  pub fn get_norm_values<IR>(
+    reader: IR,
     field: &str,
-  ) -> Result<Option<MultiNormNumericDocValues<CR>>>
+  ) -> Result<Option<MultiNormNumericDocValues<IR>>>
   where
-    CR: CompositeReader,
+    IR: IndexReader,
   {
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let leaves = reader.leaves()?;
     let size = leaves.len();
 
@@ -109,7 +107,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_norm_values(field)? {
-        Some(v) => Ok(Some(MultiNormNumericDocValues::A(v))),
+        Some(v) => Ok(Some(MultiNormNumericDocValues::<IR>::A(v))),
         None => Ok(None),
       };
     }
@@ -127,20 +125,20 @@ impl MultiDocValues {
     if !norm_found {
       return Ok(None);
     }
-    Ok(Some(MultiNormNumericDocValues::B(
+    Ok(Some(MultiNormNumericDocValues::<IR>::B(
       NumericDocValuesImpl::new(reader, field.to_string()),
     )))
   }
 
   /// Returns a NumericDocValues for a reader's docvalues (potentially merging on-the-fly)
-  pub fn get_numeric_values<CR>(
-    reader: CR,
+  pub fn get_numeric_values<IR>(
+    reader: IR,
     field: &str,
-  ) -> Result<Option<MultiNumericDocValues<CR>>>
+  ) -> Result<Option<MultiNumericDocValues<IR>>>
   where
-    CR: CompositeReader,
+    IR: IndexReader,
   {
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let leaves = reader.leaves()?;
     let size = leaves.len();
 
@@ -148,7 +146,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_numeric_doc_values(field)? {
-        Some(v) => Ok(Some(MultiNumericDocValues::A(v))),
+        Some(v) => Ok(Some(MultiNumericDocValues::<IR>::A(v))),
         None => Ok(None),
       };
     }
@@ -167,18 +165,17 @@ impl MultiDocValues {
       return Ok(None);
     }
 
-    Ok(Some(MultiNumericDocValues::B(NumericDocValuesImpl1::new(
-      reader,
-      field.to_string(),
-    ))))
+    Ok(Some(MultiNumericDocValues::<IR>::B(
+      NumericDocValuesImpl1::new(reader, field.to_string()),
+    )))
   }
 
   /// Returns a BinaryDocValues for a reader's docvalues (potentially merging on-the-fly)
-  pub fn get_binary_values<CR>(reader: CR, field: &str) -> Result<Option<MultiBinaryDocValues<CR>>>
+  pub fn get_binary_values<IR>(reader: IR, field: &str) -> Result<Option<MultiBinaryDocValues<IR>>>
   where
-    CR: CompositeReader,
+    IR: IndexReader,
   {
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let leaves = reader.leaves()?;
     let size = leaves.len();
 
@@ -186,7 +183,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_binary_doc_values(field)? {
-        Some(v) => Ok(Some(MultiBinaryDocValues::A(v))),
+        Some(v) => Ok(Some(MultiBinaryDocValues::<IR>::A(v))),
         None => Ok(None),
       };
     }
@@ -205,19 +202,18 @@ impl MultiDocValues {
       return Ok(None);
     }
 
-    Ok(Some(MultiBinaryDocValues::B(BinaryDocValuesImpl::new(
-      reader,
-      field.to_string(),
-    ))))
+    Ok(Some(MultiBinaryDocValues::<IR>::B(
+      BinaryDocValuesImpl::new(reader, field.to_string()),
+    )))
   }
-  pub fn get_sorted_numeric_values<CR>(
-    reader: CR,
+  pub fn get_sorted_numeric_values<IR>(
+    reader: IR,
     field: &str,
-  ) -> Result<Option<MultiSortedNumericDocValues<CR>>>
+  ) -> Result<Option<MultiSortedNumericDocValues<IR>>>
   where
-    CR: CompositeReader,
+    IR: IndexReader,
   {
-    let reader = get_context(reader)?;
+    let reader = reader.get_context()?;
     let leaves = reader.leaves()?;
     let size = leaves.len();
 
@@ -225,7 +221,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_sorted_numeric_doc_values(field)? {
-        Some(v) => Ok(Some(MultiSortedNumericDocValues::A(v))),
+        Some(v) => Ok(Some(MultiSortedNumericDocValues::<IR>::A(v))),
         None => Ok(None),
       };
     }
@@ -252,7 +248,7 @@ impl MultiDocValues {
       return Ok(None);
     }
 
-    Ok(Some(MultiSortedNumericDocValues::B(
+    Ok(Some(MultiSortedNumericDocValues::<IR>::B(
       SortedNumericDocValuesImpl::new(reader, values, field.to_string(), total_cost),
     )))
   }
@@ -260,12 +256,12 @@ impl MultiDocValues {
   ///
   /// This is an extremely slow way to access sorted values. Instead, access them per-segment with
   /// [`LeafReader::get_sorted_doc_values`].
-  pub fn get_sorted_values<CR>(r: CR, field: &str) -> Result<Option<MultiSortedDocValuesType<CR>>>
+  pub fn get_sorted_values<IR>(r: IR, field: &str) -> Result<Option<MultiSortedDocValuesType<IR>>>
   where
-    CR: CompositeReader,
+    IR: IndexReader,
   {
     let max_doc = r.max_doc()?;
-    let reader = get_context(r)?;
+    let reader = r.get_context()?;
     let leaves = reader.leaves()?;
     let size = leaves.len();
 
@@ -273,7 +269,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_sorted_doc_values(field)? {
-        Some(v) => Ok(Some(MultiSortedDocValuesType::<CR>::A(v))),
+        Some(v) => Ok(Some(MultiSortedDocValuesType::<IR>::A(v))),
         None => Ok(None),
       };
     }
@@ -310,7 +306,7 @@ impl MultiDocValues {
       let mapping =
         OrdinalMap::build_from_sorted(owner, values.as_mut_slice(), PackedInts::DEFAULT)?;
 
-      Ok(Some(MultiSortedDocValuesType::<CR>::B(
+      Ok(Some(MultiSortedDocValuesType::<IR>::B(
         MultiSortedDocValues::new(starts, values, mapping, total_cost),
       )))
     }
@@ -320,15 +316,15 @@ impl MultiDocValues {
   ///
   /// This is an extremely slow way to access sorted values. Instead, access them per-segment with
   /// [`LeafReader::get_sorted_set_doc_values`].
-  pub fn get_sorted_set_values<CR>(
-    r: CR,
+  pub fn get_sorted_set_values<IR>(
+    r: IR,
     field: &str,
-  ) -> Result<Option<MultiSortedSetDocValuesType<CR>>>
+  ) -> Result<Option<MultiSortedSetDocValuesType<IR>>>
   where
-    CR: CompositeReader,
+    IR: IndexReader,
   {
     let max_doc = r.max_doc()?;
-    let reader = get_context(r)?;
+    let reader = r.get_context()?;
     let leaves = reader.leaves()?;
     let size = leaves.len();
 
@@ -336,7 +332,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_sorted_set_doc_values(field)? {
-        Some(v) => Ok(Some(MultiSortedSetDocValuesType::<CR>::A(v))),
+        Some(v) => Ok(Some(MultiSortedSetDocValuesType::<IR>::A(v))),
         None => Ok(None),
       };
     }
@@ -373,7 +369,7 @@ impl MultiDocValues {
       let mapping =
         OrdinalMap::build_from_sorted_set(owner, values.as_mut_slice(), PackedInts::DEFAULT)?;
 
-      Ok(Some(MultiSortedSetDocValuesType::<CR>::B(
+      Ok(Some(MultiSortedSetDocValuesType::<IR>::B(
         MultiSortedSetDocValues::new(values, starts, mapping, total_cost),
       )))
     }
@@ -797,22 +793,22 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub struct NumericDocValuesImpl<CR>
+pub struct NumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   next_leaf: usize,
-  current_values: Option<LRNormNumericDocValues<CR::LeafReader>>,
-  reader: CompositeReaderContext<CR>,
+  current_values: Option<LRNormNumericDocValues<IRC::LeafReader>>,
+  reader: IRC,
   doc_id: i32,
   field: String,
   current_doc_base: usize,
 }
-impl<CR> NumericDocValuesImpl<CR>
+impl<IRC> NumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
-  pub fn new(reader: CompositeReaderContext<CR>, field: String) -> Self {
+  pub fn new(reader: IRC, field: String) -> Self {
     Self {
       next_leaf: 0,
       current_values: None,
@@ -824,11 +820,11 @@ where
   }
 }
 
-impl<CR> DocValuesIterator for NumericDocValuesImpl<CR> where CR: CompositeReader {}
+impl<IRC> DocValuesIterator for NumericDocValuesImpl<IRC> where IRC: IndexReaderContext {}
 
-impl<CR> DocIdSetIterator for NumericDocValuesImpl<CR>
+impl<IRC> DocIdSetIterator for NumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -911,9 +907,9 @@ where
   }
 }
 
-impl<CR> NumericDocValues for NumericDocValuesImpl<CR>
+impl<IRC> NumericDocValues for NumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn long_value(&mut self) -> Result<i64> {
     match self.current_values {
@@ -923,23 +919,23 @@ where
   }
 }
 
-pub struct NumericDocValuesImpl1<CR>
+pub struct NumericDocValuesImpl1<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   next_leaf: usize,
-  current_values: Option<LRNumericDocValues<CR::LeafReader>>,
-  reader: CompositeReaderContext<CR>,
+  current_values: Option<LRNumericDocValues<IRC::LeafReader>>,
+  reader: IRC,
   doc_id: i32,
   field: String,
   current_doc_base: usize,
 }
 
-impl<CR> NumericDocValuesImpl1<CR>
+impl<IRC> NumericDocValuesImpl1<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
-  pub fn new(reader: CompositeReaderContext<CR>, field: String) -> Self {
+  pub fn new(reader: IRC, field: String) -> Self {
     Self {
       next_leaf: 0,
       current_values: None,
@@ -951,9 +947,9 @@ where
   }
 }
 
-impl<CR> DocValuesIterator for NumericDocValuesImpl1<CR>
+impl<IRC> DocValuesIterator for NumericDocValuesImpl1<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn advance_exact(&mut self, target_doc_id: i32) -> Result<bool> {
     let leaves = self.reader.leaves()?;
@@ -989,9 +985,9 @@ where
   }
 }
 
-impl<CR> DocIdSetIterator for NumericDocValuesImpl1<CR>
+impl<IRC> DocIdSetIterator for NumericDocValuesImpl1<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -1069,9 +1065,9 @@ where
   }
 }
 
-impl<CR> NumericDocValues for NumericDocValuesImpl1<CR>
+impl<IRC> NumericDocValues for NumericDocValuesImpl1<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn long_value(&mut self) -> Result<i64> {
     match self.current_values {
@@ -1081,23 +1077,23 @@ where
   }
 }
 
-pub struct BinaryDocValuesImpl<CR>
+pub struct BinaryDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   next_leaf: usize,
-  current_values: Option<LRBinaryDocValues<CR::LeafReader>>,
-  reader: CompositeReaderContext<CR>,
+  current_values: Option<LRBinaryDocValues<IRC::LeafReader>>,
+  reader: IRC,
   doc_id: i32,
   field: String,
   current_doc_base: usize,
 }
 
-impl<CR> BinaryDocValuesImpl<CR>
+impl<IRC> BinaryDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
-  pub fn new(reader: CompositeReaderContext<CR>, field: String) -> Self {
+  pub fn new(reader: IRC, field: String) -> Self {
     Self {
       next_leaf: 0,
       current_values: None,
@@ -1108,9 +1104,9 @@ where
     }
   }
 }
-impl<CR> DocValuesIterator for BinaryDocValuesImpl<CR>
+impl<IRC> DocValuesIterator for BinaryDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn advance_exact(&mut self, target_doc_id: i32) -> Result<bool> {
     let leaves = self.reader.leaves()?;
@@ -1145,9 +1141,9 @@ where
     }
   }
 }
-impl<CR> DocIdSetIterator for BinaryDocValuesImpl<CR>
+impl<IRC> DocIdSetIterator for BinaryDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -1226,9 +1222,9 @@ where
     Ok(0)
   }
 }
-impl<CR> BinaryDocValues for BinaryDocValuesImpl<CR>
+impl<IRC> BinaryDocValues for BinaryDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self.current_values {
@@ -1237,34 +1233,34 @@ where
     }
   }
 }
-pub struct SortedNumericDocValuesImpl<CR>
+pub struct SortedNumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   next_leaf: usize,
   current_values_index: Option<usize>,
   values: Vec<
     SortedNumericDocValuesEnum2<
       SingletonSortedNumericDocValues<EmptyNumeric>,
-      LRSortedNumericDocValues<CR::LeafReader>,
+      LRSortedNumericDocValues<IRC::LeafReader>,
     >,
   >,
-  reader: CompositeReaderContext<CR>,
+  reader: IRC,
   doc_id: i32,
   field: String,
   current_doc_base: usize,
   final_total_cost: i64,
 }
-impl<CR> SortedNumericDocValuesImpl<CR>
+impl<IRC> SortedNumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   pub fn new(
-    reader: CompositeReaderContext<CR>,
+    reader: IRC,
     values: Vec<
       SortedNumericDocValuesEnum2<
         SingletonSortedNumericDocValues<EmptyNumeric>,
-        LRSortedNumericDocValues<CR::LeafReader>,
+        LRSortedNumericDocValues<IRC::LeafReader>,
       >,
     >,
     field: String,
@@ -1282,9 +1278,9 @@ where
     }
   }
 }
-impl<CR> DocValuesIterator for SortedNumericDocValuesImpl<CR>
+impl<IRC> DocValuesIterator for SortedNumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn advance_exact(&mut self, target_doc_id: i32) -> Result<bool> {
     let leaves = self.reader.leaves()?;
@@ -1321,9 +1317,9 @@ where
     }
   }
 }
-impl<CR> DocIdSetIterator for SortedNumericDocValuesImpl<CR>
+impl<IRC> DocIdSetIterator for SortedNumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -1395,9 +1391,9 @@ where
     Ok(self.final_total_cost)
   }
 }
-impl<CR> SortedNumericDocValues for SortedNumericDocValuesImpl<CR>
+impl<IRC> SortedNumericDocValues for SortedNumericDocValuesImpl<IRC>
 where
-  CR: CompositeReader,
+  IRC: IndexReaderContext,
 {
   fn doc_value_count(&mut self) -> Result<i32> {
     match self.current_values_index {

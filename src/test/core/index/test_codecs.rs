@@ -23,7 +23,6 @@ use crate::core::codecs::{Codec, codec};
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -34,6 +33,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::field_infos::FieldNumbers;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
@@ -1043,7 +1043,7 @@ fn test_docs_only_freq() -> Result<()> {
 
   let term = Term::new("f", BytesRef::from_string("doc"));
   let reader = directory_reader::open(dir.clone())?;
-  let context = get_context(reader)?;
+  let context = reader.get_context()?;
   for ctx in context.leaves()? {
     let mut de = ctx.reader().postings(&term)?.unwrap();
     while de.next_doc()? != NO_MORE_DOCS {

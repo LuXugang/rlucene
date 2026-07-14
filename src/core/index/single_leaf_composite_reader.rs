@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{CompositeReaderContextKind, IndexReader, IndexReaderBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
@@ -43,6 +43,8 @@ impl<LR> IndexReader for SingleLeafCompositeReader<LR>
 where
   LR: LeafReader + Clone,
 {
+  type ContextKind = CompositeReaderContextKind;
+
   type TermVectors = LR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

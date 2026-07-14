@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::TYPE_STORED;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -194,7 +193,7 @@ impl TestThreadedForceMerge {
       writer = IndexWriter::new(directory.clone(), append_config)?;
 
       let reader = directory_reader::open(directory.clone())?;
-      let top_reader_context = get_context(&reader)?;
+      let top_reader_context = (&reader).get_context()?;
       assert_eq!(1, top_reader_context.leaves()?.len());
       assert_eq!(expected_doc_count, reader.num_docs()?);
     }

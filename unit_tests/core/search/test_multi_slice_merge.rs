@@ -21,7 +21,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::top_docs;
 use crate::core::util::error::lucene_error::Result;
@@ -104,8 +104,8 @@ fn test_multiple_slices_of_same_index_searcher() -> Result<()> {
   let mut random = random();
   let (reader1, reader2) = set_up_readers(&mut random)?;
 
-  let searcher1 = IndexSearcher::from_cr_with_thread(reader1, random.random_range(2..=5))?;
-  let searcher2 = IndexSearcher::from_cr_with_thread(reader2, random.random_range(2..=5))?;
+  let searcher1 = index_searcher::from_reader_with_threads(reader1, random.random_range(2..=5))?;
+  let searcher2 = index_searcher::from_reader_with_threads(reader2, random.random_range(2..=5))?;
 
   let query = MatchAllDocsQuery::new();
 
@@ -121,8 +121,8 @@ fn test_multiple_slices_of_multiple_index_searchers() -> Result<()> {
   let mut random = random();
   let (reader1, reader2) = set_up_readers(&mut random)?;
 
-  let searcher1 = IndexSearcher::from_cr_with_thread(reader1, random.random_range(2..=5))?;
-  let searcher2 = IndexSearcher::from_cr_with_thread(reader2, random.random_range(2..=5))?;
+  let searcher1 = index_searcher::from_reader_with_threads(reader1, random.random_range(2..=5))?;
+  let searcher2 = index_searcher::from_reader_with_threads(reader2, random.random_range(2..=5))?;
 
   let query = MatchAllDocsQuery::new();
 

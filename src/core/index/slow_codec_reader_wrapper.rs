@@ -28,7 +28,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
@@ -216,6 +216,8 @@ impl<LR> IndexReader for CodecReaderImpl<LR>
 where
   LR: LeafReader + Clone,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = TermVectorsType<<Self as CodecReader>::TermVectorsReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {

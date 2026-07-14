@@ -26,7 +26,6 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::bytes_ref_builder::BytesRefBuilder;
-use crate::core::index::composite_reader::get_context;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -1114,7 +1113,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     let index_reader = writer.get_reader(random)?;
     writer.close(random)?;
 
-    let context = get_context(&index_reader)?;
+    let context = (&index_reader).get_context()?;
     for leaf in context.leaves()? {
       let reader = leaf.reader();
       let mut numeric = DocValues::get_numeric(reader, "numeric")?;
@@ -1454,7 +1453,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     writer.close()?;
 
     let reader = directory_reader::open(dir.clone())?;
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let r = leaf.reader();
       let mut doc_values = DocValues::get_sorted_numeric(r, "dv")?;
@@ -1534,7 +1533,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     D: crate::core::store::directory::Directory + 'static,
   {
     let reader = directory_reader::open(dir)?;
-    let context = get_context(&reader)?;
+    let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let r = leaf.reader();
       let mut stored_fields = r.stored_fields()?;

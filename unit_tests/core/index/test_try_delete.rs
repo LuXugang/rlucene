@@ -86,11 +86,11 @@ mod tests {
     let result;
     if random().random_bool(0.5) {
       let r = directory_reader::open_from_writer(&writer)?;
-      result = writer.try_delete_document((&r).into(), 0)?;
+      result = writer.try_delete_document(&r, 0)?;
       r.close()?;
     } else {
       let reader = directory_reader::open_from_writer(&writer)?;
-      result = writer.try_delete_document((&reader).into(), 0)?;
+      result = writer.try_delete_document(&reader, 0)?;
     }
 
     // The tryDeleteDocument should have succeeded:
@@ -130,7 +130,7 @@ mod tests {
     assert_eq!(1, top_docs.total_hits.value());
 
     let r = directory_reader::open_from_writer(&writer)?;
-    let result = writer.try_delete_document((&r).into(), 0)?;
+    let result = writer.try_delete_document(&r, 0)?;
 
     assert_ne!(result, -1);
 

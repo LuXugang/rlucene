@@ -19,11 +19,11 @@ use crate::core::document::field::Store;
 use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_metadata::LeafMetaData;
-use crate::core::index::leaf_reader::{LeafPostingsEnum, LeafReader, get_context};
+use crate::core::index::leaf_reader::{LeafPostingsEnum, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -50,8 +50,8 @@ use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::DefaultIndexSearchLR;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_leaf_reader,
-  new_searcher_with_reader, new_text_field, random,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
+  new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -96,7 +96,7 @@ where
   let index_reader = get_only_leaf_reader(&reader)?;
   writer.close(random)?;
 
-  let mut index_searcher = new_searcher_with_leaf_reader(index_reader)?;
+  let mut index_searcher = new_searcher_with_reader(index_reader)?;
   index_searcher.set_similarity(classic_similarity::new());
 
   Ok(index_searcher)
@@ -207,7 +207,7 @@ fn test_does_not_load_norms() -> Result<()> {
   let all_term = Term::from_text(FIELD, "all");
   let term_query = TermQuery::new(all_term);
   let lr = searcher.get_index_reader().clone();
-  let forbidden_norms = get_context(LeafReaderImpl::new(lr))?;
+  let forbidden_norms = (LeafReaderImpl::new(lr)).get_context()?;
   let index_searcher = IndexSearcher::new(forbidden_norms)?;
 
   let weight = index_searcher.create_weight(term_query.clone(), ScoreMode::Complete, 1.0)?;
@@ -315,6 +315,8 @@ impl<LR> IndexReader for LeafReaderImpl<LR>
 where
   LR: LeafReader,
 {
+  type ContextKind = LeafReaderContextKind;
+
   type TermVectors = LR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
