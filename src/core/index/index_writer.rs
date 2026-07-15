@@ -1584,14 +1584,17 @@ where
           rld.set_is_merging();
           let reader = {
             let mut inner = self.inner.lock();
-            let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
+            let Inner {
+              segment_infos,
+              deleter,
+              ..
+            } = &mut *inner;
+            let sci = segment_infos.index_of(sci_id).ok_or_else(|| {
               LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
             })?;
-            let reader = rld.get_reader_for_merge(&context, sci, &inner.segment_infos)?;
-            inner
-              .deleter
-              .inc_ref_files(reader.reader.get_segment_info().files()?)?;
-            reader
+            rld.get_reader_for_merge(&context, sci, |reader| {
+              deleter.inc_ref_files(reader.reader.get_segment_info().files()?)
+            })?
           };
 
           Ok(reader)
@@ -4042,9 +4045,9 @@ where
             // all doc values updates in a separate map in order to be applied to the merged
             // segment after it's done.
             rld.set_is_merging();
-            let reader = rld.get_reader_for_merge(&context, sci, segment_infos)?;
-            deleter.inc_ref_files(reader.reader.get_segment_info().files()?)?;
-            Ok(reader)
+            rld.get_reader_for_merge(&context, sci, |reader| {
+              deleter.inc_ref_files(reader.reader.get_segment_info().files()?)
+            })
           })
         })?;
 
