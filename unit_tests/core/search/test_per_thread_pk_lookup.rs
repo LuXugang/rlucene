@@ -30,7 +30,6 @@ use crate::test_framework::core::index::per_thread_pk_lookup::PerThreadPKLookup;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
-use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestPerThreadPKLookup;
 
@@ -63,8 +62,8 @@ fn test_reopen() -> Result<()> {
   writer.add_document(doc)?;
   writer.flush()?;
 
-  let reader1 = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let context1 = reader1.clone().get_context()?;
+  let reader1 = directory_reader::open_from_writer(&writer)?;
+  let context1 = (&reader1).get_context()?;
   let mut pk_lookup1 = PerThreadPKLookup::new(&context1, "PK")?;
 
   doc = Document::new();
@@ -91,8 +90,8 @@ fn test_reopen() -> Result<()> {
   assert_eq!(1, pk_lookup1.lookup(&BytesRef::from_string("2"))?);
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("5"))?);
   assert_eq!(-1, pk_lookup1.lookup(&BytesRef::from_string("8"))?);
-  let reader2 = Arc::new(directory_reader::open_if_changed(reader1.as_ref())?.unwrap());
-  let context2 = reader2.clone().get_context()?;
+  let reader2 = directory_reader::open_if_changed(&reader1)?.unwrap();
+  let context2 = (&reader2).get_context()?;
   let mut pk_lookup2 = pk_lookup1.reopen(Some(&context2))?.unwrap();
 
   assert_eq!(-1, pk_lookup2.lookup(&BytesRef::from_string("1"))?);
@@ -110,13 +109,16 @@ fn test_reopen() -> Result<()> {
   writer.flush()?;
 
   assert_eq!(-1, pk_lookup2.lookup(&BytesRef::from_string("9"))?);
-  let reader3 = Arc::new(directory_reader::open_if_changed(reader2.as_ref())?.unwrap());
-  let context3 = reader3.clone().get_context()?;
+  let reader3 = directory_reader::open_if_changed(&reader2)?.unwrap();
+  let context3 = (&reader3).get_context()?;
   let mut pk_lookup3 = pk_lookup2.reopen(Some(&context3))?.unwrap();
   assert_eq!(8, pk_lookup3.lookup(&BytesRef::from_string("9"))?);
-  let reader4 = directory_reader::open_if_changed(reader3.as_ref())?;
+  let reader4 = directory_reader::open_if_changed(&reader3)?;
   assert!(reader4.is_none());
   writer.close()?;
+  reader1.close()?;
+  reader2.close()?;
+  reader3.close()?;
   Ok(())
 }
 
@@ -154,5 +156,6 @@ fn test_pk_lookup_with_update() -> Result<()> {
   let doc_id = pk.lookup(&BytesRef::from_string("1"))?;
   assert_eq!(2, doc_id);
 
+  context.reader().close()?;
   Ok(())
 }

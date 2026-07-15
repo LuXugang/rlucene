@@ -158,7 +158,7 @@ fn test_skip_to() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  let reader = Arc::new(directory_reader::open(dir.clone())?);
+  let reader = directory_reader::open(dir.clone())?;
   let mut tdocs = TestUtil::docs_with_reader(
     &mut random,
     &reader,

@@ -600,8 +600,9 @@ fn test_null_collectors() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -620,6 +621,7 @@ fn test_null_collectors() -> Result<()> {
   c.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
   c.get_leaf_collector(&leaves[0], Some(&dummy_weight))?
     .set_scorer(&mut scorer)?;
+  reader.close()?;
   Ok(())
 }
 
@@ -642,8 +644,9 @@ fn test_collector() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -673,6 +676,7 @@ fn test_collector() -> Result<()> {
       }
     },
   }
+  reader.close()?;
   Ok(())
 }
 #[test]
@@ -682,8 +686,9 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -729,6 +734,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   multi_collector
     .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
     .set_scorer(&mut Score::new(0.0))?;
+  reader.close()?;
   Ok(())
 }
 
@@ -784,8 +790,9 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -825,6 +832,7 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
   leaf_collector.set_scorer(&mut scorer)?;
   assert!(!set_scorer_called1.load(Ordering::SeqCst));
   assert!(!set_scorer_called2.load(Ordering::SeqCst));
+  reader.close()?;
   Ok(())
 }
 
@@ -834,8 +842,9 @@ fn test_disables_set_min_score() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -846,6 +855,7 @@ fn test_disables_set_min_score() -> Result<()> {
   let mut scorer = PanicOnMinCompetitiveScoreScorable;
   leaf_collector.set_scorer(&mut scorer)?;
   leaf_collector.collect(0, &mut scorer)?;
+  reader.close()?;
   Ok(())
 }
 
@@ -855,8 +865,9 @@ fn test_disables_set_min_score_with_early_termination() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -876,6 +887,7 @@ fn test_disables_set_min_score_with_early_termination() -> Result<()> {
     leaf_collector.set_scorer(&mut scorer)?;
     leaf_collector.collect(0, &mut scorer)?;
   }
+  reader.close()?;
   Ok(())
 }
 
@@ -885,8 +897,9 @@ fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -915,6 +928,7 @@ fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   multi_collector
     .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
     .set_scorer(&mut Score::new(0.0))?;
+  reader.close()?;
   Ok(())
 }
 
@@ -967,8 +981,9 @@ fn test_collection_termination() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -997,6 +1012,7 @@ fn test_collection_termination() -> Result<()> {
   ));
   assert!(!c1_collect_called.get(), "c1 should be removed already");
   assert!(!c2_collect_called.get(), "c2 should be removed already");
+  reader.close()?;
   Ok(())
 }
 
@@ -1015,8 +1031,9 @@ fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -1061,6 +1078,7 @@ fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool
   lc.set_scorer(&mut scorer)?;
   assert!(!c1_set_scorer_called.get());
   assert!(!c2_set_scorer_called.get());
+  reader.close()?;
   Ok(())
 }
 

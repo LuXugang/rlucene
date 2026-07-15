@@ -46,6 +46,7 @@ use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::store::directory::Directory;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -60,7 +61,6 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
-use std::sync::Arc;
 
 const FIELD_NAME: &str = "point";
 /// Base test support for XY spatial implementations (high-level fields and queries).
@@ -731,10 +731,10 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader::open_from_writer(&w)?);
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
-    let s = new_searcher_with_reader(r.clone())?;
+    let s = new_searcher_with_reader(r)?;
 
     let iters = at_least(random, 25);
 
@@ -749,7 +749,8 @@ pub trait BaseXYPointTestCase {
 
       let hits = self.search_index(&s, query.clone(), max_doc)?;
 
-      let mut doc_id_to_id = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
+      let mut doc_id_to_id =
+        MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
@@ -771,6 +772,8 @@ pub trait BaseXYPointTestCase {
       }
     }
 
+    s.reader_context.reader().close()?;
+    dir.close()?;
     Ok(())
   }
   fn verify_random_distances<R>(&self, random: &mut R, xs: &[f32], ys: &[f32]) -> Result<()>
@@ -795,10 +798,10 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader::open_from_writer(&w)?);
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
-    let s = new_searcher_with_reader(r.clone())?;
+    let s = new_searcher_with_reader(r)?;
 
     let iters = at_least(random, 25);
 
@@ -819,7 +822,8 @@ pub trait BaseXYPointTestCase {
 
       let hits = self.search_index(&s, query.clone(), max_doc)?;
 
-      let mut doc_id_to_id = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
+      let mut doc_id_to_id =
+        MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
@@ -846,6 +850,8 @@ pub trait BaseXYPointTestCase {
       }
     }
 
+    s.reader_context.reader().close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -871,10 +877,10 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader::open_from_writer(&w)?);
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
-    let s = new_searcher_with_reader(r.clone())?;
+    let s = new_searcher_with_reader(r)?;
 
     let iters = at_least(random, 75);
 
@@ -887,7 +893,8 @@ pub trait BaseXYPointTestCase {
 
       let hits = self.search_index(&s, query.clone(), max_doc)?;
 
-      let mut doc_id_to_id = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
+      let mut doc_id_to_id =
+        MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
@@ -909,6 +916,8 @@ pub trait BaseXYPointTestCase {
       }
     }
 
+    s.reader_context.reader().close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -934,10 +943,10 @@ pub trait BaseXYPointTestCase {
     let mut deleted = HashSet::new();
     let w = IndexWriter::new(dir.clone(), iwc)?;
     self.index_points(random, xs, ys, &mut deleted, &w)?;
-    let r = Arc::new(directory_reader::open_from_writer(&w)?);
+    let r = directory_reader::open_from_writer(&w)?;
     w.close()?;
 
-    let s = new_searcher_with_reader(r.clone())?;
+    let s = new_searcher_with_reader(r)?;
 
     let iters = at_least(random, 75);
 
@@ -951,7 +960,8 @@ pub trait BaseXYPointTestCase {
 
       let hits = self.search_index(&s, query.clone(), max_doc)?;
 
-      let mut doc_id_to_id = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
+      let mut doc_id_to_id =
+        MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
@@ -973,6 +983,8 @@ pub trait BaseXYPointTestCase {
       }
     }
 
+    s.reader_context.reader().close()?;
+    dir.close()?;
     Ok(())
   }
   fn index_points<R, D>(

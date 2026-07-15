@@ -35,7 +35,6 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 #[allow(dead_code)] // for quick search
 struct TestCollectorManager;
@@ -47,8 +46,9 @@ fn test_collection() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
 
   // Setup two collectors, one that will only collect even doc ids and one that
@@ -79,6 +79,7 @@ fn test_collection() -> Result<()> {
     assert_eq!(expected_result, result);
   }
 
+  reader.close()?;
   Ok(())
 }
 

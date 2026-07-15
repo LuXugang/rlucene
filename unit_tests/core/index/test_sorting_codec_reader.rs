@@ -76,7 +76,6 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::{IndexedRandom, SliceRandom};
-use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestSortingCodecReader;
 #[test]
@@ -352,8 +351,8 @@ fn test_sort_on_add_indices_random() -> Result<()> {
   reader.close()?;
 
   assert!(actual_num_docs > 0, "must have at least one doc");
-  let r = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let leaf = get_only_leaf_reader(r.as_ref())?;
+  let r = directory_reader::open_from_writer(&writer)?;
+  let leaf = get_only_leaf_reader(&r)?;
   assert_eq!(actual_num_docs, leaf.max_doc()?);
   let mut binary_dv =
     LeafReader::get_binary_doc_values(&leaf, "binary_dv")?.expect("binary_dv must exist");
@@ -370,7 +369,7 @@ fn test_sort_on_add_indices_random() -> Result<()> {
   let mut prev_value = -1;
   let mut using_alt_ids = false;
   let mut values_iterator = vector_values.iterator()?;
-  let searcher = IndexSearcher::new(r.clone().get_context()?)?;
+  let searcher = IndexSearcher::new(r.get_context()?)?;
   let mut term_vectors = IndexReader::term_vectors(&leaf)?;
   let mut stored_fields = IndexReader::stored_fields(&leaf)?;
 
@@ -452,8 +451,7 @@ fn test_sort_on_add_indices_random() -> Result<()> {
   }
   assert_eq!(NO_MORE_DOCS, ids.next_doc()?);
 
-  drop(searcher);
-  r.close()?;
+  searcher.reader_context.reader().close()?;
   writer.close()?;
   sort_dir.close()?;
   dir.close()?;

@@ -2048,8 +2048,8 @@ fn test_random1() -> Result<()> {
     }
   }
 
-  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let irc = reader.clone().get_context()?;
+  let reader = directory_reader::open_from_writer(&writer)?;
+  let irc = (&reader).get_context()?;
   for ctx in irc.leaves()? {
     let leaf = ctx.reader();
 
@@ -2074,8 +2074,8 @@ fn test_random1() -> Result<()> {
     }
   }
 
-  let searcher = new_searcher_with_reader(reader.clone())?;
   let mut stored_fields = reader.stored_fields()?;
+  let searcher = new_searcher_with_reader(reader)?;
 
   for i in 0..num_docs {
     let term_query = TermQuery::new(Term::from_text("id", i.to_string()));
@@ -2086,7 +2086,8 @@ fn test_random1() -> Result<()> {
     } else {
       assert_eq!(1, top_docs.total_hits.value());
 
-      let mut values = MultiDocValues::get_numeric_values(&reader, "id")?.unwrap();
+      let mut values =
+        MultiDocValues::get_numeric_values(searcher.reader_context.reader(), "id")?.unwrap();
       assert_eq!(
         top_docs.score_docs[0].doc,
         values.advance(top_docs.score_docs[0].doc)?
@@ -2097,6 +2098,7 @@ fn test_random1() -> Result<()> {
     }
   }
 
+  searcher.reader_context.reader().close()?;
   writer.close()?;
   Ok(())
 }
@@ -2141,9 +2143,9 @@ fn test_multi_valued_random1() -> Result<()> {
     }
   }
 
-  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
+  let reader = directory_reader::open_from_writer(&writer)?;
   let mut stored_fields = reader.stored_fields()?;
+  let searcher = new_searcher_with_reader(reader)?;
 
   for i in 0..num_docs {
     let term_query = TermQuery::new(Term::from_text("id", i.to_string()));
@@ -2154,7 +2156,8 @@ fn test_multi_valued_random1() -> Result<()> {
     } else {
       assert_eq!(1, top_docs.total_hits.value());
 
-      let mut values = MultiDocValues::get_numeric_values(&reader, "id")?.unwrap();
+      let mut values =
+        MultiDocValues::get_numeric_values(searcher.reader_context.reader(), "id")?.unwrap();
       assert_eq!(
         top_docs.score_docs[0].doc,
         values.advance(top_docs.score_docs[0].doc)?
@@ -2165,6 +2168,7 @@ fn test_multi_valued_random1() -> Result<()> {
     }
   }
 
+  searcher.reader_context.reader().close()?;
   writer.close()?;
   Ok(())
 }
@@ -2234,15 +2238,16 @@ fn test_concurrent_updates() -> Result<()> {
   })?;
 
   writer.force_merge(1)?;
-  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
+  let reader = directory_reader::open_from_writer(&writer)?;
+  let searcher = new_searcher_with_reader(reader)?;
   let values = values.lock().expect("values mutex poisoned");
 
   for i in 0..num_docs {
     let top_docs = searcher.search(TermQuery::new(Term::from_text("id", i.to_string())), 1)?;
     if let Some(value) = values.get(&i) {
       assert_eq!(1, top_docs.total_hits.value());
-      let mut dvs = MultiDocValues::get_numeric_values(&reader, "foo")?.unwrap();
+      let mut dvs =
+        MultiDocValues::get_numeric_values(searcher.reader_context.reader(), "foo")?.unwrap();
       let doc_id = top_docs.score_docs[0].doc;
       assert_eq!(doc_id, dvs.advance(doc_id)?);
       assert_eq!(*value, dvs.long_value()?);
@@ -2251,7 +2256,7 @@ fn test_concurrent_updates() -> Result<()> {
     }
   }
 
-  reader.close()?;
+  searcher.reader_context.reader().close()?;
   writer.close()?;
   Ok(())
 }
@@ -2387,20 +2392,21 @@ fn test_concurrent_dv_updates() -> Result<()> {
   })?;
 
   writer.force_merge(1)?;
-  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
+  let reader = directory_reader::open_from_writer(&writer)?;
+  let searcher = new_searcher_with_reader(reader)?;
   let values = values.lock().expect("values mutex poisoned");
 
   for i in 0..num_docs {
     let top_docs = searcher.search(TermQuery::new(Term::from_text("id", i.to_string())), 1)?;
     assert_eq!(1, top_docs.total_hits.value());
-    let mut dvs = MultiDocValues::get_numeric_values(&reader, "bar")?.unwrap();
+    let mut dvs =
+      MultiDocValues::get_numeric_values(searcher.reader_context.reader(), "bar")?.unwrap();
     let hit_doc = top_docs.score_docs[0].doc;
     assert_eq!(hit_doc, dvs.advance(hit_doc)?);
     assert_eq!(*values.get(&i).unwrap(), dvs.long_value()?);
   }
 
-  reader.close()?;
+  searcher.reader_context.reader().close()?;
   writer.close()?;
   Ok(())
 }
@@ -2511,7 +2517,7 @@ where
     w.force_merge(random, 1)?;
   }
 
-  let reader = Arc::new(w.get_reader(random)?);
+  let reader = w.get_reader(random)?;
   w.close(random)?;
   drop(w);
 
@@ -2533,7 +2539,7 @@ where
   let w2 = IndexWriter::new(dir2.clone(), iwc)?;
 
   if use_readers {
-    let reader_context = reader.clone().get_context()?;
+    let reader_context = (&reader).get_context()?;
     let leaves = reader_context.leaves()?;
     let mut codec_readers = Vec::with_capacity(leaves.len());
     for leaf in leaves {
@@ -2544,9 +2550,9 @@ where
     w2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
   }
 
-  let reader2 = Arc::new(directory_reader::open_from_writer(&w2)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
-  let searcher2 = new_searcher_with_reader(reader2.clone())?;
+  let reader2 = directory_reader::open_from_writer(&w2)?;
+  let searcher = new_searcher_with_reader(reader)?;
+  let searcher2 = new_searcher_with_reader(reader2)?;
 
   for i in 0..num_docs {
     let query = TermQuery::new(Term::from_text("id", i.to_string()));
@@ -2555,12 +2561,14 @@ where
     assert_eq!(top_docs.total_hits.value(), top_docs2.total_hits.value());
 
     if top_docs.total_hits.value() == 1 {
-      let mut dvs1 = MultiDocValues::get_numeric_values(reader.as_ref(), "foo")?.unwrap();
+      let mut dvs1 =
+        MultiDocValues::get_numeric_values(searcher.reader_context.reader(), "foo")?.unwrap();
       let hit_doc1 = top_docs.score_docs[0].doc;
       assert_eq!(hit_doc1, dvs1.advance(hit_doc1)?);
       let value1 = dvs1.long_value()?;
 
-      let mut dvs2 = MultiDocValues::get_numeric_values(&reader2, "foo")?.unwrap();
+      let mut dvs2 =
+        MultiDocValues::get_numeric_values(searcher2.reader_context.reader(), "foo")?.unwrap();
       let hit_doc2 = top_docs2.score_docs[0].doc;
       assert_eq!(hit_doc2, dvs2.advance(hit_doc2)?);
       let value2 = dvs2.long_value()?;
@@ -2568,10 +2576,8 @@ where
       assert_eq!(value1, value2);
     }
   }
-  drop(searcher);
-  drop(searcher2);
-  reader.close()?;
-  reader2.close()?;
+  searcher.reader_context.reader().close()?;
+  searcher2.reader_context.reader().close()?;
   w2.close()?;
   dir.close()?;
   dir2.close()?;
@@ -3209,16 +3215,16 @@ fn test_random3() -> Result<()> {
     w2.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
   }
 
-  let r1 = Arc::new(directory_reader::open_from_writer(&w1)?);
-  let s1 = new_searcher_with_reader(r1.clone())?;
+  let r1 = directory_reader::open_from_writer(&w1)?;
+  let s1 = new_searcher_with_reader(r1)?;
 
   if random.random::<bool>() {
     let max_segment_count = TestUtil::next_int(&mut random, 1, 5);
     w2.force_merge(max_segment_count)?;
   }
 
-  let r2 = Arc::new(directory_reader::open_from_writer(&w2)?);
-  let s2 = new_searcher_with_reader(r2.clone())?;
+  let r2 = directory_reader::open_from_writer(&w2)?;
+  let s2 = new_searcher_with_reader(r2)?;
 
   for _ in 0..100 {
     let num_hits = TestUtil::next_int(&mut random, 1, num_docs) as usize;
@@ -3232,8 +3238,8 @@ fn test_random3() -> Result<()> {
 
     assert_eq!(hits2.score_docs().len(), hits1.score_docs().len());
 
-    let mut stored_fields1 = r1.stored_fields()?;
-    let mut stored_fields2 = r2.stored_fields()?;
+    let mut stored_fields1 = s1.reader_context.reader().stored_fields()?;
+    let mut stored_fields2 = s2.reader_context.reader().stored_fields()?;
 
     for i in 0..hits2.score_docs().len() {
       let hit1 = &hits1.score_docs()[i];
@@ -3246,6 +3252,8 @@ fn test_random3() -> Result<()> {
       assert_eq!(hit1.fields()?, hit2.fields()?);
     }
   }
+  s1.reader_context.reader().close()?;
+  s2.reader_context.reader().close()?;
   w1.close()?;
   w2.close()?;
   Ok(())

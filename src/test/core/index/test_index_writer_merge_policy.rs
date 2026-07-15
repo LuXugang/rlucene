@@ -461,13 +461,12 @@ fn test_merge_on_commit() -> Result<()> {
     assert_eq!(1, merged_ctx.leaves()?.len());
   }
 
-  let reader = Arc::new(directory_reader::open_from_writer(
-    &writer_with_merge_policy,
-  )?);
-  let searcher = index_searcher::from_reader(reader.clone())?;
+  let reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
   assert_eq!(5, reader.num_docs()?);
+  let searcher = index_searcher::from_reader(reader)?;
   assert_eq!(5, searcher.count(MatchAllDocsQuery::new())?);
 
+  searcher.reader_context.reader().close()?;
   writer_with_merge_policy.close()?;
   Ok(())
 }

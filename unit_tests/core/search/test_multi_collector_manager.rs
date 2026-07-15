@@ -35,7 +35,6 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 
 #[allow(dead_code)] // for quick search
 struct TestMultiCollectorManager;
@@ -47,8 +46,9 @@ fn test_collection() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
 
   // Setup two collector managers, one that will only collect even doc ids and one that
@@ -86,6 +86,7 @@ fn test_collection() -> Result<()> {
     assert_eq!(expected_even, results[0]);
     assert_eq!(expected_odd, results[1]);
   }
+  reader.close()?;
   Ok(())
 }
 
@@ -101,8 +102,9 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -148,6 +150,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   collector
     .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
     .set_scorer(&mut Score::new(0.0))?;
+  reader.close()?;
   Ok(())
 }
 
@@ -158,8 +161,9 @@ fn test_score_wrapping() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
@@ -192,6 +196,7 @@ fn test_score_wrapping() -> Result<()> {
   collector
     .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
     .set_scorer(&mut Score::new(0.0))?;
+  reader.close()?;
   Ok(())
 }
 
@@ -202,8 +207,9 @@ fn test_early_termination() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
   writer.commit(&mut random)?;
-  let reader = Rc::new(writer.get_reader(&mut random)?);
-  let ctx = reader.get_context()?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
 
   let docs = TestUtil::next_int(&mut random, 1000, 10000);
@@ -228,6 +234,7 @@ fn test_early_termination() -> Result<()> {
     collect_all(&leaves[0], &expected, &mcm),
     Err(LuceneError::CollectionTerminated(_))
   ));
+  reader.close()?;
   Ok(())
 }
 

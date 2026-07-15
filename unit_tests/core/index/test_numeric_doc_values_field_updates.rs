@@ -67,7 +67,6 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::IndexedRandom;
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
 use std::vec;
@@ -1910,8 +1909,8 @@ fn test_updates_after_add_indexes() -> Result<()> {
     )?;
 
     {
-      let reader_cr = Arc::new(directory_reader::open_from_writer(&writer)?);
-      let reader = reader_cr.clone().get_context()?;
+      let reader_cr = directory_reader::open_from_writer(&writer)?;
+      let reader = (&reader_cr).get_context()?;
       let leaves = reader.leaves()?;
       for (i, leaf) in leaves.iter().enumerate() {
         let leaf_reader = leaf.reader();
@@ -1956,6 +1955,7 @@ fn test_updates_after_add_indexes() -> Result<()> {
         num_docs,
         searcher.count(LongPoint::new_exact_query("i2", 24)?)?
       );
+      searcher.reader_context.reader().close()?;
     }
 
     writer.close()?;

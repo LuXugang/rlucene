@@ -514,8 +514,8 @@ fn test_try_update_doc_values() -> Result<()> {
     ],
   )?;
 
-  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let context = reader.clone().get_context()?;
+  let reader = directory_reader::open_from_writer(&writer)?;
+  let context = (&reader).get_context()?;
   let mut numeric_id_values = None;
   let mut binary_id_values = None;
   for c in context.leaves()? {
@@ -635,9 +635,9 @@ fn test_try_update_multi_threaded() -> Result<()> {
     Ok(())
   })?;
 
-  let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
-  let context = reader.clone().get_context()?;
+  let reader = directory_reader::open_from_writer(&writer)?;
+  let searcher = new_searcher_with_reader(reader)?;
+  let context = &searcher.reader_context;
   for i in 0..values.len() {
     let value_guard = values[i].lock();
     let value = *value_guard;
@@ -662,7 +662,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
       assert!(!numeric_doc_values.advance_exact(doc_id)?);
     }
   }
-  reader.close()?;
+  context.reader().close()?;
   writer.close()?;
   Ok(())
 }
@@ -675,12 +675,13 @@ where
 {
   let mut seq_id = -1;
   while seq_id == -1 {
-    let reader = Arc::new(directory_reader::open_from_writer(writer)?);
-    let searcher = new_searcher_with_reader(reader.clone())?;
+    let reader = directory_reader::open_from_writer(writer)?;
+    let searcher = new_searcher_with_reader(reader)?;
     let top_docs = searcher.search(TermQuery::new(doc.clone()), 10)?;
     assert_eq!(1, top_docs.total_hits.value());
     let the_doc = top_docs.score_docs()[0].doc;
-    seq_id = writer.try_update_doc_value(reader.as_ref(), the_doc, fields.clone())?;
+    let reader = searcher.reader_context.reader();
+    seq_id = writer.try_update_doc_value(reader, the_doc, fields.clone())?;
     reader.close()?;
   }
   Ok(())
@@ -796,12 +797,13 @@ fn test_reset_value_multiple_docs() -> Result<()> {
     }
   }
   {
-    let reader = Arc::new(directory_reader::open_from_writer(&writer)?);
-    let searcher = new_searcher_with_reader(reader.clone())?;
+    let reader = directory_reader::open_from_writer(&writer)?;
+    let searcher = new_searcher_with_reader(reader)?;
     let is_live = searcher.search(FieldExistsQuery::new("is_live"), 5)?;
     assert_eq!(num_hits, is_live.total_hits.value());
+    let reader = searcher.reader_context.reader();
     let mut stored_fields = reader.stored_fields()?;
-    let context = reader.clone().get_context()?;
+    let context = &searcher.reader_context;
     for doc in is_live.score_docs {
       let id = stored_fields
         .document(doc.doc)?

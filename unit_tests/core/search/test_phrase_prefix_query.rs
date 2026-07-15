@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
@@ -29,7 +30,6 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use std::collections::{HashMap, LinkedList};
-use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestPhrasePrefixQuery;
@@ -94,10 +94,10 @@ fn test_phrase_prefix() -> Result<()> {
   writer.add_document(&mut random, doc4)?;
   writer.add_document(&mut random, doc5)?;
 
-  let reader = Arc::new(writer.get_reader(&mut random)?);
+  let reader = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(reader.clone())?;
+  let searcher = new_searcher_with_reader(reader)?;
 
   let mut query1builder = MultiPhraseQuery::builder();
   let mut query2builder = MultiPhraseQuery::builder();
@@ -107,7 +107,7 @@ fn test_phrase_prefix() -> Result<()> {
 
   let mut terms_with_prefix = LinkedList::new();
 
-  let terms = multi_terms::get_terms(&reader, "body")?.unwrap();
+  let terms = multi_terms::get_terms(searcher.reader_context.reader(), "body")?.unwrap();
   let mut te = terms.iterator()?;
 
   let prefix = "pi";
@@ -140,7 +140,7 @@ fn test_phrase_prefix() -> Result<()> {
   let result = searcher.search(query2builder.build(), 1000)?.score_docs;
   assert_eq!(0, result.len());
 
-  reader.close()?;
+  searcher.reader_context.reader().close()?;
 
   Ok(())
 }

@@ -790,10 +790,13 @@ fn test_norms_query_matches_count() -> Result<()> {
     .set_merge_policy(NoMergePolicy::default());
   w.delete_documents_with_terms(&mut random, vec![Term::from_text("text", "text")])?; // deletes all but the first doc
 
-  let reader2 = Arc::new(w.get_reader(&mut random)?);
-  let searcher2 = new_searcher_with_reader(reader2.clone())?;
+  let reader2 = w.get_reader(&mut random)?;
+  let searcher2 = new_searcher_with_reader(reader2)?;
   assert_norms_count_with_shortcut(&searcher2, "text", 1)?;
 
+  searcher.reader_context.reader().close()?;
+  searcher2.reader_context.reader().close()?;
+  w.close(&mut random)?;
   Ok(())
 }
 fn assert_norms_count_without_shortcut<IRC>(

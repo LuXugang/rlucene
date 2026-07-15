@@ -23,6 +23,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
@@ -47,7 +48,6 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::cmp::Ordering;
-use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestNearest;
 #[test]
@@ -67,15 +67,17 @@ fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
   w.add_document(&mut random, doc)?;
 
-  let r = Arc::new(w.get_reader(&mut random)?);
+  let r = w.get_reader(&mut random)?;
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
-  let mut s = new_searcher_with_reader(r.clone())?;
+  let mut s = new_searcher_with_reader(r)?;
   let top_field_docs = LatLonPoint::nearest(&s, "point", 40.0, 50.0, 1)?;
   let hit = top_field_docs.score_docs()[0].as_field().unwrap();
   assert_eq!(
     "0",
-    r.stored_fields()?
+    s.reader_context
+      .reader()
+      .stored_fields()?
       .document(hit.doc())?
       .get_field("id")
       .unwrap()
@@ -83,19 +85,21 @@ fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
       .unwrap()
       .as_ref()
   );
-  r.close()?;
+  s.reader_context.reader().close()?;
 
   w.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "0")])?;
-  let r = Arc::new(w.get_reader(&mut random)?);
+  let r = w.get_reader(&mut random)?;
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
-  s = new_searcher_with_reader(r.clone())?;
+  s = new_searcher_with_reader(r)?;
   let top_field_docs = LatLonPoint::nearest(&s, "point", 40.0, 50.0, 1)?;
   let hit_ref = top_field_docs.score_docs()[0].as_field();
   let hit = hit_ref.as_ref().unwrap();
   assert_eq!(
     "1",
-    r.stored_fields()?
+    s.reader_context
+      .reader()
+      .stored_fields()?
       .document(hit.doc())?
       .get_field("id")
       .unwrap()
@@ -103,7 +107,7 @@ fn test_nearest_neighbor_with_deleted_docs() -> Result<()> {
       .unwrap()
       .as_ref()
   );
-  r.close()?;
+  s.reader_context.reader().close()?;
   w.close(&mut random)?;
   Ok(())
 }
@@ -124,15 +128,17 @@ fn test_nearest_neighbor_with_all_deleted_docs() -> Result<()> {
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
   w.add_document(&mut random, doc)?;
 
-  let r = Arc::new(w.get_reader(&mut random)?);
+  let r = w.get_reader(&mut random)?;
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
-  let mut s = new_searcher_with_reader(r.clone())?;
+  let mut s = new_searcher_with_reader(r)?;
   let top_field_docs = LatLonPoint::nearest(&s, "point", 40.0, 50.0, 1)?;
   let hit = top_field_docs.score_docs()[0].as_field().unwrap();
   assert_eq!(
     "0",
-    r.stored_fields()?
+    s.reader_context
+      .reader()
+      .stored_fields()?
       .document(hit.doc())?
       .get_field("id")
       .unwrap()
@@ -140,22 +146,22 @@ fn test_nearest_neighbor_with_all_deleted_docs() -> Result<()> {
       .unwrap()
       .as_ref()
   );
-  r.close()?;
+  s.reader_context.reader().close()?;
 
   w.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "0")])?;
   w.delete_documents_with_terms(&mut random, vec![Term::from_text("id", "1")])?;
 
-  let r = Arc::new(w.get_reader(&mut random)?);
+  let r = w.get_reader(&mut random)?;
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
-  s = new_searcher_with_reader(r.clone())?;
+  s = new_searcher_with_reader(r)?;
   assert_eq!(
     0,
     LatLonPoint::nearest(&s, "point", 40.0, 50.0, 1)?
       .score_docs()
       .len()
   );
-  r.close()?;
+  s.reader_context.reader().close()?;
   w.close(&mut random)?;
   Ok(())
 }
@@ -177,16 +183,19 @@ fn test_tie_break_by_doc_id() -> Result<()> {
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
   w.add_document(doc)?;
 
-  let r = Arc::new(directory_reader::open_from_writer(&w)?);
+  let r = directory_reader::open_from_writer(&w)?;
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
-  let searcher = new_searcher_with_reader(r.clone())?;
+  let searcher = new_searcher_with_reader(r)?;
   let top_field_docs = LatLonPoint::nearest(&searcher, "point", 45.0, 50.0, 2)?;
 
   let hit = top_field_docs.score_docs()[0].as_field().unwrap();
   assert_eq!(
     "0",
-    r.stored_fields()?
+    searcher
+      .reader_context
+      .reader()
+      .stored_fields()?
       .document(hit.doc())?
       .get_field("id")
       .unwrap()
@@ -198,7 +207,10 @@ fn test_tie_break_by_doc_id() -> Result<()> {
   let hit = top_field_docs.score_docs()[1].as_field().unwrap();
   assert_eq!(
     "1",
-    r.stored_fields()?
+    searcher
+      .reader_context
+      .reader()
+      .stored_fields()?
       .document(hit.doc())?
       .get_field("id")
       .unwrap()
@@ -207,7 +219,7 @@ fn test_tie_break_by_doc_id() -> Result<()> {
       .as_ref()
   );
 
-  r.close()?;
+  searcher.reader_context.reader().close()?;
   w.close()?;
   Ok(())
 }
@@ -219,17 +231,17 @@ fn test_nearest_neighbor_with_no_docs() -> Result<()> {
   let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  let r = Arc::new(w.get_reader(&mut random)?);
+  let r = w.get_reader(&mut random)?;
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
-  let searcher = new_searcher_with_reader(r.clone())?;
+  let searcher = new_searcher_with_reader(r)?;
   assert_eq!(
     0,
     LatLonPoint::nearest(&searcher, "point", 40.0, 50.0, 1)?
       .score_docs()
       .len()
   );
-  r.close()?;
+  searcher.reader_context.reader().close()?;
   w.close(&mut random)?;
   Ok(())
 }
@@ -276,11 +288,11 @@ fn test_nearest_neighbor_random() -> Result<()> {
     w.force_merge(&mut random, 1)?;
   }
 
-  let r = Arc::new(w.get_reader(&mut random)?);
+  let r = w.get_reader(&mut random)?;
 
   // can't wrap because we require Lucene60PointsFormat directly but e.g. ParallelReader wraps
   // with its own points impl:
-  let s = new_searcher_with_reader(r.clone())?;
+  let s = new_searcher_with_reader(r)?;
   let iters = at_least(&mut random, 100);
 
   for iter in 0..iters {
@@ -322,7 +334,7 @@ fn test_nearest_neighbor_random() -> Result<()> {
     )?;
 
     let hits = LatLonPoint::nearest(&s, "point", point_lat, point_lon, top_n as i32)?;
-    let mut stored_fields = r.stored_fields()?;
+    let mut stored_fields = s.reader_context.reader().stored_fields()?;
 
     #[allow(clippy::needless_range_loop)]
     for i in 0..top_n {
@@ -345,7 +357,7 @@ fn test_nearest_neighbor_random() -> Result<()> {
     }
   }
 
-  r.close()?;
+  s.reader_context.reader().close()?;
   w.close(&mut random)?;
   Ok(())
 }
