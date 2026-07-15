@@ -568,7 +568,13 @@ fn test_exc_in_dec_ref() -> Result<()> {
       let is_fake_fail = error.to_string().contains("fake fail")
         || error
           .get_suppressed()?
-          .is_some_and(|cause| cause.to_string().contains("fake fail"));
+          .is_some_and(|cause| cause.to_string().contains("fake fail"))
+        || matches!(error, LuceneError::AlreadyClosed(_))
+          && w
+            .w
+            .get_tragic_exception()
+            .get()
+            .is_some_and(|cause| cause.to_string().contains("fake fail"));
       if !is_fake_fail {
         return Err(error);
       }
