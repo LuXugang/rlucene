@@ -27,10 +27,17 @@ pub struct SuppressingConcurrentMergeScheduler {
 
 #[derive(Clone)]
 enum ExpectedMergeException {
+  All,
   WriterClosedOrTragic,
 }
 
 impl SuppressingConcurrentMergeScheduler {
+  pub fn all() -> Self {
+    Self {
+      expected: ExpectedMergeException::All,
+    }
+  }
+
   pub fn writer_closed_or_tragic() -> Self {
     Self {
       expected: ExpectedMergeException::WriterClosedOrTragic,
@@ -39,6 +46,7 @@ impl SuppressingConcurrentMergeScheduler {
 
   fn is_ok(&self, error: &LuceneError) -> bool {
     match self.expected {
+      ExpectedMergeException::All => true,
       ExpectedMergeException::WriterClosedOrTragic => {
         matches!(error, LuceneError::AlreadyClosed(_))
           || matches!(error, LuceneError::IllegalState(_))

@@ -39,6 +39,8 @@ use crate::core::util::counter::{Counter, new_counter};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_supplier::LongSupplier;
+#[cfg(test)]
+use crate::test_framework::core::index::test_tragic_index_writer_deadlock::TragicIndexWriter;
 use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
 use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
@@ -5142,6 +5144,10 @@ where
     Ok(())
   }
   fn merge_success(&self, _merge: &OneMergeSR<D>) -> Result<()> {
+    #[cfg(test)]
+    if let Some(hooks) = &self.hooks {
+      hooks.merge_success(&_merge.stat)?;
+    }
     Ok(())
   }
   fn abort_one_merge(&self, merge: &mut OneMergeSR<D>, inner: &mut Inner<D>) -> Result<()> {
@@ -7633,6 +7639,12 @@ pub trait IndexWriterHooks {
     Ok(())
   }
 
+  /// A hook for implementations to execute operations after a merge succeeds.
+  #[cfg(test)]
+  fn merge_success(&self, _merge: &MergeStat) -> Result<()> {
+    Ok(())
+  }
+
   /// A hook for implementations to execute operations after pending added and deleted documents have been flushed to the directory.
   /// but before the change is committed (new segments_N file written).
   fn do_after_flush(&self) -> Result<()> {
@@ -7655,6 +7667,8 @@ pub type CustomIndexWriterHooks = Box<dyn IndexWriterHooks + Send + Sync>;
 pub enum IndexWriterHooksEnum {
   EmptyIndexWriterHooks(EmptyIndexWriterHooks),
   Custom(CustomIndexWriterHooks),
+  #[cfg(test)]
+  TestTragicIndexWriterDeadlock(TragicIndexWriter),
 }
 impl IndexWriterHooksEnum {
   pub fn custom<B>(base: B) -> Self
@@ -7675,6 +7689,16 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.do_before_merge(merge),
       Self::Custom(inner) => inner.do_before_merge(merge),
+      Self::TestTragicIndexWriterDeadlock(inner) => inner.do_before_merge(merge),
+    }
+  }
+
+  #[cfg(test)]
+  fn merge_success(&self, merge: &MergeStat) -> Result<()> {
+    match self {
+      Self::EmptyIndexWriterHooks(inner) => inner.merge_success(merge),
+      Self::Custom(inner) => inner.merge_success(merge),
+      Self::TestTragicIndexWriterDeadlock(inner) => inner.merge_success(merge),
     }
   }
 
@@ -7682,6 +7706,8 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.do_after_flush(),
       Self::Custom(inner) => inner.do_after_flush(),
+      #[cfg(test)]
+      Self::TestTragicIndexWriterDeadlock(inner) => inner.do_after_flush(),
     }
   }
 
@@ -7689,6 +7715,8 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.do_before_flush(),
       Self::Custom(inner) => inner.do_before_flush(),
+      #[cfg(test)]
+      Self::TestTragicIndexWriterDeadlock(inner) => inner.do_before_flush(),
     }
   }
 
@@ -7696,6 +7724,8 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.is_enable_test_points(),
       Self::Custom(inner) => inner.is_enable_test_points(),
+      #[cfg(test)]
+      Self::TestTragicIndexWriterDeadlock(inner) => inner.is_enable_test_points(),
     }
   }
 }

@@ -54,6 +54,8 @@ use crate::test_framework::core::index::test_index_writer_merge_policy::{
   MergeDvUpdateFileOnCommitConcurrentMergeScheduler,
   MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler,
 };
+#[cfg(test)]
+use crate::test_framework::core::index::test_tragic_index_writer_deadlock::StalledMergesConcurrentMergeScheduler;
 
 thread_local! {
   static CURRENT_MERGE_RATE_LIMITER: RefCell<Option<Arc<MergeRateLimiter>>> =
@@ -160,6 +162,8 @@ pub(crate) enum ConcurrentMergeSchedulerHook {
   MergeDvUpdateFileOnGetReader(MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler),
   #[cfg(test)]
   MergeDvUpdateFileOnCommit(MergeDvUpdateFileOnCommitConcurrentMergeScheduler),
+  #[cfg(test)]
+  StalledMerges(StalledMergesConcurrentMergeScheduler),
 }
 
 pub(crate) struct ConcurrentMergeSchedulerDefaults;
@@ -281,6 +285,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.update_merge_threads(scheduler, inner),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.update_merge_threads(scheduler, inner),
     }
   }
 
@@ -311,6 +317,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.close(scheduler),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.close(scheduler),
     }
   }
 
@@ -351,6 +359,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.merge(scheduler, merge_source, trigger),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.merge(scheduler, merge_source, trigger),
     }
   }
 
@@ -392,6 +402,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.maybe_stall(scheduler, inner, merge_source),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.maybe_stall(scheduler, inner, merge_source),
     }
   }
 
@@ -422,6 +434,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.do_stall(scheduler, inner),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.do_stall(scheduler, inner),
     }
   }
 
@@ -461,6 +475,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.do_merge(scheduler, merge_source, merge),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.do_merge(scheduler, merge_source, merge),
     }
   }
 
@@ -518,6 +534,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => {
         hook.get_merge_thread(scheduler, inner, merge_source, merge)
       },
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.get_merge_thread(scheduler, inner, merge_source, merge),
     }
   }
 
@@ -552,6 +570,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.handle_merge_exception(scheduler, exc),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.handle_merge_exception(scheduler, exc),
     }
   }
 
@@ -582,6 +602,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnGetReader(hook) => hook.target_mb_per_sec_changed(scheduler),
       #[cfg(test)]
       Self::MergeDvUpdateFileOnCommit(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.target_mb_per_sec_changed(scheduler),
     }
   }
 }

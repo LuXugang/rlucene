@@ -92,5 +92,6 @@ mod test_terms_enum2;
 mod test_terms_enum_index;
 pub(crate) mod test_terms_hash_per_field;
 mod test_tiered_merge_policy;
+mod test_tragic_index_writer_deadlock;
 mod test_transaction_rollback;
 mod test_unique_term_count;

@@ -54,3 +54,4 @@ pub mod test_pending_soft_deletes;
 pub mod test_segment_reader;
 pub(crate) mod test_segment_to_thread_mapping;
 pub mod test_terms_hash_per_field;
+pub mod test_tragic_index_writer_deadlock;
