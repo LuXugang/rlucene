@@ -22,6 +22,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::multi_collector::{OneOrMultiCollector, wrap};
 use crate::core::search::scorable::Scorable;
@@ -100,9 +101,10 @@ fn collect_all<R, CM, LR>(
 where
   R: Rng + ?Sized,
   CM: CollectorManager,
-  LR: LeafReader + Clone,
+  LR: LeafReader + Clone + 'static,
 {
   let dummy_weight = DummyWeight::<LeafReaderContext<LR>>::new(ctx.reader().clone());
+  let searcher = IndexSearcher::new(ctx.reader().clone().get_context()?)?;
   let mut collectors = Vec::new();
   let mut collector = collector_manager.new_collector()?;
   for v in values {
@@ -111,8 +113,11 @@ where
       collector = collector_manager.new_collector()?;
     }
     let mut scorer = Score::new(0.0);
-    let mut leaf_collector =
-      collector.get_leaf_collector::<_, LeafReaderContext<LR>>(ctx, Some(&dummy_weight))?;
+    let mut leaf_collector = collector.get_leaf_collector::<_, LeafReaderContext<LR>>(
+      ctx,
+      Some(&dummy_weight),
+      &searcher,
+    )?;
     leaf_collector.collect(*v, &mut scorer)?;
   }
   collectors.push(collector);
@@ -207,12 +212,13 @@ impl Collector for SimpleListCollector {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,

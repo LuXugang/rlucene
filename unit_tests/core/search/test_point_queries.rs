@@ -2808,7 +2808,7 @@ fn test_point_range_weight_count() -> Result<()> {
     for i in 0..num_queries {
       let query = IntPoint::new_range_query("point", lower_bound[i], upper_bound[i])?;
       let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
-      assert_eq!(expected_count[i], weight.count(leaf)?);
+      assert_eq!(expected_count[i], weight.count(leaf, &searcher)?);
     }
   }
   w.close(&mut random)?;

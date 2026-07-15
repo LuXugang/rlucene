@@ -162,12 +162,13 @@ impl Collector for MyTopDocsCollector {
     = LeafCollectorImpl<'a>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -454,17 +455,17 @@ fn test_set_min_competitive_score() -> Result<()> {
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let v = reader.get_context()?;
+  let searcher = IndexSearcher::new(reader.get_context()?)?;
+  let v = &searcher.reader_context;
   assert_eq!(v.leaves()?.len(), 2);
   writer.close()?;
 
   let collector_manager = TopScoreDocCollectorManager::new(2, 2)?;
   let mut collector = collector_manager.new_collector()?;
   let mut scorer = Score::new();
-  let dummy_weight = Box::new(DummyWeight::<LeafReaderContext<_>>::new(
-    v.leaves()?[0].reader().clone(),
-  ));
-  let mut leaf_collector = collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight))?;
+  let dummy_weight = Box::new(DummyWeight::<_>::new(v.leaves()?[0].reader().clone()));
+  let mut leaf_collector =
+    collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight), &searcher)?;
   leaf_collector.set_scorer(&mut scorer)?;
   assert!(scorer.min_competitive_score.is_none());
 
@@ -491,7 +492,8 @@ fn test_set_min_competitive_score() -> Result<()> {
 
   // Make sure the min score is set on scorers on new segments
   scorer = Score::new();
-  let mut leaf_collector = collector.get_leaf_collector(&v.leaves()?[1], Some(&dummy_weight))?;
+  let mut leaf_collector =
+    collector.get_leaf_collector(&v.leaves()?[1], Some(&dummy_weight), &searcher)?;
   leaf_collector.set_scorer(&mut scorer)?;
   assert_eq!(scorer.min_competitive_score, Some(3.0f32.next_up()));
 
@@ -565,16 +567,18 @@ fn test_total_hits() -> Result<()> {
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let v = reader.get_context()?;
+  let searcher = IndexSearcher::new(reader.get_context()?)?;
+  let v = &searcher.reader_context;
   assert_eq!(v.leaves()?.len(), 2);
   writer.close()?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(v.leaves()?[0].reader().clone());
+  let dummy_weight = DummyWeight::<_>::new(v.leaves()?[0].reader().clone());
 
   for total_hits_threshold in 0..20 {
     let collector_manager = TopScoreDocCollectorManager::new(2, total_hits_threshold)?;
     let mut collector = collector_manager.new_collector()?;
     let mut scorer = Score::new();
-    let mut leaf_collector = collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight))?;
+    let mut leaf_collector =
+      collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight), &searcher)?;
     leaf_collector.set_scorer(&mut scorer)?;
 
     scorer.score = 3.0;
@@ -583,7 +587,8 @@ fn test_total_hits() -> Result<()> {
     scorer.score = 3.0;
     leaf_collector.collect(1, &mut scorer)?;
 
-    let mut leaf_collector = collector.get_leaf_collector(&v.leaves()?[1], Some(&dummy_weight))?;
+    let mut leaf_collector =
+      collector.get_leaf_collector(&v.leaves()?[1], Some(&dummy_weight), &searcher)?;
     leaf_collector.set_scorer(&mut scorer)?;
 
     scorer.score = 3.0;
@@ -668,7 +673,8 @@ fn test_concurrent_min_score() -> Result<()> {
   w.flush()?;
 
   let reader = directory_reader::open_from_writer(&w)?;
-  let reader = reader.get_context()?;
+  let searcher = IndexSearcher::new(reader.get_context()?)?;
+  let reader = &searcher.reader_context;
   assert_eq!(3, reader.leaves()?.len());
   w.close()?;
 
@@ -690,12 +696,14 @@ fn test_concurrent_min_score() -> Result<()> {
   let mut scorer2 = Score::new();
 
   let leaves = reader.leaves()?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::<_>::new(leaves[0].reader().clone());
 
-  let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut leaf_collector =
+    collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   leaf_collector.set_scorer(&mut scorer)?;
 
-  let mut leaf_collector2 = collector2.get_leaf_collector(&leaves[1], Some(&dummy_weight))?;
+  let mut leaf_collector2 =
+    collector2.get_leaf_collector(&leaves[1], Some(&dummy_weight), &searcher)?;
   leaf_collector2.set_scorer(&mut scorer2)?;
 
   scorer.score = 3.0;
@@ -743,7 +751,8 @@ fn test_concurrent_min_score() -> Result<()> {
   assert!((7f32.next_up() - scorer2.min_competitive_score.unwrap()).abs() < f32::EPSILON);
 
   let mut collector3 = manager.new_collector()?;
-  let mut leaf_collector3 = collector3.get_leaf_collector(&leaves[2], Some(&dummy_weight))?;
+  let mut leaf_collector3 =
+    collector3.get_leaf_collector(&leaves[2], Some(&dummy_weight), &searcher)?;
   let mut scorer3 = Score::new();
   leaf_collector3.set_scorer(&mut scorer3)?;
   assert!((10f32.next_up() - scorer3.min_competitive_score.unwrap()).abs() < f32::EPSILON);

@@ -443,7 +443,11 @@ where
     }
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     if !context.reader().has_deletions()? {
       if let Some(mut terms_enum) = self.get_terms_enum(context)? {
         terms_enum.doc_freq()

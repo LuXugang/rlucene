@@ -20,6 +20,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::scorable::Scorable;
@@ -91,12 +92,13 @@ impl Collector for SimpleCollectorImpl {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,

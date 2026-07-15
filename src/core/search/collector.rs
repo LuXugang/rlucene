@@ -16,6 +16,7 @@
  */
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
@@ -43,17 +44,20 @@ pub trait Collector {
   type LeafCollector<'a, IRC>: LeafCollector
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
   /// Create a new [`LeafCollector`] to collect the given context.
   ///
   /// Set the [`Weight`] that will be used to produce scorers that will feed [`LeafCollector`]s.
   /// This is typically useful to have access to [`Weight::count`] from [`Collector::get_leaf_collector`].
   /// # Arguments
   /// * `context` - next atomic reader context
+  /// * `weight` - weight used to produce scorers for the leaf
+  /// * `searcher` - searcher associated with the weight
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,

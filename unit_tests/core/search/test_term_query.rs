@@ -109,7 +109,7 @@ fn test_query_matches_count() -> Result<()> {
 
   let weight = searcher.create_weight(test_query, ScoreMode::Complete, 1.0)?;
   let leaves = searcher.reader_context.leaves()?;
-  assert_eq!(num_matching_docs, weight.count(&leaves[0])?);
+  assert_eq!(num_matching_docs, weight.count(&leaves[0], &searcher)?);
 
   writer.close(&mut random)?;
   Ok(())

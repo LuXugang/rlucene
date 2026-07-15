@@ -542,12 +542,13 @@ where
     = &'a mut Self
   where
     Self: 'a,
-    IRC1: IndexReaderContext;
+    IRC1: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC1>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC1>,
   ) -> Result<Self::LeafCollector<'a, IRC1>>
   where
     IRC1: IndexReaderContext,
@@ -756,12 +757,13 @@ where
     = &'a mut Self
   where
     Self: 'a,
-    IRC1: IndexReaderContext;
+    IRC1: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC1>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC1>,
   ) -> Result<Self::LeafCollector<'a, IRC1>>
   where
     IRC1: IndexReaderContext,

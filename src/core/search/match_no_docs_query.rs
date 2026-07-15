@@ -187,7 +187,11 @@ where
     Ok(None)
   }
 
-  fn count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     Ok(0)
   }
 }

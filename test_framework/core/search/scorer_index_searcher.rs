@@ -77,7 +77,7 @@ impl ScorerIndexSearcherSearchLeafHelper {
       return Ok(());
     };
 
-    let mut leaf_collector = collector.get_leaf_collector(ctx, Some(weight))?;
+    let mut leaf_collector = collector.get_leaf_collector(ctx, Some(weight), searcher)?;
     leaf_collector.set_scorer(&mut scorer)?;
 
     let live_docs = ctx.reader().get_live_docs()?;

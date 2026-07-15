@@ -18,6 +18,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::hit_queue::{self, HitQueueComparator};
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDoc;
@@ -130,12 +131,13 @@ impl Collector for LargeNumHitsTopDocsCollector {
     = LargeNumHitsTopDocsLeafCollector<'a>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,

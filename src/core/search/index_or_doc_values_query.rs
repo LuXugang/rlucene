@@ -269,12 +269,16 @@ where
     ))))
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    let count = self.index_weight.count(context)?;
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
+    let count = self.index_weight.count(context, searcher)?;
     if count != -1 {
       return Ok(count);
     }
-    let count = self.dv_weight.count(context)?;
+    let count = self.dv_weight.count(context, searcher)?;
     Ok(count)
   }
 }

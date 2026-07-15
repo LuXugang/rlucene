@@ -744,7 +744,11 @@ where
     Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     Ok((self.query.segment_starts[context.ord + 1] - self.query.segment_starts[context.ord]) as i32)
   }
 }

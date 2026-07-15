@@ -501,7 +501,7 @@ fn test_doc_and_score_query_basics() -> Result<()> {
 
     for leaf in leaves {
       let scorer = weight.scorer(leaf, &searcher)?;
-      let count = weight.count(leaf)?;
+      let count = weight.count(leaf, &searcher)?;
       match scorer {
         None => {
           assert_eq!(0, count);

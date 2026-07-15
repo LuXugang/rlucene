@@ -20,6 +20,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::multi_collector::{
@@ -71,12 +72,13 @@ where
     = TerminateAfterLeafCollector<'a, C::LeafCollector<'a, IRC>>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -90,7 +92,7 @@ where
     if *count >= *terminate_after {
       return Err(LuceneError::collection_terminated(""));
     }
-    let leaf_collector = in_.get_leaf_collector(context, weight)?;
+    let leaf_collector = in_.get_leaf_collector(context, weight, searcher)?;
     Ok(TerminateAfterLeafCollector::new(
       leaf_collector,
       count,
@@ -212,12 +214,13 @@ where
     = LeafCollectorEnum2<A::LeafCollector<'a, IRC>, B::LeafCollector<'a, IRC>>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -225,10 +228,10 @@ where
   {
     match self {
       Self::A(collector) => collector
-        .get_leaf_collector(context, weight)
+        .get_leaf_collector(context, weight, searcher)
         .map(LeafCollectorEnum2::A),
       Self::B(collector) => collector
-        .get_leaf_collector(context, weight)
+        .get_leaf_collector(context, weight, searcher)
         .map(LeafCollectorEnum2::B),
     }
   }
@@ -267,12 +270,13 @@ impl Collector for SetMinScoreCollector {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -325,18 +329,19 @@ where
     = SetScorerLeafCollector<C::LeafCollector<'a, IRC>>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
   {
-    let leaf_collector = self.in_.get_leaf_collector(context, weight)?;
+    let leaf_collector = self.in_.get_leaf_collector(context, weight, searcher)?;
     Ok(SetScorerLeafCollector::new(
       leaf_collector,
       self.set_scorer_called.clone(),
@@ -429,12 +434,13 @@ impl Collector for ExpectedScorerCollector {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -490,12 +496,13 @@ impl Collector for DummyCollector {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -549,12 +556,13 @@ impl Collector for TerminatingDummyCollector {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -604,6 +612,7 @@ fn test_null_collectors() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   // Tests that the collector handles some None collectors well. If it
@@ -615,11 +624,11 @@ fn test_null_collectors() -> Result<()> {
   ])?;
   assert!(matches!(c, OneOrMultiCollector::Multi(_)));
   let mut scorer = Score::new(0.0);
-  let mut ac = c.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut ac = c.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   ac.collect(1, &mut scorer)?;
   drop(ac);
-  c.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
-  c.get_leaf_collector(&leaves[0], Some(&dummy_weight))?
+  c.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
+  c.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?
     .set_scorer(&mut scorer)?;
   reader.close()?;
   Ok(())
@@ -648,6 +657,7 @@ fn test_collector() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   // Tests that the collector delegates calls to input collectors properly.
@@ -659,10 +669,10 @@ fn test_collector() -> Result<()> {
     Some(DummyCollector::new()),
   ])?;
   let mut scorer = Score::new(0.0);
-  let mut ac = c.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut ac = c.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   ac.collect(1, &mut scorer)?;
   drop(ac);
-  let mut ac = c.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut ac = c.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   ac.set_scorer(&mut scorer)?;
   drop(ac);
 
@@ -690,6 +700,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -698,7 +709,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
       ExpectedScorer::ScoreCachingWrappingScorer,
     );
     let leaf_collector = collector
-      .get_leaf_collector(&leaves[0], Some(&dummy_weight))
+      .get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)
       .unwrap();
     let mut scorer = Score::new(0.0);
     leaf_collector.set_scorer(&mut scorer).unwrap();
@@ -710,7 +721,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   let c2 = collector(ScoreMode::CompleteNoScores, ExpectedScorer::Score);
   let mut multi_collector = wrap(vec![Some(c1), Some(c2)])?;
   multi_collector
-    .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
+    .get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?
     .set_scorer(&mut Score::new(0.0))?;
 
   // only one collector needs scores => no caching
@@ -718,7 +729,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   let c2 = collector(ScoreMode::CompleteNoScores, ExpectedScorer::Score);
   let mut multi_collector = wrap(vec![Some(c1), Some(c2)])?;
   multi_collector
-    .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
+    .get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?
     .set_scorer(&mut Score::new(0.0))?;
 
   // several collectors need scores => caching
@@ -732,7 +743,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   );
   let mut multi_collector = wrap(vec![Some(c1), Some(c2)])?;
   multi_collector
-    .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
+    .get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?
     .set_scorer(&mut Score::new(0.0))?;
   reader.close()?;
   Ok(())
@@ -794,6 +805,7 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   let set_scorer_called1 = Arc::new(AtomicBool::new(false));
@@ -808,7 +820,8 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
   let mut scorer = Score::new(0.0);
   let mut collector = wrap(vec![Some(collector1), Some(collector2)])?;
 
-  let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut leaf_collector =
+    collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   leaf_collector.set_scorer(&mut scorer)?;
   assert!(set_scorer_called1.load(Ordering::SeqCst));
   assert!(set_scorer_called2.load(Ordering::SeqCst));
@@ -846,12 +859,14 @@ fn test_disables_set_min_score() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   let collector = CollectorEnum2::A(SetMinScoreCollector::new());
   let collector2 = CollectorEnum2::B(DummyTotalHitCountCollector::new());
   let mut multi_collector = wrap(vec![Some(collector), Some(collector2)])?;
-  let mut leaf_collector = multi_collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut leaf_collector =
+    multi_collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   let mut scorer = PanicOnMinCompetitiveScoreScorable;
   leaf_collector.set_scorer(&mut scorer)?;
   leaf_collector.collect(0, &mut scorer)?;
@@ -869,6 +884,7 @@ fn test_disables_set_min_score_with_early_termination() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   for num_col in 1..4 {
@@ -882,7 +898,8 @@ fn test_disables_set_min_score_with_early_termination() -> Result<()> {
     }
     cols.shuffle(&mut random);
     let mut multi_collector = wrap(cols)?;
-    let mut leaf_collector = multi_collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+    let mut leaf_collector =
+      multi_collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
     let mut scorer = PanicOnMinCompetitiveScoreScorable;
     leaf_collector.set_scorer(&mut scorer)?;
     leaf_collector.collect(0, &mut scorer)?;
@@ -901,6 +918,7 @@ fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   let c1 = collector(
@@ -913,7 +931,7 @@ fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   );
   let mut multi_collector = wrap(vec![Some(c1), Some(c2)])?;
   multi_collector
-    .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
+    .get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?
     .set_scorer(&mut Score::new(0.0))?;
 
   let c1 = collector(
@@ -926,7 +944,7 @@ fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   );
   let mut multi_collector = wrap(vec![Some(c1), Some(c2)])?;
   multi_collector
-    .get_leaf_collector(&leaves[0], Some(&dummy_weight))?
+    .get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?
     .set_scorer(&mut Score::new(0.0))?;
   reader.close()?;
   Ok(())
@@ -985,6 +1003,7 @@ fn test_collection_termination() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   let c1 = TerminatingDummyCollector::new(1, ScoreMode::Complete);
@@ -993,7 +1012,7 @@ fn test_collection_termination() -> Result<()> {
   let c2_collect_called = c2.base.collect_called.clone();
 
   let mut mc = wrap(vec![Some(c1), Some(c2)])?;
-  let mut lc = mc.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut lc = mc.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   let mut scorer = Score::new(0.0);
   lc.set_scorer(&mut scorer)?;
   lc.collect(0, &mut scorer)?;
@@ -1035,6 +1054,7 @@ fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
 
   let score_mode = if allow_skip_non_competitive {
@@ -1048,7 +1068,7 @@ fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool
   let c2_set_scorer_called = c2.base.set_scorer_called.clone();
 
   let mut mc = wrap(vec![Some(c1), Some(c2)])?;
-  let mut lc = mc.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut lc = mc.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   assert!(!c1_set_scorer_called.get());
   assert!(!c2_set_scorer_called.get());
   let mut scorer = Score::new(0.0);

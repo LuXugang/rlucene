@@ -395,7 +395,11 @@ where
     ))))
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     <Self as Weight<IRC>>::default_count(self, context)
   }
 }

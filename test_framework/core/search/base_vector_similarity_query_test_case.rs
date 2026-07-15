@@ -928,7 +928,6 @@ impl QueryBase for CountingQuery {
     Ok(Box::new(CountingWeight {
       parent_query: Arc::new(self.into()),
       delegate_weight,
-      searcher: searcher as *const IndexSearcher<IRC>,
     }))
   }
 
@@ -953,7 +952,6 @@ where
 {
   parent_query: Arc<Query>,
   delegate_weight: QueryWeight<IRC>,
-  searcher: *const IndexSearcher<IRC>,
 }
 
 impl<IRC> SegmentCacheable<IRC> for CountingWeight<IRC>
@@ -1002,11 +1000,11 @@ where
     self.delegate_weight.scorer_supplier(context, searcher)
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    // `Weight::count` does not receive the searcher, while this wrapper
-    // intentionally emulates counting via the delegate scorer. The raw pointer
-    // is captured from `create_weight` and is valid for the search call.
-    let searcher = unsafe { &*self.searcher };
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     let Some(mut scorer) = self.delegate_weight.scorer(context, searcher)? else {
       return Ok(0);
     };

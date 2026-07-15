@@ -618,7 +618,7 @@ fn test_fallback_count() -> Result<()> {
 
   let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
   for ctx in searcher.get_leaf_contexts()? {
-    assert_eq!(0, weight.count(ctx)?);
+    assert_eq!(0, weight.count(ctx, &searcher)?);
   }
 
   writer.close(&mut random)?;
@@ -716,8 +716,8 @@ where
   IRC: IndexReaderContext,
 {
   for ctx in searcher.get_leaf_contexts()? {
-    let c1 = weight1.count(ctx)?;
-    let c2 = weight2.count(ctx)?;
+    let c1 = weight1.count(ctx, searcher)?;
+    let c2 = weight2.count(ctx, searcher)?;
     assert_eq!(c1, c2);
   }
   Ok(())
@@ -775,7 +775,7 @@ fn test_count_boundary() -> Result<()> {
 
   let mut count = 0;
   for ctx in searcher.get_leaf_contexts()? {
-    count += weight.count(ctx)?;
+    count += weight.count(ctx, &searcher)?;
   }
 
   assert_eq!(2, count);
@@ -872,7 +872,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 9, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1400, weight.count(ctx)?);
+      assert_eq!(1400, weight.count(ctx, &searcher)?);
     }
   }
   // Both bounds do not exist in the dataset
@@ -881,7 +881,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 10, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1400, weight.count(ctx)?);
+      assert_eq!(1400, weight.count(ctx, &searcher)?);
     }
   }
   // Min bound exists in the dataset, not the max
@@ -890,7 +890,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 7, 10, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1400, weight.count(ctx)?);
+      assert_eq!(1400, weight.count(ctx, &searcher)?);
     }
   }
   // Min bound doesn't exist in the dataset, max does
@@ -899,7 +899,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 6, 9, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1400, weight.count(ctx)?);
+      assert_eq!(1400, weight.count(ctx, &searcher)?);
     }
   }
   // Min bound is the min value of the dataset
@@ -908,7 +908,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 5, 8, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1100, weight.count(ctx)?);
+      assert_eq!(1100, weight.count(ctx, &searcher)?);
     }
   }
   // Min bound is less than min value of the dataset
@@ -917,7 +917,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 4, 8, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1100, weight.count(ctx)?);
+      assert_eq!(1100, weight.count(ctx, &searcher)?);
     }
   }
   // Max bound is the max value of the dataset
@@ -926,7 +926,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 13, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1500, weight.count(ctx)?);
+      assert_eq!(1500, weight.count(ctx, &searcher)?);
     }
   }
   // Max bound is greater than max value of the dataset
@@ -935,7 +935,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 10, 14, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(1500, weight.count(ctx)?);
+      assert_eq!(1500, weight.count(ctx, &searcher)?);
     }
   }
   // Everything matches
@@ -944,7 +944,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 14, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(3500, weight.count(ctx)?);
+      assert_eq!(3500, weight.count(ctx, &searcher)?);
     }
   }
   // Bounds equal to min/max values of the dataset, everything matches
@@ -953,7 +953,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 2, 3, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(0, weight.count(ctx)?);
+      assert_eq!(0, weight.count(ctx, &searcher)?);
     }
   }
   // Bounds are greater than the max value of the dataset
@@ -962,7 +962,7 @@ fn do_test_count_with_bkd(reverse: bool) -> Result<()> {
     let query = IndexSortSortedNumericDocValuesRangeQuery::new(field_name, 14, 15, fallback);
     let weight = query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
     for ctx in searcher.get_leaf_contexts()? {
-      assert_eq!(0, weight.count(ctx)?);
+      assert_eq!(0, weight.count(ctx, &searcher)?);
     }
   }
 
@@ -1020,8 +1020,8 @@ fn do_test_random_count_with_bkd(reverse: bool) -> Result<()> {
     let range_query_weight = range_query.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
     for ctx in searcher.get_leaf_contexts()? {
-      let expected = range_query_weight.count(ctx)?;
-      let actual = index_sort_range_query_weight.count(ctx)?;
+      let expected = range_query_weight.count(ctx, &searcher)?;
+      let actual = index_sort_range_query_weight.count(ctx, &searcher)?;
       assert_eq!(expected, actual);
     }
   }

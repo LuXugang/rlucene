@@ -99,8 +99,9 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub type QueryWeight<IRC> =
-  Box<dyn Weight<IRC, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<IRC>>>;
+pub type QueryWeight<IRC> = Box<
+  dyn Weight<IRC, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<IRC>> + Send + Sync,
+>;
 pub type QueryWeightSs<IRC> =
   Box<dyn ScorerSupplier<IRC, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>>;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;

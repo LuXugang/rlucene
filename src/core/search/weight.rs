@@ -220,6 +220,7 @@ where
   /// # Parameters
   ///
   /// - `context`: the [`LeafReaderContext`] for which to return the count.
+  /// - `searcher`: the searcher to use when counting requires creating a scorer.
   ///
   /// # Returns
   ///
@@ -229,7 +230,11 @@ where
   /// # Errors
   ///
   /// Returns an error if a low-level I/O error occurs.
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     self.default_count(context)
   }
   fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
@@ -313,8 +318,12 @@ where
     (**self).bulk_scorer(context, searcher)
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    (**self).count(context)
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
+    (**self).count(context, searcher)
   }
 
   fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {

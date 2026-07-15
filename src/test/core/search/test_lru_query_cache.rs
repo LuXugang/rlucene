@@ -73,7 +73,6 @@ use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
@@ -1250,7 +1249,10 @@ fn test_count_delegation() -> Result<()> {
   searcher.count(q.clone())?; // add to cache
 
   let weight = searcher.create_weight(searcher.rewrite(q)?, ScoreMode::CompleteNoScores, 1.0)?;
-  assert_ne!(-1, weight.count(&searcher.get_leaf_contexts()?[0])?);
+  assert_ne!(
+    -1,
+    weight.count(&searcher.get_leaf_contexts()?[0], &searcher)?
+  );
 
   w.close(&mut random)
 }
@@ -1358,12 +1360,12 @@ fn test_cache_has_fast_count() -> Result<()> {
     assert_eq!(1, searcher.get_leaf_contexts()?.len());
     let context = &searcher.get_leaf_contexts()?[0];
     // We don't have a fast count before the cache is filled
-    assert_eq!(-1, weight.count(context)?);
+    assert_eq!(-1, weight.count(context, &searcher)?);
     // Fetch the scorer to populate the cache
     weight.scorer(context, &searcher)?;
     assert_eq!(vec![query.clone()], cached_queries(&all_cache));
     // Now we *do* have a fast count
-    assert_eq!(2, weight.count(context)?);
+    assert_eq!(2, weight.count(context, &searcher)?);
   }
 
   w.delete_documents_with_queries(
@@ -1385,12 +1387,12 @@ fn test_cache_has_fast_count() -> Result<()> {
     assert_eq!(1, searcher.get_leaf_contexts()?.len());
     let context = &searcher.get_leaf_contexts()?[0];
     // We don't have a fast count before the cache is filled
-    assert_eq!(-1, weight.count(context)?);
+    assert_eq!(-1, weight.count(context, &searcher)?);
     // Fetch the scorer to populate the cache
     weight.scorer(context, &searcher)?;
     assert_eq!(vec![query], cached_queries(&all_cache));
     // We still don't have a fast count because we have deleted documents
-    assert_eq!(-1, weight.count(context)?);
+    assert_eq!(-1, weight.count(context, &searcher)?);
   }
 
   w.close(&mut random)
@@ -1400,7 +1402,7 @@ struct WeightWrapper<IRC>
 where
   IRC: IndexReaderContext,
 {
-  in_: Rc<QueryWeight<IRC>>,
+  in_: Arc<QueryWeight<IRC>>,
   scorer_called: Arc<AtomicBool>,
   bulk_scorer_called: Arc<AtomicBool>,
 }
@@ -1415,7 +1417,7 @@ where
     bulk_scorer_called: Arc<AtomicBool>,
   ) -> Self {
     Self {
-      in_: Rc::new(in_),
+      in_: Arc::new(in_),
       scorer_called,
       bulk_scorer_called,
     }
@@ -1485,7 +1487,7 @@ struct WeightWrapperScorerSupplier<IRC>
 where
   IRC: IndexReaderContext,
 {
-  in_: Rc<QueryWeight<IRC>>,
+  in_: Arc<QueryWeight<IRC>>,
   scorer: Option<QueryWeightSsScorer>,
   cost: i64,
   scorer_called: Arc<AtomicBool>,

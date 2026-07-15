@@ -113,8 +113,12 @@ where
     })))
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    let count = self.in_.count(context)?;
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
+    let count = self.in_.count(context, searcher)?;
     let num_docs = context.reader().num_docs()?;
     assert!(
       count >= -1 && count <= num_docs,

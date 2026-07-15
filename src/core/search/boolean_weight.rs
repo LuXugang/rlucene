@@ -53,7 +53,11 @@ where
 {
   /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
   /// required clauses.
-  fn req_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn req_count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     let num_docs = context.reader().num_docs()?;
     let mut req_count = num_docs;
 
@@ -62,7 +66,7 @@ where
         continue;
       }
 
-      let count = weighted_clause.weight.count(context)?;
+      let count = weighted_clause.weight.count(context, searcher)?;
 
       if count == -1 || count == 0 {
         // If the count of one clause is unknown, then the count of the conjunction is unknown
@@ -91,6 +95,7 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     occur: Occur,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<i32> {
     let num_docs = context.reader().num_docs()?;
     let mut opt_count = 0i32;
@@ -101,7 +106,7 @@ where
         continue;
       }
 
-      let count = weighted_clause.weight.count(context)?;
+      let count = weighted_clause.weight.count(context, searcher)?;
 
       if count == -1 {
         // If one clause has a number of matches that is unknown, let's be more aggressive to
@@ -322,18 +327,22 @@ where
     Ok(Some(Box::new(v)))
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     let num_docs = context.reader().num_docs()?;
 
     if self.query.is_pure_disjunction() {
-      return self.opt_count(context, Occur::Should);
+      return self.opt_count(context, Occur::Should, searcher);
     }
 
     let positive_count = if (!self.query.get_clauses_idx(Filter).is_empty()
       || !self.query.get_clauses_idx(Must).is_empty())
       && self.query.get_minimum_number_should_match() == 0
     {
-      self.req_count(context)?
+      self.req_count(context, searcher)?
     } else {
       // The query has a non-zero min-should match. We could handle some cases, e.g.
       // minShouldMatch=N and we can find N SHOULD clauses that match all docs, but are there
@@ -345,7 +354,7 @@ where
       return Ok(0);
     }
 
-    let prohibited_count = self.opt_count(context, Occur::MustNot)?;
+    let prohibited_count = self.opt_count(context, Occur::MustNot, searcher)?;
 
     if prohibited_count == -1 {
       Ok(-1)

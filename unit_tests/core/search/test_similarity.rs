@@ -136,12 +136,13 @@ impl Collector for ScoreAssertingCollectorImpl1 {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> crate::core::util::error::lucene_error::Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -188,12 +189,13 @@ impl Collector for ScoreAssertingCollectorImpl2 {
     = &'a mut Self
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,

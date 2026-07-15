@@ -133,6 +133,9 @@ where
   where
     IRC: IndexReaderContext,
     Self: Sized,
+    C: Send + Sync,
+    G: Send + Sync,
+    C::SpatialVisitor: Send + Sync,
   {
     let spatial_visitor = self.sub.get_spatial_visitor()?;
     let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode, query);

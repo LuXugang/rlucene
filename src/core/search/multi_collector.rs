@@ -18,6 +18,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::filter_scorable::FilterScorable;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2, LeafCollectorEnum3};
 use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
@@ -116,12 +117,13 @@ where
   >
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -133,7 +135,7 @@ where
     for collector in self.collectors.iter_mut() {
       let collector_score_mode = collector.score_mode();
 
-      match collector.get_leaf_collector(context, weight) {
+      match collector.get_leaf_collector(context, weight, searcher) {
         Ok(leaf_collector) => {
           match leaf_score_mode {
             None => leaf_score_mode = Some(collector_score_mode),
@@ -218,12 +220,13 @@ where
   >
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -231,10 +234,10 @@ where
   {
     match self {
       Self::One(collector) => collector
-        .get_leaf_collector(context, weight)
+        .get_leaf_collector(context, weight, searcher)
         .map(LeafCollectorEnum2::A),
       Self::Multi(collector) => collector
-        .get_leaf_collector(context, weight)
+        .get_leaf_collector(context, weight, searcher)
         .map(LeafCollectorEnum2::B),
     }
   }

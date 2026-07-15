@@ -608,7 +608,7 @@ where
 }
 impl<P, IRC> QueryCache<IRC> for Arc<LRUQueryCache<P>>
 where
-  P: Predicate<TopParentMeta> + 'static,
+  P: Predicate<TopParentMeta> + Send + Sync + 'static,
   IRC: IndexReaderContext,
 {
   fn do_cache(
@@ -877,11 +877,15 @@ where
     }
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     let reader = context.reader();
 
     if reader.has_deletions()? {
-      return self.in_.count(context);
+      return self.in_.count(context, searcher);
     }
 
     if self
@@ -893,19 +897,19 @@ where
     }
 
     if !self.in_.is_cacheable(context)? {
-      return self.in_.count(context);
+      return self.in_.count(context, searcher);
     }
 
     if !self.should_cache(context)? {
-      return self.in_.count(context);
+      return self.in_.count(context, searcher);
     }
 
     let Some(cache_helper) = reader.get_core_cache_helper()? else {
-      return self.in_.count(context);
+      return self.in_.count(context, searcher);
     };
 
     let Some(inner_read) = self.lru_cache.inner.try_read() else {
-      return self.in_.count(context);
+      return self.in_.count(context, searcher);
     };
 
     let query = self.get_query();
@@ -917,7 +921,7 @@ where
       return cached.count().try_convert();
     }
 
-    self.in_.count(context)
+    self.in_.count(context, searcher)
   }
 
   fn is_cache_wrapper(&self) -> bool {

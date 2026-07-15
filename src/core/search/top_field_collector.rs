@@ -312,12 +312,13 @@ impl Collector for TopFieldCollector {
     = DummyLeafCollector
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -660,12 +661,13 @@ impl Collector for SimpleFieldCollector {
     = SimpleLeafCollector<'a, IRCLeafReader<IRC>>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -853,12 +855,13 @@ impl Collector for PagingFieldCollector {
     = PagingLeafCollector<'a, IRCLeafReader<IRC>>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -1130,12 +1133,13 @@ impl Collector for TopFieldCollectorEnum {
     = FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -1143,10 +1147,10 @@ impl Collector for TopFieldCollectorEnum {
   {
     match self {
       Self::Simple(inner) => inner
-        .get_leaf_collector(context, weight)
+        .get_leaf_collector(context, weight, searcher)
         .map(FieldLeafCollectorEnum::Simple),
       Self::Paging(inner) => inner
-        .get_leaf_collector(context, weight)
+        .get_leaf_collector(context, weight, searcher)
         .map(FieldLeafCollectorEnum::Paging),
     }
   }

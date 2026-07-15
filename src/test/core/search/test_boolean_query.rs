@@ -1026,7 +1026,10 @@ fn test_conjunction_matches_count() -> Result<()> {
 
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // Both queries match a single doc, BooleanWeight can't figure out the count of the conjunction
-  assert_eq!(-1, weight.count(&searcher.get_leaf_contexts()?[0])?);
+  assert_eq!(
+    -1,
+    weight.count(&searcher.get_leaf_contexts()?[0], &searcher)?
+  );
 
   let mut builder = Builder::new();
   builder
@@ -1039,7 +1042,10 @@ fn test_conjunction_matches_count() -> Result<()> {
 
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // One query has a count of 0, the conjunction has a count of 0 too
-  assert_eq!(0, weight.count(&searcher.get_leaf_contexts()?[0])?);
+  assert_eq!(
+    0,
+    weight.count(&searcher.get_leaf_contexts()?[0], &searcher)?
+  );
 
   let mut builder = Builder::new();
   builder
@@ -1052,7 +1058,10 @@ fn test_conjunction_matches_count() -> Result<()> {
 
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // One query has a count of 0, the conjunction has a count of 0 too
-  assert_eq!(0, weight.count(&searcher.get_leaf_contexts()?[0])?);
+  assert_eq!(
+    0,
+    weight.count(&searcher.get_leaf_contexts()?[0], &searcher)?
+  );
 
   // FILTER matches all docs → conjunction count equals MUST count
   let mut builder = Builder::new();
@@ -1066,7 +1075,10 @@ fn test_conjunction_matches_count() -> Result<()> {
 
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // One query matches all docs, the count of the conjunction is the count of the other query
-  assert_eq!(1, weight.count(&searcher.get_leaf_contexts()?[0])?);
+  assert_eq!(
+    1,
+    weight.count(&searcher.get_leaf_contexts()?[0], &searcher)?
+  );
 
   let mut builder = Builder::new();
   builder
@@ -1076,7 +1088,10 @@ fn test_conjunction_matches_count() -> Result<()> {
 
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // One query matches all docs, the count of the conjunction is the count of the other query
-  assert_eq!(1, weight.count(&searcher.get_leaf_contexts()?[0])?);
+  assert_eq!(
+    1,
+    weight.count(&searcher.get_leaf_contexts()?[0], &searcher)?
+  );
 
   Ok(())
 }
@@ -1123,7 +1138,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let query = builder.build();
   // Both queries match a single doc, BooleanWeight can't figure out the count of the disjunction
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-  assert_eq!(-1, weight.count(leaf)?);
+  assert_eq!(-1, weight.count(leaf, &searcher)?);
 
   // One query has a count of 0, the disjunction count is the other count
   let mut builder = Builder::new();
@@ -1136,7 +1151,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let query = builder.build();
   // One query has a count of 0, the disjunction count is the other count
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-  assert_eq!(1, weight.count(leaf)?);
+  assert_eq!(1, weight.count(leaf, &searcher)?);
 
   let mut builder = Builder::new();
   builder
@@ -1148,7 +1163,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let query = builder.build();
   // One query has a count of 0, the disjunction count is the other count
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-  assert_eq!(1, weight.count(leaf)?);
+  assert_eq!(1, weight.count(leaf, &searcher)?);
 
   // One query matches all docs, the count of the disjunction is the number of docs
   let mut builder = Builder::new();
@@ -1162,7 +1177,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // One query matches all docs, the count of the disjunction is the number of docs
 
-  assert_eq!(2, weight.count(leaf)?);
+  assert_eq!(2, weight.count(leaf, &searcher)?);
 
   let mut builder = Builder::new();
   builder
@@ -1171,7 +1186,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let query = builder.build();
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // One query matches all docs, the count of the disjunction is the number of docs
-  assert_eq!(2, weight.count(leaf)?);
+  assert_eq!(2, weight.count(leaf, &searcher)?);
 
   // Unknown count query on 3D long point range
   let lower = [4i64, 5i64, 6i64];
@@ -1180,7 +1195,7 @@ fn test_disjunction_matches_count() -> Result<()> {
 
   debug_assert_eq!(1, searcher.get_leaf_contexts()?.len());
   let w = searcher.create_weight(unknown_count_query.clone(), ScoreMode::Complete, 1.0)?;
-  assert_eq!(-1, w.count(leaf)?);
+  assert_eq!(-1, w.count(leaf, &searcher)?);
 
   // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all docs
   let mut builder = Builder::new();
@@ -1198,7 +1213,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // count of the first MUST_NOT clause is unknown, but the second MUST_NOT clause matches all
   // docs
-  assert_eq!(0, weight.count(leaf)?);
+  assert_eq!(0, weight.count(leaf, &searcher)?);
 
   let mut builder = Builder::new();
   builder
@@ -1216,7 +1231,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   // count of the first MUST_NOT clause is unknown, though the second MUST_NOT clause matche one
   // doc, we can't figure out the number of
   // docs
-  assert_eq!(-1, weight.count(leaf)?);
+  assert_eq!(-1, weight.count(leaf, &searcher)?);
 
   // test pure disjunction
   let mut builder = Builder::new();
@@ -1226,7 +1241,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let query = builder.build();
   let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
   // count of the first SHOULD clause is unknown, but the second SHOULD clause matches all docs
-  assert_eq!(2, weight.count(leaf)?);
+  assert_eq!(2, weight.count(leaf, &searcher)?);
 
   // count of the first SHOULD clause is unknown, though the second SHOULD clause matches one doc
   let mut builder = Builder::new();
@@ -1239,7 +1254,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   // count of the first SHOULD clause is unknown, though the second SHOULD clause matche one doc,
   // we can't figure out the number of
   // docs
-  assert_eq!(-1, weight.count(leaf)?);
+  assert_eq!(-1, weight.count(leaf, &searcher)?);
 
   Ok(())
 }
@@ -1580,7 +1595,7 @@ fn test_prohibited_matches_count() -> Result<()> {
     b.add(LongPoint::new_exact_query("long", 3)?, Occur::MustNot)?;
     let query = b.build();
     let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-    assert_eq!(-1, weight.count(&leaves[0])?);
+    assert_eq!(-1, weight.count(&leaves[0], &searcher)?);
   }
 
   // MUST missing, MUST_NOT long==3 => 0
@@ -1593,7 +1608,7 @@ fn test_prohibited_matches_count() -> Result<()> {
     b.add(LongPoint::new_exact_query("long", 3)?, Occur::MustNot)?;
     let query = b.build();
     let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-    assert_eq!(0, weight.count(&leaves[0])?);
+    assert_eq!(0, weight.count(&leaves[0], &searcher)?);
   }
 
   // MUST abc, MUST_NOT long==5 => 1
@@ -1606,7 +1621,7 @@ fn test_prohibited_matches_count() -> Result<()> {
     b.add(LongPoint::new_exact_query("long", 5)?, Occur::MustNot)?;
     let query = b.build();
     let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-    assert_eq!(1, weight.count(&leaves[0])?);
+    assert_eq!(1, weight.count(&leaves[0], &searcher)?);
   }
 
   // MUST abc, MUST_NOT long in [0,10] => 0
@@ -1619,7 +1634,7 @@ fn test_prohibited_matches_count() -> Result<()> {
     b.add(LongPoint::new_range_query("long", 0, 10)?, Occur::MustNot)?;
     let query = b.build();
     let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-    assert_eq!(0, weight.count(&leaves[0])?);
+    assert_eq!(0, weight.count(&leaves[0], &searcher)?);
   }
 
   // MUST long in [0,10], MUST_NOT abc => 1
@@ -1632,7 +1647,7 @@ fn test_prohibited_matches_count() -> Result<()> {
     )?;
     let query = b.build();
     let weight = searcher.create_weight(query, ScoreMode::Complete, 1.0)?;
-    assert_eq!(1, weight.count(&leaves[0])?);
+    assert_eq!(1, weight.count(&leaves[0], &searcher)?);
   }
 
   Ok(())
@@ -1793,12 +1808,13 @@ where
     = &'a mut Self
   where
     Self: 'a,
-    IRC1: IndexReaderContext;
+    IRC1: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC1>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC1>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC1: IndexReaderContext,

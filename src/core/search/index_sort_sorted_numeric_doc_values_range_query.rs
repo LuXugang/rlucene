@@ -299,7 +299,11 @@ where
     }
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32>
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32>
 where {
     let reader = context.reader();
 
@@ -310,7 +314,7 @@ where {
 
       let mut sorted_numeric_values = DocValues::get_sorted_numeric(reader, &self.query.field)?;
       if !sorted_numeric_values.is_single_valued() {
-        return self.fallback_query_weight.count(context);
+        return self.fallback_query_weight.count(context, searcher);
       }
       let numeric_values = DocValues::unwrap_singleton_numeric(&mut sorted_numeric_values)?;
 
@@ -386,7 +390,7 @@ where {
         }
       }
     }
-    self.fallback_query_weight.count(context)
+    self.fallback_query_weight.count(context, searcher)
   }
 }
 

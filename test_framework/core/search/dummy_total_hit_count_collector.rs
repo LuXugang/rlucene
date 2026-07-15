@@ -17,6 +17,7 @@
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
+use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::leaf_collector::LeafCollector;
@@ -52,12 +53,13 @@ impl Collector for DummyTotalHitCountCollector {
     = DummyLeafCollectorImpl<'a>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,

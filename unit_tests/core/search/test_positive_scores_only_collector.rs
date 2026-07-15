@@ -23,6 +23,7 @@ use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::positive_scores_only_collector::PositiveScoresOnlyCollector;
 use crate::core::search::scorable::{FixedScore, Scorable};
@@ -197,6 +198,7 @@ fn test_negative_scores() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let context = reader.get_context()?;
   let leaves = context.leaves()?;
+  let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
   writer.close(&mut random)?;
 
   let mut scorer = SimpleScorer::new();
@@ -204,7 +206,8 @@ fn test_negative_scores() -> Result<()> {
   let top_docs_collector = manager.new_collector()?;
   let mut collector = PositiveScoresOnlyCollector::new(top_docs_collector);
   let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
-  let mut leaf_collector = collector.get_leaf_collector(&leaves[0], Some(&dummy_weight))?;
+  let mut leaf_collector =
+    collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   leaf_collector.set_scorer(&mut scorer)?;
 
   loop {

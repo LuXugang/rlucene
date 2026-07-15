@@ -500,7 +500,7 @@ fn test_doc_values_query_matches_count() -> Result<()> {
   let weight2 = searcher2.create_weight(test_query, ScoreMode::Complete, 1.0)?;
 
   let leaf = &searcher2.get_leaf_contexts()?[0];
-  assert_eq!(-1, weight2.count(leaf)?);
+  assert_eq!(-1, weight2.count(leaf, &searcher2)?);
 
   searcher.get_index_reader().close()?;
   searcher2.get_index_reader().close()?;
@@ -811,7 +811,7 @@ where
   let weight = searcher.create_weight(q.clone(), ScoreMode::Complete, 1.0)?;
 
   let ctxs = searcher.get_leaf_contexts()?;
-  assert_eq!(-1, weight.count(&ctxs[0])?);
+  assert_eq!(-1, weight.count(&ctxs[0], searcher)?);
 
   assert_eq!(expected_count, searcher.count(q)?);
   Ok(())
@@ -831,7 +831,7 @@ where
 
   let weight = searcher.create_weight(q, ScoreMode::Complete, 1.0)?;
   let ctxs = searcher.get_leaf_contexts()?;
-  assert_eq!(num_matching_docs, weight.count(&ctxs[0])?);
+  assert_eq!(num_matching_docs, weight.count(&ctxs[0], searcher)?);
   Ok(())
 }
 #[test]
@@ -1189,7 +1189,7 @@ where
 
   let weight = searcher.create_weight(test_query, ScoreMode::Complete, 1.0)?;
   assert_eq!(
-    weight.count(&searcher.get_leaf_contexts()?[0])?,
+    weight.count(&searcher.get_leaf_contexts()?[0], searcher)?,
     num_matching_docs
   );
 

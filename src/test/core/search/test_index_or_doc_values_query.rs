@@ -246,7 +246,7 @@ fn test_query_matches_count() -> Result<()> {
 
   let mut weight_count = 0;
   for leaf in leaves {
-    weight_count += weight.count(leaf)?;
+    weight_count += weight.count(leaf, &searcher)?;
   }
 
   assert_eq!(search_count, weight_count);

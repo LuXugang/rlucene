@@ -375,7 +375,11 @@ where
     }
   }
 
-  fn count(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+  fn count(
+    &self,
+    ctx: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
     let reader = ctx.reader();
 
     let field_infos = reader.get_field_infos()?;

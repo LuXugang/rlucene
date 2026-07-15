@@ -17,6 +17,7 @@
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
@@ -48,18 +49,21 @@ where
     = ScoreCachingWrappingLeafCollector<PositiveScoresOnlyLeafCollector<C::LeafCollector<'a, IRC>>>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
   {
-    let v = PositiveScoresOnlyLeafCollector::new(self.inner.get_leaf_collector(context, weight)?);
+    let v = PositiveScoresOnlyLeafCollector::new(
+      self.inner.get_leaf_collector(context, weight, searcher)?,
+    );
     Ok(ScoreCachingWrappingLeafCollector::new(v))
   }
 

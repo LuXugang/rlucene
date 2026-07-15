@@ -18,6 +18,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
+use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::leaf_collector::LeafCollector;
@@ -64,13 +65,14 @@ impl TotalHitCountCollector {
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<bool>
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
   {
     let leaf_count = match weight {
-      Some(w) => w.count(context)?,
+      Some(w) => w.count(context, searcher)?,
       None => -1,
     };
     if leaf_count != -1 {
@@ -89,12 +91,13 @@ impl Collector for TotalHitCountCollector {
     = TotalHitCountLeafCollector<'a>
   where
     Self: 'a,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'a;
 
   fn get_leaf_collector<'a, W, IRC>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
@@ -116,7 +119,7 @@ impl Collector for TotalHitCountCollector {
       if first {
         // The first thread for a given leaf gets to decide what the next threads targeting the
         // same leaf do.
-        if self.try_count(context, weight)? {
+        if self.try_count(context, weight, searcher)? {
           let _ = early_terminated.set(true);
           return Err(LuceneError::collection_terminated(""));
         }
@@ -133,7 +136,7 @@ impl Collector for TotalHitCountCollector {
       return Ok(self.create_leaf_collector());
     }
 
-    if self.try_count(context, weight)? {
+    if self.try_count(context, weight, searcher)? {
       return Err(LuceneError::collection_terminated(""));
     }
     Ok(self.create_leaf_collector())

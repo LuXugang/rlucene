@@ -25,7 +25,6 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::BooleanQuery;
-use crate::core::search::boolean_weight::BooleanWeight;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -64,7 +63,6 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::mem;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 
@@ -722,8 +720,12 @@ where
     self.inner_weight.scorer_supplier(context, searcher)
   }
 
-  fn count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
-    self.inner_weight.count(context)
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32> {
+    self.inner_weight.count(context, searcher)
   }
 }
 
@@ -2081,7 +2083,7 @@ impl QueryBase for WANDScorerQuery {
 
   fn create_weight<IRC>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
@@ -2089,12 +2091,11 @@ impl QueryBase for WANDScorerQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    let w = self.query.clone().raw_weight(searcher, score_mode, boost)?;
     Ok(Box::new(WANDScorerQueryWeight::new(
       self.query,
       self.do_blocks,
-      w,
       *score_mode,
+      boost,
     )))
   }
 
@@ -2113,40 +2114,29 @@ impl QueryBase for WANDScorerQuery {
   }
 }
 
-struct WANDScorerQueryWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
+struct WANDScorerQueryWeight {
   minimum_number_should_match: i32,
   query: Arc<Query>,
   do_blocks: bool,
-  weight: Rc<BooleanWeight<IRC>>,
   score_mode: ScoreMode,
+  boost: f32,
 }
 
-impl<IRC> WANDScorerQueryWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  fn new(
-    query: BooleanQuery,
-    do_blocks: bool,
-    weight: BooleanWeight<IRC>,
-    score_mode: ScoreMode,
-  ) -> Self {
+impl WANDScorerQueryWeight {
+  fn new(query: BooleanQuery, do_blocks: bool, score_mode: ScoreMode, boost: f32) -> Self {
     let minimum_number_should_match = query.get_minimum_number_should_match();
     let query = Arc::new(query.into());
     Self {
       minimum_number_should_match,
       query,
       do_blocks,
-      weight: Rc::new(weight),
       score_mode,
+      boost,
     }
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for WANDScorerQueryWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for WANDScorerQueryWeight
 where
   IRC: IndexReaderContext,
 {
@@ -2155,7 +2145,7 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for WANDScorerQueryWeight<IRC>
+impl<IRC> Weight<IRC> for WANDScorerQueryWeight
 where
   IRC: IndexReaderContext,
 {
@@ -2190,8 +2180,14 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
+    let weight = match self.query.as_ref() {
+      Query::Boolean(query) => query
+        .clone()
+        .raw_weight(searcher, &self.score_mode, self.boost)?,
+      _ => unreachable!("WANDScorerQueryWeight must wrap a BooleanQuery"),
+    };
     let mut optional_scorers = Vec::new();
-    for wc in self.weight.weighted_clauses.iter() {
+    for wc in weight.weighted_clauses.iter() {
       let w = &wc.weight;
       let ss = w.scorer_supplier(context, searcher)?;
       if let Some(mut ss) = ss {
@@ -2208,7 +2204,7 @@ where
         if self.do_blocks { i64::MAX } else { 0 },
       )?)
     } else {
-      match self.weight.scorer(context, searcher)? {
+      match weight.scorer(context, searcher)? {
         Some(ss) => ScorerEnum2::B(ss),
         None => return Ok(None),
       }

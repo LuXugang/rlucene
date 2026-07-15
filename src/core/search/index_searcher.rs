@@ -536,6 +536,7 @@ where
     CM: CollectorManager,
     CM::C: Send,
   {
+    let weight = self.create_weight(query, score_mode, 1.0)?;
     let leaf_slices = self.get_slices()?;
     if leaf_slices.is_empty() {
       debug_assert!(self.reader_context.leaves()?.is_empty());
@@ -556,7 +557,6 @@ where
 
     if self.search_threads <= 1 || leaf_slices.len() <= 1 {
       let mut list_tasks = Vec::with_capacity(leaf_slices.len());
-      let weight = self.create_weight(query, score_mode, 1.0)?;
       for i in 0..leaf_slices.len() {
         let leaves = leaf_slices[i].partitions.as_slice();
         let mut collector = collectors[i].take().unwrap();
@@ -577,28 +577,21 @@ where
       .collect::<Vec<Option<CM::C>>>();
     let mut first_error = None;
 
+    let weight = weight.as_ref();
     std::thread::scope(|scope| {
       let mut handles = Vec::with_capacity(worker_count);
       for group in groups {
         if group.is_empty() {
           continue;
         }
-
-        let query = query.clone();
         handles.push(scope.spawn(move || -> Result<Vec<(usize, CM::C)>> {
-          // TODO IMPORTANT 不应该重复创建 但是要求 Weight : Sync + Send 改动比较大
-          let weight = self.create_weight(query, score_mode, 1.0)?;
           let mut results = Vec::with_capacity(group.len());
           for (i, leaf_slice, mut collector) in group {
             #[cfg(test)]
             if let Some(counter) = &self.offloaded_slice_counter {
               counter.fetch_add(1, Ordering::SeqCst);
             }
-            self.search_partitions(
-              leaf_slice.partitions.as_slice(),
-              weight.as_ref(),
-              &mut collector,
-            )?;
+            self.search_partitions(leaf_slice.partitions.as_slice(), weight, &mut collector)?;
             results.push((i, collector));
           }
           Ok(results)
@@ -684,7 +677,7 @@ where
       }
     }
     let ctx = &self.reader_context.leaves()?[ctx_ord];
-    let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight)) {
+    let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight), self) {
       Ok(leaf_collector) => leaf_collector,
       Err(LuceneError::CollectionTerminated(_)) => {
         // there is no doc of interest in this reader context
