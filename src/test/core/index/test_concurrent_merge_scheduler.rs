@@ -21,17 +21,19 @@ use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::concurrent_merge_scheduler::{
-  AUTO_DETECT_MERGES_AND_THREADS, ConcurrentMergeScheduler,
+  AUTO_DETECT_MERGES_AND_THREADS, ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
 };
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterHooks, IndexWriterHooksEnum};
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
+use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -39,8 +41,18 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::suppressing_concurrent_merge_scheduler::SuppressingConcurrentMergeScheduler;
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::{
+  CountDownLatch, HangDuringRollbackConcurrentMergeScheduler,
+  LiveMaxMergeCountConcurrentMergeScheduler, LiveMaxMergeCountMergePolicy,
+  MaxMergeCountConcurrentMergeScheduler, MaybeStallCalledConcurrentMergeScheduler,
+  MergeThreadMessagesConcurrentMergeScheduler, NoStallMergeThreadsConcurrentMergeScheduler,
+  TrackingConcurrentMergeScheduler,
+};
 use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
-use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::store::mock_directory_wrapper::{
+  Failure, MockDirectoryWrapper, Throttling,
+};
 use crate::test_framework::core::util::lucene_test_case::{
   call_stack_contains_any_of, is_night_mode, new_directory_shared,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
@@ -50,7 +62,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::io::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -110,7 +122,6 @@ where
 #[allow(clippy::never_loop)]
 #[test]
 fn test_flush_exceptions() -> Result<()> {
-  // TODO SuppressingConcurrentMergeScheduler未实现
   let mut random = random();
   let directory = Arc::new(new_mock_directory(&mut random)?);
   let failure = FailOnlyOnFlush {
@@ -123,8 +134,10 @@ fn test_flush_exceptions() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(2);
   if matches!(iwc.get_merge_scheduler(), MergeSchedulerEnum::Concurrent(_)) {
-    let merge_scheduler = ConcurrentMergeScheduler::new();
-    merge_scheduler.set_suppress_exceptions();
+    let merge_scheduler =
+      ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::Suppressing(
+        SuppressingConcurrentMergeScheduler::writer_closed_or_tragic(),
+      ));
     iwc.set_merge_scheduler(merge_scheduler);
   }
   let writer = IndexWriter::new(directory.clone(), iwc)?;
@@ -374,23 +387,81 @@ fn test_no_wait_close() -> Result<()> {
 // LUCENE-4544
 #[test]
 fn test_max_merge_count() -> Result<()> {
-  test_not_required_in_rust_lucene!();
-}
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_commit_on_close(false);
 
-#[test]
-fn test_small_merges_do_not_get_threads() -> Result<()> {
-  test_not_required_in_rust_lucene!();
-}
+  let max_merge_count = random.random_range(1..=5);
+  let max_merge_threads = random.random_range(1..=max_merge_count);
+  let test_scheduler = MaxMergeCountConcurrentMergeScheduler::new(max_merge_count);
 
-#[test]
-fn test_intra_merge_thread_pool_is_limited_by_max_threads() -> Result<()> {
-  // TODO
+  if cfg!(feature = "test_log_verbose") {
+    println!("TEST: maxMergeCount={max_merge_count} maxMergeThreads={max_merge_threads}");
+  }
+
+  let cms = ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::MaxMergeCount(
+    test_scheduler.clone(),
+  ));
+  cms.set_max_merges_and_threads(max_merge_count, max_merge_threads)?;
+  iwc.set_merge_scheduler(cms);
+  iwc.set_max_buffered_docs(2);
+
+  let mut tmp = TieredMergePolicy::new();
+  tmp.set_max_merge_at_once(2)?;
+  tmp.set_segments_per_tier(2.0)?;
+  iwc.set_merge_policy(tmp);
+
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  while test_scheduler.enough_merges_waiting().get_count() != 0 && !test_scheduler.failed() {
+    for _ in 0..10 {
+      let mut doc = Document::new();
+      doc.add(TextField::from_string("field", "field", Store::No)?);
+      writer.add_document(doc)?;
+    }
+  }
+  let commit_result = writer.commit();
+  let close_result = writer.close();
+  close_result?;
+  commit_result?;
+  dir.as_ref().close()?;
   Ok(())
 }
 
 #[test]
 fn test_total_bytes_size() -> Result<()> {
-  // TrackingCMS未实现
+  let mut random = random();
+  let directory = Arc::new(new_mock_directory(&mut random)?);
+  directory.set_throttling(Throttling::Never);
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_max_buffered_docs(5);
+  let at_least_one_merge = CountDownLatch::new(1);
+  let tracking_scheduler = TrackingConcurrentMergeScheduler::new(at_least_one_merge.clone());
+  let cms = ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::Tracking(
+    tracking_scheduler.clone(),
+  ));
+  cms.set_max_merges_and_threads(5, 5)?;
+  iwc.set_merge_scheduler(cms);
+  // SimpleText is not implemented in Rust Lucene, so no postings format replacement is needed.
+  let writer = IndexWriter::new(directory.clone(), iwc)?;
+  for i in 0..1000 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+    writer.add_document(doc)?;
+
+    if random.random_bool(0.5) {
+      writer.delete_documents_with_terms(vec![Term::from_text(
+        "id",
+        random.random_range(0..=i).to_string(),
+      )])?;
+    }
+  }
+  at_least_one_merge.wait();
+  assert_ne!(0, tracking_scheduler.total_merged_bytes());
+  writer.close()?;
+  directory.as_ref().close()?;
   Ok(())
 }
 
@@ -414,28 +485,241 @@ fn test_invalid_max_merge_count_and_threads() -> Result<()> {
 
 #[test]
 fn test_live_max_merge_count() -> Result<()> {
-  // TODO doMerge不能覆写
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_policy(LiveMaxMergeCountMergePolicy::default());
+  iwc.set_max_buffered_docs(2);
+  iwc.set_ram_buffer_size_mb(-1.0);
+
+  let test_scheduler = LiveMaxMergeCountConcurrentMergeScheduler::default();
+  let cms = ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::LiveMaxMergeCount(
+    test_scheduler.clone(),
+  ));
+
+  assert_eq!(AUTO_DETECT_MERGES_AND_THREADS, cms.get_max_merge_count());
+  assert_eq!(AUTO_DETECT_MERGES_AND_THREADS, cms.get_max_thread_count());
+
+  cms.set_max_merges_and_threads(5, 3)?;
+  iwc.set_merge_scheduler(cms.clone());
+
+  let writer = IndexWriter::new(directory.clone(), iwc)?;
+  // Makes 100 segments.
+  for _ in 0..200 {
+    writer.add_document(Document::new())?;
+  }
+
+  // No merges should have run so far, because the merge policy does not return natural merges:
+  assert_eq!(0, test_scheduler.max_running_merge_count());
+  writer.force_merge(1)?;
+
+  // At most 5 merge threads should have launched at once:
+  assert!(
+    test_scheduler.max_running_merge_count() <= 5,
+    "maxRunningMergeCount={}",
+    test_scheduler.max_running_merge_count()
+  );
+  test_scheduler.reset_max_running_merge_count();
+
+  // Makes another 100 segments.
+  for _ in 0..200 {
+    writer.add_document(Document::new())?;
+  }
+
+  cms.set_max_merges_and_threads(1, 1)?;
+  writer.force_merge(1)?;
+
+  // At most 1 merge thread should have launched at once:
+  assert_eq!(1, test_scheduler.max_running_merge_count());
+
+  writer.close()?;
+  directory.as_ref().close()?;
   Ok(())
 }
 
 // LUCENE-6063
 #[test]
 fn test_maybe_stall_called() -> Result<()> {
-  // TODO maybeStall不能覆写
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_policy(LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size());
+  let test_scheduler = MaybeStallCalledConcurrentMergeScheduler::default();
+  iwc.set_merge_scheduler(ConcurrentMergeScheduler::with_hook(
+    ConcurrentMergeSchedulerHook::MaybeStallCalled(test_scheduler.clone()),
+  ));
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  writer.add_document(Document::new())?;
+  writer.flush()?;
+  writer.add_document(Document::new())?;
+  writer.force_merge(1)?;
+  assert!(test_scheduler.was_called());
+  writer.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 
 // LUCENE-6094
 #[test]
 fn test_hang_during_rollback() -> Result<()> {
-  // TODO doMerge不能覆写
+  let mut random = random();
+  let dir = Arc::new(new_mock_directory(&mut random)?);
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_max_buffered_docs(2);
+  let mut mp = LogMergePolicy::log_doc();
+  mp.set_merge_factor(2)?;
+  iwc.set_merge_policy(mp);
+  let merge_start = CountDownLatch::new(1);
+  let merge_finish = CountDownLatch::new(1);
+  let cms = ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::HangDuringRollback(
+    HangDuringRollbackConcurrentMergeScheduler::new(merge_start.clone(), merge_finish.clone()),
+  ));
+  cms.set_max_merges_and_threads(1, 1)?;
+  iwc.set_merge_scheduler(cms);
+
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  writer.add_document(Document::new())?;
+  writer.add_document(Document::new())?;
+  // flush
+
+  writer.add_document(Document::new())?;
+  writer.add_document(Document::new())?;
+  // flush + merge
+
+  // Wait for merge to kick off.
+  merge_start.wait();
+
+  let writer_ref = writer.clone();
+  let add_documents_thread = thread::spawn(move || -> Result<()> {
+    writer_ref.add_document(Document::new())?;
+    writer_ref.add_document(Document::new())?;
+    // flush
+
+    writer_ref.add_document(Document::new())?;
+    // Without the fix for LUCENE-6094 we would hang forever here:
+    writer_ref.add_document(Document::new())?;
+    // flush + merge
+
+    // Now allow first merge to finish:
+    merge_finish.count_down();
+    Ok(())
+  });
+
+  while writer.get_doc_stats()?.num_docs != 8 {
+    thread::sleep(Duration::from_millis(10));
+  }
+
+  writer.rollback()?;
+  match add_documents_thread.join() {
+    Ok(result) => result?,
+    Err(payload) => {
+      return Err(LuceneError::tragedy_from_panic(
+        "panic while adding documents",
+        payload.as_ref(),
+      ));
+    },
+  }
+  dir.as_ref().close()?;
   Ok(())
 }
 
 // LUCENE-10118 : Verify the basic log output from MergeThreads
+#[derive(Clone, Default)]
+struct MergeThreadInfoStream {
+  messages: Arc<Mutex<Vec<String>>>,
+}
+
+impl CloseableRef for MergeThreadInfoStream {
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl InfoStream for MergeThreadInfoStream {
+  fn message(&self, component: &str, message: &str) -> Result<()> {
+    if component == "MS" {
+      self
+        .messages
+        .lock()
+        .expect("merge thread messages mutex poisoned")
+        .push(message.to_string());
+    }
+    Ok(())
+  }
+
+  fn is_enabled(&self, component: &str) -> bool {
+    component == "MS"
+  }
+}
+
 #[test]
 fn test_merge_thread_messages() -> Result<()> {
-  // TODO getMergeThread不能覆写
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let test_scheduler = MergeThreadMessagesConcurrentMergeScheduler::default();
+  let cms = ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::MergeThreadMessages(
+    test_scheduler.clone(),
+  ));
+  iwc.set_merge_scheduler(cms);
+
+  let info_stream = MergeThreadInfoStream::default();
+  iwc.set_info_stream(Arc::new(InfoStreamEnum::Custom(Box::new(
+    info_stream.clone(),
+  ))));
+  iwc.set_max_buffered_docs(2);
+  let mut lmp = LogMergePolicy::log_doc();
+  lmp.set_merge_factor(2)?;
+  lmp.set_target_search_concurrency(1)?;
+  iwc.set_merge_policy(lmp);
+
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut doc = Document::new();
+  doc.add(TextField::from_string("foo", "", Store::No)?);
+  writer.add_document(doc)?;
+  writer.add_document(Document::new())?;
+  // flush
+  writer.add_document(Document::new())?;
+  writer.add_document(Document::new())?;
+  // flush + merge
+  writer.close()?;
+  dir.as_ref().close()?;
+
+  let merge_thread_names = test_scheduler.merge_thread_names();
+  assert!(!merge_thread_names.is_empty());
+  let messages = info_stream
+    .messages
+    .lock()
+    .expect("merge thread messages mutex poisoned");
+  for name in merge_thread_names {
+    let prefix = format!("merge thread {name}");
+    let thread_messages: Vec<&String> = messages
+      .iter()
+      .filter(|line| line.starts_with(&prefix))
+      .collect();
+    assert!(
+      thread_messages.len() >= 3,
+      "expected a value equal to or greater than 3, got: {}, threadMsgs={thread_messages:?}",
+      thread_messages.len(),
+    );
+    assert!(
+      thread_messages[0].starts_with(&format!("merge thread {name} start")),
+      "threadMsgs={thread_messages:?}",
+    );
+    assert!(
+      thread_messages
+        .iter()
+        .any(|line| line.starts_with(&format!("merge thread {name} merge segment")))
+    );
+    assert!(
+      thread_messages[thread_messages.len() - 1].starts_with(&format!("merge thread {name} end")),
+      "threadMsgs={thread_messages:?}",
+    );
+  }
   Ok(())
 }
 
@@ -559,9 +843,10 @@ fn test_no_stall_merge_threads() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  let failed = Arc::new(AtomicBool::new(false));
-  let cms = ConcurrentMergeScheduler::new();
-  cms.set_stall_on_merge_thread(failed.clone());
+  let test_scheduler = NoStallMergeThreadsConcurrentMergeScheduler::default();
+  let cms = ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::NoStallMergeThreads(
+    test_scheduler.clone(),
+  ));
   cms.enable_auto_io_throttle()?;
   cms.set_max_merges_and_threads(2, 1)?;
   iwc.set_merge_scheduler(cms);
@@ -571,7 +856,7 @@ fn test_no_stall_merge_threads() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  assert!(!failed.load(Ordering::SeqCst));
+  assert!(!test_scheduler.failed());
   Ok(())
 }
 
@@ -686,37 +971,6 @@ fn test_change_max_merge_county_while_force_merge() -> Result<()> {
     IOUtils::use_or_suppress_result(body_result, close_result)?;
   }
   Ok(())
-}
-
-struct CountDownLatch {
-  count: Mutex<usize>,
-  condvar: Condvar,
-}
-
-impl CountDownLatch {
-  fn new(count: usize) -> Self {
-    Self {
-      count: Mutex::new(count),
-      condvar: Condvar::new(),
-    }
-  }
-
-  fn count_down(&self) {
-    let mut count = self.count.lock().expect("latch mutex poisoned");
-    if *count > 0 {
-      *count -= 1;
-      if *count == 0 {
-        self.condvar.notify_all();
-      }
-    }
-  }
-
-  fn wait(&self) {
-    let mut count = self.count.lock().expect("latch mutex poisoned");
-    while *count > 0 {
-      count = self.condvar.wait(count).expect("latch mutex poisoned");
-    }
-  }
 }
 
 struct CountDownOnDrop {

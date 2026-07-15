@@ -24,6 +24,7 @@ use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::store::directory::{Directory, DirectoryEnum3};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::info_stream::InfoStreamMT;
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test_framework::core::index::base_knn_vectors_format_test_case::TestMergeScheduler;
@@ -63,7 +64,7 @@ pub trait MergeScheduler: CloseableRef {
     D: Directory;
 
   /// [IndexWriter] calls this on init.
-  fn initialize<D>(&mut self, _directory: &D) -> Result<()>
+  fn initialize<D>(&mut self, _info_stream: InfoStreamMT, _directory: &D) -> Result<()>
   where
     D: Directory,
   {
@@ -204,26 +205,26 @@ impl MergeScheduler for MergeSchedulerEnum {
     }
   }
 
-  fn initialize<D>(&mut self, directory: &D) -> Result<()>
+  fn initialize<D>(&mut self, info_stream: InfoStreamMT, directory: &D) -> Result<()>
   where
     D: Directory,
   {
     match self {
-      MergeSchedulerEnum::Serial(s) => s.initialize(directory),
-      MergeSchedulerEnum::No(n) => n.initialize(directory),
-      MergeSchedulerEnum::Concurrent(c) => c.initialize(directory),
+      MergeSchedulerEnum::Serial(s) => s.initialize(info_stream, directory),
+      MergeSchedulerEnum::No(n) => n.initialize(info_stream, directory),
+      MergeSchedulerEnum::Concurrent(c) => c.initialize(info_stream, directory),
       #[cfg(test)]
-      MergeSchedulerEnum::SerialTest(s) => s.initialize(directory),
+      MergeSchedulerEnum::SerialTest(s) => s.initialize(info_stream, directory),
       #[cfg(test)]
-      MergeSchedulerEnum::LatchedSerial(s) => s.initialize(directory),
+      MergeSchedulerEnum::LatchedSerial(s) => s.initialize(info_stream, directory),
       #[cfg(test)]
-      MergeSchedulerEnum::KnnMergeScheduler(s) => s.initialize(directory),
+      MergeSchedulerEnum::KnnMergeScheduler(s) => s.initialize(info_stream, directory),
       #[cfg(test)]
-      MergeSchedulerEnum::IndexWriterMerging(s) => s.initialize(directory),
+      MergeSchedulerEnum::IndexWriterMerging(s) => s.initialize(info_stream, directory),
       #[cfg(test)]
-      MergeSchedulerEnum::PartialAddIndexes(s) => s.initialize(directory),
+      MergeSchedulerEnum::PartialAddIndexes(s) => s.initialize(info_stream, directory),
       #[cfg(test)]
-      MergeSchedulerEnum::CountingAddIndexes(s) => s.initialize(directory),
+      MergeSchedulerEnum::CountingAddIndexes(s) => s.initialize(info_stream, directory),
     }
   }
 }

@@ -926,10 +926,14 @@ impl MergeScheduler for SerialMergeSchedulerImpl {
     self.base.wrap_for_merge(in_)
   }
 
-  fn initialize<D>(&mut self, directory: &D) -> Result<()>
+  fn initialize<D>(
+    &mut self,
+    info_stream: crate::core::util::info_stream::InfoStreamMT,
+    directory: &D,
+  ) -> Result<()>
   where
     D: Directory,
   {
-    self.base.initialize(directory)
+    self.base.initialize(info_stream, directory)
   }
 }

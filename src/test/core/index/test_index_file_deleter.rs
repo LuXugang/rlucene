@@ -26,6 +26,9 @@ use crate::test_framework::core::util::lucene_test_case::{
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
 
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
+};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
@@ -47,6 +50,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::test_index_file_deleter::FakeFailConcurrentMergeScheduler;
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper, Throttling,
 };
@@ -524,10 +528,14 @@ fn test_exc_in_dec_ref() -> Result<()> {
   }));
 
   let mock = MockAnalyzer::new(&mut random);
-  let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  // TODO ConcurrentMergeScheduler未重载
+  let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   if let MergeSchedulerEnum::Concurrent(cms) = config.get_merge_scheduler() {
-    cms.set_suppress_exceptions();
+    let suppress_fake_fail = ConcurrentMergeScheduler::with_hook(
+      ConcurrentMergeSchedulerHook::TestIndexFileDeleter(FakeFailConcurrentMergeScheduler),
+    );
+    suppress_fake_fail
+      .set_max_merges_and_threads(cms.get_max_merge_count(), cms.get_max_thread_count())?;
+    config.set_merge_scheduler(suppress_fake_fail);
   }
 
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);

@@ -35,6 +35,25 @@ use crate::core::store::rate_limited_directory::RateLimitedDirectory;
 use crate::core::store::rate_limiter::RateLimiter;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_stream};
+#[cfg(test)]
+use crate::test_framework::core::index::suppressing_concurrent_merge_scheduler::SuppressingConcurrentMergeScheduler;
+#[cfg(test)]
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::{
+  HangDuringRollbackConcurrentMergeScheduler, LiveMaxMergeCountConcurrentMergeScheduler,
+  MaxMergeCountConcurrentMergeScheduler, MaybeStallCalledConcurrentMergeScheduler,
+  MergeThreadMessagesConcurrentMergeScheduler, NoStallMergeThreadsConcurrentMergeScheduler,
+  TrackingConcurrentMergeScheduler,
+};
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_file_deleter::FakeFailConcurrentMergeScheduler;
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer::CloseWhileMergeIsRunningConcurrentMergeScheduler;
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer_merge_policy::{
+  MergeDvUpdateFileOnCommitConcurrentMergeScheduler,
+  MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler,
+};
 
 thread_local! {
   static CURRENT_MERGE_RATE_LIMITER: RefCell<Option<Arc<MergeRateLimiter>>> =
@@ -89,6 +108,7 @@ const MIN_BIG_MERGE_MB: f64 = 50.0;
 pub struct ConcurrentMergeScheduler {
   inner: Arc<Mutex<Inner>>,
   changed: Arc<Condvar>,
+  info_stream: Arc<Mutex<InfoStreamMT>>,
   hook: ConcurrentMergeSchedulerHook,
 }
 
@@ -110,14 +130,36 @@ pub(crate) struct Inner {
   do_auto_io_throttle: bool,
   force_merge_mb_per_sec: f64,
   suppress_exceptions: bool,
-  #[cfg(test)]
-  stall_on_merge_thread: Option<Arc<AtomicBool>>,
 }
 
 #[derive(Clone, Default)]
 pub(crate) enum ConcurrentMergeSchedulerHook {
   #[default]
   Default,
+  #[cfg(test)]
+  MaxMergeCount(MaxMergeCountConcurrentMergeScheduler),
+  #[cfg(test)]
+  Tracking(TrackingConcurrentMergeScheduler),
+  #[cfg(test)]
+  LiveMaxMergeCount(LiveMaxMergeCountConcurrentMergeScheduler),
+  #[cfg(test)]
+  MaybeStallCalled(MaybeStallCalledConcurrentMergeScheduler),
+  #[cfg(test)]
+  HangDuringRollback(HangDuringRollbackConcurrentMergeScheduler),
+  #[cfg(test)]
+  NoStallMergeThreads(NoStallMergeThreadsConcurrentMergeScheduler),
+  #[cfg(test)]
+  MergeThreadMessages(MergeThreadMessagesConcurrentMergeScheduler),
+  #[cfg(test)]
+  CloseWhileMergeIsRunning(CloseWhileMergeIsRunningConcurrentMergeScheduler),
+  #[cfg(test)]
+  Suppressing(SuppressingConcurrentMergeScheduler),
+  #[cfg(test)]
+  TestIndexFileDeleter(FakeFailConcurrentMergeScheduler),
+  #[cfg(test)]
+  MergeDvUpdateFileOnGetReader(MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler),
+  #[cfg(test)]
+  MergeDvUpdateFileOnCommit(MergeDvUpdateFileOnCommitConcurrentMergeScheduler),
 }
 
 pub(crate) struct ConcurrentMergeSchedulerDefaults;
@@ -127,9 +169,13 @@ pub(crate) trait ConcurrentMergeSchedulerBase {
     &self,
     scheduler: &ConcurrentMergeScheduler,
     inner: &mut Inner,
-  ) -> Result<()>;
+  ) -> Result<()> {
+    ConcurrentMergeSchedulerDefaults::update_merge_threads(scheduler, inner)
+  }
 
-  fn close(&self, scheduler: &ConcurrentMergeScheduler) -> Result<()>;
+  fn close(&self, scheduler: &ConcurrentMergeScheduler) -> Result<()> {
+    ConcurrentMergeSchedulerDefaults::close(scheduler)
+  }
 
   fn merge<MS, D>(
     &self,
@@ -140,7 +186,10 @@ pub(crate) trait ConcurrentMergeSchedulerBase {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMerge<D, MS::Reader>: Send + 'static;
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    ConcurrentMergeSchedulerDefaults::merge(scheduler, merge_source, trigger)
+  }
 
   fn maybe_stall<MS, D>(
     &self,
@@ -150,9 +199,14 @@ pub(crate) trait ConcurrentMergeSchedulerBase {
   ) -> Result<bool>
   where
     MS: MergeSource<D>,
-    D: Directory;
+    D: Directory,
+  {
+    ConcurrentMergeSchedulerDefaults::maybe_stall(scheduler, inner, merge_source)
+  }
 
-  fn do_stall(&self, scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>);
+  fn do_stall(&self, scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>) {
+    ConcurrentMergeSchedulerDefaults::do_stall(scheduler, inner)
+  }
 
   fn do_merge<MS, D>(
     &self,
@@ -162,7 +216,10 @@ pub(crate) trait ConcurrentMergeSchedulerBase {
   ) -> Result<()>
   where
     MS: MergeSource<D>,
-    D: Directory + 'static;
+    D: Directory + 'static,
+  {
+    ConcurrentMergeSchedulerDefaults::do_merge(scheduler, merge_source, merge)
+  }
 
   fn get_merge_thread<MS, D>(
     &self,
@@ -174,15 +231,22 @@ pub(crate) trait ConcurrentMergeSchedulerBase {
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
-    OneMerge<D, MS::Reader>: Send + 'static;
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    ConcurrentMergeSchedulerDefaults::get_merge_thread(scheduler, inner, merge_source, merge)
+  }
 
   fn handle_merge_exception(
     &self,
     scheduler: &ConcurrentMergeScheduler,
     exc: LuceneError,
-  ) -> Result<()>;
+  ) -> Result<()> {
+    ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, exc)
+  }
 
-  fn target_mb_per_sec_changed(&self, scheduler: &ConcurrentMergeScheduler);
+  fn target_mb_per_sec_changed(&self, scheduler: &ConcurrentMergeScheduler) {
+    ConcurrentMergeSchedulerDefaults::target_mb_per_sec_changed(scheduler)
+  }
 }
 
 impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
@@ -193,12 +257,60 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   ) -> Result<()> {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.update_merge_threads(scheduler, inner),
     }
   }
 
   fn close(&self, scheduler: &ConcurrentMergeScheduler) -> Result<()> {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::close(scheduler),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.close(scheduler),
     }
   }
 
@@ -215,6 +327,30 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.merge(scheduler, merge_source, trigger),
     }
   }
 
@@ -232,12 +368,60 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::Default => {
         ConcurrentMergeSchedulerDefaults::maybe_stall(scheduler, inner, merge_source)
       },
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.maybe_stall(scheduler, inner, merge_source),
     }
   }
 
   fn do_stall(&self, scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>) {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.do_stall(scheduler, inner),
     }
   }
 
@@ -253,6 +437,30 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.do_merge(scheduler, merge_source, merge),
     }
   }
 
@@ -272,6 +480,44 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::Default => {
         ConcurrentMergeSchedulerDefaults::get_merge_thread(scheduler, inner, merge_source, merge)
       },
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.get_merge_thread(scheduler, inner, merge_source, merge),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.get_merge_thread(scheduler, inner, merge_source, merge),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.get_merge_thread(scheduler, inner, merge_source, merge),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.get_merge_thread(scheduler, inner, merge_source, merge),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.get_merge_thread(scheduler, inner, merge_source, merge),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
     }
   }
 
@@ -282,12 +528,60 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   ) -> Result<()> {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.handle_merge_exception(scheduler, exc),
     }
   }
 
   fn target_mb_per_sec_changed(&self, scheduler: &ConcurrentMergeScheduler) {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.target_mb_per_sec_changed(scheduler),
     }
   }
 }
@@ -305,20 +599,20 @@ impl ConcurrentMergeScheduler {
   }
 
   pub(crate) fn with_hook(hook: ConcurrentMergeSchedulerHook) -> Self {
+    let inner = Arc::new(Mutex::new(Inner {
+      merge_threads: Vec::new(),
+      max_thread_count: AUTO_DETECT_MERGES_AND_THREADS,
+      max_merge_count: AUTO_DETECT_MERGES_AND_THREADS,
+      merge_thread_count: 0,
+      target_mb_per_sec: START_MB_PER_SEC,
+      do_auto_io_throttle: false,
+      force_merge_mb_per_sec: f64::INFINITY,
+      suppress_exceptions: false,
+    }));
     Self {
-      inner: Arc::new(Mutex::new(Inner {
-        merge_threads: Vec::new(),
-        max_thread_count: AUTO_DETECT_MERGES_AND_THREADS,
-        max_merge_count: AUTO_DETECT_MERGES_AND_THREADS,
-        merge_thread_count: 0,
-        target_mb_per_sec: START_MB_PER_SEC,
-        do_auto_io_throttle: false,
-        force_merge_mb_per_sec: f64::INFINITY,
-        suppress_exceptions: false,
-        #[cfg(test)]
-        stall_on_merge_thread: None,
-      })),
+      inner,
       changed: Arc::new(Condvar::new()),
+      info_stream: Arc::new(Mutex::new(get_default_info_stream())),
       hook,
     }
   }
@@ -648,6 +942,18 @@ impl ConcurrentMergeScheduler {
       })
       .count()
   }
+
+  /// Returns true if messages about merge scheduling are enabled.
+  fn verbose(&self) -> bool {
+    let info_stream = self.info_stream.lock().clone();
+    info_stream.is_enabled("MS")
+  }
+
+  /// Outputs the given message. This method assumes [`Self::verbose`] returned true.
+  fn message(&self, message: &str) -> Result<()> {
+    let info_stream = self.info_stream.lock().clone();
+    info_stream.message("MS", message)
+  }
 }
 
 impl MergeScheduler for ConcurrentMergeScheduler {
@@ -676,10 +982,11 @@ impl MergeScheduler for ConcurrentMergeScheduler {
     Ok(RateLimitedDirectory::new(in_, rate_limiter))
   }
 
-  fn initialize<D>(&mut self, directory: &D) -> Result<()>
+  fn initialize<D>(&mut self, info_stream: InfoStreamMT, directory: &D) -> Result<()>
   where
     D: Directory,
   {
+    *self.info_stream.lock() = info_stream;
     self.init_dynamic_defaults(directory);
     Ok(())
   }
@@ -831,16 +1138,6 @@ impl ConcurrentMergeScheduler {
 
 impl ConcurrentMergeSchedulerDefaults {
   pub(crate) fn do_stall(scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>) {
-    #[cfg(test)]
-    if let Some(stall_on_merge_thread) = &inner.stall_on_merge_thread
-      && inner
-        .merge_threads
-        .iter()
-        .any(|merge_thread| merge_thread.is_current_thread())
-    {
-      stall_on_merge_thread.store(true, Ordering::SeqCst);
-    }
-
     // Defensively wait for only .25 seconds in case we are missing a notify/all somewhere:
     scheduler
       .changed
@@ -1042,7 +1339,29 @@ where
     state.set_owner_to_current_thread();
     let previous =
       CURRENT_MERGE_RATE_LIMITER.with(|slot| slot.borrow_mut().replace(state.rate_limiter.clone()));
-    let merge_result = merge_scheduler.do_merge(&merge_source, merge);
+    let merge_result = (|| {
+      if merge_scheduler.verbose() {
+        merge_scheduler.message(&format!("merge thread {} start", state.name))?;
+      }
+
+      merge_scheduler.do_merge(&merge_source, merge)?;
+      if merge_scheduler.verbose() {
+        merge_scheduler.message(&format!(
+          "merge thread {} merge segment [{}] done estSize={:.1} MB (written={:.1} MB) runTime={:.1}s (stopped={:.1}s, paused={:.1}s) rate={}",
+          state.name,
+          state.merge_stat.name().unwrap_or_else(|| "_na_".to_string()),
+          ConcurrentMergeScheduler::bytes_to_mb(
+            state.estimated_merge_bytes.load(Ordering::SeqCst),
+          ),
+          ConcurrentMergeScheduler::bytes_to_mb(state.rate_limiter.get_total_bytes_written()),
+          state.merge_start_ns.lock().elapsed().as_secs_f64(),
+          Duration::from_nanos(state.rate_limiter.get_total_stopped_ns()?).as_secs_f64(),
+          Duration::from_nanos(state.rate_limiter.get_total_paused_ns()?).as_secs_f64(),
+          ConcurrentMergeScheduler::rate_to_string(state.rate_limiter.get_mb_per_sec()),
+        ))?;
+      }
+      Ok(())
+    })();
     CURRENT_MERGE_RATE_LIMITER.with(|slot| {
       *slot.borrow_mut() = previous;
     });
@@ -1064,7 +1383,11 @@ where
         Ok(())
       }
     } else {
-      merge_scheduler.run_on_merge_finished(merge_source)
+      merge_scheduler.run_on_merge_finished(merge_source)?;
+      if merge_scheduler.verbose() {
+        merge_scheduler.message(&format!("merge thread {} end", state.name))?;
+      }
+      Ok(())
     }
   }
 
@@ -1103,6 +1426,10 @@ where
       },
     }
   }
+
+  pub(crate) fn name(&self) -> &str {
+    &self.state.name
+  }
 }
 
 impl ConcurrentMergeScheduler {
@@ -1119,12 +1446,6 @@ impl ConcurrentMergeScheduler {
   /** Used for testing */
   pub(crate) fn clear_suppress_exceptions(&self) {
     self.inner.lock().suppress_exceptions = false;
-  }
-
-  /** Used for testing */
-  #[cfg(test)]
-  pub(crate) fn set_stall_on_merge_thread(&self, stall_on_merge_thread: Arc<AtomicBool>) {
-    self.inner.lock().stall_on_merge_thread = Some(stall_on_merge_thread);
   }
 }
 

@@ -21,7 +21,9 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
-use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
+};
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
@@ -41,6 +43,7 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::suppressing_concurrent_merge_scheduler::SuppressingConcurrentMergeScheduler;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -373,15 +376,16 @@ fn test_single_thread_failure<F>(mut failure: F) -> Result<()>
 where
   F: Failure<MockDirectoryDelegate> + Clone + 'static,
 {
-  // TODO SuppressingConcurrentMergeScheduler未实现
   let mut random = random();
   let dir = Arc::new(new_mock_directory(&mut random)?);
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_max_buffered_docs(2);
-  let merge_scheduler = ConcurrentMergeScheduler::new();
-  merge_scheduler.set_suppress_exceptions();
+  let merge_scheduler =
+    ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::Suppressing(
+      SuppressingConcurrentMergeScheduler::writer_closed_or_tragic(),
+    ));
   config.set_merge_scheduler(merge_scheduler);
   config.set_commit_on_close(false);
   let writer = IndexWriter::new(dir.clone(), config)?;

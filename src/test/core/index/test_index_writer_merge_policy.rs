@@ -20,7 +20,9 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
+};
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -71,8 +73,10 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use crate::test_framework::core::index::test_index_writer_merge_policy::{
-  LatchedSerialMergeScheduler, SetDiagnosticsMergePolicy, TestLatch,
+  LatchedSerialMergeScheduler, MergeDvUpdateFileOnCommitConcurrentMergeScheduler,
+  MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler, SetDiagnosticsMergePolicy, TestLatch,
 };
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
@@ -918,13 +922,191 @@ fn test_force_merge_dv_update_file_with_concurrent_flush() -> Result<()> {
 
 #[test]
 fn test_merge_dv_update_file_on_get_reader_with_concurrent_flush() -> Result<()> {
-  // TODO ConcurrentMergeScheduler不能覆写
+  let mut random = random();
+  let wait_for_init_merge_reader = CountDownLatch::new(1);
+  let wait_for_dv_update = CountDownLatch::new(1);
+
+  let temp_dir =
+    create_temp_dir_with_prefix("testMergeDVUpdateFileOnGetReaderWithConcurrentFlush")?;
+  let path = temp_dir.path().to_path_buf();
+  let fs_directory = new_fs_directory(&mut random, temp_dir)?;
+  let mock_directory = Arc::new(MockAssertFileExistDirectory::new(fs_directory, path));
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut first_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  first_config.set_merge_policy(NoMergePolicy::default());
+  let first_writer = IndexWriter::new(mock_directory.clone(), first_config)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  first_writer.add_document(doc)?;
+  first_writer.flush()?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  first_writer.add_document(doc)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "2", Store::Yes)?);
+  let field = NumericDocValuesField::new("soft_delete", 1);
+  first_writer.soft_update_document(Term::from_text("id", "2"), doc, vec![field.into()])?;
+  first_writer.flush()?;
+  let first_reader = directory_reader::open_from_writer(&first_writer)?;
+  let first_context = first_reader.get_context()?;
+  assert_eq!(2, first_context.leaves()?.len());
+  first_context.reader().close()?;
+  first_writer.close()?;
+
+  let mock_concurrent_merge_scheduler = ConcurrentMergeScheduler::with_hook(
+    ConcurrentMergeSchedulerHook::MergeDvUpdateFileOnGetReader(
+      MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler::new(
+        wait_for_init_merge_reader.clone(),
+        wait_for_dv_update.clone(),
+      ),
+    ),
+  );
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      new_merge_policy(&mut random)?,
+      MergeTrigger::GetReader,
+    ))
+    .set_max_full_flush_merge_wait_millis(i64::MAX)
+    .set_merge_scheduler(mock_concurrent_merge_scheduler);
+  let writer_with_merge_policy = IndexWriter::new(mock_directory.clone(), iwc)?;
+
+  let thread_writer = writer_with_merge_policy.clone();
+  let update_thread = thread::spawn(move || -> Result<()> {
+    wait_for_init_merge_reader.wait();
+
+    let mut update_doc = Document::new();
+    update_doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    update_doc.add(StringField::from_string("version", "3", Store::Yes)?);
+    let soft_delete_field = NumericDocValuesField::new("soft_delete", 1);
+    thread_writer.soft_update_document(
+      Term::from_text("id", "2"),
+      update_doc,
+      vec![soft_delete_field.into()],
+    )?;
+    let reader = directory_reader::open_with_writer_deletes(&thread_writer, true, false)?;
+    reader.close()?;
+
+    wait_for_dv_update.count_down();
+    Ok(())
+  });
+
+  let merged_reader = directory_reader::open_from_writer(&writer_with_merge_policy)?;
+  let merged_context = merged_reader.get_context()?;
+  assert_eq!(1, merged_context.leaves()?.len());
+  merged_context.reader().close()?;
+  match update_thread.join() {
+    Ok(result) => result?,
+    Err(payload) => {
+      return Err(LuceneError::tragedy_from_panic(
+        "panic while updating doc values",
+        payload.as_ref(),
+      ));
+    },
+  }
+
+  writer_with_merge_policy.close()?;
+  mock_directory.as_ref().close()?;
   Ok(())
 }
 
 #[test]
 fn test_merge_dv_update_file_on_commit_with_concurrent_flush() -> Result<()> {
-  // TODO ConcurrentMergeScheduler不能覆写
+  let mut random = random();
+  let wait_for_init_merge_reader = CountDownLatch::new(1);
+  let wait_for_dv_update = CountDownLatch::new(1);
+
+  let temp_dir = create_temp_dir_with_prefix("testMergeDVUpdateFileOnCommitWithConcurrentFlush")?;
+  let path = temp_dir.path().to_path_buf();
+  let fs_directory = new_fs_directory(&mut random, temp_dir)?;
+  let mock_directory = Arc::new(MockAssertFileExistDirectory::new(fs_directory, path));
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut first_config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  first_config.set_merge_policy(NoMergePolicy::default());
+  let first_writer = IndexWriter::new(mock_directory.clone(), first_config)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  first_writer.add_document(doc)?;
+  first_writer.flush()?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  first_writer.add_document(doc)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "2", Store::Yes)?);
+  let field = NumericDocValuesField::new("soft_delete", 1);
+  first_writer.soft_update_document(Term::from_text("id", "2"), doc, vec![field.into()])?;
+  first_writer.flush()?;
+  let first_reader = directory_reader::open_from_writer(&first_writer)?;
+  let first_context = first_reader.get_context()?;
+  assert_eq!(2, first_context.leaves()?.len());
+  first_context.reader().close()?;
+  first_writer.close()?;
+
+  let mock_concurrent_merge_scheduler =
+    ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::MergeDvUpdateFileOnCommit(
+      MergeDvUpdateFileOnCommitConcurrentMergeScheduler::new(
+        wait_for_init_merge_reader.clone(),
+        wait_for_dv_update.clone(),
+      ),
+    ));
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      new_merge_policy(&mut random)?,
+      MergeTrigger::Commit,
+    ))
+    .set_max_full_flush_merge_wait_millis(i64::MAX)
+    .set_merge_scheduler(mock_concurrent_merge_scheduler);
+  let writer_with_merge_policy = IndexWriter::new(mock_directory.clone(), iwc)?;
+
+  let thread_writer = writer_with_merge_policy.clone();
+  let update_thread = thread::spawn(move || -> Result<()> {
+    wait_for_init_merge_reader.wait();
+
+    let mut update_doc = Document::new();
+    update_doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    update_doc.add(StringField::from_string("version", "3", Store::Yes)?);
+    let soft_delete_field = NumericDocValuesField::new("soft_delete", 1);
+    thread_writer.soft_update_document(
+      Term::from_text("id", "2"),
+      update_doc,
+      vec![soft_delete_field.into()],
+    )?;
+    let reader = directory_reader::open_with_writer_deletes(&thread_writer, true, false)?;
+    reader.close()?;
+
+    wait_for_dv_update.count_down();
+    Ok(())
+  });
+
+  writer_with_merge_policy.commit()?;
+  assert_eq!(2, writer_with_merge_policy.get_segment_count());
+  match update_thread.join() {
+    Ok(result) => result?,
+    Err(payload) => {
+      return Err(LuceneError::tragedy_from_panic(
+        "panic while updating doc values",
+        payload.as_ref(),
+      ));
+    },
+  }
+
+  writer_with_merge_policy.close()?;
+  mock_directory.as_ref().close()?;
   Ok(())
 }
 

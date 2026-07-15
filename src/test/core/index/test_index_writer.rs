@@ -30,6 +30,9 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
+};
 use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -101,9 +104,11 @@ use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITE
 use crate::test_framework::core::analysis::token;
 pub use crate::test_framework::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
 use crate::test_framework::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch as ConcurrentMergeSchedulerCountDownLatch;
 use crate::test_framework::core::index::test_index_writer::{
-  AbortOnMergeCompleteOneMergeUnaryOperator, MergeFinishedOnceOneMergeUnaryOperator,
-  STORED_TEXT_TYPE, add_doc, add_doc_with_index, assert_no_unreferenced_files,
+  AbortOnMergeCompleteOneMergeUnaryOperator, CloseWhileMergeIsRunningConcurrentMergeScheduler,
+  MergeFinishedOnceOneMergeUnaryOperator, STORED_TEXT_TYPE, add_doc, add_doc_with_index,
+  assert_no_unreferenced_files,
 };
 use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
@@ -2913,7 +2918,62 @@ fn test_close_then_rollback() -> Result<()> {
 
 #[test]
 fn test_close_while_merge_is_running() -> Result<()> {
-  // TODO ConcurrentMergeScheduler doMerge不能覆写
+  struct CloseWhileMergeIsRunningInfoStream {
+    close_started: ConcurrentMergeSchedulerCountDownLatch,
+  }
+
+  impl CloseableRef for CloseWhileMergeIsRunningInfoStream {
+    fn close(&self) -> Result<()> {
+      Ok(())
+    }
+  }
+
+  impl InfoStream for CloseWhileMergeIsRunningInfoStream {
+    fn message(&self, _component: &str, message: &str) -> Result<()> {
+      if message == "rollback" {
+        self.close_started.count_down();
+      }
+      Ok(())
+    }
+
+    fn is_enabled(&self, _component: &str) -> bool {
+      true
+    }
+  }
+
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let merge_started = ConcurrentMergeSchedulerCountDownLatch::new(1);
+  let close_started = ConcurrentMergeSchedulerCountDownLatch::new(1);
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_commit_on_close(false);
+  let mut mp = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  mp.set_merge_factor(2)?;
+  iwc.set_merge_policy(mp);
+  iwc.set_info_stream(InfoStreamEnum::Custom(Box::new(
+    CloseWhileMergeIsRunningInfoStream {
+      close_started: close_started.clone(),
+    },
+  )));
+  iwc.set_merge_scheduler(ConcurrentMergeScheduler::with_hook(
+    ConcurrentMergeSchedulerHook::CloseWhileMergeIsRunning(
+      CloseWhileMergeIsRunningConcurrentMergeScheduler::new(merge_started, close_started),
+    ),
+  ));
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut doc = Document::new();
+  doc.add(SortedDocValuesField::new(
+    "dv",
+    BytesRef::from_string("foo!"),
+  ));
+  writer.add_document(doc.clone())?;
+  writer.commit()?;
+  writer.add_document(doc)?;
+  writer.commit()?;
+  writer.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 

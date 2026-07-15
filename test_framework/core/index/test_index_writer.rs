@@ -19,16 +19,21 @@ use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerBase, ConcurrentMergeSchedulerDefaults,
+};
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::merge_policy::{
   MergeReader, MergeStat, OneMerge, OneMergeBase, OneMergeDefaults, OneMergeHook, OneMergeSR,
 };
+use crate::core::index::merge_scheduler::MergeSource;
 use crate::core::index::one_merge_wrapping_merge_policy::OneMergeUnaryOperatorBase;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use crate::test_framework::core::util::lucene_test_case::{
   new_field, new_index_writer_config_with_analyzer, new_text_field, random,
 };
@@ -43,6 +48,42 @@ pub static STORED_TEXT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 });
 #[allow(dead_code)]
 struct TestIndexWriter;
+
+#[derive(Clone)]
+pub struct CloseWhileMergeIsRunningConcurrentMergeScheduler {
+  merge_started: CountDownLatch,
+  close_started: CountDownLatch,
+}
+
+impl CloseWhileMergeIsRunningConcurrentMergeScheduler {
+  pub fn new(merge_started: CountDownLatch, close_started: CountDownLatch) -> Self {
+    Self {
+      merge_started,
+      close_started,
+    }
+  }
+}
+
+impl ConcurrentMergeSchedulerBase for CloseWhileMergeIsRunningConcurrentMergeScheduler {
+  fn close(&self, _scheduler: &ConcurrentMergeScheduler) -> Result<()> {
+    Ok(())
+  }
+
+  fn do_merge<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: &MS,
+    merge: OneMerge<D, MS::Reader>,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D>,
+    D: Directory + 'static,
+  {
+    self.merge_started.count_down();
+    self.close_started.wait();
+    ConcurrentMergeSchedulerDefaults::do_merge(scheduler, merge_source, merge)
+  }
+}
 
 pub(crate) fn add_doc<D, R>(
   random: &mut R,

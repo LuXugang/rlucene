@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerBase, ConcurrentMergeSchedulerDefaults,
+};
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
@@ -31,6 +34,7 @@ use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
@@ -39,6 +43,78 @@ use std::time::Duration;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterMergePolicy;
+
+#[derive(Clone)]
+pub struct MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler {
+  wait_for_init_merge_reader: CountDownLatch,
+  wait_for_dv_update: CountDownLatch,
+}
+
+impl MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler {
+  pub fn new(
+    wait_for_init_merge_reader: CountDownLatch,
+    wait_for_dv_update: CountDownLatch,
+  ) -> Self {
+    Self {
+      wait_for_init_merge_reader,
+      wait_for_dv_update,
+    }
+  }
+}
+
+impl ConcurrentMergeSchedulerBase for MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler {
+  fn merge<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: MS,
+    trigger: MergeTrigger,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    self.wait_for_init_merge_reader.count_down();
+    self.wait_for_dv_update.wait();
+    ConcurrentMergeSchedulerDefaults::merge(scheduler, merge_source, trigger)
+  }
+}
+
+#[derive(Clone)]
+pub struct MergeDvUpdateFileOnCommitConcurrentMergeScheduler {
+  wait_for_init_merge_reader: CountDownLatch,
+  wait_for_dv_update: CountDownLatch,
+}
+
+impl MergeDvUpdateFileOnCommitConcurrentMergeScheduler {
+  pub fn new(
+    wait_for_init_merge_reader: CountDownLatch,
+    wait_for_dv_update: CountDownLatch,
+  ) -> Self {
+    Self {
+      wait_for_init_merge_reader,
+      wait_for_dv_update,
+    }
+  }
+}
+
+impl ConcurrentMergeSchedulerBase for MergeDvUpdateFileOnCommitConcurrentMergeScheduler {
+  fn merge<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: MS,
+    trigger: MergeTrigger,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    self.wait_for_init_merge_reader.count_down();
+    self.wait_for_dv_update.wait();
+    ConcurrentMergeSchedulerDefaults::merge(scheduler, merge_source, trigger)
+  }
+}
 
 #[derive(Clone)]
 pub struct TestLatch {
@@ -128,11 +204,15 @@ impl MergeScheduler for LatchedSerialMergeScheduler {
     self.base.wrap_for_merge(in_)
   }
 
-  fn initialize<D>(&mut self, directory: &D) -> Result<()>
+  fn initialize<D>(
+    &mut self,
+    info_stream: crate::core::util::info_stream::InfoStreamMT,
+    directory: &D,
+  ) -> Result<()>
   where
     D: Directory,
   {
-    self.base.initialize(directory)
+    self.base.initialize(info_stream, directory)
   }
 }
 

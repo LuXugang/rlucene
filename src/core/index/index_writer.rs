@@ -600,7 +600,7 @@ where
       iw.config
         .base
         .merge_scheduler
-        .initialize(iw.directory.as_ref())?;
+        .initialize(info_stream.clone(), iw.directory.as_ref())?;
       Ok(iw)
     })();
     if result.is_err() && info_stream.is_enabled("IW") {
@@ -3566,7 +3566,6 @@ where
         break;
       }
     }
-    // TODO IMPORTANT多线程未支持
     let new_merge_readers;
     if !has_index_sort && !has_blocks_but_no_parent_field && !readers.is_empty() {
       let merged_reader = wrap(readers.clone())?;
