@@ -49,8 +49,6 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-#[cfg(debug_assertions)]
-use std::sync::atomic::{AtomicBool, Ordering};
 
 struct OffHeapByteVectorValues<I, F>
 where
@@ -190,8 +188,6 @@ where
   F: FlatVectorsScorer,
 {
   base: OffHeapByteVectorValues<I, F>,
-  #[cfg(debug_assertions)]
-  iter_called: AtomicBool,
 }
 
 impl<I, F> DenseOffHeapVectorValues<I, F>
@@ -216,8 +212,6 @@ where
         flat_vectors_scorer,
         similarity_function,
       ),
-      #[cfg(debug_assertions)]
-      iter_called: AtomicBool::new(false),
     }
   }
 }
@@ -292,13 +286,6 @@ where
   type DocIndexIterator = DenseDocIndexIterator;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    #[cfg(debug_assertions)]
-    {
-      if self.iter_called.swap(true, Ordering::Relaxed) {
-        unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      }
-    }
-
     Ok(create_dense_iterator(self.size() as i32))
   }
 }
@@ -666,8 +653,6 @@ where
 pub struct EmptyOffHeapVectorValues {
   dimension: usize,
   binary_value: Vec<u8>,
-  #[cfg(debug_assertions)]
-  iter_called: AtomicBool,
 }
 
 impl EmptyOffHeapVectorValues {
@@ -675,8 +660,6 @@ impl EmptyOffHeapVectorValues {
     Self {
       dimension,
       binary_value: Vec::new(),
-      #[cfg(debug_assertions)]
-      iter_called: AtomicBool::new(false),
     }
   }
 }
@@ -714,13 +697,6 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
   type DocIndexIterator = DenseDocIndexIterator;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    #[cfg(debug_assertions)]
-    {
-      if self.iter_called.swap(true, Ordering::Relaxed) {
-        unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      }
-    }
-
     Ok(create_dense_iterator(0))
   }
 }
@@ -1032,11 +1008,11 @@ where
   R2: RandomVectorScorer,
 {
   Dense {
-    iterator: DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>,
+    iterator: DenseDocIndexIterator,
     random_vector_scorer: R1,
   },
   Sparse {
-    iterator: DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>,
+    iterator: DocIndexIteratorImpl<I>,
     random_vector_scorer: R2,
   },
 }
@@ -1049,14 +1025,14 @@ where
 {
   fn new_dense(iterator: DenseDocIndexIterator, random_vector_scorer: R1) -> Self {
     Self::Dense {
-      iterator: DocIdSetIteratorEnum2::A(iterator),
+      iterator,
       random_vector_scorer,
     }
   }
 
   fn new_sparse(iterator: DocIndexIteratorImpl<I>, random_vector_scorer: R2) -> Self {
     Self::Sparse {
-      iterator: DocIdSetIteratorEnum2::B(iterator),
+      iterator,
       random_vector_scorer,
     }
   }
@@ -1081,12 +1057,7 @@ where
         iterator,
         random_vector_scorer,
       } => {
-        let index = match iterator {
-          DocIdSetIteratorEnum2::B(iterator) => iterator.index()?,
-          DocIdSetIteratorEnum2::A(_) => {
-            unreachable!("sparse vector scorer must use sparse iterator")
-          },
-        };
+        let index = iterator.index()?;
         random_vector_scorer.score(index as usize)
       },
     }
@@ -1099,14 +1070,8 @@ where
 
   fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
     match self {
-      Self::Dense { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
-      Self::Sparse { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
+      Self::Dense { iterator, .. } => DocIdSetIteratorEnum2::A(iterator),
+      Self::Sparse { iterator, .. } => DocIdSetIteratorEnum2::B(iterator),
     }
   }
 
@@ -1117,14 +1082,8 @@ where
 
   fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     match self {
-      Self::Dense { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
-      Self::Sparse { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
+      Self::Dense { iterator, .. } => DocIdSetIteratorEnum2::A(iterator),
+      Self::Sparse { iterator, .. } => DocIdSetIteratorEnum2::B(iterator),
     }
   }
 }

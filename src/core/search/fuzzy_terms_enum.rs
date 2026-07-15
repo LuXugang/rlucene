@@ -416,7 +416,9 @@ impl AttributeSource for FuzzyTermsEnumAttributeSource {
     Ok(self.max_boost_att.get_competitive_term())
   }
 
-  fn clear_attributes(&mut self) {}
+  fn clear_attributes(&mut self) -> Result<()> {
+    Ok(())
+  }
 }
 /// Used for sharing automata between segments
 ///

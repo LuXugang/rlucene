@@ -244,9 +244,10 @@ impl AttributeSource for RandomTokenStreamAttr {
     self.p_att.end();
   }
 
-  fn clear_attributes(&mut self) {
-    self.packed.clear_attributes();
+  fn clear_attributes(&mut self) -> Result<()> {
+    self.packed.clear_attributes()?;
     self.o_att.clear();
     self.p_att.clear();
+    Ok(())
   }
 }

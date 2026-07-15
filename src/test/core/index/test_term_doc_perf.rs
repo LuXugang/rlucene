@@ -81,7 +81,11 @@ impl TokenStream for RepeatingTokenizer {
   fn increment_token(&mut self) -> Result<bool> {
     self.num -= 1;
     if self.num >= 0 {
-      self.tokenizer_base.token_stream_base.att.clear_attributes();
+      self
+        .tokenizer_base
+        .token_stream_base
+        .att
+        .clear_attributes()?;
       self
         .tokenizer_base
         .token_stream_base

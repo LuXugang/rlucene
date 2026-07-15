@@ -115,8 +115,14 @@ impl PagedBytes {
   ///
   /// This only supports `bytes.len() <= block_size`.
   #[allow(dead_code)]
-  pub fn copy_with_bytes_ref(&mut self, _bytes: &BytesRef<Vec<u8>>, _out: &mut BytesRef<Vec<u8>>) {
-    unreachable!("not used in Java Lucene")
+  pub fn copy_with_bytes_ref(
+    &mut self,
+    _bytes: &BytesRef<Vec<u8>>,
+    _out: &mut BytesRef<Vec<u8>>,
+  ) -> Result<()> {
+    Err(LuceneError::not_implemented(
+      "PagedBytes::copy_with_bytes_ref is not implemented",
+    ))
   }
   /// Commits final byte[], trimming it if necessary and if trim=true
   pub fn freeze(&mut self, trim: bool) -> Result<Reader> {

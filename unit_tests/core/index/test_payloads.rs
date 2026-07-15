@@ -735,7 +735,7 @@ impl TokenStream for PoolingPayloadTokenStream {
       return Ok(false);
     }
     self.first = false;
-    self.att.clear_attributes();
+    self.att.clear_attributes()?;
     self.att.append_str(Some(&self.term))?;
     self.att.set_payload(Some(BytesRef::from_bytes(
       self.payload.clone().unwrap_or_default(),

@@ -141,7 +141,8 @@ impl AttributeSource for BytesTermAttributeImpl {
     Ok(TermToBytesRefAttribute::get_bytes_ref(self))
   }
 
-  fn clear_attributes(&mut self) {
-    self.clear()
+  fn clear_attributes(&mut self) -> Result<()> {
+    self.clear();
+    Ok(())
   }
 }

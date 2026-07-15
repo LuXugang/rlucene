@@ -240,7 +240,7 @@ fn test_shared_value_updates() -> Result<()> {
   update.finish()?;
   assert_eq!(any, update.any());
   let mut iterator = update.iterator()?;
-  assert_eq!(del_gen, iterator.del_gen());
+  assert_eq!(del_gen, iterator.del_gen()?);
 
   let mut index = 0;
 

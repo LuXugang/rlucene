@@ -693,7 +693,7 @@ where
   fn match_(&mut self, doc: i32) -> Result<bool> {
     let score = match &self.base.inner_iter.all_disi[0] {
       ConjunctionDISIEnum::VectorScorer(vector_scorer) => {
-        assert_eq!(vector_scorer.doc_id(), doc);
+        debug_assert_eq!(vector_scorer.doc_id(), doc);
         vector_scorer.score()?
       },
       _ => {

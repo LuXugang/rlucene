@@ -197,7 +197,7 @@ where
   let mut last_start_offset = 0;
 
   for i in 0..output.len() {
-    ts.get_attribute_source_mut().clear_attributes();
+    ts.get_attribute_source_mut().clear_attributes()?;
     {
       let attr = ts.get_attribute_source_mut();
       attr.set_empty()?.append_str(Some("bogusTerm"))?;
@@ -332,7 +332,7 @@ where
 
   {
     let attr = ts.get_attribute_source_mut();
-    attr.clear_attributes();
+    attr.clear_attributes()?;
     if !output.is_empty() {
       attr.set_empty()?.append_str(Some("bogusTerm"))?;
     }

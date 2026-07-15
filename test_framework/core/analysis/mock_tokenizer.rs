@@ -264,7 +264,11 @@ where
       ))?;
     }
 
-    self.tokenizer_base.token_stream_base.att.clear_attributes();
+    self
+      .tokenizer_base
+      .token_stream_base
+      .att
+      .clear_attributes()?;
     loop {
       let start_offset;
       let mut cp;

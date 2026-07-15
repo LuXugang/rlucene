@@ -85,7 +85,7 @@ impl crate::core::util::close::Closeable for BugReproTokenStream {}
 impl TokenStream for BugReproTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.next_token_index < Self::TOKEN_COUNT {
-      self.attrs.clear_attributes();
+      self.attrs.clear_attributes()?;
       self
         .attrs
         .append_str(Some(Self::TERMS[self.next_token_index]))?;

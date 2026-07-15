@@ -19,19 +19,16 @@ use crate::core::index::index_reader::Identity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use bit_set::BitSet;
-use parking_lot::{Mutex, MutexGuard};
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, Instant};
 
 pub struct CoreHelper;
 impl CoreHelper {
   pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.
 The purpose of implementing the Clone trait is to make it could be used with Cow";
   pub fn check_from_index_size(from_index: usize, size: usize, length: usize) -> Result<usize> {
-    if size > length - from_index {
+    if from_index > length || size > length - from_index {
       Err(LuceneError::array_index_out_of_bounds(format!(
         "size: {size} is too large, from_index: {from_index}, length: {length}"
       )))
@@ -86,30 +83,6 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
     let mut hasher = DefaultHasher::new();
     value.hash(&mut hasher);
     hasher.finish()
-  }
-  pub fn get_two_mut<T>(slice: &mut [T], i: usize, j: usize) -> (&mut T, &mut T) {
-    debug_assert!(i != j);
-    if i < j {
-      let (a, b) = slice.split_at_mut(j);
-      (&mut a[i], &mut b[0])
-    } else {
-      let (a, b) = slice.split_at_mut(i);
-      (&mut b[0], &mut a[j])
-    }
-  }
-  pub fn debug_lock<'a, T>(name: &str, mutex: &'a Mutex<T>) -> MutexGuard<'a, T> {
-    let tid = thread::current().id();
-    let start = Instant::now();
-    let timeout = Duration::from_secs(5);
-
-    mutex.try_lock_for(timeout).unwrap_or_else(|| {
-      panic!(
-        "[{:?}] lock {} timeout after {:?}",
-        tid,
-        name,
-        start.elapsed()
-      )
-    })
   }
 }
 

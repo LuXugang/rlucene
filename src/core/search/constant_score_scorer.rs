@@ -284,7 +284,9 @@ where
     match self.approximation.delegate {
       DelegateEnum::TPI(ref mut t) => t.matches(),
       DelegateEnum::EmptyTPI(ref mut t) => t.matches(),
-      _ => unreachable!("should not be here"),
+      _ => Err(LuceneError::illegal_state(
+        "two-phase iterator has a doc-id iterator delegate",
+      )),
     }
   }
 

@@ -93,7 +93,7 @@ where
 {
   #[inline]
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    unreachable!("need mutable reference to call approximation_mut")
+    (**self).approximation()
   }
 
   #[inline]
@@ -103,7 +103,9 @@ where
 
   #[inline]
   fn matches(&mut self) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(""))
+    Err(LuceneError::unsupported_operation(
+      "matches requires a mutable TwoPhaseIterator",
+    ))
   }
 
   #[inline]

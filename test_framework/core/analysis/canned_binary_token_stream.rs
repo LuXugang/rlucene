@@ -42,7 +42,7 @@ impl crate::core::util::close::Closeable for CannedBinaryTokenStream {}
 impl TokenStream for CannedBinaryTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.upto < self.tokens.len() {
-      self.clear_attributes();
+      self.clear_attributes()?;
 
       let token = &self.tokens[self.upto];
       self
@@ -78,7 +78,7 @@ impl TokenStream for CannedBinaryTokenStream {
 }
 
 impl AttributeSource for CannedBinaryTokenStream {
-  fn clear_attributes(&mut self) {
+  fn clear_attributes(&mut self) -> Result<()> {
     self.attr.clear_attributes()
   }
 }

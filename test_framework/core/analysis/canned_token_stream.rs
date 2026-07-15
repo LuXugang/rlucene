@@ -51,7 +51,7 @@ impl crate::core::util::close::Closeable for CannedTokenStream {}
 impl TokenStream for CannedTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.upto < self.tokens.len() {
-      self.clear_attributes();
+      self.clear_attributes()?;
 
       match self.attr {
         Attributes::PackedToken(ref mut token_attr) => {
@@ -88,7 +88,7 @@ impl TokenStream for CannedTokenStream {
   }
 }
 impl AttributeSource for CannedTokenStream {
-  fn clear_attributes(&mut self) {
+  fn clear_attributes(&mut self) -> Result<()> {
     self.attr.clear_attributes()
   }
 }

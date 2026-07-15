@@ -671,7 +671,7 @@ impl TokenStream for TermFreqTokenStream {
       return Ok(false);
     }
 
-    self.clear_attributes();
+    self.clear_attributes()?;
 
     match self.attr {
       Attributes::PackedToken(ref mut token_attr) => {
@@ -704,7 +704,7 @@ impl TokenStream for TermFreqTokenStream {
 }
 
 impl AttributeSource for TermFreqTokenStream {
-  fn clear_attributes(&mut self) {
+  fn clear_attributes(&mut self) -> Result<()> {
     self.attr.clear_attributes()
   }
 }

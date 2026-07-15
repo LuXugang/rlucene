@@ -1839,7 +1839,7 @@ impl crate::core::util::close::Closeable for RandomTokenStream {}
 impl TokenStream for RandomTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.i < self.terms.len() {
-      self.attr.clear_attributes();
+      self.attr.clear_attributes()?;
 
       self
         .attr

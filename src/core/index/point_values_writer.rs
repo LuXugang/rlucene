@@ -207,15 +207,6 @@ where
   >,
   taken: AtomicBool,
 }
-impl<DM> Clone for PointValuesImpl<DM>
-where
-  DM: DocMap + Clone,
-{
-  fn clone(&self) -> Self {
-    unreachable!("PointValuesImpl does not support clone");
-  }
-}
-
 // for padding
 impl<DM> Default
   for MutablePointTreeEnum2<

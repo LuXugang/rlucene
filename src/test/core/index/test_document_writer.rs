@@ -742,7 +742,7 @@ impl TokenStream for PreAnalyzedTokenStream {
       return Ok(false);
     }
 
-    self.attrs.clear_attributes();
+    self.attrs.clear_attributes()?;
     self.attrs.append_str(Some(self.tokens[self.index]))?;
     self.index += 1;
     Ok(true)

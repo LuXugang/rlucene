@@ -125,10 +125,9 @@ where
           Ok(TSPostings::Posting(&mut slow_impacts.delegate))
         },
       },
-      _ => {
-        debug_assert!(false);
-        unreachable!("")
-      },
+      _ => Err(LuceneError::illegal_state(
+        "exactly one of impacts_disi and max_score_cache must be set",
+      )),
     }
   }
 

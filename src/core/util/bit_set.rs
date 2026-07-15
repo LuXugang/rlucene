@@ -302,18 +302,24 @@ where
   where
     T1: DocIdSetIterator,
   {
-    unreachable!()
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 
   fn default_or<T1>(&mut self, _iter: &mut T1) -> Result<()>
   where
     T1: DocIdSetIterator,
   {
-    unreachable!()
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 
   fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
-    unreachable!()
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 }
 
@@ -387,18 +393,24 @@ where
   where
     T1: DocIdSetIterator,
   {
-    unreachable!()
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 
   fn default_or<T1>(&mut self, _iter: &mut T1) -> Result<()>
   where
     T1: DocIdSetIterator,
   {
-    unreachable!()
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 
   fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
-    unreachable!()
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 }
 use crate::core::util::error::lucene_error::LuceneError;

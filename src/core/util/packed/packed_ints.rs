@@ -1001,12 +1001,14 @@ pub struct DummyMutable;
 impl Reader for DummyMutable {}
 impl Accountable for DummyMutable {
   fn ram_bytes_used(&self) -> Result<i64> {
-    unreachable!("DummyMutable should not be used")
+    Err(LuceneError::unsupported_operation(
+      "DummyMutable should not be used",
+    ))
   }
 }
 impl Display for DummyMutable {
-  fn fmt(&self, _f: &mut Formatter<'_>) -> fmt::Result {
-    unreachable!("{} should not be displayed", std::any::type_name::<Self>())
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 impl Mutable for DummyMutable {}

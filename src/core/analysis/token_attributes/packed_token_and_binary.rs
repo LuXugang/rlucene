@@ -214,8 +214,9 @@ impl AttributeSource for BinaryTokenStreamAttributeImpl {
     self.packed_token.end_attributes()
   }
 
-  fn clear_attributes(&mut self) {
-    self.clear()
+  fn clear_attributes(&mut self) -> Result<()> {
+    self.clear();
+    Ok(())
   }
 }
 

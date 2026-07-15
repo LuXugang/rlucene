@@ -205,7 +205,11 @@ impl FreqProxTermsWriterPerField {
 
         (v1, v2)
       },
-      _ => unreachable!("expected FreqProx posting array"),
+      _ => {
+        return Err(LuceneError::illegal_state(
+          "expected FreqProx posting array",
+        ));
+      },
     };
     self.base.write_vint(1, v1, int_pool, byte_pool)?;
     self.base.write_vint(1, v2, int_pool, byte_pool)?;

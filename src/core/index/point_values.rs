@@ -29,7 +29,7 @@ use crate::core::util::{SliceCopyOps, TryIntoInt};
 use std::borrow::Cow;
 use std::sync::Arc;
 
-pub trait PointValues: Clone {
+pub trait PointValues {
   /// Returns minimum value for each dimension, packed, or None if `size()` is
   /// `0`
   fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>>;

@@ -216,7 +216,7 @@ impl TokenStream for PositionIncrementTokenizer {
     }
 
     let att = &mut self.tokenizer_base.token_stream_base.att;
-    att.clear_attributes();
+    att.clear_attributes()?;
     att.append_str(Some(Self::TOKENS[self.i]))?;
     att.set_offset(self.i as i32, self.i as i32)?;
     att.set_position_increment(Self::INCREMENTS[self.i])?;

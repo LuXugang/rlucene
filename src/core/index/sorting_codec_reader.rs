@@ -1256,16 +1256,6 @@ where
   }
 }
 
-impl<PV, DM> Clone for SortingPointValues<PV, DM>
-where
-  DM: Clone + DocMap,
-  PV: PointValues,
-{
-  fn clone(&self) -> Self {
-    Self::new(self.in_.clone(), self.doc_map.clone())
-  }
-}
-
 impl<PV, DM> PointValues for SortingPointValues<PV, DM>
 where
   PV: PointValues,

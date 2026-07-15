@@ -89,7 +89,11 @@ where
   S: CharTokenizerBase,
 {
   fn increment_token(&mut self) -> Result<bool> {
-    self.tokenizer_base.token_stream_base.att.clear_attributes();
+    self
+      .tokenizer_base
+      .token_stream_base
+      .att
+      .clear_attributes()?;
     let mut length: usize = 0;
     let mut start: i32 = -1;
     let mut end: i32 = -1;

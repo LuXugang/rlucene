@@ -175,16 +175,21 @@ impl Builder {
   }
 
   pub fn add_terms_with_position(&mut self, terms: &[Term], position: i32) -> Result<&mut Self> {
-    assert!(!terms.is_empty(), "Term array must not be null");
     if self.term_arrays.is_empty() {
-      self.field = Some(terms[0].field().to_string());
+      let first_term = terms
+        .first()
+        .ok_or_else(|| LuceneError::array_index_out_of_bounds("Term array must not be empty"))?;
+      self.field = Some(first_term.field().to_string());
     }
+    let field = self
+      .field
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field is not set"))?;
     for term in terms {
-      if term.field() != self.field.as_ref().unwrap() {
+      if term.field() != field {
         return Err(LuceneError::illegal_argument(format!(
           "All phrase terms must be in the same field ({}): {}",
-          self.field.as_ref().unwrap(),
-          term
+          field, term
         )));
       }
     }

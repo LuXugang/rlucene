@@ -490,7 +490,10 @@ impl SortFiledBase for SortField {
       SortFieldType::Doc => DocComparator::new(num_hits, self.reverse, pruning).into(),
 
       SortFieldType::Int => {
-        let missing = self.missing_value.as_ref().map(|v| v.as_i32());
+        let missing = match self.missing_value.as_ref() {
+          Some(value) => Some(value.as_i32()?),
+          None => None,
+        };
         IntComparator::new(
           self.field.as_ref().unwrap().clone(),
           num_hits,
@@ -502,7 +505,10 @@ impl SortFiledBase for SortField {
       },
 
       SortFieldType::Float => {
-        let missing = self.missing_value.as_ref().map(|v| v.as_f32());
+        let missing = match self.missing_value.as_ref() {
+          Some(value) => Some(value.as_f32()?),
+          None => None,
+        };
         FloatComparator::new(
           self.field.as_deref().unwrap().to_string(),
           num_hits,
@@ -514,7 +520,10 @@ impl SortFiledBase for SortField {
       },
 
       SortFieldType::Long => {
-        let missing = self.missing_value.as_ref().map(|v| v.as_i64());
+        let missing = match self.missing_value.as_ref() {
+          Some(value) => Some(value.as_i64()?),
+          None => None,
+        };
         LongComparator::new(
           self.field.as_deref().unwrap().to_string(),
           num_hits,
@@ -526,7 +535,10 @@ impl SortFiledBase for SortField {
       },
 
       SortFieldType::Double => {
-        let missing = self.missing_value.as_ref().map(|v| v.as_f64());
+        let missing = match self.missing_value.as_ref() {
+          Some(value) => Some(value.as_f64()?),
+          None => None,
+        };
         DoubleComparator::new(
           self.field.as_deref().unwrap().to_string(),
           num_hits,
@@ -840,31 +852,39 @@ impl_from_for_enum!(
 );
 
 impl MissingValueEnum {
-  pub fn as_i32(&self) -> i32 {
+  pub fn as_i32(&self) -> Result<i32> {
     match self {
-      MissingValueEnum::Int(v) => *v,
-      _ => unreachable!("should not be here"),
+      MissingValueEnum::Int(v) => Ok(*v),
+      _ => Err(LuceneError::illegal_state(format!(
+        "missing value {self} is not an i32"
+      ))),
     }
   }
 
-  pub fn as_i64(&self) -> i64 {
+  pub fn as_i64(&self) -> Result<i64> {
     match self {
-      MissingValueEnum::Long(v) => *v,
-      _ => unreachable!("should not be here"),
+      MissingValueEnum::Long(v) => Ok(*v),
+      _ => Err(LuceneError::illegal_state(format!(
+        "missing value {self} is not an i64"
+      ))),
     }
   }
 
-  pub fn as_f32(&self) -> f32 {
+  pub fn as_f32(&self) -> Result<f32> {
     match self {
-      MissingValueEnum::Float(v) => *v,
-      _ => unreachable!("should not be here"),
+      MissingValueEnum::Float(v) => Ok(*v),
+      _ => Err(LuceneError::illegal_state(format!(
+        "missing value {self} is not an f32"
+      ))),
     }
   }
 
-  pub fn as_f64(&self) -> f64 {
+  pub fn as_f64(&self) -> Result<f64> {
     match self {
-      MissingValueEnum::Double(v) => *v,
-      _ => unreachable!("should not be here"),
+      MissingValueEnum::Double(v) => Ok(*v),
+      _ => Err(LuceneError::illegal_state(format!(
+        "missing value {self} is not an f64"
+      ))),
     }
   }
 }

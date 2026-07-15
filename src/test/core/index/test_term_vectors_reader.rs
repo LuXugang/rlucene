@@ -644,7 +644,11 @@ impl TokenStream for MyTokenizer {
     }
 
     let test_token = &self.tokens[self.token_upto];
-    self.tokenizer_base.token_stream_base.att.clear_attributes();
+    self
+      .tokenizer_base
+      .token_stream_base
+      .att
+      .clear_attributes()?;
     self
       .tokenizer_base
       .token_stream_base

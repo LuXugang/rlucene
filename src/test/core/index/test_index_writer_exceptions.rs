@@ -668,7 +668,7 @@ impl TokenStream for TooManyTokensStream {
     if self.num == i32::MAX as i64 + 1 {
       return Ok(false);
     }
-    self.attrs.clear_attributes();
+    self.attrs.clear_attributes()?;
     self
       .attrs
       .set_position_increment(if self.num == 0 { 1 } else { 0 })?;

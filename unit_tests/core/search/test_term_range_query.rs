@@ -605,7 +605,11 @@ impl TokenStream for SingleCharTokenizer {
     }
 
     let count = self.tokenizer_base.input.read_buf(&mut self.buffer)?;
-    self.tokenizer_base.token_stream_base.att.clear_attributes();
+    self
+      .tokenizer_base
+      .token_stream_base
+      .att
+      .clear_attributes()?;
     self.done = true;
     if count == 1 {
       self

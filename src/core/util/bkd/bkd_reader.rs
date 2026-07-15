@@ -62,15 +62,6 @@ where
   #[cfg(test)]
   pub same_in: bool,
 }
-impl<I> Clone for BKDReader<I>
-where
-  I: IndexInput,
-{
-  fn clone(&self) -> Self {
-    unreachable!("BKDReader does not support clone");
-  }
-}
-
 impl<I: IndexInput> BKDReader<I>
 where
   I: IndexInput,

@@ -1534,15 +1534,6 @@ where
   }
 }
 
-impl<PV> Clone for PointValuesImpl<PV>
-where
-  PV: PointValues,
-{
-  fn clone(&self) -> Self {
-    todo!()
-  }
-}
-
 impl<PV> PointValues for PointValuesImpl<PV>
 where
   PV: PointValues,

@@ -3732,7 +3732,12 @@ where
         self.delete_new_files(copied_files.iter(), None)?;
       }
       result?;
-      assert_eq!(copied_files, new_info_per_commit.files()?);
+      debug_assert_eq!(
+        copied_files,
+        new_info_per_commit.files()?,
+        "copiedFiles={copied_files:?} vs newInfoPerCommit.files()={:?}",
+        new_info_per_commit.files()?
+      );
     }
 
     Ok(new_info_per_commit)
@@ -7121,7 +7126,10 @@ where
   D: Directory,
 {
   fn default() -> Self {
-    Self::new(None, None).expect("")
+    Self {
+      commit: None,
+      reader: None,
+    }
   }
 }
 /// If `open(IndexWriter)` has been called (ie, this writer is in near

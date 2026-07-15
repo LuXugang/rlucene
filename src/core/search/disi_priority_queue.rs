@@ -16,7 +16,7 @@
  */
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::scorer::Scorer;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A priority queue of `DocIdSetIterator`s that orders by the current doc ID.
 #[derive(Default)] // for std::mem::take
 pub struct DisiPriorityQueue {
@@ -162,18 +162,36 @@ impl DisiPriorityQueue {
       return Ok(());
     }
     // Fail early if we're going to over-fill:
-    if self.size + len > self.heap.len() {
-      unreachable!(
+    let new_size = self.size.checked_add(len).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds(format!(
         "Cannot add {} elements to a queue with remaining capacity {}",
         len,
-        self.heap.len() - self.size
-      );
+        self.heap.len().saturating_sub(self.size)
+      ))
+    })?;
+    if new_size > self.heap.len() {
+      return Err(LuceneError::array_index_out_of_bounds(format!(
+        "Cannot add {} elements to a queue with remaining capacity {}",
+        len,
+        self.heap.len().saturating_sub(self.size)
+      )));
+    }
+    let end = offset.checked_add(len).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds(format!(
+        "offset + len overflow: offset={offset}, len={len}"
+      ))
+    })?;
+    if end > entries.len() {
+      return Err(LuceneError::array_index_out_of_bounds(format!(
+        "index out of bounds: offset={offset}, len={len}, entries.len()={}",
+        entries.len()
+      )));
     }
     // Copy the entries over to our heap array:
-    for (idx, entry) in entries[offset..offset + len].iter().enumerate() {
+    for (idx, entry) in entries[offset..end].iter().enumerate() {
       self.heap[self.size + idx] = *entry;
     }
-    self.size += len;
+    self.size = new_size;
     // Heapify in bulk:
     let first_leaf_index = self.size >> 1;
 

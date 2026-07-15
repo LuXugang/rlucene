@@ -1577,7 +1577,11 @@ impl TokenStream for StringSplitTokenizer {
       return Ok(false);
     }
     let term = &self.tokens[self.upto];
-    self.tokenizer_base.token_stream_base.att.clear_attributes();
+    self
+      .tokenizer_base
+      .token_stream_base
+      .att
+      .clear_attributes()?;
     self.tokenizer_base.token_stream_base.att.set_empty()?;
     self
       .tokenizer_base
@@ -5646,7 +5650,7 @@ impl TokenStream for NegativePositionsTokenStream {
       return Ok(false);
     }
 
-    self.attrs.clear_attributes();
+    self.attrs.clear_attributes()?;
     self.attrs.append_str(Some(self.terms[self.upto]))?;
     self
       .attrs

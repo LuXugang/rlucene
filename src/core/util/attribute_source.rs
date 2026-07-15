@@ -167,7 +167,7 @@ pub trait AttributeSource {
 
   fn end_attributes(&mut self) {}
 
-  fn clear_attributes(&mut self);
+  fn clear_attributes(&mut self) -> Result<()>;
 }
 
 impl<T> AttributeSource for &T
@@ -210,8 +210,10 @@ where
     (**self).get_boost()
   }
 
-  fn clear_attributes(&mut self) {
-    unreachable!("cannot clear attributes through an immutable reference")
+  fn clear_attributes(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot clear attributes through an immutable reference",
+    ))
   }
 }
 
@@ -376,7 +378,7 @@ where
     (**self).end_attributes()
   }
 
-  fn clear_attributes(&mut self) {
+  fn clear_attributes(&mut self) -> Result<()> {
     (**self).clear_attributes()
   }
 }
@@ -813,7 +815,7 @@ impl AttributeSource for Attributes {
     }
   }
 
-  fn clear_attributes(&mut self) {
+  fn clear_attributes(&mut self) -> Result<()> {
     match self {
       Attributes::PackedToken(attr) => attr.clear_attributes(),
       Attributes::BytesTerm(attr) => attr.clear_attributes(),
@@ -835,7 +837,9 @@ impl Default for EmptyAttributeSource {
 impl AttributeSource for EmptyAttributeSource {
   fn end_attributes(&mut self) {}
 
-  fn clear_attributes(&mut self) {}
+  fn clear_attributes(&mut self) -> Result<()> {
+    Ok(())
+  }
 }
 
 macro_rules! define_attribute_source_enum {
@@ -1078,7 +1082,7 @@ macro_rules! define_attribute_source_enum {
                 }
             }
 
-            fn clear_attributes(&mut self) {
+            fn clear_attributes(&mut self) -> Result<()> {
                 match self {
                     $(Self::$V(t) => t.clear_attributes(),)+
                 }

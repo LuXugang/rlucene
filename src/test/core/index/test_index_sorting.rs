@@ -2733,7 +2733,7 @@ impl TokenStream for PositionsTokenStream {
       return Ok(false);
     }
 
-    self.attrs.clear_attributes();
+    self.attrs.clear_attributes()?;
     self.attrs.append_str(Some("#all#"))?;
     self
       .attrs

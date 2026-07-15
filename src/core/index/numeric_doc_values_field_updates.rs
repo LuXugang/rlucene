@@ -178,7 +178,9 @@ impl AbstractIteratorBase for AbstractIteratorNumeric {
   }
 
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    unreachable!("NumericDocValuesFieldUpdatesIterator does not support binary_value")
+    Err(LuceneError::unsupported_operation(
+      "NumericDocValuesFieldUpdatesIterator does not support binary_value",
+    ))
   }
 }
 

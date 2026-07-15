@@ -282,25 +282,37 @@ impl SortFiledBase for SortedNumericSortField {
     let reverse = self.base.reverse;
     let mut field_comparator: FieldComparatorEnum = match self.type_ {
       SortFieldType::Int => {
-        let missing = self.base.missing_value.as_ref().map(|v| v.as_i32());
+        let missing = match self.base.missing_value.as_ref() {
+          Some(value) => Some(value.as_i32()?),
+          None => None,
+        };
         let base = IntComparator::new(field, num_hits, missing, reverse, pruning);
         SortedNumericIntComparator::new(base, self.selector, self.type_).into()
       },
 
       SortFieldType::Float => {
-        let missing = self.base.missing_value.as_ref().map(|v| v.as_f32());
+        let missing = match self.base.missing_value.as_ref() {
+          Some(value) => Some(value.as_f32()?),
+          None => None,
+        };
         let base = FloatComparator::new(field, num_hits, missing, reverse, pruning);
         SortedNumericFloatComparator::new(base, self.selector, self.type_).into()
       },
 
       SortFieldType::Long => {
-        let missing = self.base.missing_value.as_ref().map(|v| v.as_i64());
+        let missing = match self.base.missing_value.as_ref() {
+          Some(value) => Some(value.as_i64()?),
+          None => None,
+        };
         let base = LongComparator::new(field, num_hits, missing, reverse, pruning);
         SortedNumericLongComparator::new(base, self.selector, self.type_).into()
       },
 
       SortFieldType::Double => {
-        let missing = self.base.missing_value.as_ref().map(|v| v.as_f64());
+        let missing = match self.base.missing_value.as_ref() {
+          Some(value) => Some(value.as_f64()?),
+          None => None,
+        };
         let base = DoubleComparator::new(field, num_hits, missing, reverse, pruning);
         SortedNumericDoubleComparator::new(base, self.selector, self.type_).into()
       },

@@ -607,7 +607,7 @@ impl TokenStream for StringTokenStream {
     if self.used {
       return Ok(false);
     }
-    self.att.clear_attributes();
+    self.att.clear_attributes()?;
     self.att.append_str(Some(&self.value))?;
     self.att.set_offset(0, self.length)?;
     self.used = true;

@@ -421,7 +421,7 @@ where
   S: ScoreDocLike,
 {
   let len = top_k.score_docs.len();
-  assert!(len > 0);
+  debug_assert!(len > 0);
 
   let max_score = top_k.score_docs[0].score();
 

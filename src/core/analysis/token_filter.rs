@@ -68,10 +68,10 @@ where
   }
 
   fn get_attribute_source(&self) -> &Attributes {
-    unreachable!("should not be called")
+    self.input.get_attribute_source()
   }
 
   fn get_attribute_source_mut(&mut self) -> &mut Attributes {
-    unreachable!("should not be called")
+    self.input.get_attribute_source_mut()
   }
 }

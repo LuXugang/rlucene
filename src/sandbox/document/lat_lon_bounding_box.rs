@@ -347,12 +347,9 @@ impl fmt::Display for LatLonBoundingBox {
     write!(f, "LatLonBoundingBox <{}:", self.parent_field.name())?;
     match &self.parent_field.fields_data {
       FieldDataEnum::Binary(bytes) => {
-        write!(
-          f,
-          "[{},{}]",
-          to_string(&bytes.bytes, 0),
-          to_string(&bytes.bytes, 1)
-        )?;
+        let min = to_string(&bytes.bytes, 0).map_err(|_| fmt::Error)?;
+        let max = to_string(&bytes.bytes, 1).map_err(|_| fmt::Error)?;
+        write!(f, "[{},{}]", min, max)?;
       },
       _ => {
         write!(f, "Unsupported FieldDataEnum variant")?;
@@ -395,7 +392,7 @@ fn encode_point(lat: f64, lon: f64, result: &mut [u8], offset: usize) -> Result<
   Ok(())
 }
 
-fn to_string(ranges: &[u8], dimension: usize) -> String {
+fn to_string(ranges: &[u8], dimension: usize) -> Result<String> {
   let (lat, lon) = match dimension {
     0 => (
       GeoEncodingUtils::decode_latitude_from_bytes(ranges, 0),
@@ -405,19 +402,14 @@ fn to_string(ranges: &[u8], dimension: usize) -> String {
       GeoEncodingUtils::decode_latitude_from_bytes(ranges, 8),
       GeoEncodingUtils::decode_longitude_from_bytes(ranges, 12),
     ),
-    _ => panic!("invalid dimension [{}] in toString", dimension),
+    _ => {
+      return Err(LuceneError::illegal_argument(format!(
+        "invalid dimension [{}] in toString",
+        dimension
+      )));
+    },
   };
-  format!("{:?},{:?}", lat, lon)
-}
-
-fn to_string_result(ranges: &[u8], dimension: usize) -> Result<String> {
-  match dimension {
-    0 | 1 => Ok(to_string(ranges, dimension)),
-    _ => Err(LuceneError::illegal_argument(format!(
-      "invalid dimension [{}] in toString",
-      dimension
-    ))),
-  }
+  Ok(format!("{:?},{:?}", lat, lon))
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -425,7 +417,7 @@ pub struct LatLonBoundingBoxFieldQuery;
 
 impl RangeFieldQueryBase for LatLonBoundingBoxFieldQuery {
   fn to_string(&self, value: &[u8], dimension: usize) -> Result<String> {
-    to_string_result(value, dimension)
+    to_string(value, dimension)
   }
 }
 

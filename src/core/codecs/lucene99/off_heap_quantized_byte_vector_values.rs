@@ -55,8 +55,6 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
-#[cfg(debug_assertions)]
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Read the quantized vector values and their score correction values from the index input. This
 /// supports both iterated and random access.
@@ -292,8 +290,6 @@ where
   F: FlatVectorsScorer,
 {
   base: OffHeapQuantizedByteVectorValues<I, F>,
-  #[cfg(debug_assertions)]
-  iter_called: AtomicBool,
 }
 
 impl<I, F> DenseOffHeapVectorValues<I, F>
@@ -320,8 +316,6 @@ where
         compress,
         slice,
       ),
-      #[cfg(debug_assertions)]
-      iter_called: AtomicBool::new(false),
     }
   }
 }
@@ -401,13 +395,6 @@ where
   type DocIndexIterator = DenseDocIndexIterator;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    #[cfg(debug_assertions)]
-    {
-      if self.iter_called.swap(true, Ordering::Relaxed) {
-        unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      }
-    }
-
     Ok(create_dense_iterator(self.size() as i32))
   }
 }
@@ -825,17 +812,11 @@ where
 
 pub struct EmptyOffHeapVectorValues {
   dimension: usize,
-  #[cfg(debug_assertions)]
-  iter_called: AtomicBool,
 }
 
 impl EmptyOffHeapVectorValues {
   fn new(dimension: usize) -> Self {
-    Self {
-      dimension,
-      #[cfg(debug_assertions)]
-      iter_called: AtomicBool::new(false),
-    }
+    Self { dimension }
   }
 }
 
@@ -872,13 +853,6 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
   type DocIndexIterator = DenseDocIndexIterator;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    #[cfg(debug_assertions)]
-    {
-      if self.iter_called.swap(true, Ordering::Relaxed) {
-        unreachable!("iterator should only be called once, otherwise iter will be reset?")
-      }
-    }
-
     Ok(create_dense_iterator(0))
   }
 }
@@ -1247,11 +1221,11 @@ where
   R2: RandomVectorScorer,
 {
   Dense {
-    iterator: DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>,
+    iterator: DenseDocIndexIterator,
     random_vector_scorer: R1,
   },
   Sparse {
-    iterator: DocIdSetIteratorEnum2<DenseDocIndexIterator, DocIndexIteratorImpl<I>>,
+    iterator: DocIndexIteratorImpl<I>,
     random_vector_scorer: R2,
   },
 }
@@ -1264,14 +1238,14 @@ where
 {
   fn new_dense(iterator: DenseDocIndexIterator, random_vector_scorer: R1) -> Self {
     Self::Dense {
-      iterator: DocIdSetIteratorEnum2::A(iterator),
+      iterator,
       random_vector_scorer,
     }
   }
 
   fn new_sparse(iterator: DocIndexIteratorImpl<I>, random_vector_scorer: R2) -> Self {
     Self::Sparse {
-      iterator: DocIdSetIteratorEnum2::B(iterator),
+      iterator,
       random_vector_scorer,
     }
   }
@@ -1289,24 +1263,14 @@ where
         iterator,
         random_vector_scorer,
       } => {
-        let index = match iterator {
-          DocIdSetIteratorEnum2::A(iterator) => iterator.index()?,
-          DocIdSetIteratorEnum2::B(_) => {
-            unreachable!("dense vector scorer must use dense iterator")
-          },
-        };
+        let index = iterator.index()?;
         random_vector_scorer.score(index.try_convert()?)
       },
       Self::Sparse {
         iterator,
         random_vector_scorer,
       } => {
-        let index = match iterator {
-          DocIdSetIteratorEnum2::B(iterator) => iterator.index()?,
-          DocIdSetIteratorEnum2::A(_) => {
-            unreachable!("sparse vector scorer must use sparse iterator")
-          },
-        };
+        let index = iterator.index()?;
         random_vector_scorer.score(index.try_convert()?)
       },
     }
@@ -1319,14 +1283,8 @@ where
 
   fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
     match self {
-      Self::Dense { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
-      Self::Sparse { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
+      Self::Dense { iterator, .. } => DocIdSetIteratorEnum2::A(iterator),
+      Self::Sparse { iterator, .. } => DocIdSetIteratorEnum2::B(iterator),
     }
   }
 
@@ -1337,14 +1295,8 @@ where
 
   fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     match self {
-      Self::Dense { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
-      Self::Sparse { iterator, .. } => match iterator {
-        DocIdSetIteratorEnum2::A(iterator) => DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(iterator) => DocIdSetIteratorEnum2::B(iterator),
-      },
+      Self::Dense { iterator, .. } => DocIdSetIteratorEnum2::A(iterator),
+      Self::Sparse { iterator, .. } => DocIdSetIteratorEnum2::B(iterator),
     }
   }
 }

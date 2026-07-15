@@ -49,7 +49,7 @@ impl AttributeSource for DummyAttributeSource {
     dummy_unreachable!()
   }
 
-  fn clear_attributes(&mut self) {
+  fn clear_attributes(&mut self) -> Result<()> {
     dummy_unreachable!()
   }
 }

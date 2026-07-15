@@ -646,7 +646,7 @@ pub trait DocValuesFieldIterator: DocValuesIterator {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 
   /// Returns the delGen for this packet.
-  fn del_gen(&self) -> i64;
+  fn del_gen(&self) -> Result<i64>;
 
   /// Returns true if this document has a value.
   fn has_value(&self) -> Result<bool>;
@@ -746,7 +746,7 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
     }
   }
 
-  fn del_gen(&self) -> i64 {
+  fn del_gen(&self) -> Result<i64> {
     match self {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.del_gen(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.del_gen(),
@@ -892,10 +892,10 @@ where
     let mut cmp = a.doc_id().cmp(&b.doc_id());
     if cmp == std::cmp::Ordering::Equal {
       // If doc_id is equal, sort by larger del_gen
-      cmp = b.del_gen().cmp(&a.del_gen());
+      cmp = b.del_gen()?.cmp(&a.del_gen()?);
       // delGen values are unique across sub-iterators, so cmp should
       // never be equal
-      assert_ne!(cmp, std::cmp::Ordering::Equal);
+      debug_assert_ne!(cmp, std::cmp::Ordering::Equal);
     }
     Ok(cmp == std::cmp::Ordering::Less)
   }
@@ -939,8 +939,10 @@ where
       .binary_value()
   }
 
-  fn del_gen(&self) -> i64 {
-    unreachable!("del_gen is not supported")
+  fn del_gen(&self) -> Result<i64> {
+    Err(LuceneError::unsupported_operation(
+      "del_gen is not supported",
+    ))
   }
 
   fn has_value(&self) -> Result<bool> {
@@ -1073,8 +1075,8 @@ where
     self.sub.binary_value()
   }
 
-  fn del_gen(&self) -> i64 {
-    self.del_gen
+  fn del_gen(&self) -> Result<i64> {
+    Ok(self.del_gen)
   }
 
   fn has_value(&self) -> Result<bool> {
@@ -1190,7 +1192,9 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
   where
     T: DocValuesFieldIterator,
   {
-    unreachable!("add_iterator is not supported")
+    Err(LuceneError::unsupported_operation(
+      "add_iterator is not supported",
+    ))
   }
 
   fn iterator(
@@ -1295,8 +1299,8 @@ impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     self.single.binary_value()
   }
 
-  fn del_gen(&self) -> i64 {
-    self.del_gen
+  fn del_gen(&self) -> Result<i64> {
+    Ok(self.del_gen)
   }
 
   fn has_value(&self) -> Result<bool> {

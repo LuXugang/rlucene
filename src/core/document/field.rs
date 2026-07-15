@@ -888,7 +888,7 @@ impl TokenStream for BinaryTokenStream {
     if self.used {
       return Ok(false);
     }
-    self.token_stream_base.att.clear_attributes();
+    self.token_stream_base.att.clear_attributes()?;
     let value = self.value.take();
     self.token_stream_base.att.set_bytes_ref(value)?;
     self.used = true;
@@ -950,7 +950,7 @@ impl TokenStream for StringTokenStream {
     if self.used {
       return Ok(false);
     }
-    self.token_stream_base.att.clear_attributes();
+    self.token_stream_base.att.clear_attributes()?;
     let value = self
       .value
       .as_ref()

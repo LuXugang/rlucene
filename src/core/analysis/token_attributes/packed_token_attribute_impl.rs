@@ -443,8 +443,9 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
     self.end()
   }
 
-  fn clear_attributes(&mut self) {
-    self.clear()
+  fn clear_attributes(&mut self) -> Result<()> {
+    self.clear();
+    Ok(())
   }
 }
 #[cfg(test)]

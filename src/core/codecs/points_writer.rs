@@ -129,7 +129,7 @@ where
 {
   field_info: Arc<FieldInfo>,
   final_max_point_count: usize,
-  point_value: Vec<P>,
+  point_value: Rc<Vec<P>>,
   doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
 }
 
@@ -154,7 +154,7 @@ where
     Self {
       field_info,
       final_max_point_count,
-      point_value,
+      point_value: Rc::new(point_value),
       doc_map,
     }
   }
@@ -191,7 +191,7 @@ where
   CR: CodecReader,
 {
   final_max_point_count: usize,
-  point_value: Vec<P>,
+  point_value: Rc<Vec<P>>,
   doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
 }
 impl<P, CR> PointValuesImpl<P, CR>
@@ -201,7 +201,7 @@ where
 {
   fn new(
     final_max_point_count: usize,
-    point_value: Vec<P>,
+    point_value: Rc<Vec<P>>,
     doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
   ) -> Self {
     Self {
@@ -209,16 +209,6 @@ where
       point_value,
       doc_map,
     }
-  }
-}
-
-impl<P, CR> Clone for PointValuesImpl<P, CR>
-where
-  P: PointValues,
-  CR: CodecReader,
-{
-  fn clone(&self) -> Self {
-    todo!()
   }
 }
 
@@ -274,7 +264,7 @@ where
 {
   final_max_point_count: usize,
   doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
-  point_value: Vec<P>,
+  point_value: Rc<Vec<P>>,
 }
 impl<P, CR> PointTreeImpl<P, CR>
 where
@@ -284,7 +274,7 @@ where
   fn new(
     final_max_point_count: usize,
     doc_map: Vec<Rc<MergeStateDocMap<CR>>>,
-    point_value: Vec<P>,
+    point_value: Rc<Vec<P>>,
   ) -> Self {
     Self {
       final_max_point_count,

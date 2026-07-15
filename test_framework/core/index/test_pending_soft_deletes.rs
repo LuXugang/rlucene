@@ -160,8 +160,8 @@ impl DocValuesFieldIterator for TestSingleUpdateDocValuesFieldIterator {
     Err(LuceneError::unsupported_operation("binary_value"))
   }
 
-  fn del_gen(&self) -> i64 {
-    self.del_gen
+  fn del_gen(&self) -> crate::core::util::error::lucene_error::Result<i64> {
+    Ok(self.del_gen)
   }
 
   fn has_value(&self) -> crate::core::util::error::lucene_error::Result<bool> {
