@@ -53,6 +53,10 @@ use crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED;
 use crate::core::util::roaring_doc_id_set::Builder;
 use crate::core::util::roaring_doc_id_set::RoaringDocIdSet;
 use crate::core::util::{HasIdentity, TryIntoInt};
+#[cfg(test)]
+use crate::test_framework::core::search::test_lru_query_cache::{
+  EvictEmptySegmentCacheLRUQueryCache, FineGrainedStatsLRUQueryCache,
+};
 use linked_hash_map::LinkedHashMap;
 use parking_lot::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::collections::HashMap;
@@ -62,7 +66,8 @@ use std::mem;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 
-const HASHTABLE_RAM_BYTES_PER_ENTRY: i64 = mem::size_of::<(CacheKey, LeafCache)>() as i64;
+pub(crate) const HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
+  mem::size_of::<(CacheKey, LeafCache)>() as i64;
 const LEAF_CACHE_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
   mem::size_of::<(Identity, Arc<CacheAndCountEnum>)>() as i64;
 const LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
@@ -108,6 +113,7 @@ pub struct LRUQueryCache<P>
 where
   P: Predicate<TopParentMeta>,
 {
+  hook: LRUQueryCacheHook,
   max_size: i32,
   max_ram_bytes_used: i64,
   skip_cache_factor: f32,
@@ -124,6 +130,276 @@ where
 pub struct Inner {
   unique_queries: Mutex<LinkedHashMap<Arc<Query>, Arc<Query>>>,
   cache: HashMap<CacheKey, LeafCache>,
+}
+
+#[derive(Clone, Default)]
+pub(crate) enum LRUQueryCacheHook {
+  #[default]
+  Default,
+  #[cfg(test)]
+  FineGrainedStats(FineGrainedStatsLRUQueryCache),
+  #[cfg(test)]
+  EvictEmptySegmentCache(EvictEmptySegmentCacheLRUQueryCache),
+}
+
+pub(crate) struct LRUQueryCacheDefaults;
+
+pub(crate) trait LRUQueryCacheBase<P>
+where
+  P: Predicate<TopParentMeta>,
+{
+  fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+    LRUQueryCacheDefaults::on_hit(cache, reader_core_key, query);
+  }
+
+  fn on_miss(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+    LRUQueryCacheDefaults::on_miss(cache, reader_core_key, query);
+  }
+
+  fn on_query_cache(
+    &self,
+    cache: &LRUQueryCache<P>,
+    query: &Query,
+    ram_bytes_used: i64,
+    guard: &RwLockWriteGuard<'_, Inner>,
+  ) {
+    LRUQueryCacheDefaults::on_query_cache(cache, query, ram_bytes_used, guard);
+  }
+
+  fn on_query_eviction(
+    &self,
+    cache: &LRUQueryCache<P>,
+    query: &Query,
+    ram_bytes_used: i64,
+    guard: &RwLockWriteGuard<'_, Inner>,
+  ) {
+    LRUQueryCacheDefaults::on_query_eviction(cache, query, ram_bytes_used, guard);
+  }
+
+  fn on_doc_id_set_cache(
+    &self,
+    cache: &LRUQueryCache<P>,
+    reader_core_key: &CacheKey,
+    ram_bytes_used: i64,
+  ) {
+    LRUQueryCacheDefaults::on_doc_id_set_cache(cache, reader_core_key, ram_bytes_used);
+  }
+
+  fn on_doc_id_set_eviction(
+    &self,
+    cache: &LRUQueryCache<P>,
+    reader_core_key: &CacheKey,
+    num_entries: i64,
+    sum_ram_bytes_used: i64,
+  ) {
+    LRUQueryCacheDefaults::on_doc_id_set_eviction(
+      cache,
+      reader_core_key,
+      num_entries,
+      sum_ram_bytes_used,
+    );
+  }
+
+  fn on_clear(&self, cache: &LRUQueryCache<P>, guard: &RwLockWriteGuard<'_, Inner>) {
+    LRUQueryCacheDefaults::on_clear(cache, guard);
+  }
+}
+
+impl<P> LRUQueryCacheBase<P> for LRUQueryCacheHook
+where
+  P: Predicate<TopParentMeta>,
+{
+  fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+    match self {
+      Self::Default => LRUQueryCacheDefaults::on_hit(cache, reader_core_key, query),
+      #[cfg(test)]
+      Self::FineGrainedStats(hook) => hook.on_hit(cache, reader_core_key, query),
+      #[cfg(test)]
+      Self::EvictEmptySegmentCache(hook) => hook.on_hit(cache, reader_core_key, query),
+    }
+  }
+
+  fn on_miss(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+    match self {
+      Self::Default => LRUQueryCacheDefaults::on_miss(cache, reader_core_key, query),
+      #[cfg(test)]
+      Self::FineGrainedStats(hook) => hook.on_miss(cache, reader_core_key, query),
+      #[cfg(test)]
+      Self::EvictEmptySegmentCache(hook) => hook.on_miss(cache, reader_core_key, query),
+    }
+  }
+
+  fn on_query_cache(
+    &self,
+    cache: &LRUQueryCache<P>,
+    query: &Query,
+    ram_bytes_used: i64,
+    guard: &RwLockWriteGuard<'_, Inner>,
+  ) {
+    match self {
+      Self::Default => LRUQueryCacheDefaults::on_query_cache(cache, query, ram_bytes_used, guard),
+      #[cfg(test)]
+      Self::FineGrainedStats(hook) => hook.on_query_cache(cache, query, ram_bytes_used, guard),
+      #[cfg(test)]
+      Self::EvictEmptySegmentCache(hook) => {
+        hook.on_query_cache(cache, query, ram_bytes_used, guard)
+      },
+    }
+  }
+
+  fn on_query_eviction(
+    &self,
+    cache: &LRUQueryCache<P>,
+    query: &Query,
+    ram_bytes_used: i64,
+    guard: &RwLockWriteGuard<'_, Inner>,
+  ) {
+    match self {
+      Self::Default => {
+        LRUQueryCacheDefaults::on_query_eviction(cache, query, ram_bytes_used, guard)
+      },
+      #[cfg(test)]
+      Self::FineGrainedStats(hook) => hook.on_query_eviction(cache, query, ram_bytes_used, guard),
+      #[cfg(test)]
+      Self::EvictEmptySegmentCache(hook) => {
+        hook.on_query_eviction(cache, query, ram_bytes_used, guard)
+      },
+    }
+  }
+
+  fn on_doc_id_set_cache(
+    &self,
+    cache: &LRUQueryCache<P>,
+    reader_core_key: &CacheKey,
+    ram_bytes_used: i64,
+  ) {
+    match self {
+      Self::Default => {
+        LRUQueryCacheDefaults::on_doc_id_set_cache(cache, reader_core_key, ram_bytes_used)
+      },
+      #[cfg(test)]
+      Self::FineGrainedStats(hook) => {
+        hook.on_doc_id_set_cache(cache, reader_core_key, ram_bytes_used)
+      },
+      #[cfg(test)]
+      Self::EvictEmptySegmentCache(hook) => {
+        hook.on_doc_id_set_cache(cache, reader_core_key, ram_bytes_used)
+      },
+    }
+  }
+
+  fn on_doc_id_set_eviction(
+    &self,
+    cache: &LRUQueryCache<P>,
+    reader_core_key: &CacheKey,
+    num_entries: i64,
+    sum_ram_bytes_used: i64,
+  ) {
+    match self {
+      Self::Default => LRUQueryCacheDefaults::on_doc_id_set_eviction(
+        cache,
+        reader_core_key,
+        num_entries,
+        sum_ram_bytes_used,
+      ),
+      #[cfg(test)]
+      Self::FineGrainedStats(hook) => {
+        hook.on_doc_id_set_eviction(cache, reader_core_key, num_entries, sum_ram_bytes_used)
+      },
+      #[cfg(test)]
+      Self::EvictEmptySegmentCache(hook) => {
+        hook.on_doc_id_set_eviction(cache, reader_core_key, num_entries, sum_ram_bytes_used)
+      },
+    }
+  }
+
+  fn on_clear(&self, cache: &LRUQueryCache<P>, guard: &RwLockWriteGuard<'_, Inner>) {
+    match self {
+      Self::Default => LRUQueryCacheDefaults::on_clear(cache, guard),
+      #[cfg(test)]
+      Self::FineGrainedStats(hook) => hook.on_clear(cache, guard),
+      #[cfg(test)]
+      Self::EvictEmptySegmentCache(hook) => hook.on_clear(cache, guard),
+    }
+  }
+}
+
+impl LRUQueryCacheDefaults {
+  pub(crate) fn on_hit<P>(cache: &LRUQueryCache<P>, _reader_core_key: &CacheKey, _query: &Query)
+  where
+    P: Predicate<TopParentMeta>,
+  {
+    cache.hit_count.fetch_add(1, Ordering::Relaxed);
+  }
+
+  pub(crate) fn on_miss<P>(cache: &LRUQueryCache<P>, _reader_core_key: &CacheKey, _query: &Query)
+  where
+    P: Predicate<TopParentMeta>,
+  {
+    cache.miss_count.fetch_add(1, Ordering::Relaxed);
+  }
+
+  pub(crate) fn on_query_cache<P>(
+    cache: &LRUQueryCache<P>,
+    _query: &Query,
+    ram_bytes_used: i64,
+    _guard: &RwLockWriteGuard<'_, Inner>,
+  ) where
+    P: Predicate<TopParentMeta>,
+  {
+    cache
+      .ram_bytes_used
+      .fetch_add(ram_bytes_used, Ordering::SeqCst);
+  }
+
+  pub(crate) fn on_query_eviction<P>(
+    cache: &LRUQueryCache<P>,
+    _query: &Query,
+    ram_bytes_used: i64,
+    _guard: &RwLockWriteGuard<'_, Inner>,
+  ) where
+    P: Predicate<TopParentMeta>,
+  {
+    cache
+      .ram_bytes_used
+      .fetch_sub(ram_bytes_used, Ordering::SeqCst);
+  }
+
+  pub(crate) fn on_doc_id_set_cache<P>(
+    cache: &LRUQueryCache<P>,
+    _reader_core_key: &CacheKey,
+    ram_bytes_used: i64,
+  ) where
+    P: Predicate<TopParentMeta>,
+  {
+    cache.cache_size.fetch_add(1, Ordering::SeqCst);
+    cache.cache_count.fetch_add(1, Ordering::SeqCst);
+    cache
+      .ram_bytes_used
+      .fetch_add(ram_bytes_used, Ordering::SeqCst);
+  }
+
+  pub(crate) fn on_doc_id_set_eviction<P>(
+    cache: &LRUQueryCache<P>,
+    _reader_core_key: &CacheKey,
+    num_entries: i64,
+    sum_ram_bytes_used: i64,
+  ) where
+    P: Predicate<TopParentMeta>,
+  {
+    cache
+      .ram_bytes_used
+      .fetch_sub(sum_ram_bytes_used, Ordering::SeqCst);
+    cache.cache_size.fetch_sub(num_entries, Ordering::SeqCst);
+  }
+
+  pub(crate) fn on_clear<P>(cache: &LRUQueryCache<P>, _guard: &RwLockWriteGuard<'_, Inner>)
+  where
+    P: Predicate<TopParentMeta>,
+  {
+    cache.ram_bytes_used.store(0, Ordering::SeqCst);
+    cache.cache_size.store(0, Ordering::SeqCst);
+  }
 }
 
 impl LRUQueryCache<MinSegmentSizePredicate> {
@@ -161,6 +437,7 @@ where
     }
 
     Ok(Self {
+      hook: LRUQueryCacheHook::Default,
       max_size,
       max_ram_bytes_used,
       skip_cache_factor,
@@ -176,6 +453,12 @@ where
       leaves_to_cache,
     })
   }
+
+  #[cfg(test)]
+  pub(crate) fn with_hook(mut self, hook: LRUQueryCacheHook) -> Self {
+    self.hook = hook;
+    self
+  }
   /// Expert: callback when there is a cache hit on a given query.
   /// Implementing this method is typically useful in order to compute
   /// more fine-grained statistics about the query cache.
@@ -183,18 +466,16 @@ where
   /// See also [`on_miss`](Self::on_miss).
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  pub(crate) fn on_hit(&self, _reader_core_key: &CacheKey, _query: &Query) {
-    self.hit_count.fetch_add(1, Ordering::Relaxed);
+  pub(crate) fn on_hit(&self, reader_core_key: &CacheKey, query: &Query) {
+    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_hit(&self.hook, self, reader_core_key, query);
   }
   /// Expert: callback when there is a cache miss on a given query.
   ///
   /// See also [`on_hit`](Self::on_hit).
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  pub(crate) fn on_miss(&self, _reader_core_key: &CacheKey, _query: &Query) {
-    self
-      .miss_count
-      .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+  pub(crate) fn on_miss(&self, reader_core_key: &CacheKey, query: &Query) {
+    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_miss(&self.hook, self, reader_core_key, query);
   }
   /// Expert: callback when a query is added to this cache.
   /// Implementing this method is typically useful in order to compute
@@ -205,13 +486,17 @@ where
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_query_cache(
     &self,
-    _query: &Query,
+    query: &Query,
     ram_bytes_used: i64,
-    _rwlock: &RwLockWriteGuard<Inner>,
+    guard: &RwLockWriteGuard<Inner>,
   ) {
-    self
-      .ram_bytes_used
-      .fetch_add(ram_bytes_used, Ordering::SeqCst);
+    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_query_cache(
+      &self.hook,
+      self,
+      query,
+      ram_bytes_used,
+      guard,
+    );
   }
   /// Expert: callback when a query is evicted from this cache.
   ///
@@ -220,13 +505,17 @@ where
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_query_eviction(
     &self,
-    _query: &Query,
+    query: &Query,
     ram_bytes_used: i64,
-    _guard: &RwLockWriteGuard<Inner>,
+    guard: &RwLockWriteGuard<Inner>,
   ) {
-    self
-      .ram_bytes_used
-      .fetch_sub(ram_bytes_used, Ordering::SeqCst);
+    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_query_eviction(
+      &self.hook,
+      self,
+      query,
+      ram_bytes_used,
+      guard,
+    );
   }
   /// Expert: callback when a [`DocIdSet`] is added to this cache.
   /// Implementing this method is typically useful in order to compute
@@ -235,12 +524,13 @@ where
   /// See also [`on_doc_id_set_eviction`](Self::on_doc_id_set_eviction).
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  pub(crate) fn on_doc_id_set_cache(&self, _reader_core_key: &CacheKey, ram_bytes_used: i64) {
-    self.cache_size.fetch_add(1, Ordering::SeqCst);
-    self.cache_count.fetch_add(1, Ordering::SeqCst);
-    self
-      .ram_bytes_used
-      .fetch_add(ram_bytes_used, Ordering::SeqCst);
+  pub(crate) fn on_doc_id_set_cache(&self, reader_core_key: &CacheKey, ram_bytes_used: i64) {
+    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_doc_id_set_cache(
+      &self.hook,
+      self,
+      reader_core_key,
+      ram_bytes_used,
+    );
   }
 
   /// Expert: callback when one or more [`DocIdSet`]s are removed from this cache.
@@ -250,21 +540,23 @@ where
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_doc_id_set_eviction(
     &self,
-    _reader_core_key: &CacheKey,
+    reader_core_key: &CacheKey,
     num_entries: i64,
     sum_ram_bytes_used: i64,
   ) {
-    self
-      .ram_bytes_used
-      .fetch_sub(sum_ram_bytes_used, Ordering::SeqCst);
-    self.cache_size.fetch_sub(num_entries, Ordering::SeqCst);
+    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_doc_id_set_eviction(
+      &self.hook,
+      self,
+      reader_core_key,
+      num_entries,
+      sum_ram_bytes_used,
+    );
   }
   /// Expert: callback when the cache is completely cleared.
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  pub(crate) fn on_clear(&self, _guard: &RwLockWriteGuard<Inner>) {
-    self.ram_bytes_used.store(0, Ordering::SeqCst);
-    self.cache_size.store(0, Ordering::SeqCst);
+  pub(crate) fn on_clear(&self, guard: &RwLockWriteGuard<Inner>) {
+    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_clear(&self.hook, self, guard);
   }
   /// Whether evictions are required.
   pub(crate) fn requires_eviction(&self, guard: &RwLockWriteGuard<Inner>) -> bool {
@@ -318,13 +610,14 @@ where
   }
 
   pub(crate) fn put_if_absent<C>(
-    &self,
+    self: &Arc<Self>,
     query: Arc<Query>,
     cached: CacheAndCountEnum,
     cache_helper: &C,
   ) -> Result<()>
   where
     C: CacheHelper,
+    P: Send + Sync + 'static,
   {
     debug_assert!({ !matches!(query.as_ref(), Query::Boost(_)) });
     debug_assert!({ !matches!(query.as_ref(), Query::ConstantScore(_)) });
@@ -360,7 +653,13 @@ where
           HASHTABLE_RAM_BYTES_PER_ENTRY,
           std::sync::atomic::Ordering::SeqCst,
         );
-        // TODO IMPORTANT 这里没有调用add_close_listener
+        let cache = Arc::downgrade(self);
+        cache_helper.add_closed_listener(Box::new(move |core_key: &CacheKey| {
+          if let Some(cache) = cache.upgrade() {
+            cache.clear_core_cache_key(core_key);
+          }
+          Ok(())
+        }))?;
         lc_ref
       },
     };
@@ -775,7 +1074,7 @@ where
 
 impl<P, IRC> Weight<IRC> for CachingWrapperWeight<P, IRC>
 where
-  P: Predicate<TopParentMeta> + 'static,
+  P: Predicate<TopParentMeta> + Send + Sync + 'static,
   IRC: IndexReaderContext,
 {
   type Matches = MatchWithNoTerms;
@@ -978,7 +1277,7 @@ impl<C, P, IRC> ScorerSupplier<IRC> for ScorerSupplierImpl1<C, P, IRC>
 where
   IRC: IndexReaderContext,
   C: CacheHelper,
-  P: Predicate<TopParentMeta>,
+  P: Predicate<TopParentMeta> + Send + Sync + 'static,
 {
   type Scorer = QueryWeightSsScorer;
   type BulkScorer = QueryWeightSsBulkScorer;

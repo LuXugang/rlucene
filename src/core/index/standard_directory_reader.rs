@@ -24,7 +24,8 @@ use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase}
 use crate::core::index::dummy::dummy_index_commit::DummyIndexCommit;
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_reader::{
-  CacheHelper, CacheKey, CompositeReaderContextKind, IndexReader, IndexReaderBase,
+  CacheHelper, CacheKey, ClosedListener, ClosedListenerList, CompositeReaderContextKind,
+  IndexReader, IndexReaderBase,
 };
 use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::leaf_reader::LeafReader;
@@ -42,6 +43,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{LATEST, MIN_SUPPORTED_MAJOR};
+use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -543,6 +545,10 @@ where
     IOUtils::use_or_suppress_result(result, dec_ref_deleter_result)
   }
 
+  fn notify_reader_closed_listeners(&self) -> Result<()> {
+    self.cache_helper.notify_reader_closed_listeners()
+  }
+
   type ReaderCacheHelper = CacheHelperImpl;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
@@ -668,17 +674,36 @@ where
 #[derive(Clone)]
 pub struct CacheHelperImpl {
   cache_key: CacheKey,
+  reader_closed_listeners: ClosedListenerList,
 }
 impl CacheHelperImpl {
   fn new() -> Self {
     Self {
       cache_key: CacheKey::new(),
+      reader_closed_listeners: Arc::new(Mutex::new(Some(Vec::new()))),
     }
+  }
+
+  fn notify_reader_closed_listeners(&self) -> Result<()> {
+    let mut reader_closed_listeners = self.reader_closed_listeners.lock();
+    let listeners = reader_closed_listeners.take().unwrap_or_default();
+    IOUtils::apply_to_all(&listeners, |listener| listener.on_close(&self.cache_key))
   }
 }
 impl CacheHelper for CacheHelperImpl {
   fn get_key(&self) -> CacheKey {
     self.cache_key.clone()
+  }
+
+  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+    let mut reader_closed_listeners = self.reader_closed_listeners.lock();
+    let Some(reader_closed_listeners) = reader_closed_listeners.as_mut() else {
+      return Err(LuceneError::already_closed(
+        "this IndexReader is closed".to_string(),
+      ));
+    };
+    reader_closed_listeners.push(listener);
+    Ok(())
   }
 }
 pub struct FindSegmentsFileImpl1<D>
@@ -967,4 +992,3 @@ where
     &self.user_data
   }
 }
-// TODO IMPORTANT readerClosedListeners未实现

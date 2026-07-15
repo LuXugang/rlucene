@@ -32,7 +32,8 @@ use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVector
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{
-  CacheHelper, CacheKey, IndexReader, IndexReaderBase, LeafReaderContextKind,
+  CacheHelper, CacheKey, ClosedListener, ClosedListenerList, IndexReader, IndexReaderBase,
+  LeafReaderContextKind,
 };
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -50,6 +51,8 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
+use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -432,6 +435,10 @@ where
     }
   }
 
+  fn notify_reader_closed_listeners(&self) -> Result<()> {
+    self.reader_cache_helper.notify_reader_closed_listeners()
+  }
+
   type ReaderCacheHelper = CacheHelperImpl;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
@@ -661,17 +668,36 @@ where
 #[derive(Clone)]
 pub struct CacheHelperImpl {
   cache_key: CacheKey,
+  reader_closed_listeners: ClosedListenerList,
 }
 impl CacheHelperImpl {
   fn new() -> Self {
     Self {
       cache_key: CacheKey::new(),
+      reader_closed_listeners: Arc::new(Mutex::new(Some(Vec::new()))),
     }
+  }
+
+  fn notify_reader_closed_listeners(&self) -> Result<()> {
+    let mut reader_closed_listeners = self.reader_closed_listeners.lock();
+    let listeners = reader_closed_listeners.take().unwrap_or_default();
+    IOUtils::apply_to_all(&listeners, |listener| listener.on_close(&self.cache_key))
   }
 }
 impl CacheHelper for CacheHelperImpl {
   fn get_key(&self) -> CacheKey {
     self.cache_key.clone()
+  }
+
+  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+    let mut reader_closed_listeners = self.reader_closed_listeners.lock();
+    let Some(reader_closed_listeners) = reader_closed_listeners.as_mut() else {
+      return Err(LuceneError::already_closed(
+        "this IndexReader is closed".to_string(),
+      ));
+    };
+    reader_closed_listeners.push(listener);
+    Ok(())
   }
 }
 pub type DefaultLeafReader<D> = Arc<SegmentReader<D>>;

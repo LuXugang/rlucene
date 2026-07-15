@@ -25,6 +25,7 @@ use crate::core::index::term_vectors::TermVectors;
 use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -138,11 +139,12 @@ pub trait IndexReader: Display {
     let rc = base.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
     if rc == 0 {
       base.closed.store(true, Ordering::SeqCst);
-      let close_result = {
-        let notify_result = self.notify_reader_closed_listeners();
-        IOUtils::use_or_suppress_result(notify_result, self.report_close_to_parent_readers())
-      };
-      IOUtils::use_or_suppress_result(self.do_close(), close_result)?;
+      IOUtils::close(0..3, |operation| match operation {
+        0 => self.do_close(),
+        1 => self.notify_reader_closed_listeners(),
+        2 => self.report_close_to_parent_readers(),
+        _ => unreachable!(),
+      })?;
     } else if rc < 0 {
       return Err(LuceneError::illegal_state(format!(
         "too many decRef calls: refCount is {} after decrement",
@@ -352,6 +354,10 @@ pub trait CacheHelper {
   /// The returned key can be compared by identity: equality is implemented as
   /// identity equality and hashing is implemented from the identity hash.
   fn get_key(&self) -> CacheKey;
+
+  /// Adds a [`ClosedListener`] that will be called when the resource guarded by
+  /// [`Self::get_key`] is closed.
+  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()>;
 }
 pub enum CacheHelperEnum2<A, B> {
   A(A),
@@ -368,10 +374,37 @@ where
       CacheHelperEnum2::B(b) => b.get_key(),
     }
   }
+
+  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+    match self {
+      CacheHelperEnum2::A(a) => a.add_closed_listener(listener),
+      CacheHelperEnum2::B(b) => b.add_closed_listener(listener),
+    }
+  }
 }
 
 /// A cache key identifying a resource that is being cached on.
 pub type CacheKey = Identity;
+
+/// A listener that is called when a resource gets closed.
+///
+/// Experimental: this API follows the original Lucene experimental status.
+pub trait ClosedListener: Send + Sync {
+  /// Invoked when the resource (segment core or index reader) that is being
+  /// cached on is closed.
+  fn on_close(&self, key: &CacheKey) -> Result<()>;
+}
+
+impl<F> ClosedListener for F
+where
+  F: Fn(&CacheKey) -> Result<()> + Send + Sync,
+{
+  fn on_close(&self, key: &CacheKey) -> Result<()> {
+    self(key)
+  }
+}
+
+pub(crate) type ClosedListenerList = Arc<Mutex<Option<Vec<Box<dyn ClosedListener>>>>>;
 
 #[doc(hidden)]
 pub trait IndexReaderContextKind<R>

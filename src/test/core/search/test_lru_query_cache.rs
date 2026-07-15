@@ -23,10 +23,10 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
-use crate::core::index::index_reader::Identity;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{CacheHelper, Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -41,7 +41,9 @@ use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
+use crate::core::search::lru_query_cache::{
+  HASHTABLE_RAM_BYTES_PER_ENTRY, LRUQueryCache, LRUQueryCacheHook, MinSegmentSizePredicate,
+};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::phrase_query::{self, PhraseQuery};
@@ -58,6 +60,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::predicate::Predicate;
 use crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED;
@@ -65,6 +68,9 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 pub use crate::test_framework::core::search::query::{DVCacheQuery, TestLRUQuery};
+use crate::test_framework::core::search::test_lru_query_cache::{
+  EvictEmptySegmentCacheLRUQueryCache, FineGrainedStatsLRUQueryCache,
+};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
   random, random_from_seed, rarely,
@@ -504,7 +510,117 @@ fn test_stats() -> Result<()> {
 
 #[test]
 fn test_fine_grained_stats() -> Result<()> {
-  // TODO IMPORTANT LRUQueryCache的几个方法不能重载
+  let mut random = random();
+  let dir_1 = new_directory_shared(&mut random)?;
+  let w_1 = RandomIndexWriter::new(&mut random, dir_1.clone())?;
+  let dir_2 = new_directory_shared(&mut random)?;
+  let w_2 = RandomIndexWriter::new(&mut random, dir_2.clone())?;
+
+  let colors = ["blue", "red", "green", "yellow"];
+
+  let mut field = StringField::from_string("color", "", Store::No)?;
+  for writer in [&w_1, &w_2] {
+    for _ in 0..10 {
+      field.set_string_value(colors[random.random_range(0..colors.len())])?;
+      let mut doc = Document::new();
+      doc.add(field.clone());
+      writer.add_document(&mut random, doc)?;
+      if random.random_bool(0.5) {
+        writer.get_reader(&mut random)?.close()?;
+      }
+    }
+  }
+
+  let reader_1 = Arc::new(w_1.get_reader(&mut random)?);
+  let reader_context_1 = reader_1.clone().get_context()?;
+  let segment_count_1 = reader_context_1.leaves()?.len() as i64;
+  let mut searcher_1 = new_searcher_with_reader(reader_1.clone())?;
+
+  let reader_2 = Arc::new(w_2.get_reader(&mut random)?);
+  let reader_context_2 = reader_2.clone().get_context()?;
+  let segment_count_2 = reader_context_2.leaves()?.len() as i64;
+  let mut searcher_2 = new_searcher_with_reader(reader_2.clone())?;
+
+  let mut index_id = HashMap::new();
+  for context in reader_context_1.leaves()? {
+    let cache_helper = context
+      .reader()
+      .get_core_cache_helper()?
+      .ok_or_else(|| LuceneError::illegal_state("reader is not cacheable"))?;
+    index_id.insert(cache_helper.get_key(), 1);
+  }
+  for context in reader_context_2.leaves()? {
+    let cache_helper = context
+      .reader()
+      .get_core_cache_helper()?
+      .ok_or_else(|| LuceneError::illegal_state("reader is not cacheable"))?;
+    index_id.insert(cache_helper.get_key(), 2);
+  }
+
+  let hook = FineGrainedStatsLRUQueryCache::new(index_id);
+  let query_cache = Arc::new(
+    LRUQueryCache::with_skip_cache_factor(2, 10000000, 1.0, CacheAllSegments)?
+      .with_hook(LRUQueryCacheHook::FineGrainedStats(hook.clone())),
+  );
+
+  let query: Query = TermQuery::new(Term::from_text("color", "red")).into();
+  let query_2: Query = TermQuery::new(Term::from_text("color", "blue")).into();
+  let query_3: Query = TermQuery::new(Term::from_text("color", "green")).into();
+
+  for searcher in [&mut searcher_1, &mut searcher_2] {
+    set_cache(searcher, query_cache.clone());
+    searcher.set_query_caching_policy(always_cache());
+  }
+
+  // search on searcher1
+  for _ in 0..10 {
+    searcher_1.search(ConstantScoreQuery::new(query.clone()), 1)?;
+  }
+  assert_eq!(9 * segment_count_1, hook.hit_count_1());
+  assert_eq!(0, hook.hit_count_2());
+  assert_eq!(segment_count_1, hook.miss_count_1());
+  assert_eq!(0, hook.miss_count_2());
+
+  // then on searcher2
+  for _ in 0..20 {
+    searcher_2.search(ConstantScoreQuery::new(query_2.clone()), 1)?;
+  }
+  assert_eq!(9 * segment_count_1, hook.hit_count_1());
+  assert_eq!(19 * segment_count_2, hook.hit_count_2());
+  assert_eq!(segment_count_1, hook.miss_count_1());
+  assert_eq!(segment_count_2, hook.miss_count_2());
+
+  // now on searcher1 again to trigger evictions
+  for _ in 0..30 {
+    searcher_1.search(ConstantScoreQuery::new(query_3.clone()), 1)?;
+  }
+  assert_eq!(segment_count_1, query_cache.get_eviction_count());
+  assert_eq!(38 * segment_count_1, hook.hit_count_1());
+  assert_eq!(19 * segment_count_2, hook.hit_count_2());
+  assert_eq!(2 * segment_count_1, hook.miss_count_1());
+  assert_eq!(segment_count_2, hook.miss_count_2());
+
+  // check that the recomputed stats are the same as those reported by the cache
+  assert_eq!(
+    query_cache.ram_bytes_used()?,
+    (segment_count_1 + segment_count_2) * HASHTABLE_RAM_BYTES_PER_ENTRY + hook.ram_bytes_usage()
+  );
+  assert_eq!(query_cache.get_cache_size(), hook.cache_size());
+
+  reader_1.close()?;
+  reader_2.close()?;
+  w_1.close(&mut random)?;
+  w_2.close(&mut random)?;
+
+  assert_eq!(query_cache.ram_bytes_used()?, hook.ram_bytes_usage());
+  assert_eq!(0, hook.cache_size());
+
+  query_cache.clear();
+  assert_eq!(0, hook.ram_bytes_usage());
+  assert_eq!(0, hook.cache_size());
+
+  dir_1.as_ref().close()?;
+  dir_2.as_ref().close()?;
   Ok(())
 }
 
@@ -941,14 +1057,13 @@ fn test_evict_empty_segment_cache() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   w.add_document(&mut random, Document::new())?;
-  let reader = w.get_reader(&mut random)?;
-  let mut searcher = new_searcher_with_reader(reader)?;
-  let query_cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
-    2,
-    100000,
-    f32::INFINITY,
-    CacheAllSegments,
-  )?);
+  let reader = Arc::new(w.get_reader(&mut random)?);
+  let mut searcher = new_searcher_with_reader(reader.clone())?;
+  let query_cache = Arc::new(
+    LRUQueryCache::with_skip_cache_factor(2, 100000, f32::INFINITY, CacheAllSegments)?.with_hook(
+      LRUQueryCacheHook::EvictEmptySegmentCache(EvictEmptySegmentCacheLRUQueryCache),
+    ),
+  );
 
   set_cache(&mut searcher, query_cache.clone());
   searcher.set_query_caching_policy(always_cache());
@@ -958,7 +1073,9 @@ fn test_evict_empty_segment_cache() -> Result<()> {
   assert_eq!(vec![query.clone()], cached_queries(&query_cache));
   query_cache.clear_query(&query);
 
-  w.close(&mut random)
+  reader.close()?; // make sure this does not trigger eviction of segment caches with no entries
+  w.close(&mut random)?;
+  dir.as_ref().close()
 }
 
 #[test]

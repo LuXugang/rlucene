@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::directory_reader::DirectoryReader;
-use crate::core::index::index_reader::{CacheHelper, CacheKey};
+use crate::core::index::index_reader::{CacheHelper, CacheKey, ClosedListener};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::Result;
 
@@ -92,5 +92,14 @@ where
 {
   fn get_key(&self) -> CacheKey {
     self.cache_key.clone()
+  }
+
+  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+    let cache_key = self.cache_key.clone();
+    self
+      ._delegate
+      .add_closed_listener(Box::new(move |_unused: &CacheKey| {
+        listener.on_close(&cache_key)
+      }))
   }
 }

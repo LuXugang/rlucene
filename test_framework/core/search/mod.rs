@@ -39,3 +39,4 @@ pub mod random_approximation_query;
 pub mod scorer_index_searcher;
 pub mod search_equivalence_test_base;
 pub mod similarity;
+pub mod test_lru_query_cache;

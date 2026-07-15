@@ -14,11 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::{CacheHelper, CacheKey};
+use crate::core::index::index_reader::{CacheHelper, CacheKey, ClosedListener};
+use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyCacheHelper;
 impl CacheHelper for DummyCacheHelper {
   fn get_key(&self) -> CacheKey {
+    dummy_unreachable!()
+  }
+
+  fn add_closed_listener(&self, _listener: Box<dyn ClosedListener>) -> Result<()> {
     dummy_unreachable!()
   }
 }

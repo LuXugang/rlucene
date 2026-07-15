@@ -39,7 +39,8 @@ use crate::core::codecs::knn_vectors_reader::DefaultKnnVectorsReader;
 use crate::core::codecs::points_reader::DefaultPointsReader;
 use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
-use crate::core::index::index_reader::{CacheHelper, CacheKey};
+use crate::core::index::index_reader::{CacheHelper, CacheKey, ClosedListener, ClosedListenerList};
+use parking_lot::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -190,15 +191,19 @@ where
   pub(crate) fn dec_ref(&self) -> Result<()> {
     let count = self.ref_.fetch_sub(1, Ordering::SeqCst) - 1;
     if count == 0 {
-      IOUtils::close_refs_tuple((
-        self.fields.as_ref(),
-        self.term_vectors_reader_orig.as_ref(),
-        Some(&self.fields_reader_orig),
-        self.cfs_reader.as_ref(),
-        self.norms_producer.as_ref(),
-        self.points_reader.as_ref(),
-        self.knn_vectors_reader.as_ref(),
-      ))?;
+      IOUtils::close(0..2, |operation| match operation {
+        0 => IOUtils::close_refs_tuple((
+          self.fields.as_ref(),
+          self.term_vectors_reader_orig.as_ref(),
+          Some(&self.fields_reader_orig),
+          self.cfs_reader.as_ref(),
+          self.norms_producer.as_ref(),
+          self.points_reader.as_ref(),
+          self.knn_vectors_reader.as_ref(),
+        )),
+        1 => self.cache_helper.notify_core_closed_listeners(),
+        _ => unreachable!(),
+      })?;
     }
     Ok(())
   }
@@ -212,6 +217,7 @@ where
 #[derive(Clone)]
 pub struct SegmentCoreReadersCacheHelperImpl {
   cache_key: CacheKey,
+  core_closed_listeners: ClosedListenerList,
 }
 impl Default for SegmentCoreReadersCacheHelperImpl {
   fn default() -> Self {
@@ -223,12 +229,29 @@ impl SegmentCoreReadersCacheHelperImpl {
   pub fn new() -> Self {
     Self {
       cache_key: CacheKey::new(),
+      core_closed_listeners: Arc::new(Mutex::new(Some(Vec::new()))),
     }
+  }
+
+  fn notify_core_closed_listeners(&self) -> Result<()> {
+    let mut core_closed_listeners = self.core_closed_listeners.lock();
+    let listeners = core_closed_listeners.take().unwrap_or_default();
+    IOUtils::apply_to_all(&listeners, |listener| listener.on_close(&self.cache_key))
   }
 }
 impl CacheHelper for SegmentCoreReadersCacheHelperImpl {
   fn get_key(&self) -> CacheKey {
     self.cache_key.clone()
   }
+
+  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+    let mut core_closed_listeners = self.core_closed_listeners.lock();
+    let Some(core_closed_listeners) = core_closed_listeners.as_mut() else {
+      return Err(LuceneError::already_closed(
+        "SegmentCoreReaders is already closed".to_string(),
+      ));
+    };
+    core_closed_listeners.push(listener);
+    Ok(())
+  }
 }
-// TODO IMPORTANT coreClosedListeners未实现
