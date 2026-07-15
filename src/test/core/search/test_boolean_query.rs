@@ -44,7 +44,9 @@ use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::index_searcher::{self, IndexSearcher, get_max_clause_count};
+use crate::core::search::index_searcher::{
+  self, IndexSearcher, IndexSearcherHook, get_max_clause_count,
+};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::multi_term_query::SCORING_BOOLEAN_REWRITE;
@@ -68,6 +70,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::search::test_boolean_query::CountingIndexSearcher;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::prelude::SliceRandom;
@@ -1258,28 +1261,6 @@ fn test_disjunction_matches_count() -> Result<()> {
 
   Ok(())
 }
-struct CountingIndexSearcher<IRC>
-where
-  IRC: IndexReaderContext + Sync + 'static,
-{
-  in_: IndexSearcher<IRC>,
-  count_invocations: usize,
-}
-impl<IRC> CountingIndexSearcher<IRC>
-where
-  IRC: IndexReaderContext + Sync + 'static,
-{
-  pub fn new(in_: IndexSearcher<IRC>) -> Self {
-    Self {
-      in_,
-      count_invocations: 0,
-    }
-  }
-  pub fn count(&mut self, query: impl Into<Query>) -> Result<i32> {
-    self.count_invocations += 1;
-    self.in_.count(query)
-  }
-}
 #[test]
 fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   let mut random = random();
@@ -1319,10 +1300,12 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let searcher = new_searcher_with_reader(reader)?;
+  let hook = CountingIndexSearcher::default();
+  let counting_index_searcher =
+    new_searcher_with_reader(reader)?.with_hook(IndexSearcherHook::Counting(hook.clone()));
 
   {
-    searcher.count_invocations.store(0, Ordering::Relaxed);
+    hook.reset();
 
     let mut builder = Builder::new();
     builder.add(
@@ -1335,12 +1318,12 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     )?;
     let query = builder.build();
 
-    assert_eq!(0, searcher.count(query)?);
-    assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
+    assert_eq!(0, counting_index_searcher.count(query)?);
+    assert_eq!(3, hook.count_invocations());
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::Relaxed);
+    hook.reset();
 
     let mut builder = Builder::new();
     builder.add(
@@ -1353,12 +1336,12 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     )?;
     let query = builder.build();
 
-    assert_eq!(smaller_term_count, searcher.count(query)?);
-    assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
+    assert_eq!(smaller_term_count, counting_index_searcher.count(query)?);
+    assert_eq!(3, hook.count_invocations());
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::Relaxed);
+    hook.reset();
 
     let mut builder = Builder::new();
     builder.add(
@@ -1371,12 +1354,12 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     )?;
     let query = builder.build();
 
-    assert_eq!(smaller_term_count, searcher.count(query)?);
-    assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
+    assert_eq!(smaller_term_count, counting_index_searcher.count(query)?);
+    assert_eq!(3, hook.count_invocations());
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::Relaxed);
+    hook.reset();
 
     let mut builder = Builder::new();
     builder.add(
@@ -1389,20 +1372,27 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     )?;
     let query = builder.build();
 
-    let count = searcher.count(query.clone())?;
+    let count = counting_index_searcher.count(query.clone())?;
 
     assert_eq!(larger_term_count + smaller_term_count, count);
-    assert_eq!(4, searcher.count_invocations.load(Ordering::Relaxed));
+    assert_eq!(4, hook.count_invocations());
 
     assert!(query.is_two_clause_pure_disjunction_with_terms());
-    let queries = query.rewrite_two_clause_disjunction_with_terms_for_count(&searcher)?;
+    let queries =
+      query.rewrite_two_clause_disjunction_with_terms_for_count(&counting_index_searcher)?;
     assert_eq!(3, queries.len());
-    assert_eq!(smaller_term_count, searcher.count(queries[0].clone())?);
-    assert_eq!(larger_term_count, searcher.count(queries[1].clone())?);
+    assert_eq!(
+      smaller_term_count,
+      counting_index_searcher.count(queries[0].clone())?
+    );
+    assert_eq!(
+      larger_term_count,
+      counting_index_searcher.count(queries[1].clone())?
+    );
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::Relaxed);
+    hook.reset();
 
     let mut builder = Builder::new();
     builder.add(
@@ -1415,20 +1405,27 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     )?;
     let query = builder.build();
 
-    let count = searcher.count(query.clone())?;
+    let count = counting_index_searcher.count(query.clone())?;
 
     assert_eq!(larger_term_count + smaller_term_count, count);
-    assert_eq!(4, searcher.count_invocations.load(Ordering::Relaxed));
+    assert_eq!(4, hook.count_invocations());
 
     assert!(query.is_two_clause_pure_disjunction_with_terms());
-    let queries = query.rewrite_two_clause_disjunction_with_terms_for_count(&searcher)?;
+    let queries =
+      query.rewrite_two_clause_disjunction_with_terms_for_count(&counting_index_searcher)?;
     assert_eq!(3, queries.len());
-    assert_eq!(larger_term_count, searcher.count(queries[0].clone())?);
-    assert_eq!(smaller_term_count, searcher.count(queries[1].clone())?);
+    assert_eq!(
+      larger_term_count,
+      counting_index_searcher.count(queries[0].clone())?
+    );
+    assert_eq!(
+      smaller_term_count,
+      counting_index_searcher.count(queries[1].clone())?
+    );
   }
 
   {
-    searcher.count_invocations.store(0, Ordering::Relaxed);
+    hook.reset();
 
     let mut builder = Builder::new();
     builder.add(
@@ -1441,10 +1438,10 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
     )?;
     let query = builder.build();
 
-    let count = searcher.count(query)?;
+    let count = counting_index_searcher.count(query)?;
 
     assert_eq!(smaller_term_count, count);
-    assert_eq!(3, searcher.count_invocations.load(Ordering::Relaxed));
+    assert_eq!(3, hook.count_invocations());
   }
   Ok(())
 }

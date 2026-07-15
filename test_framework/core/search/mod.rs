@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 pub mod asserting_bulk_scorer;
+pub(crate) mod asserting_collector;
+pub(crate) mod asserting_index_searcher;
 pub mod asserting_leaf_collector;
 pub mod asserting_query;
 pub mod asserting_scorable;
@@ -39,4 +41,8 @@ pub mod random_approximation_query;
 pub mod scorer_index_searcher;
 pub mod search_equivalence_test_base;
 pub mod similarity;
+pub(crate) mod test_boolean_query;
+pub(crate) mod test_boolean_rewrites;
+pub(crate) mod test_custom_searcher_sort;
+pub(crate) mod test_index_searcher;
 pub mod test_lru_query_cache;

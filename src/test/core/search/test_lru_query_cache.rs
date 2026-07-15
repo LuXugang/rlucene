@@ -21,11 +21,21 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::directory_reader;
+use crate::core::index::base_composite_reader::{
+  BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
+};
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
 use crate::core::index::doc_values::DocValues;
-use crate::core::index::index_reader::{CacheHelper, Identity, IndexReader};
+use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
+use crate::core::index::filter_leaf_reader::FilterLeafReader;
+use crate::core::index::index_reader::{
+  CacheHelper, CompositeReaderContextKind, Identity, IndexReader, IndexReaderBase,
+  LeafReaderContextKind,
+};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -40,7 +50,8 @@ use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{self, IndexSearcher, IndexSearcherHook};
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::lru_query_cache::{
   HASHTABLE_RAM_BYTES_PER_ENTRY, LRUQueryCache, LRUQueryCacheHook, MinSegmentSizePredicate,
 };
@@ -60,11 +71,14 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::predicate::Predicate;
 use crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::asserting_index_searcher::AssertingIndexSearcher;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 pub use crate::test_framework::core::search::query::{DVCacheQuery, TestLRUQuery};
@@ -75,9 +89,10 @@ use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
   random, random_from_seed, rarely,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
@@ -1118,12 +1133,483 @@ fn test_min_segment_size_predicate() -> Result<()> {
 }
 
 // a reader whose sole purpose is to not be cacheable
-struct DummyDirectoryReader;
+struct DummyDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  in_: DR,
+  base: BaseCompositeReaderBase<DummyFilterLeafReader<DR::LeafReader>>,
+  index_base: IndexReaderBase,
+}
+
+impl<DR> DummyDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  fn new(in_: DR) -> Result<Self> {
+    let wrapper = DummySubReaderWrapper;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None)?;
+    Ok(Self {
+      in_,
+      base,
+      index_base: IndexReaderBase::new(),
+    })
+  }
+}
+
+impl<DR> BaseCompositeReader for DummyDirectoryReader<DR> where DR: DirectoryReader {}
+
+impl<DR> CompositeReader for DummyDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type LeafReader = DummyFilterLeafReader<DR::LeafReader>;
+  type SubReader = Self::LeafReader;
+
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
+    self.base.get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for reader in self.get_sequential_sub_readers() {
+      visitor(reader)?;
+    }
+    Ok(())
+  }
+
+  fn to_string(&self) -> String {
+    format!("DummyDirectoryReader({})", self.in_.to_string())
+  }
+}
+
+impl<DR> IndexReader for DummyDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type ContextKind = CompositeReaderContextKind;
+
+  type TermVectors = BCRTermVectorsImpl<<Self as CompositeReader>::LeafReader>;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.base.term_vector(self)
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    Ok(self.base.max_doc())
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.base.num_docs()
+  }
+
+  type StoredFields = BCRStoredFieldsImpl<<Self as CompositeReader>::LeafReader>;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.base.stored_fields(self)
+  }
+
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
+  type ReaderCacheHelper = DR::ReaderCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    self.base.doc_freq(term, self)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.base.total_term_freq(term, self)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    self.base.get_sum_doc_freq(field, self)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    self.base.get_doc_count(field, self)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    self.base.get_sum_total_term_freq(field, self)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
+}
+
+impl<DR> Display for DummyDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", CompositeReader::to_string(self))
+  }
+}
+
+impl<DR> DirectoryReader for DummyDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type DirectoryReader = DummyDirectoryReader<DR::DirectoryReader>;
+
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    self.wrap_directory_reader(self.in_.do_open_if_changed()?)
+  }
+
+  fn do_open_if_changed_with_commit<IC>(
+    &self,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: crate::core::index::index_commit::IndexCommit<Directory = Arc<Self::Directory>>,
+  {
+    self.wrap_directory_reader(self.in_.do_open_if_changed_with_commit(commit)?)
+  }
+
+  fn do_open_if_changed_with_deletes(
+    &self,
+    writer: &Arc<IndexWriter<Self::Directory>>,
+    apply_deletes: bool,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    self.wrap_directory_reader(
+      self
+        .in_
+        .do_open_if_changed_with_deletes(writer, apply_deletes)?,
+    )
+  }
+
+  fn get_version(&self) -> Result<i64> {
+    self.in_.get_version()
+  }
+
+  fn is_current(&self) -> Result<bool> {
+    self.in_.is_current()
+  }
+
+  type IndexCommit = DR::IndexCommit;
+
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    self.in_.get_index_commit()
+  }
+
+  type Directory = DR::Directory;
+
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    self.in_.directory()
+  }
+}
+
+impl<DR> FilterDirectoryReader for DummyDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type Delegate = DR;
+
+  fn get_delegate(&self) -> &Self::Delegate {
+    &self.in_
+  }
+
+  type WrapDirectoryReader = DummyDirectoryReader<DR::DirectoryReader>;
+
+  fn do_wrap_directory_reader(
+    &self,
+    in_: Option<<Self::Delegate as DirectoryReader>::DirectoryReader>,
+  ) -> Result<Option<Self::WrapDirectoryReader>> {
+    in_.map(DummyDirectoryReader::new).transpose()
+  }
+}
+
+struct DummySubReaderWrapper;
+
+impl<LR> SubReaderWrapper<LR> for DummySubReaderWrapper
+where
+  LR: LeafReader,
+{
+  type LeafReader1 = Self::LeafReader2;
+
+  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers)
+  }
+
+  type LeafReader2 = DummyFilterLeafReader<LR>;
+
+  fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
+    Ok(DummyFilterLeafReader::new(reader))
+  }
+}
+
+struct DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  in_: LR,
+  index_base: IndexReaderBase,
+}
+
+impl<LR> DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  fn new(in_: LR) -> Self {
+    Self {
+      in_,
+      index_base: IndexReaderBase::new(),
+    }
+  }
+}
+
+impl<LR> Clone for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader + Clone,
+{
+  fn clone(&self) -> Self {
+    Self::new(self.in_.clone())
+  }
+}
+
+impl<LR> Display for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "DummyFilterLeafReader({})", self.in_)
+  }
+}
+
+impl<LR> FilterLeafReader for DummyFilterLeafReader<LR> where LR: LeafReader {}
+
+impl<LR> IndexReader for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  type ContextKind = LeafReaderContextKind;
+
+  type TermVectors = LR::TermVectors;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.in_.term_vectors()
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    self.in_.max_doc()
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.in_.num_docs()
+  }
+
+  type StoredFields = LR::StoredFields;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.in_.stored_fields()
+  }
+
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
+  type ReaderCacheHelper = LR::ReaderCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    IndexReader::doc_freq(&self.in_, term)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.in_.total_term_freq(term)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_doc_freq(&self.in_, field)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    IndexReader::get_doc_count(&self.in_, field)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_total_term_freq(&self.in_, field)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
+}
+
+impl<LR> LeafReader for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  type CacheHelper = LR::CacheHelper;
+
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    Ok(None)
+  }
+
+  type Terms = LR::Terms;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    self.in_.terms(field)
+  }
+
+  type NumericDocValues = LR::NumericDocValues;
+
+  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    self.in_.get_numeric_doc_values(field)
+  }
+
+  type BinaryDocValues = LR::BinaryDocValues;
+
+  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    self.in_.get_binary_doc_values(field)
+  }
+
+  type SortedDocValues = LR::SortedDocValues;
+
+  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    self.in_.get_sorted_doc_values(field)
+  }
+
+  type SortedNumericDocValues = LR::SortedNumericDocValues;
+
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    self.in_.get_sorted_numeric_doc_values(field)
+  }
+
+  type SortedSetDocValues = LR::SortedSetDocValues;
+
+  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    self.in_.get_sorted_set_doc_values(field)
+  }
+
+  type NormNumericDocValues = LR::NormNumericDocValues;
+
+  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    self.in_.get_norm_values(field)
+  }
+
+  type DocValuesSkipper = LR::DocValuesSkipper;
+
+  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    self.in_.get_doc_values_skipper(field)
+  }
+
+  type FloatVectorValues = LR::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    self.in_.get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = LR::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    self.in_.get_byte_vector_values(field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
+  }
+
+  fn get_field_infos(&self) -> Result<Arc<crate::core::index::field_infos::FieldInfos>> {
+    self.in_.get_field_infos()
+  }
+
+  type Bits = LR::Bits;
+
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    self.in_.get_live_docs()
+  }
+
+  type PointValues = LR::PointValues;
+
+  fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
+    self.in_.get_point_values(field)
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    self.in_.check_integrity()
+  }
+
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    self.in_.get_metadata()
+  }
+}
 
 #[test]
 fn test_reader_not_suited_for_caching() -> Result<()> {
-  // TODO: DummyDirectoryReader/FilterLeafReader cache-helper override is not available yet.
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_merge_policy(crate::core::index::no_merge_policy::NoMergePolicy::default());
+  let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+  w.add_document(&mut random, Document::new())?;
+  let reader = Arc::new(DummyDirectoryReader::new(w.get_reader(&mut random)?)?);
+  let mut searcher = new_searcher_with_reader(reader.clone())?;
+  searcher.set_query_caching_policy(always_cache());
+
+  // don't cache if the reader does not expose a cache helper
+  assert!(
+    searcher.get_leaf_contexts()?[0]
+      .reader()
+      .get_core_cache_helper()?
+      .is_none()
+  );
+  let cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
+    2,
+    10000,
+    f32::INFINITY,
+    CacheAllSegments,
+  )?);
+  set_cache(&mut searcher, cache.clone());
+  assert_eq!(0, searcher.count(TestLRUQuery::dummy())?);
+  assert_eq!(0, cache.get_cache_count());
+  reader.close()?;
+  w.close(&mut random)?;
+  dir.close()
 }
 
 // A query that returns null from Weight.getCacheHelper
@@ -1225,8 +1711,9 @@ fn test_doc_values_updates_dont_break_cache() -> Result<()> {
 
   {
     let reader = directory_reader::open_from_writer(&writer)?;
-    // TODO AssertingIndexSearcher未实现
-    let mut searcher = new_searcher_with_reader(reader)?;
+    let mut searcher = new_searcher_with_reader(reader)?.with_hook(IndexSearcherHook::Asserting(
+      Box::new(AssertingIndexSearcher::new(random.random())),
+    ));
     searcher.set_query_caching_policy(always_cache());
     set_cache(&mut searcher, cache.clone());
 
@@ -1243,7 +1730,9 @@ fn test_doc_values_updates_dont_break_cache() -> Result<()> {
 
   {
     let reader = directory_reader::open_from_writer(&writer)?;
-    let mut searcher = new_searcher_with_reader(reader)?;
+    let mut searcher = new_searcher_with_reader(reader)?.with_hook(IndexSearcherHook::Asserting(
+      Box::new(AssertingIndexSearcher::new(random.random())),
+    ));
     searcher.set_query_caching_policy(always_cache());
     set_cache(&mut searcher, cache.clone());
 
@@ -1253,7 +1742,9 @@ fn test_doc_values_updates_dont_break_cache() -> Result<()> {
 
   {
     let reader = directory_reader::open_from_writer(&writer)?;
-    let mut searcher = new_searcher_with_reader(reader)?;
+    let mut searcher = new_searcher_with_reader(reader)?.with_hook(IndexSearcherHook::Asserting(
+      Box::new(AssertingIndexSearcher::new(random.random())),
+    ));
     searcher.set_query_caching_policy(always_cache());
     set_cache(&mut searcher, cache.clone());
 
@@ -1264,7 +1755,9 @@ fn test_doc_values_updates_dont_break_cache() -> Result<()> {
   writer.update_numeric_doc_value(Term::from_text("text", "text"), "field", 2)?;
   {
     let reader = directory_reader::open_from_writer(&writer)?;
-    let mut searcher = new_searcher_with_reader(reader)?;
+    let mut searcher = new_searcher_with_reader(reader)?.with_hook(IndexSearcherHook::Asserting(
+      Box::new(AssertingIndexSearcher::new(random.random())),
+    ));
     searcher.set_query_caching_policy(always_cache());
     set_cache(&mut searcher, cache);
 
@@ -1286,8 +1779,97 @@ fn test_query_cache_soft_update() -> Result<()> {
 
 #[test]
 fn test_bulk_scorer_locking() -> Result<()> {
-  // TODO: Depends on DummyDirectoryReader with null cache helpers.
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc
+    .set_merge_policy(crate::core::index::no_merge_policy::NoMergePolicy::default())
+    // the test framework sometimes sets crazy low values, prevent this since we are
+    // indexing many docs
+    .set_max_buffered_docs(-1);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let num_docs = at_least(&mut random, 10);
+  let empty_doc = Document::new();
+  for _ in 0..num_docs {
+    let num_empty_docs = random.random_range(0..5000);
+    for _ in 0..=num_empty_docs {
+      w.add_document(empty_doc.clone())?;
+    }
+    let mut doc = Document::new();
+    for value in ["foo", "bar", "baz"] {
+      if random.random_bool(0.5) {
+        doc.add(StringField::from_string("field", value, Store::No)?);
+      }
+    }
+  }
+  let num_empty_docs = TestUtil::next_int(&mut random, 3000, 5000);
+  for _ in 0..=num_empty_docs {
+    w.add_document(empty_doc.clone())?;
+  }
+  if random.random_bool(0.5) {
+    w.force_merge(1)?;
+  }
+
+  let reader = Arc::new(directory_reader::open_from_writer(&w)?);
+  let no_cache_reader = Arc::new(DummyDirectoryReader::new(reader.clone())?);
+
+  let cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
+    1,
+    100000,
+    f32::INFINITY,
+    CacheAllSegments,
+  )?);
+  let mut searcher = index_searcher::from_reader(reader)?.with_hook(IndexSearcherHook::Asserting(
+    Box::new(AssertingIndexSearcher::new(random.random())),
+  ));
+  set_cache(&mut searcher, cache.clone());
+  searcher.set_query_caching_policy(always_cache());
+
+  let mut builder = Builder::new();
+  builder
+    .add(
+      crate::core::search::boost_query::BoostQuery::new(
+        TermQuery::new(Term::from_text("field", "foo")),
+        3.0,
+      )?,
+      Occur::Should,
+    )?
+    .add(
+      crate::core::search::boost_query::BoostQuery::new(
+        TermQuery::new(Term::from_text("field", "bar")),
+        3.0,
+      )?,
+      Occur::Should,
+    )?
+    .add(
+      crate::core::search::boost_query::BoostQuery::new(
+        TermQuery::new(Term::from_text("field", "baz")),
+        3.0,
+      )?,
+      Occur::Should,
+    )?;
+  let query: Query = ConstantScoreQuery::new(builder.build()).into();
+
+  searcher.search(query.clone(), 1)?;
+
+  let mut no_cache_helper_searcher = index_searcher::from_reader(no_cache_reader.clone())?
+    .with_hook(IndexSearcherHook::Asserting(Box::new(
+      AssertingIndexSearcher::new(random.random()),
+    )));
+  set_cache(&mut no_cache_helper_searcher, cache);
+  no_cache_helper_searcher.set_query_caching_policy(always_cache());
+  no_cache_helper_searcher.search(query, 1)?;
+
+  let t = std::thread::spawn(move || -> Result<()> {
+    no_cache_reader.close()?;
+    w.close()?;
+    dir.close()
+  });
+  match t.join() {
+    Ok(result) => result,
+    Err(payload) => std::panic::resume_unwind(payload),
+  }
 }
 
 #[test]

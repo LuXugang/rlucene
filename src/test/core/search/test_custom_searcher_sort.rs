@@ -22,21 +22,17 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
-use crate::core::index::index_reader_context::IRCLeafReader;
 use crate::core::index::term::Term;
-use crate::core::search::boolean_clause::Occur;
-use crate::core::search::boolean_query::Builder;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherHook};
 use crate::core::search::query::Query;
-use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
-use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs::TopDocsLike;
-use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::test_custom_searcher_sort::CustomSearcher;
 use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, new_directory_shared, random,
@@ -91,7 +87,8 @@ fn test_field_sort_custom_searcher() -> Result<()> {
     SortField::new(Some("publicationDate_"), SortFieldType::String)?,
     SortField::get_field_score()?,
   ])?;
-  let searcher = CustomSearcher::new(reader, 2);
+  let searcher = IndexSearcher::new(reader.get_context()?)?
+    .with_hook(IndexSearcherHook::CustomSearcher(CustomSearcher::new(2)));
   match_hits(&searcher, &query, cust_sort)
 }
 
@@ -103,10 +100,15 @@ fn test_field_sort_single_searcher() -> Result<()> {
     SortField::new(Some("publicationDate_"), SortFieldType::String)?,
     SortField::get_field_score()?,
   ])?;
-  let searcher = CustomSearcher::new(reader, 2);
+  let searcher = IndexSearcher::new(reader.get_context()?)?
+    .with_hook(IndexSearcherHook::CustomSearcher(CustomSearcher::new(2)));
   match_hits(&searcher, &query, cust_sort)
 }
-fn match_hits(searcher: &CustomSearcher<DefaultCRReader>, query: &Query, sort: Sort) -> Result<()> {
+fn match_hits(
+  searcher: &IndexSearcher<IndexReaderContextType<DefaultCRReader>>,
+  query: &Query,
+  sort: Sort,
+) -> Result<()> {
   let hits_by_rank = searcher.search(query.clone(), usize::MAX)?.score_docs;
   check_hits(hits_by_rank.as_slice(), "Sort by rank: ");
 
@@ -145,56 +147,6 @@ where
   }
 }
 
-pub struct CustomSearcher<IR>
-where
-  IR: IndexReader + Sync + 'static,
-  IndexReaderContextType<IR>: Sync,
-  IRCLeafReader<IndexReaderContextType<IR>>: Sync,
-{
-  searcher: IndexSearcher<IndexReaderContextType<IR>>,
-  switcher: i32,
-}
-
-impl<IR> CustomSearcher<IR>
-where
-  IR: IndexReader + Sync + 'static,
-  IndexReaderContextType<IR>: Sync,
-  IRCLeafReader<IndexReaderContextType<IR>>: Sync,
-{
-  pub fn new(reader: IR, switcher: i32) -> Self {
-    let s = IndexSearcher::new(reader.get_context().unwrap()).unwrap();
-    Self {
-      searcher: s,
-      switcher,
-    }
-  }
-  pub fn search_with_sort<Q>(&self, query: Q, n_docs: usize, sort: Sort) -> Result<TopFieldDocs>
-  where
-    Q: Into<Query>,
-  {
-    let mut bq = Builder::new();
-    bq.add(query, Occur::Must)?;
-    bq.add(
-      TermQuery::new(Term::from_text("mandant", self.switcher.to_string())),
-      Occur::Must,
-    )?;
-    let q = bq.build();
-    self.searcher.search_with_sort(q, n_docs, sort)
-  }
-  pub fn search<Q>(&self, query: Q, n_docs: usize) -> Result<TopDocs<ScoreDoc>>
-  where
-    Q: Into<Query>,
-  {
-    let mut bq = Builder::new();
-    bq.add(query, Occur::Must)?;
-    bq.add(
-      TermQuery::new(Term::from_text("mandant", self.switcher.to_string())),
-      Occur::Must,
-    )?;
-    let q = bq.build();
-    self.searcher.search(q, n_docs)
-  }
-}
 struct RandomGen<'a, R: Rng + ?Sized> {
   random: &'a mut R,
   // we use the default Locale/TZ since LuceneTestCase randomizes it

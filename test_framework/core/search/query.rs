@@ -276,7 +276,7 @@ pub struct TestRewriteQuery {
 }
 
 impl TestRewriteQuery {
-  pub(crate) fn new(num_rewrites: Arc<AtomicUsize>) -> Self {
+  pub fn new(num_rewrites: Arc<AtomicUsize>) -> Self {
     Self {
       num_rewrites,
       id: Identity::new(),

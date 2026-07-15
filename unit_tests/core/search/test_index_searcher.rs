@@ -30,9 +30,7 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::field_comparator::FieldComparatorValue;
 use crate::core::search::field_doc::FieldDoc;
-use crate::core::search::index_searcher::{
-  self, IndexSearcher, LeafReaderContextPartition, LeafSlice, do_slices,
-};
+use crate::core::search::index_searcher::{self, IndexSearcher, IndexSearcherHook};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::query::Query;
@@ -46,6 +44,10 @@ use crate::core::search::{QueryCache, QueryCacheEnum};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::search::test_index_searcher::{
+  GetSlicesIndexSearcher, SegmentPartitionsSameSliceIndexSearcher,
+  SlicesOffloadedToExecutorIndexSearcher,
+};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_string_field, random,
 };
@@ -322,8 +324,8 @@ fn test_get_slices() -> Result<()> {
   assert_eq!(leaves_len, slices[0].partitions.len());
 
   let context = r.get_context()?;
-  let mut searcher = IndexSearcher::with_threads(context, 2)?;
-  searcher.set_slice_strategy(|leaves| do_slices(leaves, 1, 1, false));
+  let searcher = IndexSearcher::with_threads(context, 2)?
+    .with_hook(IndexSearcherHook::GetSlices(GetSlicesIndexSearcher));
   let slices = searcher.get_slices()?;
   for slice in slices.iter() {
     assert_eq!(1, slice.partitions.len());
@@ -340,17 +342,9 @@ fn test_slices_offloaded_to_the_executor() -> Result<()> {
 
   let context = reader.get_context()?;
   let leaves_len = context.leaves()?.len();
-  let mut searcher = IndexSearcher::with_threads(context, leaves_len.max(1))?;
-  searcher.set_slice_strategy(|leaves| {
-    leaves
-      .iter()
-      .map(|ctx| {
-        Ok(LeafSlice::new(vec![
-          LeafReaderContextPartition::create_for_entire_segment(ctx)?,
-        ]))
-      })
-      .collect()
-  });
+  let mut searcher = IndexSearcher::with_threads(context, leaves_len.max(1))?.with_hook(
+    IndexSearcherHook::SlicesOffloadedToExecutor(SlicesOffloadedToExecutorIndexSearcher),
+  );
   let num_executions = Arc::new(AtomicUsize::new(0));
   searcher.set_offloaded_slice_counter(num_executions.clone());
 
@@ -372,18 +366,9 @@ fn test_segment_partitions_same_slice() -> Result<()> {
   let TestIndexSearcher { dir: _dir, reader } = TestIndexSearcher::set_up(&mut random)?;
 
   let context = reader.get_context()?;
-  let mut searcher = IndexSearcher::with_threads(context, 2)?;
-  searcher.set_slice_strategy(|leaves| {
-    leaves
-      .iter()
-      .map(|ctx| {
-        Ok(LeafSlice::new(vec![
-          LeafReaderContextPartition::create_from_and_to(ctx, 0, 1)?,
-          LeafReaderContextPartition::create_from_and_to(ctx, 1, ctx.reader().max_doc()?)?,
-        ]))
-      })
-      .collect()
-  });
+  let searcher = IndexSearcher::with_threads(context, 2)?.with_hook(
+    IndexSearcherHook::SegmentPartitionsSameSlice(SegmentPartitionsSameSliceIndexSearcher),
+  );
 
   for ctx in searcher.get_leaf_contexts()? {
     if ctx.reader().max_doc()? <= 1 {

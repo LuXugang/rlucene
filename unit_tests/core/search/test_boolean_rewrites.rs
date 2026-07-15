@@ -25,7 +25,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::core::document::field::FieldBase;
 use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader;
-use crate::core::index::index_reader::Identity;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
@@ -36,7 +36,7 @@ use crate::core::search::boolean_query;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
-use crate::core::search::index_searcher::{self, IndexSearcher};
+use crate::core::search::index_searcher::{self, IndexSearcher, IndexSearcherHook};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::phrase_query::PhraseQuery;
@@ -47,14 +47,17 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::search::query::TestRewriteQuery;
+use crate::test_framework::core::search::test_boolean_rewrites::NoRewriteIndexSearcher;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -650,13 +653,12 @@ fn test_random() -> Result<()> {
     writer.add_document(&mut random, doc)?;
   }
 
-  let reader1 = writer.get_reader(&mut random)?;
-  let reader2 = writer.get_reader(&mut random)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher1 = index_searcher::from_reader(reader1)?;
-  let mut searcher2 = index_searcher::from_reader(reader2)?;
-  searcher2.disable_rewrite = true;
+  let searcher1 = new_searcher_with_reader(reader.clone())?;
+  let mut searcher2 = index_searcher::from_reader(reader.clone())?
+    .with_hook(IndexSearcherHook::NoRewrite(NoRewriteIndexSearcher));
   searcher2.set_similarity(searcher1.get_similarity());
 
   let iters = at_least(&mut random, 1000);
@@ -664,10 +666,29 @@ fn test_random() -> Result<()> {
     let query = random_boolean_query(&mut random)?;
     let td1 = searcher1.search(query.clone(), 100)?;
     let td2 = searcher2.search(query.clone(), 100)?;
-    assert_equals(&td1, &td2);
+    let result = catch_unwind(AssertUnwindSafe(|| assert_equals(&td1, &td2)));
+    if let Err(payload) = result {
+      println!("{}", query.to_string("")?);
+      let mut query = query;
+      let mut rewritten = query.clone();
+      loop {
+        query = rewritten;
+        rewritten = query.clone().rewrite(&searcher1)?;
+        println!("{}", rewritten.to_string("")?);
+        let tdx = searcher2.search(rewritten.clone(), 100)?;
+        if td2.total_hits.value() != tdx.total_hits.value() {
+          println!("Bad");
+        }
+        if query.identity() == rewritten.identity() {
+          break;
+        }
+      }
+      resume_unwind(payload);
+    }
   }
 
-  Ok(())
+  reader.close()?;
+  dir.close()
 }
 
 fn random_boolean_query<R>(random: &mut R) -> Result<Query>
@@ -729,8 +750,8 @@ where
   }
   let v = random.random_range(0..6);
   match v {
-    // 0 => Ok(MatchAllDocsQuery::new().into()),
-    0 | 1 => Ok(TermQuery::new(Term::from_text("body", "a")).into()),
+    0 => Ok(MatchAllDocsQuery::new().into()),
+    1 => Ok(TermQuery::new(Term::from_text("body", "a")).into()),
     2 => Ok(TermQuery::new(Term::from_text("body", "b")).into()),
     3 => Ok(TermQuery::new(Term::from_text("body", "c")).into()),
     4 => Ok(TermQuery::new(Term::from_text("body", "d")).into()),

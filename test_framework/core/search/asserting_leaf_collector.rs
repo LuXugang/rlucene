@@ -23,16 +23,16 @@ use crate::test_framework::core::search::asserting_scorable::AssertingScorable;
 use std::fmt::{Display, Formatter};
 
 /// Wraps another Collector and checks that order is respected.
-pub(crate) struct AssertingLeafCollector<'a> {
-  in_: &'a mut dyn LeafCollector,
+pub(crate) struct AssertingLeafCollector<L> {
+  in_: L,
   min: i32,
   max: i32,
   last_collected: i32,
   finish_called: bool,
 }
 
-impl<'a> AssertingLeafCollector<'a> {
-  pub(crate) fn new(in_: &'a mut dyn LeafCollector, min: i32, max: i32) -> Self {
+impl<L> AssertingLeafCollector<L> {
+  pub(crate) fn new(in_: L, min: i32, max: i32) -> Self {
     Self {
       in_,
       min,
@@ -43,13 +43,19 @@ impl<'a> AssertingLeafCollector<'a> {
   }
 }
 
-impl Display for AssertingLeafCollector<'_> {
+impl<L> Display for AssertingLeafCollector<L>
+where
+  L: LeafCollector,
+{
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "AssertingLeafCollector({})", self.in_)
   }
 }
 
-impl LeafCollector for AssertingLeafCollector<'_> {
+impl<L> LeafCollector for AssertingLeafCollector<L>
+where
+  L: LeafCollector,
+{
   fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
     self.in_.set_scorer(&mut AssertingScorable::wrap(scorer))
   }

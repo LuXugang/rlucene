@@ -56,7 +56,22 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
-use crate::test_framework::core::search::scorer_index_searcher::ScorerIndexSearcherSearchLeafHelper;
+use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
+#[cfg(test)]
+use crate::test_framework::core::search::asserting_index_searcher::AssertingIndexSearcher;
+#[cfg(test)]
+use crate::test_framework::core::search::scorer_index_searcher::ScorerIndexSearcherHook;
+#[cfg(test)]
+use crate::test_framework::core::search::test_boolean_query::CountingIndexSearcher;
+#[cfg(test)]
+use crate::test_framework::core::search::test_boolean_rewrites::NoRewriteIndexSearcher;
+#[cfg(test)]
+use crate::test_framework::core::search::test_custom_searcher_sort::CustomSearcher;
+#[cfg(test)]
+use crate::test_framework::core::search::test_index_searcher::{
+  GetSlicesIndexSearcher, SegmentPartitionsSameSliceIndexSearcher,
+  SlicesOffloadedToExecutorIndexSearcher,
+};
 use parking_lot::Mutex;
 #[cfg(test)]
 use std::cell::Cell;
@@ -78,9 +93,6 @@ const TOTAL_HITS_THRESHOLD: usize = 1000;
 /// To change the default, extend IndexSearcher and use custom values
 const MAX_DOCS_PER_SLICE: i32 = 250000;
 const MAX_SEGMENTS_PER_SLICE: usize = 5;
-#[cfg(test)]
-type SliceStrategy<LR> = fn(&[LeafReaderContext<LR>]) -> Result<Vec<LeafSlice>>;
-
 pub static MAX_CACHED_QUERIES: i32 = 1000;
 pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
   let mut sys = System::new();
@@ -94,6 +106,7 @@ pub struct IndexSearcher<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
+  hook: IndexSearcherHook,
   pub reader_context: IRC,
   similarity: Arc<SimilarityEnum>,
   inner: Mutex<Inner>,
@@ -102,20 +115,12 @@ where
   query_cache: Option<QueryCacheEnum<IRC>>,
   search_threads: usize,
   #[cfg(test)]
-  slice_strategy: Option<SliceStrategy<IRC::LeafReader>>,
-  #[cfg(test)]
   offloaded_slice_counter: Option<Arc<AtomicUsize>>,
   // partialResult may be set on one of the threads of the executor. It may be correct to not make
   // Joining these threads establishes the required happens-before relationship, but using an atomic
   // value also makes cross-thread visibility explicit.
   // shouldn't hurt either.
   partial_result: AtomicBool,
-  #[cfg(test)]
-  pub(crate) disable_rewrite: bool,
-  #[cfg(test)]
-  pub(crate) count_invocations: AtomicUsize,
-  #[cfg(test)]
-  pub(crate) use_scorer_search: bool,
 }
 pub(crate) struct Inner {
   leaf_slices: Option<Arc<Vec<LeafSlice>>>,
@@ -143,6 +148,7 @@ where
     )?);
     let inner = Mutex::new(Inner { leaf_slices });
     Ok(Self {
+      hook: IndexSearcherHook::Default,
       reader_context: context,
       similarity: Arc::new(get_default_similarity()?),
       inner,
@@ -151,16 +157,8 @@ where
       query_cache: Some(lru_query_cache.into()),
       search_threads: 1,
       #[cfg(test)]
-      slice_strategy: None,
-      #[cfg(test)]
       offloaded_slice_counter: None,
       partial_result: AtomicBool::new(false),
-      #[cfg(test)]
-      disable_rewrite: false,
-      #[cfg(test)]
-      count_invocations: AtomicUsize::new(0),
-      #[cfg(test)]
-      use_scorer_search: false,
     })
   }
 
@@ -197,6 +195,15 @@ impl<IRC> IndexSearcher<IRC>
 where
   IRC: IndexReaderContext,
 {
+  #[cfg(test)]
+  pub(crate) fn with_hook(mut self, hook: IndexSearcherHook) -> Self {
+    self.hook = hook;
+    if self.search_threads > 1 {
+      self.inner.lock().leaf_slices = None;
+    }
+    self
+  }
+
   pub fn stored_fields(&self) -> Result<<IRC::IndexReader as IndexReader>::StoredFields> {
     self.reader_context.reader().stored_fields()
   }
@@ -235,14 +242,6 @@ where
   }
 
   #[cfg(test)]
-  pub fn set_slice_strategy(&mut self, slice_strategy: SliceStrategy<IRC::LeafReader>) {
-    self.slice_strategy = Some(slice_strategy);
-    if self.search_threads > 1 {
-      self.inner.lock().leaf_slices = None;
-    }
-  }
-
-  #[cfg(test)]
   pub fn set_offloaded_slice_counter(&mut self, counter: Arc<AtomicUsize>) {
     self.offloaded_slice_counter = Some(counter);
   }
@@ -258,13 +257,7 @@ where
   fn compute_and_cache_slices(&self, inner: &mut Inner) -> Result<()> {
     if inner.leaf_slices.is_none() {
       let leaves = self.reader_context.leaves()?;
-      #[cfg(test)]
-      let res = match self.slice_strategy {
-        Some(slice_strategy) => slice_strategy(leaves)?,
-        None => slices(leaves)?,
-      };
-      #[cfg(not(test))]
-      let res = slices(leaves)?;
+      let res = self.hook.slices(self, leaves)?;
       // Enforce that there aren't multiple leaf partitions within the same leaf slice pointing to the
       // same leaf context. It is a requirement that [`Collector::get_leaf_collector(LeafReaderContext)`]
       // gets called once per leaf context.
@@ -293,22 +286,9 @@ where
   where
     Self: Sync,
   {
-    let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
-
-    if let Some(ref a) = after
-      && a.doc >= limit.try_convert()?
-    {
-      return Err(LuceneError::illegal_argument(format!(
-        "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",
-        a.doc, limit
-      )));
-    }
-
-    let capped_num_hits = std::cmp::min(num_hits, limit);
-    let manager =
-      TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
-
-    self.search_with_collector_manager(query, &manager)
+    self
+      .hook
+      .search_after_score(self, after, query.into_query(), num_hits)
   }
   /// Get the configured `QueryTimeout` for all searches that run through this `IndexSearcher`,
   /// or `None` if not set.
@@ -326,7 +306,7 @@ where
   where
     Self: Sync,
   {
-    self.search_after_score(None, query, n)
+    self.hook.search(self, query.into_query(), n)
   }
   /// Search implementation with arbitrary sorting, plus control over whether hit scores and max
   /// score should be computed.
@@ -371,7 +351,9 @@ where
     T: Into<Arc<Sort>>,
     Self: Sync,
   {
-    self.search_after_field_with_score(None, query, n, sort, false)
+    self
+      .hook
+      .search_with_sort(self, query.into_query(), n, sort.into())
   }
 
   pub fn get_top_reader_context(&self) -> &IRC {
@@ -388,34 +370,7 @@ where
   where
     Self: Sync,
   {
-    #[cfg(test)]
-    self.count_invocations.fetch_add(1, Ordering::Relaxed);
-
-    let query = query.into_query();
-    let mut query = self.rewrite(ConstantScoreQuery::new(query))?;
-    if let Query::ConstantScore(csq) = query {
-      query = csq.into_inner()
-    }
-
-    if let Query::Boolean(boolean_query) = &query {
-      let has_deletions = self.reader_context.reader().has_deletions()?;
-      if !has_deletions && boolean_query.is_two_clause_pure_disjunction_with_terms() {
-        let [query0, query1, query2] =
-          boolean_query.rewrite_two_clause_disjunction_with_terms_for_count(self)?;
-        let count_term1 = self.count(query0)?;
-        let count_term2 = self.count(query1)?;
-
-        if count_term1 == 0 || count_term2 == 0 {
-          return Ok(count_term1.max(count_term2));
-        } else if (count_term1.min(count_term2) as f64) / (count_term1.max(count_term2) as f64)
-          < 0.1
-        {
-          return Ok(count_term1 + count_term2 - self.count(query2)?);
-        }
-      }
-    }
-    let v = TotalHitCountCollectorManager::new(self.get_slices()?.as_slice());
-    self.search_with_collector_manager(ConstantScoreQuery::new(query), &v)
+    self.hook.count(self, query.into_query())
   }
 
   pub fn search_after_field_with_score<Q, T>(
@@ -497,28 +452,17 @@ where
     CM: CollectorManager,
     CM::C: Send,
   {
-    let mut query = query.into_query();
-    let first_collector = collector_manager.new_collector()?;
-    let needs_scores = first_collector.score_mode().needs_scores();
-    query = self.rewrite_with_needs_scores(query, needs_scores)?;
-    let score_mode = first_collector.score_mode();
-
-    self.search_with_first_collector(query, score_mode, collector_manager, first_collector)
+    self
+      .hook
+      .search_with_collector_manager(self, query.into_query(), collector_manager)
   }
   pub fn search_with_collector<C>(&self, query: impl IntoQuery, collector: &mut C) -> Result<()>
   where
     C: Collector,
   {
-    let query = query.into_query();
-    let needs_scores = collector.score_mode().needs_scores();
-    let query = self.rewrite_with_needs_scores(query, needs_scores)?;
-    let weight = self.create_weight(query, collector.score_mode(), 1.0)?;
-    collector.set_weight(Some(&weight))?;
-    let leaves = self.get_leaf_contexts()?;
-    for ctx in leaves {
-      self.search_leaf(ctx.ord, 0, NO_MORE_DOCS, &weight, collector)?;
-    }
-    Ok(())
+    self
+      .hook
+      .search_with_collector(self, query.into_query(), collector)
   }
   /// Returns true if any search hit the timeout.
   pub fn timeout(&self) -> bool {
@@ -643,19 +587,9 @@ where
     C: Collector,
     W: Weight<IRC> + ?Sized,
   {
-    collector.set_weight(Some(weight))?;
-
-    for partition in partitions {
-      self.search_leaf(
-        partition.ctx,
-        partition.min_doc_id,
-        partition.max_doc_id,
-        weight,
-        collector,
-      )?;
-    }
-
-    Ok(())
+    self
+      .hook
+      .search_partitions(self, partitions, weight, collector)
   }
   pub(crate) fn search_leaf<W, C>(
     &self,
@@ -669,79 +603,15 @@ where
     C: Collector,
     W: Weight<IRC> + ?Sized,
   {
-    #[cfg(test)]
-    {
-      if self.use_scorer_search {
-        let v = ScorerIndexSearcherSearchLeafHelper;
-        return v.search_leaf(self, ctx_ord, min_doc_id, max_doc_id, weight, collector);
-      }
-    }
-    let ctx = &self.reader_context.leaves()?[ctx_ord];
-    let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight), self) {
-      Ok(leaf_collector) => leaf_collector,
-      Err(LuceneError::CollectionTerminated(_)) => {
-        // there is no doc of interest in this reader context
-        // continue with the following leaf
-        return Ok(());
-      },
-      Err(e) => return Err(e),
-    };
-
-    if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx, self)? {
-      scorer_supplier.set_top_level_scoring_clause()?;
-      let mut scorer = match scorer_supplier.bulk_scorer(ctx, self)? {
-        Some(scorer) => scorer,
-        None => return Err(LuceneError::illegal_state("BulkScorer is None")),
-      };
-      let bits = ctx.reader().get_live_docs()?;
-      let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
-      let result: Result<()> = (|| {
-        let _ = match self.query_timeout {
-          None => scorer.score(&mut leaf_collector, live_docs, min_doc_id, max_doc_id)?,
-          Some(ref qt) => {
-            let mut scorer = TimeLimitingBulkScorer::new(scorer, qt);
-            scorer.score(&mut leaf_collector, live_docs, min_doc_id, max_doc_id)?
-          },
-        };
-        Ok(())
-      })();
-
-      match result {
-        Ok(_) => {},
-        Err(LuceneError::CollectionTerminated(_)) => {
-          // collection was terminated prematurely
-          // continue with the following leaf
-        },
-        Err(LuceneError::TimeExceeded(_)) => {
-          self.partial_result.store(true, Ordering::SeqCst);
-        },
-        Err(e) => return Err(e),
-      }
-    }
-    // Note: this is called if collection ran successfully, including the above special cases of
-    // collection-terminated and time-exceeded errors, but no other error.
-    leaf_collector.finish()?;
-    Ok(())
+    self
+      .hook
+      .search_leaf(self, ctx_ord, min_doc_id, max_doc_id, weight, collector)
   }
   pub fn rewrite<Q>(&self, query: Q) -> Result<Query>
   where
     Q: IntoQuery,
   {
-    let mut query = query.into_query();
-    #[cfg(test)]
-    if self.disable_rewrite {
-      return Ok(query);
-    }
-    let mut query_id = query.identity().clone();
-    loop {
-      query = query.rewrite(self)?;
-      if query.identity() == &query_id {
-        break;
-      }
-      query_id = query.identity().clone();
-    }
-    // query.visit(self.get_num_clauses_check_visitor());
-    Ok(query)
+    self.hook.rewrite(self, query.into_query())
   }
 
   pub(crate) fn rewrite_with_needs_scores(
@@ -811,14 +681,7 @@ where
   where
     T: QueryBase,
   {
-    let mut weight = query.create_weight(self, &score_mode, boost)?;
-    if !score_mode.needs_scores()
-      && let Some(query_cache) = self.query_cache.as_ref()
-    {
-      weight = query_cache.do_cache(weight, self.query_caching_policy.clone())?;
-    }
-
-    Ok(weight)
+    self.hook.create_weight(self, query, score_mode, boost)
   }
 
   /// Returns [`TermStatistics`] for a term.
@@ -845,7 +708,9 @@ where
   where
     T: Into<Arc<Term>>,
   {
-    TermStatistics::new(term, doc_freq as i64, total_term_freq)
+    self
+      .hook
+      .term_statistics(self, term.into(), doc_freq, total_term_freq)
   }
   /// Returns [`CollectionStatistics`] for a field, or `None` if the field does not exist
   /// (has no indexed terms).
@@ -854,31 +719,7 @@ where
   /// This method can be overridden, for example, to return a field's statistics across
   /// a distributed collection.
   pub fn collection_statistics(&self, field: &str) -> Result<Option<CollectionStatistics>> {
-    let mut doc_count: i64 = 0;
-    let mut sum_total_term_freq: i64 = 0;
-    let mut sum_doc_freq: i64 = 0;
-
-    for leaf in self.reader_context.leaves()? {
-      let reader = leaf.reader();
-      let terms = get_terms(reader, field)?;
-      doc_count += terms.get_doc_count()? as i64;
-      sum_total_term_freq += terms.get_sum_total_term_freq()?;
-      sum_doc_freq += terms.get_sum_doc_freq()?;
-    }
-
-    if doc_count == 0 {
-      return Ok(None);
-    }
-
-    let stats = CollectionStatistics::new(
-      field,
-      self.reader_context.reader().max_doc()? as i64,
-      doc_count,
-      sum_total_term_freq,
-      sum_doc_freq,
-    )?;
-
-    Ok(Some(stats))
+    self.hook.collection_statistics(self, field)
   }
   pub fn get_leaf_contexts(&self) -> Result<&[LeafReaderContext<IRC::LeafReader>]> {
     self.reader_context.leaves()
@@ -1257,5 +1098,960 @@ impl LeafSlice {
   /// by summing the number of docs that each of its leaf context partitions targets.
   pub fn max_docs(&self) -> i32 {
     self.max_docs
+  }
+}
+
+#[derive(Default)]
+pub(crate) enum IndexSearcherHook {
+  #[default]
+  Default,
+  #[cfg(test)]
+  GetSlices(GetSlicesIndexSearcher),
+  #[cfg(test)]
+  SlicesOffloadedToExecutor(SlicesOffloadedToExecutorIndexSearcher),
+  #[cfg(test)]
+  SegmentPartitionsSameSlice(SegmentPartitionsSameSliceIndexSearcher),
+  #[cfg(test)]
+  IntraSliceDocIdOrderWithPartitions(IntraSliceDocIdOrderWithPartitionsIndexSearcher),
+  #[cfg(test)]
+  NoRewrite(NoRewriteIndexSearcher),
+  #[cfg(test)]
+  Counting(CountingIndexSearcher),
+  #[cfg(test)]
+  Scorer(ScorerIndexSearcherHook),
+  #[cfg(test)]
+  CustomSearcher(CustomSearcher),
+  #[cfg(test)]
+  Asserting(Box<AssertingIndexSearcher>),
+}
+
+pub(crate) struct IndexSearcherDefaults;
+
+pub(crate) trait IndexSearcherBase<IRC>
+where
+  IRC: IndexReaderContext,
+{
+  fn slices(
+    &self,
+    _searcher: &IndexSearcher<IRC>,
+    leaves: &[LeafReaderContext<IRC::LeafReader>],
+  ) -> Result<Vec<LeafSlice>> {
+    IndexSearcherDefaults::slices(leaves)
+  }
+
+  fn count(&self, searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    IndexSearcherDefaults::count(searcher, query)
+  }
+
+  fn search_after_score(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    after: Option<ScoreDoc>,
+    query: Query,
+    num_hits: usize,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    IndexSearcherDefaults::search_after_score(searcher, after, query, num_hits)
+  }
+
+  fn search(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    n: usize,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    IndexSearcherDefaults::search(searcher, query, n)
+  }
+
+  fn search_with_collector<C>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    C: Collector,
+  {
+    IndexSearcherDefaults::search_with_collector(searcher, query, collector)
+  }
+
+  fn search_with_sort(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    n: usize,
+    sort: Arc<Sort>,
+  ) -> Result<TopFieldDocs>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    IndexSearcherDefaults::search_with_sort(searcher, query, n, sort)
+  }
+
+  fn search_with_collector_manager<CM>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    collector_manager: &CM,
+  ) -> Result<CM::T>
+  where
+    IndexSearcher<IRC>: Sync,
+    CM: CollectorManager,
+    CM::C: Send,
+  {
+    IndexSearcherDefaults::search_with_collector_manager(searcher, query, collector_manager)
+  }
+
+  fn search_partitions<W, C>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    partitions: &[LeafReaderContextPartition],
+    weight: &W,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    C: Collector,
+    W: Weight<IRC> + ?Sized,
+  {
+    IndexSearcherDefaults::search_partitions(searcher, partitions, weight, collector)
+  }
+
+  fn search_leaf<W, C>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    ctx_ord: usize,
+    min_doc_id: i32,
+    max_doc_id: i32,
+    weight: &W,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    C: Collector,
+    W: Weight<IRC> + ?Sized,
+  {
+    IndexSearcherDefaults::search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+  }
+
+  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
+    IndexSearcherDefaults::rewrite(searcher, original)
+  }
+
+  fn create_weight<T>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: T,
+    score_mode: ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    T: QueryBase,
+  {
+    IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)
+  }
+
+  fn term_statistics(
+    &self,
+    _searcher: &IndexSearcher<IRC>,
+    term: Arc<Term>,
+    doc_freq: i32,
+    total_term_freq: i64,
+  ) -> Result<TermStatistics> {
+    IndexSearcherDefaults::term_statistics(term, doc_freq, total_term_freq)
+  }
+
+  fn collection_statistics(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    field: &str,
+  ) -> Result<Option<CollectionStatistics>> {
+    IndexSearcherDefaults::collection_statistics(searcher, field)
+  }
+}
+
+impl<IRC> IndexSearcherBase<IRC> for IndexSearcherHook
+where
+  IRC: IndexReaderContext,
+{
+  fn slices(
+    &self,
+    _searcher: &IndexSearcher<IRC>,
+    leaves: &[LeafReaderContext<IRC::LeafReader>],
+  ) -> Result<Vec<LeafSlice>> {
+    match self {
+      Self::Default => IndexSearcherDefaults::slices(leaves),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.slices(_searcher, leaves),
+    }
+  }
+
+  fn count(&self, searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Default => IndexSearcherDefaults::count(searcher, query),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.count(searcher, query),
+    }
+  }
+
+  fn search_after_score(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    after: Option<ScoreDoc>,
+    query: Query,
+    num_hits: usize,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Default => IndexSearcherDefaults::search_after_score(searcher, after, query, num_hits),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.search_after_score(searcher, after, query, num_hits),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => {
+        hook.search_after_score(searcher, after, query, num_hits)
+      },
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => {
+        hook.search_after_score(searcher, after, query, num_hits)
+      },
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.search_after_score(searcher, after, query, num_hits)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.search_after_score(searcher, after, query, num_hits),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.search_after_score(searcher, after, query, num_hits),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.search_after_score(searcher, after, query, num_hits),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.search_after_score(searcher, after, query, num_hits),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.search_after_score(searcher, after, query, num_hits),
+    }
+  }
+
+  fn search(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    n: usize,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Default => IndexSearcherDefaults::search(searcher, query, n),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.search(searcher, query, n),
+    }
+  }
+
+  fn search_with_collector<C>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    C: Collector,
+  {
+    match self {
+      Self::Default => IndexSearcherDefaults::search_with_collector(searcher, query, collector),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.search_with_collector(searcher, query, collector),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => {
+        hook.search_with_collector(searcher, query, collector)
+      },
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => {
+        hook.search_with_collector(searcher, query, collector)
+      },
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.search_with_collector(searcher, query, collector)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.search_with_collector(searcher, query, collector),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.search_with_collector(searcher, query, collector),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.search_with_collector(searcher, query, collector),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.search_with_collector(searcher, query, collector),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.search_with_collector(searcher, query, collector),
+    }
+  }
+
+  fn search_with_sort(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    n: usize,
+    sort: Arc<Sort>,
+  ) -> Result<TopFieldDocs>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Default => IndexSearcherDefaults::search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.search_with_sort(searcher, query, n, sort)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.search_with_sort(searcher, query, n, sort),
+    }
+  }
+
+  fn search_with_collector_manager<CM>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    collector_manager: &CM,
+  ) -> Result<CM::T>
+  where
+    IndexSearcher<IRC>: Sync,
+    CM: CollectorManager,
+    CM::C: Send,
+  {
+    match self {
+      Self::Default => {
+        IndexSearcherDefaults::search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::GetSlices(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::Counting(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.search_with_collector_manager(searcher, query, collector_manager),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+      #[cfg(test)]
+      Self::Asserting(hook) => {
+        hook.search_with_collector_manager(searcher, query, collector_manager)
+      },
+    }
+  }
+
+  fn search_partitions<W, C>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    partitions: &[LeafReaderContextPartition],
+    weight: &W,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    C: Collector,
+    W: Weight<IRC> + ?Sized,
+  {
+    match self {
+      Self::Default => {
+        IndexSearcherDefaults::search_partitions(searcher, partitions, weight, collector)
+      },
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.search_partitions(searcher, partitions, weight, collector),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => {
+        hook.search_partitions(searcher, partitions, weight, collector)
+      },
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => {
+        hook.search_partitions(searcher, partitions, weight, collector)
+      },
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.search_partitions(searcher, partitions, weight, collector)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.search_partitions(searcher, partitions, weight, collector),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.search_partitions(searcher, partitions, weight, collector),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.search_partitions(searcher, partitions, weight, collector),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.search_partitions(searcher, partitions, weight, collector),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.search_partitions(searcher, partitions, weight, collector),
+    }
+  }
+
+  fn search_leaf<W, C>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    ctx_ord: usize,
+    min_doc_id: i32,
+    max_doc_id: i32,
+    weight: &W,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    C: Collector,
+    W: Weight<IRC> + ?Sized,
+  {
+    match self {
+      Self::Default => IndexSearcherDefaults::search_leaf(
+        searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector,
+      ),
+      #[cfg(test)]
+      Self::GetSlices(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::Counting(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::Scorer(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
+      Self::Asserting(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+    }
+  }
+
+  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
+    match self {
+      Self::Default => IndexSearcherDefaults::rewrite(searcher, original),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.rewrite(searcher, original),
+    }
+  }
+
+  fn create_weight<T>(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    query: T,
+    score_mode: ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    T: QueryBase,
+  {
+    match self {
+      Self::Default => IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.create_weight(searcher, query, score_mode, boost),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => {
+        hook.create_weight(searcher, query, score_mode, boost)
+      },
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => {
+        hook.create_weight(searcher, query, score_mode, boost)
+      },
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.create_weight(searcher, query, score_mode, boost)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.create_weight(searcher, query, score_mode, boost),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.create_weight(searcher, query, score_mode, boost),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.create_weight(searcher, query, score_mode, boost),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.create_weight(searcher, query, score_mode, boost),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.create_weight(searcher, query, score_mode, boost),
+    }
+  }
+
+  fn term_statistics(
+    &self,
+    _searcher: &IndexSearcher<IRC>,
+    term: Arc<Term>,
+    doc_freq: i32,
+    total_term_freq: i64,
+  ) -> Result<TermStatistics> {
+    match self {
+      Self::Default => IndexSearcherDefaults::term_statistics(term, doc_freq, total_term_freq),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.term_statistics(_searcher, term, doc_freq, total_term_freq),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => {
+        hook.term_statistics(_searcher, term, doc_freq, total_term_freq)
+      },
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => {
+        hook.term_statistics(_searcher, term, doc_freq, total_term_freq)
+      },
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => {
+        hook.term_statistics(_searcher, term, doc_freq, total_term_freq)
+      },
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.term_statistics(_searcher, term, doc_freq, total_term_freq),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.term_statistics(_searcher, term, doc_freq, total_term_freq),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.term_statistics(_searcher, term, doc_freq, total_term_freq),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => {
+        hook.term_statistics(_searcher, term, doc_freq, total_term_freq)
+      },
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.term_statistics(_searcher, term, doc_freq, total_term_freq),
+    }
+  }
+
+  fn collection_statistics(
+    &self,
+    searcher: &IndexSearcher<IRC>,
+    field: &str,
+  ) -> Result<Option<CollectionStatistics>> {
+    match self {
+      Self::Default => IndexSearcherDefaults::collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::GetSlices(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::SlicesOffloadedToExecutor(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::SegmentPartitionsSameSlice(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::IntraSliceDocIdOrderWithPartitions(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::NoRewrite(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::Counting(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::Scorer(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::CustomSearcher(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::Asserting(hook) => hook.collection_statistics(searcher, field),
+    }
+  }
+}
+
+impl IndexSearcherDefaults {
+  pub(crate) fn slices<LR>(leaves: &[LeafReaderContext<LR>]) -> Result<Vec<LeafSlice>>
+  where
+    LR: LeafReader,
+  {
+    slices(leaves)
+  }
+
+  pub(crate) fn count<IRC>(searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
+  where
+    IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
+  {
+    let mut query = searcher.rewrite(ConstantScoreQuery::new(query))?;
+    if let Query::ConstantScore(csq) = query {
+      query = csq.into_inner()
+    }
+
+    if let Query::Boolean(boolean_query) = &query {
+      let has_deletions = searcher.reader_context.reader().has_deletions()?;
+      if !has_deletions && boolean_query.is_two_clause_pure_disjunction_with_terms() {
+        let [query0, query1, query2] =
+          boolean_query.rewrite_two_clause_disjunction_with_terms_for_count(searcher)?;
+        let count_term1 = searcher.count(query0)?;
+        let count_term2 = searcher.count(query1)?;
+
+        if count_term1 == 0 || count_term2 == 0 {
+          return Ok(count_term1.max(count_term2));
+        } else if (count_term1.min(count_term2) as f64) / (count_term1.max(count_term2) as f64)
+          < 0.1
+        {
+          return Ok(count_term1 + count_term2 - searcher.count(query2)?);
+        }
+      }
+    }
+    let v = TotalHitCountCollectorManager::new(searcher.get_slices()?.as_slice());
+    searcher.search_with_collector_manager(ConstantScoreQuery::new(query), &v)
+  }
+
+  pub(crate) fn search_after_score<IRC>(
+    searcher: &IndexSearcher<IRC>,
+    after: Option<ScoreDoc>,
+    query: Query,
+    num_hits: usize,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
+  {
+    let limit = std::cmp::max(1, searcher.reader_context.reader().max_doc()?).try_convert()?;
+
+    if let Some(ref a) = after
+      && a.doc >= limit.try_convert()?
+    {
+      return Err(LuceneError::illegal_argument(format!(
+        "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",
+        a.doc, limit
+      )));
+    }
+
+    let capped_num_hits = std::cmp::min(num_hits, limit);
+    let manager =
+      TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
+
+    searcher.search_with_collector_manager(query, &manager)
+  }
+
+  pub(crate) fn search<IRC>(
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    n: usize,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
+  {
+    searcher.search_after_score(None, query, n)
+  }
+
+  pub(crate) fn search_with_collector<IRC, C>(
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+    C: Collector,
+  {
+    let needs_scores = collector.score_mode().needs_scores();
+    let query = searcher.rewrite_with_needs_scores(query, needs_scores)?;
+    let weight = searcher.create_weight(query, collector.score_mode(), 1.0)?;
+    collector.set_weight(Some(&weight))?;
+    let leaves = searcher.get_leaf_contexts()?;
+    for ctx in leaves {
+      searcher.search_leaf(ctx.ord, 0, NO_MORE_DOCS, &weight, collector)?;
+    }
+    Ok(())
+  }
+
+  pub(crate) fn search_with_sort<IRC>(
+    searcher: &IndexSearcher<IRC>,
+    query: Query,
+    n: usize,
+    sort: Arc<Sort>,
+  ) -> Result<TopFieldDocs>
+  where
+    IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
+  {
+    searcher.search_after_field_with_score(None, query, n, sort, false)
+  }
+
+  pub(crate) fn search_with_collector_manager<IRC, CM>(
+    searcher: &IndexSearcher<IRC>,
+    mut query: Query,
+    collector_manager: &CM,
+  ) -> Result<CM::T>
+  where
+    IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
+    CM: CollectorManager,
+    CM::C: Send,
+  {
+    let first_collector = collector_manager.new_collector()?;
+    let needs_scores = first_collector.score_mode().needs_scores();
+    query = searcher.rewrite_with_needs_scores(query, needs_scores)?;
+    let score_mode = first_collector.score_mode();
+
+    searcher.search_with_first_collector(query, score_mode, collector_manager, first_collector)
+  }
+
+  pub(crate) fn search_partitions<IRC, W, C>(
+    searcher: &IndexSearcher<IRC>,
+    partitions: &[LeafReaderContextPartition],
+    weight: &W,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+    C: Collector,
+    W: Weight<IRC> + ?Sized,
+  {
+    collector.set_weight(Some(weight))?;
+
+    for partition in partitions {
+      searcher.search_leaf(
+        partition.ctx,
+        partition.min_doc_id,
+        partition.max_doc_id,
+        weight,
+        collector,
+      )?;
+    }
+
+    Ok(())
+  }
+
+  pub(crate) fn search_leaf<IRC, W, C>(
+    searcher: &IndexSearcher<IRC>,
+    ctx_ord: usize,
+    min_doc_id: i32,
+    max_doc_id: i32,
+    weight: &W,
+    collector: &mut C,
+  ) -> Result<()>
+  where
+    IRC: IndexReaderContext,
+    C: Collector,
+    W: Weight<IRC> + ?Sized,
+  {
+    let ctx = &searcher.reader_context.leaves()?[ctx_ord];
+    let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight), searcher) {
+      Ok(leaf_collector) => leaf_collector,
+      Err(LuceneError::CollectionTerminated(_)) => {
+        // there is no doc of interest in this reader context
+        // continue with the following leaf
+        return Ok(());
+      },
+      Err(e) => return Err(e),
+    };
+
+    if let Some(mut scorer_supplier) = weight.scorer_supplier(ctx, searcher)? {
+      scorer_supplier.set_top_level_scoring_clause()?;
+      let mut scorer = match scorer_supplier.bulk_scorer(ctx, searcher)? {
+        Some(scorer) => scorer,
+        None => return Err(LuceneError::illegal_state("BulkScorer is None")),
+      };
+      let bits = ctx.reader().get_live_docs()?;
+      let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+      let result: Result<()> = (|| {
+        let _ = match searcher.query_timeout {
+          None => scorer.score(&mut leaf_collector, live_docs, min_doc_id, max_doc_id)?,
+          Some(ref qt) => {
+            let mut scorer = TimeLimitingBulkScorer::new(scorer, qt);
+            scorer.score(&mut leaf_collector, live_docs, min_doc_id, max_doc_id)?
+          },
+        };
+        Ok(())
+      })();
+
+      match result {
+        Ok(_) => {},
+        Err(LuceneError::CollectionTerminated(_)) => {
+          // collection was terminated prematurely
+          // continue with the following leaf
+        },
+        Err(LuceneError::TimeExceeded(_)) => {
+          searcher.partial_result.store(true, Ordering::SeqCst);
+        },
+        Err(e) => return Err(e),
+      }
+    }
+    // Note: this is called if collection ran successfully, including the above special cases of
+    // collection-terminated and time-exceeded errors, but no other error.
+    leaf_collector.finish()?;
+    Ok(())
+  }
+
+  pub(crate) fn rewrite<IRC>(searcher: &IndexSearcher<IRC>, mut query: Query) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+  {
+    let mut query_id = query.identity().clone();
+    loop {
+      query = query.rewrite(searcher)?;
+      if query.identity() == &query_id {
+        break;
+      }
+      query_id = query.identity().clone();
+    }
+    // query.visit(self.get_num_clauses_check_visitor());
+    Ok(query)
+  }
+
+  pub(crate) fn create_weight<IRC, T>(
+    searcher: &IndexSearcher<IRC>,
+    query: T,
+    score_mode: ScoreMode,
+    boost: f32,
+  ) -> Result<QueryWeight<IRC>>
+  where
+    IRC: IndexReaderContext,
+    T: QueryBase,
+  {
+    let mut weight = query.create_weight(searcher, &score_mode, boost)?;
+    if !score_mode.needs_scores()
+      && let Some(query_cache) = searcher.query_cache.as_ref()
+    {
+      weight = query_cache.do_cache(weight, searcher.query_caching_policy.clone())?;
+    }
+
+    Ok(weight)
+  }
+
+  pub(crate) fn term_statistics(
+    term: Arc<Term>,
+    doc_freq: i32,
+    total_term_freq: i64,
+  ) -> Result<TermStatistics> {
+    TermStatistics::new(term, doc_freq as i64, total_term_freq)
+  }
+
+  pub(crate) fn collection_statistics<IRC>(
+    searcher: &IndexSearcher<IRC>,
+    field: &str,
+  ) -> Result<Option<CollectionStatistics>>
+  where
+    IRC: IndexReaderContext,
+  {
+    let mut doc_count: i64 = 0;
+    let mut sum_total_term_freq: i64 = 0;
+    let mut sum_doc_freq: i64 = 0;
+
+    for leaf in searcher.reader_context.leaves()? {
+      let reader = leaf.reader();
+      let terms = get_terms(reader, field)?;
+      doc_count += terms.get_doc_count()? as i64;
+      sum_total_term_freq += terms.get_sum_total_term_freq()?;
+      sum_doc_freq += terms.get_sum_doc_freq()?;
+    }
+
+    if doc_count == 0 {
+      return Ok(None);
+    }
+
+    let stats = CollectionStatistics::new(
+      field,
+      searcher.reader_context.reader().max_doc()? as i64,
+      doc_count,
+      sum_total_term_freq,
+      sum_doc_freq,
+    )?;
+
+    Ok(Some(stats))
   }
 }

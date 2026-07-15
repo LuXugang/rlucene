@@ -19,7 +19,7 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherBase, IndexSearcherHook};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::weight::Weight;
@@ -38,16 +38,21 @@ where
   IR: IndexReader + 'static,
 {
   pub fn new(reader: IR) -> Self {
-    let mut s = IndexSearcher::new(reader.get_context().unwrap()).unwrap();
-    s.use_scorer_search = true;
+    let s = IndexSearcher::new(reader.get_context().unwrap())
+      .unwrap()
+      .with_hook(IndexSearcherHook::Scorer(ScorerIndexSearcherHook));
     Self { s }
   }
 }
 
 #[derive(Default)]
-pub struct ScorerIndexSearcherSearchLeafHelper;
-impl ScorerIndexSearcherSearchLeafHelper {
-  pub(crate) fn search_leaf<IRC, W, C>(
+pub(crate) struct ScorerIndexSearcherHook;
+
+impl<IRC> IndexSearcherBase<IRC> for ScorerIndexSearcherHook
+where
+  IRC: IndexReaderContext,
+{
+  fn search_leaf<W, C>(
     &self,
     searcher: &IndexSearcher<IRC>,
     ctx_ord: usize,
@@ -57,7 +62,6 @@ impl ScorerIndexSearcherSearchLeafHelper {
     collector: &mut C,
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
-    IRC: IndexReaderContext,
     C: Collector,
     W: Weight<IRC> + ?Sized,
   {
