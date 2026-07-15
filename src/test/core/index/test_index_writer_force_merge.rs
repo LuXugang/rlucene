@@ -275,8 +275,7 @@ fn test_background_force_merge() -> Result<()> {
       writer.add_document(doc.clone())?;
     }
 
-    // TODO IMPORTANT: forceMerge(maxNumSegments, doWait=false) 未实现
-    writer.force_merge(1)?;
+    writer.force_merge_with_wait(1, false)?;
 
     if pass == 0 {
       writer.close()?;

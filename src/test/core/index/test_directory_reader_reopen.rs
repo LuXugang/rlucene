@@ -813,17 +813,16 @@ where
   }
 }
 
-fn assert_reader_closed<D>(reader: &StandardDirectoryReader<D>, _check_sub_readers: bool)
+fn assert_reader_closed<D>(reader: &StandardDirectoryReader<D>, check_sub_readers: bool)
 where
   D: Directory,
 {
   assert_eq!(0, reader.get_ref_count());
-  // TODO IMPORTANT StandardDirectoryReader::do_close未实现
-  // if check_sub_readers {
-  //   for sub_reader in reader.get_sequential_sub_readers() {
-  //     assert_eq!(0, sub_reader.get_ref_count());
-  //   }
-  // }
+  if check_sub_readers {
+    for sub_reader in reader.get_sequential_sub_readers() {
+      assert_eq!(0, sub_reader.get_ref_count());
+    }
+  }
 }
 
 fn assert_index_equals<D>(

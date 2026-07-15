@@ -55,6 +55,10 @@ use crate::test_framework::core::index::test_add_indexes::{
 use crate::test_framework::core::index::test_index_writer::{
   AbortOnMergeCompleteOneMerge, MergeFinishedOnceOneMerge,
 };
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer_merge_policy::{
+  SetDiagnosticsMergePolicy, SetMergePolicyDiagnosticsOneMerge,
+};
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -465,6 +469,8 @@ where
   #[cfg(test)]
   ConcurrentAddIndexes(ConcurrentAddIndexesMergePolicy),
   #[cfg(test)]
+  SetDiagnostics(SetDiagnosticsMergePolicy<D>),
+  #[cfg(test)]
   MergeOnX(MergeOnXMergePolicy<D>),
 }
 
@@ -493,6 +499,8 @@ where
       Self::Mock(mp) => Self::Mock(mp.clone()),
       #[cfg(test)]
       Self::ConcurrentAddIndexes(mp) => Self::ConcurrentAddIndexes(mp.clone()),
+      #[cfg(test)]
+      Self::SetDiagnostics(mp) => Self::SetDiagnostics(mp.clone()),
       #[cfg(test)]
       Self::MergeOnX(mp) => Self::MergeOnX(mp.clone()),
     }
@@ -598,6 +606,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => write!(f, "{}", mp),
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => write!(f, "{}", mp),
     }
   }
@@ -629,6 +639,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => MergePolicy::<D>::get_base(mp),
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => MergePolicy::<D>::get_base(mp),
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => MergePolicy::<D>::get_base(mp),
     }
   }
@@ -654,6 +666,8 @@ where
       MergePolicyEnum::Mock(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => MergePolicy::<D>::get_base_mut(mp),
+      #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => MergePolicy::<D>::get_base_mut(mp),
     }
@@ -714,6 +728,10 @@ where
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -744,6 +762,8 @@ where
       MergePolicyEnum::Mock(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.find_merges_readers(readers),
+      #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.find_merges_readers(readers),
     }
@@ -859,6 +879,14 @@ where
         merge_context,
       ),
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.find_forced_merges(
         segment_infos,
         max_segment_count,
@@ -920,6 +948,10 @@ where
       },
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
       #[cfg(test)]
@@ -986,6 +1018,10 @@ where
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -1030,6 +1066,10 @@ where
         mp.use_compound_file(infos, merged_info, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => {
+        mp.use_compound_file(infos, merged_info, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.use_compound_file(infos, merged_info, merge_context),
     }
   }
@@ -1059,6 +1099,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.size(info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.size(info, merge_context),
     }
   }
@@ -1086,6 +1128,8 @@ where
       MergePolicyEnum::Mock(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
+      #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
     }
@@ -1121,6 +1165,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.has_merged(infos, info, merge_context),
     }
   }
@@ -1151,6 +1197,8 @@ where
       MergePolicyEnum::Mock(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.keep_fully_deleted_segment(reader_supplier),
     }
@@ -1198,6 +1246,10 @@ where
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => {
+        mp.num_deletes_to_merge(info, del_count, reader_supplier)
+      },
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
     }
   }
@@ -1226,6 +1278,8 @@ where
       MergePolicyEnum::Mock(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.seg_string(merge_context, infos),
     }
@@ -1256,6 +1310,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.message(message, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.message(message, merge_context),
     }
   }
@@ -1284,6 +1340,8 @@ where
       MergePolicyEnum::Mock(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::SetDiagnostics(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::MergeOnX(mp) => mp.verbose(merge_context),
     }
@@ -1921,6 +1979,8 @@ where
   AbortOnMergeComplete(AbortOnMergeCompleteOneMerge<D, CR>),
   #[cfg(test)]
   SetDiagnostics(SetDiagnosticsOneMerge<D, CR>),
+  #[cfg(test)]
+  SetMergePolicyDiagnostics(SetMergePolicyDiagnosticsOneMerge<D, CR>),
 }
 
 pub(crate) struct OneMergeDefaults;
@@ -2023,6 +2083,10 @@ where
       },
       #[cfg(test)]
       Self::SetDiagnostics(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      #[cfg(test)]
+      Self::SetMergePolicyDiagnostics(hook) => {
+        hook.merge_finished(inner, stat, success, segment_dropped)
+      },
     }
   }
 
@@ -2036,6 +2100,8 @@ where
       Self::AbortOnMergeComplete(hook) => hook.wrap_for_merge(reader),
       #[cfg(test)]
       Self::SetDiagnostics(hook) => hook.wrap_for_merge(reader),
+      #[cfg(test)]
+      Self::SetMergePolicyDiagnostics(hook) => hook.wrap_for_merge(reader),
     }
   }
 
@@ -2053,6 +2119,8 @@ where
       Self::AbortOnMergeComplete(hook) => hook.reorder(reader, dir),
       #[cfg(test)]
       Self::SetDiagnostics(hook) => hook.reorder(reader, dir),
+      #[cfg(test)]
+      Self::SetMergePolicyDiagnostics(hook) => hook.reorder(reader, dir),
     }
   }
 
@@ -2071,6 +2139,8 @@ where
       Self::AbortOnMergeComplete(hook) => hook.set_merge_info(stat, merge_info, info),
       #[cfg(test)]
       Self::SetDiagnostics(hook) => hook.set_merge_info(stat, merge_info, info),
+      #[cfg(test)]
+      Self::SetMergePolicyDiagnostics(hook) => hook.set_merge_info(stat, merge_info, info),
     }
   }
 
@@ -2092,6 +2162,10 @@ where
       },
       #[cfg(test)]
       Self::SetDiagnostics(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      #[cfg(test)]
+      Self::SetMergePolicyDiagnostics(hook) => {
+        hook.on_merge_complete(inner, stat, merge_info, is_aborted)
+      },
     }
   }
 
@@ -2115,6 +2189,10 @@ where
       },
       #[cfg(test)]
       Self::SetDiagnostics(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
+      #[cfg(test)]
+      Self::SetMergePolicyDiagnostics(hook) => {
+        hook.init_merge_readers(merge_readers, stat, reader_factory)
+      },
     }
   }
 }

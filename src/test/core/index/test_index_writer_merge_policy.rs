@@ -57,8 +57,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::data_input::DataInput;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_merge_policy, new_string_field, new_text_field,
-  random,
+  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor, new_merge_policy,
+  new_string_field, new_text_field, random,
 };
 
 use crate::core::store::directory::Directory;
@@ -72,7 +72,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
 use crate::test_framework::core::index::test_index_writer_merge_policy::{
-  LatchedSerialMergeScheduler, TestLatch,
+  LatchedSerialMergeScheduler, SetDiagnosticsMergePolicy, TestLatch,
 };
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
@@ -871,7 +871,43 @@ fn test_merge_on_get_reader() -> Result<()> {
 
 #[test]
 fn test_set_diagnostics() -> Result<()> {
-  // TODO IMPORTANT OneMerge#set_merge_info
+  let mut random = random();
+  let mut log_mp = new_log_merge_policy_with_merge_factor(&mut random, 4)?;
+  match &mut log_mp {
+    MergePolicyEnum::LogDoc(log_mp) => log_mp.set_target_search_concurrency(1)?,
+    MergePolicyEnum::LogBytesSize(log_mp) => log_mp.set_target_search_concurrency(1)?,
+    _ => unreachable!("expected a LogMergePolicy"),
+  }
+  let my_merge_policy = SetDiagnosticsMergePolicy::new(log_mp);
+  let dir = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random)?;
+  config
+    .set_merge_policy(my_merge_policy)
+    .set_max_buffered_docs(2);
+  let w = IndexWriter::new(dir.clone(), config)?;
+  let doc = Document::new();
+  for _ in 0..20 {
+    w.add_document(doc.clone())?;
+  }
+  w.close()?;
+  let si = SegmentInfos::read_latest_commit(dir.clone())?;
+  let mut has_one_merged_segment = false;
+  for sci in si.iter() {
+    if sci.info.get_diagnostics().get(SOURCE).map(String::as_str) == Some(SOURCE_MERGE) {
+      assert_eq!(
+        Some("my_merge_policy"),
+        sci
+          .info
+          .get_diagnostics()
+          .get("merge_policy")
+          .map(String::as_str)
+      );
+      has_one_merged_segment = true;
+    }
+  }
+  assert!(has_one_merged_segment);
+  w.close()?;
+  dir.close()?;
   Ok(())
 }
 

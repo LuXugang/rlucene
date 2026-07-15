@@ -244,7 +244,15 @@ fn test_non_floating_point_compliant_version_numbers() -> Result<()> {
 }
 #[test]
 fn test_latest_version_common_build() -> Result<()> {
-  // TODO IMPORTANT  环境变量未实现
+  // common-build.xml sets 'tests.LUCENE_VERSION', if not, we skip this test!
+  let Ok(common_build_version) = std::env::var("tests.LUCENE_VERSION") else {
+    return Ok(());
+  };
+  assert_eq!(
+    LATEST.to_string(),
+    common_build_version,
+    "Version.LATEST does not match the one given in tests.LUCENE_VERSION property"
+  );
   Ok(())
 }
 

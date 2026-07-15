@@ -196,7 +196,7 @@ pub(crate) struct SetDiagnosticsOneMerge<D, CR> {
 }
 
 impl<D, CR> SetDiagnosticsOneMerge<D, CR> {
-  fn new() -> Self {
+  pub(crate) fn new() -> Self {
     Self {
       _marker: PhantomData,
     }

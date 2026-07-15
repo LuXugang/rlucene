@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::date_tools::{DateTools, Resolution};
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
@@ -46,19 +47,19 @@ where
   let writer = RandomIndexWriter::new(random, directory)?;
   let mut field_to_type = HashMap::new();
   // Add the first document.  text = "Document 1"  dateTime = Oct 10 03:25:22 EDT 2007
-  let doc = create_document(random, "20071010072522", "Document 1", &mut field_to_type)?;
+  let doc = create_document(random, "Document 1", 1192001122000, &mut field_to_type)?;
   writer.add_document(random, doc)?;
   // Add the second document.  text = "Document 2"  dateTime = Oct 10 03:25:26 EDT 2007
-  let doc = create_document(random, "20071010072526", "Document 2", &mut field_to_type)?;
+  let doc = create_document(random, "Document 2", 1192001126000, &mut field_to_type)?;
   writer.add_document(random, doc)?;
   // Add the third document.  text = "Document 3"  dateTime = Oct 11 07:12:13 EDT 2007
-  let doc = create_document(random, "20071011111213", "Document 3", &mut field_to_type)?;
+  let doc = create_document(random, "Document 3", 1192101133000, &mut field_to_type)?;
   writer.add_document(random, doc)?;
   // Add the fourth document.  text = "Document 4"  dateTime = Oct 11 08:02:09 EDT 2007
-  let doc = create_document(random, "20071011120209", "Document 4", &mut field_to_type)?;
+  let doc = create_document(random, "Document 4", 1192104129000, &mut field_to_type)?;
   writer.add_document(random, doc)?;
   // Add the fifth document.  text = "Document 5"  dateTime = Oct 12 13:25:43 EDT 2007
-  let doc = create_document(random, "20071012172543", "Document 5", &mut field_to_type)?;
+  let doc = create_document(random, "Document 5", 1192209943000, &mut field_to_type)?;
   writer.add_document(random, doc)?;
 
   let reader = writer.get_reader(random)?;
@@ -103,11 +104,10 @@ fn test_reverse_date_sort() -> Result<()> {
 
   Ok(())
 }
-// TODO IMPORTANT DateTools未实现
 fn create_document<R>(
   random: &mut R,
-  date_time_string: &str,
   text: &str,
+  time: i64,
   field_to_type: &mut HashMap<String, FieldType>,
 ) -> Result<Document>
 where
@@ -123,17 +123,18 @@ where
     field_to_type,
   )?);
 
+  let date_time_string = DateTools::time_to_string(time, Resolution::SECOND)?;
   document.add(new_string_field(
     random,
     DATE_TIME_FIELD,
-    date_time_string,
+    &date_time_string,
     Store::Yes,
     field_to_type,
   )?);
 
   document.add(SortedDocValuesField::new(
     DATE_TIME_FIELD,
-    BytesRef::from_string(date_time_string),
+    BytesRef::from_string(&date_time_string),
   ));
   Ok(document)
 }

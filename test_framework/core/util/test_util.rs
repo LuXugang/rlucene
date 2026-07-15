@@ -91,6 +91,20 @@ impl TestUtil {
     Codecs::default()
   }
 
+  pub fn sync_concurrent_merges<D>(writer: &IndexWriter<D>) -> Result<()>
+  where
+    D: Directory,
+  {
+    Self::sync_concurrent_merges_with_scheduler(writer.get_config().get_merge_scheduler())
+  }
+
+  pub fn sync_concurrent_merges_with_scheduler(merge_scheduler: &MergeSchedulerEnum) -> Result<()> {
+    if let MergeSchedulerEnum::Concurrent(concurrent_merge_scheduler) = merge_scheduler {
+      concurrent_merge_scheduler.sync()?;
+    }
+    Ok(())
+  }
+
   pub fn string_codepoint_comparator(a: &str, b: &str) -> std::cmp::Ordering {
     let mut a_chars = a.chars();
     let mut b_chars = b.chars();

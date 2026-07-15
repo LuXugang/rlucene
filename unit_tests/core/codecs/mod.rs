@@ -20,5 +20,4 @@ mod lucene101;
 mod lucene90;
 mod lucene94;
 mod lucene99;
-mod test_codec_util;
 mod test_competitive_impact_accumulator;

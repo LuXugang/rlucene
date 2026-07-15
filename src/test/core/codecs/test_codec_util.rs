@@ -20,14 +20,17 @@ use std::sync::atomic::AtomicI64;
 
 use crate::core::codecs::CodecUtil;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
+use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{
   ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput, DataOutput,
-  IndexOutput,
+  IOContext, IndexOutput,
 };
 use crate::core::util::StringHelper;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
+use crate::test_framework::core::util::lucene_test_case::{new_directory, random};
 
 #[allow(dead_code)] // for quick search
 struct TestCodecUtil;
@@ -347,8 +350,69 @@ fn test_truncated_file_throws_corrupt_index_exception() -> Result<()> {
 }
 
 #[test]
-fn test_retrieve_checksum() {
-  // TODO IMPORTANT : newDirectory not Implement
+fn test_retrieve_checksum() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory(&mut random)?;
+  {
+    let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let result = (|| -> Result<()> {
+      out.write_byte(42)?;
+      CodecUtil::write_footer(&mut out)
+    })();
+    IOUtils::use_or_suppress_result(result, out.close())?;
+  }
+  {
+    let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+    let result = (|| -> Result<()> {
+      let length = input.length()?;
+      CodecUtil::retrieve_checksum_with_expected(&mut input, length)?; // no exception
+
+      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length - 1)
+        .expect_err("expected file-too-long corruption");
+      assert!(exception.to_string().contains("too long"));
+      assert!(exception.get_suppressed()?.is_none());
+
+      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length + 1)
+        .expect_err("expected truncated-file corruption");
+      assert!(exception.to_string().contains("truncated"));
+      assert!(exception.get_suppressed()?.is_none());
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(result, input.close())?;
+  }
+
+  {
+    let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
+    let result = (|| -> Result<()> {
+      for i in 0..=CodecUtil::footer_length() {
+        out.write_byte(i as u8)?;
+      }
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(result, out.close())?;
+  }
+  {
+    let mut input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+    let result = (|| -> Result<()> {
+      let length = input.length()?;
+      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length)
+        .expect_err("expected codec-footer mismatch");
+      assert!(exception.to_string().contains("codec footer mismatch"));
+      assert!(exception.get_suppressed()?.is_none());
+
+      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length - 1)
+        .expect_err("expected file-too-long corruption");
+      assert!(exception.to_string().contains("too long"));
+
+      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length + 1)
+        .expect_err("expected truncated-file corruption");
+      assert!(exception.to_string().contains("truncated"));
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(result, input.close())?;
+  }
+
+  dir.close()
 }
 
 struct FakeOutput<'a> {

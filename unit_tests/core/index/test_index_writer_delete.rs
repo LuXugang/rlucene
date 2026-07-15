@@ -163,9 +163,60 @@ fn test_non_ram_delete() -> Result<()> {
   modifier.close()?;
   Ok(())
 }
+// test when delete terms only apply to ram segments
 #[test]
 fn test_ram_deletes() -> Result<()> {
-  // TODO: FrozenBufferedUpdates::apply_query_deletes未实现
+  let mut random = random();
+
+  for t in 0..2 {
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: t={t}");
+    }
+    let dir = new_directory_shared(&mut random)?;
+    let mut field_types = HashMap::new();
+    let analyzer =
+      MockAnalyzer::with_automaton(&mut random, mock_tokenizer::WHITESPACE.clone(), false);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    iwc.set_max_buffered_docs(4);
+    let modifier = IndexWriter::new(dir.clone(), iwc)?;
+    let mut id = 0;
+    let value = 100;
+
+    id += 1;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
+    if t == 0 {
+      modifier.delete_documents_with_terms(vec![Term::from_text("value", value.to_string())])?;
+    } else {
+      modifier.delete_documents_with_queries(vec![
+        TermQuery::new(Term::from_text("value", value.to_string())).into(),
+      ])?;
+    }
+    id += 1;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
+    if t == 0 {
+      modifier.delete_documents_with_terms(vec![Term::from_text("value", value.to_string())])?;
+      assert_eq!(1, modifier.get_buffered_delete_terms_size()?);
+    } else {
+      modifier.delete_documents_with_queries(vec![
+        TermQuery::new(Term::from_text("value", value.to_string())).into(),
+      ])?;
+    }
+
+    id += 1;
+    add_doc(&mut random, &modifier, id, value, &mut field_types)?;
+    assert_eq!(0, modifier.get_segment_count());
+    modifier.commit()?;
+
+    let reader = directory_reader::open(dir.clone())?;
+    assert_eq!(1, reader.num_docs()?);
+
+    let hit_count = get_hit_count(dir.clone(), Term::from_text("id", id.to_string()))?;
+    assert_eq!(1, hit_count);
+    reader.close()?;
+    modifier.close()?;
+    dir.close()?;
+  }
+
   Ok(())
 }
 #[test]

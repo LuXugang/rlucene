@@ -36,6 +36,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_text_field, random,
 };
 
+use crate::core::analysis::reader::StringReader;
 use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::core::document::string_field::StringField;
 use crate::core::index::directory_reader;
@@ -898,8 +899,10 @@ where
         }
         builder.push_str(&random.random::<i32>().to_string());
       }
-      // TODO IMPORTANT StreadReader未实现
-      doc.add(TextField::from_string(j.to_string(), builder, Store::No)?);
+      doc.add(TextField::from_reader(
+        j.to_string(),
+        StringReader::new(builder),
+      )?);
     }
 
     writer.add_document(doc)?;

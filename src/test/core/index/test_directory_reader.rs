@@ -54,7 +54,9 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, directory_reader, field_infos, multi_terms};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::util::LATEST;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper;
@@ -599,12 +601,72 @@ fn test_binary_fields() -> Result<()> {
 }
 #[test]
 fn test_files_open_close() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  // Create initial data set
+  let dir_file = create_temp_dir_with_prefix("TestIndexReader.testFilesOpenClose")?;
+  let path = dir_file.path().to_path_buf();
+  let dir = new_fs_directory(&mut random, dir_file)?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  let mut field_to_type = HashMap::new();
+  add_doc(&mut random, &writer, "test", &mut field_to_type)?;
+  writer.close()?;
+  dir.close()?;
+
+  // Try to erase the data - this ensures that the writer closed all files
+  std::fs::remove_dir_all(&path)?;
+  let dir = Arc::new(NIOFSDirectory::new(path.clone())?);
+
+  // Now create the data set again, just as before
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  config.set_open_mode(OpenMode::Create);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  add_doc(&mut random, &writer, "test", &mut field_to_type)?;
+  writer.close()?;
+  dir.close()?;
+
+  // Now open existing directory and test that reader closes all files
+  let dir = Arc::new(NIOFSDirectory::new(path.clone())?);
+  let reader = directory_reader::open(dir.clone())?;
+  reader.close()?;
+  dir.close()?;
+
+  // The following will fail if reader did not close all files
+  std::fs::remove_dir_all(path)?;
   Ok(())
 }
 #[test]
 fn test_open_reader_after_delete() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  let dir_file = create_temp_dir_with_prefix("deletetest")?;
+  let path = dir_file.path().to_path_buf();
+  let dir = new_fs_directory(&mut random, dir_file)?;
+
+  match directory_reader::open(dir.clone()) {
+    Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
+    Err(LuceneError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {},
+    Err(LuceneError::IoWithPath { source, .. })
+      if source.kind() == std::io::ErrorKind::NotFound => {},
+    Err(err) => return Err(err),
+    Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
+  }
+
+  std::fs::remove_dir_all(path)?;
+
+  // Make sure we still get an index-not-found error (not a panic):
+  match directory_reader::open(dir.clone()) {
+    Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
+    Err(LuceneError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {},
+    Err(LuceneError::IoWithPath { source, .. })
+      if source.kind() == std::io::ErrorKind::NotFound => {},
+    Err(err) => return Err(err),
+    Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
+  }
+
+  dir.close()?;
   Ok(())
 }
 fn add_document_with_fields<D, R>(
@@ -835,7 +897,6 @@ fn test_get_index_commit() -> Result<()> {
   writer.close()?;
 
   let r2 = directory_reader::open_if_changed(&r)?.unwrap();
-  // TODO IMPORTANT Segmentinfos的版本跟 Java 不一样
   assert!(directory_reader::open_if_changed(&r2)?.is_none());
   assert_eq!(1, r2.get_index_commit()?.get_segment_count());
 

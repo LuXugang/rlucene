@@ -3521,14 +3521,13 @@ fn test_delete_by_term_or_query() -> Result<()> {
   for _ in 0..num_deleted {
     let id_to_delete = random.random_range(0..num_docs);
 
-    // TODO IMPORTANT 通过 Query 删除未实现
-    // if random.random_bool(0.5) {
-    //     writer.delete_documents(vec![
-    //         TermQuery::new(Term::from_text("id", id_to_delete.to_string())).into(),
-    //     ])?;
-    // } else {
-    writer.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
-    // }
+    if random.random_bool(0.5) {
+      writer.delete_documents_with_queries(vec![
+        TermQuery::new(Term::from_text("id", id_to_delete.to_string())).into(),
+      ])?;
+    } else {
+      writer.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+    }
 
     expected_values[id_to_delete] = -(random.random_range(0..i32::MAX as i64));
 

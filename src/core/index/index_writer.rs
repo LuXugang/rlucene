@@ -1484,6 +1484,11 @@ where
   pub fn get_num_buffered_documents(&self) -> i32 {
     self.doc_writer.get_num_docs()
   }
+  // For test purposes.
+  #[cfg(test)]
+  pub fn get_buffered_delete_terms_size(&self) -> Result<i32> {
+    self.doc_writer.get_buffered_delete_terms_size()
+  }
   /// Returns true if this index has deletions (including buffered deletions). Note that this will
   /// return true if there are buffered Term/Query deletions, even if it turns out those buffered
   /// deletions don't match any documents.

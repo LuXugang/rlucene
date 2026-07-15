@@ -14,13 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::merge_policy::OneMerge;
+use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
+use crate::core::index::index_writer::Inner;
+use crate::core::index::merge_policy::{
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum,
+  MergeReader, MergeSpecification, MergeStat, OneMerge, OneMergeBase, OneMergeDefaults,
+  OneMergeHook,
+};
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
@@ -120,5 +133,321 @@ impl MergeScheduler for LatchedSerialMergeScheduler {
     D: Directory,
   {
     self.base.initialize(directory)
+  }
+}
+
+pub struct SetDiagnosticsMergePolicy<D>
+where
+  D: Directory,
+{
+  in_: Box<MergePolicyEnum<D>>,
+}
+
+impl<D> Clone for SetDiagnosticsMergePolicy<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      in_: self.in_.clone(),
+    }
+  }
+}
+
+impl<D> SetDiagnosticsMergePolicy<D>
+where
+  D: Directory,
+{
+  pub fn new<T>(in_: T) -> Self
+  where
+    T: Into<MergePolicyEnum<D>>,
+  {
+    Self {
+      in_: Box::new(in_.into()),
+    }
+  }
+
+  fn wrap_specification(
+    &self,
+    spec: Option<DefaultMergeSpecification<D>>,
+  ) -> Option<DefaultMergeSpecification<D>> {
+    spec.map(|spec| {
+      let mut new_spec = DefaultMergeSpecification::new();
+      for merge in spec.merges {
+        new_spec.add(merge.with_hook(OneMergeHook::SetMergePolicyDiagnostics(
+          SetMergePolicyDiagnosticsOneMerge::new(),
+        )));
+      }
+      new_spec
+    })
+  }
+}
+
+pub(crate) struct SetMergePolicyDiagnosticsOneMerge<D, CR> {
+  _marker: PhantomData<fn(D, CR)>,
+}
+
+impl<D, CR> SetMergePolicyDiagnosticsOneMerge<D, CR> {
+  pub(crate) fn new() -> Self {
+    Self {
+      _marker: PhantomData,
+    }
+  }
+}
+
+impl<D, CR> OneMergeBase<D, CR> for SetMergePolicyDiagnosticsOneMerge<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  fn merge_finished(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    success: bool,
+    segment_dropped: bool,
+  ) -> Result<()> {
+    OneMergeDefaults::merge_finished(inner, stat, success, segment_dropped)
+  }
+
+  fn wrap_for_merge(&self, reader: CR) -> Result<CR> {
+    OneMergeDefaults::wrap_for_merge(reader)
+  }
+
+  fn reorder<CR1, D1>(&self, reader: &CR1, dir: D1) -> Result<Option<DummyDocMap>>
+  where
+    CR1: CodecReader,
+    D1: Directory,
+  {
+    OneMergeDefaults::reorder(reader, dir)
+  }
+
+  fn set_merge_info(
+    &self,
+    stat: &MergeStat,
+    merge_info: &mut Option<SegmentCommitInfo<D>>,
+    info: SegmentCommitInfo<D>,
+  ) {
+    OneMergeDefaults::set_merge_info(stat, merge_info, info);
+    Arc::get_mut(
+      &mut merge_info
+        .as_mut()
+        .expect("super.setMergeInfo must set mergeInfo")
+        .info,
+    )
+    .expect("new merged SegmentInfo must be uniquely owned")
+    .add_diagnostics(HashMap::from([(
+      "merge_policy".to_string(),
+      "my_merge_policy".to_string(),
+    )]));
+  }
+
+  fn on_merge_complete(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    merge_info: &Option<SegmentCommitInfo<D>>,
+    is_aborted: bool,
+  ) -> Result<()> {
+    OneMergeDefaults::on_merge_complete(inner, stat, merge_info, is_aborted)
+  }
+
+  fn init_merge_readers<F>(
+    &self,
+    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
+    stat: &MergeStat,
+    reader_factory: F,
+  ) -> Result<()>
+  where
+    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+  {
+    OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)
+  }
+}
+
+impl<D> From<SetDiagnosticsMergePolicy<D>> for MergePolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(value: SetDiagnosticsMergePolicy<D>) -> Self {
+    Self::SetDiagnostics(value)
+  }
+}
+
+impl<D> Display for SetDiagnosticsMergePolicy<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "SetDiagnosticsMergePolicy({})", self.in_)
+  }
+}
+
+impl<D> MergePolicy<D> for SetDiagnosticsMergePolicy<D>
+where
+  D: Directory,
+{
+  fn get_base(&self) -> &MergePolicyBase {
+    self.in_.get_base()
+  }
+
+  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
+    self.in_.get_base_mut()
+  }
+
+  fn find_merges<MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    Ok(self.wrap_specification(self.in_.find_merges(
+      merge_trigger,
+      segment_infos,
+      inner,
+      merge_context,
+    )?))
+  }
+
+  fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<D, CR>>>
+  where
+    CR: CodecReader,
+  {
+    self.in_.find_merges_readers(readers)
+  }
+
+  fn find_forced_merges<MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    max_segment_count: usize,
+    segments_to_merge: &HashMap<String, Option<bool>>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    self.in_.find_forced_merges(
+      segment_infos,
+      max_segment_count,
+      segments_to_merge,
+      inner,
+      merge_context,
+    )
+  }
+
+  fn find_forced_deletes_merges<MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    self
+      .in_
+      .find_forced_deletes_merges(segment_infos, inner, merge_context)
+  }
+
+  fn find_full_flush_merges<MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    Ok(self.wrap_specification(self.in_.find_full_flush_merges(
+      merge_trigger,
+      segment_infos,
+      inner,
+      merge_context,
+    )?))
+  }
+
+  fn use_compound_file<MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    merged_info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    MC: MergeContext<D>,
+  {
+    self
+      .in_
+      .use_compound_file(infos, merged_info, merge_context)
+  }
+
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  where
+    MC: MergeContext<D>,
+  {
+    self.in_.size(info, merge_context)
+  }
+
+  fn max_full_flush_merge_size(&self) -> i64 {
+    self.in_.max_full_flush_merge_size()
+  }
+
+  fn has_merged<MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    MC: MergeContext<D>,
+  {
+    self.in_.has_merged(infos, info, merge_context)
+  }
+
+  fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
+  where
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    self.in_.keep_fully_deleted_segment(reader_supplier)
+  }
+
+  fn num_deletes_to_merge<F>(
+    &self,
+    info: &SegmentCommitInfo<D>,
+    del_count: i32,
+    reader_supplier: F,
+  ) -> Result<i32>
+  where
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    self
+      .in_
+      .num_deletes_to_merge(info, del_count, reader_supplier)
+  }
+
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  where
+    MC: MergeContext<D>,
+  {
+    self.in_.seg_string(merge_context, infos)
+  }
+
+  fn message<MC>(&self, message: &str, merge_context: &MC) -> Result<()>
+  where
+    MC: MergeContext<D>,
+  {
+    self.in_.message(message, merge_context)
+  }
+
+  fn verbose<MC>(&self, merge_context: &MC) -> bool
+  where
+    MC: MergeContext<D>,
+  {
+    self.in_.verbose(merge_context)
   }
 }

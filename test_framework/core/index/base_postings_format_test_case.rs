@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::analyzer::{
+  Analyzer, AnalyzerEnum, AnalyzerStoredValue, TokenStreamComponents,
+};
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field::{Field, Store};
@@ -47,6 +51,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -57,10 +62,10 @@ use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
   new_directory_shared, new_fs_directory, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, new_text_field,
-  new_tiered_merge_policy,
+  new_tiered_merge_policy, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
-use rand::prelude::SliceRandom;
+use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use strum::IntoEnumIterator;
@@ -652,8 +657,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    // TODO IMPORTANT MockTokenizer未实现
-    let analyzer = MockAnalyzer::new(random);
+    let analyzer = MockTokenizerAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
@@ -719,8 +723,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    // TODO IMPORTANT MockTokenizer未实现
-    let analyzer = MockAnalyzer::new(random);
+    let analyzer = MockTokenizerAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
@@ -885,8 +888,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    // TODO IMPORTANT MockTokenizer未实现
-    let analyzer = MockAnalyzer::new(random);
+    let analyzer = MockTokenizerAnalyzer::new(random);
     let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     let w = RandomIndexWriter::with_config(random, dir, iwc);
 
@@ -1696,5 +1698,47 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     // TODO MismatchedCodecReader未实现
     Ok(())
+  }
+}
+
+struct MockTokenizerAnalyzer {
+  seed: u64,
+  stored_value: AnalyzerStoredValue,
+}
+
+impl MockTokenizerAnalyzer {
+  fn new<R>(random: &mut R) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    Self {
+      seed: random.random(),
+      stored_value: AnalyzerStoredValue::new(),
+    }
+  }
+
+  fn next_random(&self) -> StdRng {
+    random_from_seed(self.seed)
+  }
+}
+
+impl Analyzer for MockTokenizerAnalyzer {
+  fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
+    Ok(TokenStreamComponents::new(
+      Box::new(MockTokenizer::new(self.next_random())) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+crate::impl_analyzer_close!(MockTokenizerAnalyzer);
+
+impl From<MockTokenizerAnalyzer> for AnalyzerEnum {
+  fn from(analyzer: MockTokenizerAnalyzer) -> Self {
+    AnalyzerEnum::Custom(Box::new(analyzer))
   }
 }

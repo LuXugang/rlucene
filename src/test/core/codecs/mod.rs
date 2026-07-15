@@ -20,3 +20,4 @@ pub(crate) mod lucene101;
 pub(crate) mod lucene90;
 pub(crate) mod lucene94;
 pub(crate) mod lucene99;
+pub(crate) mod test_codec_util;

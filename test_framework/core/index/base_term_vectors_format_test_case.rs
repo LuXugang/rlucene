@@ -2200,7 +2200,10 @@ where
           }));
         }
       }
-      // TODO IMPORTANT 这里少一个判断
+      assert!(matches!(
+        docs_and_positions_enum.next_position(),
+        Err(LuceneError::IllegalState(_))
+      ));
       assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
     }
   }

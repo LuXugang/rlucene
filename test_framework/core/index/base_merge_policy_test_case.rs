@@ -110,7 +110,6 @@ pub trait BaseMergePolicyTestCase {
     }
 
     for i in (0..=5).rev() {
-      // TODO IMPORTANT INDEX_WRITER_ACCESS 未实现
       let segment_count = writer.get_segment_count();
 
       let max_num_segments = if i == 0 {

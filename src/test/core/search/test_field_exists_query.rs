@@ -292,10 +292,12 @@ fn test_doc_values_approximation() -> Result<()> {
       )?);
       iw.add_document(&mut random, doc)?;
     }
-    // TODO: delete-by-query not implement yet
-    // if random.random_bool(0.5) {
-    //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("f", "no")).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;
@@ -354,10 +356,12 @@ fn test_doc_values_score() -> Result<()> {
       )?);
       iw.add_document(&mut random, doc)?;
     }
-    // TODO: delete-by-query not implement yet
-    // if random.random_bool(0.5) {
-    //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("f", "no")).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;
@@ -485,17 +489,21 @@ fn test_doc_values_query_matches_count() -> Result<()> {
   w.w
     .get_config_mut()
     .set_merge_policy(NoMergePolicy::default());
-  // TODO: delete-by-query not implement yet
-  // let v :Vec<Query>= vec![LongPoint::new_range_query("long", 0i64, 9i64)?.into()];
-  // w.delete_documents_with_query(v)?;
-  // let reader2 = w.get_reader()?;
-  // let searcher2 = new_searcher_with_reader(reader2)?;
-  //
-  // let test_query: Query = FieldExistsQuery::new("long").into();
-  // let weight2 = searcher2.create_weight(test_query, ScoreMode::Complete, 1.0)?;
-  //
-  // let leaf = &searcher2.get_leaf_contexts()?[0];
-  // assert_eq!(weight2.count(leaf)?, -1);
+  w.delete_documents_with_queries(
+    &mut random,
+    vec![LongPoint::new_range_query("long", 0, 9)?.into()],
+  )?;
+  let reader2 = w.get_reader(&mut random)?;
+  let searcher2 = new_searcher_with_reader(reader2)?;
+
+  let test_query: Query = FieldExistsQuery::new("long").into();
+  let weight2 = searcher2.create_weight(test_query, ScoreMode::Complete, 1.0)?;
+
+  let leaf = &searcher2.get_leaf_contexts()?[0];
+  assert_eq!(-1, weight2.count(leaf)?);
+
+  searcher.get_index_reader().close()?;
+  searcher2.get_index_reader().close()?;
 
   w.close(&mut random)?;
   Ok(())
@@ -529,10 +537,12 @@ fn test_norms_random() -> Result<()> {
       iw.add_document(&mut random, doc)?;
     }
 
-    // TODO: delete-by-query not implement yet
-    // if random.random_bool(0.5) {
-    //     iw.delete_documents(TermQuery::new(...));
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("f", "no")).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;
@@ -574,10 +584,12 @@ fn test_norms_approximation() -> Result<()> {
       )?);
       iw.add_document(&mut random, doc)?;
     }
-    // TODO: delete-by-query not implement yet
-    // if random.random_bool(0.5) {
-    //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("f", "no")).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;
@@ -634,10 +646,12 @@ fn test_norms_score() -> Result<()> {
       iw.add_document(&mut random, doc)?;
     }
 
-    // TODO: delete-by-query not implemented yet
-    // if random.random_bool(0.5) {
-    //     iw.delete_documents(TermQuery::new(Term::from_text("f", "no")))?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("f", "no")).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;
@@ -842,12 +856,12 @@ fn test_knn_vector_random() -> Result<()> {
       iw.add_document(&mut random, doc)?;
     }
 
-    // TODO: 通过 Query 删除未实现
-    // if random.random_bool(0.5) {
-    //   iw.delete_documents_with_query(vec![
-    //     TermQuery::new(Term::from_text("f", "no")).into(),
-    //   ])?;
-    // }
+    if random.random_bool(0.5) {
+      iw.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::from_text("f", "no")).into()],
+      )?;
+    }
 
     iw.commit(&mut random)?;
     let reader = iw.get_reader(&mut random)?;

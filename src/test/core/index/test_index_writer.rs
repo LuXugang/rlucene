@@ -359,7 +359,7 @@ fn test_changing_ram_buffer() -> Result<()> {
       &mut field_types,
     )?);
     writer.add_document(doc)?;
-    // TODO IMPORTANT TestUtil.syncConcurrentMerges未实现
+    TestUtil::sync_concurrent_merges(&writer)?;
     let flush_count = writer.get_flush_count();
     if j == 1 {
       last_flush_count = flush_count;

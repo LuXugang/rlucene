@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::date_tools::{DateTools, Resolution};
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
@@ -40,6 +41,7 @@ use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, new_directory_shared, random,
 };
+use chrono::{DateTime, Datelike, Local};
 use rand::{Rng, RngExt};
 use std::collections::BTreeMap;
 
@@ -51,7 +53,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, us
   let index = new_directory_shared(random)?;
 
   let writer = RandomIndexWriter::new(random, index)?;
-  let random_gen = RandomGen;
+  let mut random_gen = RandomGen::new(random);
 
   for i in 0..index_size {
     let mut doc = Document::new();
@@ -59,7 +61,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, us
     if i % 5 != 0 {
       doc.add(SortedDocValuesField::new(
         "publicationDate_",
-        BytesRef::from_string(&random_gen.get_lucene_date(random)),
+        BytesRef::from_string(&random_gen.get_lucene_date()?),
       ));
     }
 
@@ -73,10 +75,10 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, us
       Store::Yes,
     )?);
 
-    writer.add_document(random, doc)?;
+    writer.add_document(&mut *random_gen.random, doc)?;
   }
-  let reader = writer.get_reader(random)?;
-  writer.close(random)?;
+  let reader = writer.get_reader(&mut *random_gen.random)?;
+  writer.close(&mut *random_gen.random)?;
   let query = TermQuery::new(Term::from_text("content", "test")).into();
   Ok((reader, query, index_size))
 }
@@ -193,23 +195,27 @@ where
     self.searcher.search(q, n_docs)
   }
 }
-#[derive(Default)]
-struct RandomGen;
+struct RandomGen<'a, R: Rng + ?Sized> {
+  random: &'a mut R,
+  // we use the default Locale/TZ since LuceneTestCase randomizes it
+  base: DateTime<Local>,
+}
 
-impl RandomGen {
-  fn new() -> Self {
-    Self
+impl<'a, R: Rng + ?Sized> RandomGen<'a, R> {
+  fn new(random: &'a mut R) -> Self {
+    let base = Local::now()
+      .with_year(1980)
+      .and_then(|date| date.with_month(2))
+      .and_then(|date| date.with_day(1))
+      .expect("1980-02-01 must be a valid date in the default time zone");
+    Self { random, base }
   }
-  fn get_lucene_date<R: Rng + ?Sized>(&self, random: &mut R) -> String {
-    //  TODO IMPORTANT DateTools未实现
-    let day_offset = random.random_range(0..50);
 
-    let (month, day) = if day_offset < 29 {
-      (2, day_offset + 1)
-    } else {
-      (3, day_offset - 29 + 1)
-    };
-
-    format!("1980{month:02}{day:02}")
+  // Just to generate some different Lucene Date strings
+  fn get_lucene_date(&mut self) -> Result<String> {
+    DateTools::time_to_string(
+      self.base.timestamp_millis() + (self.random.random::<i32>() as i64 - i32::MIN as i64),
+      Resolution::DAY,
+    )
   }
 }
