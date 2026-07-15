@@ -89,9 +89,10 @@ const MIN_BIG_MERGE_MB: f64 = 50.0;
 pub struct ConcurrentMergeScheduler {
   inner: Arc<Mutex<Inner>>,
   changed: Arc<Condvar>,
+  hook: ConcurrentMergeSchedulerHook,
 }
 
-struct Inner {
+pub(crate) struct Inner {
   /** List of currently active merge work. */
   merge_threads: Vec<Arc<MergeThreadState>>,
   // Max number of merge threads allowed to be running at once. When there are more merges then
@@ -113,6 +114,184 @@ struct Inner {
   stall_on_merge_thread: Option<Arc<AtomicBool>>,
 }
 
+#[derive(Clone, Default)]
+pub(crate) enum ConcurrentMergeSchedulerHook {
+  #[default]
+  Default,
+}
+
+pub(crate) struct ConcurrentMergeSchedulerDefaults;
+
+pub(crate) trait ConcurrentMergeSchedulerBase {
+  fn update_merge_threads(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    inner: &mut Inner,
+  ) -> Result<()>;
+
+  fn close(&self, scheduler: &ConcurrentMergeScheduler) -> Result<()>;
+
+  fn merge<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: MS,
+    trigger: MergeTrigger,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static;
+
+  fn maybe_stall<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    inner: &mut MutexGuard<'_, Inner>,
+    merge_source: &MS,
+  ) -> Result<bool>
+  where
+    MS: MergeSource<D>,
+    D: Directory;
+
+  fn do_stall(&self, scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>);
+
+  fn do_merge<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: &MS,
+    merge: OneMerge<D, MS::Reader>,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D>,
+    D: Directory + 'static;
+
+  fn get_merge_thread<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    inner: &mut Inner,
+    merge_source: MS,
+    merge: OneMerge<D, MS::Reader>,
+  ) -> Result<MergeThread<MS, D>>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static;
+
+  fn handle_merge_exception(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    exc: LuceneError,
+  ) -> Result<()>;
+
+  fn target_mb_per_sec_changed(&self, scheduler: &ConcurrentMergeScheduler);
+}
+
+impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
+  fn update_merge_threads(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    inner: &mut Inner,
+  ) -> Result<()> {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::update_merge_threads(scheduler, inner),
+    }
+  }
+
+  fn close(&self, scheduler: &ConcurrentMergeScheduler) -> Result<()> {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::close(scheduler),
+    }
+  }
+
+  fn merge<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: MS,
+    trigger: MergeTrigger,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::merge(scheduler, merge_source, trigger),
+    }
+  }
+
+  fn maybe_stall<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    inner: &mut MutexGuard<'_, Inner>,
+    merge_source: &MS,
+  ) -> Result<bool>
+  where
+    MS: MergeSource<D>,
+    D: Directory,
+  {
+    match self {
+      Self::Default => {
+        ConcurrentMergeSchedulerDefaults::maybe_stall(scheduler, inner, merge_source)
+      },
+    }
+  }
+
+  fn do_stall(&self, scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>) {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::do_stall(scheduler, inner),
+    }
+  }
+
+  fn do_merge<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: &MS,
+    merge: OneMerge<D, MS::Reader>,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D>,
+    D: Directory + 'static,
+  {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::do_merge(scheduler, merge_source, merge),
+    }
+  }
+
+  fn get_merge_thread<MS, D>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    inner: &mut Inner,
+    merge_source: MS,
+    merge: OneMerge<D, MS::Reader>,
+  ) -> Result<MergeThread<MS, D>>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    match self {
+      Self::Default => {
+        ConcurrentMergeSchedulerDefaults::get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+    }
+  }
+
+  fn handle_merge_exception(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    exc: LuceneError,
+  ) -> Result<()> {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, exc),
+    }
+  }
+
+  fn target_mb_per_sec_changed(&self, scheduler: &ConcurrentMergeScheduler) {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::target_mb_per_sec_changed(scheduler),
+    }
+  }
+}
+
 impl Default for ConcurrentMergeScheduler {
   fn default() -> Self {
     Self::new()
@@ -122,6 +301,10 @@ impl Default for ConcurrentMergeScheduler {
 impl ConcurrentMergeScheduler {
   /** Sole constructor, with all settings set to default values. */
   pub fn new() -> Self {
+    Self::with_hook(ConcurrentMergeSchedulerHook::Default)
+  }
+
+  pub(crate) fn with_hook(hook: ConcurrentMergeSchedulerHook) -> Self {
     Self {
       inner: Arc::new(Mutex::new(Inner {
         merge_threads: Vec::new(),
@@ -136,6 +319,7 @@ impl ConcurrentMergeScheduler {
         stall_on_merge_thread: None,
       })),
       changed: Arc::new(Condvar::new()),
+      hook,
     }
   }
 
@@ -229,7 +413,7 @@ impl ConcurrentMergeScheduler {
   pub fn set_force_merge_mb_per_sec(&self, v: f64) -> Result<()> {
     let mut inner = self.inner.lock();
     inner.force_merge_mb_per_sec = v;
-    Self::update_merge_threads(&mut inner)
+    self.update_merge_threads(&mut inner)
   }
 
   /** Get the per-merge IO throttle rate for forced merges. */
@@ -246,7 +430,7 @@ impl ConcurrentMergeScheduler {
     let mut inner = self.inner.lock();
     inner.do_auto_io_throttle = true;
     inner.target_mb_per_sec = START_MB_PER_SEC;
-    Self::update_merge_threads(&mut inner)
+    self.update_merge_threads(&mut inner)
   }
 
   /**
@@ -257,7 +441,7 @@ impl ConcurrentMergeScheduler {
   pub fn disable_auto_io_throttle(&self) -> Result<()> {
     let mut inner = self.inner.lock();
     inner.do_auto_io_throttle = false;
-    Self::update_merge_threads(&mut inner)
+    self.update_merge_threads(&mut inner)
   }
 
   /** Returns true if auto IO throttling is currently enabled. */
@@ -312,7 +496,16 @@ impl ConcurrentMergeScheduler {
    * merge threads by their merge size in descending order and then pauses/unpauses threads from
    * first to last -- that way, smaller merges are guaranteed to run before larger ones.
    */
-  fn update_merge_threads(inner: &mut Inner) -> Result<()> {
+  fn update_merge_threads(&self, inner: &mut Inner) -> Result<()> {
+    self.hook.update_merge_threads(self, inner)
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn update_merge_threads(
+    _scheduler: &ConcurrentMergeScheduler,
+    inner: &mut Inner,
+  ) -> Result<()> {
     // Only look at threads that are alive and not in the process of stopping (i.e. have an active
     // merge):
     let mut thread_idx = 0;
@@ -380,7 +573,9 @@ impl ConcurrentMergeScheduler {
 
     Ok(())
   }
+}
 
+impl ConcurrentMergeScheduler {
   fn init_dynamic_defaults<D>(&self, _directory: &D)
   where
     D: Directory,
@@ -404,7 +599,13 @@ impl ConcurrentMergeScheduler {
 
 impl CloseableRef for ConcurrentMergeScheduler {
   fn close(&self) -> Result<()> {
-    self.sync()
+    self.hook.close(self)
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn close(scheduler: &ConcurrentMergeScheduler) -> Result<()> {
+    scheduler.sync()
   }
 }
 
@@ -489,8 +690,23 @@ impl MergeScheduler for ConcurrentMergeScheduler {
     D: Directory + 'static,
     OneMerge<D, MS::Reader>: Send + 'static,
   {
-    let mut inner = self.inner.lock();
-    self.merge_locked(&mut inner, merge_source, trigger)
+    self.hook.merge(self, merge_source, trigger)
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn merge<MS, D>(
+    scheduler: &ConcurrentMergeScheduler,
+    merge_source: MS,
+    trigger: MergeTrigger,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    let mut inner = scheduler.inner.lock();
+    scheduler.merge_locked(&mut inner, merge_source, trigger)
   }
 }
 
@@ -509,7 +725,7 @@ impl ConcurrentMergeScheduler {
     if trigger == MergeTrigger::Closing {
       // Disable throttling on close:
       inner.target_mb_per_sec = MAX_MERGE_MB_PER_SEC;
-      Self::update_merge_threads(inner)?;
+      self.update_merge_threads(inner)?;
     }
 
     // Iterate, pulling from the IndexWriter's queue of pending merges, until it's empty:
@@ -526,12 +742,12 @@ impl ConcurrentMergeScheduler {
       let merge_stat = merge.stat.clone();
 
       let setup_result = (|| -> Result<()> {
-        let new_merge_thread = Self::get_merge_thread(inner, merge_source.clone(), merge);
+        let new_merge_thread = self.get_merge_thread(inner, merge_source.clone(), merge)?;
         let merge_thread_state = new_merge_thread.state.clone();
         inner.merge_threads.push(merge_thread_state.clone());
-        Self::update_io_throttle(inner, &merge_thread_state)?;
+        self.update_io_throttle(inner, &merge_thread_state)?;
         new_merge_thread.start(self.clone())?;
-        Self::update_merge_threads(inner)?;
+        self.update_merge_threads(inner)?;
         Ok(())
       })();
 
@@ -560,10 +776,25 @@ impl ConcurrentMergeScheduler {
     MS: MergeSource<D>,
     D: Directory,
   {
+    self.hook.maybe_stall(self, inner, merge_source)
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn maybe_stall<MS, D>(
+    scheduler: &ConcurrentMergeScheduler,
+    inner: &mut MutexGuard<'_, Inner>,
+    merge_source: &MS,
+  ) -> Result<bool>
+  where
+    MS: MergeSource<D>,
+    D: Directory,
+  {
     let mut start_stall_time = None;
 
     while merge_source.has_pending_merges(None)?
-      && Self::merge_thread_count_locked(inner) >= inner.max_merge_count as usize
+      && ConcurrentMergeScheduler::merge_thread_count_locked(inner)
+        >= inner.max_merge_count as usize
     {
       // This means merging has fallen too far behind: we have already created max_merge_count
       // threads, and now there's at least one more merge pending. Note that only max_thread_count
@@ -584,14 +815,22 @@ impl ConcurrentMergeScheduler {
       if start_stall_time.is_none() {
         start_stall_time = Some(Instant::now());
       }
-      self.do_stall(inner);
+      scheduler.do_stall(inner);
     }
 
     Ok(true)
   }
+}
 
+impl ConcurrentMergeScheduler {
   /** Called from `maybe_stall` to pause the calling thread for a bit. */
   fn do_stall(&self, inner: &mut MutexGuard<'_, Inner>) {
+    self.hook.do_stall(self, inner)
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn do_stall(scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>) {
     #[cfg(test)]
     if let Some(stall_on_merge_thread) = &inner.stall_on_merge_thread
       && inner
@@ -603,9 +842,13 @@ impl ConcurrentMergeScheduler {
     }
 
     // Defensively wait for only .25 seconds in case we are missing a notify/all somewhere:
-    self.changed.wait_for(inner, Duration::from_millis(250));
+    scheduler
+      .changed
+      .wait_for(inner, Duration::from_millis(250));
   }
+}
 
+impl ConcurrentMergeScheduler {
   /**
    * Does the actual merge, by calling `MergeSource::merge`.
    */
@@ -614,15 +857,48 @@ impl ConcurrentMergeScheduler {
     MS: MergeSource<D>,
     D: Directory + 'static,
   {
+    self.hook.do_merge(self, merge_source, merge)
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn do_merge<MS, D>(
+    _scheduler: &ConcurrentMergeScheduler,
+    merge_source: &MS,
+    merge: OneMerge<D, MS::Reader>,
+  ) -> Result<()>
+  where
+    MS: MergeSource<D>,
+    D: Directory + 'static,
+  {
     merge_source.merge(merge)
   }
+}
 
+impl ConcurrentMergeScheduler {
   /** Create and return a new MergeThread */
   fn get_merge_thread<MS, D>(
+    &self,
     inner: &mut Inner,
     merge_source: MS,
     merge: OneMerge<D, MS::Reader>,
-  ) -> MergeThread<MS, D>
+  ) -> Result<MergeThread<MS, D>>
+  where
+    MS: MergeSource<D> + Clone + 'static,
+    D: Directory + 'static,
+    OneMerge<D, MS::Reader>: Send + 'static,
+  {
+    self.hook.get_merge_thread(self, inner, merge_source, merge)
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn get_merge_thread<MS, D>(
+    _scheduler: &ConcurrentMergeScheduler,
+    inner: &mut Inner,
+    merge_source: MS,
+    merge: OneMerge<D, MS::Reader>,
+  ) -> Result<MergeThread<MS, D>>
   where
     MS: MergeSource<D> + Clone + 'static,
     D: Directory + 'static,
@@ -631,9 +907,11 @@ impl ConcurrentMergeScheduler {
     let name = format!("Lucene Merge Thread #{}", inner.merge_thread_count);
     inner.merge_thread_count += 1;
     let state = Arc::new(MergeThreadState::new(name, &merge));
-    MergeThread::new(state, merge_source, merge)
+    Ok(MergeThread::new(state, merge_source, merge))
   }
+}
 
+impl ConcurrentMergeScheduler {
   fn run_on_merge_finished<MS, D>(&self, merge_source: MS) -> Result<()>
   where
     MS: MergeSource<D> + Clone + 'static,
@@ -660,7 +938,7 @@ impl ConcurrentMergeScheduler {
       };
     let finish_result = {
       Self::remove_merge_thread(&mut inner);
-      match Self::update_merge_threads(&mut inner) {
+      match self.update_merge_threads(&mut inner) {
         Ok(()) => {
           // In case we had stalled indexing, we can now wake up
           // and possibly unstall:
@@ -728,7 +1006,7 @@ impl MergeThreadState {
 }
 
 /** Runs a merge to execute a single merge, then exits. */
-struct MergeThread<MS, D>
+pub(crate) struct MergeThread<MS, D>
 where
   MS: MergeSource<D>,
   D: Directory,
@@ -774,14 +1052,14 @@ where
     if let Err(exc) = merge_result {
       let mut inner = merge_scheduler.inner.lock();
       ConcurrentMergeScheduler::remove_merge_thread(&mut inner);
-      ConcurrentMergeScheduler::update_merge_threads(&mut inner)?;
+      merge_scheduler.update_merge_threads(&mut inner)?;
       merge_scheduler.changed.notify_all();
       drop(inner);
       if matches!(exc, LuceneError::MergeAborted(_)) || merge_aborted {
         // OK to ignore.
         Ok(())
       } else if !merge_scheduler.inner.lock().suppress_exceptions {
-        Err(ConcurrentMergeScheduler::handle_merge_exception(exc))
+        merge_scheduler.handle_merge_exception(exc)
       } else {
         Ok(())
       }
@@ -829,11 +1107,10 @@ where
 
 impl ConcurrentMergeScheduler {
   /** Called when an exception is hit in a background merge thread. */
-  fn handle_merge_exception(exc: LuceneError) -> LuceneError {
-    let mut merge_error = crate::core::util::error::MergeError::new(format!("merge failed: {exc}"));
-    merge_error.add_suppressed(exc);
-    LuceneError::Merge(merge_error)
+  fn handle_merge_exception(&self, exc: LuceneError) -> Result<()> {
+    self.hook.handle_merge_exception(self, exc)
   }
+
   /** Used for testing */
   pub(crate) fn set_suppress_exceptions(&self) {
     self.inner.lock().suppress_exceptions = true;
@@ -848,6 +1125,17 @@ impl ConcurrentMergeScheduler {
   #[cfg(test)]
   pub(crate) fn set_stall_on_merge_thread(&self, stall_on_merge_thread: Arc<AtomicBool>) {
     self.inner.lock().stall_on_merge_thread = Some(stall_on_merge_thread);
+  }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn handle_merge_exception(
+    _scheduler: &ConcurrentMergeScheduler,
+    exc: LuceneError,
+  ) -> Result<()> {
+    let mut merge_error = crate::core::util::error::MergeError::new(format!("merge failed: {exc}"));
+    merge_error.add_suppressed(exc);
+    Err(LuceneError::Merge(merge_error))
   }
 }
 
@@ -887,7 +1175,11 @@ impl ConcurrentMergeScheduler {
   }
 
   /** Tunes IO throttle when a new merge starts. */
-  fn update_io_throttle(inner: &mut Inner, new_merge_thread: &Arc<MergeThreadState>) -> Result<()> {
+  fn update_io_throttle(
+    &self,
+    inner: &mut Inner,
+    new_merge_thread: &Arc<MergeThreadState>,
+  ) -> Result<()> {
     if !inner.do_auto_io_throttle {
       return Ok(());
     }
@@ -949,14 +1241,20 @@ impl ConcurrentMergeScheduler {
       inner.target_mb_per_sec
     };
     new_merge_thread.rate_limiter.set_mb_per_sec(rate)?;
-    Self::target_mb_per_sec_changed();
+    self.target_mb_per_sec_changed();
     Ok(())
   }
 
   /** Subtype can override to tweak target_mb_per_sec. */
-  fn target_mb_per_sec_changed() {}
+  fn target_mb_per_sec_changed(&self) {
+    self.hook.target_mb_per_sec_changed(self)
+  }
 
   fn bytes_to_mb(bytes: i64) -> f64 {
     bytes as f64 / 1024.0 / 1024.0
   }
+}
+
+impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn target_mb_per_sec_changed(_scheduler: &ConcurrentMergeScheduler) {}
 }
