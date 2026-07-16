@@ -260,7 +260,7 @@ pub trait DataInput: Display {
       map.insert(self.read_string()?, self.read_string()?);
       Ok(map)
     } else {
-      let mut map: HashMap<String, String> = HashMap::with_capacity(count as usize);
+      let mut map = HashMap::new();
       for _ in 0..count {
         map.insert(self.read_string()?, self.read_string()?);
       }
@@ -300,7 +300,7 @@ pub trait DataInput: Display {
       set.insert(self.read_string()?);
       Ok(set)
     } else {
-      let mut set = HashSet::with_capacity(count as usize);
+      let mut set = HashSet::new();
       for _ in 0..count {
         set.insert(self.read_string()?);
       }
