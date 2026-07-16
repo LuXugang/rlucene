@@ -230,6 +230,28 @@ fn test_exactly_at_true_limit() -> Result<()> {
   Ok(())
 }
 #[test]
+fn test_add_document() -> Result<()> {
+  set_max_docs(10)?;
+  let result = (|| -> Result<()> {
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+
+    for _ in 0..10 {
+      w.add_document(Document::new())?;
+    }
+
+    let err = w.add_document(Document::new());
+    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+
+    w.close()?;
+    Ok(())
+  })();
+
+  set_max_docs(MAX_DOCS)?;
+  result
+}
+#[test]
 fn test_add_documents() -> Result<()> {
   set_max_docs(10)?;
   let result = (|| -> Result<()> {

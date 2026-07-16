@@ -346,7 +346,6 @@ where
     let mut pending_term_lookups = Vec::new();
 
     for ctx in context.leaves()? {
-      // TODO IMPORTANT 这里跟Java Lucene 不同, 空的Term总是返回空的 为什么要加载Term呢
       let terms = ctx.reader().terms(term.field())?;
       match terms {
         None => {

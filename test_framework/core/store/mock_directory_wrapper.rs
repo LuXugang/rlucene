@@ -31,7 +31,9 @@ use crate::test_framework::core::store::base_directory_wrapper::BaseDirectoryWra
 use crate::test_framework::core::store::mock_index_input_wrapper::{
   MockDirectoryIndexInput, MockIndexInputWrapper,
 };
-use crate::test_framework::core::store::mock_index_output_wrapper::MockIndexOutputWrapper;
+use crate::test_framework::core::store::mock_index_output_wrapper::{
+  MockIndexOutputHandle, MockIndexOutputWrapper,
+};
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_io_context, new_io_context_with_default,
 };
@@ -150,6 +152,8 @@ where
   // additionally: provides debugging information in case you leave one open
   pub open_file_handles: Mutex<HashMap<usize, LuceneError>>,
 
+  pub open_output_handles: Mutex<HashMap<usize, MockIndexOutputHandle<D::IndexOutput>>>,
+
   pub open_files: Mutex<HashMap<String, i32>>,
 
   // Only tracked if noDeleteOpenFile is true: if an attempt
@@ -235,6 +239,7 @@ where
         always_corrupt: AtomicBool::new(false),
         input_clone_count: AtomicI32::new(0),
         open_file_handles: Mutex::new(HashMap::new()),
+        open_output_handles: Mutex::new(HashMap::new()),
         open_files: Mutex::new(HashMap::new()),
         open_files_deleted: Mutex::new(HashSet::new()),
         verbose_clone: AtomicBool::new(false),
@@ -585,9 +590,19 @@ where
     self.state.open_files.lock().clear();
     self.state.open_files_for_write.lock().clear();
     self.state.open_files_deleted.lock().clear();
-    // Java force-closes all file handles here. Rust ownership keeps those
-    // handles outside of the directory, so we clear the tracking maps and
-    // rely on the crashed flag to reject subsequent writes.
+    // First force-close all output files, so we can corrupt them on Windows
+    // and in in-memory directories whose content is published on close.
+    let open_output_handles: Vec<_> = self
+      .state
+      .open_output_handles
+      .lock()
+      .iter()
+      .map(|(handle_id, handle)| (*handle_id, handle.clone()))
+      .collect();
+    for (handle_id, handle) in open_output_handles {
+      let _ = MockIndexOutputWrapper::<D>::force_close(self, handle_id, &handle);
+    }
+    self.state.open_output_handles.lock().clear();
     self.state.open_file_handles.lock().clear();
     let unsynced_files = self.state.unsynced_files.lock().clone();
     self.corrupt_files(unsynced_files)?;
@@ -784,6 +799,7 @@ where
 
   pub fn remove_index_output(&self, handle_id: usize, name: &str) {
     self.state.open_files_for_write.lock().remove(name);
+    self.state.open_output_handles.lock().remove(&handle_id);
     self.remove_open_file(handle_id, name);
   }
 
@@ -1124,6 +1140,11 @@ where
       .create_output(name, &randomized_context)?;
     let io = MockIndexOutputWrapper::new(self.clone(), delegate_output, name);
     let handle_id = io.handle_id;
+    self
+      .state
+      .open_output_handles
+      .lock()
+      .insert(handle_id, io.output_handle());
     self.add_file_handle(handle_id, name, Handle::Output);
     self
       .state
@@ -1169,6 +1190,11 @@ where
     self.state.created_files.lock().insert(name.clone());
     let io = MockIndexOutputWrapper::new(self.clone(), delegate_output, &name);
     let handle_id = io.handle_id;
+    self
+      .state
+      .open_output_handles
+      .lock()
+      .insert(handle_id, io.output_handle());
     self.add_file_handle(handle_id, &name, Handle::Output);
     self.state.open_files_for_write.lock().insert(name.clone());
 

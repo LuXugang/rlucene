@@ -22,13 +22,43 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use parking_lot::Mutex;
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
 use std::io::Error;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
 static NEXT_HANDLE_ID: AtomicUsize = AtomicUsize::new(0);
+
+struct MockIndexOutputState<O>
+where
+  O: IndexOutput,
+{
+  out: O,
+  closed: bool,
+}
+
+pub(crate) struct MockIndexOutputHandle<O>
+where
+  O: IndexOutput,
+{
+  state: Arc<Mutex<MockIndexOutputState<O>>>,
+  name: String,
+}
+
+impl<O> Clone for MockIndexOutputHandle<O>
+where
+  O: IndexOutput,
+{
+  fn clone(&self) -> Self {
+    Self {
+      state: Arc::clone(&self.state),
+      name: self.name.clone(),
+    }
+  }
+}
 
 /// Used to create an output stream that will throw an IOException on fake disk
 /// full, track max disk space actually used, and maybe throw random
@@ -43,8 +73,7 @@ where
 
   single_byte: [u8; 1],
 
-  out: D::IndexOutput,
-  closed: bool,
+  handle: MockIndexOutputHandle<D::IndexOutput>,
   pub(crate) handle_id: usize,
 }
 
@@ -58,14 +87,73 @@ where
     out: D::IndexOutput,
     name: impl Into<String>,
   ) -> Self {
+    let name = name.into();
     Self {
       dir,
       first: true,
-      name: name.into(),
+      name: name.clone(),
       single_byte: [0],
-      out,
-      closed: false,
+      handle: MockIndexOutputHandle {
+        state: Arc::new(Mutex::new(MockIndexOutputState { out, closed: false })),
+        name,
+      },
       handle_id: NEXT_HANDLE_ID.fetch_add(1, Ordering::SeqCst),
+    }
+  }
+
+  pub(crate) fn output_handle(&self) -> MockIndexOutputHandle<D::IndexOutput> {
+    self.handle.clone()
+  }
+
+  pub(crate) fn force_close(
+    dir: &MockDirectoryWrapper<D>,
+    handle_id: usize,
+    handle: &MockIndexOutputHandle<D::IndexOutput>,
+  ) -> Result<()> {
+    Self::close_handle(dir, handle_id, handle)
+  }
+
+  fn close_handle(
+    dir: &MockDirectoryWrapper<D>,
+    handle_id: usize,
+    handle: &MockIndexOutputHandle<D::IndexOutput>,
+  ) -> Result<()> {
+    let (result, close_result) = {
+      let mut state = handle.state.lock();
+      if state.closed {
+        state.out.close()?; // don't mask double-close bugs
+        return Ok(());
+      }
+      state.closed = true;
+
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        dir.maybe_throw_deterministic_exception()
+      }));
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| state.out.close()));
+      (result, close_result)
+    };
+
+    dir.remove_index_output(handle_id, &handle.name);
+    if dir.state.track_disk_usage.load(Ordering::SeqCst) {
+      // Now compute actual disk usage & track the maxUsedSize
+      // in the MockDirectoryWrapper:
+      let size = dir.size_in_bytes()? as i64;
+      if size > dir.state.max_used_size.load(Ordering::SeqCst) {
+        dir.state.max_used_size.store(size, Ordering::SeqCst);
+      }
+    }
+
+    match result {
+      Err(payload) => std::panic::resume_unwind(payload),
+      Ok(Err(error)) => match close_result {
+        Ok(close_result) => IOUtils::use_or_suppress_result(Err(error), close_result),
+        Err(_) => Err(error),
+      },
+      Ok(Ok(())) => match close_result {
+        Ok(close_result) => close_result,
+        Err(payload) => std::panic::resume_unwind(payload),
+      },
     }
   }
 
@@ -125,7 +213,7 @@ where
         "fake disk full at {} bytes when writing {} (file length={}",
         self.dir.size_in_bytes()?,
         self.name,
-        self.out.get_file_pointer()?
+        self.handle.state.lock().out.get_file_pointer()?
       );
       if free_space > 0 {
         message.push_str(&format!("; wrote {free_space} of {len} bytes"));
@@ -140,7 +228,7 @@ where
   }
 
   fn ensure_open(&self) -> Result<()> {
-    if self.closed {
+    if self.handle.state.lock().closed {
       return Err(LuceneError::already_closed(format!(
         "Already closed: {}",
         self
@@ -164,16 +252,36 @@ where
     self.ensure_open()?;
     self.check_crashed()?;
     self.check_disk_full(len, |this, free_space| {
-      this.out.write_bytes_range(b, offset, free_space)
+      this
+        .handle
+        .state
+        .lock()
+        .out
+        .write_bytes_range(b, offset, free_space)
     })?;
 
     if self.dir.state.random_state.lock().random_range(0..200) == 0 {
       let half = len / 2;
-      self.out.write_bytes_range(b, offset, half)?;
+      self
+        .handle
+        .state
+        .lock()
+        .out
+        .write_bytes_range(b, offset, half)?;
       thread::yield_now();
-      self.out.write_bytes_range(b, offset + half, len - half)?;
+      self
+        .handle
+        .state
+        .lock()
+        .out
+        .write_bytes_range(b, offset + half, len - half)?;
     } else {
-      self.out.write_bytes_range(b, offset, len)?;
+      self
+        .handle
+        .state
+        .lock()
+        .out
+        .write_bytes_range(b, offset, len)?;
     }
 
     self.dir.maybe_throw_deterministic_exception()?;
@@ -200,13 +308,18 @@ where
       while left > 0 {
         let to_copy = left.min(buffer.len());
         input.read_bytes(&mut buffer, 0, to_copy)?;
-        this.out.write_bytes_with_len(&buffer, to_copy)?;
+        this
+          .handle
+          .state
+          .lock()
+          .out
+          .write_bytes_with_len(&buffer, to_copy)?;
         left -= to_copy;
       }
       Ok(())
     })?;
 
-    self.out.copy_bytes(input, num_bytes)?;
+    self.handle.state.lock().out.copy_bytes(input, num_bytes)?;
     self.dir.maybe_throw_deterministic_exception()
   }
 }
@@ -216,7 +329,11 @@ where
   D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "MockIndexOutputWrapper({})", self.out)
+    write!(
+      f,
+      "MockIndexOutputWrapper({})",
+      self.handle.state.lock().out
+    )
   }
 }
 
@@ -225,37 +342,7 @@ where
   D: Directory,
 {
   fn close(&mut self) -> Result<()> {
-    if self.closed {
-      self.out.close()?; // don't mask double-close bugs
-      return Ok(());
-    }
-    self.closed = true;
-
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      self.dir.maybe_throw_deterministic_exception()
-    }));
-    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.out.close()));
-    self.dir.remove_index_output(self.handle_id, &self.name);
-    if self.dir.state.track_disk_usage.load(Ordering::SeqCst) {
-      // Now compute actual disk usage & track the maxUsedSize
-      // in the MockDirectoryWrapper:
-      let size = self.dir.size_in_bytes()? as i64;
-      if size > self.dir.state.max_used_size.load(Ordering::SeqCst) {
-        self.dir.state.max_used_size.store(size, Ordering::SeqCst);
-      }
-    }
-
-    match result {
-      Err(payload) => std::panic::resume_unwind(payload),
-      Ok(Err(error)) => match close_result {
-        Ok(close_result) => IOUtils::use_or_suppress_result(Err(error), close_result),
-        Err(_) => Err(error),
-      },
-      Ok(Ok(())) => match close_result {
-        Ok(close_result) => close_result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      },
-    }
+    Self::close_handle(&self.dir, self.handle_id, &self.handle)
   }
 }
 
@@ -264,7 +351,7 @@ where
   D: Directory,
 {
   fn drop(&mut self) {
-    if !self.closed {
+    if !self.handle.state.lock().closed {
       let _ = self.close();
     }
   }
@@ -275,11 +362,11 @@ where
   D: Directory,
 {
   fn get_file_pointer(&self) -> Result<usize> {
-    self.out.get_file_pointer()
+    self.handle.state.lock().out.get_file_pointer()
   }
 
   fn get_checksum(&mut self) -> Result<u64> {
-    self.out.get_checksum()
+    self.handle.state.lock().out.get_checksum()
   }
 
   fn get_name(&self) -> &str {
