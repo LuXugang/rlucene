@@ -32,6 +32,8 @@ mod tests {
   use crate::core::index::term::Term;
   use crate::core::index::two_phase_commit::TwoPhaseCommit;
   use crate::core::search::query::Query;
+  use crate::core::search::searcher_factory::SearcherFactory;
+  use crate::core::search::searcher_manager::SearcherManager;
   use crate::core::search::term_query::TermQuery;
   use crate::core::store::directory::DirEnum;
   use crate::core::util::error::lucene_error::Result;
@@ -72,13 +74,13 @@ mod tests {
 
   #[test]
   fn test_try_delete_document() -> Result<()> {
-    // TODO IMPORTANT SearcherManager未实现
     let directory = create_index()?;
 
     let writer = get_writer(directory.clone())?;
 
-    let reader = directory_reader::open_from_writer(&writer)?;
-    let searcher = new_searcher_with_reader(reader)?;
+    let mgr = SearcherManager::from_writer(&writer, Some(SearcherFactory::new()))?;
+
+    let mut searcher = mgr.acquire()?;
 
     let top_docs = searcher.search(TermQuery::new(Term::from_text("foo", "0")), 100)?;
     assert_eq!(1, top_docs.total_hits.value());
@@ -89,8 +91,7 @@ mod tests {
       result = writer.try_delete_document(&r, 0)?;
       r.close()?;
     } else {
-      let reader = directory_reader::open_from_writer(&writer)?;
-      result = writer.try_delete_document(&reader, 0)?;
+      result = writer.try_delete_document(searcher.get_index_reader(), 0)?;
     }
 
     // The tryDeleteDocument should have succeeded:
@@ -104,27 +105,26 @@ mod tests {
 
     assert!(writer.has_deletions()?);
 
-    // Re-open reader to see changes (replaces mgr.maybeRefresh())
-    let reader = directory_reader::open_from_writer(&writer)?;
-    let searcher = new_searcher_with_reader(reader)?;
+    mgr.maybe_refresh()?;
+
+    searcher = mgr.acquire()?;
 
     let top_docs = searcher.search(TermQuery::new(Term::from_text("foo", "0")), 100)?;
 
     assert_eq!(0, top_docs.total_hits.value());
 
-    writer.close()?;
     Ok(())
   }
 
   #[test]
   fn test_try_delete_document_close_and_reopen() -> Result<()> {
-    // TODO IMPORTANT SearcherManager未实现
     let directory = create_index()?;
 
     let writer = get_writer(directory.clone())?;
 
-    let reader = directory_reader::open_from_writer(&writer)?;
-    let searcher = new_searcher_with_reader(reader)?;
+    let mgr = SearcherManager::from_writer(&writer, Some(SearcherFactory::new()))?;
+
+    let mut searcher = mgr.acquire()?;
 
     let top_docs = searcher.search(TermQuery::new(Term::from_text("foo", "0")), 100)?;
     assert_eq!(1, top_docs.total_hits.value());
@@ -138,9 +138,9 @@ mod tests {
 
     assert!(writer.has_deletions()?);
 
-    // Re-open reader to see changes (replaces mgr.maybeRefresh())
-    let reader = directory_reader::open_from_writer(&writer)?;
-    let searcher = new_searcher_with_reader(reader)?;
+    mgr.maybe_refresh()?;
+
+    searcher = mgr.acquire()?;
 
     let top_docs = searcher.search(TermQuery::new(Term::from_text("foo", "0")), 100)?;
 
@@ -161,13 +161,13 @@ mod tests {
 
   #[test]
   fn test_delete_documents() -> Result<()> {
-    // TODO IMPORTANT SearcherManager未实现
     let directory = create_index()?;
 
     let writer = get_writer(directory.clone())?;
 
-    let reader = directory_reader::open_from_writer(&writer)?;
-    let searcher = new_searcher_with_reader(reader)?;
+    let mgr = SearcherManager::from_writer(&writer, Some(SearcherFactory::new()))?;
+
+    let mut searcher = mgr.acquire()?;
 
     let top_docs = searcher.search(TermQuery::new(Term::from_text("foo", "0")), 100)?;
     assert_eq!(1, top_docs.total_hits.value());
@@ -181,15 +181,14 @@ mod tests {
 
     assert!(writer.has_deletions()?);
 
-    // Re-open reader to see changes (replaces mgr.maybeRefresh())
-    let reader = directory_reader::open_from_writer(&writer)?;
-    let searcher = new_searcher_with_reader(reader)?;
+    mgr.maybe_refresh()?;
+
+    searcher = mgr.acquire()?;
 
     let top_docs = searcher.search(TermQuery::new(Term::from_text("foo", "0")), 100)?;
 
     assert_eq!(0, top_docs.total_hits.value());
 
-    writer.close()?;
     Ok(())
   }
 }

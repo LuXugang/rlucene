@@ -28,6 +28,9 @@ use crate::core::index::one_merge_wrapping_merge_policy::OneMergeWrappingMergePo
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::soft_deletes_retention_merge_policy::{
+  SoftDeletesRetentionMergePolicy, SoftDeletesRetentionOneMerge,
+};
 use crate::core::index::tiered_merge_policy::{
   SegmentCommitInfoMeta, SegmentDocAndID, TieredMergePolicy,
 };
@@ -365,7 +368,7 @@ where
     &self,
     _info: &SegmentCommitInfo<D>,
     del_count: i32,
-    _reader_supplier: F,
+    _reader_supplier: &F,
   ) -> Result<i32>
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,
@@ -456,6 +459,7 @@ where
   LogDoc(LogMergePolicy<LogDocMergePolicy>),
   LogBytesSize(LogMergePolicy<LogByteSizeMergePolicy>),
   OneMergeWrapping(OneMergeWrappingMergePolicy<D>),
+  SoftDeletesRetention(SoftDeletesRetentionMergePolicy<D>),
   Upgrade(UpgradeIndexMergePolicy<D>),
   MergeOnFlush(MergeOnFlushMergePolicy<D>),
   #[cfg(test)]
@@ -489,6 +493,7 @@ where
       Self::LogDoc(mp) => Self::LogDoc(mp.clone()),
       Self::LogBytesSize(mp) => Self::LogBytesSize(mp.clone()),
       Self::OneMergeWrapping(mp) => Self::OneMergeWrapping(mp.clone()),
+      Self::SoftDeletesRetention(mp) => Self::SoftDeletesRetention(mp.clone()),
       Self::Upgrade(mp) => Self::Upgrade(mp.clone()),
       Self::MergeOnFlush(mp) => Self::MergeOnFlush(mp.clone()),
       #[cfg(test)]
@@ -558,6 +563,15 @@ where
   }
 }
 
+impl<D> From<SoftDeletesRetentionMergePolicy<D>> for MergePolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(v: SoftDeletesRetentionMergePolicy<D>) -> Self {
+    Self::SoftDeletesRetention(v)
+  }
+}
+
 impl<D> From<UpgradeIndexMergePolicy<D>> for MergePolicyEnum<D>
 where
   D: Directory,
@@ -607,6 +621,7 @@ where
       MergePolicyEnum::LogDoc(mp) => write!(f, "{}", mp),
       MergePolicyEnum::LogBytesSize(mp) => write!(f, "{}", mp),
       MergePolicyEnum::OneMergeWrapping(mp) => write!(f, "{}", mp),
+      MergePolicyEnum::SoftDeletesRetention(mp) => write!(f, "{}", mp),
       MergePolicyEnum::Upgrade(mp) => write!(f, "{}", mp),
       MergePolicyEnum::MergeOnFlush(mp) => write!(f, "{}", mp),
       #[cfg(test)]
@@ -642,6 +657,7 @@ where
       MergePolicyEnum::LogDoc(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::get_base(mp),
+      MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::MergeOnFlush(mp) => MergePolicy::<D>::get_base(mp),
       #[cfg(test)]
@@ -672,6 +688,7 @@ where
       MergePolicyEnum::LogDoc(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::get_base_mut(mp),
+      MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::MergeOnFlush(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
@@ -717,6 +734,9 @@ where
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       MergePolicyEnum::OneMergeWrapping(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      MergePolicyEnum::SoftDeletesRetention(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       MergePolicyEnum::Upgrade(mp) => {
@@ -774,6 +794,7 @@ where
       MergePolicyEnum::LogDoc(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::LogBytesSize(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.find_merges_readers(readers),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::Upgrade(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::MergeOnFlush(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
@@ -838,6 +859,13 @@ where
         merge_context,
       ),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.find_forced_merges(
         segment_infos,
         max_segment_count,
         segments_to_merge,
@@ -956,6 +984,9 @@ where
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
+      MergePolicyEnum::SoftDeletesRetention(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
       MergePolicyEnum::Upgrade(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
@@ -1027,6 +1058,9 @@ where
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
+      MergePolicyEnum::SoftDeletesRetention(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
       MergePolicyEnum::Upgrade(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -1089,6 +1123,9 @@ where
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.use_compound_file(infos, merged_info, merge_context)
       },
+      MergePolicyEnum::SoftDeletesRetention(mp) => {
+        mp.use_compound_file(infos, merged_info, merge_context)
+      },
       MergePolicyEnum::Upgrade(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       #[cfg(test)]
@@ -1132,6 +1169,7 @@ where
       MergePolicyEnum::LogDoc(mp) => mp.size(info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.size(info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.size(info, merge_context),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.size(info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.size(info, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.size(info, merge_context),
       #[cfg(test)]
@@ -1162,6 +1200,7 @@ where
       MergePolicyEnum::LogDoc(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
+      MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::MergeOnFlush(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
@@ -1202,6 +1241,7 @@ where
       MergePolicyEnum::LogDoc(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.has_merged(infos, info, merge_context),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
@@ -1235,6 +1275,7 @@ where
       MergePolicyEnum::LogDoc(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::LogBytesSize(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::Upgrade(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::MergeOnFlush(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
@@ -1264,7 +1305,7 @@ where
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
-    reader_supplier: F,
+    reader_supplier: &F,
   ) -> Result<i32>
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,
@@ -1277,6 +1318,9 @@ where
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
       MergePolicyEnum::OneMergeWrapping(mp) => {
+        mp.num_deletes_to_merge(info, del_count, reader_supplier)
+      },
+      MergePolicyEnum::SoftDeletesRetention(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
       MergePolicyEnum::Upgrade(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
@@ -1324,6 +1368,7 @@ where
       MergePolicyEnum::LogDoc(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::LogBytesSize(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.seg_string(merge_context, infos),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::Upgrade(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::MergeOnFlush(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
@@ -1357,6 +1402,7 @@ where
       MergePolicyEnum::LogDoc(mp) => mp.message(message, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.message(message, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.message(message, merge_context),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.message(message, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.message(message, merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.message(message, merge_context),
       #[cfg(test)]
@@ -1390,6 +1436,7 @@ where
       MergePolicyEnum::LogDoc(mp) => mp.verbose(merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.verbose(merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.verbose(merge_context),
+      MergePolicyEnum::SoftDeletesRetention(mp) => mp.verbose(merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.verbose(merge_context),
       MergePolicyEnum::MergeOnFlush(mp) => mp.verbose(merge_context),
       #[cfg(test)]
@@ -2046,6 +2093,7 @@ where
   #[default]
   Default,
   PointInTime(Box<PointInTimeOneMerge<D, CR>>),
+  SoftDeletesRetention(SoftDeletesRetentionOneMerge<D, CR>),
   #[cfg(test)]
   MergeFinishedOnce(MergeFinishedOnceOneMerge<D, CR>),
   #[cfg(test)]
@@ -2147,6 +2195,9 @@ where
     match self {
       Self::Default => OneMergeDefaults::merge_finished(inner, stat, success, segment_dropped),
       Self::PointInTime(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      Self::SoftDeletesRetention(hook) => {
+        hook.merge_finished(inner, stat, success, segment_dropped)
+      },
       #[cfg(test)]
       Self::MergeFinishedOnce(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
       #[cfg(test)]
@@ -2166,6 +2217,7 @@ where
     match self {
       Self::Default => OneMergeDefaults::wrap_for_merge(reader),
       Self::PointInTime(hook) => hook.wrap_for_merge(reader),
+      Self::SoftDeletesRetention(hook) => hook.wrap_for_merge(reader),
       #[cfg(test)]
       Self::MergeFinishedOnce(hook) => hook.wrap_for_merge(reader),
       #[cfg(test)]
@@ -2185,6 +2237,7 @@ where
     match self {
       Self::Default => OneMergeDefaults::reorder(reader, dir),
       Self::PointInTime(hook) => hook.reorder(reader, dir),
+      Self::SoftDeletesRetention(hook) => hook.reorder(reader, dir),
       #[cfg(test)]
       Self::MergeFinishedOnce(hook) => hook.reorder(reader, dir),
       #[cfg(test)]
@@ -2205,6 +2258,7 @@ where
     match self {
       Self::Default => OneMergeDefaults::set_merge_info(stat, merge_info, info),
       Self::PointInTime(hook) => hook.set_merge_info(stat, merge_info, info),
+      Self::SoftDeletesRetention(hook) => hook.set_merge_info(stat, merge_info, info),
       #[cfg(test)]
       Self::MergeFinishedOnce(hook) => hook.set_merge_info(stat, merge_info, info),
       #[cfg(test)]
@@ -2226,6 +2280,9 @@ where
     match self {
       Self::Default => OneMergeDefaults::on_merge_complete(inner, stat, merge_info, is_aborted),
       Self::PointInTime(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      Self::SoftDeletesRetention(hook) => {
+        hook.on_merge_complete(inner, stat, merge_info, is_aborted)
+      },
       #[cfg(test)]
       Self::MergeFinishedOnce(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
       #[cfg(test)]
@@ -2253,6 +2310,9 @@ where
     match self {
       Self::Default => OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory),
       Self::PointInTime(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
+      Self::SoftDeletesRetention(hook) => {
+        hook.init_merge_readers(merge_readers, stat, reader_factory)
+      },
       #[cfg(test)]
       Self::MergeFinishedOnce(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
       #[cfg(test)]

@@ -481,7 +481,7 @@ where
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
-    reader_supplier: F,
+    reader_supplier: &F,
   ) -> Result<i32>
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,
@@ -576,6 +576,20 @@ where
     Self {
       keep_fully_deleted_segments: Some(keep_fully_deleted_segments),
       ..Self::default()
+    }
+  }
+
+  pub(crate) fn with_keep_fully_deleted_segments_and_merge_policy<T>(
+    in_: T,
+    keep_fully_deleted_segments: Arc<AtomicBool>,
+  ) -> Self
+  where
+    T: Into<MergePolicyEnum<D>>,
+  {
+    Self {
+      in_: Box::new(in_.into()),
+      merge_fully_deleted_on_full_flush: false,
+      keep_fully_deleted_segments: Some(keep_fully_deleted_segments),
     }
   }
 }
@@ -744,7 +758,7 @@ where
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
-    reader_supplier: F,
+    reader_supplier: &F,
   ) -> Result<i32>
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,

@@ -43,6 +43,8 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
+use crate::core::search::collector::Collector;
+use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -50,7 +52,9 @@ use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
-use crate::core::search::index_searcher::{self, IndexSearcher, IndexSearcherHook};
+use crate::core::search::index_searcher::{
+  self, IndexSearcher, IndexSearcherHook, set_default_query_cache, set_default_query_caching_policy,
+};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::lru_query_cache::{
   HASHTABLE_RAM_BYTES_PER_ENTRY, LRUQueryCache, LRUQueryCacheHook, MinSegmentSizePredicate,
@@ -66,6 +70,8 @@ use crate::core::search::query_caching_policy::{QueryCachingPolicy, QueryCaching
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::searcher_factory::{SearcherFactory, SearcherFactoryHook};
+use crate::core::search::searcher_manager::SearcherManager;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -75,19 +81,23 @@ use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::predicate::Predicate;
 use crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::asserting_index_searcher::AssertingIndexSearcher;
 use crate::test_framework::core::search::check_hits::CheckHits;
-use crate::test_framework::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
+use crate::test_framework::core::search::dummy_total_hit_count_collector::{
+  DummyLeafCollectorImpl, DummyTotalHitCountCollector,
+};
 pub use crate::test_framework::core::search::query::{DVCacheQuery, TestLRUQuery};
 use crate::test_framework::core::search::test_lru_query_cache::{
-  EvictEmptySegmentCacheLRUQueryCache, FineGrainedStatsLRUQueryCache,
+  CachingSearcherFactory, EvictEmptySegmentCacheLRUQueryCache, FineGrainedStatsLRUQueryCache,
+  RandomSegmentSkippingPredicate,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-  random, random_from_seed, rarely,
+  MaybeCachePolicy, at_least, is_night_mode, new_directory_shared, new_index_writer_config,
+  new_searcher_with_reader, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -108,15 +118,6 @@ struct CacheAllSegments;
 impl Predicate<TopParentMeta> for CacheAllSegments {
   fn test(&self, _context: &TopParentMeta) -> Result<bool> {
     Ok(true)
-  }
-}
-struct RandomSegmentSkippingPredicate {
-  random: parking_lot::Mutex<rand::prelude::StdRng>,
-}
-
-impl Predicate<TopParentMeta> for RandomSegmentSkippingPredicate {
-  fn test(&self, _context: &TopParentMeta) -> Result<bool> {
-    Ok(self.random.lock().random_bool(0.5))
   }
 }
 
@@ -173,10 +174,180 @@ fn string_doc(field: &str, value: &str, store: Store) -> Result<Document> {
   Ok(doc)
 }
 
+struct ScoringTotalHitCountCollector {
+  in_: DummyTotalHitCountCollector,
+}
+
+impl Collector for ScoringTotalHitCountCollector {
+  type LeafCollector<'a, IRC>
+    = DummyLeafCollectorImpl<'a>
+  where
+    Self: 'a,
+    IRC: IndexReaderContext + 'a;
+
+  fn get_leaf_collector<'a, W, IRC>(
+    &'a mut self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    weight: Option<&W>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Self::LeafCollector<'a, IRC>>
+  where
+    IRC: IndexReaderContext,
+    W: Weight<IRC> + ?Sized,
+  {
+    self.in_.get_leaf_collector(context, weight, searcher)
+  }
+
+  fn score_mode(&self) -> ScoreMode {
+    // Will not use the cache because of scores.
+    ScoreMode::Complete
+  }
+}
+
+struct ScoringTotalHitCountCollectorManager;
+
+impl CollectorManager for ScoringTotalHitCountCollectorManager {
+  type C = ScoringTotalHitCountCollector;
+  type T = i32;
+
+  fn new_collector(&self) -> Result<Self::C> {
+    Ok(ScoringTotalHitCountCollector {
+      in_: DummyTotalHitCountCollector::new(),
+    })
+  }
+
+  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+    DummyTotalHitCountCollector::create_manager().reduce(
+      collectors
+        .into_iter()
+        .map(|collector| collector.in_)
+        .collect(),
+    )
+  }
+}
+
 #[test]
 fn test_concurrency() -> Result<()> {
-  // TODO: SearcherManager未实现
-  Ok(())
+  let mut random = random();
+  let query_cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
+    1 + random.random_range(0..20),
+    1 + random.random_range(0..10000),
+    f32::INFINITY,
+    RandomSegmentSkippingPredicate::new(random_from_seed(random.random())),
+  )?);
+  let dir = new_directory_shared(&mut random)?;
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
+  let query_caching_policy = Arc::new(QueryCachingPolicyEnum::custom(MaybeCachePolicy::new(
+    random_from_seed(random.random()),
+  )));
+  let searcher_factory = SearcherFactory::with_hook(SearcherFactoryHook::CachingRandom(
+    CachingSearcherFactory::new(query_cache.clone(), query_caching_policy),
+  ));
+  let apply_deletes = random.random_bool(0.5);
+  let mgr =
+    SearcherManager::with_writer_deletes(&w.w, apply_deletes, false, Some(searcher_factory))?;
+  let indexing = AtomicBool::new(true);
+  let error = parking_lot::Mutex::new(None);
+  let num_docs = at_least(&mut random, 1000);
+  let seeds: Vec<u64> = (0..3).map(|_| random.random()).collect();
+
+  let body_result = std::thread::scope(|scope| -> Result<()> {
+    let indexer = scope.spawn(|| {
+      let mut random = random_from_seed(seeds[0]);
+      for i in 0..num_docs {
+        if !indexing.load(Ordering::SeqCst) {
+          break;
+        }
+        let result = (|| -> Result<()> {
+          let values = ["blue", "red", "yellow"];
+          let mut doc = Document::new();
+          doc.add(StringField::from_string(
+            "color",
+            values[random.random_range(0..values.len())],
+            Store::No,
+          )?);
+          w.add_document(&mut random, doc)?;
+          if (i & 63) == 0 {
+            mgr.maybe_refresh()?;
+            if rarely(&mut random) {
+              query_cache.clear();
+            }
+            if rarely(&mut random) {
+              let color = values[random.random_range(0..values.len())];
+              w.delete_documents_with_terms(&mut random, vec![Term::from_text("color", color)])?;
+            }
+          }
+          Ok(())
+        })();
+        if let Err(error_value) = result {
+          let mut first_error = error.lock();
+          if first_error.is_none() {
+            *first_error = Some(error_value);
+          }
+          break;
+        }
+      }
+      indexing.store(false, Ordering::SeqCst);
+    });
+
+    let mut search_threads = Vec::with_capacity(2);
+    for seed in seeds.iter().skip(1).copied() {
+      let indexing = &indexing;
+      let error = &error;
+      let mgr = &mgr;
+      search_threads.push(scope.spawn(move || {
+        let mut random = random_from_seed(seed);
+        while indexing.load(Ordering::SeqCst) {
+          let result = (|| -> Result<()> {
+            let searcher = mgr.acquire()?;
+            let search_result = (|| -> Result<()> {
+              let values = ["blue", "red", "yellow", "green"];
+              let value = values[random.random_range(0..values.len())];
+              let query = TermQuery::new(Term::from_text("color", value));
+              let collector_manager = DummyTotalHitCountCollector::create_manager();
+              // will use the cache
+              let total_hits_1 =
+                searcher.search_with_collector_manager(query.clone(), &collector_manager)?;
+              let total_hits_2 = searcher
+                .search_with_collector_manager(query, &ScoringTotalHitCountCollectorManager)?;
+              assert_eq!(total_hits_2, total_hits_1);
+              Ok(())
+            })();
+            IOUtils::use_or_suppress_result(search_result, mgr.release(searcher))
+          })();
+          if let Err(error_value) = result {
+            let mut first_error = error.lock();
+            if first_error.is_none() {
+              *first_error = Some(error_value);
+            }
+          }
+        }
+      }));
+    }
+
+    indexer
+      .join()
+      .map_err(|_| LuceneError::illegal_state("indexing thread panicked"))?;
+    for thread in search_threads {
+      thread
+        .join()
+        .map_err(|_| LuceneError::illegal_state("search thread panicked"))?;
+    }
+
+    if let Some(error) = error.lock().take() {
+      return Err(error);
+    }
+    query_cache.assert_consistent()
+  });
+
+  let finally_result = (|| -> Result<()> {
+    mgr.close()?;
+    w.close(&mut random)?;
+    dir.close()?;
+    query_cache.assert_consistent()
+  })();
+  finally_result?;
+  body_result
 }
 
 #[test]
@@ -833,9 +1004,7 @@ fn test_random() -> Result<()> {
     max_size,
     max_ram_bytes_used,
     f32::INFINITY,
-    RandomSegmentSkippingPredicate {
-      random: parking_lot::Mutex::new(random_from_seed(seed)),
-    },
+    RandomSegmentSkippingPredicate::new(random_from_seed(seed)),
   )?);
 
   let mut uncached_searcher = None;
@@ -923,9 +1092,7 @@ fn test_refuse_to_cache_too_large_entries() -> Result<()> {
     1,
     1,
     f32::INFINITY,
-    RandomSegmentSkippingPredicate {
-      random: parking_lot::Mutex::new(random_from_seed(seed)),
-    },
+    RandomSegmentSkippingPredicate::new(random_from_seed(seed)),
   )?);
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_query_cache(Some(QueryCacheEnum::custom(query_cache.clone())));
@@ -975,9 +1142,7 @@ fn test_on_use_with_random_first_segment_skipping() -> Result<()> {
     100,
     10240,
     f32::INFINITY,
-    RandomSegmentSkippingPredicate {
-      random: parking_lot::Mutex::new(random_from_seed(seed)),
-    },
+    RandomSegmentSkippingPredicate::new(random_from_seed(seed)),
   )?);
   index_searcher.set_query_cache(Some(QueryCacheEnum::custom(cache)));
   index_searcher.set_query_caching_policy(Arc::new(QueryCachingPolicyEnum::custom(policy.clone())));
@@ -1773,8 +1938,68 @@ fn test_doc_values_updates_dont_break_cache() -> Result<()> {
 
 #[test]
 fn test_query_cache_soft_update() -> Result<()> {
-  // TODO: SearcherManager has not been ported yet. Keep this test in Java order.
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_soft_deletes_field("soft_delete");
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  let query_cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
+    10,
+    1000 * 1000,
+    f32::INFINITY,
+    MinSegmentSizePredicate::new(0),
+  )?);
+  set_default_query_cache(Some(query_cache.clone()));
+  set_default_query_caching_policy(always_cache());
+
+  (|| -> Result<()> {
+    let sm = SearcherManager::from_writer(&w, Some(SearcherFactory::new()))?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    w.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    w.add_document(doc)?;
+
+    sm.maybe_refresh_blocking()?;
+
+    let searcher = sm.acquire()?;
+    let mut builder = Builder::new();
+    builder.add(TermQuery::new(Term::from_text("id", "1")), Occur::Filter)?;
+    let query = builder.build();
+    searcher.search(query, 10)?;
+    assert_eq!(1, query_cache.get_cache_size());
+    assert_eq!(0, query_cache.get_eviction_count());
+
+    let soft_delete = true;
+    if soft_delete {
+      let mut tombstone = Document::new();
+      tombstone.add(NumericDocValuesField::new("soft_delete", 1));
+      w.soft_update_document(
+        Term::from_text("id", "1"),
+        tombstone.clone(),
+        vec![NumericDocValuesField::new("soft_delete", 1).into()],
+      )?;
+      w.soft_update_document(
+        Term::from_text("id", "2"),
+        tombstone,
+        vec![NumericDocValuesField::new("soft_delete", 1).into()],
+      )?;
+    } else {
+      w.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
+      w.delete_documents_with_terms(vec![Term::from_text("id", "2")])?;
+    }
+    sm.maybe_refresh_blocking()?;
+    // All docs in the first segment are deleted - we should drop it with the default merge policy.
+    sm.release(searcher)?;
+    assert_eq!(0, query_cache.get_cache_size());
+    assert_eq!(1, query_cache.get_eviction_count());
+    sm.close()?;
+    w.close()?;
+    dir.close()
+  })()
 }
 
 #[test]

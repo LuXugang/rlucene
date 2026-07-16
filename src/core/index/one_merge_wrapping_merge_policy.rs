@@ -26,6 +26,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::DefaultLeafReader;
+use crate::core::index::soft_deletes_retention_merge_policy::SoftDeletesRetentionOneMergeUnaryOperator;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
@@ -97,6 +98,7 @@ where
 {
   Identity(IdentityOneMergeUnaryOperator),
   PointInTime(Box<PointInTimeOneMerge<D, DefaultLeafReader<D>>>),
+  SoftDeletesRetention(SoftDeletesRetentionOneMergeUnaryOperator<D>),
   #[cfg(test)]
   NewOneMerge(NewOneMergeUnaryOperator),
   #[cfg(test)]
@@ -113,6 +115,7 @@ where
     match self {
       Self::Identity(operator) => Self::Identity(operator.clone()),
       Self::PointInTime(operator) => Self::PointInTime(operator.clone()),
+      Self::SoftDeletesRetention(operator) => Self::SoftDeletesRetention(operator.clone()),
       #[cfg(test)]
       Self::NewOneMerge(operator) => Self::NewOneMerge(operator.clone()),
       #[cfg(test)]
@@ -138,6 +141,7 @@ where
     match self {
       Self::Identity(operator) => operator.apply(merge),
       Self::PointInTime(operator) => operator.apply(merge),
+      Self::SoftDeletesRetention(operator) => operator.apply(merge),
       #[cfg(test)]
       Self::NewOneMerge(operator) => operator.apply(merge),
       #[cfg(test)]
@@ -369,7 +373,7 @@ where
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
-    reader_supplier: F,
+    reader_supplier: &F,
   ) -> Result<i32>
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,

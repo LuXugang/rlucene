@@ -14,20 +14,92 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::CacheKey;
+use crate::core::index::index_reader::{
+  CacheKey, IndexReader, IndexReaderContextKind, IndexReaderContextType,
+};
 use crate::core::index::leaf_reader_context::TopParentMeta;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::lru_query_cache::{
   Inner, LRUQueryCache, LRUQueryCacheBase, LRUQueryCacheDefaults,
 };
 use crate::core::search::query::Query;
+use crate::core::search::query_cache::QueryCacheEnum;
+use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
+use crate::core::search::searcher_factory::{SearcherFactoryBase, SearcherFactoryDefaults};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::predicate::Predicate;
-use parking_lot::RwLockWriteGuard;
+use parking_lot::{Mutex, RwLockWriteGuard};
+use rand::RngExt;
+use rand::prelude::StdRng;
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestLRUQueryCache;
+
+pub struct RandomSegmentSkippingPredicate {
+  random: Mutex<StdRng>,
+}
+
+impl RandomSegmentSkippingPredicate {
+  pub fn new(random: StdRng) -> Self {
+    Self {
+      random: Mutex::new(random),
+    }
+  }
+}
+
+impl Predicate<TopParentMeta> for RandomSegmentSkippingPredicate {
+  fn test(&self, _context: &TopParentMeta) -> Result<bool> {
+    Ok(self.random.lock().random_bool(0.5))
+  }
+}
+
+pub struct CachingSearcherFactory<IR, P>
+where
+  P: Predicate<TopParentMeta>,
+{
+  query_cache: Arc<LRUQueryCache<P>>,
+  query_caching_policy: Arc<QueryCachingPolicyEnum>,
+  marker: PhantomData<fn() -> IR>,
+}
+
+impl<IR, P> CachingSearcherFactory<IR, P>
+where
+  P: Predicate<TopParentMeta>,
+{
+  pub fn new(
+    query_cache: Arc<LRUQueryCache<P>>,
+    query_caching_policy: Arc<QueryCachingPolicyEnum>,
+  ) -> Self {
+    Self {
+      query_cache,
+      query_caching_policy,
+      marker: PhantomData,
+    }
+  }
+}
+
+impl<IR, P> SearcherFactoryBase<IR> for CachingSearcherFactory<IR, P>
+where
+  IR: IndexReader + 'static,
+  IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
+  IndexReaderContextType<Arc<IR>>: Sync + 'static,
+  P: Predicate<TopParentMeta> + Send + Sync + 'static,
+{
+  fn new_searcher(
+    &self,
+    reader: Arc<IR>,
+    previous_reader: Option<&Arc<IR>>,
+  ) -> Result<IndexSearcher<IndexReaderContextType<Arc<IR>>>> {
+    let mut searcher = SearcherFactoryDefaults::new_searcher(reader, previous_reader)?;
+    searcher.set_query_caching_policy(self.query_caching_policy.clone());
+    searcher.set_query_cache(Some(QueryCacheEnum::custom(self.query_cache.clone())));
+    Ok(searcher)
+  }
+}
 
 #[derive(Clone)]
 pub struct FineGrainedStatsLRUQueryCache {

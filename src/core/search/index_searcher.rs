@@ -73,8 +73,10 @@ use crate::test_framework::core::search::test_index_searcher::{
   SlicesOffloadedToExecutorIndexSearcher,
 };
 use parking_lot::Mutex;
+#[cfg(not(test))]
+use parking_lot::RwLock;
 #[cfg(test)]
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -102,6 +104,88 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
   debug_assert!(five_percent <= i64::MAX as u64);
   std::cmp::min(32 * (1 << 20), five_percent as i64)
 });
+pub type DefaultQueryCache = LRUQueryCache<MinSegmentSizePredicate>;
+
+fn new_default_query_cache() -> Option<Arc<DefaultQueryCache>> {
+  Some(Arc::new(
+    LRUQueryCache::new(MAX_CACHED_QUERIES, *MAX_RAM_BYTES_USED)
+      .expect("default query cache configuration must be valid"),
+  ))
+}
+
+fn new_default_caching_policy() -> Arc<QueryCachingPolicyEnum> {
+  Arc::new(
+    UsageTrackingQueryCachingPolicy::new()
+      .expect("default query caching policy configuration must be valid")
+      .into(),
+  )
+}
+
+#[cfg(not(test))]
+static DEFAULT_QUERY_CACHE: LazyLock<RwLock<Option<Arc<DefaultQueryCache>>>> =
+  LazyLock::new(|| RwLock::new(new_default_query_cache()));
+#[cfg(not(test))]
+static DEFAULT_CACHING_POLICY: LazyLock<RwLock<Arc<QueryCachingPolicyEnum>>> =
+  LazyLock::new(|| RwLock::new(new_default_caching_policy()));
+
+#[cfg(test)]
+thread_local! {
+  static DEFAULT_QUERY_CACHE: RefCell<Option<Arc<DefaultQueryCache>>> =
+    RefCell::new(new_default_query_cache());
+  static DEFAULT_CACHING_POLICY: RefCell<Arc<QueryCachingPolicyEnum>> =
+    RefCell::new(new_default_caching_policy());
+}
+
+fn default_query_cache() -> Option<Arc<DefaultQueryCache>> {
+  #[cfg(not(test))]
+  {
+    DEFAULT_QUERY_CACHE.read().clone()
+  }
+  #[cfg(test)]
+  {
+    DEFAULT_QUERY_CACHE.with(|query_cache| query_cache.borrow().clone())
+  }
+}
+
+fn default_caching_policy() -> Arc<QueryCachingPolicyEnum> {
+  #[cfg(not(test))]
+  {
+    DEFAULT_CACHING_POLICY.read().clone()
+  }
+  #[cfg(test)]
+  {
+    DEFAULT_CACHING_POLICY.with(|policy| policy.borrow().clone())
+  }
+}
+
+/// Expert: sets the default query cache instance.
+pub fn set_default_query_cache(query_cache: Option<Arc<DefaultQueryCache>>) {
+  #[cfg(not(test))]
+  {
+    *DEFAULT_QUERY_CACHE.write() = query_cache;
+  }
+  #[cfg(test)]
+  {
+    DEFAULT_QUERY_CACHE.with(|default_query_cache| {
+      *default_query_cache.borrow_mut() = query_cache;
+    });
+  }
+}
+
+/// Expert: sets the default query caching policy instance.
+pub fn set_default_query_caching_policy(query_caching_policy: Arc<QueryCachingPolicyEnum>) {
+  #[cfg(not(test))]
+  {
+    *DEFAULT_CACHING_POLICY.write() = query_caching_policy;
+  }
+  #[cfg(test)]
+  {
+    DEFAULT_CACHING_POLICY.with(|default_policy| {
+      *default_policy.borrow_mut() = query_caching_policy;
+    });
+  }
+}
+
 pub struct IndexSearcher<IRC>
 where
   IRC: IndexReaderContext + 'static,
@@ -139,13 +223,6 @@ where
     );
 
     let leaf_slices = Some(single_threaded_slices(&context)?);
-    let leaves_to_cache = MinSegmentSizePredicate::new(10000);
-    let lru_query_cache = Arc::new(LRUQueryCache::with_skip_cache_factor(
-      MAX_CACHED_QUERIES,
-      *MAX_RAM_BYTES_USED,
-      10f32,
-      leaves_to_cache,
-    )?);
     let inner = Mutex::new(Inner { leaf_slices });
     Ok(Self {
       hook: IndexSearcherHook::Default,
@@ -153,8 +230,8 @@ where
       similarity: Arc::new(get_default_similarity()?),
       inner,
       query_timeout: None,
-      query_caching_policy: Arc::new(UsageTrackingQueryCachingPolicy::new()?.into()),
-      query_cache: Some(lru_query_cache.into()),
+      query_caching_policy: default_caching_policy(),
+      query_cache: default_query_cache().map(Into::into),
       search_threads: 1,
       #[cfg(test)]
       offloaded_slice_counter: None,

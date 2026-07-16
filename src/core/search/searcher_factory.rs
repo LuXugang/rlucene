@@ -23,6 +23,10 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[cfg(test)]
+use crate::test_framework::core::search::test_lru_query_cache::{
+  CachingSearcherFactory, RandomSegmentSkippingPredicate,
+};
+#[cfg(test)]
 use crate::test_framework::core::search::test_searcher_manager::{
   BlockingSearcherFactory, EvilSearcherFactory, TrackingSearcherFactory, WarmingSearcherFactory,
 };
@@ -68,6 +72,8 @@ pub(crate) enum SearcherFactoryHook<IR> {
   Evil(EvilSearcherFactory<Arc<IR>>),
   #[cfg(test)]
   Tracking(TrackingSearcherFactory<IR>),
+  #[cfg(test)]
+  CachingRandom(CachingSearcherFactory<IR, RandomSegmentSkippingPredicate>),
 }
 
 impl<IR> Default for SearcherFactoryHook<IR> {
@@ -114,6 +120,8 @@ where
       Self::Evil(factory) => factory.new_searcher(reader, previous_reader),
       #[cfg(test)]
       Self::Tracking(factory) => factory.new_searcher(reader, previous_reader),
+      #[cfg(test)]
+      Self::CachingRandom(factory) => factory.new_searcher(reader, previous_reader),
     }
   }
 }

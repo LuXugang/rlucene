@@ -36,6 +36,8 @@ use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
+use crate::core::search::query::Query;
+use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::store::fs_directory_base::FSDirectoryBaseEnum;
@@ -62,6 +64,27 @@ use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick search
 pub struct LuceneTestCase;
+
+/// A [`QueryCachingPolicy`] that randomly caches.
+pub(crate) struct MaybeCachePolicy {
+  random: parking_lot::Mutex<StdRng>,
+}
+
+impl MaybeCachePolicy {
+  pub(crate) fn new(random: StdRng) -> Self {
+    Self {
+      random: parking_lot::Mutex::new(random),
+    }
+  }
+}
+
+impl QueryCachingPolicy for MaybeCachePolicy {
+  fn on_use(&self, _query: &Query) {}
+
+  fn should_cache(&self, _query: &Query) -> Result<bool> {
+    Ok(self.random.lock().random_bool(0.5))
+  }
+}
 
 pub(crate) fn maybe_change_live_index_writer_config<R, C>(
   _random: &mut R,

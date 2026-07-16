@@ -131,6 +131,7 @@ impl DocValuesWriter for DocValuesWriterEnum {
     }
   }
 }
+
 pub(crate) type DocValuesWriterDISI = DocIdSetIteratorEnum5<
   BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
   BufferedNumericDocValues,

@@ -288,7 +288,7 @@ where
     &self,
     info: &SegmentCommitInfo<D>,
     del_count: i32,
-    reader_supplier: F,
+    reader_supplier: &F,
   ) -> Result<i32>
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,

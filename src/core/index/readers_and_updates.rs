@@ -346,7 +346,7 @@ where
       inner.pending_deletes.get_del_count(info)
     };
 
-    policy.num_deletes_to_merge(info, del_count, || {
+    policy.num_deletes_to_merge(info, del_count, &|| {
       let mut inner = self.inner.lock();
       self.get_latest_read(info, &mut inner, self.index_created_version_major)
     })

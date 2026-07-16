@@ -158,6 +158,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
     Ok(())
   }
 }
+
 pub(crate) struct DocValuesProducerImpl {
   sorted: Option<NumericDVs<FixedBitSet>>,
   docs_with_field: DocsWithFieldSet,

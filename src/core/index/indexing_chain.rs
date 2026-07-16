@@ -352,10 +352,6 @@ where
   where
     D1: Directory,
   {
-    // Rust-Lucene–specific method: its purpose is to make all DocValuesWriter instances call finished() first,
-    // so that DocValuesWriter::get_doc_values can be an immutable (&self) method.
-    let pool = std::mem::take(&mut self.doc_values_byte_pool);
-    self.finish_doc_values_writer(pool)?;
     // NOTE: caller (DocumentsWriterPerThread) handles
     // aborting on any error from this method
     let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
@@ -568,8 +564,8 @@ where
     Ok(())
   }
   // Finishes all doc values writers.
-  fn finish_doc_values_writer(&mut self, pool: ByteBlockPool) -> Result<()> {
-    let pool = Arc::new(pool);
+  pub(crate) fn finish_doc_values_writer(&mut self) -> Result<()> {
+    let pool = Arc::new(std::mem::take(&mut self.doc_values_byte_pool));
     let mut per_field_index;
     for i in 0..self.field_hash.len() {
       per_field_index = self.field_hash[i];

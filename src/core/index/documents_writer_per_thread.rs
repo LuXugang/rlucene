@@ -587,6 +587,15 @@ where
             )?;
           }
 
+          // Rust Lucene requires all DocValuesWriter instances to be finished before
+          // DocValuesWriter::get_doc_values can be called through an immutable reference.
+          self.indexing_chain.finish_doc_values_writer()?;
+          let mut soft_deleted_docs =
+            if let Some(field) = index_writer_config.get_soft_deletes_field() {
+              self.indexing_chain.get_has_doc_values(field)?
+            } else {
+              None
+            };
           let sort_map = self.indexing_chain.flush(
             &mut flush_state,
             &mut self.segment_info,
@@ -594,12 +603,6 @@ where
             index_writer_config,
             &mut self.field_infos,
           )?;
-          let mut soft_deleted_docs =
-            if let Some(field) = index_writer_config.get_soft_deletes_field() {
-              self.indexing_chain.get_has_doc_values(field)?
-            } else {
-              None
-            };
           flush_state.soft_del_count_on_flush = if let Some(ref mut iter) = soft_deleted_docs {
             let cnt = count_soft_deletes(Some(iter), flush_state.live_docs.as_ref())?;
             debug_assert!(self.segment_info.max_doc()? >= (cnt + flush_state.del_count_on_flush));

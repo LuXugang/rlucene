@@ -166,6 +166,7 @@ pub(crate) mod slow_composite_codec_reader_wrapper;
 pub mod slow_impacts_enum;
 pub mod snapshot_deletion_policy;
 pub mod soft_deletes_directory_reader_wrapper;
+pub mod soft_deletes_retention_merge_policy;
 pub mod sort_field_provider;
 pub mod sorted_doc_values;
 pub(crate) mod sorted_doc_values_terms_enum;

@@ -23,6 +23,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
+use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
@@ -70,6 +71,7 @@ use crate::core::index::one_merge_wrapping_merge_policy::OneMergeWrappingMergePo
 use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
+use crate::core::index::soft_deletes_retention_merge_policy::SoftDeletesRetentionMergePolicy;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
@@ -80,6 +82,8 @@ use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::phrase_query::Builder as PhraseQueryBuilder;
+use crate::core::search::searcher_factory::SearcherFactory;
+use crate::core::search::searcher_manager::SearcherManager;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
@@ -4737,8 +4741,65 @@ fn test_flush_while_starting_new_threads() -> Result<()> {
 
 #[test]
 fn test_refresh_and_rollback_concurrently() -> Result<()> {
-  // TODO IMPORTANT 多线程 SearcherManager 未实现
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+  let stopped = AtomicBool::new(false);
+  let indexed_docs = Semaphore::new(0);
+  let indexer_seed = random.random();
+
+  let sm = SearcherManager::from_writer(&w, Some(SearcherFactory::new()))?;
+
+  let body_result = thread::scope(|scope| -> Result<()> {
+    let indexer = scope.spawn(|| -> Result<()> {
+      let mut random = random_from_seed(indexer_seed);
+      while !stopped.load(SeqCst) {
+        let id = random.random_range(0..100).to_string();
+        let mut doc = Document::new();
+        doc.add(StringField::from_string("id", id.clone(), Store::Yes)?);
+        match w.update_document_with_term(Term::from_text("id", id), doc) {
+          Ok(_) => indexed_docs.release(1),
+          Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
+          Err(error) => return Err(error),
+        }
+      }
+      Ok(())
+    });
+
+    let refresher = scope.spawn(|| -> Result<()> {
+      while !stopped.load(SeqCst) {
+        match sm.maybe_refresh_blocking() {
+          Ok(()) => {},
+          Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
+          Err(error) => return Err(error),
+        }
+      }
+      Ok(())
+    });
+
+    indexed_docs.acquire(1 + random.random_range(0..100));
+    let rollback_result = w.rollback();
+    stopped.store(true, SeqCst);
+    let indexer_result = indexer
+      .join()
+      .map_err(|_| LuceneError::illegal_state("indexer thread panicked"))?;
+    let refresher_result = refresher
+      .join()
+      .map_err(|_| LuceneError::illegal_state("refresher thread panicked"))?;
+    rollback_result?;
+    indexer_result?;
+    refresher_result?;
+
+    assert!(
+      w.get_tragic_exception().get().is_none(),
+      "should not consider ACE a tragedy on a closed IW: {:?}",
+      w.get_tragic_exception().get()
+    );
+    Ok(())
+  });
+
+  let close_result = IOUtils::close_refs_tuple((Some(&sm), Some(dir.as_ref())));
+  IOUtils::use_or_suppress_result(body_result, close_result)
 }
 
 #[test]
@@ -4786,20 +4847,310 @@ fn test_closeable_queue() -> Result<()> {
 
 #[test]
 fn test_random_operations() -> Result<()> {
-  // TODO IMPORTANT 多线程 SearcherManager未实现
-  Ok(())
+  let mut random = random();
+  let mut iwc = new_index_writer_config(&mut random)?;
+  let keep_fully_deleted_segment = Arc::new(AtomicBool::new(random.random_bool(0.5)));
+  let merge_policy = new_merge_policy(&mut random)?;
+  iwc.set_merge_policy(
+    KeepFullyDeletedSegmentsMergePolicy::with_keep_fully_deleted_segments_and_merge_policy(
+      merge_policy,
+      keep_fully_deleted_segment,
+    ),
+  );
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let sm = SearcherManager::from_writer(&writer, Some(SearcherFactory::new()))?;
+
+  let num_operations = Semaphore::new(10 + random.random_range(0..1000));
+  let single_doc = random.random_bool(0.5);
+  let num_threads = 1 + random.random_range(0..4);
+  let latch = CountDownLatch::new(num_threads);
+  let seeds: Vec<u64> = (0..num_threads).map(|_| random.random()).collect();
+
+  let body_result = thread::scope(|scope| -> Result<()> {
+    let mut threads = Vec::with_capacity(num_threads);
+    for seed in seeds {
+      let latch = &latch;
+      let num_operations = &num_operations;
+      let writer = &writer;
+      let sm = &sm;
+      threads.push(scope.spawn(move || -> Result<()> {
+        let mut random = random_from_seed(seed);
+        latch.count_down();
+        latch.wait();
+        while num_operations.try_acquire() {
+          let id = if single_doc {
+            "1".to_string()
+          } else {
+            random.random_range(0..10).to_string()
+          };
+          let mut doc = Document::new();
+          doc.add(StringField::from_string("id", id.clone(), Store::Yes)?);
+          if random.random_range(0..10) <= 2 {
+            writer.update_document_with_term(Term::from_text("id", id), doc)?;
+          } else if random.random_range(0..10) <= 2 {
+            writer.delete_documents_with_terms(vec![Term::from_text("id", id)])?;
+          } else {
+            writer.add_document(doc)?;
+          }
+          if random.random_range(0..100) < 10 {
+            sm.maybe_refresh_blocking()?;
+          }
+          if random.random_range(0..100) < 5 {
+            writer.commit()?;
+          }
+          if random.random_range(0..100) < 1 {
+            writer
+              .force_merge_with_wait(1 + random.random_range(0..10), random.random_bool(0.5))?;
+          }
+        }
+        Ok(())
+      }));
+    }
+    for thread in threads {
+      thread
+        .join()
+        .map_err(|_| LuceneError::illegal_state("indexing thread panicked"))??;
+    }
+    Ok(())
+  });
+
+  let close_result = IOUtils::use_or_suppress_result(sm.close(), writer.close());
+  let close_result = IOUtils::use_or_suppress_result(close_result, dir.close());
+  IOUtils::use_or_suppress_result(body_result, close_result)
 }
 
 #[test]
 fn test_random_operations_with_soft_deletes() -> Result<()> {
-  // TODO IMPORTANT 多线程SearcherManager 未实现
-  Ok(())
+  let mut random = random();
+  let mut iwc = new_index_writer_config(&mut random)?;
+  let seq_no = Arc::new(AtomicI32::new(-1));
+  let retaining_seq_no = Arc::new(AtomicI32::new(0));
+  iwc.set_soft_deletes_field("soft_deletes");
+  let merge_policy = new_merge_policy(&mut random)?;
+  let retention_query_seq_no = retaining_seq_no.clone();
+  iwc.set_merge_policy(SoftDeletesRetentionMergePolicy::new(
+    "soft_deletes",
+    move || {
+      Ok(
+        LongPoint::new_range_query(
+          "seq_no",
+          i64::from(retention_query_seq_no.load(SeqCst)),
+          i64::MAX,
+        )?
+        .into(),
+      )
+    },
+    merge_policy,
+  ));
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let sm = SearcherManager::from_writer(&writer, Some(SearcherFactory::new()))?;
+
+  let num_operations = Semaphore::new(10 + random.random_range(0..1000));
+  let single_doc = random.random_bool(0.5);
+  let num_threads = 1 + random.random_range(0..4);
+  let latch = CountDownLatch::new(num_threads);
+  let seeds: Vec<u64> = (0..num_threads).map(|_| random.random()).collect();
+
+  let body_result = thread::scope(|scope| -> Result<()> {
+    let mut threads = Vec::with_capacity(num_threads);
+    for seed in seeds {
+      let latch = &latch;
+      let num_operations = &num_operations;
+      let writer = &writer;
+      let sm = &sm;
+      let seq_no = &seq_no;
+      let retaining_seq_no = &retaining_seq_no;
+      threads.push(scope.spawn(move || -> Result<()> {
+        let mut random = random_from_seed(seed);
+        latch.count_down();
+        latch.wait();
+        while num_operations.try_acquire() {
+          let id = if single_doc {
+            "1".to_string()
+          } else {
+            random.random_range(0..10).to_string()
+          };
+          let mut doc = Document::new();
+          doc.add(StringField::from_string("id", id.clone(), Store::Yes)?);
+          doc.add(LongPoint::new(
+            "seq_no",
+            [i64::from(seq_no.fetch_add(1, SeqCst))],
+          )?);
+          if random.random_range(0..10) <= 2 {
+            if random.random_bool(0.5) {
+              doc.add(NumericDocValuesField::new("soft_deletes", 1));
+            }
+            writer.soft_update_document(
+              Term::from_text("id", id),
+              doc,
+              vec![NumericDocValuesField::new("soft_deletes", 1).into()],
+            )?;
+          } else {
+            writer.add_document(doc)?;
+          }
+          if random.random_range(0..100) < 10 {
+            let min = retaining_seq_no.load(SeqCst);
+            let max = seq_no.load(SeqCst);
+            if min < max && random.random_bool(0.5) {
+              let _ = retaining_seq_no.compare_exchange(
+                min,
+                min - random.random_range(0..(max - min)),
+                SeqCst,
+                SeqCst,
+              );
+            }
+          }
+          if random.random_range(0..100) < 10 {
+            sm.maybe_refresh_blocking()?;
+          }
+          if random.random_range(0..100) < 5 {
+            writer.commit()?;
+          }
+          if random.random_range(0..100) < 1 {
+            writer
+              .force_merge_with_wait(1 + random.random_range(0..10), random.random_bool(0.5))?;
+          }
+        }
+        Ok(())
+      }));
+    }
+    for thread in threads {
+      thread
+        .join()
+        .map_err(|_| LuceneError::illegal_state("indexing thread panicked"))??;
+    }
+    Ok(())
+  });
+
+  let close_result = IOUtils::use_or_suppress_result(sm.close(), writer.close());
+  let close_result = IOUtils::use_or_suppress_result(close_result, dir.close());
+  IOUtils::use_or_suppress_result(body_result, close_result)
 }
 
 #[test]
 fn test_max_completed_sequence_number() -> Result<()> {
-  // TODO IMPORTANT 多线程 SearcherManager未实现
-  Ok(())
+  let mut random = random();
+  {
+    let dir = new_directory_shared(&mut random)?;
+    let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
+    let body_result = (|| -> Result<()> {
+      assert_eq!(1, writer.add_document(Document::new())?);
+      assert_eq!(
+        2,
+        writer.update_document_with_term(Term::from_text("foo", "bar"), Document::new())?
+      );
+      writer.flush_next_buffer()?;
+      assert_eq!(3, writer.commit()?);
+      assert_eq!(4, writer.add_document(Document::new())?);
+      assert_eq!(4, writer.get_max_completed_sequence_number()?);
+      // commit moves seqNo by 2 since there is one DWPT that could still be in-flight
+      assert_eq!(6, writer.commit()?);
+      assert_eq!(6, writer.get_max_completed_sequence_number()?);
+      assert_eq!(7, writer.add_document(Document::new())?);
+      directory_reader::open_from_writer(&writer)?.close()?;
+      // getReader moves seqNo by 2 since there is one DWPT that could still be in-flight
+      assert_eq!(9, writer.get_max_completed_sequence_number()?);
+      Ok(())
+    })();
+    let close_result = IOUtils::use_or_suppress_result(writer.close(), dir.close());
+    IOUtils::use_or_suppress_result(body_result, close_result)?;
+  }
+
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+  let manager = SearcherManager::from_writer(&writer, Some(SearcherFactory::new()))?;
+  let start = CountDownLatch::new(1);
+  let num_docs = if cfg!(feature = "nightly") {
+    TestUtil::next_int(&mut random, 100, 600)
+  } else {
+    TestUtil::next_int(&mut random, 10, 60)
+  };
+  let max_completed_seq_id = AtomicI64::new(-1);
+  let num_threads = 2 + random.random_range(0..2);
+
+  let body_result = thread::scope(|scope| -> Result<()> {
+    let mut threads = Vec::with_capacity(num_threads);
+    for idx in 0..num_threads {
+      let start = &start;
+      let writer = &writer;
+      let manager = &manager;
+      let max_completed_seq_id = &max_completed_seq_id;
+      threads.push(scope.spawn(move || -> Result<()> {
+        start.wait();
+        for j in 0..num_docs {
+          let mut doc = Document::new();
+          let id = format!("{}-{}", idx, j);
+          doc.add(StringField::from_string("id", id.clone(), Store::No)?);
+          let seq_no = writer.add_document(doc)?;
+          if max_completed_seq_id.load(SeqCst) < seq_no {
+            let max_completed_sequence_number = writer.get_max_completed_sequence_number()?;
+            manager.maybe_refresh_blocking()?;
+            max_completed_seq_id.fetch_max(max_completed_sequence_number, SeqCst);
+          }
+          let acquire = manager.acquire()?;
+          let search_result = acquire.search(TermQuery::new(Term::from_text("id", id)), 10);
+          let release_result = manager.release(acquire);
+          let top_docs = IOUtils::use_or_suppress_result(search_result, release_result)?;
+          assert_eq!(1, top_docs.total_hits.value());
+        }
+        Ok(())
+      }));
+    }
+    start.count_down();
+    for thread in threads {
+      thread
+        .join()
+        .map_err(|_| LuceneError::illegal_state("indexing thread panicked"))??;
+    }
+    Ok(())
+  });
+
+  let close_result = IOUtils::use_or_suppress_result(manager.close(), writer.close());
+  let close_result = IOUtils::use_or_suppress_result(close_result, dir.close());
+  IOUtils::use_or_suppress_result(body_result, close_result)
+}
+
+struct Semaphore {
+  permits: Mutex<usize>,
+  condvar: Condvar,
+}
+
+impl Semaphore {
+  fn new(permits: usize) -> Self {
+    Self {
+      permits: Mutex::new(permits),
+      condvar: Condvar::new(),
+    }
+  }
+
+  fn acquire(&self, permits: usize) {
+    let mut available = self.permits.lock().expect("semaphore mutex poisoned");
+    while *available < permits {
+      available = self
+        .condvar
+        .wait(available)
+        .expect("semaphore mutex poisoned");
+    }
+    *available -= permits;
+  }
+
+  fn try_acquire(&self) -> bool {
+    let mut available = self.permits.lock().expect("semaphore mutex poisoned");
+    if *available == 0 {
+      false
+    } else {
+      *available -= 1;
+      true
+    }
+  }
+
+  fn release(&self, permits: usize) {
+    let mut available = self.permits.lock().expect("semaphore mutex poisoned");
+    *available += permits;
+    self.condvar.notify_all();
+  }
 }
 
 struct CountDownLatch {
