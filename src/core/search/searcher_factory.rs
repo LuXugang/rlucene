@@ -14,19 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_reader::{
+  IndexReader, IndexReaderContextKind, IndexReaderContextType,
+};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::util::error::lucene_error::Result;
+use std::marker::PhantomData;
+use std::sync::Arc;
+
+#[cfg(test)]
+use crate::test_framework::core::search::test_searcher_manager::{
+  BlockingSearcherFactory, EvilSearcherFactory, TrackingSearcherFactory, WarmingSearcherFactory,
+};
 
 /// Factory used by `SearcherManager` to create new [`IndexSearcher`] instances. The default
 /// implementation just creates an [`IndexSearcher`] with no custom behavior:
 ///
 /// ```text
-/// fn new_searcher<IRC>(context: IRC, _previous: IRC) -> Result<IndexSearcher<IRC>>
+/// fn new_searcher<IR>(
+///     reader: Arc<IR>,
+///     _previous_reader: Option<&Arc<IR>>,
+/// ) -> Result<IndexSearcher<IndexReaderContextType<Arc<IR>>>>
 /// where
-///     IRC: IndexReaderContext,
+///     IR: IndexReader + 'static,
+///     IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
+///     IndexReaderContextType<Arc<IR>>: Sync + 'static,
 /// {
-///     IndexSearcher::new(context)
+///     IndexSearcher::new(reader.get_context()?)
 /// }
 /// ```
 ///
@@ -40,42 +54,126 @@ use crate::core::util::error::lucene_error::Result;
 ///   outside of the reopen path.
 ///
 /// @lucene.experimental
-#[derive(Default)]
-pub struct SearcherFactory {
-  sub: SearcherFactoryEnum,
+pub struct SearcherFactory<IR> {
+  hook: SearcherFactoryHook<IR>,
 }
-impl SearcherFactory {
-  pub fn new(sub: SearcherFactoryEnum) -> SearcherFactory {
-    SearcherFactory { sub }
+
+pub(crate) enum SearcherFactoryHook<IR> {
+  Default(PhantomData<fn() -> IR>),
+  #[cfg(test)]
+  Warming(WarmingSearcherFactory<IR>),
+  #[cfg(test)]
+  Blocking(BlockingSearcherFactory<IR>),
+  #[cfg(test)]
+  Evil(EvilSearcherFactory<Arc<IR>>),
+  #[cfg(test)]
+  Tracking(TrackingSearcherFactory<IR>),
+}
+
+impl<IR> Default for SearcherFactoryHook<IR> {
+  fn default() -> Self {
+    Self::Default(PhantomData)
   }
 }
 
-pub trait SearcherFactoryBase {
-  /// Returns a new [`IndexSearcher`] over the given context.
+pub(crate) struct SearcherFactoryDefaults;
+
+pub(crate) trait SearcherFactoryBase<IR>
+where
+  IR: IndexReader + 'static,
+  IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
+  IndexReaderContextType<Arc<IR>>: Sync + 'static,
+{
+  fn new_searcher(
+    &self,
+    reader: Arc<IR>,
+    previous_reader: Option<&Arc<IR>>,
+  ) -> Result<IndexSearcher<IndexReaderContextType<Arc<IR>>>> {
+    SearcherFactoryDefaults::new_searcher(reader, previous_reader)
+  }
+}
+
+impl<IR> SearcherFactoryBase<IR> for SearcherFactoryHook<IR>
+where
+  IR: IndexReader + 'static,
+  IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
+  IndexReaderContextType<Arc<IR>>: Sync + 'static,
+{
+  fn new_searcher(
+    &self,
+    reader: Arc<IR>,
+    previous_reader: Option<&Arc<IR>>,
+  ) -> Result<IndexSearcher<IndexReaderContextType<Arc<IR>>>> {
+    match self {
+      Self::Default(_) => SearcherFactoryDefaults::new_searcher(reader, previous_reader),
+      #[cfg(test)]
+      Self::Warming(factory) => factory.new_searcher(reader, previous_reader),
+      #[cfg(test)]
+      Self::Blocking(factory) => factory.new_searcher(reader, previous_reader),
+      #[cfg(test)]
+      Self::Evil(factory) => factory.new_searcher(reader, previous_reader),
+      #[cfg(test)]
+      Self::Tracking(factory) => factory.new_searcher(reader, previous_reader),
+    }
+  }
+}
+
+impl<IR> Default for SearcherFactory<IR> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+impl<IR> SearcherFactory<IR> {
+  pub fn new() -> Self {
+    Self::with_hook(SearcherFactoryHook::default())
+  }
+
+  pub(crate) fn with_hook(hook: SearcherFactoryHook<IR>) -> Self {
+    Self { hook }
+  }
+
+  /// Returns a new [`IndexSearcher`] over the given reader.
+  ///
+  /// `previous_reader` is the reader previously used to create a new searcher. It is `None` if
+  /// unknown or if `reader` is the initially opened reader. When it is present, it can be used to
+  /// find newly opened segments compared to the new reader and warm the searcher before returning.
+  pub fn new_searcher(
+    &self,
+    reader: Arc<IR>,
+    previous_reader: Option<&Arc<IR>>,
+  ) -> Result<IndexSearcher<IndexReaderContextType<Arc<IR>>>>
+  where
+    IR: IndexReader + 'static,
+    IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
+    IndexReaderContextType<Arc<IR>>: Sync + 'static,
+  {
+    <SearcherFactoryHook<IR> as SearcherFactoryBase<IR>>::new_searcher(
+      &self.hook,
+      reader,
+      previous_reader,
+    )
+  }
+}
+
+impl SearcherFactoryDefaults {
+  /// Returns a new [`IndexSearcher`] over the given reader.
   ///
   /// # Parameters
-  /// - `context`: the reader context to create a new searcher for.
-  /// - `_previous`: the reader context previously used to create a new searcher. This can be used
-  ///   to find newly opened segments compared to the new context and warm the searcher up before
-  ///   returning it.
-  fn new_searcher<IRC>(context: IRC, _previous: IRC) -> Result<IndexSearcher<IRC>>
+  /// - `reader`: the reader to create a new searcher for.
+  /// - `_previous_reader`: the reader previously used to create a new searcher. It is `None` if
+  ///   unknown or if `reader` is the initially opened reader. When it is present, it can be used to
+  ///   find newly opened segments compared to the new reader and warm the searcher before
+  ///   returning.
+  pub(crate) fn new_searcher<IR>(
+    reader: Arc<IR>,
+    _previous_reader: Option<&Arc<IR>>,
+  ) -> Result<IndexSearcher<IndexReaderContextType<Arc<IR>>>>
   where
-    IRC: IndexReaderContext,
+    IR: IndexReader + 'static,
+    IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
+    IndexReaderContextType<Arc<IR>>: 'static,
   {
-    IndexSearcher::new(context)
-  }
-}
-
-#[derive(Default)]
-pub struct DefaultSearcherFactoryBase;
-impl SearcherFactoryBase for DefaultSearcherFactoryBase {}
-
-pub enum SearcherFactoryEnum {
-  Default(DefaultSearcherFactoryBase),
-}
-
-impl Default for SearcherFactoryEnum {
-  fn default() -> Self {
-    SearcherFactoryEnum::Default(DefaultSearcherFactoryBase)
+    IndexSearcher::new(reader.get_context()?)
   }
 }

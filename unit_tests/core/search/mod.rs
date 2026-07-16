@@ -81,6 +81,7 @@ pub(crate) mod test_regexp_random2;
 pub(crate) mod test_scorer_perf;
 mod test_search_after;
 mod test_search_with_threads;
+mod test_searcher_manager;
 mod test_segment_cacheables;
 pub(crate) mod test_similarity;
 mod test_similarity_provider;

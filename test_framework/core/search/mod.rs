@@ -46,3 +46,4 @@ pub(crate) mod test_boolean_rewrites;
 pub(crate) mod test_custom_searcher_sort;
 pub(crate) mod test_index_searcher;
 pub mod test_lru_query_cache;
+pub mod test_searcher_manager;
