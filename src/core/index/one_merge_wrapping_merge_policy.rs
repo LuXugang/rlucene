@@ -32,7 +32,10 @@ use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_writer::{
   AbortOnMergeCompleteOneMergeUnaryOperator, MergeFinishedOnceOneMergeUnaryOperator,
+  SoftUpdatesConcurrentlyOneMergeUnaryOperator,
 };
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer_merge_policy::ForceMergeDvUpdateOneMergeUnaryOperator;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 /// A wrapping merge policy that wraps the `OneMerge` objects returned by the
@@ -105,6 +108,10 @@ where
   MergeFinishedOnce(MergeFinishedOnceOneMergeUnaryOperator),
   #[cfg(test)]
   AbortOnMergeComplete(AbortOnMergeCompleteOneMergeUnaryOperator),
+  #[cfg(test)]
+  ForceMergeDvUpdate(ForceMergeDvUpdateOneMergeUnaryOperator),
+  #[cfg(test)]
+  SoftUpdatesConcurrently(SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>),
 }
 
 impl<D> Clone for OneMergeUnaryOperator<D>
@@ -122,6 +129,10 @@ where
       Self::MergeFinishedOnce(operator) => Self::MergeFinishedOnce(operator.clone()),
       #[cfg(test)]
       Self::AbortOnMergeComplete(operator) => Self::AbortOnMergeComplete(operator.clone()),
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(operator) => Self::ForceMergeDvUpdate(operator.clone()),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(operator) => Self::SoftUpdatesConcurrently(operator.clone()),
     }
   }
 }
@@ -148,6 +159,10 @@ where
       Self::MergeFinishedOnce(operator) => operator.apply(merge),
       #[cfg(test)]
       Self::AbortOnMergeComplete(operator) => operator.apply(merge),
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(operator) => operator.apply(merge),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(operator) => operator.apply(merge),
     }
   }
 }
@@ -213,6 +228,26 @@ where
 {
   fn from(value: AbortOnMergeCompleteOneMergeUnaryOperator) -> Self {
     Self::AbortOnMergeComplete(value)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<ForceMergeDvUpdateOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn from(value: ForceMergeDvUpdateOneMergeUnaryOperator) -> Self {
+    Self::ForceMergeDvUpdate(value)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn from(value: SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>) -> Self {
+    Self::SoftUpdatesConcurrently(value)
   }
 }
 

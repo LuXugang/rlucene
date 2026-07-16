@@ -56,12 +56,14 @@ use crate::core::index::segment_infos::{
   SegmentInfos, get_last_commit_generation_from_directory,
   get_last_commit_segments_file_name_from_directory,
 };
+use crate::core::index::soft_deletes_retention_merge_policy::SoftDeletesRetentionMergePolicy;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::store::data_input::DataInput;
 use crate::core::store::data_output::DataOutput;
@@ -81,9 +83,9 @@ use crate::test_framework::core::index::random_index_writer::{RandomIndexWriter,
 use crate::test_framework::core::internal::index_writer_access::IndexWriterAccess;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains, call_stack_contains_any_of, is_night_mode, new_directory_shared,
-  new_field, new_index_writer_config, new_index_writer_config_with_analyzer, new_mock_directory,
-  new_searcher, new_text_field, random, random_from_seed, random_multiplier,
+  at_least, call_stack_contains, call_stack_contains_any_of, get_only_leaf_reader, is_night_mode,
+  new_directory_shared, new_field, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_mock_directory, new_searcher, new_text_field, random, random_from_seed, random_multiplier,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -2722,10 +2724,76 @@ fn test_exception_on_sync_metadata() -> Result<()> {
 
 #[test]
 fn test_exception_just_before_flush_with_point_values() -> Result<()> {
-  // TODO: The Java test wraps the configured merge policy in SoftDeletesRetentionMergePolicy and
-  // relies on its retained soft-delete semantics before opening the NRT reader. rLucene does not
-  // implement SoftDeletesRetentionMergePolicy yet. Converting with the current merge policy would
-  // change whether the failed point document is retained and would not validate the Java contract.
-  // Convert after that merge policy is implemented.
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = Box::new(ExceptionJustBeforeFlushWithPointValuesAnalyzer::new(
+    random.random(),
+  )) as Box<dyn Analyzer>;
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_commit_on_close(false).set_max_buffered_docs(3);
+  let merge_policy = iwc.get_merge_policy().clone();
+  iwc.set_merge_policy(SoftDeletesRetentionMergePolicy::new(
+    "soft_delete",
+    || Ok(MatchAllDocsQuery::new().into()),
+    merge_policy,
+  ));
+  let writer = RandomIndexWriter::mock_index_writer(dir.clone(), iwc, &mut random)?;
+  let mut new_doc = Document::new();
+  let mut field_types = HashMap::new();
+  new_doc.add(new_text_field(
+    &mut random,
+    "crash",
+    "do it on token 4",
+    Store::No,
+    &mut field_types,
+  )?);
+  new_doc.add(IntPoint::new("int", [42])?);
+  let error = writer
+    .add_document(new_doc)
+    .expect_err("the crashing token stream must fail");
+  assert!(error.to_string().contains(CRASH_FAIL_MESSAGE));
+  let reader = INDEX_WRITER_ACCESS.get_reader(&writer, false, false)?;
+  let only_reader = get_only_leaf_reader(reader)?;
+  // We mark the failed doc as deleted.
+  assert_eq!(1, only_reader.num_deleted_docs()?);
+  // There are no point values, rather than an empty set of values.
+  assert!(only_reader.get_point_values("field")?.is_none());
+  only_reader.close()?;
+  writer.close()?;
+  dir.close()
 }
+
+struct ExceptionJustBeforeFlushWithPointValuesAnalyzer {
+  stored_value: AnalyzerStoredValue,
+  seed: u64,
+}
+
+impl ExceptionJustBeforeFlushWithPointValuesAnalyzer {
+  fn new(seed: u64) -> Self {
+    Self {
+      stored_value: AnalyzerStoredValue::per_field(),
+      seed,
+    }
+  }
+}
+
+impl Analyzer for ExceptionJustBeforeFlushWithPointValuesAnalyzer {
+  fn create_components(&self, field_name: &str) -> Result<TokenStreamComponents> {
+    let mut tokenizer = MockTokenizer::with_default_max_token_length(
+      random_from_seed(self.seed),
+      WHITESPACE.clone(),
+      false,
+    );
+    tokenizer.set_enable_checks(false); // disable workflow checking as we forcefully close() in exceptional cases.
+    Ok(TokenStreamComponents::new(
+      Box::new(CrashingFilter::new(field_name, tokenizer)) as Box<dyn TokenStream + Send + Sync>,
+      None,
+    ))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+crate::impl_analyzer_close!(ExceptionJustBeforeFlushWithPointValuesAnalyzer);

@@ -58,11 +58,13 @@ use crate::test_framework::core::index::test_add_indexes::{
 use crate::test_framework::core::index::test_concurrent_merge_scheduler::LiveMaxMergeCountMergePolicy;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_writer::{
-  AbortOnMergeCompleteOneMerge, MergeFinishedOnceOneMerge,
+  AbortOnMergeCompleteOneMerge, MergeFinishedOnceOneMerge, SoftUpdatesConcurrentlyMergePolicy,
+  SoftUpdatesConcurrentlyOneMerge,
 };
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_writer_merge_policy::{
-  SetDiagnosticsMergePolicy, SetMergePolicyDiagnosticsOneMerge,
+  ForceMergeDvUpdateMergePolicy, ForceMergeDvUpdateOneMerge, SetDiagnosticsMergePolicy,
+  SetMergePolicyDiagnosticsOneMerge,
 };
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
@@ -467,6 +469,10 @@ where
   #[cfg(test)]
   OnlyForceMerge(OnlyForceMergeMergePolicy),
   #[cfg(test)]
+  ForceMergeDvUpdate(ForceMergeDvUpdateMergePolicy),
+  #[cfg(test)]
+  SoftUpdatesConcurrently(SoftUpdatesConcurrentlyMergePolicy<D>),
+  #[cfg(test)]
   KeepFullyDeletedSegments(KeepFullyDeletedSegmentsMergePolicy<D>),
   #[cfg(test)]
   Range(RangeMergePolicy),
@@ -500,6 +506,10 @@ where
       Self::Force(mp) => Self::Force(mp.clone()),
       #[cfg(test)]
       Self::OnlyForceMerge(mp) => Self::OnlyForceMerge(mp.clone()),
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(mp) => Self::ForceMergeDvUpdate(mp.clone()),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(mp) => Self::SoftUpdatesConcurrently(mp.clone()),
       #[cfg(test)]
       Self::KeepFullyDeletedSegments(mp) => Self::KeepFullyDeletedSegments(mp.clone()),
       #[cfg(test)]
@@ -629,6 +639,10 @@ where
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => write!(f, "{}", mp),
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => write!(f, "{}", mp),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => write!(f, "{}", mp),
@@ -665,6 +679,10 @@ where
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => MergePolicy::<D>::get_base(mp),
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => MergePolicy::<D>::get_base(mp),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => MergePolicy::<D>::get_base(mp),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => MergePolicy::<D>::get_base(mp),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => MergePolicy::<D>::get_base(mp),
@@ -695,6 +713,10 @@ where
       MergePolicyEnum::Force(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => MergePolicy::<D>::get_base_mut(mp),
+      #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => MergePolicy::<D>::get_base_mut(mp),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
@@ -754,6 +776,14 @@ where
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -801,6 +831,10 @@ where
       MergePolicyEnum::Force(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.find_merges_readers(readers),
+      #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.find_merges_readers(readers),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
@@ -896,6 +930,22 @@ where
       ),
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => mp.find_forced_merges(
         segment_infos,
         max_segment_count,
         segments_to_merge,
@@ -1002,6 +1052,14 @@ where
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
@@ -1076,6 +1134,14 @@ where
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -1135,6 +1201,14 @@ where
         mp.use_compound_file(infos, merged_info, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => {
+        mp.use_compound_file(infos, merged_info, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => {
+        mp.use_compound_file(infos, merged_info, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.use_compound_file(infos, merged_info, merge_context)
       },
@@ -1177,6 +1251,10 @@ where
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.size(info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.size(info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.size(info, merge_context),
@@ -1207,6 +1285,12 @@ where
       MergePolicyEnum::Force(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
+      #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => {
+        MergePolicy::<D>::max_full_flush_merge_size(mp)
+      },
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         MergePolicy::<D>::max_full_flush_merge_size(mp)
@@ -1249,6 +1333,10 @@ where
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.has_merged(infos, info, merge_context),
@@ -1282,6 +1370,12 @@ where
       MergePolicyEnum::Force(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => {
+        mp.keep_fully_deleted_segment(reader_supplier)
+      },
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.keep_fully_deleted_segment(reader_supplier)
@@ -1334,6 +1428,14 @@ where
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => {
+        mp.num_deletes_to_merge(info, del_count, reader_supplier)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => {
+        mp.num_deletes_to_merge(info, del_count, reader_supplier)
+      },
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
@@ -1376,6 +1478,10 @@ where
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.seg_string(merge_context, infos),
@@ -1410,6 +1516,10 @@ where
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.message(message, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.message(message, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Range(mp) => mp.message(message, merge_context),
@@ -1443,6 +1553,10 @@ where
       MergePolicyEnum::Force(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::OnlyForceMerge(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::ForceMergeDvUpdate(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::SoftUpdatesConcurrently(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::KeepFullyDeletedSegments(mp) => mp.verbose(merge_context),
       #[cfg(test)]
@@ -2102,6 +2216,10 @@ where
   SetDiagnostics(SetDiagnosticsOneMerge<D, CR>),
   #[cfg(test)]
   SetMergePolicyDiagnostics(SetMergePolicyDiagnosticsOneMerge<D, CR>),
+  #[cfg(test)]
+  ForceMergeDvUpdate(ForceMergeDvUpdateOneMerge<D, CR>),
+  #[cfg(test)]
+  SoftUpdatesConcurrently(SoftUpdatesConcurrentlyOneMerge<D, CR>),
 }
 
 pub(crate) struct OneMergeDefaults;
@@ -2210,6 +2328,12 @@ where
       Self::SetMergePolicyDiagnostics(hook) => {
         hook.merge_finished(inner, stat, success, segment_dropped)
       },
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(hook) => {
+        hook.merge_finished(inner, stat, success, segment_dropped)
+      },
     }
   }
 
@@ -2226,6 +2350,10 @@ where
       Self::SetDiagnostics(hook) => hook.wrap_for_merge(reader),
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => hook.wrap_for_merge(reader),
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(hook) => hook.wrap_for_merge(reader),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(hook) => hook.wrap_for_merge(reader),
     }
   }
 
@@ -2246,6 +2374,10 @@ where
       Self::SetDiagnostics(hook) => hook.reorder(reader, dir),
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => hook.reorder(reader, dir),
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(hook) => hook.reorder(reader, dir),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(hook) => hook.reorder(reader, dir),
     }
   }
 
@@ -2267,6 +2399,10 @@ where
       Self::SetDiagnostics(hook) => hook.set_merge_info(stat, merge_info, info),
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => hook.set_merge_info(stat, merge_info, info),
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(hook) => hook.set_merge_info(stat, merge_info, info),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(hook) => hook.set_merge_info(stat, merge_info, info),
     }
   }
 
@@ -2293,6 +2429,12 @@ where
       Self::SetDiagnostics(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => {
+        hook.on_merge_complete(inner, stat, merge_info, is_aborted)
+      },
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(hook) => {
         hook.on_merge_complete(inner, stat, merge_info, is_aborted)
       },
     }
@@ -2323,6 +2465,14 @@ where
       Self::SetDiagnostics(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => {
+        hook.init_merge_readers(merge_readers, stat, reader_factory)
+      },
+      #[cfg(test)]
+      Self::ForceMergeDvUpdate(hook) => {
+        hook.init_merge_readers(merge_readers, stat, reader_factory)
+      },
+      #[cfg(test)]
+      Self::SoftUpdatesConcurrently(hook) => {
         hook.init_merge_readers(merge_readers, stat, reader_factory)
       },
     }

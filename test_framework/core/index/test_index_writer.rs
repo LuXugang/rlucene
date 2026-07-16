@@ -23,13 +23,21 @@ use crate::core::index::concurrent_merge_scheduler::{
   ConcurrentMergeScheduler, ConcurrentMergeSchedulerBase, ConcurrentMergeSchedulerDefaults,
 };
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, Inner};
 use crate::core::index::merge_policy::{
-  MergeReader, MergeStat, OneMerge, OneMergeBase, OneMergeDefaults, OneMergeHook, OneMergeSR,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, MergePolicyEnum,
+  MergeReader, MergeSpecification, MergeStat, OneMerge, OneMergeBase, OneMergeDefaults,
+  OneMergeHook, OneMergeSR,
 };
 use crate::core::index::merge_scheduler::MergeSource;
-use crate::core::index::one_merge_wrapping_merge_policy::OneMergeUnaryOperatorBase;
+use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::one_merge_wrapping_merge_policy::{
+  OneMergeUnaryOperatorBase, OneMergeWrappingMergePolicy,
+};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
+use crate::core::index::segment_infos::SegmentInfos;
+use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -39,6 +47,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use rand::Rng;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
@@ -165,6 +174,383 @@ where
   );
 
   Ok(())
+}
+
+pub struct SoftUpdatesConcurrentlyMergePolicy<D>
+where
+  D: Directory,
+{
+  base: OneMergeWrappingMergePolicy<D>,
+  merge_away_soft_deletes: Arc<AtomicBool>,
+}
+
+impl<D> Clone for SoftUpdatesConcurrentlyMergePolicy<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      base: self.base.clone(),
+      merge_away_soft_deletes: self.merge_away_soft_deletes.clone(),
+    }
+  }
+}
+
+impl<D> SoftUpdatesConcurrentlyMergePolicy<D>
+where
+  D: Directory,
+{
+  pub(crate) fn new(
+    base: OneMergeWrappingMergePolicy<D>,
+    merge_away_soft_deletes: Arc<AtomicBool>,
+  ) -> Self {
+    Self {
+      base,
+      merge_away_soft_deletes,
+    }
+  }
+}
+
+impl<D> From<SoftUpdatesConcurrentlyMergePolicy<D>> for MergePolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(value: SoftUpdatesConcurrentlyMergePolicy<D>) -> Self {
+    Self::SoftUpdatesConcurrently(value)
+  }
+}
+
+impl<D> Display for SoftUpdatesConcurrentlyMergePolicy<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.base)
+  }
+}
+
+impl<D> MergePolicy<D> for SoftUpdatesConcurrentlyMergePolicy<D>
+where
+  D: Directory,
+{
+  fn get_base(&self) -> &MergePolicyBase {
+    self.base.get_base()
+  }
+
+  fn get_base_mut(&mut self) -> &mut MergePolicyBase {
+    self.base.get_base_mut()
+  }
+
+  fn find_merges<MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    self
+      .base
+      .find_merges(merge_trigger, segment_infos, inner, merge_context)
+  }
+
+  fn find_merges_readers<CR>(&self, readers: Vec<CR>) -> Result<Option<MergeSpecification<D, CR>>>
+  where
+    CR: CodecReader,
+  {
+    self.base.find_merges_readers(readers)
+  }
+
+  fn find_forced_merges<MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    max_segment_count: usize,
+    segments_to_merge: &HashMap<String, Option<bool>>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    self.base.find_forced_merges(
+      segment_infos,
+      max_segment_count,
+      segments_to_merge,
+      inner,
+      merge_context,
+    )
+  }
+
+  fn find_forced_deletes_merges<MC>(
+    &self,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    self
+      .base
+      .find_forced_deletes_merges(segment_infos, inner, merge_context)
+  }
+
+  fn find_full_flush_merges<MC>(
+    &self,
+    merge_trigger: MergeTrigger,
+    segment_infos: &SegmentInfos<D>,
+    inner: Option<&Inner<D>>,
+    merge_context: &MC,
+  ) -> Result<Option<DefaultMergeSpecification<D>>>
+  where
+    MC: MergeContext<D>,
+  {
+    self
+      .base
+      .find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+  }
+
+  fn use_compound_file<MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    merged_info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    MC: MergeContext<D>,
+  {
+    self
+      .base
+      .use_compound_file(infos, merged_info, merge_context)
+  }
+
+  fn size<MC>(&self, info: &SegmentCommitInfo<D>, merge_context: &MC) -> Result<i64>
+  where
+    MC: MergeContext<D>,
+  {
+    self.base.size(info, merge_context)
+  }
+
+  fn max_full_flush_merge_size(&self) -> i64 {
+    self.base.max_full_flush_merge_size()
+  }
+
+  fn has_merged<MC>(
+    &self,
+    infos: &SegmentInfos<D>,
+    info: &SegmentCommitInfo<D>,
+    merge_context: &MC,
+  ) -> Result<bool>
+  where
+    MC: MergeContext<D>,
+  {
+    self.base.has_merged(infos, info, merge_context)
+  }
+
+  fn keep_fully_deleted_segment<F>(&self, reader_supplier: F) -> Result<bool>
+  where
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    self.base.keep_fully_deleted_segment(reader_supplier)
+  }
+
+  fn num_deletes_to_merge<F>(
+    &self,
+    info: &SegmentCommitInfo<D>,
+    del_count: i32,
+    reader_supplier: &F,
+  ) -> Result<i32>
+  where
+    F: Fn() -> Result<DefaultLeafReader<D>>,
+  {
+    if self.merge_away_soft_deletes.load(Ordering::SeqCst) {
+      self
+        .base
+        .num_deletes_to_merge(info, del_count, reader_supplier)
+    } else {
+      Ok(0)
+    }
+  }
+
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  where
+    MC: MergeContext<D>,
+  {
+    self.base.seg_string(merge_context, infos)
+  }
+
+  fn message<MC>(&self, message: &str, merge_context: &MC) -> Result<()>
+  where
+    MC: MergeContext<D>,
+  {
+    self.base.message(message, merge_context)
+  }
+
+  fn verbose<MC>(&self, merge_context: &MC) -> bool
+  where
+    MC: MergeContext<D>,
+  {
+    self.base.verbose(merge_context)
+  }
+}
+
+pub struct SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  merge_away_soft_deletes: Arc<AtomicBool>,
+  _marker: PhantomData<fn() -> D>,
+}
+
+impl<D> Clone for SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      merge_away_soft_deletes: self.merge_away_soft_deletes.clone(),
+      _marker: PhantomData,
+    }
+  }
+}
+
+impl<D> SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  pub(crate) fn new(merge_away_soft_deletes: Arc<AtomicBool>) -> Self {
+    Self {
+      merge_away_soft_deletes,
+      _marker: PhantomData,
+    }
+  }
+}
+
+impl<D> OneMergeUnaryOperatorBase<D> for SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn apply(&self, mut merge: OneMergeSR<D>) -> Result<OneMergeSR<D>> {
+    let wrapped = merge.replace_hook(OneMergeHook::Default);
+    Ok(
+      OneMerge::new(merge.segments)?.with_hook(OneMergeHook::SoftUpdatesConcurrently(
+        SoftUpdatesConcurrentlyOneMerge::new(
+          wrapped,
+          self.merge_away_soft_deletes.clone(),
+          soft_updates_all_live_docs,
+        ),
+      )),
+    )
+  }
+}
+
+pub(crate) struct SoftUpdatesConcurrentlyOneMerge<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  wrapped: Box<OneMergeHook<D, CR>>,
+  merge_away_soft_deletes: Arc<AtomicBool>,
+  all_live_docs: fn(CR) -> Result<CR>,
+}
+
+impl<D, CR> SoftUpdatesConcurrentlyOneMerge<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  fn new(
+    wrapped: OneMergeHook<D, CR>,
+    merge_away_soft_deletes: Arc<AtomicBool>,
+    all_live_docs: fn(CR) -> Result<CR>,
+  ) -> Self {
+    Self {
+      wrapped: Box::new(wrapped),
+      merge_away_soft_deletes,
+      all_live_docs,
+    }
+  }
+}
+
+impl<D, CR> OneMergeBase<D, CR> for SoftUpdatesConcurrentlyOneMerge<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  fn merge_finished(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    success: bool,
+    segment_dropped: bool,
+  ) -> Result<()> {
+    OneMergeDefaults::merge_finished(inner, stat, success, segment_dropped)
+  }
+
+  fn wrap_for_merge(&self, reader: CR) -> Result<CR> {
+    let wrapped = self.wrapped.wrap_for_merge(reader)?;
+    if self.merge_away_soft_deletes.load(Ordering::SeqCst) {
+      Ok(wrapped)
+    } else {
+      (self.all_live_docs)(wrapped)
+    }
+  }
+
+  fn reorder<CR1, D1>(&self, reader: &CR1, dir: D1) -> Result<Option<DummyDocMap>>
+  where
+    CR1: CodecReader,
+    D1: Directory,
+  {
+    OneMergeDefaults::reorder(reader, dir)
+  }
+
+  fn set_merge_info(
+    &self,
+    stat: &MergeStat,
+    merge_info: &mut Option<SegmentCommitInfo<D>>,
+    info: SegmentCommitInfo<D>,
+  ) {
+    OneMergeDefaults::set_merge_info(stat, merge_info, info)
+  }
+
+  fn on_merge_complete(
+    &self,
+    inner: &mut Inner<D>,
+    stat: &MergeStat,
+    merge_info: &Option<SegmentCommitInfo<D>>,
+    is_aborted: bool,
+  ) -> Result<()> {
+    OneMergeDefaults::on_merge_complete(inner, stat, merge_info, is_aborted)
+  }
+
+  fn init_merge_readers<F>(
+    &self,
+    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
+    stat: &MergeStat,
+    reader_factory: F,
+  ) -> Result<()>
+  where
+    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+  {
+    OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)
+  }
+}
+
+fn soft_updates_all_live_docs<D>(reader: DefaultLeafReader<D>) -> Result<DefaultLeafReader<D>>
+where
+  D: Directory,
+{
+  let max_doc = reader.max_doc()?;
+  Ok(Arc::new(SegmentReader::new_from_reader(
+    reader.get_segment_info(),
+    reader.as_ref(),
+    None,
+    None,
+    max_doc,
+    true,
+  )?))
 }
 
 #[derive(Clone)]

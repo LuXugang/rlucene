@@ -22,15 +22,20 @@ use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::soft_deletes_directory_reader_wrapper::{
   SoftDeletesCodecReader, SoftDeletesDirectoryReaderWrapper,
 };
+use crate::core::index::soft_deletes_retention_merge_policy::SoftDeletesRetentionMergePolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher;
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
@@ -46,8 +51,76 @@ struct TestSoftDeletesDirectoryReaderWrapper;
 
 #[test]
 fn test_drop_fully_deleted_segments() -> Result<()> {
-  // TODO IMPORTANT: SoftDeletesRetentionMergePolicy 未实现
-  Ok(())
+  let mut random = random();
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
+  let soft_deletes_field = "soft_delete";
+  index_writer_config
+    .set_soft_deletes_field(soft_deletes_field)
+    .set_merge_policy(SoftDeletesRetentionMergePolicy::new(
+      soft_deletes_field,
+      || Ok(MatchAllDocsQuery::new().into()),
+      NoMergePolicy::default(),
+    ));
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
+
+  let body_result = (|| -> Result<()> {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    doc.add(StringField::from_string("version", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    doc.add(StringField::from_string("version", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let reader = SoftDeletesDirectoryReaderWrapper::new(
+      directory_reader::open(dir.clone())?,
+      soft_deletes_field,
+    )?;
+    assert_eq!(2, (&reader).get_context()?.leaves()?.len());
+    assert_eq!(2, reader.num_docs()?);
+    assert_eq!(2, reader.max_doc()?);
+    assert_eq!(0, reader.num_deleted_docs()?);
+    reader.close()?;
+
+    writer.update_doc_values(
+      Term::from_text("id", "1"),
+      vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+    )?;
+    writer.commit()?;
+    let reader = SoftDeletesDirectoryReaderWrapper::new(
+      directory_reader::open_from_writer(&writer)?,
+      soft_deletes_field,
+    )?;
+    assert_eq!(1, reader.num_docs()?);
+    assert_eq!(1, reader.max_doc()?);
+    assert_eq!(0, reader.num_deleted_docs()?);
+    assert_eq!(1, (&reader).get_context()?.leaves()?.len());
+    reader.close()?;
+
+    let reader = SoftDeletesDirectoryReaderWrapper::new(
+      directory_reader::open(dir.clone())?,
+      soft_deletes_field,
+    )?;
+    assert_eq!(1, reader.num_docs()?);
+    assert_eq!(1, reader.max_doc()?);
+    assert_eq!(0, reader.num_deleted_docs()?);
+    assert_eq!(1, (&reader).get_context()?.leaves()?.len());
+    reader.close()?;
+
+    let reader = directory_reader::open(dir.clone())?;
+    assert_eq!(2, reader.num_docs()?);
+    assert_eq!(2, reader.max_doc()?);
+    assert_eq!(0, reader.num_deleted_docs()?);
+    assert_eq!(2, (&reader).get_context()?.leaves()?.len());
+    reader.close()
+  })();
+
+  let close_result = IOUtils::use_or_suppress_result(writer.close(), dir.close());
+  IOUtils::use_or_suppress_result(body_result, close_result)
 }
 
 #[test]
@@ -244,6 +317,69 @@ fn test_reader_cache_key() -> Result<()> {
 
 #[test]
 fn test_avoid_wrapping_readers_without_soft_deletes() -> Result<()> {
-  // TODO IMPORTANT: SoftDeletesRetentionMergePolicy 未实现
-  Ok(())
+  let mut random = random();
+  let mut iwc = new_index_writer_config(&mut random)?;
+  let soft_deletes_field = "soft_deletes";
+  iwc.set_soft_deletes_field(soft_deletes_field);
+  let merge_policy = iwc.get_merge_policy().clone();
+  iwc.set_merge_policy(SoftDeletesRetentionMergePolicy::new(
+    soft_deletes_field,
+    || Ok(MatchAllDocsQuery::new().into()),
+    merge_policy.clone(),
+  ));
+  let dir = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+
+  let body_result = (|| -> Result<()> {
+    let num_docs = 1 + random.random_range(0..10);
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+      writer.add_document(doc)?;
+    }
+    let num_deletes = 1 + random.random_range(0..5);
+    for _ in 0..num_deletes {
+      let doc_id = random.random_range(0..num_docs).to_string();
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("id", &doc_id, Store::Yes)?);
+      writer.soft_update_document(
+        Term::from_text("id", &doc_id),
+        doc,
+        vec![NumericDocValuesField::new(soft_deletes_field, 0).into()],
+      )?;
+    }
+    writer.flush()?;
+    let reader = directory_reader::open_from_writer(&writer)?;
+    let wrapped = SoftDeletesDirectoryReaderWrapper::new(reader, soft_deletes_field)?;
+    assert_eq!(num_docs, wrapped.num_docs()?);
+    assert_eq!(num_deletes, wrapped.num_deleted_docs()?);
+    wrapped.close()?;
+
+    writer
+      .get_config_mut()
+      .set_merge_policy(SoftDeletesRetentionMergePolicy::new(
+        soft_deletes_field,
+        || Ok(MatchNoDocsQuery::new().into()),
+        merge_policy,
+      ));
+    writer.force_merge(1)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
+    let context = (&reader).get_context()?;
+    for leaf_context in context.leaves()? {
+      let segment_reader = leaf_context.reader();
+      assert!(segment_reader.get_live_docs()?.is_none());
+      assert!(segment_reader.get_hard_live_docs()?.is_none());
+    }
+    let wrapped = SoftDeletesDirectoryReaderWrapper::new(reader, soft_deletes_field)?;
+    assert_eq!(num_docs, wrapped.num_docs()?);
+    assert_eq!(0, wrapped.num_deleted_docs()?);
+    let context = (&wrapped).get_context()?;
+    for leaf in context.leaves()? {
+      assert!(matches!(leaf.reader(), CodecReaderEnum2::A(_)));
+    }
+    wrapped.close()
+  })();
+
+  let close_result = IOUtils::use_or_suppress_result(writer.close(), dir.close());
+  IOUtils::use_or_suppress_result(body_result, close_result)
 }

@@ -50,6 +50,7 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::soft_deletes_directory_reader_wrapper::SoftDeletesDirectoryReaderWrapper;
+use crate::core::index::soft_deletes_retention_merge_policy::SoftDeletesRetentionMergePolicy;
 use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::{SegmentDocAndID, TieredMergePolicy};
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -75,6 +76,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
 use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use crate::test_framework::core::index::test_index_writer_merge_policy::{
+  ForceMergeDvUpdateMergePolicy, ForceMergeDvUpdateOneMergeUnaryOperator,
   LatchedSerialMergeScheduler, MergeDvUpdateFileOnCommitConcurrentMergeScheduler,
   MergeDvUpdateFileOnGetReaderConcurrentMergeScheduler, SetDiagnosticsMergePolicy, TestLatch,
 };
@@ -916,7 +918,87 @@ fn test_set_diagnostics() -> Result<()> {
 
 #[test]
 fn test_force_merge_dv_update_file_with_concurrent_flush() -> Result<()> {
-  // TODO SoftDeletesRetentionMergePolicy未实现
+  let mut random = random();
+  let wait_for_init_merge_reader = CountDownLatch::new(1);
+  let wait_for_dv_update = CountDownLatch::new(1);
+  let wait_for_merge_finished = CountDownLatch::new(1);
+
+  let temp_dir = create_temp_dir_with_prefix("testForceMergeDVUpdateFileWithConcurrentFlush")?;
+  let path = temp_dir.path().to_path_buf();
+  let fs_directory = new_fs_directory(&mut random, temp_dir)?;
+  let mock_directory = Arc::new(MockAssertFileExistDirectory::new(fs_directory, path));
+
+  let mock_merge_policy = OneMergeWrappingMergePolicy::new(
+    SoftDeletesRetentionMergePolicy::new(
+      "soft_delete",
+      || Ok(MatchAllDocsQuery::new().into()),
+      ForceMergeDvUpdateMergePolicy::new(),
+    ),
+    ForceMergeDvUpdateOneMergeUnaryOperator::new(
+      wait_for_init_merge_reader.clone(),
+      wait_for_dv_update.clone(),
+    ),
+  );
+  let mut config = new_index_writer_config(&mut random)?;
+  config
+    .set_merge_policy(mock_merge_policy)
+    .set_soft_deletes_field("soft_delete");
+  let writer = IndexWriter::new(mock_directory.clone(), config)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "1", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  writer.add_document(doc)?;
+  writer.flush()?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "1", Store::Yes)?);
+  writer.add_document(doc)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "2", Store::Yes)?);
+  let field = NumericDocValuesField::new("soft_delete", 1);
+  writer.soft_update_document(Term::from_text("id", "2"), doc, vec![field.into()])?;
+  writer.flush()?;
+
+  let force_merge_writer = writer.clone();
+  let merge_finished_latch = wait_for_merge_finished.clone();
+  let force_merge_thread = thread::spawn(move || -> Result<()> {
+    let force_merge_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      force_merge_writer.force_merge(1)
+    }));
+    merge_finished_latch.count_down();
+    match force_merge_result {
+      Ok(result) => result,
+      Err(payload) => Err(LuceneError::tragedy_from_panic(
+        "panic while force merging",
+        payload.as_ref(),
+      )),
+    }
+  });
+  wait_for_init_merge_reader.wait();
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "2", Store::Yes)?);
+  doc.add(StringField::from_string("version", "3", Store::Yes)?);
+  let field = NumericDocValuesField::new("soft_delete", 1);
+  writer.soft_update_document(Term::from_text("id", "2"), doc, vec![field.into()])?;
+  writer.flush()?;
+
+  wait_for_dv_update.count_down();
+  wait_for_merge_finished.wait();
+  match force_merge_thread.join() {
+    Ok(result) => result?,
+    Err(payload) => {
+      return Err(LuceneError::tragedy_from_panic(
+        "panic while force merging",
+        payload.as_ref(),
+      ));
+    },
+  }
+
+  writer.close()?;
+  mock_directory.as_ref().close()?;
   Ok(())
 }
 

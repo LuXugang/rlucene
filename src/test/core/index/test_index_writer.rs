@@ -111,7 +111,8 @@ use crate::test_framework::core::index::random_index_writer::{RandomIndexWriter,
 use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch as ConcurrentMergeSchedulerCountDownLatch;
 use crate::test_framework::core::index::test_index_writer::{
   AbortOnMergeCompleteOneMergeUnaryOperator, CloseWhileMergeIsRunningConcurrentMergeScheduler,
-  MergeFinishedOnceOneMergeUnaryOperator, STORED_TEXT_TYPE, add_doc, add_doc_with_index,
+  MergeFinishedOnceOneMergeUnaryOperator, STORED_TEXT_TYPE, SoftUpdatesConcurrentlyMergePolicy,
+  SoftUpdatesConcurrentlyOneMergeUnaryOperator, add_doc, add_doc_with_index,
   assert_no_unreferenced_files,
 };
 use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
@@ -4102,14 +4103,176 @@ fn test_soft_update_documents() -> Result<()> {
 
 #[test]
 fn test_soft_updates_concurrently() -> Result<()> {
-  // TODO OneMergeWrappingMergePolicy未实现
-  Ok(())
+  soft_updates_concurrently(false)
 }
 
 #[test]
 fn test_soft_updates_concurrently_mixed_deletes() -> Result<()> {
-  // TODO OneMergeWrappingMergePolicy未实现
-  Ok(())
+  soft_updates_concurrently(true)
+}
+
+fn soft_updates_concurrently(mix_deletes: bool) -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
+  index_writer_config.set_soft_deletes_field("soft_delete");
+  let merge_away_soft_deletes = Arc::new(AtomicBool::new(random.random_bool(0.5)));
+  if !mix_deletes {
+    let merge_policy = index_writer_config.get_merge_policy().clone();
+    index_writer_config.set_merge_policy(SoftUpdatesConcurrentlyMergePolicy::new(
+      OneMergeWrappingMergePolicy::new(
+        merge_policy,
+        SoftUpdatesConcurrentlyOneMergeUnaryOperator::new(merge_away_soft_deletes.clone()),
+      ),
+      merge_away_soft_deletes.clone(),
+    ));
+  }
+  let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
+
+  let body_result = (|| -> Result<()> {
+    let num_threads = 2 + random.random_range(0..3);
+    let start_latch = Arc::new(CountDownLatch::new(1));
+    let started = Arc::new(CountDownLatch::new(num_threads));
+    let update_several_docs = random.random_bool(0.5);
+    let ids = Arc::new(Mutex::new(HashSet::new()));
+    let seeds: Vec<u64> = (0..num_threads).map(|_| random.random()).collect();
+
+    thread::scope(|scope| -> Result<()> {
+      let mut threads = Vec::with_capacity(num_threads);
+      for seed in seeds {
+        let writer = writer.clone();
+        let start_latch = start_latch.clone();
+        let started = started.clone();
+        let ids = ids.clone();
+        threads.push(scope.spawn(move || -> Result<()> {
+          let mut random = random_from_seed(seed);
+          started.count_down();
+          start_latch.wait();
+          for _ in 0..100 {
+            let id = random.random_range(0..10).to_string();
+            let mut doc = Document::new();
+            doc.add(StringField::from_string("id", &id, Store::Yes)?);
+            if update_several_docs {
+              let docs = vec![
+                doc
+                  .clone()
+                  .into_iter()
+                  .collect::<Vec<crate::core::document::fields::Fields>>(),
+                doc
+                  .into_iter()
+                  .collect::<Vec<crate::core::document::fields::Fields>>(),
+              ];
+              if mix_deletes && random.random_bool(0.5) {
+                if random.random_bool(0.5) {
+                  writer.update_documents_with_term(Term::from_text("id", &id), docs)?;
+                } else {
+                  writer.update_documents_with_query(
+                    Some(TermQuery::new(Term::from_text("id", &id)).into()),
+                    docs,
+                  )?;
+                }
+              } else {
+                writer.soft_update_documents(
+                  Term::from_text("id", &id),
+                  docs,
+                  vec![NumericDocValuesField::new("soft_delete", 1).into()],
+                )?;
+              }
+            } else if mix_deletes && random.random_bool(0.5) {
+              writer.update_document_with_term(Term::from_text("id", &id), doc)?;
+            } else {
+              writer.soft_update_document(
+                Term::from_text("id", &id),
+                doc,
+                vec![NumericDocValuesField::new("soft_delete", 1).into()],
+              )?;
+            }
+            ids.lock().expect("ids mutex poisoned").insert(id);
+          }
+          Ok(())
+        }));
+      }
+      started.wait();
+      start_latch.count_down();
+      for thread in threads {
+        match thread.join() {
+          Ok(result) => result?,
+          Err(payload) => {
+            return Err(LuceneError::tragedy_from_panic(
+              "panic while applying soft updates",
+              payload.as_ref(),
+            ));
+          },
+        }
+      }
+      Ok(())
+    })?;
+
+    let mut reader = Arc::new(directory_reader::open_from_writer(&writer)?);
+    let reader_result = (|| -> Result<()> {
+      let ids = ids.lock().expect("ids mutex poisoned").clone();
+      let searcher = new_searcher_with_reader(reader.clone())?;
+      for id in &ids {
+        let top_docs = searcher.search(TermQuery::new(Term::from_text("id", id)), 10)?;
+        if update_several_docs {
+          assert_eq!(2, top_docs.total_hits.value());
+          assert_eq!(
+            1,
+            (top_docs.score_docs[0].doc - top_docs.score_docs[1].doc).abs()
+          );
+        } else {
+          assert_eq!(1, top_docs.total_hits.value());
+        }
+      }
+      drop(searcher);
+      if !mix_deletes {
+        for context in reader.clone().get_context()?.leaves()? {
+          assert!(context.reader().get_hard_live_docs()?.is_none());
+        }
+      }
+
+      merge_away_soft_deletes.store(true, SeqCst);
+      writer.add_document(Document::new())?; // Add a dummy doc to trigger a segment here.
+      writer.flush()?;
+      writer.force_merge(1)?;
+      if let Some(new_reader) =
+        directory_reader::open_if_changed_with_writer(reader.as_ref(), &writer)?
+      {
+        reader.close()?;
+        reader = Arc::new(new_reader);
+      }
+      for id in &ids {
+        if update_several_docs {
+          assert_eq!(2, reader.doc_freq(&Term::from_text("id", id))?);
+        } else {
+          assert_eq!(1, reader.doc_freq(&Term::from_text("id", id))?);
+        }
+      }
+      let mut num_soft_deleted = 0;
+      for info in writer.clone_segment_infos()?.iter() {
+        num_soft_deleted += info.get_soft_del_count() + info.get_del_count();
+      }
+      let doc_stats = writer.get_doc_stats()?;
+      assert_eq!(doc_stats.max_doc - doc_stats.num_docs, num_soft_deleted);
+      writer.commit()?;
+
+      let dir_reader = Arc::new(directory_reader::open(dir.clone())?);
+      let dir_reader_result = (|| -> Result<()> {
+        let mut del_count = 0;
+        for context in dir_reader.clone().get_context()?.leaves()? {
+          let segment_info = context.reader().get_segment_info();
+          del_count += segment_info.get_soft_del_count() + segment_info.get_del_count();
+        }
+        assert_eq!(num_soft_deleted, del_count);
+        Ok(())
+      })();
+      IOUtils::use_or_suppress_result(dir_reader_result, dir_reader.close())
+    })();
+    IOUtils::use_or_suppress_result(reader_result, reader.close())
+  })();
+
+  let close_result = IOUtils::use_or_suppress_result(writer.close(), dir.close());
+  IOUtils::use_or_suppress_result(body_result, close_result)
 }
 
 #[test]
@@ -4380,8 +4543,92 @@ fn test_segment_info_is_snapshot() -> Result<()> {
 
 #[test]
 fn test_prevent_changing_soft_deletes_field() -> Result<()> {
-  // TODO IMPORTANT SoftDeletesRetentionMergePolicy未实现
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random)?;
+  config.set_soft_deletes_field("my_deletes");
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  let mut v1 = Document::new();
+  v1.add(StringField::from_string("id", "1", Store::Yes)?);
+  v1.add(StringField::from_string("version", "1", Store::Yes)?);
+  writer.add_document(v1)?;
+  let mut v2 = Document::new();
+  v2.add(StringField::from_string("id", "1", Store::Yes)?);
+  v2.add(StringField::from_string("version", "2", Store::Yes)?);
+  writer.soft_update_document(
+    Term::from_text("id", "1"),
+    v2,
+    vec![NumericDocValuesField::new("my_deletes", 1).into()],
+  )?;
+  writer.commit()?;
+  writer.close()?;
+  drop(writer);
+
+  for si in SegmentInfos::read_latest_commit(dir.clone())?.iter() {
+    let field_infos = read_field_infos(si)?;
+    assert_eq!(
+      Some("my_deletes"),
+      field_infos.get_soft_deletes_field().map(String::as_str)
+    );
+    assert!(
+      field_infos
+        .field_info_by_name("my_deletes")
+        .expect("soft-deletes field should exist")
+        .is_soft_deletes_field()
+    );
+  }
+
+  let mut config = new_index_writer_config(&mut random)?;
+  config.set_soft_deletes_field("your_deletes");
+  let illegal_error = IndexWriter::new(dir.clone(), config)
+    .err()
+    .expect("changing the soft-deletes field should fail");
+  assert!(matches!(illegal_error, LuceneError::IllegalArgument(_)));
+  assert_eq!(
+    "cannot configure [your_deletes] as soft-deletes; this index uses [my_deletes] as soft-deletes already",
+    illegal_error.to_string()
+  );
+
+  let mut soft_delete_config = new_index_writer_config(&mut random)?;
+  soft_delete_config.set_soft_deletes_field("my_deletes");
+  soft_delete_config.set_merge_policy(SoftDeletesRetentionMergePolicy::new(
+    "my_deletes",
+    || Ok(MatchAllDocsQuery::new().into()),
+    new_merge_policy(&mut random)?,
+  ));
+  let writer = IndexWriter::new(dir.clone(), soft_delete_config)?;
+  let mut tombstone = Document::new();
+  tombstone.add(StringField::from_string("id", "tombstone", Store::Yes)?);
+  tombstone.add(NumericDocValuesField::new("my_deletes", 1));
+  writer.add_document(tombstone)?;
+  writer.flush()?;
+  for si in writer.clone_segment_infos()?.iter() {
+    let field_infos = read_field_infos(si)?;
+    assert_eq!(
+      Some("my_deletes"),
+      field_infos.get_soft_deletes_field().map(String::as_str)
+    );
+    assert!(
+      field_infos
+        .field_info_by_name("my_deletes")
+        .expect("soft-deletes field should exist")
+        .is_soft_deletes_field()
+    );
+  }
+  writer.close()?;
+  drop(writer);
+
+  // Reopening a writer without a soft-deletes field should be prevented.
+  let config = new_index_writer_config(&mut random)?;
+  let reopen_error = IndexWriter::new(dir.clone(), config)
+    .err()
+    .expect("omitting the configured soft-deletes field should fail");
+  assert!(matches!(reopen_error, LuceneError::IllegalArgument(_)));
+  assert_eq!(
+    "this index has [my_deletes] as soft-deletes already but soft-deletes field is not configured in IWC",
+    reopen_error.to_string()
+  );
+  dir.close()
 }
 #[test]
 fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()> {
