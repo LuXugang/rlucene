@@ -296,7 +296,7 @@ where
   D: Directory,
 {
   fn check_integrity(&self) -> Result<()> {
-    let _ = CodecUtil::checksum_entire_file(&*self.handle.lock())?;
+    CodecUtil::checksum_entire_file(&*self.handle.lock())?;
     Ok(())
   }
 }

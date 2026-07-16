@@ -29,7 +29,7 @@ use crate::core::store::{
   DataInput, DataOutput, FSDirectory, IOContext, IndexInput, NativeFSLockFactory,
 };
 use crate::core::util::clone::TryClone;
-use crate::core::util::close::CloseableRef;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
@@ -466,7 +466,48 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
     R: Rng + ?Sized,
   {
     let _ = random;
-    test_not_required_in_rust_lucene!();
+    let slice_size = 128;
+    let temp_dir = create_temp_dir_with_prefix("testSeekingExceptions")?;
+    let mmap_dir =
+      self.get_directory_with_max_chunk_size(temp_dir.path().to_path_buf(), slice_size)?;
+    let size = 128 + 63;
+    {
+      let mut out = mmap_dir.create_output("a", &IOContext::default_io_context()?)?;
+      for _ in 0..size {
+        out.write_byte(0)?;
+      }
+      out.close()?;
+    }
+
+    let mut input = mmap_dir.open_input("a", &IOContext::default_io_context()?)?;
+
+    // TODO IMPORTANT: Java verifies the error for seek(-1234). Rust's
+    // IndexInput::seek accepts usize, so a negative position cannot be
+    // represented at this API boundary.
+
+    let pos_after_eof = size + 123;
+    let eof = input.seek(pos_after_eof).unwrap_err();
+    assert!(matches!(&eof, LuceneError::Eof(_)));
+    assert!(
+      eof.to_string().contains(&format!("pos={pos_after_eof}")),
+      "wrong position in error message: {eof}"
+    );
+
+    // This verifies that an invalid position is reported relative to the
+    // slice, rather than being transformed to its position in the parent.
+    let mut slice = input.slice("slice", 33, slice_size + 15)?;
+    Self::assert_correct_impl(false, &slice)?;
+    let eof = slice.seek(pos_after_eof).unwrap_err();
+    assert!(matches!(&eof, LuceneError::Eof(_)));
+    assert!(
+      eof.to_string().contains(&format!("pos={pos_after_eof}")),
+      "wrong position in error message: {eof}"
+    );
+
+    CloseableRef::close(&slice)?;
+    CloseableRef::close(&input)?;
+    CloseableRef::close(&mmap_dir)?;
+    Ok(())
   }
 
   fn test_clone_safety<R>(&self, random: &mut R) -> Result<()>

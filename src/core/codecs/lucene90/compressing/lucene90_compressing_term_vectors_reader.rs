@@ -977,7 +977,7 @@ where
 {
   fn check_integrity(&self) -> Result<()> {
     self.index_reader.check_integrity()?;
-    let _ = CodecUtil::checksum_entire_file(&self.vectors_stream)?;
+    CodecUtil::checksum_entire_file(&self.vectors_stream)?;
     Ok(())
   }
 

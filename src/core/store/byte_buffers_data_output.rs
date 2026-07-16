@@ -205,7 +205,6 @@ impl ByteBuffersDataOutput {
   where
     DA: DataOutput,
   {
-    debug_assert!(!self.blocks.is_empty());
     for (index, block) in self.blocks.iter().enumerate() {
       if index == self.current_block_index {
         let end = block.position() as usize;
@@ -224,6 +223,9 @@ impl ByteBuffersDataOutput {
   }
   /// The number of bytes written to this output so far.
   pub fn size(&self) -> usize {
+    if self.blocks.is_empty() {
+      return 0;
+    }
     let mut size = 0;
     let block_count = self.current_block_index + 1;
     if block_count >= 1 {
@@ -252,6 +254,8 @@ impl ByteBuffersDataOutput {
       for block in &mut self.blocks {
         let _ = block.rewind();
       }
+    } else {
+      self.blocks = VecDeque::new();
     }
     self.current_block_index = 0;
   }
@@ -325,7 +329,7 @@ impl ByteBuffersDataOutput {
   /// See [`get_array_copy`](Self::get_array_copy) Before use this method.
   pub fn try_get_array_ownership(&mut self) -> Vec<u8> {
     match self.blocks.len() {
-      0 => vec![0u8; 1 << self.block_bits],
+      0 => Vec::new(),
       // If the number of blocks is 1, take ownership to avoid copying.
       1 => {
         let cursor = self.blocks.front_mut().unwrap();
@@ -373,6 +377,12 @@ impl ByteBuffersDataOutput {
   }
 
   fn append_block_if_needed(&mut self) -> Result<usize> {
+    if self.blocks.is_empty() {
+      self
+        .blocks
+        .push_back(Cursor::new(vec![0u8; 1 << self.block_bits]));
+      self.current_block_index = 0;
+    }
     let mut last_block = self.blocks.get_mut(self.current_block_index).unwrap();
     if last_block.remain()? == 0 {
       if self.reuse && self.current_block_index < self.blocks.len() - 1 {

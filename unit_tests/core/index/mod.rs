@@ -36,6 +36,7 @@ mod test_docs_with_field_set;
 mod test_exceed_max_term_length;
 mod test_field_reuse;
 mod test_filter_index_input;
+mod test_for_too_much_cloning;
 mod test_index_input;
 mod test_index_many_documents;
 mod test_index_options;

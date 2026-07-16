@@ -17,10 +17,14 @@
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, random, random_from_seed,
 };
+use std::io::Cursor;
+use std::mem::size_of;
+
 use rand::RngExt;
 
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::{ByteArrayDataInput, ByteBuffersDataOutput};
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::store::base_data_output_test_case::{
   BaseDataOutputTestCase, add_random_data,
@@ -147,13 +151,14 @@ fn test_sanity() -> Result<()> {
 
   assert_eq!(o.size(), 0);
   assert_eq!(o.get_array_copy().len(), 0);
-  // TODO
-  // assert_eq!(o.ram_bytes_used(), 0);
+  // Java allocates its first block lazily and therefore reports zero here.
+  // Rust eagerly retains the first reusable block, so it must be accounted for.
+  let initial_ram_bytes_used = o.ram_bytes_used()?;
+  assert!(initial_ram_bytes_used > 0);
 
   o.write_byte(1)?;
   assert_eq!(o.size(), 1);
-  // TODO
-  // assert!(o.ram_bytes_used() > 0);
+  assert_eq!(initial_ram_bytes_used, o.ram_bytes_used()?);
   assert_eq!(o.get_array_copy(), vec![1]);
 
   o.write_bytes_with_len(&[2, 3, 4], 3)?;
@@ -264,9 +269,55 @@ fn test_to_writeable_buffer_list_returns_original_buffers() -> Result<()> {
 }
 
 #[test]
-fn test_ram_bytes_used() {
-  // TODO
+fn test_ram_bytes_used() -> Result<()> {
+  let mut out = ByteBuffersDataOutput::new();
+  // Java allocates lazily and expects no retained RAM for an empty output.
+  // Rust eagerly allocates its first block, so the empty output retains RAM.
+  let empty_ram_bytes_used = out.ram_bytes_used()?;
+  assert!(empty_ram_bytes_used >= compute_ram_bytes_used(&out));
+
+  // A non-empty buffer requires RAM, but writing into the eagerly allocated
+  // first block does not require another allocation.
+  out.write_int(4)?;
+  assert_eq!(empty_ram_bytes_used, out.ram_bytes_used()?);
+  assert!(out.ram_bytes_used()? >= compute_ram_bytes_used(&out));
+
+  // Make sure this keeps working with multiple backing buffers.
+  while out.to_buffer_list_ref().1.len() < 2 {
+    out.write_long(42)?;
+  }
+  let multiple_buffers_ram_bytes_used = out.ram_bytes_used()?;
+  assert!(multiple_buffers_ram_bytes_used > empty_ram_bytes_used);
+  assert!(multiple_buffers_ram_bytes_used >= compute_ram_bytes_used(&out));
+
+  // Make sure this keeps working when increasing the block size.
+  let current_block_capacity = out.to_buffer_list_ref().1[0].get_ref().len();
+  while out.to_buffer_list_ref().1[0].get_ref().len() == current_block_capacity {
+    out.write_long(42)?;
+  }
+  let increased_block_ram_bytes_used = out.ram_bytes_used()?;
+  assert!(increased_block_ram_bytes_used >= compute_ram_bytes_used(&out));
+
+  // Back to zero after a clear.
+  out.reset();
+  assert_eq!(0, out.size());
+  let reset_ram_bytes_used = out.ram_bytes_used()?;
+  assert_eq!(0, reset_ram_bytes_used);
+  assert_eq!(compute_ram_bytes_used(&out), reset_ram_bytes_used);
+
+  // And back to non-empty.
+  out.write_int(4)?;
+  assert!(out.ram_bytes_used()? > reset_ram_bytes_used);
+  assert!(out.ram_bytes_used()? >= compute_ram_bytes_used(&out));
+  Ok(())
 }
-fn compute_ram_bytes_used() {
-  // TODO
+
+fn compute_ram_bytes_used(out: &ByteBuffersDataOutput) -> i64 {
+  let (_, buffers) = out.to_buffer_list_ref();
+  let buffer_bytes = buffers
+    .iter()
+    .map(|buffer| buffer.get_ref().len())
+    .sum::<usize>();
+  let initialized_cursor_bytes = buffers.len().saturating_mul(size_of::<Cursor<Vec<u8>>>());
+  buffer_bytes.saturating_add(initialized_cursor_bytes) as i64
 }

@@ -175,7 +175,7 @@ impl MMapDirectory {
   /// Returns whether this platform supports advising the kernel with
   /// `madvise`.
   pub fn supports_madvise() -> bool {
-    cfg!(unix)
+    cfg!(any(target_os = "linux", target_os = "macos"))
   }
 
   fn chunk_size_power(max_chunk_size: u64) -> Result<u32> {

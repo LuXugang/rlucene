@@ -148,7 +148,12 @@ fn test_null_params_index_input() -> Result<()> {
 
 #[test]
 fn test_madvise_avail() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  assert_eq!(
+    cfg!(any(target_os = "linux", target_os = "macos")),
+    MMapDirectory::supports_madvise(),
+    "madvise should be supported on Linux and macOS"
+  );
+  Ok(())
 }
 
 #[test]
