@@ -627,7 +627,7 @@ where
   }
 
   fn check_integrity(&self) -> Result<()> {
-    let _ = CodecUtil::checksum_entire_file(&self.data);
+    CodecUtil::checksum_entire_file(&self.data)?;
     Ok(())
   }
 
