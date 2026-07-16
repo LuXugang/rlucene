@@ -5243,7 +5243,7 @@ fn test_random_operations_with_soft_deletes() -> Result<()> {
             if min < max && random.random_bool(0.5) {
               let _ = retaining_seq_no.compare_exchange(
                 min,
-                min - random.random_range(0..(max - min)),
+                min.wrapping_sub(random.random_range(0..max.wrapping_sub(min))),
                 SeqCst,
                 SeqCst,
               );
