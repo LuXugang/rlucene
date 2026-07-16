@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
