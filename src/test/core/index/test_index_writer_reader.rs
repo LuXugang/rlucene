@@ -621,8 +621,8 @@ fn test_after_close() -> Result<()> {
   Ok(())
 }
 #[cfg(feature = "nightly")]
-#[ignore = "nightly"]
 #[test]
+#[ignore = "nightly"]
 fn test_during_add_indexes() -> Result<()> {
   use crate::core::store::directory::DirectoryEnum2;
 

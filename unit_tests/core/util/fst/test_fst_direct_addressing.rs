@@ -70,8 +70,8 @@ fn test_de_dup_tails() -> Result<()> {
   Ok(())
 }
 
-#[test]
 #[cfg(feature = "nightly")]
+#[test]
 #[ignore = "nightly"]
 fn test_worst_case_for_direct_addressing() -> Result<()> {
   const MEMORY_INCREASE_LIMIT_PERCENT: f64 = 1.0;

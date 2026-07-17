@@ -16,6 +16,26 @@
  */
 pub(crate) mod force_merge_policy;
 mod mismatched_codec_reader;
+#[cfg(feature = "monster")]
+mod test_2b_binary_doc_values;
+#[cfg(feature = "monster")]
+mod test_2b_docs;
+#[cfg(feature = "monster")]
+mod test_2b_numeric_doc_values;
+#[cfg(feature = "monster")]
+mod test_2b_points;
+#[cfg(feature = "monster")]
+mod test_2b_positions;
+#[cfg(feature = "nightly")]
+mod test_2b_postings;
+#[cfg(feature = "monster")]
+mod test_2b_postings_bytes;
+#[cfg(feature = "monster")]
+mod test_2b_sorted_doc_values_fixed_sorted;
+#[cfg(feature = "monster")]
+mod test_2b_sorted_doc_values_ords;
+#[cfg(feature = "monster")]
+mod test_4gb_stored_fields;
 mod test_all_file_have_codec_header;
 mod test_all_files_check_index_header;
 mod test_all_files_detect_mismatched_checksum;
@@ -64,7 +84,7 @@ mod test_no_merge_scheduler;
 mod test_non_flex;
 mod test_nrt_reader_cleanup;
 mod test_nrt_reader_with_threads;
-mod test_nrt_threads;
+pub(crate) mod test_nrt_threads;
 mod test_numeric_doc_values_field_updates;
 mod test_omit_norms;
 mod test_omit_positions;

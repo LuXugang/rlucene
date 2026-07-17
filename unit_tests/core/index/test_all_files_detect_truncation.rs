@@ -202,7 +202,7 @@ where
 
     // CheckIndex should also fail:
     let mut output = Vec::new();
-    if CheckIndex::check_index(
+    if CheckIndex::check_index_with_output(
       dir_copy.clone(),
       Level::MIN_LEVEL_FOR_SLOW_CHECKS,
       true,

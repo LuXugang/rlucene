@@ -44,7 +44,14 @@ pub struct PointsStatus {
 }
 
 impl CheckIndex {
-  pub fn check_index<D, W>(
+  pub fn check_index<D>(_directory: Arc<D>) -> Result<Status>
+  where
+    D: Directory + 'static,
+  {
+    // todo
+    Ok(Status::default())
+  }
+  pub fn check_index_with_output<D, W>(
     directory: Arc<D>,
     level: i32,
     _cross_check_term_vectors: bool,

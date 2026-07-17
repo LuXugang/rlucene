@@ -2434,6 +2434,7 @@ fn test_too_many_file_exception() -> Result<()> {
 }
 
 // kind of slow, but omits positions, so just CPU
+#[cfg(feature = "nightly")]
 #[test]
 #[ignore = "nightly"]
 fn test_too_many_tokens() -> Result<()> {

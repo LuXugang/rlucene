@@ -185,6 +185,10 @@ impl ThreadedIndexingAndSearchingTestCase for TestNRTThreads {
 #[test]
 fn test_nrt_threads() -> Result<()> {
   let mut random = random();
+  run_nrt_threads(&mut random)
+}
+
+pub(crate) fn run_nrt_threads(random: &mut StdRng) -> Result<()> {
   let test = TestNRTThreads::new(random.random_bool(0.5));
-  test.run_test(&mut random, "TestNRTThreads")
+  test.run_test(random, "TestNRTThreads")
 }

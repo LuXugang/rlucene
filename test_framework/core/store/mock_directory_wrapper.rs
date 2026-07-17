@@ -73,7 +73,7 @@ impl ThrottledOutputTemplate {
   }
 }
 
-pub(crate) enum Throttling {
+pub enum Throttling {
   /// always emulate a slow hard disk. could be very slow!
   Always,
   /// sometimes (0.5% of the time) emulate a slow hard disk.

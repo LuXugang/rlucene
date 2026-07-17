@@ -919,7 +919,7 @@ fn test_check_index_includes_points() -> Result<()> {
   w.close()?;
 
   let mut output = Vec::new();
-  let status = CheckIndex::check_index(
+  let status = CheckIndex::check_index_with_output(
     dir,
     Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS,
     true,
