@@ -87,14 +87,6 @@ where
   pub fn get_subs(&self) -> &[EnumWithSlice] {
     &self.subs
   }
-  pub fn take_postings_enums(&mut self) -> Vec<Option<PE>> {
-    let len = self.sub_postings_enums.len();
-    let v = std::mem::take(&mut self.sub_postings_enums);
-    for _ in 0..len {
-      self.sub_postings_enums.push(None)
-    }
-    v
-  }
   pub fn postings_enums_mut(&mut self) -> &mut [Option<PE>] {
     self.sub_postings_enums.as_mut()
   }

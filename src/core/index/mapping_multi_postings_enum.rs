@@ -65,21 +65,21 @@ where
     })
   }
   pub(crate) fn reset(&mut self, mut postings_enum: MultiPostingsEnum<PE>) -> Result<&mut Self> {
-    let mut postings = postings_enum.take_postings_enums();
-    let subs_array = postings_enum.get_subs();
     let count = postings_enum.get_num_subs() as usize;
+    let active_subs = postings_enum
+      .get_subs()
+      .iter()
+      .take(count)
+      .map(|sub| (sub.slice.get_reader_index() as usize, sub.postings_enum_idx))
+      .collect::<Vec<_>>();
 
     self.doc_id_merger.clear_subs();
     self.idxs.clear();
-    for enum_with_slice in subs_array.iter().take(count) {
-      let reader_index = enum_with_slice.slice.get_reader_index() as usize;
-
+    for (reader_index, postings_enum_idx) in active_subs {
       let sub = &mut self.all_subs[reader_index];
-      sub.postings = postings[enum_with_slice.postings_enum_idx].take();
+      sub.postings = postings_enum.postings_enums_mut()[postings_enum_idx].take();
 
-      self
-        .idxs
-        .push((reader_index, enum_with_slice.postings_enum_idx));
+      self.idxs.push((reader_index, postings_enum_idx));
     }
 
     let subs = self.doc_id_merger.get_subs_vec();
