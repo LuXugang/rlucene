@@ -18,7 +18,6 @@ use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
 
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::error::lucene_error::Result;
@@ -32,7 +31,15 @@ pub struct TestFixedBitDocIdSet;
 impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
   type DocIdSet = BitDocIdSet<FixedBitSet>;
 
-  fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet> {
+  fn copy_of<R>(
+    &self,
+    _random: &mut R,
+    bs: &bit_set::BitSet,
+    length: usize,
+  ) -> Result<Self::DocIdSet>
+  where
+    R: Rng + ?Sized,
+  {
     let mut set = FixedBitSet::new(length);
     let iter = bs.iter();
     for doc in iter {
@@ -46,7 +53,7 @@ impl BaseDocIdSetTestCase for TestFixedBitDocIdSet {
     random: &mut R,
     num_bits: usize,
     ds1: &bit_set::BitSet,
-    ds2: impl DocIdSet,
+    ds2: Self::DocIdSet,
   ) -> Result<()>
   where
     R: Rng + ?Sized,

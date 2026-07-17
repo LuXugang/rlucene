@@ -55,6 +55,7 @@ mod test_radix_selector;
 mod test_roaring_doc_id_set;
 mod test_sloppy_math;
 mod test_small_float;
+mod test_sparse_fixed_bit_doc_id_set;
 mod test_sparse_fixed_bit_set;
 mod test_stable_msb_radix_sorter;
 mod test_string_helper;

@@ -14,39 +14,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::sync::Arc;
+
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
+use rand::seq::SliceRandom;
 
-use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::util::error::lucene_error::Result;
-use crate::core::util::int_array_doc_id_set::IntArrayDocIdSet;
+use crate::core::search::doc_id_set::DocIdSet;
+use crate::core::util::bit_doc_id_set::BitDocIdSet;
+use crate::core::util::bit_set::BitSet;
+use crate::core::util::bits::Bits;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::util_tests::base_doc_id_set_test_case::{
   BaseDocIdSetTestCase, BaseDocIdSetTestCaseSupperImpl,
 };
 
-pub struct TestIntArrayDocIdSet;
+#[allow(dead_code)] // for quick search
+struct TestSparseFixedBitDocIdSet;
 
-impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
-  type DocIdSet = IntArrayDocIdSet;
+impl BaseDocIdSetTestCase for TestSparseFixedBitDocIdSet {
+  type DocIdSet = BitDocIdSet<Arc<SparseFixedBitSet>>;
 
   fn copy_of<R>(
     &self,
-    _random: &mut R,
+    random: &mut R,
     bs: &bit_set::BitSet,
-    _length: usize,
+    length: usize,
   ) -> Result<Self::DocIdSet>
   where
     R: Rng + ?Sized,
   {
-    let mut docs: Vec<i32> = vec![];
-    let iter = bs.iter();
-    for doc in iter {
-      docs.push(doc as i32);
+    let mut set = SparseFixedBitSet::new(length)?;
+    // SparseFixedBitSet can be sensitive to the order of insertion so
+    // randomize insertion a bit
+    let mut buffer = Vec::new();
+    for doc in bs.iter() {
+      buffer.push(doc);
+      if buffer.len() >= 100_000 {
+        buffer.shuffle(random);
+        for &i in &buffer {
+          set.set(i);
+        }
+        buffer.clear();
+      }
     }
-    let l = docs.len() as i32;
-    docs.push(NO_MORE_DOCS);
-    IntArrayDocIdSet::new(docs, l)
+    buffer.shuffle(random);
+    for i in buffer {
+      set.set(i);
+    }
+    let cost = set.approximate_cardinality() as i64;
+    BitDocIdSet::with_cost(Some(Arc::new(set)), cost)
   }
 
   fn assert_equals<R>(
@@ -59,20 +78,27 @@ impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
   where
     R: Rng + ?Sized,
   {
+    let bits = ds2
+      .bits()
+      .ok_or_else(|| LuceneError::illegal_state("bits must not be None"))?;
+    for i in 0..num_bits {
+      assert_eq!(ds1.contains(i), bits.get(i)?);
+    }
+    assert_eq!(ds1.count(), bits.cardinality());
     BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
   }
 }
 
 fn run_case<F>(f: F) -> Result<()>
 where
-  F: FnOnce(&TestIntArrayDocIdSet, &mut StdRng) -> Result<()>,
+  F: FnOnce(&TestSparseFixedBitDocIdSet, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestIntArrayDocIdSet;
+  let case = TestSparseFixedBitDocIdSet;
   f(&case, &mut random)
 }
 
-impl BaseDocIdSetTestCaseSupperImpl for TestIntArrayDocIdSet {}
+impl BaseDocIdSetTestCaseSupperImpl for TestSparseFixedBitDocIdSet {}
 
 mod base_doc_id_set_test_case {
   use super::*;

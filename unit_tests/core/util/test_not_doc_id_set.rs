@@ -32,7 +32,15 @@ pub struct TestNotDocIdSet;
 impl BaseDocIdSetTestCase for TestNotDocIdSet {
   type DocIdSet = BitDocIdSet<FixedBitSet>;
 
-  fn copy_of(&self, bs: &bit_set::BitSet, length: usize) -> Result<Self::DocIdSet> {
+  fn copy_of<R>(
+    &self,
+    _random: &mut R,
+    bs: &bit_set::BitSet,
+    length: usize,
+  ) -> Result<Self::DocIdSet>
+  where
+    R: Rng + ?Sized,
+  {
     let mut set = FixedBitSet::new(length);
     let iter = bs.iter();
     for doc in iter {
@@ -46,7 +54,7 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
     random: &mut R,
     num_bits: usize,
     ds1: &bit_set::BitSet,
-    ds2: impl DocIdSet,
+    ds2: Self::DocIdSet,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
