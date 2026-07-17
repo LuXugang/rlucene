@@ -424,6 +424,7 @@ where
       self.info.max_doc()?,
       self.info.get_id_key().to_string(),
       self.del_gen != -1,
+      self.soft_del_count != 0,
     ))
   }
 }
@@ -451,17 +452,25 @@ where
   max_doc: Option<i32>,
   pub(crate) id: String,
   has_deletions: Option<bool>,
+  has_soft_deletions: Option<bool>,
 }
 impl<D> SegmentCommitInfoMeta<D>
 where
   D: Directory,
 {
-  pub(crate) fn with_deletions(dir: Arc<D>, max_doc: i32, id: String, has_deletions: bool) -> Self {
+  pub(crate) fn with_deletions(
+    dir: Arc<D>,
+    max_doc: i32,
+    id: String,
+    has_deletions: bool,
+    has_soft_deletions: bool,
+  ) -> Self {
     Self {
       dir,
       max_doc: Some(max_doc),
       id,
       has_deletions: Some(has_deletions),
+      has_soft_deletions: Some(has_soft_deletions),
     }
   }
   pub(crate) fn new(dir: Arc<D>, id: String) -> Self {
@@ -470,12 +479,18 @@ where
       max_doc: None,
       id,
       has_deletions: None,
+      has_soft_deletions: None,
     }
   }
   pub(crate) fn has_deletions(&self) -> Result<bool> {
     self
       .has_deletions
       .ok_or_else(|| LuceneError::illegal_argument("deletions not init, could not be used"))
+  }
+  pub(crate) fn has_soft_deletions(&self) -> Result<bool> {
+    self
+      .has_soft_deletions
+      .ok_or_else(|| LuceneError::illegal_argument("soft deletions not init, could not be used"))
   }
   pub(crate) fn max_doc(&self) -> Result<i32> {
     self

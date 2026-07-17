@@ -45,7 +45,12 @@ impl PendingSoftDeletes {
   where
     D: Directory,
   {
-    let base = PendingDeletes::new(info)?;
+    let base = PendingDeletes::with(
+      info.id.clone(),
+      None,
+      !info.has_deletions()? && !info.has_soft_deletions()?,
+      info.max_doc()?,
+    );
     let hard_deletes = PendingDeletes::new(info)?;
     Ok(Self {
       field: field.to_string(),
