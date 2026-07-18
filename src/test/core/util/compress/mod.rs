@@ -14,3 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+pub(crate) mod lz4_test_case;
+mod test_fast_lz4;
+mod test_high_lz4;
+mod test_lowercase_ascii_compression;

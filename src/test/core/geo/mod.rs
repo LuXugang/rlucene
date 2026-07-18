@@ -14,3 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+mod test_circle;
+mod test_circle2d;
+mod test_geo_encoding_utils;
+mod test_geo_utils;
+mod test_line2d;
+mod test_point;
+mod test_point2d;
+mod test_polygon;
+mod test_polygon2d;
+mod test_rectangle2d;
+mod test_xy_circle;
+mod test_xy_line;
+mod test_xy_point;
+mod test_xy_polygon;
+mod test_xy_rectangle;

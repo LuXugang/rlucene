@@ -15,3 +15,5 @@
  * limitations under the License.
  */
 mod test_half_float_point;
+
+mod test_big_integer_point;

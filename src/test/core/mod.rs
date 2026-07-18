@@ -23,3 +23,7 @@ pub(crate) mod internal;
 pub(crate) mod search;
 pub(crate) mod store;
 pub(crate) mod util;
+
+mod test_demo;
+mod test_search;
+mod test_search_for_duplicates;

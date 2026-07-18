@@ -16,3 +16,10 @@
  */
 mod test_hnsw_util;
 mod test_neighbor_array;
+
+mod test_blocking_float_heap;
+mod test_float_heap;
+pub mod test_hnsw_byte_vector_graph;
+pub mod test_hnsw_float_vector_graph;
+mod test_neighbor_queue;
+mod test_on_heap_hnsw_graph;

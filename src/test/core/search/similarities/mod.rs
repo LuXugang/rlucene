@@ -15,3 +15,7 @@
  * limitations under the License.
  */
 mod test_classic_similarity;
+
+mod test_bm25_similarity;
+mod test_raw_tf_similarity;
+mod test_similarity2;

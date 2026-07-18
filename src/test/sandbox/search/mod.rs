@@ -15,3 +15,5 @@
  * limitations under the License.
  */
 pub mod test_large_num_hits_top_docs_collector;
+
+mod test_lat_lon_bounding_box_queries;

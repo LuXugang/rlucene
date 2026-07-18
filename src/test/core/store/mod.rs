@@ -16,3 +16,28 @@
  */
 mod test_single_instance_lock_factory;
 mod test_tracking_directory_wrapper;
+
+mod test_buffered_checksum;
+mod test_buffered_index_input;
+mod test_byte_array_data_input;
+mod test_byte_buffers_data_input;
+mod test_byte_buffers_data_output;
+mod test_byte_buffers_directory;
+mod test_checksum_index_input;
+mod test_directory;
+mod test_file_switch_directory;
+mod test_filter_directory;
+mod test_filter_index_output;
+mod test_index_output_alignment;
+mod test_input_stream_data_input;
+mod test_lock_factory;
+mod test_mmap_directory;
+mod test_mock_directory_wrapper;
+mod test_multi_byte_buffers_directory;
+pub mod test_multi_mmap;
+mod test_native_fs_lock_factory;
+mod test_nio_fs_directory;
+mod test_output_stream_index_output;
+mod test_rate_limiter;
+mod test_simple_fs_lock_factory;
+mod test_sleeping_lock_wrapper;
