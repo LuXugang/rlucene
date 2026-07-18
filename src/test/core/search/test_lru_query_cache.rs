@@ -635,8 +635,8 @@ fn test_stats() -> Result<()> {
     w.add_document(&mut random, string_doc("color", color, Store::No)?)?;
   }
 
-  let reader = w.get_reader(&mut random)?;
-  let mut searcher = new_searcher_with_reader(reader)?;
+  let reader = Arc::new(w.get_reader(&mut random)?);
+  let mut searcher = new_searcher_with_reader(reader.clone())?;
   let segment_count = searcher.get_leaf_contexts()?.len() as u64;
   let query: Query = TermQuery::new(Term::from_text("color", "red")).into();
   let query2: Query = TermQuery::new(Term::from_text("color", "blue")).into();
@@ -690,8 +690,17 @@ fn test_stats() -> Result<()> {
   assert_eq!(segment_count as i64, query_cache.get_eviction_count());
   assert_eq!(segment_count as i64, query_cache.get_cache_size());
 
-  w.close(&mut random)
-  // TODO IMPORTANT add_close_listener未实现
+  // now close, causing evictions due to the closing of segment cores
+  reader.close()?;
+  w.close(&mut random)?;
+  assert_eq!(40 * segment_count, query_cache.get_total_count());
+  assert_eq!(28 * segment_count, query_cache.get_hit_count());
+  assert_eq!(12 * segment_count, query_cache.get_miss_count());
+  assert_eq!((2 * segment_count) as i64, query_cache.get_cache_count());
+  assert_eq!((2 * segment_count) as i64, query_cache.get_eviction_count());
+  assert_eq!(0, query_cache.get_cache_size());
+
+  dir.close()
 }
 
 #[test]
