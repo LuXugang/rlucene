@@ -19,15 +19,32 @@ use crate::core::document::field::Store;
 use crate::core::document::keyword_field::KeywordField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::BytesRef;
+use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::core::index::base_composite_reader::{
+  BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
+};
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
+use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
+use crate::core::index::filter_leaf_reader::FilterLeafReader;
+use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::index_reader::{
+  CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
+};
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::leaf_metadata::LeafMetaData;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
+use crate::core::index::terms::Terms;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::multi_term_query::DOC_VALUES_REWRITE;
 use crate::core::search::query::{IntoQuery, Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
@@ -37,8 +54,12 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
+use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::core_helper::CoreHelper;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::query_utils::QueryUtils;
@@ -50,6 +71,9 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestTermInSetQuery;
@@ -474,10 +498,585 @@ fn test_ram_bytes_used() -> Result<()> {
   Ok(())
 }
 
+struct TermsCountingDirectoryReaderWrapper<DR>
+where
+  DR: DirectoryReader,
+{
+  in_: DR,
+  counter: Arc<AtomicI32>,
+  base: BaseCompositeReaderBase<TermsCountingLeafReaderWrapper<DR::LeafReader>>,
+  index_base: IndexReaderBase,
+}
+
+impl<DR> TermsCountingDirectoryReaderWrapper<DR>
+where
+  DR: DirectoryReader,
+{
+  fn new(in_: DR, counter: Arc<AtomicI32>) -> Result<Self> {
+    let wrapper = TermsCountingSubReaderWrapper::new(counter.clone());
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None)?;
+    Ok(Self {
+      in_,
+      counter,
+      base,
+      index_base: IndexReaderBase::new(),
+    })
+  }
+}
+
+struct TermsCountingSubReaderWrapper {
+  counter: Arc<AtomicI32>,
+}
+
+impl TermsCountingSubReaderWrapper {
+  fn new(counter: Arc<AtomicI32>) -> Self {
+    Self { counter }
+  }
+}
+
+impl<LR> SubReaderWrapper<LR> for TermsCountingSubReaderWrapper
+where
+  LR: LeafReader,
+{
+  type LeafReader1 = Self::LeafReader2;
+
+  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers)
+  }
+
+  type LeafReader2 = TermsCountingLeafReaderWrapper<LR>;
+
+  fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
+    Ok(TermsCountingLeafReaderWrapper::new(
+      reader,
+      self.counter.clone(),
+    ))
+  }
+}
+
+struct TermsCountingLeafReaderWrapper<LR>
+where
+  LR: LeafReader,
+{
+  in_: LR,
+  counter: Arc<AtomicI32>,
+  index_base: IndexReaderBase,
+}
+
+impl<LR> TermsCountingLeafReaderWrapper<LR>
+where
+  LR: LeafReader,
+{
+  fn new(in_: LR, counter: Arc<AtomicI32>) -> Self {
+    Self {
+      in_,
+      counter,
+      index_base: IndexReaderBase::new(),
+    }
+  }
+}
+
+impl<LR> Clone for TermsCountingLeafReaderWrapper<LR>
+where
+  LR: LeafReader + Clone,
+{
+  fn clone(&self) -> Self {
+    Self::new(self.in_.clone(), self.counter.clone())
+  }
+}
+
+impl<LR> Display for TermsCountingLeafReaderWrapper<LR>
+where
+  LR: LeafReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "TermsCountingLeafReaderWrapper({})", self.in_)
+  }
+}
+
+impl<LR> FilterLeafReader for TermsCountingLeafReaderWrapper<LR> where LR: LeafReader {}
+
+impl<LR> IndexReader for TermsCountingLeafReaderWrapper<LR>
+where
+  LR: LeafReader,
+{
+  type ContextKind = LeafReaderContextKind;
+  type TermVectors = LR::TermVectors;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.in_.term_vectors()
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    self.in_.max_doc()
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.in_.num_docs()
+  }
+
+  type StoredFields = LR::StoredFields;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.in_.stored_fields()
+  }
+
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
+  type ReaderCacheHelper = LR::ReaderCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    IndexReader::doc_freq(&self.in_, term)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.in_.total_term_freq(term)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_doc_freq(&self.in_, field)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    IndexReader::get_doc_count(&self.in_, field)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_total_term_freq(&self.in_, field)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
+}
+
+impl<LR> LeafReader for TermsCountingLeafReaderWrapper<LR>
+where
+  LR: LeafReader,
+{
+  type CacheHelper = LR::CacheHelper;
+
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    Ok(None)
+  }
+
+  type Terms = TermsCountingTerms<LR::Terms>;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    Ok(
+      self
+        .in_
+        .terms(field)?
+        .map(|terms| TermsCountingTerms::new(terms, self.counter.clone())),
+    )
+  }
+
+  type NumericDocValues = LR::NumericDocValues;
+
+  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    self.in_.get_numeric_doc_values(field)
+  }
+
+  type BinaryDocValues = LR::BinaryDocValues;
+
+  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    self.in_.get_binary_doc_values(field)
+  }
+
+  type SortedDocValues = LR::SortedDocValues;
+
+  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    self.in_.get_sorted_doc_values(field)
+  }
+
+  type SortedNumericDocValues = LR::SortedNumericDocValues;
+
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    self.in_.get_sorted_numeric_doc_values(field)
+  }
+
+  type SortedSetDocValues = LR::SortedSetDocValues;
+
+  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    self.in_.get_sorted_set_doc_values(field)
+  }
+
+  type NormNumericDocValues = LR::NormNumericDocValues;
+
+  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    self.in_.get_norm_values(field)
+  }
+
+  type DocValuesSkipper = LR::DocValuesSkipper;
+
+  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    self.in_.get_doc_values_skipper(field)
+  }
+
+  type FloatVectorValues = LR::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    self.in_.get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = LR::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    self.in_.get_byte_vector_values(field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
+  }
+
+  fn get_field_infos(&self) -> Result<Arc<crate::core::index::field_infos::FieldInfos>> {
+    self.in_.get_field_infos()
+  }
+
+  type Bits = LR::Bits;
+
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    self.in_.get_live_docs()
+  }
+
+  type PointValues = LR::PointValues;
+
+  fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
+    self.in_.get_point_values(field)
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    self.in_.check_integrity()
+  }
+
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    self.in_.get_metadata()
+  }
+}
+
+struct TermsCountingTerms<T>
+where
+  T: Terms,
+{
+  in_: T,
+  counter: Arc<AtomicI32>,
+}
+
+impl<T> TermsCountingTerms<T>
+where
+  T: Terms,
+{
+  fn new(in_: T, counter: Arc<AtomicI32>) -> Self {
+    Self { in_, counter }
+  }
+}
+
+impl<T> Terms for TermsCountingTerms<T>
+where
+  T: Terms,
+{
+  type TermsEnum = T::TermsEnum;
+
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    self.counter.fetch_add(1, Ordering::SeqCst);
+    self.in_.iterator()
+  }
+
+  type IntersectIter = FilteredTermsEnum<T::TermsEnum, AutomatonTermsEnum>;
+
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    self.default_intersect(compiled, start_term)
+  }
+
+  fn size(&self) -> Result<i64> {
+    self.in_.size()
+  }
+
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    self.in_.get_sum_total_term_freq()
+  }
+
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    self.in_.get_sum_doc_freq()
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    self.in_.get_doc_count()
+  }
+
+  fn has_freqs(&self) -> bool {
+    self.in_.has_freqs()
+  }
+
+  fn has_offsets(&self) -> bool {
+    self.in_.has_offsets()
+  }
+
+  fn has_positions(&self) -> bool {
+    self.in_.has_positions()
+  }
+
+  fn has_payloads(&self) -> bool {
+    self.in_.has_payloads()
+  }
+
+  fn get_stats(&self) -> Result<String> {
+    self.in_.get_stats()
+  }
+}
+
+impl<DR> BaseCompositeReader for TermsCountingDirectoryReaderWrapper<DR> where DR: DirectoryReader {}
+
+impl<DR> CompositeReader for TermsCountingDirectoryReaderWrapper<DR>
+where
+  DR: DirectoryReader,
+{
+  type LeafReader = TermsCountingLeafReaderWrapper<DR::LeafReader>;
+  type SubReader = Self::LeafReader;
+
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
+    self.base.get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for reader in self.get_sequential_sub_readers() {
+      visitor(reader)?;
+    }
+    Ok(())
+  }
+
+  fn to_string(&self) -> String {
+    format!(
+      "TermsCountingDirectoryReaderWrapper({})",
+      self.in_.to_string()
+    )
+  }
+}
+
+impl<DR> IndexReader for TermsCountingDirectoryReaderWrapper<DR>
+where
+  DR: DirectoryReader,
+{
+  type ContextKind = CompositeReaderContextKind;
+  type TermVectors = BCRTermVectorsImpl<<Self as CompositeReader>::LeafReader>;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.base.term_vector(self)
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    Ok(self.base.max_doc())
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.base.num_docs()
+  }
+
+  type StoredFields = BCRStoredFieldsImpl<<Self as CompositeReader>::LeafReader>;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.base.stored_fields(self)
+  }
+
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
+  type ReaderCacheHelper = DR::ReaderCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    self.base.doc_freq(term, self)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.base.total_term_freq(term, self)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    self.base.get_sum_doc_freq(field, self)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    self.base.get_doc_count(field, self)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    self.base.get_sum_total_term_freq(field, self)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
+}
+
+impl<DR> Display for TermsCountingDirectoryReaderWrapper<DR>
+where
+  DR: DirectoryReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", CompositeReader::to_string(self))
+  }
+}
+
+impl<DR> DirectoryReader for TermsCountingDirectoryReaderWrapper<DR>
+where
+  DR: DirectoryReader,
+{
+  type DirectoryReader = TermsCountingDirectoryReaderWrapper<DR::DirectoryReader>;
+
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    self.wrap_directory_reader(self.in_.do_open_if_changed()?)
+  }
+
+  fn do_open_if_changed_with_commit<IC>(
+    &self,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: crate::core::index::index_commit::IndexCommit<Directory = Arc<Self::Directory>>,
+  {
+    self.wrap_directory_reader(self.in_.do_open_if_changed_with_commit(commit)?)
+  }
+
+  fn do_open_if_changed_with_deletes(
+    &self,
+    writer: &Arc<IndexWriter<Self::Directory>>,
+    apply_deletes: bool,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    self.wrap_directory_reader(
+      self
+        .in_
+        .do_open_if_changed_with_deletes(writer, apply_deletes)?,
+    )
+  }
+
+  fn get_version(&self) -> Result<i64> {
+    self.in_.get_version()
+  }
+
+  fn is_current(&self) -> Result<bool> {
+    self.in_.is_current()
+  }
+
+  type IndexCommit = DR::IndexCommit;
+
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    self.in_.get_index_commit()
+  }
+
+  type Directory = DR::Directory;
+
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    self.in_.directory()
+  }
+}
+
+impl<DR> FilterDirectoryReader for TermsCountingDirectoryReaderWrapper<DR>
+where
+  DR: DirectoryReader,
+{
+  type Delegate = DR;
+
+  fn get_delegate(&self) -> &Self::Delegate {
+    &self.in_
+  }
+
+  type WrapDirectoryReader = TermsCountingDirectoryReaderWrapper<DR::DirectoryReader>;
+
+  fn do_wrap_directory_reader(
+    &self,
+    in_: Option<<Self::Delegate as DirectoryReader>::DirectoryReader>,
+  ) -> Result<Option<Self::WrapDirectoryReader>> {
+    in_
+      .map(|reader| Self::WrapDirectoryReader::new(reader, self.counter.clone()))
+      .transpose()
+  }
+}
+
 #[test]
 fn test_pull_one_terms_enum() -> Result<()> {
-  // TODO IMPORTANT TermsCountingSubReaderWrapper未实现
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("foo", "1", Store::No)?);
+  writer.add_document(&mut random, doc)?;
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+  let counter = Arc::new(AtomicI32::new(0));
+  let wrapped = TermsCountingDirectoryReaderWrapper::new(reader, counter.clone())?;
+
+  // enough terms to avoid the rewrite
+  let num_terms = TestUtil::next_int(
+    &mut random,
+    BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD as i32 + 1,
+    100,
+  );
+  let mut terms = Vec::with_capacity(num_terms as usize);
+  for _ in 0..num_terms {
+    let term = TestUtil::random_realistic_unicode_string_range(&mut random, 10, 10);
+    terms.push(new_bytes_ref_from_string(&mut random, &term)?);
+  }
+
+  let searcher = new_searcher_with_reader(wrapped)?;
+  assert_eq!(
+    0,
+    searcher.count(TermInSetQuery::new("bar", terms.clone())?)?
+  );
+  assert_eq!(0, counter.load(Ordering::SeqCst)); // missing field
+  searcher.count(TermInSetQuery::new("foo", terms)?)?;
+  assert_eq!(1, counter.load(Ordering::SeqCst));
+  searcher.get_index_reader().close()?;
+  dir.close()
 }
 
 #[test]
