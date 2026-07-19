@@ -321,19 +321,21 @@ where
   D: Directory,
   R: Rng + ?Sized,
 {
+  let lomp = new_log_merge_policy::<D, R>(r)?;
   let ratio = if use_cfs { 1.0 } else { 0.0 };
-  let logmp = if r.random_bool(0.5) {
-    let mut v = LogMergePolicy::log_doc();
-    MergePolicy::<D>::get_base_mut(&mut v).set_no_cfs_ratio(ratio)?;
-    v.into()
-  } else {
-    let mut v = LogMergePolicy::log_bytes_size();
-    MergePolicy::<D>::get_base_mut(&mut v).set_no_cfs_ratio(ratio)?;
-    set_meta::<D, R>(r, &mut v)?;
-    v.into()
-  };
-
-  Ok(logmp)
+  match lomp {
+    MergePolicyEnum::LogDoc(mut log_doc) => {
+      MergePolicy::<D>::get_base_mut(&mut log_doc).set_no_cfs_ratio(ratio)?;
+      Ok(log_doc.into())
+    },
+    MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
+      MergePolicy::<D>::get_base_mut(&mut log_bytes_size).set_no_cfs_ratio(ratio)?;
+      Ok(log_bytes_size.into())
+    },
+    _ => Err(LuceneError::illegal_argument(
+      "Expected a LogMergePolicyEnum variant",
+    )),
+  }
 }
 fn set_meta<D, R>(r: &mut R, mp: &mut LogMergePolicy<impl LogMergePolicyBase>) -> Result<()>
 where
