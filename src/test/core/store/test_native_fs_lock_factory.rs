@@ -31,7 +31,8 @@ impl BaseLockFactoryTestCase for TestNativeFSLockFactory {
   where
     R: rand::Rng + ?Sized,
   {
-    // TODO IMPORTANT 应该使用带参数的newFSDirectory
+    // TODO: Java's newFSDirectory(path, lockFactory) randomizes the FSDirectory implementation
+    // and wraps it. Rust currently only supports NIOFSDirectory on this test path.
     NIOFSDirectory::new(path)
   }
 }

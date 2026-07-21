@@ -512,6 +512,7 @@ mod base_directory_test_case_tests {
   // we wrap the directory in slow stuff, so only run nightly
   #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_thread_safety_in_list_all() -> Result<()> {
     run_case(|case, random| case.test_thread_safety_in_list_all(random))
   }

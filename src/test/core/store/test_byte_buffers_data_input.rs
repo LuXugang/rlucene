@@ -21,6 +21,7 @@ use rand_xoshiro::rand_core::SeedableRng;
 
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput};
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::store::base_data_output_test_case::add_random_data;
 
@@ -30,20 +31,20 @@ struct TestByteBuffersDataInput;
 #[test]
 fn test_sanity() -> Result<()> {
   let mut out = ByteBuffersDataOutput::new();
-  let mut o1 = out.get_data_input_ref()?;
+  // Keep an owned snapshot so Rust can continue mutating `out` while the old
+  // input remains observable, matching Java's `toDataInput()` semantics.
+  let mut o1 = out.get_data_input_owner(false)?;
   assert_eq!(0, o1.length());
   let mut result = DataInput::read_byte(&mut o1);
   assert!(result.is_err());
 
   out.write_byte(1)?;
-  // TODO: how to assert o1's length not modified?
-  // assert_eq!(0, o1.length());
+  assert_eq!(0, o1.length());
   let mut o2 = out.get_data_input_ref()?;
   assert_eq!(1, o2.length());
   assert_eq!(0, o2.position()?);
 
-  //TODO
-  // assert!(o2.ram_bytes_used() > 0)
+  assert!(o2.ram_bytes_used()? > 0);
   assert_eq!(1, DataInput::read_byte(&mut o2)? as i32);
   assert_eq!(1, o2.position()?);
   assert_eq!(1, RandomAccessInput::read_byte(&mut o2, 0)? as i32);

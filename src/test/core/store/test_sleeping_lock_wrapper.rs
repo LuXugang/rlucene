@@ -38,7 +38,8 @@ impl BaseLockFactoryTestCase for TestSleepingLockWrapper {
   where
     R: rand::Rng + ?Sized,
   {
-    // TODO IMPORTANT 应该使用带参数的newFSDirectory
+    // TODO: Java covers randomized newDirectory/newFSDirectory implementations here. Rust's test
+    // framework currently only supports NIOFSDirectory for these concrete associated types.
     let lock_wait_timeout = random.random_range(20..=100);
     let poll_interval = random.random_range(2..=10);
     let which = random.random_range(0..3);

@@ -33,7 +33,9 @@ impl BaseLockFactoryTestCase for TestSingleInstanceLockFactory {
   where
     R: rand::Rng + ?Sized,
   {
-    // TODO IMPORTANT 应该使用带参数的newFSDirectory
+    // TODO: Java's newDirectory(random, lockFactory) can select in-memory, file-system, or
+    // FileSwitchDirectory implementations and wraps the result. Rust's test framework currently
+    // has no equivalent randomized directory enum with the requested lock factory.
     NIOFSDirectory::with_lock_factory(path, SingleInstanceLockFactory::new())
   }
 }

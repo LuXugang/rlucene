@@ -47,6 +47,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_index_writer_reader::create_index_no_close;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::util::test_util::TestUtil;
 
 type NioDirectory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
 type SwitchDirectory = FileSwitchDirectory<NioDirectory, NioDirectory>;
@@ -80,10 +81,10 @@ impl TestFileSwitchDirectory {
     )?);
 
     // For now we use the default codec because we rely upon its specific impl.
-    // TODO setCodec未实现
     let analyzer = MockAnalyzer::new(random);
     let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
     config.set_merge_policy(new_log_merge_policy_with_cfs(random, false)?);
+    config.set_codec(TestUtil::get_default_codec());
     config.set_use_compound_file(false);
     let writer = IndexWriter::new(fsd.clone(), config)?;
     create_index_no_close(true, "ram", &writer)?;
