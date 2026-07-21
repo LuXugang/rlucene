@@ -884,21 +884,59 @@ macro_rules! either_comparable_provider {
 }
 either_comparable_provider!(pub ComparableProviderEnum2 { A1: A, B1: B});
 either_comparable_provider!(pub ComparableProviderEnum3 { SortedNumeric: A, SortedSet: B, Sorter: C});
-either_comparable_provider!(pub ComparableProviderEnum5 { Int: A, Long: B, Float: C, Double: D, String: E });
-either_comparable_provider!(pub ComparableProviderEnum4 { Int: A, Long: B, Float: C, Double: D});
-pub type CPEnumType1<NP, LR, SP> = ComparableProviderEnum5<
-  IntComparableProvider<ProviderNumeric<NP, LR>>,
-  LongComparableProvider<ProviderNumeric<NP, LR>>,
-  FloatComparableProvider<ProviderNumeric<NP, LR>>,
-  DoubleComparableProvider<ProviderNumeric<NP, LR>>,
-  StringComparableProvider<ProviderString<SP, LR>>,
->;
-pub type CPEnumType2<NP, LR> = ComparableProviderEnum4<
-  IntComparableProvider<ProviderNumeric<NP, LR>>,
-  LongComparableProvider<ProviderNumeric<NP, LR>>,
-  FloatComparableProvider<ProviderNumeric<NP, LR>>,
-  DoubleComparableProvider<ProviderNumeric<NP, LR>>,
->;
+pub enum ComparableProviderEnum5<N, S>
+where
+  N: NumericDocValues,
+  S: SortedDocValues,
+{
+  Int(IntComparableProvider<N>),
+  Long(LongComparableProvider<N>),
+  Float(FloatComparableProvider<N>),
+  Double(DoubleComparableProvider<N>),
+  String(StringComparableProvider<S>),
+}
+impl<N, S> ComparableProvider for ComparableProviderEnum5<N, S>
+where
+  N: NumericDocValues,
+  S: SortedDocValues,
+{
+  #[inline]
+  fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+    match self {
+      ComparableProviderEnum5::Int(inner) => inner.get_as_comparable_long(doc_id),
+      ComparableProviderEnum5::Long(inner) => inner.get_as_comparable_long(doc_id),
+      ComparableProviderEnum5::Float(inner) => inner.get_as_comparable_long(doc_id),
+      ComparableProviderEnum5::Double(inner) => inner.get_as_comparable_long(doc_id),
+      ComparableProviderEnum5::String(inner) => inner.get_as_comparable_long(doc_id),
+    }
+  }
+}
+pub enum ComparableProviderEnum4<N>
+where
+  N: NumericDocValues,
+{
+  Int(IntComparableProvider<N>),
+  Long(LongComparableProvider<N>),
+  Float(FloatComparableProvider<N>),
+  Double(DoubleComparableProvider<N>),
+}
+impl<N> ComparableProvider for ComparableProviderEnum4<N>
+where
+  N: NumericDocValues,
+{
+  #[inline]
+  fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+    match self {
+      ComparableProviderEnum4::Int(inner) => inner.get_as_comparable_long(doc_id),
+      ComparableProviderEnum4::Long(inner) => inner.get_as_comparable_long(doc_id),
+      ComparableProviderEnum4::Float(inner) => inner.get_as_comparable_long(doc_id),
+      ComparableProviderEnum4::Double(inner) => inner.get_as_comparable_long(doc_id),
+    }
+  }
+}
+pub type CPEnumType1<NP, LR, SP> =
+  ComparableProviderEnum5<ProviderNumeric<NP, LR>, ProviderString<SP, LR>>;
+pub type CPEnumType2<NP, LR> = ComparableProviderEnum4<ProviderNumeric<NP, LR>>;
 
 /// A comparator of doc IDs, used for sorting documents within a segment
 pub trait DocComparator {
