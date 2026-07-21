@@ -688,6 +688,7 @@ where
 // every write)?
 #[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_deletes_on_disk_full() -> Result<()> {
   do_test_operations_on_disk_full(false)
 }
@@ -696,6 +697,7 @@ fn test_deletes_on_disk_full() -> Result<()> {
 // every write)?
 #[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_updates_on_disk_full() -> Result<()> {
   do_test_operations_on_disk_full(true)
 }

@@ -1659,7 +1659,6 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
       let num_docs = at_least(random, 10_000);
-      let mut field_to_type = HashMap::new();
 
       for _ in 0..num_docs {
         // Only keep the body field, and don't index term vectors on it, we only care about
@@ -1670,13 +1669,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
 
         assert_ne!(IndexOptions::None, *body.field_type().index_options());
 
-        let body = new_text_field(
-          random,
-          "body",
-          body_value.into_owned(),
-          Store::No,
-          &mut field_to_type,
-        )?;
+        let body = TextField::from_string("body", body_value.into_owned(), Store::No)?;
 
         let mut new_doc = Document::new();
         new_doc.add(body);

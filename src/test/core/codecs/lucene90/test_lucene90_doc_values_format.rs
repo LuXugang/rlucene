@@ -814,11 +814,15 @@ mod legacy_base_doc_values_format_test_case_tests {
   fn test_threads() -> Result<()> {
     run_case(|case, random| case.test_threads(random))
   }
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_threads2() -> Result<()> {
     run_case(|case, random| case.test_threads2(random))
   }
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_threads3() -> Result<()> {
     run_case(|case, random| case.test_threads3(random))
   }

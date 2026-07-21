@@ -1424,11 +1424,10 @@ fn test_monotonic_block_packed_reader_writer() -> Result<()> {
 
   Ok(())
 }
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_block_reader_overflow() -> Result<()> {
-  if !is_night_mode() {
-    return Ok(());
-  }
   let mut random = random();
   let value_count = TestUtil::next_usize(
     &mut random,

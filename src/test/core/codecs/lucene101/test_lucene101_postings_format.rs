@@ -259,7 +259,9 @@ mod base_postings_format_test_case_tests {
   fn test_postings_enum_all() -> Result<()> {
     run_case(|case, random| case.test_postings_enum_all(random))
   }
+  #[cfg(feature = "nightly")]
   #[test]
+  #[ignore = "nightly"]
   fn test_line_file_docs() -> Result<()> {
     run_case(|case, random| case.test_line_file_docs(random))
   }

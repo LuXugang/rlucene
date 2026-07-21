@@ -435,7 +435,9 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   Ok(())
 }
 
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);

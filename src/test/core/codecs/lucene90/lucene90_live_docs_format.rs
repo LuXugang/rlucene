@@ -16,7 +16,7 @@
  */
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::base_live_docs_format_test_case::BaseLiveDocsFormatTestCase;
-use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
+use crate::test_framework::core::util::lucene_test_case::random;
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90LiveDocsFormat;
@@ -39,13 +39,11 @@ fn test_sparse_live_docs() -> Result<()> {
   let test = TestLucene90LiveDocsFormat;
   test.test_sparse_live_docs(&mut random)
 }
+#[cfg(feature = "monster")]
 #[test]
+#[ignore = "monster"]
 fn test_over_flow_live_docs() -> Result<()> {
   let mut random = random();
   let test = TestLucene90LiveDocsFormat;
-  if is_night_mode() {
-    test.test_over_flow(&mut random)
-  } else {
-    Ok(())
-  }
+  test.test_over_flow(&mut random)
 }

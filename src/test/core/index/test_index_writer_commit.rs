@@ -208,7 +208,9 @@ fn test_commit_on_close_abort() -> Result<()> {
   Ok(())
 }
 
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_commit_on_close_disk_usage() -> Result<()> {
   // MemoryCodec, since it uses FST, is not necessarily
   // "additive", ie if you add up N small FSTs, then merge

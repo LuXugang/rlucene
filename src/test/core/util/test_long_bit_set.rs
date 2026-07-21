@@ -411,9 +411,9 @@ fn test_ensure_capacity() -> Result<()> {
   assert!(!new_bits.get(1));
   Ok(())
 }
-#[cfg(feature = "nightly")]
+#[cfg(feature = "monster")]
 #[test]
-#[ignore = "nightly"]
+#[ignore = "monster"]
 fn test_huge_capacity() -> Result<()> {
   let more_than_max_int = i32::MAX as usize + 5;
 
