@@ -42,6 +42,13 @@ pub trait RandomAccessInput {
   fn read_long(&mut self, pos: usize) -> Result<i64>;
   ///  Prefetch data in the background.
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()>;
+
+  /// Returns a hint whether all the contents of this input are resident in physical memory.
+  ///
+  /// See [`IndexInput::is_loaded`].
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    Ok(None)
+  }
 }
 
 pub struct RandomAccessInputWrapper<I>
@@ -95,6 +102,10 @@ where
 
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
     self.slice.prefetch(pos, len)
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    IndexInput::is_loaded(&self.slice)
   }
 }
 impl<I> Display for RandomAccessInputWrapper<I>
@@ -166,6 +177,12 @@ macro_rules! either_random_access_input {
                     $( Self::$Variant(inner) => inner.prefetch(pos, len), )+
                 }
             }
+
+            fn is_loaded(&self) -> Result<Option<bool>> {
+                match self {
+                    $( Self::$Variant(inner) => RandomAccessInput::is_loaded(inner), )+
+                }
+            }
         }
     };
 }
@@ -198,5 +215,9 @@ impl<T: ?Sized + RandomAccessInput> RandomAccessInput for Box<T> {
 
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
     (**self).prefetch(pos, len)
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    RandomAccessInput::is_loaded(&**self)
   }
 }

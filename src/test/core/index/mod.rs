@@ -27,6 +27,7 @@ mod test_concurrent_merge_scheduler;
 mod test_crash;
 mod test_custom_norms;
 mod test_custom_term_freq;
+mod test_default_codec_parallelizes_io;
 mod test_deletion_policy;
 mod test_directory_reader;
 mod test_directory_reader_reopen;

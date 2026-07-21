@@ -58,6 +58,11 @@ impl BaseDirectoryTestCase for TestMMapDirectory {
     }));
     Ok(dir)
   }
+
+  fn configure_is_loaded_test(&self, dir: &mut Self::Directory) -> bool {
+    dir.set_preload(MMapDirectory::ALL_FILES);
+    true
+  }
 }
 
 impl TestMMapDirectory {

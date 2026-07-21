@@ -718,6 +718,30 @@ impl IndexInput for MemorySegmentIndexInput {
     }
     Ok(())
   }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    #[cfg(unix)]
+    {
+      self.ensure_open()?;
+      let mut is_loaded = true;
+      self.advise(0, self.length, |segment, offset, length| {
+        if is_loaded {
+          is_loaded = self.native_access.is_loaded(segment, offset, length)?;
+        }
+        Ok(())
+      })?;
+      Ok(Some(is_loaded))
+    }
+    #[cfg(windows)]
+    {
+      // On Windows, return no hint until page residency can be queried safely: #14050.
+      Ok(None)
+    }
+    #[cfg(all(not(unix), not(windows)))]
+    {
+      Ok(None)
+    }
+  }
 }
 
 impl RandomAccessInput for MemorySegmentIndexInput {
@@ -758,7 +782,6 @@ impl RandomAccessInput for MemorySegmentIndexInput {
 
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
     self.ensure_open()?;
-    // TODO IMPORTANT is_loaded not supported ,should we use mincore
     #[cfg(unix)]
     {
       self.advise_will_need(pos, len)
@@ -768,5 +791,9 @@ impl RandomAccessInput for MemorySegmentIndexInput {
       let _ = (pos, len);
       Ok(())
     }
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    IndexInput::is_loaded(self)
   }
 }

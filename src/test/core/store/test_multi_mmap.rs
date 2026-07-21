@@ -49,6 +49,11 @@ impl BaseDirectoryTestCase for TestMultiMMap {
     let max_chunk_size = 1_u64 << TestUtil::next_int(random, 10, 20);
     MMapDirectory::with_max_chunk_size(path, max_chunk_size)
   }
+
+  fn configure_is_loaded_test(&self, dir: &mut Self::Directory) -> bool {
+    dir.set_preload(MMapDirectory::ALL_FILES);
+    true
+  }
 }
 
 impl BaseChunkedDirectoryTestCase for TestMultiMMap {

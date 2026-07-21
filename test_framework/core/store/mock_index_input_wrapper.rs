@@ -430,6 +430,12 @@ where
     *self.read_advice.lock() = read_advice;
     self.in_.update_read_advice(read_advice)
   }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    IndexInput::is_loaded(&self.in_)
+  }
 }
 
 impl<D, I> RandomAccessInput for MockIndexInputWrapper<D, I>
@@ -477,6 +483,12 @@ where
     self.ensure_open()?;
     self.ensure_accessible()?;
     RandomAccessInput::prefetch(&mut self.in_, pos, len)
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    RandomAccessInput::is_loaded(&self.in_)
   }
 }
 
@@ -773,6 +785,14 @@ where
       },
     }
   }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        IndexInput::is_loaded(inner)
+      },
+    }
+  }
 }
 
 impl<D, I> RandomAccessInput for MockDirectoryIndexInput<D, I>
@@ -832,6 +852,14 @@ where
     match self {
       Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
         RandomAccessInput::prefetch(inner, pos, len)
+      },
+    }
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    match self {
+      Self::Mock(inner) | Self::SlowClosing(inner) | Self::SlowOpening(inner) => {
+        RandomAccessInput::is_loaded(inner)
       },
     }
   }

@@ -142,6 +142,19 @@ pub trait IndexInput: DataInput + TryClone + CloseableRef {
   fn update_read_advice(&self, _read_advice: ReadAdvice) -> Result<()> {
     Ok(())
   }
+
+  /// Returns a hint whether all the contents of this input are resident in physical memory. It's a
+  /// hint because the operating system may have paged out some of the data by the time this method
+  /// returns. If the optional is true, then it's likely that the contents of this input are resident
+  /// in physical memory. A value of false does not imply that the contents are not resident in
+  /// physical memory. [`None`] is returned if it is not possible to determine.
+  ///
+  /// This runs in linear time with the [`length`](IndexInput::length) of this input / page size.
+  ///
+  /// The default implementation returns [`None`].
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    Ok(None)
+  }
 }
 pub trait ErasedIndexInput:
   IndexInput<RandomAccessSlice = BoxRandomAccessInput, IndexInput = IndexInputEnum>
@@ -444,6 +457,13 @@ impl IndexInput for IndexInputEnum {
     match self {
       IndexInputEnum::Fs(inner) => inner.update_read_advice(read_advice),
       IndexInputEnum::Custom(inner) => inner.update_read_advice(read_advice),
+    }
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    match self {
+      IndexInputEnum::Fs(inner) => IndexInput::is_loaded(inner),
+      IndexInputEnum::Custom(inner) => IndexInput::is_loaded(inner.as_ref()),
     }
   }
 }
@@ -781,6 +801,12 @@ macro_rules! either_index_input {
                 }
             }
 
+            fn is_loaded(&self) -> Result<Option<bool>> {
+                match self {
+                    $( Self::$Variant(inner) => IndexInput::is_loaded(inner), )+
+                }
+            }
+
         }
     };
 }
@@ -947,6 +973,10 @@ where
 
   fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
     self.as_ref().update_read_advice(read_advice)
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    IndexInput::is_loaded(self.as_ref())
   }
 }
 either_index_input!(pub IndexInputEnum2, RandomAccessInputEnum2 { A: A, B: B });

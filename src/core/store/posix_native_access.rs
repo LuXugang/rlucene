@@ -77,6 +77,37 @@ impl NativeAccess for PosixNativeAccess {
     segment.advise(Advice::WillNeed)
   }
 
+  fn is_loaded(&self, segment: &Mmap, offset: usize, length: usize) -> io::Result<bool> {
+    if length == 0 {
+      return Ok(true);
+    }
+
+    let start = (segment.as_ptr() as usize)
+      .checked_add(offset)
+      .ok_or_else(|| io::Error::other("mmap range start overflow"))?;
+    let end = start
+      .checked_add(length)
+      .ok_or_else(|| io::Error::other("mmap range end overflow"))?;
+    let aligned_start = start - start % self.page_size;
+    let aligned_length = end - aligned_start;
+    let page_count = aligned_length.div_ceil(self.page_size);
+    let mut residency = vec![0u8; page_count];
+
+    // SAFETY: `aligned_start` is page-aligned and covers the mapped range represented by
+    // `segment`; `residency` has one initialized byte for every page that `mincore` writes.
+    let result = unsafe {
+      libc::mincore(
+        aligned_start as *mut libc::c_void,
+        aligned_length,
+        residency.as_mut_ptr().cast(),
+      )
+    };
+    if result != 0 {
+      return Err(io::Error::last_os_error());
+    }
+    Ok(residency.iter().all(|value| value & 1 != 0))
+  }
+
   fn get_page_size(&self) -> usize {
     self.page_size
   }

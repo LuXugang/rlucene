@@ -23,5 +23,6 @@ pub mod corrupting_index_output;
 pub mod mock_directory_wrapper;
 pub mod mock_index_input_wrapper;
 pub mod mock_index_output_wrapper;
+pub mod serial_io_counting_directory;
 pub mod slow_closing_mock_index_input_wrapper;
 pub mod slow_opening_mock_index_input_wrapper;

@@ -31,5 +31,7 @@ pub trait NativeAccess {
 
   fn madvise_will_need(&self, segment: &Mmap) -> io::Result<()>;
 
+  fn is_loaded(&self, segment: &Mmap, offset: usize, length: usize) -> io::Result<bool>;
+
   fn get_page_size(&self) -> usize;
 }
