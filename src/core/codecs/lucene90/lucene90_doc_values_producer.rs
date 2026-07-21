@@ -45,9 +45,7 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
-use crate::core::index::sorted_numeric_doc_values::{
-  SortedNumericDocValues, SortedNumericDocValuesEnum3,
-};
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -3332,17 +3330,220 @@ where
 }
 
 // 1. NumericDocValues
-pub type Lucene90NumericDocValuesEnum<I> = NumericDocValuesEnum3<
-  DenseNumericDocValues<<I as IndexInput>::RandomAccessSlice>,
-  SparseNumericDocValues<I>,
-  EmptyNumeric,
->;
+pub enum Lucene90NumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  A(DenseNumericDocValues<I::RandomAccessSlice>),
+  B(SparseNumericDocValues<I>),
+  C(EmptyNumeric),
+}
+
+impl<I> DocValuesIterator for Lucene90NumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  #[inline]
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Lucene90NumericDocValuesEnum::A(values) => values.advance_exact(target),
+      Lucene90NumericDocValuesEnum::B(values) => values.advance_exact(target),
+      Lucene90NumericDocValuesEnum::C(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<I> DocIdSetIterator for Lucene90NumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  #[inline]
+  fn doc_id(&self) -> i32 {
+    match self {
+      Lucene90NumericDocValuesEnum::A(values) => values.doc_id(),
+      Lucene90NumericDocValuesEnum::B(values) => values.doc_id(),
+      Lucene90NumericDocValuesEnum::C(values) => values.doc_id(),
+    }
+  }
+
+  #[inline]
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Lucene90NumericDocValuesEnum::A(values) => values.next_doc(),
+      Lucene90NumericDocValuesEnum::B(values) => values.next_doc(),
+      Lucene90NumericDocValuesEnum::C(values) => values.next_doc(),
+    }
+  }
+
+  #[inline]
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Lucene90NumericDocValuesEnum::A(values) => values.advance(target),
+      Lucene90NumericDocValuesEnum::B(values) => values.advance(target),
+      Lucene90NumericDocValuesEnum::C(values) => values.advance(target),
+    }
+  }
+
+  #[inline]
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Lucene90NumericDocValuesEnum::A(values) => values.slow_advance(target),
+      Lucene90NumericDocValuesEnum::B(values) => values.slow_advance(target),
+      Lucene90NumericDocValuesEnum::C(values) => values.slow_advance(target),
+    }
+  }
+
+  #[inline]
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Lucene90NumericDocValuesEnum::A(values) => values.cost(),
+      Lucene90NumericDocValuesEnum::B(values) => values.cost(),
+      Lucene90NumericDocValuesEnum::C(values) => values.cost(),
+    }
+  }
+}
+
+impl<I> NumericDocValues for Lucene90NumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  #[inline]
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Lucene90NumericDocValuesEnum::A(values) => values.long_value(),
+      Lucene90NumericDocValuesEnum::B(values) => values.long_value(),
+      Lucene90NumericDocValuesEnum::C(values) => values.long_value(),
+    }
+  }
+}
+
 // 2.SortedNumericDocValues
-pub type Lucene90SortedNumericDocValuesEnum<I> = SortedNumericDocValuesEnum3<
-  DenseSortedNumericDocValues<<I as IndexInput>::RandomAccessSlice>,
-  SpareSortedNumericDocValues<I>,
-  SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>,
->;
+pub enum Lucene90SortedNumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  A(DenseSortedNumericDocValues<I::RandomAccessSlice>),
+  B(SpareSortedNumericDocValues<I>),
+  C(SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>),
+}
+
+impl<I> DocValuesIterator for Lucene90SortedNumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  #[inline]
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.advance_exact(target),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.advance_exact(target),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<I> DocIdSetIterator for Lucene90SortedNumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  #[inline]
+  fn doc_id(&self) -> i32 {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.doc_id(),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.doc_id(),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.doc_id(),
+    }
+  }
+
+  #[inline]
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.next_doc(),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.next_doc(),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.next_doc(),
+    }
+  }
+
+  #[inline]
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.advance(target),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.advance(target),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.advance(target),
+    }
+  }
+
+  #[inline]
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.slow_advance(target),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.slow_advance(target),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.slow_advance(target),
+    }
+  }
+
+  #[inline]
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.cost(),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.cost(),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.cost(),
+    }
+  }
+}
+
+impl<I> SortedNumericDocValues for Lucene90SortedNumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  #[inline]
+  fn next_value(&mut self) -> Result<i64> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.next_value(),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.next_value(),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.next_value(),
+    }
+  }
+
+  #[inline]
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.doc_value_count(),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.doc_value_count(),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.doc_value_count(),
+    }
+  }
+
+  #[inline]
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => values.is_single_valued(),
+      Lucene90SortedNumericDocValuesEnum::B(values) => values.is_single_valued(),
+      Lucene90SortedNumericDocValuesEnum::C(values) => values.is_single_valued(),
+    }
+  }
+
+  type NumericDocValues = NumericDocValuesEnum3<
+    <DenseSortedNumericDocValues<I::RandomAccessSlice> as SortedNumericDocValues>::NumericDocValues,
+    <SpareSortedNumericDocValues<I> as SortedNumericDocValues>::NumericDocValues,
+    <SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>> as SortedNumericDocValues>::NumericDocValues,
+  >;
+
+  #[inline]
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self {
+      Lucene90SortedNumericDocValuesEnum::A(values) => {
+        Ok(NumericDocValuesEnum3::A(values.get_numeric_doc_values()?))
+      },
+      Lucene90SortedNumericDocValuesEnum::B(values) => {
+        Ok(NumericDocValuesEnum3::B(values.get_numeric_doc_values()?))
+      },
+      Lucene90SortedNumericDocValuesEnum::C(values) => {
+        Ok(NumericDocValuesEnum3::C(values.get_numeric_doc_values()?))
+      },
+    }
+  }
+}
+
 // 3. BinaryDocValues
 pub type Lucene90BinaryDocValuesEnum<I> = BinaryDocValuesEnum3<
   DenseBinaryDocValues<<I as IndexInput>::RandomAccessSlice>,
