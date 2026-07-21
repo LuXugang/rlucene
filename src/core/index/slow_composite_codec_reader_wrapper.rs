@@ -29,7 +29,7 @@ use crate::core::index::codec_reader::{
   CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer, CRPointsReader,
   CRStoredFieldsReader, CRTermVectorsReader, CodecReader, CodecReaderEnum2,
 };
-use crate::core::index::doc_values::{DocValues, EmptySorted};
+use crate::core::index::doc_values::DocValues;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
@@ -39,7 +39,7 @@ use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
-use crate::core::index::leaf_reader::{LRSortedDocValuesEmpty, LRSortedSetDocValues, LeafReader};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_bits::{BitsType, get_live_docs};
 use crate::core::index::multi_doc_values::{
   MultiBinaryDocValues, MultiDocValues, MultiNormNumericDocValues, MultiNumericDocValues,
@@ -53,7 +53,6 @@ use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
 };
 use crate::core::index::reader_slice::ReaderSlice;
-use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
@@ -1015,10 +1014,7 @@ where
     }
   }
 
-  type SortedDocValues = SortedDocValuesEnum2<
-    MultiSortedDocValuesType<MultiReader<CR>>,
-    MultiSortedDocValues<LRSortedDocValuesEmpty<CR>>,
-  >;
+  type SortedDocValues = MultiSortedDocValuesType<MultiReader<CR>>;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
     if let Some(map) = self.cached_ord_maps.lock().get(&field.name).cloned() {
@@ -1063,7 +1059,7 @@ where
         .insert(field.name.clone(), multi.mapping.clone());
     }
 
-    Ok(SortedDocValuesEnum2::A(dv))
+    Ok(dv)
   }
 
   type SortedNumericDocValues = MultiSortedNumericDocValues<MultiReader<CR>>;
@@ -1079,12 +1075,7 @@ where
     }
   }
 
-  type SortedSetDocValues = SortedSetDocValuesEnum2<
-    MultiSortedSetDocValuesType<MultiReader<CR>>,
-    MultiSortedSetDocValues<
-      SortedSetDocValuesEnum2<LRSortedSetDocValues<CR>, SingletonSortedSetDocValues<EmptySorted>>,
-    >,
-  >;
+  type SortedSetDocValues = MultiSortedSetDocValuesType<MultiReader<CR>>;
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     if let Some(map) = self.cached_ord_maps.lock().get(&field.name).cloned() {
@@ -1129,7 +1120,7 @@ where
         .insert(field.name.clone(), multi.mapping.clone());
     }
 
-    Ok(SortedSetDocValuesEnum2::A(dv))
+    Ok(dv)
   }
 
   type DocValuesSkipper = DummyDocValuesSkipper;

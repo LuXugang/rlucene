@@ -120,7 +120,7 @@ impl Default for DummyImpacts {
 impl DummyImpacts {
   pub fn new() -> Self {
     DummyImpacts {
-      impacts: vec![Impact::new(i32::MAX, 0)],
+      impacts: vec![Impact::new(i32::MAX, 1)],
     }
   }
 }

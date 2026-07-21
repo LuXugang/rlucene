@@ -27,7 +27,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
-use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
@@ -243,21 +243,21 @@ where
   Ok(())
 }
 
-pub struct FloatVectorValuesSub<F, CR>
+pub struct FloatVectorValuesSub<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   values: F,
   iterator: <F as KnnVectorValues>::DocIndexIterator,
-  doc_map: Rc<MergeStateDocMap<CR>>,
+  doc_map: DM,
 }
-impl<F, CR> FloatVectorValuesSub<F, CR>
+impl<F, DM> FloatVectorValuesSub<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  fn new(values: F, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
+  fn new(values: F, doc_map: DM) -> Result<Self> {
     let iterator = values.iterator()?;
     Ok(Self {
       values,
@@ -269,37 +269,37 @@ where
     self.iterator.index()
   }
 }
-impl<F, CR> SubBase for FloatVectorValuesSub<F, CR>
+impl<F, DM> SubBase for FloatVectorValuesSub<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn next_doc(&mut self) -> Result<i32> {
     self.iterator.next_doc()
   }
 
-  type DocMap = Rc<MergeStateDocMap<CR>>;
+  type DocMap = DM;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
     Ok(&self.doc_map)
   }
 }
-pub struct ByteVectorValuesSub<B, CR>
+pub struct ByteVectorValuesSub<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   values: B,
   iterator: <B as KnnVectorValues>::DocIndexIterator,
-  doc_map: Rc<MergeStateDocMap<CR>>,
+  doc_map: DM,
 }
 
-impl<B, CR> ByteVectorValuesSub<B, CR>
+impl<B, DM> ByteVectorValuesSub<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  fn new(values: B, doc_map: Rc<MergeStateDocMap<CR>>) -> Result<Self> {
+  fn new(values: B, doc_map: DM) -> Result<Self> {
     let iterator = values.iterator()?;
     Ok(Self {
       values,
@@ -313,12 +313,12 @@ where
   }
 }
 
-impl<B, CR> SubBase for ByteVectorValuesSub<B, CR>
+impl<B, DM> SubBase for ByteVectorValuesSub<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  type DocMap = Rc<MergeStateDocMap<CR>>;
+  type DocMap = DM;
 
   fn next_doc(&mut self) -> Result<i32> {
     self.iterator.next_doc()
@@ -355,40 +355,41 @@ pub(crate) fn has_vector_values(field_infos: &FieldInfos, field_name: &str) -> b
     .is_some_and(|info| info.has_vector_values())
 }
 
-struct MergedFloat32VectorValuesState<F, CR>
+struct MergedFloat32VectorValuesState<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   doc_id: i32,
   last_ord: i32,
   current: Option<usize>,
-  doc_id_merger: DocIDMergerEnum<FloatVectorValuesSub<F, CR>>,
+  doc_id_merger: DocIDMergerEnum<FloatVectorValuesSub<F, DM>>,
 }
 
-pub struct MergedFloat32VectorValues<F, CR>
+pub struct MergedFloat32VectorValues<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   // for easy taken
-  state: Mutex<Option<MergedFloat32VectorValuesState<F, CR>>>,
+  state: Mutex<Option<MergedFloat32VectorValuesState<F, DM>>>,
   size: usize,
   dimension: usize,
   iter_called: AtomicBool,
 }
 
-impl<F, CR> MergedFloat32VectorValues<F, CR>
+impl<F, DM> MergedFloat32VectorValues<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  pub(crate) fn new<Dir>(
-    subs: Vec<Sub<FloatVectorValuesSub<F, CR>>>,
+  pub(crate) fn new<Dir, CR>(
+    subs: Vec<Sub<FloatVectorValuesSub<F, DM>>>,
     merge_state: &MergeState<'_, Dir, CR>,
   ) -> Result<Self>
   where
     Dir: Directory,
+    CR: CodecReader,
   {
     let dimension = match subs.first() {
       Some(v) => v.sub.values.dimension(),
@@ -410,10 +411,10 @@ where
   }
 }
 
-impl<F, CR> KnnVectorValues for MergedFloat32VectorValues<F, CR>
+impl<F, DM> KnnVectorValues for MergedFloat32VectorValues<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn dimension(&self) -> usize {
     self.dimension
@@ -446,7 +447,7 @@ where
     self.default_get_accept_ords(accept_docs)
   }
 
-  type DocIndexIterator = MergedFloat32VectorValuesIterator<F, CR>;
+  type DocIndexIterator = MergedFloat32VectorValuesIterator<F, DM>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     if self
@@ -470,10 +471,10 @@ where
   }
 }
 
-impl<F, CR> FloatVectorValues for MergedFloat32VectorValues<F, CR>
+impl<F, DM> FloatVectorValues for MergedFloat32VectorValues<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn vector_value(&self, _ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
     Err(LuceneError::unsupported_operation(
@@ -494,20 +495,20 @@ where
   }
 }
 
-pub struct MergedFloat32VectorValuesIterator<F, CR>
+pub struct MergedFloat32VectorValuesIterator<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  state: MergedFloat32VectorValuesState<F, CR>,
+  state: MergedFloat32VectorValuesState<F, DM>,
   index: i32,
   size: usize,
 }
 
-impl<F, CR> DocIdSetIterator for MergedFloat32VectorValuesIterator<F, CR>
+impl<F, DM> DocIdSetIterator for MergedFloat32VectorValuesIterator<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn doc_id(&self) -> i32 {
     self.state.doc_id
@@ -539,19 +540,19 @@ where
   }
 }
 
-impl<F, CR> DocIndexIterator for MergedFloat32VectorValuesIterator<F, CR>
+impl<F, DM> DocIndexIterator for MergedFloat32VectorValuesIterator<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn index(&self) -> Result<i32> {
     Ok(self.index)
   }
 }
-impl<F, CR> MergeVectorValues for MergedFloat32VectorValuesIterator<F, CR>
+impl<F, DM> MergeVectorValues for MergedFloat32VectorValuesIterator<F, DM>
 where
   F: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     let ord: i32 = ord.try_convert()?;
@@ -572,39 +573,40 @@ where
   }
 }
 
-struct MergedByteVectorValuesState<B, CR>
+struct MergedByteVectorValuesState<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   doc_id: i32,
   last_ord: i32,
   current: Option<usize>,
-  doc_id_merger: DocIDMergerEnum<ByteVectorValuesSub<B, CR>>,
+  doc_id_merger: DocIDMergerEnum<ByteVectorValuesSub<B, DM>>,
 }
 
-pub struct MergedByteVectorValues<B, CR>
+pub struct MergedByteVectorValues<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  state: Mutex<Option<MergedByteVectorValuesState<B, CR>>>,
+  state: Mutex<Option<MergedByteVectorValuesState<B, DM>>>,
   size: usize,
   dimension: usize,
   iter_called: AtomicBool,
 }
 
-impl<B, CR> MergedByteVectorValues<B, CR>
+impl<B, DM> MergedByteVectorValues<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  pub(crate) fn new<Dir>(
-    subs: Vec<Sub<ByteVectorValuesSub<B, CR>>>,
+  pub(crate) fn new<Dir, CR>(
+    subs: Vec<Sub<ByteVectorValuesSub<B, DM>>>,
     merge_state: &MergeState<'_, Dir, CR>,
   ) -> Result<Self>
   where
     Dir: Directory,
+    CR: CodecReader,
   {
     let dimension = match subs.first() {
       Some(v) => v.sub.values.dimension(),
@@ -626,10 +628,10 @@ where
   }
 }
 
-impl<B, CR> KnnVectorValues for MergedByteVectorValues<B, CR>
+impl<B, DM> KnnVectorValues for MergedByteVectorValues<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn dimension(&self) -> usize {
     self.dimension
@@ -662,7 +664,7 @@ where
     self.default_get_accept_ords(accept_docs)
   }
 
-  type DocIndexIterator = MergedByteVectorValuesIterator<B, CR>;
+  type DocIndexIterator = MergedByteVectorValuesIterator<B, DM>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     if self
@@ -687,10 +689,10 @@ where
   }
 }
 
-impl<B, CR> ByteVectorValues for MergedByteVectorValues<B, CR>
+impl<B, DM> ByteVectorValues for MergedByteVectorValues<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     Err(LuceneError::unsupported_operation(
@@ -711,20 +713,20 @@ where
   }
 }
 
-pub struct MergedByteVectorValuesIterator<B, CR>
+pub struct MergedByteVectorValuesIterator<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  state: MergedByteVectorValuesState<B, CR>,
+  state: MergedByteVectorValuesState<B, DM>,
   index: i32,
   size: usize,
 }
 
-impl<B, CR> DocIdSetIterator for MergedByteVectorValuesIterator<B, CR>
+impl<B, DM> DocIdSetIterator for MergedByteVectorValuesIterator<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn doc_id(&self) -> i32 {
     self.state.doc_id
@@ -756,20 +758,20 @@ where
   }
 }
 
-impl<B, CR> DocIndexIterator for MergedByteVectorValuesIterator<B, CR>
+impl<B, DM> DocIndexIterator for MergedByteVectorValuesIterator<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn index(&self) -> Result<i32> {
     Ok(self.index)
   }
 }
 
-impl<B, CR> MergeVectorValues for MergedByteVectorValuesIterator<B, CR>
+impl<B, DM> MergeVectorValues for MergedByteVectorValuesIterator<B, DM>
 where
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     let ord: i32 = ord.try_convert()?;
@@ -823,11 +825,15 @@ where
   Ok(subs)
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn merge_float_vector_values<D, CR>(
   field_info: &FieldInfo,
   merge_state: &MergeState<'_, D, CR>,
 ) -> Result<
-  MergedFloat32VectorValues<<CRKnnVectorReader<CR> as KnnVectorsReader>::FloatVectorValues, CR>,
+  MergedFloat32VectorValues<
+    <CRKnnVectorReader<CR> as KnnVectorsReader>::FloatVectorValues,
+    Rc<MergeStateDocMap<CR>>,
+  >,
 >
 where
   D: Directory,
@@ -845,10 +851,16 @@ where
   )
 }
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn merge_byte_vector_values<D, CR>(
   field_info: &FieldInfo,
   merge_state: &MergeState<'_, D, CR>,
-) -> Result<MergedByteVectorValues<<CRKnnVectorReader<CR> as KnnVectorsReader>::ByteVectorValues, CR>>
+) -> Result<
+  MergedByteVectorValues<
+    <CRKnnVectorReader<CR> as KnnVectorsReader>::ByteVectorValues,
+    Rc<MergeStateDocMap<CR>>,
+  >,
+>
 where
   D: Directory,
   CR: CodecReader,

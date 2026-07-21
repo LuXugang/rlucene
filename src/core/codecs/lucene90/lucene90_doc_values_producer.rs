@@ -46,7 +46,7 @@ use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNume
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::{
-  SortedNumericDocValues, SortedNumericDocValuesEnum4,
+  SortedNumericDocValues, SortedNumericDocValuesEnum3,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
@@ -3338,11 +3338,10 @@ pub type Lucene90NumericDocValuesEnum<I> = NumericDocValuesEnum3<
   EmptyNumeric,
 >;
 // 2.SortedNumericDocValues
-pub type Lucene90SortedNumericDocValuesEnum<I> = SortedNumericDocValuesEnum4<
+pub type Lucene90SortedNumericDocValuesEnum<I> = SortedNumericDocValuesEnum3<
   DenseSortedNumericDocValues<<I as IndexInput>::RandomAccessSlice>,
   SpareSortedNumericDocValues<I>,
   SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>,
-  SingletonSortedNumericDocValues<EmptyNumeric>,
 >;
 // 3. BinaryDocValues
 pub type Lucene90BinaryDocValuesEnum<I> = BinaryDocValuesEnum3<

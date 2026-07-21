@@ -116,8 +116,8 @@ impl IndexFileNames {
   /// locates the boundary of the segment name, or -1  */
   pub fn index_of_segment_name(filename: &str) -> i32 {
     debug_assert!(filename.len() <= i32::MAX as usize);
-    if let Some(idx) = filename[1..].find('_') {
-      (idx + 1) as i32
+    if let Some((idx, _)) = filename.char_indices().skip(1).find(|(_, ch)| *ch == '_') {
+      idx as i32
     } else if let Some(idx) = filename.find('.') {
       idx as i32
     } else {

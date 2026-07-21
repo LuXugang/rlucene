@@ -32,6 +32,17 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{IOUtils, TryIntoInt};
 use std::sync::Arc;
 
+// List of vector similarity functions. This list is defined here, in order
+// to avoid an undesirable dependency on the declaration and order of values
+// in VectorSimilarityFunction. The list values and order have been chosen to
+// match that of VectorSimilarityFunction in, at least, Lucene 9.10. Values
+pub(crate) const SIMILARITY_FUNCTIONS: [VectorSimilarityFunction; 4] = [
+  VectorSimilarityFunction::Euclidean,
+  VectorSimilarityFunction::DotProduct,
+  VectorSimilarityFunction::Cosine,
+  VectorSimilarityFunction::MaximumInnerProduct,
+];
+
 /// Lucene 9.0 Field Infos format.
 ///
 /// Field names are stored in the field info file with the suffix `.fnm`.
@@ -186,20 +197,18 @@ impl Lucene94FieldInfosFormat {
   where
     I: IndexInput,
   {
-    match VectorSimilarityFunction::from_repr(b) {
-      Some(func) => Ok(func),
-      None => Err(LuceneError::corrupt_index(format!(
-        "invalid distance function: {b} (resource={input})"
-      ))),
-    }
+    SIMILARITY_FUNCTIONS
+      .get(b as usize)
+      .copied()
+      .ok_or_else(|| {
+        LuceneError::corrupt_index(format!("invalid distance function: {b} (resource={input})"))
+      })
   }
   fn dist_func_to_ord(func: &VectorSimilarityFunction) -> u8 {
-    match func {
-      VectorSimilarityFunction::Euclidean => 0,
-      VectorSimilarityFunction::DotProduct => 1,
-      VectorSimilarityFunction::Cosine => 2,
-      VectorSimilarityFunction::MaximumInnerProduct => 3,
-    }
+    SIMILARITY_FUNCTIONS
+      .iter()
+      .position(|value| value == func)
+      .expect("all VectorSimilarityFunction variants must be listed") as u8
   }
 
   fn index_options_byte(index_options: &IndexOptions) -> u8 {

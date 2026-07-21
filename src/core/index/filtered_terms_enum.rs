@@ -42,7 +42,15 @@ where
   do_seek: bool,
   pub actual_term: Option<BytesRef<Vec<u8>>>,
   pub tenum: T,
-  sub: F,
+  hook: FilteredTermsEnumHook<F>,
+}
+
+enum FilteredTermsEnumHook<F>
+where
+  F: FilteredTermsEnumBase,
+{
+  Default,
+  Filtered(F),
 }
 impl<T, F> FilteredTermsEnum<T, F>
 where
@@ -60,14 +68,31 @@ where
       do_seek: start_with_seek,
       actual_term: None,
       tenum,
-      sub,
+      hook: FilteredTermsEnumHook::Filtered(sub),
+    }
+  }
+  pub(crate) fn unfiltered(tenum: T) -> Self {
+    FilteredTermsEnum {
+      initial_seek_term: None,
+      do_seek: false,
+      actual_term: None,
+      tenum,
+      hook: FilteredTermsEnumHook::Default,
     }
   }
   pub(crate) fn set_initial_seek_term(&mut self, term: BytesRef<Vec<u8>>) {
     self.initial_seek_term = Some(term);
   }
   pub fn next_seek_term(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    match self.sub.next_seek_term(Option::from(&self.actual_term)) {
+    let sub = match &mut self.hook {
+      FilteredTermsEnumHook::Default => {
+        return Err(LuceneError::unsupported_operation(
+          "unfiltered terms enum has no next seek term",
+        ));
+      },
+      FilteredTermsEnumHook::Filtered(sub) => sub,
+    };
+    match sub.next_seek_term(Option::from(&self.actual_term)) {
       Ok(v) => Ok(v),
       Err(e) => match e {
         LuceneError::NotImplemented(_) => {
@@ -90,6 +115,9 @@ where
   F: FilteredTermsEnumBase,
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if matches!(&self.hook, FilteredTermsEnumHook::Default) {
+      return self.tenum.next();
+    }
     loop {
       if self.do_seek {
         self.do_seek = false;
@@ -121,12 +149,22 @@ where
         };
       }
       // check if term is accepted
-      let ord = match self.sub.need_ord() {
+      let need_ord = match &self.hook {
+        FilteredTermsEnumHook::Default => false,
+        FilteredTermsEnumHook::Filtered(sub) => sub.need_ord(),
+      };
+      let ord = match need_ord {
         true => self.ord()?,
         // padding value
         false => 0,
       };
-      match self.sub.accept(self.actual_term.as_ref().unwrap(), ord)? {
+      let accept_status = match &mut self.hook {
+        FilteredTermsEnumHook::Default => AcceptStatus::Yes,
+        FilteredTermsEnumHook::Filtered(sub) => {
+          sub.accept(self.actual_term.as_ref().unwrap(), ord)?
+        },
+      };
+      match accept_status {
         AcceptStatus::YesAndSeek => {
           self.do_seek = true;
           return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().unwrap())));
@@ -172,38 +210,56 @@ where
     self.tenum.attributes_mut()
   }
 
-  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(""))
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match &self.hook {
+      FilteredTermsEnumHook::Default => self.tenum.seek_exact(term),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation("")),
+    }
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::unsupported_operation(""))
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match &self.hook {
+      FilteredTermsEnumHook::Default => self.tenum.prepare_seek_exact(text),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation("")),
+    }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(""))
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match &self.hook {
+      FilteredTermsEnumHook::Default => self.tenum.get_prepare_seek_exact_status(target),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation("")),
+    }
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-    Err(LuceneError::unsupported_operation(
-      "FilteredTermsEnum::seek_ceil",
-    ))
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match &self.hook {
+      FilteredTermsEnumHook::Default => self.tenum.seek_ceil(term),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(
+        "FilteredTermsEnum::seek_ceil",
+      )),
+    }
   }
 
-  fn seek_exact_with_ord(&mut self, _ord: i64) -> Result<()> {
-    Err(LuceneError::unsupported_operation(
-      "FilteredTermsEnum::seek_exact_with_ord",
-    ))
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match &self.hook {
+      FilteredTermsEnumHook::Default => self.tenum.seek_exact_with_ord(ord),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(
+        "FilteredTermsEnum::seek_exact_with_ord",
+      )),
+    }
   }
 
   fn seek_exact_with_state(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
-    _state: &TermStateEnum,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
   ) -> Result<()> {
-    Err(LuceneError::unsupported_operation(
-      "FilteredTermsEnum::seek_exact_with_state",
-    ))
+    match &self.hook {
+      FilteredTermsEnumHook::Default => self.tenum.seek_exact_with_state(term, state),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(
+        "FilteredTermsEnum::seek_exact_with_state",
+      )),
+    }
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {

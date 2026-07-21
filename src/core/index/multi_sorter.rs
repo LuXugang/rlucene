@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::codec_reader::{CRBits, CodecReader};
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_sorter::{ComparableProvider, ComparableProviderEnum2, IndexSorter};
-use crate::core::index::merge_state::{DocMap, DocMapEnum2, MergeStateDocMap};
+use crate::core::index::merge_state::{MergeStateDocMap, MergeStateDocMapImpl};
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::util::bit_set::{BitSet, of};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -57,28 +56,35 @@ impl MultiSorter {
         let meta = reader.get_metadata()?;
 
         let inner = providers.remove(0);
-        if meta.get_has_blocks() {
-          if let Some(parent_field) = field_infos.get_parent_field() {
-            let mut parent_docs = CodecReader::get_numeric_doc_values(reader, parent_field)?
-              .ok_or_else(|| {
-                LuceneError::illegal_state(format!(
-                  "parent field {} must be present if index sorting is used with blocks",
-                  parent_field
-                ))
-              })?;
+        let parents = if meta.get_has_blocks() {
+          match field_infos.get_parent_field() {
+            Some(parent_field) => {
+              let mut parent_docs = CodecReader::get_numeric_doc_values(reader, parent_field)?
+                .ok_or_else(|| {
+                  LuceneError::illegal_state(format!(
+                    "parent field {} must be present if index sorting is used with blocks",
+                    parent_field
+                  ))
+                })?;
 
-            let parents = of(&mut parent_docs, reader.max_doc()? as usize)?;
-            let cp = ComparableProviderEnum2::A1(ComparableProviderImpl::new(parents, inner));
-            new_providers.push(cp);
-          } else if meta.get_created_version_major() >= LUCENE_10_0_0.major {
-            return Err(LuceneError::corrupt_index(format!(
-              "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {}",
-              meta.get_created_version_major()
-            )));
+              Some(of(&mut parent_docs, reader.max_doc()? as usize)?)
+            },
+            None if meta.get_created_version_major() >= LUCENE_10_0_0.major => {
+              return Err(LuceneError::corrupt_index(format!(
+                "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {}",
+                meta.get_created_version_major()
+              )));
+            },
+            None => None,
           }
         } else {
-          new_providers.push(ComparableProviderEnum2::B1(inner));
-        }
+          None
+        };
+        let provider = match parents {
+          Some(parents) => ComparableProviderEnum2::A1(ComparableProviderImpl::new(parents, inner)),
+          None => ComparableProviderEnum2::B1(inner),
+        };
+        new_providers.push(provider);
       }
       reverse_muls.push(if field.get_reverse() { -1 } else { 1 });
       comparables.push(new_providers);
@@ -152,45 +158,9 @@ impl MultiSorter {
       let remapped = builders[i].build()?;
       let live_docs = readers[i].get_live_docs()?;
 
-      let doc_map = DocMapImpl1::new(live_docs, remapped);
-      doc_maps.push(DocMapEnum2::A(doc_map));
+      doc_maps.push(MergeStateDocMapImpl::new_sorted(live_docs, remapped));
     }
     Ok(Some(doc_maps))
-  }
-}
-pub type MultiSorterDocMap<CR> = DocMapImpl1<CRBits<CR>>;
-
-pub struct DocMapImpl1<B>
-where
-  B: Bits,
-{
-  live_docs: Option<B>,
-  remapped: PackedLongValues,
-}
-impl<B> DocMapImpl1<B>
-where
-  B: Bits,
-{
-  fn new(live_docs: Option<B>, remapped: PackedLongValues) -> Self {
-    DocMapImpl1 {
-      live_docs,
-      remapped,
-    }
-  }
-}
-impl<B> DocMap for DocMapImpl1<B>
-where
-  B: Bits,
-{
-  fn get(&self, doc_id: i32) -> Result<i32> {
-    if match self.live_docs {
-      None => true,
-      Some(ref bits) => bits.get(doc_id as usize)?,
-    } {
-      Ok(self.remapped.get(doc_id as usize)? as i32)
-    } else {
-      Ok(-1)
-    }
   }
 }
 pub(crate) struct LeafAndDocId<B>

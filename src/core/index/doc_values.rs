@@ -28,7 +28,7 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
-  SortedNumericDocValues, SortedNumericDocValuesEnum2,
+  SortedNumericDocValues, SortedNumericDocValuesEnum3,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
@@ -199,16 +199,15 @@ impl DocValues {
     LR: LeafReader,
   {
     match reader.get_sorted_numeric_doc_values(field)? {
-      Some(dv) => Ok(SortedNumericDocValuesEnum2::A(dv)),
-      None => {
-        let v = match reader.get_numeric_doc_values(field)? {
-          Some(single) => SortedNumericDocValuesEnum2::A(Self::singleton_numeric(single)?),
-          None => {
-            Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
-            SortedNumericDocValuesEnum2::B(Self::empty_sorted_numeric()?)
-          },
-        };
-        Ok(SortedNumericDocValuesEnum2::B(v))
+      Some(dv) => Ok(SortedNumericDocValuesEnum3::A(dv)),
+      None => match reader.get_numeric_doc_values(field)? {
+        Some(single) => Ok(SortedNumericDocValuesEnum3::B(Self::singleton_numeric(
+          single,
+        )?)),
+        None => {
+          Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
+          Ok(SortedNumericDocValuesEnum3::C(Self::empty_sorted_numeric()?))
+        },
       },
     }
   }
@@ -229,18 +228,18 @@ impl DocValues {
     match reader.get_sorted_set_doc_values(field)? {
       Some(dv) => Ok(SortedSetDocValuesEnum2::A(dv)),
       None => {
-        let v = match reader.get_sorted_doc_values(field)? {
-          Some(sorted) => SortedSetDocValuesEnum2::A(Self::singleton_sorted(sorted)?),
+        let sorted = match reader.get_sorted_doc_values(field)? {
+          Some(sorted) => SortedDocValuesEnum2::A(sorted),
           None => {
             Self::check_field(
               reader,
               field,
               &[DocValuesType::Sorted, DocValuesType::SortedSet],
             )?;
-            SortedSetDocValuesEnum2::B(Self::empty_sorted_set()?)
+            SortedDocValuesEnum2::B(Self::empty_sorted())
           },
         };
-        Ok(SortedSetDocValuesEnum2::B(v))
+        Ok(SortedSetDocValuesEnum2::B(Self::singleton_sorted(sorted)?))
       },
     }
   }
@@ -263,18 +262,15 @@ impl DocValues {
 pub type Numeric<LR> = NumericDocValuesEnum2<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
 pub type Binary<LR> = BinaryDocValuesEnum2<<LR as LeafReader>::BinaryDocValues, EmptyBinary>;
 pub type Sorted<LR> = SortedDocValuesEnum2<<LR as LeafReader>::SortedDocValues, EmptySorted>;
-pub type SortedNumeric<LR> = SortedNumericDocValuesEnum2<
+pub type SortedNumeric<LR> = SortedNumericDocValuesEnum3<
   <LR as LeafReader>::SortedNumericDocValues,
-  SortedNumericDocValuesEnum2<
-    SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
-    SingletonSortedNumericDocValues<EmptyNumeric>,
-  >,
+  SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
+  SingletonSortedNumericDocValues<EmptyNumeric>,
 >;
 pub type SortedSet<LR> = SortedSetDocValuesEnum2<
   <LR as LeafReader>::SortedSetDocValues,
-  SortedSetDocValuesEnum2<
-    SingletonSortedSetDocValues<<LR as LeafReader>::SortedDocValues>,
-    EmptySortedSet,
+  SingletonSortedSetDocValues<
+    SortedDocValuesEnum2<<LR as LeafReader>::SortedDocValues, EmptySorted>,
   >,
 >;
 /// An empty [`BinaryDocValues`] which returns no documents  */

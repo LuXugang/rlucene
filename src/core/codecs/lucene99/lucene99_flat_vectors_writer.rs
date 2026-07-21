@@ -42,7 +42,7 @@ use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{
   DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
 };
-use crate::core::index::merge_state::MergeState;
+use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -562,14 +562,14 @@ where
   Ok(())
 }
 /// Writes the byte vector values to the output and returns a set of documents that contains vectors.
-fn write_byte_vector_data<O, B, CR>(
+fn write_byte_vector_data<O, B, DM>(
   output: &mut O,
-  byte_vector_values: &mut MergedByteVectorValues<B, CR>,
+  byte_vector_values: &mut MergedByteVectorValues<B, DM>,
 ) -> Result<DocsWithFieldSet>
 where
   O: IndexOutput,
   B: ByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   let mut docs_with_field = DocsWithFieldSet::new();
 
@@ -591,14 +591,14 @@ where
   Ok(docs_with_field)
 }
 /// Writes the vector values to the output and returns a set of documents that contains vectors.
-fn write_vector_data<O, B, CR>(
+fn write_vector_data<O, B, DM>(
   output: &mut O,
-  float_vector_values: &mut MergedFloat32VectorValues<B, CR>,
+  float_vector_values: &mut MergedFloat32VectorValues<B, DM>,
 ) -> Result<DocsWithFieldSet>
 where
   O: IndexOutput,
   B: FloatVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   let mut docs_with_field = DocsWithFieldSet::new();
 

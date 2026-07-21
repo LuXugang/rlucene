@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
-use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::search::knn_collector::KnnCollector;
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -41,7 +40,19 @@ where
   CR: CodecReader,
   B: Bits + Clone,
 {
-  CodecReaderImpl::new(reader, live_docs, num_docs)
+  CodecReaderImpl::new_with_live_docs(reader, live_docs, num_docs)
+}
+
+enum FilterCodecReaderHook<B>
+where
+  B: Bits + Clone,
+{
+  Default,
+  LiveDocs {
+    live_docs: Option<B>,
+    num_docs: i32,
+    index_base: IndexReaderBase,
+  },
 }
 
 pub struct CodecReaderImpl<CR, B>
@@ -50,9 +61,7 @@ where
   B: Bits + Clone,
 {
   reader: CR,
-  live_docs: Option<B>,
-  num_docs: i32,
-  index_base: IndexReaderBase,
+  hook: FilterCodecReaderHook<B>,
 }
 
 impl<CR, B> CodecReaderImpl<CR, B>
@@ -60,12 +69,21 @@ where
   CR: CodecReader,
   B: Bits + Clone,
 {
-  fn new(reader: CR, live_docs: Option<B>, num_docs: i32) -> Self {
+  pub(crate) fn new(reader: CR) -> Self {
     Self {
       reader,
-      live_docs,
-      num_docs,
-      index_base: IndexReaderBase::new(),
+      hook: FilterCodecReaderHook::Default,
+    }
+  }
+
+  fn new_with_live_docs(reader: CR, live_docs: Option<B>, num_docs: i32) -> Self {
+    Self {
+      reader,
+      hook: FilterCodecReaderHook::LiveDocs {
+        live_docs,
+        num_docs,
+        index_base: IndexReaderBase::new(),
+      },
     }
   }
 
@@ -80,11 +98,21 @@ where
   B: Bits + Clone,
 {
   fn clone(&self) -> Self {
+    let hook = match &self.hook {
+      FilterCodecReaderHook::Default => FilterCodecReaderHook::Default,
+      FilterCodecReaderHook::LiveDocs {
+        live_docs,
+        num_docs,
+        ..
+      } => FilterCodecReaderHook::LiveDocs {
+        live_docs: live_docs.clone(),
+        num_docs: *num_docs,
+        index_base: IndexReaderBase::new(),
+      },
+    };
     Self {
       reader: self.reader.clone(),
-      live_docs: self.live_docs.clone(),
-      num_docs: self.num_docs,
-      index_base: IndexReaderBase::new(),
+      hook,
     }
   }
 }
@@ -95,7 +123,12 @@ where
   B: Bits + Clone,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "LiveDocsCodecReader({})", self.reader)
+    match &self.hook {
+      FilterCodecReaderHook::Default => write!(f, "{}", self.reader),
+      FilterCodecReaderHook::LiveDocs { .. } => {
+        write!(f, "LiveDocsCodecReader({})", self.reader)
+      },
+    }
   }
 }
 
@@ -117,7 +150,10 @@ where
   }
 
   fn num_docs(&self) -> Result<i32> {
-    Ok(self.num_docs)
+    match &self.hook {
+      FilterCodecReaderHook::Default => self.reader.num_docs(),
+      FilterCodecReaderHook::LiveDocs { num_docs, .. } => Ok(*num_docs),
+    }
   }
 
   type StoredFields = CR::StoredFields;
@@ -130,10 +166,13 @@ where
     self.reader.do_close()
   }
 
-  type ReaderCacheHelper = DummyCacheHelper;
+  type ReaderCacheHelper = CR::ReaderCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-    Ok(None)
+    match &self.hook {
+      FilterCodecReaderHook::Default => self.reader.get_reader_cache_helper(),
+      FilterCodecReaderHook::LiveDocs { .. } => Ok(None),
+    }
   }
 
   fn doc_freq(&self, term: &Term) -> Result<i32> {
@@ -157,7 +196,10 @@ where
   }
 
   fn index_base(&self) -> &IndexReaderBase {
-    &self.index_base
+    match &self.hook {
+      FilterCodecReaderHook::Default => self.reader.index_base(),
+      FilterCodecReaderHook::LiveDocs { index_base, .. } => index_base,
+    }
   }
 }
 
@@ -267,10 +309,16 @@ where
     self.reader.get_field_infos()
   }
 
-  type Bits = B;
+  type Bits = BitsEnum2<CR::Bits, B>;
 
   fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
-    Ok(self.live_docs.clone())
+    match &self.hook {
+      FilterCodecReaderHook::Default => self
+        .reader
+        .get_live_docs()
+        .map(|live_docs| live_docs.map(BitsEnum2::A)),
+      FilterCodecReaderHook::LiveDocs { live_docs, .. } => Ok(live_docs.clone().map(BitsEnum2::B)),
+    }
   }
 
   type PointValues = CR::PointValues;
@@ -281,6 +329,10 @@ where
 
   fn get_metadata(&self) -> Result<&LeafMetaData> {
     self.reader.get_metadata()
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    self.reader.check_integrity()
   }
 }
 

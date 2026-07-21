@@ -375,6 +375,10 @@ where
     QuantizedVectorsReader::get_quantization_state(self, field)
   }
 
+  fn is_flat_vectors_reader(&self) -> bool {
+    true
+  }
+
   fn search_f32<B, K>(
     &self,
     _field: &str,

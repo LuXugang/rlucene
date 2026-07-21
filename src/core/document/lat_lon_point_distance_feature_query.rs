@@ -31,7 +31,7 @@ use crate::core::index::point_values::{
   IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
 };
 use crate::core::index::sorted_numeric_doc_values::{
-  SortedNumericDocValues, SortedNumericDocValuesEnum2,
+  SortedNumericDocValues, SortedNumericDocValuesEnum3,
 };
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -182,19 +182,17 @@ where
   IRC: IndexReaderContext,
 {
   let r = match multi_doc_values {
-    SortedNumericDocValuesEnum2::A(v) => {
+    SortedNumericDocValuesEnum3::A(v) => {
       let v = NumericDocValuesImpl::new(v, origin_lat, origin_lon);
       NumericDocValuesEnum3::A(v)
     },
-    SortedNumericDocValuesEnum2::B(v) => match v {
-      SortedNumericDocValuesEnum2::A(mut v) => {
-        let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
-        NumericDocValuesEnum3::B(singleton)
-      },
-      SortedNumericDocValuesEnum2::B(mut v) => {
-        let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
-        NumericDocValuesEnum3::C(singleton)
-      },
+    SortedNumericDocValuesEnum3::B(mut v) => {
+      let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
+      NumericDocValuesEnum3::B(singleton)
+    },
+    SortedNumericDocValuesEnum3::C(mut v) => {
+      let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
+      NumericDocValuesEnum3::C(singleton)
     },
   };
   Ok(r)

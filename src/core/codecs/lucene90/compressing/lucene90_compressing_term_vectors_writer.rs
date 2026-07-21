@@ -28,7 +28,7 @@ use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
@@ -697,7 +697,7 @@ where
   fn copy_chunks<MD, CR>(
     &mut self,
     merge_state: &mut MergeState<MD, CR>,
-    sub: &CompressingTermVectorsSub<CR>,
+    sub: &CompressingTermVectorsSub<MergeStateDocMap<CR>>,
     from_doc_id: i32,
     to_doc_id: i32,
   ) -> Result<()>
@@ -895,13 +895,11 @@ where
       return Ok(());
     }
 
-    let mut close_result = IOUtils::close(
+    let close_result = IOUtils::close(
       [&mut self.meta_stream, &mut self.vectors_stream],
       Closeable::close,
     );
-    if let Err(index_error) = self.index_writer.close() {
-      close_result = Err(IOUtils::use_or_suppress(close_result.err(), index_error));
-    }
+    let close_result = IOUtils::use_or_suppress_result(close_result, self.index_writer.close());
     self.closed = true;
     close_result
   }
@@ -1193,7 +1191,8 @@ where
 
       let bulk_merge = self.can_perform_bulk_merge(merge_state, &matching_readers, reader_index)?;
       subs.push(Sub::new(CompressingTermVectorsSub::new(
-        merge_state,
+        merge_state.doc_maps[reader_index].clone(),
+        merge_state.max_docs[reader_index],
         bulk_merge,
         reader_index,
       )));
@@ -1257,43 +1256,40 @@ where
     Ok(doc_count)
   }
 }
-pub struct CompressingTermVectorsSub<CR>
+pub struct CompressingTermVectorsSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   max_doc: i32,
   reader_index: usize,
   can_perform_bulk_merge: bool,
   doc_id: i32,
-  doc_map: Rc<MergeStateDocMap<CR>>,
+  doc_map: Rc<DM>,
 }
 
-impl<CR> CompressingTermVectorsSub<CR>
+impl<DM> CompressingTermVectorsSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
-  pub fn new<D>(
-    merge_state: &MergeState<D, CR>,
+  pub fn new(
+    doc_map: Rc<DM>,
+    max_doc: i32,
     can_perform_bulk_merge: bool,
     reader_index: usize,
-  ) -> Self
-  where
-    D: Directory,
-    CR: CodecReader,
-  {
+  ) -> Self {
     Self {
-      max_doc: merge_state.max_docs[reader_index],
+      max_doc,
       reader_index,
       can_perform_bulk_merge,
       doc_id: -1,
-      doc_map: merge_state.doc_maps[reader_index].clone(),
+      doc_map,
     }
   }
 }
 
-impl<CR> SubBase for CompressingTermVectorsSub<CR>
+impl<DM> SubBase for CompressingTermVectorsSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn next_doc(&mut self) -> Result<i32> {
     self.doc_id += 1;
@@ -1304,7 +1300,7 @@ where
     }
   }
 
-  type DocMap = MergeStateDocMap<CR>;
+  type DocMap = DM;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
     Ok(&self.doc_map)

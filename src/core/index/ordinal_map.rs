@@ -226,10 +226,13 @@ impl OrdinalMap {
 
     //  queue of term enums
     let mut terms_enum_indices = Vec::with_capacity(sub_len);
-    let mut subs: Vec<Option<TE>> = subs.into_iter().map(Some).collect();
+    let mut subs_with_holes = Vec::with_capacity(sub_len);
+    for sub in subs {
+      subs_with_holes.push(Some(sub));
+    }
     for i in 0..sub_len {
       let mapped = segment_map.new_to_old(i);
-      let mut sub = TermsEnumIndex::new(subs[mapped as usize].take(), i);
+      let mut sub = TermsEnumIndex::new(subs_with_holes[mapped as usize].take(), i);
       if sub.next()?.is_some() {
         terms_enum_indices.push(sub);
       }

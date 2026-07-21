@@ -29,12 +29,11 @@ use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::doc_values_type::DocValuesType;
-use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
 use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::{IndexReader, LeafReaderContextKind};
+use crate::core::index::index_reader::{CacheHelperEnum2, IndexReader, LeafReaderContextKind};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::point_values::PointValuesEnum2;
@@ -545,10 +544,20 @@ macro_rules! either_codec_reader {
                 }
             }
 
-            type ReaderCacheHelper = DummyCacheHelper;
+            type ReaderCacheHelper = CacheHelperEnum2<
+                <$A as IndexReader>::ReaderCacheHelper,
+                <$B as IndexReader>::ReaderCacheHelper,
+            >;
 
             fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-                Ok(None)
+                match self {
+                    Self::A(inner) => Ok(inner
+                        .get_reader_cache_helper()?
+                        .map(CacheHelperEnum2::A)),
+                    Self::B(inner) => Ok(inner
+                        .get_reader_cache_helper()?
+                        .map(CacheHelperEnum2::B)),
+                }
             }
 
             fn doc_freq(&self, term: &crate::core::index::term::Term) -> Result<i32> {
@@ -599,10 +608,20 @@ macro_rules! either_codec_reader {
             $A: CodecReader,
             $B: CodecReader,
         {
-            type CacheHelper = DummyCacheHelper;
+            type CacheHelper = CacheHelperEnum2<
+                <$A as LeafReader>::CacheHelper,
+                <$B as LeafReader>::CacheHelper,
+            >;
 
             fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
-                Ok(None)
+                match self {
+                    Self::A(inner) => Ok(inner
+                        .get_core_cache_helper()?
+                        .map(CacheHelperEnum2::A)),
+                    Self::B(inner) => Ok(inner
+                        .get_core_cache_helper()?
+                        .map(CacheHelperEnum2::B)),
+                }
             }
 
             type Terms = TermsEnum2<<$A as LeafReader>::Terms, <$B as LeafReader>::Terms>;

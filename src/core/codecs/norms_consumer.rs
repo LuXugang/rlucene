@@ -18,7 +18,7 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::codec_reader::{CRNormsProducer, CodecReader};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -128,8 +128,10 @@ where
   D: Directory,
   CR: CodecReader,
 {
-  type NumericDocValues =
-    NumericDocValuesMerge<<CRNormsProducer<CR> as NormsProducer>::NumericDocValues, CR>;
+  type NumericDocValues = NumericDocValuesMerge<
+    <CRNormsProducer<CR> as NormsProducer>::NumericDocValues,
+    MergeStateDocMap<CR>,
+  >;
 
   fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     if !Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -170,30 +172,30 @@ where
   }
 }
 
-pub struct NumericDocValuesMerge<N, CR>
+pub struct NumericDocValuesMerge<N, DM>
 where
   N: NumericDocValues,
-  CR: CodecReader,
+  DM: DocMap,
 {
   doc_id: i32,
   current: Option<usize>,
-  doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, CR>>,
+  doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, DM>>,
 }
 
-impl<N, CR> DocValuesIterator for NumericDocValuesMerge<N, CR>
+impl<N, DM> DocValuesIterator for NumericDocValuesMerge<N, DM>
 where
   N: NumericDocValues,
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
 
-impl<N, CR> DocIdSetIterator for NumericDocValuesMerge<N, CR>
+impl<N, DM> DocIdSetIterator for NumericDocValuesMerge<N, DM>
 where
   N: NumericDocValues,
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -223,10 +225,10 @@ where
   }
 }
 
-impl<N, CR> NumericDocValues for NumericDocValuesMerge<N, CR>
+impl<N, DM> NumericDocValues for NumericDocValuesMerge<N, DM>
 where
   N: NumericDocValues,
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn long_value(&mut self) -> Result<i64> {
     match self.current {
@@ -239,35 +241,35 @@ where
   }
 }
 /// Tracks state of one numeric sub-reader that we are merging.
-struct NumericDocValuesSub<N, CR>
+struct NumericDocValuesSub<N, DM>
 where
   N: NumericDocValues,
-  CR: CodecReader,
+  DM: DocMap,
 {
   values: N,
-  doc_map: Rc<MergeStateDocMap<CR>>,
+  doc_map: Rc<DM>,
 }
 
-impl<N, CR> NumericDocValuesSub<N, CR>
+impl<N, DM> NumericDocValuesSub<N, DM>
 where
   N: NumericDocValues,
-  CR: CodecReader,
+  DM: DocMap,
 {
-  fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: N) -> Self {
+  fn new(doc_map: Rc<DM>, values: N) -> Self {
     debug_assert!(values.doc_id() == -1);
     NumericDocValuesSub { values, doc_map }
   }
 }
-impl<N, CR> SubBase for NumericDocValuesSub<N, CR>
+impl<N, DM> SubBase for NumericDocValuesSub<N, DM>
 where
   N: NumericDocValues,
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn next_doc(&mut self) -> Result<i32> {
     self.values.next_doc()
   }
 
-  type DocMap = MergeStateDocMap<CR>;
+  type DocMap = DM;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
     Ok(&self.doc_map)

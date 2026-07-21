@@ -21,6 +21,7 @@ use crate::core::store::{DataInput, IndexInput, IndexOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Disk-based implementation of a [`DocIdSetIterator`] which can return the
@@ -696,6 +697,160 @@ where
 
 pub struct Owned;
 pub struct Shared;
+
+/// Wraps a shared input with an independent file pointer so reads from multiple iterators can be
+/// interleaved.
+pub struct IndexInputImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+  input: Arc<Mutex<I>>,
+  offset: usize,
+  random_access_slice: PhantomData<R>,
+}
+
+impl<I, R> IndexInputImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+  pub fn new(input: Arc<Mutex<I>>) -> Self {
+    Self {
+      input,
+      offset: 0,
+      random_access_slice: PhantomData,
+    }
+  }
+}
+
+impl<I, R> crate::core::util::close::CloseableRef for IndexInputImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+}
+
+impl<I, R> DataInput for IndexInputImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+  fn read_byte(&mut self) -> Result<u8> {
+    Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
+  }
+
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    let mut input = self.input.lock();
+    input.seek(self.offset)?;
+    self.offset += len;
+    input.read_bytes(b, offset, len)
+  }
+
+  fn read_short(&mut self) -> Result<i16> {
+    let mut input = self.input.lock();
+    input.seek(self.offset)?;
+    self.offset += BitUtil::SHORT_BYTES;
+    input.read_short()
+  }
+
+  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    crate::core::util::group_vint_util::GroupVIntUtil::read_group_vint_i32(self, dst, offset)
+  }
+
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    IndexInput::skip_bytes(self, num_bytes)
+  }
+}
+
+impl<I, R> std::fmt::Display for IndexInputImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "docs")
+  }
+}
+
+impl<I, R> crate::core::util::clone::TryClone for IndexInputImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+  fn try_clone(&self) -> Result<Self> {
+    Ok(Self {
+      input: Arc::clone(&self.input),
+      offset: self.offset,
+      random_access_slice: PhantomData,
+    })
+  }
+}
+
+impl<I, R> IndexInput for IndexInputImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+  type IndexInput = Self;
+
+  fn get_file_pointer(&self) -> Result<usize> {
+    Ok(self.offset)
+  }
+
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.offset = pos;
+    Ok(())
+  }
+
+  fn length(&self) -> Result<usize> {
+    self.input.lock().length()
+  }
+
+  type RandomAccessSlice = Arc<Mutex<R>>;
+
+  fn random_access_slice(&self, _offset: usize, _length: usize) -> Result<Self::RandomAccessSlice> {
+    Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
+  }
+
+  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+    // Not delegating to the wrapped instance on purpose. This is only used for merging.
+    Ok(())
+  }
+}
+
+impl<R> RandomAccessInput for Arc<Mutex<R>>
+where
+  R: RandomAccessInput,
+{
+  fn length(&self) -> Result<usize> {
+    self.lock().length()
+  }
+
+  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+    self.lock().read_byte(pos)
+  }
+
+  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.lock().read_bytes(pos, buf, offset, len)
+  }
+
+  fn read_short(&mut self, pos: usize) -> Result<i16> {
+    self.lock().read_short(pos)
+  }
+
+  fn read_int(&mut self, pos: usize) -> Result<i32> {
+    self.lock().read_int(pos)
+  }
+
+  fn read_long(&mut self, pos: usize) -> Result<i64> {
+    self.lock().read_long(pos)
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    self.lock().prefetch(pos, len)
+  }
+}
 impl<I> IndexedDISIPolicy<I> for Owned
 where
   I: IndexInput,
@@ -1137,7 +1292,7 @@ where
   I: IndexInput,
 {
   Owned(IndexedDISI<I, Owned>),
-  Shared(IndexedDISI<I, Shared>),
+  Shared(IndexedDISI<IndexInputImpl<I::IndexInput, I::RandomAccessSlice>, Owned>),
 }
 impl<I> IndexedDISIEnum<I>
 where

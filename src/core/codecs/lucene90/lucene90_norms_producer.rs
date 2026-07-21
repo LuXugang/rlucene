@@ -17,10 +17,8 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 
-use crate::core::codecs::indexed_disi::{
-  IndexedDISIEnum, IndexedDISIPolicy, create_block_slice, create_jump_table,
-};
-use crate::core::codecs::lucene90::indexed_disi::IndexedDISI;
+use crate::core::codecs::indexed_disi::{IndexedDISIEnum, create_block_slice, create_jump_table};
+use crate::core::codecs::lucene90::indexed_disi::{IndexInputImpl, IndexedDISI};
 use crate::core::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::IndexFileNames;
@@ -34,15 +32,12 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
-use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::store::{DataInput, IndexInput, ReadAdvice};
+use crate::core::store::{IndexInput, ReadAdvice};
 use crate::core::util::IOUtils;
 use crate::core::util::TryIntoInt;
-use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::group_vint_util::GroupVIntUtil;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -309,13 +304,13 @@ where
     &self,
     field: &FieldInfo,
     entry: &NormsEntry,
-  ) -> Result<SliceEnum<I::IndexInput>> {
+  ) -> Result<SliceEnum<I::IndexInput, I::RandomAccessSlice>> {
     if self.merging {
       if let Some(existing) = {
         let map = self.disi_inputs.lock();
         map.get(&field.number).cloned()
       } {
-        return Ok(SliceEnum::Shared(existing));
+        return Ok(SliceEnum::Shared(IndexInputImpl::new(existing)));
       }
 
       let new_input = Arc::new(Mutex::new(create_block_slice(
@@ -333,7 +328,7 @@ where
           .or_insert_with(|| new_input.clone())
           .clone()
       };
-      Ok(SliceEnum::Shared(input))
+      Ok(SliceEnum::Shared(IndexInputImpl::new(input)))
     } else {
       let input = create_block_slice(
         &self.data,
@@ -344,14 +339,14 @@ where
       )?;
       Ok(SliceEnum::Owned(input))
     }
-    // TODO IMPORTANT 这里需要进一步封装
   }
 }
-pub enum SliceEnum<I>
+pub enum SliceEnum<I, R>
 where
   I: IndexInput,
+  R: RandomAccessInput,
 {
-  Shared(Arc<Mutex<I>>),
+  Shared(IndexInputImpl<I, R>),
   Owned(I),
 }
 impl<I> Display for Lucene90NormsProducer<I>
@@ -363,100 +358,6 @@ where
   }
 }
 
-pub struct IndexInputImpl<I>
-where
-  I: IndexInput,
-{
-  inf: Arc<Mutex<I>>,
-  offset: usize,
-}
-
-impl<I> crate::core::util::close::CloseableRef for IndexInputImpl<I> where I: IndexInput {}
-
-impl<I> DataInput for IndexInputImpl<I>
-where
-  I: IndexInput,
-{
-  fn read_byte(&mut self) -> Result<u8> {
-    Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
-  }
-
-  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    let mut inf = self.inf.lock();
-    inf.seek(self.offset)?;
-    self.offset += len;
-    inf.read_bytes(b, offset, len)?;
-    Ok(())
-  }
-
-  fn read_short(&mut self) -> Result<i16> {
-    let mut inf = self.inf.lock();
-    inf.seek(self.offset)?;
-    self.offset += BitUtil::SHORT_BYTES;
-    inf.read_short()
-  }
-
-  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-    GroupVIntUtil::read_group_vint_i32(self, dst, offset)
-  }
-
-  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-    IndexInput::skip_bytes(self, num_bytes)
-  }
-}
-
-impl<I> Display for IndexInputImpl<I>
-where
-  I: IndexInput,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "docs")
-  }
-}
-
-impl<I> crate::core::util::clone::TryClone for IndexInputImpl<I>
-where
-  I: IndexInput,
-{
-  fn try_clone(&self) -> Result<Self>
-  where
-    Self: Sized,
-  {
-    todo!()
-  }
-}
-
-impl<I> IndexInput for IndexInputImpl<I>
-where
-  I: IndexInput,
-{
-  type IndexInput = IndexInputImpl<I>;
-
-  fn get_file_pointer(&self) -> Result<usize> {
-    Ok(self.offset)
-  }
-
-  fn seek(&mut self, pos: usize) -> Result<()> {
-    self.offset = pos;
-    Ok(())
-  }
-
-  fn length(&self) -> Result<usize> {
-    self.inf.lock().length()
-  }
-
-  type RandomAccessSlice = DummyRandomAccessInput;
-
-  fn random_access_slice(&self, _offset: usize, _length: usize) -> Result<Self::RandomAccessSlice> {
-    Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
-  }
-
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
-    // Not delegating to the wrapped instance on purpose. This is only used
-    // for merging.
-    Ok(())
-  }
-}
 impl<I> CloseableRef for Lucene90NormsProducer<I>
 where
   I: IndexInput,
@@ -897,20 +798,14 @@ where
   I: IndexInput,
 {
   fn long_value(&mut self) -> Result<i64> {
-    match self.disi {
-      IndexedDISIEnum::Shared(ref mut v) => self.sub_sparse_norms.long_value(v),
-      IndexedDISIEnum::Owned(ref mut v) => self.sub_sparse_norms.long_value(v),
-    }
+    self
+      .sub_sparse_norms
+      .long_value(self.disi.index().try_convert()?)
   }
 }
 
-trait SparseNormsIteratorBase<I>
-where
-  I: IndexInput,
-{
-  fn long_value<P>(&mut self, disi: &mut IndexedDISI<I, P>) -> Result<i64>
-  where
-    P: IndexedDISIPolicy<I>;
+trait SparseNormsIteratorBase {
+  fn long_value(&mut self, index: usize) -> Result<i64>;
 }
 struct SparseNormsIteratorBaseImpl {
   norms_offset: i64,
@@ -920,14 +815,8 @@ impl SparseNormsIteratorBaseImpl {
     Self { norms_offset }
   }
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl
-where
-  I: IndexInput,
-{
-  fn long_value<P>(&mut self, _disi: &mut IndexedDISI<I, P>) -> Result<i64>
-  where
-    P: IndexedDISIPolicy<I>,
-  {
+impl SparseNormsIteratorBase for SparseNormsIteratorBaseImpl {
+  fn long_value(&mut self, _index: usize) -> Result<i64> {
     Ok(self.norms_offset)
   }
 }
@@ -938,19 +827,14 @@ where
 {
   slice: RandomAccessSliceEnum<R>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl1<I::RandomAccessSlice>
+impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl1<R>
 where
-  I: IndexInput,
+  R: RandomAccessInput,
 {
-  fn long_value<P>(&mut self, disi: &mut IndexedDISI<I, P>) -> Result<i64>
-  where
-    P: IndexedDISIPolicy<I>,
-  {
+  fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok((v.read_byte(disi.index_u())? as i8) as i64),
-      RandomAccessSliceEnum::Shared(ref v) => {
-        Ok((v.lock().read_byte(disi.index_u())? as i8) as i64)
-      },
+      RandomAccessSliceEnum::Owned(ref mut v) => Ok((v.read_byte(index)? as i8) as i64),
+      RandomAccessSliceEnum::Shared(ref v) => Ok((v.lock().read_byte(index)? as i8) as i64),
     }
   }
 }
@@ -961,19 +845,14 @@ where
 {
   slice: RandomAccessSliceEnum<R>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl2<I::RandomAccessSlice>
+impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl2<R>
 where
-  I: IndexInput,
+  R: RandomAccessInput,
 {
-  fn long_value<P>(&mut self, disi: &mut IndexedDISI<I, P>) -> Result<i64>
-  where
-    P: IndexedDISIPolicy<I>,
-  {
+  fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_short((disi.index_u()) << 1)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => {
-        Ok(v.lock().read_short((disi.index_u()) << 1)? as i64)
-      },
+      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_short(index << 1)? as i64),
+      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_short(index << 1)? as i64),
     }
   }
 }
@@ -984,17 +863,14 @@ where
 {
   slice: RandomAccessSliceEnum<R>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl4<I::RandomAccessSlice>
+impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl4<R>
 where
-  I: IndexInput,
+  R: RandomAccessInput,
 {
-  fn long_value<P>(&mut self, disi: &mut IndexedDISI<I, P>) -> Result<i64>
-  where
-    P: IndexedDISIPolicy<I>,
-  {
+  fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_int((disi.index_u()) << 2)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_int((disi.index_u()) << 2)? as i64),
+      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_int(index << 2)? as i64),
+      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_int(index << 2)? as i64),
     }
   }
 }
@@ -1005,17 +881,14 @@ where
 {
   slice: RandomAccessSliceEnum<R>,
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseImpl8<I::RandomAccessSlice>
+impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl8<R>
 where
-  I: IndexInput,
+  R: RandomAccessInput,
 {
-  fn long_value<P>(&mut self, disi: &mut IndexedDISI<I, P>) -> Result<i64>
-  where
-    P: IndexedDISIPolicy<I>,
-  {
+  fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => v.read_long((disi.index_u()) << 3),
-      RandomAccessSliceEnum::Shared(ref v) => v.lock().read_long((disi.index_u()) << 3),
+      RandomAccessSliceEnum::Owned(ref mut v) => v.read_long(index << 3),
+      RandomAccessSliceEnum::Shared(ref v) => v.lock().read_long(index << 3),
     }
   }
 }
@@ -1029,20 +902,17 @@ where
   Sparse3(SparseNormsIteratorBaseImpl4<R>),
   Sparse4(SparseNormsIteratorBaseImpl8<R>),
 }
-impl<I> SparseNormsIteratorBase<I> for SparseNormsIteratorBaseEnum<I::RandomAccessSlice>
+impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseEnum<R>
 where
-  I: IndexInput,
+  R: RandomAccessInput,
 {
-  fn long_value<P>(&mut self, disi: &mut IndexedDISI<I, P>) -> Result<i64>
-  where
-    P: IndexedDISIPolicy<I>,
-  {
+  fn long_value(&mut self, index: usize) -> Result<i64> {
     match self {
-      SparseNormsIteratorBaseEnum::Sparse(inner) => inner.long_value(disi),
-      SparseNormsIteratorBaseEnum::Sparse1(inner) => inner.long_value(disi),
-      SparseNormsIteratorBaseEnum::Sparse2(inner) => inner.long_value(disi),
-      SparseNormsIteratorBaseEnum::Sparse3(inner) => inner.long_value(disi),
-      SparseNormsIteratorBaseEnum::Sparse4(inner) => inner.long_value(disi),
+      SparseNormsIteratorBaseEnum::Sparse(inner) => inner.long_value(index),
+      SparseNormsIteratorBaseEnum::Sparse1(inner) => inner.long_value(index),
+      SparseNormsIteratorBaseEnum::Sparse2(inner) => inner.long_value(index),
+      SparseNormsIteratorBaseEnum::Sparse3(inner) => inner.long_value(index),
+      SparseNormsIteratorBaseEnum::Sparse4(inner) => inner.long_value(index),
     }
   }
 }

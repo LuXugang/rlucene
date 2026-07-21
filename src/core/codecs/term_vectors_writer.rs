@@ -19,7 +19,7 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
-use crate::core::index::merge_state::{MergeState, MergeStateMeta};
+use crate::core::index::merge_state::{DocMap, MergeState, MergeStateMeta};
 use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
@@ -129,14 +129,14 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     CR: CodecReader;
 
   /// Safe (but, slowish) default method to write every vector field in the document.
-  fn add_all_doc_vectors<F, CR>(
+  fn add_all_doc_vectors<F, DM>(
     &mut self,
     vectors: Option<&F>,
-    merge_state: &MergeStateMeta<CR>,
+    merge_state: &MergeStateMeta<DM>,
   ) -> Result<()>
   where
     F: Fields,
-    CR: CodecReader,
+    DM: DocMap,
   {
     if vectors.is_none() {
       self.start_document(0)?;

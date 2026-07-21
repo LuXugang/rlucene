@@ -359,6 +359,7 @@ pub trait CacheHelper {
   /// [`Self::get_key`] is closed.
   fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()>;
 }
+#[derive(Clone)]
 pub enum CacheHelperEnum2<A, B> {
   A(A),
   B(B),

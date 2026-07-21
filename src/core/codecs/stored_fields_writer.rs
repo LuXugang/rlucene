@@ -20,7 +20,7 @@ use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
@@ -125,7 +125,7 @@ pub trait StoredFieldsWriter: Closeable {
       }
       let visitor = MergeVisitor::new(merge_state, i)?;
 
-      subs.push(Sub::new(StoredFieldsMergeSub::<CR>::new(
+      subs.push(Sub::new(StoredFieldsMergeSub::<MergeStateDocMap<CR>>::new(
         visitor,
         merge_state.doc_maps[i].clone(),
         i,
@@ -160,27 +160,22 @@ pub trait StoredFieldsWriter: Closeable {
 }
 pub type DefaultStoredFieldsWriter<D> =
   <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>;
-struct StoredFieldsMergeSub<CR>
+struct StoredFieldsMergeSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   pub reader_index: usize,
   pub max_doc: i32,
   pub visitor: MergeVisitor,
   pub doc_id: i32,
-  pub doc_map: Rc<MergeStateDocMap<CR>>,
+  pub doc_map: Rc<DM>,
 }
 
-impl<CR> StoredFieldsMergeSub<CR>
+impl<DM> StoredFieldsMergeSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
-  fn new(
-    visitor: MergeVisitor,
-    doc_map: Rc<MergeStateDocMap<CR>>,
-    reader_index: usize,
-    max_doc: i32,
-  ) -> Self {
+  fn new(visitor: MergeVisitor, doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
     Self {
       reader_index,
       max_doc,
@@ -193,9 +188,9 @@ where
     self.reader_index
   }
 }
-impl<CR> SubBase for StoredFieldsMergeSub<CR>
+impl<DM> SubBase for StoredFieldsMergeSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn next_doc(&mut self) -> Result<i32> {
     self.doc_id += 1;
@@ -206,7 +201,7 @@ where
     }
   }
 
-  type DocMap = MergeStateDocMap<CR>;
+  type DocMap = DM;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
     Ok(self.doc_map.as_ref())

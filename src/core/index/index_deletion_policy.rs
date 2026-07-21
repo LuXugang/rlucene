@@ -31,6 +31,8 @@ use crate::test_framework::core::index::deletion_policy::{
   ExpirationTimeDeletionPolicy, KeepAllDeletionPolicy, KeepLastNDeletionPolicy,
   KeepNoneOnInitDeletionPolicy,
 };
+#[cfg(test)]
+use crate::test_framework::core::index::test_check_index::DeleteNothingIndexDeletionPolicy;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -119,6 +121,8 @@ where
   Rollback(RollbackDeletionPolicy),
   #[cfg(test)]
   DeleteLastCommit(DeleteLastCommitPolicy),
+  #[cfg(test)]
+  DeleteNothing(DeleteNothingIndexDeletionPolicy),
 }
 
 impl<D> From<KeepOnlyLastCommitDeletionPolicy> for IndexDeletionPolicyEnum<D>
@@ -227,6 +231,16 @@ where
   }
 }
 
+#[cfg(test)]
+impl<D> From<DeleteNothingIndexDeletionPolicy> for IndexDeletionPolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(policy: DeleteNothingIndexDeletionPolicy) -> Self {
+    Self::DeleteNothing(policy)
+  }
+}
+
 impl<D> Display for IndexDeletionPolicyEnum<D>
 where
   D: Directory,
@@ -251,6 +265,8 @@ where
       Self::Rollback(policy) => write!(f, "{policy}"),
       #[cfg(test)]
       Self::DeleteLastCommit(policy) => write!(f, "{policy}"),
+      #[cfg(test)]
+      Self::DeleteNothing(policy) => write!(f, "{policy}"),
     }
   }
 }
@@ -279,6 +295,8 @@ where
       Self::Rollback(policy) => policy.on_init(commits),
       #[cfg(test)]
       Self::DeleteLastCommit(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::DeleteNothing(policy) => policy.on_init(commits),
     }
   }
 
@@ -302,6 +320,8 @@ where
       Self::Rollback(policy) => policy.on_commit(commits),
       #[cfg(test)]
       Self::DeleteLastCommit(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::DeleteNothing(policy) => policy.on_commit(commits),
     }
   }
 }
@@ -334,6 +354,8 @@ where
       Self::Rollback(policy) => policy.on_init(commits),
       #[cfg(test)]
       Self::DeleteLastCommit(policy) => policy.on_init(commits),
+      #[cfg(test)]
+      Self::DeleteNothing(policy) => policy.on_init(commits),
     }
   }
 
@@ -361,6 +383,8 @@ where
       Self::Rollback(policy) => policy.on_commit(commits),
       #[cfg(test)]
       Self::DeleteLastCommit(policy) => policy.on_commit(commits),
+      #[cfg(test)]
+      Self::DeleteNothing(policy) => policy.on_commit(commits),
     }
   }
 }

@@ -1922,14 +1922,33 @@ where
 {
   let sorter = Sorter::new(sort)?;
   let doc_map = sorter.sort_with_reader(&reader)?.map(Arc::new);
-  wrap_with_doc_map(reader, doc_map, Some(Arc::new(sorter.sort)))
+  match doc_map {
+    Some(doc_map) => Ok(SortingCodecReaderEnum::Sorting(wrap_with_doc_map(
+      reader,
+      doc_map,
+      Some(Arc::new(sorter.sort)),
+    )?)),
+    None => {
+      let meta_data = reader.get_metadata()?;
+      let new_meta_data = LeafMetaData::new(
+        meta_data.get_created_version_major(),
+        meta_data.get_min_version().clone(),
+        Some(Arc::new(sorter.sort)),
+        meta_data.get_has_blocks(),
+      )?;
+      Ok(SortingCodecReaderEnum::Filter(FilterCodecReaderImpl::new(
+        reader,
+        new_meta_data,
+      )))
+    },
+  }
 }
 /// Expert: same as `wrap_with` but operates directly on a [`DocMap`].
 pub fn wrap_with_doc_map<CR, DM>(
   reader: CR,
-  doc_map: Option<DM>,
+  doc_map: DM,
   sort: Option<Arc<Sort>>,
-) -> Result<SortingCodecReaderEnum<CR, DM>>
+) -> Result<SortingCodecReader<CR, DM>>
 where
   CR: CodecReader,
   DM: DocMap + Clone,
@@ -1941,24 +1960,15 @@ where
     sort,
     meta_data.get_has_blocks(),
   )?;
-  match doc_map {
-    Some(doc_map) => {
-      if reader.max_doc()? != doc_map.size() {
-        return Err(LuceneError::illegal_argument(format!(
-          "reader.maxDoc() should be equal to docMap.size(), got {} != {}",
-          reader.max_doc()?,
-          doc_map.size()
-        )));
-      }
-      debug_assert!(Sorter::is_consistent(&doc_map)?);
-      let v = SortingCodecReader::new(reader, doc_map, new_meta_data);
-      Ok(SortingCodecReaderEnum::Sorting(v))
-    },
-    None => Ok(SortingCodecReaderEnum::Filter(FilterCodecReaderImpl::new(
-      reader,
-      new_meta_data,
-    ))),
+  if reader.max_doc()? != doc_map.size() {
+    return Err(LuceneError::illegal_argument(format!(
+      "reader.maxDoc() should be equal to docMap.size(), got {} != {}",
+      reader.max_doc()?,
+      doc_map.size()
+    )));
   }
+  debug_assert!(Sorter::is_consistent(&doc_map)?);
+  Ok(SortingCodecReader::new(reader, doc_map, new_meta_data))
 }
 
 pub enum SortingCodecReaderEnum<CR, DM>

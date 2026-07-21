@@ -34,7 +34,7 @@ use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::{MergeVisitor, StoredFieldsWriter};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
@@ -286,7 +286,7 @@ where
   fn copy_chunks<MD, CR>(
     &mut self,
     merge_state: &mut MergeState<MD, CR>,
-    sub: &CompressingStoredFieldsMergeSub<CR>,
+    sub: &CompressingStoredFieldsMergeSub<MergeStateDocMap<CR>>,
     from_doc_id: i32,
     to_doc_id: i32,
   ) -> Result<()>
@@ -483,19 +483,12 @@ where
       return Ok(());
     }
 
-    let mut close_result = IOUtils::close(
+    let close_result = IOUtils::close(
       [&mut self.meta_stream, &mut self.fields_stream],
       Closeable::close,
     );
-    if let Err(index_error) = self.index_writer.close() {
-      close_result = Err(IOUtils::use_or_suppress(close_result.err(), index_error));
-    }
-    if let Err(compressor_error) = self.compressor.close() {
-      close_result = Err(IOUtils::use_or_suppress(
-        close_result.err(),
-        compressor_error,
-      ));
-    }
+    let close_result = IOUtils::use_or_suppress_result(close_result, self.index_writer.close());
+    let close_result = IOUtils::use_or_suppress_result(close_result, self.compressor.close());
     self.closed = true;
     close_result
   }
@@ -644,7 +637,8 @@ where
         visitors[i] = Some(MergeVisitor::new(merge_state, i)?);
       }
       subs.push(Sub::new(CompressingStoredFieldsMergeSub::new(
-        merge_state,
+        merge_state.doc_maps[i].clone(),
+        merge_state.max_docs[i],
         strategy,
         i,
       )));
@@ -752,43 +746,40 @@ enum MergeStrategy {
   /// Copy field by field of decompressed documents.
   Visitor,
 }
-struct CompressingStoredFieldsMergeSub<CR>
+struct CompressingStoredFieldsMergeSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   pub reader_index: usize,
   pub max_doc: i32,
   pub merge_strategy: MergeStrategy,
   pub doc_id: i32,
-  pub doc_map: Rc<MergeStateDocMap<CR>>,
+  pub doc_map: Rc<DM>,
 }
 
-impl<CR> CompressingStoredFieldsMergeSub<CR>
+impl<DM> CompressingStoredFieldsMergeSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
-  fn new<D>(
-    merge_state: &MergeState<D, CR>,
+  fn new(
+    doc_map: Rc<DM>,
+    max_doc: i32,
     merge_strategy: MergeStrategy,
     reader_index: usize,
-  ) -> Self
-  where
-    D: Directory,
-    CR: CodecReader,
-  {
+  ) -> Self {
     Self {
       reader_index,
       merge_strategy,
-      max_doc: merge_state.max_docs[reader_index],
+      max_doc,
       doc_id: -1,
-      doc_map: Rc::clone(&merge_state.doc_maps[reader_index]),
+      doc_map,
     }
   }
 }
 
-impl<CR> SubBase for CompressingStoredFieldsMergeSub<CR>
+impl<DM> SubBase for CompressingStoredFieldsMergeSub<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn next_doc(&mut self) -> Result<i32> {
     self.doc_id += 1;
@@ -799,7 +790,7 @@ where
     }
   }
 
-  type DocMap = MergeStateDocMap<CR>;
+  type DocMap = DM;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
     Ok(&self.doc_map)

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-use std::fs::File;
+use std::fs::{self, File};
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -197,6 +197,43 @@ impl_close_while_handling_resource_tuple!(
 );
 
 impl IOUtils {
+  /// Deletes all given filesystem paths, suppressing all returned errors.
+  ///
+  /// Note: The `files` collection should not be empty.
+  pub fn delete_paths_ignoring_exceptions<I, P>(files: I)
+  where
+    I: IntoIterator<Item = P>,
+    P: AsRef<Path>,
+  {
+    for file in files {
+      if fs::remove_file(file.as_ref()).is_err() {
+        // Ignore the error and continue with the next file.
+      }
+    }
+  }
+
+  /// Deletes all given filesystem paths if they exist.
+  ///
+  /// If more than one path cannot be deleted, the first error is returned and
+  /// the following errors are added to it as suppressed errors.
+  pub fn delete_files_if_exist<I, P>(files: I) -> Result<()>
+  where
+    I: IntoIterator<Item = P>,
+    P: AsRef<Path>,
+  {
+    Self::close(files, |file| {
+      let path = file.as_ref();
+      match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(LuceneError::io_with_path(
+          path.to_string_lossy().to_string(),
+          error,
+        )),
+      }
+    })
+  }
+
   /// Deletes all given files, suppressing all returned errors.
   ///
   /// Note: The `files` collection should not be empty or contain `None`.

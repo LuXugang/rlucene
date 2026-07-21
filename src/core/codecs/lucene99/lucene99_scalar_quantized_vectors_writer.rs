@@ -52,7 +52,7 @@ use crate::core::index::float_vector_values::{FloatVectorValues, FloatVectorValu
 use crate::core::index::knn_vector_values::{
   BitsImpl1, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues,
 };
-use crate::core::index::merge_state::{MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -1251,7 +1251,7 @@ impl Accountable for ScalarQuantizedFieldWriter {
   }
 }
 
-fn build_scalar_quantizer<FVV>(
+pub(crate) fn build_scalar_quantizer<FVV>(
   float_vector_values: FVV,
   num_vectors: usize,
   vector_similarity_function: VectorSimilarityFunction,
@@ -1303,12 +1303,12 @@ where
 }
 
 #[derive(Clone, Copy)]
-struct FloatVectorWrapper<'a> {
+pub(crate) struct FloatVectorWrapper<'a> {
   vector_list: &'a [VectorValueEnum],
 }
 
 impl<'a> FloatVectorWrapper<'a> {
-  fn new(vector_list: &'a [VectorValueEnum]) -> Self {
+  pub(crate) fn new(vector_list: &'a [VectorValueEnum]) -> Self {
     Self { vector_list }
   }
 }
@@ -1372,22 +1372,22 @@ impl FloatVectorValues for FloatVectorWrapper<'_> {
   type VectorScorer = DummyVectorScorer;
 }
 
-struct QuantizedByteVectorValueSub<V, CR>
+struct QuantizedByteVectorValueSub<V, DM>
 where
   V: QuantizedByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   values: V,
   iterator: <V as KnnVectorValues>::DocIndexIterator,
-  doc_map: Rc<MergeStateDocMap<CR>>,
+  doc_map: DM,
 }
 
-impl<V, CR> QuantizedByteVectorValueSub<V, CR>
+impl<V, DM> QuantizedByteVectorValueSub<V, DM>
 where
   V: QuantizedByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  fn new(doc_map: Rc<MergeStateDocMap<CR>>, values: V) -> Result<Self> {
+  fn new(doc_map: DM, values: V) -> Result<Self> {
     let iterator = values.iterator()?;
     debug_assert_eq!(iterator.doc_id(), -1);
     Ok(Self {
@@ -1402,12 +1402,12 @@ where
   }
 }
 
-impl<V, CR> SubBase for QuantizedByteVectorValueSub<V, CR>
+impl<V, DM> SubBase for QuantizedByteVectorValueSub<V, DM>
 where
   V: QuantizedByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
-  type DocMap = Rc<MergeStateDocMap<CR>>;
+  type DocMap = DM;
 
   fn next_doc(&mut self) -> Result<i32> {
     self.iterator.next_doc()
@@ -1424,20 +1424,20 @@ where
   V: QuantizedByteVectorValues,
   CR: CodecReader,
 {
-  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, CR>>>,
+  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMap<CR>>>>>,
   size: usize,
   dimension: usize,
 }
 
-struct MergedQuantizedVectorValuesState<V, CR>
+struct MergedQuantizedVectorValuesState<V, DM>
 where
   V: QuantizedByteVectorValues,
-  CR: CodecReader,
+  DM: MergeDocMap,
 {
   doc_id: i32,
   ord: i32,
   current: Option<usize>,
-  doc_id_merger: DocIDMergerEnum<QuantizedByteVectorValueSub<V, CR>>,
+  doc_id_merger: DocIDMergerEnum<QuantizedByteVectorValueSub<V, DM>>,
 }
 
 impl<CR>
@@ -1497,7 +1497,7 @@ where
   CR: CodecReader,
 {
   fn new<D>(
-    subs: Vec<Sub<QuantizedByteVectorValueSub<V, CR>>>,
+    subs: Vec<Sub<QuantizedByteVectorValueSub<V, Rc<MergeStateDocMap<CR>>>>>,
     merge_state: &MergeState<'_, D, CR>,
   ) -> Result<Self>
   where
@@ -1630,7 +1630,7 @@ where
   V: QuantizedByteVectorValues,
   CR: CodecReader,
 {
-  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, CR>>>,
+  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMap<CR>>>>>,
   size: usize,
 }
 

@@ -153,8 +153,8 @@ impl Display for Lucene99HnswVectorsFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "Lucene99HnswVectorsFormat(name=Lucene99HnswVectorsFormat, maxConn={}, beamWidth={}, flatVectorFormat={:?})",
-      self.max_conn, self.beam_width, FLAT_VECTORS_FORMAT,
+      "Lucene99HnswVectorsFormat(name=Lucene99HnswVectorsFormat, maxConn={}, beamWidth={}, flatVectorFormat={})",
+      self.max_conn, self.beam_width, *FLAT_VECTORS_FORMAT,
     )
   }
 }

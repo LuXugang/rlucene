@@ -282,20 +282,23 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       dv_consumer.add_sorted_set_field(&self.field_info, &producer)?;
       return Ok(());
     }
+    let ord_counts = ord_counts.unwrap();
 
     let doc_ords = if let Some(map) = sort_map {
+      let docs_iter = self.docs_with_field.iterator()?;
+      let mut values = BufferedSortedSetDocValues::new(
+        ord_map.clone(),
+        self.frozen_hash.clone().unwrap(),
+        self.pool.clone(),
+        &ords,
+        ord_counts.clone(),
+        self.max_count,
+        docs_iter,
+      );
       Some(DocOrds::new(
         segment_info.max_doc()?,
         map,
-        &mut SortedSetDocValuesWriter::get_values(
-          ord_map.clone(),
-          self.frozen_hash.clone().unwrap(),
-          self.pool.clone(),
-          &ords,
-          ord_counts.clone(),
-          self.max_count,
-          &self.docs_with_field,
-        )?,
+        &mut values,
         PackedInts::FASTEST,
         PackedInts::bits_required(self.max_count as i64)?,
       )?)
@@ -375,7 +378,7 @@ pub(crate) struct DocValuesProducerImpl1 {
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
   ords: PackedLongValues,
-  ord_counts: Option<PackedLongValues>,
+  ord_counts: PackedLongValues,
   max_count: i32,
   docs_with_field: DocsWithFieldSet,
   doc_ords: Option<DocOrds>,
@@ -391,7 +394,7 @@ impl DocValuesProducerImpl1 {
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
     ords: PackedLongValues,
-    ord_counts: Option<PackedLongValues>,
+    ord_counts: PackedLongValues,
     max_count: i32,
     docs_with_field: DocsWithFieldSet,
     doc_ords: Option<DocOrds>,
@@ -415,31 +418,24 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
   type SortedDocValues = DummySortedDocValues;
   type SortedNumericDocValues = DummySortedNumericDocValues;
   type SortedSetDocValues = SortedSetDocValuesEnum2<
-    SortedSetDocValuesEnum2<
-      SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-      BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-    >,
-    SortingSortedSetDocValues<
-      SortedSetDocValuesEnum2<
-        SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-        BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-      >,
-    >,
+    BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
+    SortingSortedSetDocValues<BufferedSortedSetDocValues<DocsWithFieldSetDISI>>,
   >;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     if !Arc::ptr_eq(&self.field_info, field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
-    let buf = SortedSetDocValuesWriter::get_values(
+    let docs_iter = self.docs_with_field.iterator()?;
+    let buf = BufferedSortedSetDocValues::new(
       self.ord_map.clone(),
       self.hash.clone(),
       self.pool.clone(),
       &self.ords,
       self.ord_counts.clone(),
       self.max_count,
-      &self.docs_with_field,
-    )?;
+      docs_iter,
+    );
     match &self.doc_ords {
       Some(ords) => Ok(SortedSetDocValuesEnum2::B(SortingSortedSetDocValues::new(
         buf,

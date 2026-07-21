@@ -292,6 +292,10 @@ where
     )
   }
 
+  fn is_flat_vectors_reader(&self) -> bool {
+    true
+  }
+
   fn search_f32<B, K>(
     &self,
     field: &str,

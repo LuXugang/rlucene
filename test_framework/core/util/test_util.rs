@@ -20,32 +20,75 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::IndexedRandom;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::{Arc, LazyLock};
 
 use crate::core::codecs::Codecs;
 use crate::core::index::CODEC_FILE_PATTERN;
+use crate::core::index::check_index::{CheckIndex, Status};
 use crate::core::index::composite_reader::CompositeReader;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::directory_reader::DirectoryReader;
+use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::index_reader::{
+  CompositeReaderContextKind, IndexReader, LeafReaderContextKind,
+};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
+use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum, OneMerge};
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::multi_terms::{TermsType, get_terms};
 use crate::core::index::postings_enum::{ALL, FREQS, OFFSETS, PAYLOADS, POSITIONS};
-use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::slow_codec_reader_wrapper::SlowCodecReaderWrapper;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::IOContext;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, DirectoryEnum};
+use crate::core::store::lock::LockEnum;
+use crate::core::store::no_lock_factory::NoLock;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::access::SharedAccessVec;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::Closeable;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
+use std::io::Sink;
 
 pub struct TestUtil;
+
+/// Static dispatch for the two Java `IndexReader` shapes accepted by `TestUtil.checkReader`.
+pub trait CheckReaderContextKind<I>
+where
+  I: IndexReader,
+{
+  fn check_reader(reader: &I, level: i32) -> Result<()>;
+}
+
+impl<I> CheckReaderContextKind<I> for LeafReaderContextKind
+where
+  I: LeafReader,
+{
+  fn check_reader(reader: &I, level: i32) -> Result<()> {
+    TestUtil::check_reader_with_level(reader, level)
+  }
+}
+
+impl<I> CheckReaderContextKind<I> for CompositeReaderContextKind
+where
+  I: CompositeReader,
+  I::LeafReader: LeafReader,
+{
+  fn check_reader(reader: &I, level: i32) -> Result<()> {
+    let context = <&I as IndexReader>::get_context(reader)?;
+    for leaf in context.leaves()? {
+      TestUtil::check_reader_with_level(leaf.reader(), level)?;
+    }
+    Ok(())
+  }
+}
+
 const BLOCK_STARTS: &[u32] = &[
   0x0000, 0x0080, 0x0100, 0x0180, 0x0250, 0x02B0, 0x0300, 0x0370, 0x0400, 0x0500, 0x0530, 0x0590,
   0x0600, 0x0700, 0x0750, 0x0780, 0x07C0, 0x0800, 0x0900, 0x0980, 0x0A00, 0x0A80, 0x0B00, 0x0B80,
@@ -193,10 +236,15 @@ impl TestUtil {
     Self::random_simple_string_range(random, 0, 10)
   }
 
-  pub fn add_indexes_slowly<D, CR>(writer: &IndexWriter<D>, readers: &[CR]) -> Result<i64>
+  pub fn add_indexes_slowly<D, CR>(writer: &IndexWriter<D>, readers: &[CR]) -> Result<()>
   where
     D: Directory + 'static,
-    CR: CompositeReader<LeafReader = DefaultLeafReader<D>>,
+    CR: DirectoryReader,
+    CR::LeafReader: Clone + 'static,
+    OneMerge<
+      D,
+      Arc<crate::core::index::slow_codec_reader_wrapper::CodecReaderImpl<CR::LeafReader>>,
+    >: Send + 'static,
   {
     let mut leaves = Vec::new();
     for reader in readers {
@@ -207,7 +255,8 @@ impl TestUtil {
         ));
       }
     }
-    writer.add_indexes_from_codec_readers(leaves)
+    writer.add_indexes_from_codec_readers(leaves)?;
+    Ok(())
   }
 
   /// Just tries to configure things to keep the open file count lowish.
@@ -238,23 +287,241 @@ impl TestUtil {
     Ok(())
   }
 
-  pub fn check_index<T>(_dir: T) -> Result<()> {
-    // TODO
-    Ok(())
+  /// This runs the CheckIndex tool on the index in. If any issues are hit, a runtime error is
+  /// returned; otherwise, the index status is returned.
+  pub fn check_index<R, D>(random: &mut R, dir: D) -> Result<Status<D>>
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    Self::check_index_with_level(
+      random,
+      dir,
+      crate::core::index::check_index::Level::MIN_LEVEL_FOR_SLOW_CHECKS,
+    )
   }
-  pub fn check_index_with_level<T>(_dir: T, _level: i32) -> Result<()> {
-    Ok(())
+
+  pub fn check_index_with_level<R, D>(random: &mut R, dir: D, level: i32) -> Result<Status<D>>
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    Self::check_index_with_options(random, Arc::new(dir), level, false, true, None)
   }
-  pub fn check_reader<I>(_reader: &I) -> Result<()>
+
+  /// If `fail_fast` is true, then throw the first exception when index corruption is hit, instead
+  /// of moving on to other fields/segments to look for any other corruption.
+  pub fn check_index_with_options<R, D>(
+    random: &mut R,
+    dir: Arc<D>,
+    level: i32,
+    fail_fast: bool,
+    concurrent: bool,
+    output: Option<&mut Vec<u8>>,
+  ) -> Result<Status<D>>
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    let mut default_output = Vec::with_capacity(1024);
+    let output = output.unwrap_or(&mut default_output);
+
+    // TODO: actually use the dir's locking, unless test uses a special method?
+    // some tests e.g. exception tests become much more complicated if they have to close the writer
+    let mut checker = CheckIndex::<D, NoLock, &mut Vec<u8>>::with_lock(dir, NoLock);
+    checker.set_level(level)?;
+    checker.set_fail_fast(fail_fast);
+    checker.set_info_stream_with_verbose(&mut *output, false);
+    if concurrent {
+      checker.set_thread_count(random.random_range(2..=5))?;
+    } else {
+      checker.set_thread_count(1)?;
+    }
+    let result = catch_unwind(AssertUnwindSafe(|| checker.check_index()));
+    let close_result = checker.close();
+    drop(checker);
+    match result {
+      Ok(Ok(index_status)) if !index_status.clean => {
+        println!("CheckIndex failed");
+        println!("{}", String::from_utf8_lossy(output));
+        IOUtils::use_or_suppress_result(
+          Err(LuceneError::illegal_state("CheckIndex failed")),
+          close_result,
+        )
+      },
+      Ok(Ok(index_status)) => {
+        if cfg!(feature = "test_log_verbose") {
+          println!("{}", String::from_utf8_lossy(output));
+        }
+        IOUtils::use_or_suppress_result(Ok(index_status), close_result)
+      },
+      Ok(Err(error)) => IOUtils::use_or_suppress_result(Err(error), close_result),
+      Err(mut payload) => {
+        if let Err(close_error) = close_result
+          && let Some(error) = payload.downcast_mut::<LuceneError>()
+        {
+          error.add_suppressed(close_error);
+        }
+        resume_unwind(payload)
+      },
+    }
+  }
+
+  /// This runs the CheckIndex tool on the reader. If any issues are hit, a runtime error is
+  /// returned.
+  pub fn check_reader<I>(reader: &I) -> Result<()>
   where
     I: IndexReader,
+    I::ContextKind: CheckReaderContextKind<I>,
   {
+    I::ContextKind::check_reader(
+      reader,
+      crate::core::index::check_index::Level::MIN_LEVEL_FOR_SLOW_CHECKS,
+    )
+  }
+
+  pub fn check_reader_with_level<I>(reader: &I, level: i32) -> Result<()>
+  where
+    I: LeafReader,
+  {
+    let mut output = Vec::with_capacity(1024);
+    // Java calls checkIntegrity only for a CodecReader.  A generic LeafReader may not expose
+    // codec-level integrity checks, in which case the default Rust implementation reports
+    // UnsupportedOperation and the slow wrapper below supplies the codec view used by CheckIndex.
+    if let Err(error) = reader.check_integrity()
+      && !matches!(error, LuceneError::UnsupportedOperation(_))
+    {
+      return Err(error);
+    }
+    let codec_reader = SlowCodecReaderWrapper::wrap_leaf_reader(reader);
+
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_live_docs(
+      &codec_reader,
+      Some(&mut output),
+      true,
+    )?;
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_field_infos(
+      &codec_reader,
+      Some(&mut output),
+      true,
+    )?;
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_field_norms(
+      &codec_reader,
+      Some(&mut output),
+      true,
+    )?;
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_postings(
+      &codec_reader,
+      Some(&mut output),
+      false,
+      level,
+      true,
+    )?;
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_stored_fields(
+      &codec_reader,
+      Some(&mut output),
+      true,
+    )?;
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_term_vectors(
+      &codec_reader,
+      Some(&mut output),
+      false,
+      level,
+      true,
+    )?;
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_doc_values(
+      &codec_reader,
+      Some(&mut output),
+      true,
+    )?;
+    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_points(
+      &codec_reader,
+      Some(&mut output),
+      true,
+    )?;
+
+    // some checks really against the reader API
+    Self::check_reader_sanity(reader)?;
+
+    if cfg!(feature = "test_log_verbose") {
+      println!("{}", String::from_utf8_lossy(&output));
+    }
+
+    // FieldInfos should be cached at the reader and always return the same instance
+    if !Arc::ptr_eq(&reader.get_field_infos()?, &reader.get_field_infos()?) {
+      return Err(LuceneError::illegal_state(format!(
+        "getFieldInfos() returned different instances for reader: {reader}"
+      )));
+    }
+
     Ok(())
   }
-  pub fn check_reader_with_level<I>(_reader: &I) -> Result<()>
+
+  // used by TestUtil.checkReader to check some things really unrelated to the index,
+  // just looking for bugs in indexreader implementations.
+  fn check_reader_sanity<I>(reader: &I) -> Result<()>
   where
-    I: IndexReader,
+    I: LeafReader,
   {
+    for info in reader.get_field_infos()?.iter() {
+      // reader shouldn't return normValues if the field does not have them
+      if !info.has_norms() && reader.get_norm_values(&info.name)?.is_some() {
+        return Err(LuceneError::illegal_state(format!(
+          "field: {} should omit norms but has them!",
+          info.name
+        )));
+      }
+
+      // reader shouldn't return docValues if the field does not have them
+      // reader shouldn't return multiple docvalues types for the same field.
+      let has_multiple_types = match info.get_doc_values_type() {
+        DocValuesType::None => {
+          reader.get_binary_doc_values(&info.name)?.is_some()
+            || reader.get_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_set_doc_values(&info.name)?.is_some()
+        },
+        DocValuesType::Sorted => {
+          reader.get_binary_doc_values(&info.name)?.is_some()
+            || reader.get_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_set_doc_values(&info.name)?.is_some()
+        },
+        DocValuesType::SortedNumeric => {
+          reader.get_binary_doc_values(&info.name)?.is_some()
+            || reader.get_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_set_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_doc_values(&info.name)?.is_some()
+        },
+        DocValuesType::SortedSet => {
+          reader.get_binary_doc_values(&info.name)?.is_some()
+            || reader.get_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_doc_values(&info.name)?.is_some()
+        },
+        DocValuesType::Binary => {
+          reader.get_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_set_doc_values(&info.name)?.is_some()
+        },
+        DocValuesType::Numeric => {
+          reader.get_binary_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_numeric_doc_values(&info.name)?.is_some()
+            || reader.get_sorted_set_doc_values(&info.name)?.is_some()
+        },
+      };
+
+      if has_multiple_types {
+        let message = if *info.get_doc_values_type() == DocValuesType::None {
+          format!("field: {} has docvalues but should omit them!", info.name)
+        } else {
+          format!("{} returns multiple docvalues types!", info.name)
+        };
+        return Err(LuceneError::illegal_state(message));
+      }
+    }
     Ok(())
   }
 

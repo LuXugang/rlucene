@@ -482,6 +482,56 @@ where
   }
 }
 
+impl<T> BaseCompositeReader for &T where T: DirectoryReader {}
+
+impl<T> DirectoryReader for &T
+where
+  T: DirectoryReader,
+{
+  type DirectoryReader = T::DirectoryReader;
+  type Directory = T::Directory;
+
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    (**self).directory()
+  }
+
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    (**self).do_open_if_changed()
+  }
+
+  fn do_open_if_changed_with_commit<IC>(
+    &self,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: IndexCommit<Directory = Arc<Self::Directory>>,
+  {
+    (**self).do_open_if_changed_with_commit(commit)
+  }
+
+  fn do_open_if_changed_with_deletes(
+    &self,
+    writer: &Arc<IndexWriter<Self::Directory>>,
+    apply_deletes: bool,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    (**self).do_open_if_changed_with_deletes(writer, apply_deletes)
+  }
+
+  fn get_version(&self) -> Result<i64> {
+    (**self).get_version()
+  }
+
+  fn is_current(&self) -> Result<bool> {
+    (**self).is_current()
+  }
+
+  type IndexCommit = T::IndexCommit;
+
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    (**self).get_index_commit()
+  }
+}
+
 impl<T> BaseCompositeReader for Arc<T> where T: DirectoryReader {}
 
 impl<T> DirectoryReader for Arc<T>
