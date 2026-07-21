@@ -49,7 +49,8 @@ fn test() -> Result<()> {
   let num_terms = at_least(&mut random, 300);
   let max_terms_per_doc = TestUtil::next_int(&mut random, 10, 20);
   let analyzer = MockAnalyzer::new(&mut random);
-  // TODO MockRandomMergePolicy未实现
+  // TODO: MockRandomMergePolicy is not implemented, so the Java test's randomized merge coverage
+  // cannot yet be configured faithfully.
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
   for i in 0..num_terms {

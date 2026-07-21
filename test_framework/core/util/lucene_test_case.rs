@@ -35,6 +35,8 @@ use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
+#[cfg(test)]
+use crate::core::search::index_searcher::IndexSearcherHook;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
@@ -52,6 +54,8 @@ use crate::core::util::access::SharedAccessVec;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+#[cfg(test)]
+use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::EnvConfig::{
   Multiplier, NightMode, TestSeed,
@@ -740,6 +744,29 @@ pub enum Concurrency {
   InterSegment,
   /// Intra-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search segment partitions
   IntraSegment,
+}
+#[cfg(test)]
+pub fn new_searcher_with_concurrency<IR, R>(
+  random: &mut R,
+  reader: IR,
+  concurrency: Concurrency,
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
+where
+  IR: IndexReader,
+  R: Rng + ?Sized,
+{
+  let context = reader.get_context()?;
+  match concurrency {
+    Concurrency::None => IndexSearcher::new(context),
+    Concurrency::InterSegment => IndexSearcher::with_threads(context, random.random_range(2..=5)),
+    Concurrency::IntraSegment => Ok(
+      IndexSearcher::with_threads(context, random.random_range(2..=5))?.with_hook(
+        IndexSearcherHook::IntraSliceDocIdOrderWithPartitions(
+          IntraSliceDocIdOrderWithPartitionsIndexSearcher,
+        ),
+      ),
+    ),
+  }
 }
 pub fn new_searcher<IR>(
   reader: IR,

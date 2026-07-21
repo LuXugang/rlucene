@@ -21,7 +21,7 @@ use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::float_point::FloatPoint;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
-use crate::core::index::check_index::{CheckIndex, Level};
+use crate::core::index::check_index::Level;
 use crate::core::index::directory_reader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -42,7 +42,7 @@ use crate::core::index::point_values::{
   get_max_packed_value, get_min_packed_value, size,
 };
 use crate::core::index::term::Term;
-use crate::core::store::ByteBuffersDirectory;
+use crate::core::store::{ByteBuffersDirectory, FSDirectories};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -817,7 +817,7 @@ fn test_delete_all_point_docs() -> Result<()> {
 fn test_points_field_missing_from_one_segment() -> Result<()> {
   let mut random = random();
 
-  let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
+  let dir = Arc::new(FSDirectories::open(create_temp_dir()?.keep())?);
 
   let iwc = new_index_writer_config(&mut random)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
@@ -842,7 +842,7 @@ fn test_points_field_missing_from_one_segment() -> Result<()> {
   w.force_merge(1)?;
 
   w.close()?;
-  Ok(())
+  dir.close()
 }
 #[test]
 fn test_sparse_points() -> Result<()> {
@@ -906,6 +906,7 @@ fn test_sparse_points() -> Result<()> {
 }
 #[test]
 fn test_check_index_includes_points() -> Result<()> {
+  let mut random = random();
   let dir = Arc::new(ByteBuffersDirectory::new());
   let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   let mut doc = Document::new();
@@ -919,23 +920,27 @@ fn test_check_index_includes_points() -> Result<()> {
   w.close()?;
 
   let mut output = Vec::new();
-  let status = CheckIndex::check_index_with_output(
-    dir,
+  let status = TestUtil::check_index_with_options(
+    &mut random,
+    Arc::clone(&dir),
     Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS,
     true,
     true,
-    &mut output,
+    Some(&mut output),
   )?;
   assert_eq!(1, status.segment_infos.len());
-  let seg_status = &status.segment_infos[0];
+  let points_status = status.segment_infos[0]
+    .points_status
+    .as_ref()
+    .expect("points status");
   // total 3 point values were indexed:
-  assert_eq!(3, seg_status.points_status.total_value_points);
+  assert_eq!(3, points_status.total_value_points);
   // ... across 2 fields:
-  assert_eq!(2, seg_status.points_status.total_value_fields);
+  assert_eq!(2, points_status.total_value_fields);
 
   // Make sure CheckIndex in fact declares that it is testing points!
   assert!(String::from_utf8(output)?.contains("test: points..."));
-  Ok(())
+  dir.close()
 }
 #[test]
 fn test_merged_stats_empty_reader() -> Result<()> {

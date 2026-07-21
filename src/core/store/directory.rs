@@ -217,27 +217,16 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
       let mut is = from.open_input(src, &IOContext::read_once_io_context()?)?;
       let mut os = match self.create_output(dest, context) {
         Ok(os) => os,
-        Err(error) => {
-          let mut result = Err(error);
-          if let Err(close_error) = is.close() {
-            result = Err(IOUtils::use_or_suppress(result.err(), close_error));
-          }
-          return result;
-        },
+        Err(error) => return IOUtils::use_or_suppress_result(Err(error), is.close()),
       };
-      let mut result = (|| -> Result<()> {
+      let result = (|| -> Result<()> {
         let length = IndexInput::length(&is)?;
         os.copy_bytes(&mut is, length)?;
         success = true;
         Ok(())
       })();
-      if let Err(error) = os.close() {
-        result = Err(IOUtils::use_or_suppress(result.err(), error));
-      }
-      if let Err(error) = is.close() {
-        result = Err(IOUtils::use_or_suppress(result.err(), error));
-      }
-      result
+      let result = IOUtils::use_or_suppress_result(result, os.close());
+      IOUtils::use_or_suppress_result(result, is.close())
     })();
 
     if !success {

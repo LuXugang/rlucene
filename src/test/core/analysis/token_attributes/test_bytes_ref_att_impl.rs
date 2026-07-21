@@ -58,3 +58,8 @@ fn assert_copy_is_equal(att: &BytesTermAttributeImpl) -> Result<BytesTermAttribu
 
   Ok(copy)
 }
+
+#[test]
+fn test_lucene9856() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}

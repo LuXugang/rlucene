@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionTwoPhaseIterator};
-use crate::core::search::conjunction_scorer::ConjunctionScorerDisi;
+use crate::core::search::conjunction_scorer::{ConjunctionScorer, ConjunctionScorerDisi};
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use rand::{Rng, RngExt};
 use std::sync::Arc;
@@ -24,7 +24,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
-  DocIdSetIterator, DocIdSetIteratorEnum2, RangeDISI,
+  AllDISI, DocIdSetIterator, DocIdSetIteratorEnum2, RangeDISI,
 };
 
 use crate::core::search::scorable::{FixedScore, Scorable};
@@ -259,12 +259,87 @@ fn test_conjunction_approximation() -> Result<()> {
 }
 #[test]
 fn test_recursive_conjunction_approximation() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  let iters = at_least(&mut random, 100);
+
+  for _ in 0..iters {
+    let max_doc = TestUtil::next_usize(&mut random, 100, 10000);
+    let num_iterators = TestUtil::next_usize(&mut random, 2, 5);
+    let mut sets = Vec::with_capacity(num_iterators);
+    let mut conjunction: Option<Box<dyn Scorer>> = None;
+    let mut has_approximation = false;
+
+    for _ in 0..num_iterators {
+      let set = Arc::new(random_set(&mut random, max_doc));
+      let new_iterator: Box<dyn Scorer> = match random.random_range(0..3) {
+        0 => {
+          sets.push(set.clone());
+          let it = BitDocIdSet::new(Some(set))?.iterator()?;
+          Box::new(ConstantScoreScorer::from_disi(
+            0f32,
+            ScoreMode::TopScores,
+            anonymize_iterator(it),
+          ))
+        },
+        1 => {
+          sets.push(set.clone());
+          let it = BitDocIdSet::new(Some(set))?.iterator()?;
+          Box::new(ConstantScoreScorer::from_disi(
+            0f32,
+            ScoreMode::TopScores,
+            it,
+          ))
+        },
+        _ => {
+          let confirmed = Arc::new(clear_random_bits(&mut random, &set));
+          sets.push(confirmed.clone());
+          let approximation = approximation(
+            &mut random,
+            BitDocIdSet::new(Some(set))?.iterator()?,
+            confirmed,
+          );
+          has_approximation = true;
+          Box::new(scorer(approximation))
+        },
+      };
+
+      conjunction = Some(match conjunction {
+        None => new_iterator,
+        Some(conjunction) => {
+          let conjunction = ConjunctionDISI::from_scorer(vec![conjunction, new_iterator])?;
+          if has_approximation {
+            Box::new(ConstantScoreScorer::from_tpi(
+              0f32,
+              ScoreMode::TopScores,
+              ConjunctionTwoPhaseIterator::new(conjunction)?,
+            ))
+          } else {
+            Box::new(ConstantScoreScorer::from_disi(
+              0f32,
+              ScoreMode::TopScores,
+              conjunction,
+            ))
+          }
+        },
+      });
+    }
+
+    let mut conjunction = conjunction.unwrap();
+    assert_eq!(
+      has_approximation,
+      conjunction.two_phase_iterator().is_some()
+    );
+    assert_eq!(
+      intersect(&sets),
+      to_bit_set(max_doc, conjunction.iterator_mut().as_mut())?
+    );
+  }
+
   Ok(())
 }
 fn to_bit_set<I>(max_doc: usize, iterator: &mut I) -> Result<FixedBitSet>
 where
-  I: DocIdSetIterator,
+  I: DocIdSetIterator + ?Sized,
 {
   let mut set = FixedBitSet::new(max_doc);
 
@@ -285,8 +360,101 @@ fn test_collapse_sub_conjunction_disis() -> Result<()> {
 fn test_collapse_sub_conjunction_scorers() -> Result<()> {
   test_collapse_sub_conjunctions(true)
 }
-fn test_collapse_sub_conjunctions(_wrap_with_scorer: bool) -> Result<()> {
-  // TODO
+fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
+  let mut random = random();
+  let iters = at_least(&mut random, 100);
+
+  for _ in 0..iters {
+    let max_doc = TestUtil::next_usize(&mut random, 100, 10000);
+    let num_iterators = TestUtil::next_usize(&mut random, 5, 10);
+    let mut sets = Vec::with_capacity(num_iterators);
+    let mut scorers: Vec<Box<dyn Scorer>> = Vec::with_capacity(num_iterators);
+
+    for _ in 0..num_iterators {
+      let set = Arc::new(random_set(&mut random, max_doc));
+      if random.random_bool(0.5) {
+        sets.push(set.clone());
+        scorers.push(Box::new(ConstantScoreScorer::from_disi(
+          0f32,
+          ScoreMode::TopScores,
+          BitDocIdSet::new(Some(set))?.iterator()?,
+        )));
+      } else {
+        let confirmed = Arc::new(clear_random_bits(&mut random, &set));
+        sets.push(confirmed.clone());
+        scorers.push(Box::new(scorer(approximation(
+          &mut random,
+          BitDocIdSet::new(Some(set))?.iterator()?,
+          confirmed,
+        ))));
+      }
+    }
+
+    let sub_iters = at_least(&mut random, 3);
+    for _ in 0..sub_iters {
+      if scorers.len() <= 3 {
+        break;
+      }
+      let sub_seq_start = TestUtil::next_usize(&mut random, 0, scorers.len() - 2);
+      let sub_seq_end = TestUtil::next_usize(&mut random, sub_seq_start + 2, scorers.len());
+      let sub_scorers: Vec<Box<dyn Scorer>> = scorers.drain(sub_seq_start..sub_seq_end).collect();
+
+      let sub_conjunction: Box<dyn Scorer> = if wrap_with_scorer {
+        Box::new(ConjunctionScorer::new(sub_scorers, vec![])?)
+      } else {
+        let has_two_phase = sub_scorers
+          .iter()
+          .any(|scorer| scorer.has_two_phase_iterator() == TwoPhaseState::Yes);
+        let conjunction = ConjunctionDISI::from_scorer(sub_scorers)?;
+        if has_two_phase {
+          Box::new(ConstantScoreScorer::from_tpi(
+            0f32,
+            ScoreMode::TopScores,
+            ConjunctionTwoPhaseIterator::new(conjunction)?,
+          ))
+        } else {
+          Box::new(ConstantScoreScorer::from_disi(
+            0f32,
+            ScoreMode::TopScores,
+            conjunction,
+          ))
+        }
+      };
+      scorers.insert(sub_seq_start, sub_conjunction);
+    }
+
+    if scorers.len() == 1 {
+      scorers.push(Box::new(ConstantScoreScorer::from_disi(
+        0f32,
+        ScoreMode::TopScores,
+        AllDISI::new(max_doc as i32),
+      )));
+    }
+
+    let has_two_phase = scorers
+      .iter()
+      .any(|scorer| scorer.has_two_phase_iterator() == TwoPhaseState::Yes);
+    let conjunction = ConjunctionDISI::from_scorer(scorers)?;
+    let mut conjunction: Box<dyn Scorer> = if has_two_phase {
+      Box::new(ConstantScoreScorer::from_tpi(
+        0f32,
+        ScoreMode::TopScores,
+        ConjunctionTwoPhaseIterator::new(conjunction)?,
+      ))
+    } else {
+      Box::new(ConstantScoreScorer::from_disi(
+        0f32,
+        ScoreMode::TopScores,
+        conjunction,
+      ))
+    };
+
+    assert_eq!(
+      intersect(&sets),
+      to_bit_set(max_doc, conjunction.iterator_mut().as_mut())?
+    );
+  }
+
   Ok(())
 }
 #[test]

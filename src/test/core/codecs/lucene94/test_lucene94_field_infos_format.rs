@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::lucene94::lucene94_field_infos_format::SIMILARITY_FUNCTIONS;
+use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
@@ -21,6 +23,21 @@ use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene94FieldInfosFormat;
+
+// Ensures that all expected vector similarity functions are translatable
+// in the format.
+#[test]
+fn test_vector_similarity_funcs() {
+  // This does not necessarily have to be all similarity functions, but
+  // differences should be considered carefully.
+  let expected_values = [
+    VectorSimilarityFunction::Euclidean,
+    VectorSimilarityFunction::DotProduct,
+    VectorSimilarityFunction::Cosine,
+    VectorSimilarityFunction::MaximumInnerProduct,
+  ];
+  assert_eq!(SIMILARITY_FUNCTIONS, expected_values);
+}
 
 impl BaseIndexFileFormatTestCase for TestLucene94FieldInfosFormat {
   fn add_random_fields<R>(_random: &mut R) -> Result<()>

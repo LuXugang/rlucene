@@ -42,7 +42,8 @@ use rand::RngExt;
 pub struct TestSimilarity2;
 
 fn set_up() -> Result<Vec<SimilarityEnum>> {
-  // TODO IMPORTANT 还有很多其他未实现的 Similarity
+  // TODO: Add the Java test's Boolean, Axiomatic, DFR, IB, LM and DFI similarities after their
+  // Rust implementations are available.
   Ok(vec![
     classic_similarity::new().into(),
     BM25Similarity::new()?.into(),

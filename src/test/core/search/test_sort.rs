@@ -1355,7 +1355,8 @@ fn test_multi_sort() -> Result<()> {
 }
 #[test]
 fn test_rewrite() -> Result<()> {
-  // TODO rewrite未实现
+  // TODO: Restore this Java test after LongValuesSource/DoubleValuesSource sort fields and
+  // Sort::rewrite are implemented.
   Ok(())
 }
 #[test]

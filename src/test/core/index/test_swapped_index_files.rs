@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::index::check_index::Level;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::WRITE_LOCK_NAME;
@@ -22,13 +23,16 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::io_context::IOContext;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 use rand_chacha::rand_core::Rng;
@@ -55,7 +59,9 @@ fn test() -> Result<()> {
   index_one_doc(seed, dir1.clone(), doc.clone(), use_cfs)?;
   index_one_doc(seed, dir2.clone(), doc, use_cfs)?;
 
-  swap_files(&mut random, dir1, dir2)
+  swap_files(&mut random, dir1.clone(), dir2.clone())?;
+  dir1.as_ref().close()?;
+  dir2.as_ref().close()
 }
 
 fn index_one_doc(seed: u64, dir: Arc<DirEnum>, doc: Document, use_cfs: bool) -> Result<()> {
@@ -104,6 +110,7 @@ fn swap_one_file<R>(
 where
   R: Rng + ?Sized,
 {
+  // TODO IMPORTANT 这里要讲new_directory_shared的返回值优化后 才能进行调整
   let dir_copy = new_directory_shared(random)?;
   let context = IOContext::default_io_context()?;
 
@@ -129,8 +136,25 @@ where
     Err(err) => Err(err),
   }?;
 
-  // TODO: CheckIndex 未实现
-  Ok(())
+  // CheckIndex should also fail:
+  match TestUtil::check_index_with_options(
+    random,
+    dir_copy.clone(),
+    Level::MIN_LEVEL_FOR_SLOW_CHECKS,
+    true,
+    true,
+    None,
+  ) {
+    Err(err) if is_expected_check_index_error(&err) => {},
+    Err(err) => return Err(err),
+    Ok(_) => {
+      return Err(LuceneError::illegal_state(format!(
+        "swapped index file {victim} was not detected by CheckIndex"
+      )));
+    },
+  }
+
+  dir_copy.as_ref().close()
 }
 
 fn is_expected_swapped_file_error(err: &LuceneError) -> bool {
@@ -142,4 +166,8 @@ fn is_expected_swapped_file_error(err: &LuceneError) -> bool {
       | LuceneError::Io { .. }
       | LuceneError::IoWithPath { .. }
   )
+}
+
+fn is_expected_check_index_error(err: &LuceneError) -> bool {
+  is_expected_swapped_file_error(err) || matches!(err, LuceneError::IllegalState(_))
 }

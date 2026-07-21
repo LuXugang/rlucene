@@ -25,7 +25,7 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TYPE_STORED;
 use crate::core::index::BytesRef;
-use crate::core::index::check_index::{CheckIndex, Level};
+use crate::core::index::check_index::Level;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::WRITE_LOCK_NAME;
@@ -201,13 +201,13 @@ where
     }
 
     // CheckIndex should also fail:
-    let mut output = Vec::new();
-    if CheckIndex::check_index_with_output(
+    if TestUtil::check_index_with_options(
+      random,
       dir_copy.clone(),
       Level::MIN_LEVEL_FOR_SLOW_CHECKS,
       true,
       true,
-      &mut output,
+      None,
     )
     .is_ok()
     {

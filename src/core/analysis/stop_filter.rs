@@ -27,6 +27,24 @@ pub struct StopFilter {
   stop_words: Arc<CharArraySet>,
 }
 impl StopFilter {
+  pub fn make_stop_set<I, S>(stop_words: I) -> Arc<CharArraySet>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
+    Self::make_stop_set_with_ignore_case(stop_words, false)
+  }
+
+  pub fn make_stop_set_with_ignore_case<I, S>(stop_words: I, ignore_case: bool) -> Arc<CharArraySet>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
+    let mut stop_set = CharArraySet::new(ignore_case);
+    stop_set.add_all(stop_words);
+    Arc::new(stop_set)
+  }
+
   pub fn new<T>(input: T, stop_words: Arc<CharArraySet>) -> FilteringTokenFilter<T, StopFilter>
   where
     T: TokenStream,

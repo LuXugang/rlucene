@@ -1726,7 +1726,8 @@ fn test_to_string() -> Result<()> {
 }
 #[test]
 fn test_query_visitor() -> Result<()> {
-  // TODO
+  // TODO: Restore this Java test after QueryVisitor and Query/BooleanQuery/TermQuery::visit are
+  // implemented. QueryVisitor is currently an empty marker trait.
   Ok(())
 }
 #[test]

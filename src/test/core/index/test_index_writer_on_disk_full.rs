@@ -576,7 +576,7 @@ fn test_corruption_after_disk_full_during_merge() -> Result<()> {
   }
   assert!(ftdm.did_fail1.load(Ordering::Relaxed) || ftdm.did_fail2.load(Ordering::Relaxed));
 
-  TestUtil::check_index(dir.as_ref())?;
+  TestUtil::check_index(&mut random, dir.as_ref())?;
   ftdm.clear_do_fail();
   match w.add_document(doc) {
     Err(LuceneError::AlreadyClosed(_)) => {},

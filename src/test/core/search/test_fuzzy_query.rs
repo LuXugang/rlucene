@@ -1176,6 +1176,6 @@ fn to_ints_ref(s: &str) -> Vec<i32> {
 }
 #[test]
 fn test_visitor() -> Result<()> {
-  // TODO IMPORTANT query visitor 未实现
+  // TODO: Restore this Java test after QueryVisitor and FuzzyQuery::visit are implemented.
   Ok(())
 }

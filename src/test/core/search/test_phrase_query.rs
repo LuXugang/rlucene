@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
+use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
@@ -25,6 +26,7 @@ use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
@@ -34,11 +36,15 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::exact_phrase_matcher::merge_impacts_from_ie;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::util::attribute_source::AttributeSource;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::{MockAnalyzer, WHITESPACE};
 use crate::test_framework::core::analysis::mock_token_filter::ENGLISH_STOPSET;
 use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, SIMPLE};
@@ -51,6 +57,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, new_text_field, random, random_from_seed,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
@@ -766,7 +773,114 @@ fn test_zero_pos_incr() -> Result<()> {
 }
 #[test]
 fn test_random_phrases() -> Result<()> {
-  // TODO IMPORTANT
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer)?;
+  let mut docs: Vec<Vec<String>> = Vec::new();
+  let mut field_to_type = HashMap::new();
+
+  let num_docs = at_least(&mut random, 10) as usize;
+  for _ in 0..num_docs {
+    // at night, must be > 4096 so it spans multiple chunks
+    let term_count = if is_night_mode() {
+      at_least(&mut random, 4097) as usize
+    } else {
+      at_least(&mut random, 200) as usize
+    };
+
+    let mut doc_terms = Vec::new();
+    let mut text = String::new();
+    while doc_terms.len() < term_count {
+      if random.random_range(0..5) == 1 || docs.is_empty() {
+        // make new non-empty-string term
+        let term = loop {
+          let term = TestUtil::random_unicode_string(&mut random);
+          if !term.is_empty() {
+            break term;
+          }
+        };
+
+        let mut ts = writer
+          .w
+          .get_config()
+          .get_analyzer()
+          .token_stream("ignore", ReaderEnum::from(&term))?;
+        let body_result = (|| -> Result<()> {
+          ts.reset()?;
+          while ts.increment_token()? {
+            let term_bytes = ts
+              .get_attribute_source_mut()
+              .get_bytes_ref()?
+              .ok_or_else(|| LuceneError::illegal_state("term bytes are missing"))?;
+            let token = term_bytes.utf8_to_string()?;
+            doc_terms.push(token.clone());
+            text.push_str(&token);
+            text.push(' ');
+          }
+          ts.end()
+        })();
+        IOUtils::use_or_suppress_result(body_result, ts.close())?;
+      } else {
+        // pick existing sub-phrase
+        let last_doc = &docs[random.random_range(0..docs.len())];
+        let len = TestUtil::next_usize(&mut random, 1, 10);
+        let start = random.random_range(0..last_doc.len() - len);
+        for term in &last_doc[start..start + len] {
+          doc_terms.push(term.clone());
+          text.push_str(term);
+          text.push(' ');
+        }
+      }
+    }
+
+    let mut document = Document::new();
+    document.add(new_text_field(
+      &mut random,
+      "f",
+      text,
+      Store::No,
+      &mut field_to_type,
+    )?);
+    writer.add_document(&mut random, document)?;
+    docs.push(doc_terms);
+  }
+
+  let reader = writer.get_reader(&mut random)?;
+  let searcher = new_searcher_with_reader(reader)?;
+  writer.close(&mut random)?;
+
+  // now search
+  let num = at_least(&mut random, 3);
+  for i in 0..num {
+    let doc_id = random.random_range(0..docs.len());
+    let doc = &docs[doc_id];
+    let num_terms = TestUtil::next_usize(&mut random, 2, 20);
+    let start = random.random_range(0..doc.len() - num_terms);
+    let mut builder = crate::core::search::phrase_query::Builder::new();
+    let mut phrase = String::new();
+    for (position, term) in doc.iter().enumerate().skip(start).take(num_terms) {
+      builder.add(Term::from_text("f", term), position)?;
+      phrase.push_str(term);
+      phrase.push(' ');
+    }
+
+    let hits = searcher.search(builder.build()?, num_docs)?;
+    assert!(
+      hits
+        .score_docs()
+        .iter()
+        .any(|hit| hit.doc() == doc_id as i32),
+      "phrase '{}' not found; start={}, it={}, expected doc {}",
+      phrase,
+      start,
+      i,
+      doc_id
+    );
+  }
+
+  searcher.get_index_reader().close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 #[test]

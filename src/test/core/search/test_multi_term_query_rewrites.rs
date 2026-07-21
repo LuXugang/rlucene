@@ -22,7 +22,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
-use crate::core::index::index_reader::Identity;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
@@ -43,7 +43,9 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::HasIdentity;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::search::multi_term::BoostCheckingQuery;
@@ -62,13 +64,27 @@ pub struct TestMultiTermQueryRewrites;
 type MultiTermRewriteSearcher =
   DefaultIndexSearcher<CompositeReaderContext<MultiReader<StandardDirectoryReader<DirEnum>>>>;
 
-fn set_up<R: Rng + ?Sized>(
-  random: &mut R,
-) -> Result<(
-  DefaultIndexSearchCR,
-  MultiTermRewriteSearcher,
-  MultiTermRewriteSearcher,
-)> {
+struct TestMultiTermQueryRewritesContext {
+  dir: Arc<DirEnum>,
+  sdir1: Arc<DirEnum>,
+  sdir2: Arc<DirEnum>,
+  searcher: DefaultIndexSearchCR,
+  multi_searcher: MultiTermRewriteSearcher,
+  multi_searcher_dupls: MultiTermRewriteSearcher,
+}
+
+impl TestMultiTermQueryRewritesContext {
+  fn close(&self) -> Result<()> {
+    self.searcher.get_index_reader().close()?;
+    self.multi_searcher.get_index_reader().close()?;
+    self.multi_searcher_dupls.get_index_reader().close()?;
+    self.dir.as_ref().close()?;
+    self.sdir1.as_ref().close()?;
+    self.sdir2.as_ref().close()
+  }
+}
+
+fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<TestMultiTermQueryRewritesContext> {
   let dir = new_directory_shared(random)?;
   let sdir1 = new_directory_shared(random)?;
   let sdir2 = new_directory_shared(random)?;
@@ -113,7 +129,6 @@ fn set_up<R: Rng + ?Sized>(
 
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
-  // TODO IMPORTANT 这里没有调用close方法，有必要吗
 
   let multi_reader = MultiReader::new(vec![
     directory_reader::open(sdir1.clone())?,
@@ -122,12 +137,19 @@ fn set_up<R: Rng + ?Sized>(
   let multi_searcher = new_searcher_with_reader(multi_reader)?;
 
   let multi_reader_dupls = MultiReader::new(vec![
-    directory_reader::open(sdir1)?,
-    directory_reader::open(dir)?,
+    directory_reader::open(sdir1.clone())?,
+    directory_reader::open(dir.clone())?,
   ])?;
   let multi_searcher_dupls = new_searcher_with_reader(multi_reader_dupls)?;
 
-  Ok((searcher, multi_searcher, multi_searcher_dupls))
+  Ok(TestMultiTermQueryRewritesContext {
+    dir,
+    sdir1,
+    sdir2,
+    searcher,
+    multi_searcher,
+    multi_searcher_dupls,
+  })
 }
 fn extract_inner_query(q: Query) -> Query {
   match q {
@@ -174,26 +196,28 @@ where
     true,
     method,
   )?;
-  let (searcher, multi_searcher, multi_searcher_dupls) = set_up(random)?;
+  let context = set_up(random)?;
+  let result = (|| -> Result<()> {
+    let q1 = context.searcher.rewrite(mtq.clone())?;
+    let q2 = context.multi_searcher.rewrite(mtq.clone())?;
+    let q3 = context.multi_searcher_dupls.rewrite(mtq)?;
 
-  let q1 = searcher.rewrite(mtq.clone())?;
-  let q2 = multi_searcher.rewrite(mtq.clone())?;
-  let q3 = multi_searcher_dupls.rewrite(mtq)?;
+    assert_eq!(
+      q1, q2,
+      "The multi-segment case must produce same rewritten query"
+    );
+    assert_eq!(
+      q1, q3,
+      "The multi-segment case with duplicates must produce same rewritten query"
+    );
 
-  assert_eq!(
-    q1, q2,
-    "The multi-segment case must produce same rewritten query"
-  );
-  assert_eq!(
-    q1, q3,
-    "The multi-segment case with duplicates must produce same rewritten query"
-  );
+    check_boolean_query_order(q1);
+    check_boolean_query_order(q2);
+    check_boolean_query_order(q3);
 
-  check_boolean_query_order(q1);
-  check_boolean_query_order(q2);
-  check_boolean_query_order(q3);
-
-  Ok(())
+    Ok(())
+  })();
+  IOUtils::use_or_suppress_result(result, context.close())
 }
 #[test]
 fn test_rewrites_with_duplicate_terms() -> Result<()> {
@@ -236,31 +260,33 @@ where
   T: Into<RewriteMethodEnum>,
 {
   let mtq = BoostCheckingQuery::new("data", method);
-  let (searcher, multi_searcher, multi_searcher_dupls) = set_up(random)?;
+  let context = set_up(random)?;
+  let result = (|| -> Result<()> {
+    let q1 = context.searcher.rewrite(mtq.clone())?;
+    let q2 = context.multi_searcher.rewrite(mtq.clone())?;
+    let q3 = context.multi_searcher_dupls.rewrite(mtq)?;
 
-  let q1 = searcher.rewrite(mtq.clone())?;
-  let q2 = multi_searcher.rewrite(mtq.clone())?;
-  let q3 = multi_searcher_dupls.rewrite(mtq)?;
+    assert_eq!(
+      q1, q2,
+      "The multi-segment case must produce same rewritten query"
+    );
+    assert_eq!(
+      q1, q3,
+      "The multi-segment case with duplicates must produce same rewritten query"
+    );
 
-  assert_eq!(
-    q1, q2,
-    "The multi-segment case must produce same rewritten query"
-  );
-  assert_eq!(
-    q1, q3,
-    "The multi-segment case with duplicates must produce same rewritten query"
-  );
+    if matches!(q1, Query::MatchNoDocs(_)) {
+      assert!(matches!(q2, Query::MatchNoDocs(_)));
+      assert!(matches!(q3, Query::MatchNoDocs(_)));
+    } else {
+      check_boolean_query_order(q1);
+      check_boolean_query_order(q2);
+      check_boolean_query_order(q3);
+    }
 
-  if matches!(q1, Query::MatchNoDocs(_)) {
-    assert!(matches!(q2, Query::MatchNoDocs(_)));
-    assert!(matches!(q3, Query::MatchNoDocs(_)));
-  } else {
-    check_boolean_query_order(q1);
-    check_boolean_query_order(q2);
-    check_boolean_query_order(q3);
-  }
-
-  Ok(())
+    Ok(())
+  })();
+  IOUtils::use_or_suppress_result(result, context.close())
 }
 #[test]
 fn test_boosts() -> Result<()> {
@@ -290,12 +316,13 @@ where
       true,
       method,
     )?;
-    let (_, _, multi_searcher_dupls) = set_up(random)?;
-
-    let err = multi_searcher_dupls.rewrite(mtq);
-    assert!(matches!(err, Err(LuceneError::TooManyClauses(_))));
-
-    Ok(())
+    let context = set_up(random)?;
+    let result = {
+      let err = context.multi_searcher_dupls.rewrite(mtq);
+      assert!(matches!(err, Err(LuceneError::TooManyClauses(_))));
+      Ok(())
+    };
+    IOUtils::use_or_suppress_result(result, context.close())
   })();
 
   set_max_clause_count(saved_max_clause_count)?;
@@ -320,11 +347,9 @@ where
       true,
       method,
     )?;
-    let (_, _, multi_searcher_dupls) = set_up(random)?;
-
-    multi_searcher_dupls.rewrite(mtq)?;
-
-    Ok(())
+    let context = set_up(random)?;
+    let result = context.multi_searcher_dupls.rewrite(mtq).map(|_| ());
+    IOUtils::use_or_suppress_result(result, context.close())
   })();
 
   set_max_clause_count(saved_max_clause_count)?;

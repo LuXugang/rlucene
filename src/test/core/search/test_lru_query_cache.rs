@@ -470,7 +470,7 @@ fn test_clear_filter() -> Result<()> {
 // computes the same memory usage.
 #[test]
 fn test_ram_bytes_used_agrees_with_ram_usage_tester() -> Result<()> {
-  // TODO: Java's RamUsageTester未实现
+  // TODO: Restore this Java @AwaitsFix test after a Rust equivalent of RamUsageTester is available.
   Ok(())
 }
 
@@ -480,7 +480,7 @@ fn test_ram_bytes_used_agrees_with_ram_usage_tester() -> Result<()> {
 // memory usage is not grossly underestimated.
 #[test]
 fn test_ram_bytes_used_constant_entry_overhead() -> Result<()> {
-  // TODO: RamUsageTester未实现
+  // TODO: Restore this Java @AwaitsFix test after a Rust equivalent of RamUsageTester is available.
   Ok(())
 }
 
@@ -533,8 +533,8 @@ fn test_consistency_with_accountable_queries() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   writer.add_document(&mut random, Document::new())?;
-  let reader = writer.get_reader(&mut random)?;
-  let mut searcher = new_searcher_with_reader(reader)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
+  let mut searcher = new_searcher_with_reader(reader.clone())?;
   set_cache(&mut searcher, query_cache.clone());
   searcher.set_query_caching_policy(always_cache());
 
@@ -542,13 +542,28 @@ fn test_consistency_with_accountable_queries() -> Result<()> {
 
   let accountable_query = accountable_dummy_query();
   searcher.count(accountable_query.clone())?;
-  // TODO ram_bytes_used未判断
+  assert!(
+    query_cache.ram_bytes_used()?
+      > HASHTABLE_RAM_BYTES_PER_ENTRY + accountable_query.ram_bytes_used()?
+  );
   query_cache.assert_consistent()?;
 
   query_cache.clear_query(&accountable_query);
+  assert_eq!(HASHTABLE_RAM_BYTES_PER_ENTRY, query_cache.ram_bytes_used()?);
   query_cache.assert_consistent()?;
 
-  writer.close(&mut random)
+  let core_key = reader.clone().get_context()?.leaves()?[0]
+    .reader()
+    .get_core_cache_helper()?
+    .ok_or_else(|| LuceneError::illegal_state("reader is not cacheable"))?
+    .get_key();
+  query_cache.clear_core_cache_key(&core_key);
+  assert_eq!(0, query_cache.ram_bytes_used()?);
+  query_cache.assert_consistent()?;
+
+  reader.close()?;
+  writer.close(&mut random)?;
+  dir.as_ref().close()
 }
 
 #[test]

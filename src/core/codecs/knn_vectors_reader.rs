@@ -56,6 +56,11 @@ pub trait KnnVectorsReader: HnswGraphProvider + CloseableRef {
     Ok(None)
   }
 
+  /// Returns whether this reader is a flat vectors reader.
+  fn is_flat_vectors_reader(&self) -> bool {
+    false
+  }
+
   /// Return the k nearest neighbor documents as determined by comparison of their vector values for
   /// this field, to the given vector, by the field's similarity function. The score of each document
   /// is derived from the vector similarity in a way that ensures scores are positive and that a
@@ -234,6 +239,13 @@ macro_rules! either_knn_vectors_reader {
             }
 
             #[inline]
+            fn is_flat_vectors_reader(&self) -> bool {
+                match self {
+                    $( Self::$Variant(inner) => inner.is_flat_vectors_reader(), )+
+                }
+            }
+
+            #[inline]
             fn search_f32<AcceptDocs, K>(
                 &self,
                 field: &str,
@@ -395,6 +407,10 @@ where
 
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
     (**self).get_quantization_state(field)
+  }
+
+  fn is_flat_vectors_reader(&self) -> bool {
+    (**self).is_flat_vectors_reader()
   }
 
   fn search_f32<B, K>(

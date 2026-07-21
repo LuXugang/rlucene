@@ -654,8 +654,9 @@ where
   if mbd != -1 && mbd < (values.len() / 100) as i32 {
     iwc.set_max_buffered_docs((values.len() / 100) as i32);
   }
-
-  // TODO IMPORTANT newMaybeVirusCheckingFSDirectory未实现
+  // TODO set_codec 未实现
+  // TODO: Use the Java test framework's virus-checking directory variants after the equivalent
+  // FSDirectory and in-memory wrappers are implemented.
   let dir = if values.len() > 100000 {
     new_fs_directory(
       random,
@@ -895,7 +896,6 @@ where
   if mbd != -1 && mbd < (doc_values.len() / 100) as i32 {
     iwc.set_max_buffered_docs((doc_values.len() / 100) as i32);
   }
-  // TODO setCodec未实现
   let dir = if doc_values.len() > 100000 {
     new_fs_directory(
       random,

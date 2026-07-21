@@ -291,7 +291,7 @@ where
           DO_FAIL.with(|do_fail| do_fail.set(false));
           return Err(error);
         }
-        TestUtil::check_index(self.writer.get_directory())?;
+        TestUtil::check_index(&mut self.r, self.writer.get_directory())?;
       }
 
       DO_FAIL.with(|do_fail| do_fail.set(false));
@@ -2046,7 +2046,7 @@ fn test_term_vector_exceptions() -> Result<()> {
         }
         if random.random_range(0..20) == 0 {
           writer.commit()?;
-          TestUtil::check_index(dir.as_ref())?;
+          TestUtil::check_index(&mut random, dir.as_ref())?;
         }
       }
       let mut document = Document::new();
@@ -2075,7 +2075,7 @@ fn test_term_vector_exceptions() -> Result<()> {
         }
         if random.random_range(0..20) == 0 {
           writer.commit()?;
-          TestUtil::check_index(dir.as_ref())?;
+          TestUtil::check_index(&mut random, dir.as_ref())?;
         }
       }
       let mut document = Document::new();

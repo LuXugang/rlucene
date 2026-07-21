@@ -485,6 +485,26 @@ fn assert_subset_of_same_scores(
 
   Ok(())
 }
+
+#[test]
+fn test_rewrite_msm1() -> Result<()> {
+  let mut random = random();
+  let s = set_up(&mut random)?;
+  let mut q1 = Builder::new();
+  q1.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
+
+  let mut q2 = Builder::new();
+  q2.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
+  q2.set_minimum_number_should_match(1);
+
+  let q1 = q1.build();
+  let q2 = q2.build();
+  let top1 = s.search(q1, 100)?;
+  let top2 = s.search(q2.clone(), 100)?;
+  assert_subset_of_same_scores(&q2, top1, top2)?;
+  Ok(())
+}
+
 #[test]
 fn test_rewrite_negate() -> Result<()> {
   let mut random = random();

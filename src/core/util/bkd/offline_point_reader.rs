@@ -25,7 +25,6 @@ use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::io_utils::IOUtils;
 
 pub struct OfflinePointReader<I>
 where
@@ -123,34 +122,25 @@ where
       return Ok(());
     }
 
-    let mut error = None;
-    if self.count_left == 0
-      && let Some(check_sum_input) = self.check_sum_input.as_mut()
-      && !self.checked
-    {
-      self.checked = true;
-      if let Err(e) = CodecUtil::check_footer(check_sum_input) {
-        error = Some(IOUtils::use_or_suppress(error, e));
+    let result = (|| -> Result<()> {
+      if self.count_left == 0
+        && let Some(check_sum_input) = self.check_sum_input.as_mut()
+        && !self.checked
+      {
+        self.checked = true;
+        CodecUtil::check_footer(check_sum_input)?;
       }
-    }
+      Ok(())
+    })();
 
-    if let Some(input) = self.input.take()
-      && let Err(e) = input.close()
-    {
-      error = Some(IOUtils::use_or_suppress(error, e));
-    }
-    if let Some(check_sum_input) = self.check_sum_input.take()
-      && let Err(e) = check_sum_input.close()
-    {
-      error = Some(IOUtils::use_or_suppress(error, e));
+    if let Some(input) = self.input.take() {
+      input.close()?;
+    } else if let Some(check_sum_input) = self.check_sum_input.take() {
+      check_sum_input.close()?;
     }
 
     self.closed = true;
-    if let Some(error) = error {
-      Err(error)
-    } else {
-      Ok(())
-    }
+    result
   }
 }
 impl<I> PointReader for OfflinePointReader<I>

@@ -105,25 +105,29 @@ pub struct TestIndexSorting;
 
 #[test]
 fn test_numeric_already_sorted() -> Result<()> {
-  // TODO
+  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook, while Rust
+  // Codecs is still the concrete Lucene101Codec.
   Ok(())
 }
 
 #[test]
 fn test_string_already_sorted() -> Result<()> {
-  // TODO
+  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook, while Rust
+  // Codecs is still the concrete Lucene101Codec.
   Ok(())
 }
 
 #[test]
 fn test_multi_valued_numeric_already_sorted() -> Result<()> {
-  // TODO
+  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook, while Rust
+  // Codecs is still the concrete Lucene101Codec.
   Ok(())
 }
 
 #[test]
 fn test_multi_valued_string_already_sorted() -> Result<()> {
-  // TODO
+  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook, while Rust
+  // Codecs is still the concrete Lucene101Codec.
   Ok(())
 }
 

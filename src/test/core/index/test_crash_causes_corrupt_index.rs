@@ -26,7 +26,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{IOContext, IndexOutput};
+use crate::core::store::{FSDirectories, IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -72,7 +72,7 @@ impl TestCrashCausesCorruptIndex {
    * creation of segments_2 will crash.
    */
   fn index_and_crash_on_create_output_segments2(&mut self, random: &mut StdRng) -> Result<()> {
-    let real_directory = Arc::new(NIOFSDirectory::new(self.path.clone())?);
+    let real_directory = Arc::new(FSDirectories::open(self.path.clone())?);
     let crash_after_create_output = Arc::new(CrashAfterCreateOutput::new(real_directory));
 
     // NOTE: cannot use RandomIndexWriter because it

@@ -24,3 +24,4 @@ mod test_char_array_map;
 mod test_char_array_set;
 pub(crate) mod test_char_filter;
 mod test_reusable_string_reader;
+mod test_stop_filter;

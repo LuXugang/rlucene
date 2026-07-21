@@ -16,7 +16,6 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::long_point::LongPoint;
-use crate::core::index::check_index::{CheckIndex, Level};
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -28,11 +27,12 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::point_values::PointValues;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::store::FSDirectories;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
+  create_temp_dir_with_prefix, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -47,7 +47,9 @@ struct Test2BPoints;
 #[ignore = "monster"]
 fn test_1d() -> Result<()> {
   let mut random = random();
-  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BPoints1D")?)?;
+  let dir = Arc::new(FSDirectories::open(
+    create_temp_dir_with_prefix("2BPoints1D")?.keep(),
+  )?);
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
@@ -93,7 +95,8 @@ fn test_1d() -> Result<()> {
   assert!(points.size()? > i32::MAX as usize);
   reader.close()?;
   writer.close()?;
-  CheckIndex::check_index(dir.clone())?;
+  println!("TEST: now CheckIndex");
+  TestUtil::check_index(&mut random, Arc::clone(&dir))?;
   dir.as_ref().close()?;
   Ok(())
 }
@@ -103,7 +106,9 @@ fn test_1d() -> Result<()> {
 #[ignore = "monster"]
 fn test_2d() -> Result<()> {
   let mut random = random();
-  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BPoints2D")?)?;
+  let dir = Arc::new(FSDirectories::open(
+    create_temp_dir_with_prefix("2BPoints2D")?.keep(),
+  )?);
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
@@ -154,7 +159,8 @@ fn test_2d() -> Result<()> {
   assert!(points.size()? > i32::MAX as usize);
   reader.close()?;
   writer.close()?;
-  CheckIndex::check_index(dir.clone())?;
+  println!("TEST: now CheckIndex");
+  TestUtil::check_index(&mut random, Arc::clone(&dir))?;
   dir.as_ref().close()?;
   Ok(())
 }

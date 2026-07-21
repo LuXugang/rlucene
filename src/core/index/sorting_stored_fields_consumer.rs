@@ -144,13 +144,8 @@ where
     })();
 
     let finally_result: Result<()> = (|| {
-      let mut close_result = reader.close();
-      if let Err(sort_writer_error) = sort_writer.close() {
-        close_result = Err(IOUtils::use_or_suppress(
-          close_result.err(),
-          sort_writer_error,
-        ));
-      }
+      let close_result = reader.close();
+      let close_result = IOUtils::use_or_suppress_result(close_result, sort_writer.close());
       close_result?;
 
       let file_names: Vec<String> = self

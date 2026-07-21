@@ -29,7 +29,7 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::sort::Sort;
-use crate::core::search::sort_field::MissingValueEnum::StringFirst;
+use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::search::sorted_set_selector::SortedSetSelectorType;
 use crate::core::search::sorted_set_selector::SortedSetSelectorType::Max;
@@ -270,6 +270,93 @@ fn test_missing_first() -> Result<()> {
 
   Ok(())
 }
+
+#[test]
+fn test_missing_last() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
+
+  let mut field_types: HashMap<String, FieldType> = HashMap::new();
+
+  let mut doc = Document::new();
+  doc.add(KeywordField::from_bytes_ref(
+    "value",
+    new_bytes_ref_from_string(&mut random, "baz")?,
+    Store::No,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "2",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(&mut random, doc)?;
+
+  let mut doc = Document::new();
+  doc.add(KeywordField::from_bytes_ref(
+    "value",
+    new_bytes_ref_from_string(&mut random, "foo")?,
+    Store::No,
+  )?);
+  doc.add(KeywordField::from_bytes_ref(
+    "value",
+    new_bytes_ref_from_string(&mut random, "bar")?,
+    Store::No,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(&mut random, doc)?;
+
+  // doc3: missing 'value'
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "3",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  writer.add_document(&mut random, doc)?;
+
+  let reader = writer.get_reader(&mut random)?;
+  writer.close(&mut random)?;
+
+  let searcher = new_searcher_with_reader(reader)?;
+
+  let mut sort_field = SortedSetSortField::new("value", false)?;
+  sort_field.set_missing_value(StringLast)?;
+  let sort = Sort::with_fields(vec![sort_field])?;
+
+  let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
+  assert_eq!(3, td.total_hits().value());
+
+  // 'bar' comes before 'baz'
+  let doc0 = searcher
+    .stored_fields()?
+    .document(td.score_docs()[0].doc())?;
+  assert_eq!("1", doc0.get("id")?.unwrap().as_ref());
+
+  let doc1 = searcher
+    .stored_fields()?
+    .document(td.score_docs()[1].doc())?;
+  assert_eq!("2", doc1.get("id")?.unwrap().as_ref());
+
+  // null comes last
+  let doc2 = searcher
+    .stored_fields()?
+    .document(td.score_docs()[2].doc())?;
+  assert_eq!("3", doc2.get("id")?.unwrap().as_ref());
+
+  Ok(())
+}
+
 #[test]
 fn test_singleton() -> Result<()> {
   let mut random = random();

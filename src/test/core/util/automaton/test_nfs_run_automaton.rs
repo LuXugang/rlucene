@@ -24,6 +24,7 @@ use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
 use crate::core::index::term::Term;
 use crate::core::search::automaton_query::AutomatonQuery;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
@@ -45,7 +46,20 @@ const FIELD: &str = "field";
 struct TestNFARunAutomaton;
 #[test]
 fn test_ram_usage_estimation() -> Result<()> {
-  // TODO: memory calculate not implement
+  let mut random = random();
+  let reg_exp = RegExp::from_str_with_flags(
+    &AutomatonTestUtil::random_regexp(&mut random)?,
+    RegExp::NONE,
+  )?;
+  let nfa = reg_exp.to_automaton()?;
+  let run_automaton = NFARunAutomaton::new(nfa)?;
+  let estimation = run_automaton.ram_bytes_used()?;
+
+  // TODO RamUsageTester未实现
+  let automaton_retained_heap = std::mem::size_of_val(run_automaton.automaton.as_ref()) as i64
+    + run_automaton.automaton.ram_bytes_used()?;
+  assert!(estimation >= automaton_retained_heap);
+  assert!(estimation > 0);
   Ok(())
 }
 #[test]

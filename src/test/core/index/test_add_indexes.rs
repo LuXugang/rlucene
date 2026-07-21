@@ -100,7 +100,7 @@ fn test_simple_case() -> Result<()> {
   assert_eq!(100, writer.get_doc_stats()?.max_doc);
   writer.close()?;
   drop(writer);
-  TestUtil::check_index(dir.clone())?;
+  TestUtil::check_index(&mut random, dir.clone())?;
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
@@ -129,7 +129,7 @@ fn test_simple_case() -> Result<()> {
   writer.add_indexes_from_directory(&[aux.clone(), aux2.clone()])?;
   assert_eq!(190, writer.get_doc_stats()?.max_doc);
   writer.close()?;
-  TestUtil::check_index(dir.clone())?;
+  TestUtil::check_index(&mut random, dir.clone())?;
   drop(writer);
 
   verify_num_docs(aux.clone(), 40)?;

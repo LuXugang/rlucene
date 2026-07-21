@@ -30,15 +30,17 @@ mod monster {
   use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
   use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
   use crate::core::search::top_docs::TopDocsLike;
+  use crate::core::store::FSDirectories;
+  use crate::core::util::close::CloseableRef;
   use crate::core::util::error::lucene_error::Result;
   use crate::test_framework::core::util::lucene_test_case::{
-    create_temp_dir_with_prefix, new_fs_directory, new_searcher_with_reader, random,
+    create_temp_dir_with_prefix, new_searcher_with_reader,
   };
+  use std::sync::Arc;
 
   #[test]
   #[ignore = "monster"]
   fn test_large_segment() -> Result<()> {
-    let mut random = random();
     let mut iwc = IndexWriterConfig::new()?;
     // TODO: setCodec 未实现
     // ConfigurableMCodec(128) to make sure to use the ConfigurableMCodec instead
@@ -51,8 +53,9 @@ mod monster {
     let field_name = "field";
     let similarity_function = VectorSimilarityFunction::DotProduct;
 
-    let temp_dir = create_temp_dir_with_prefix("ManyKnnVectorDocs")?;
-    let dir = new_fs_directory(&mut random, temp_dir)?;
+    let dir = Arc::new(FSDirectories::open(
+      create_temp_dir_with_prefix("ManyKnnVectorDocs")?.keep(),
+    )?);
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let num_vectors = 2_088_992;
@@ -78,6 +81,6 @@ mod monster {
     assert_eq!(5, docs.score_docs().len());
 
     iw.close()?;
-    Ok(())
+    dir.close()
   }
 }

@@ -135,6 +135,9 @@ where
   pub fn size(&self) -> usize {
     self.map.len()
   }
+  pub(crate) fn original_keys(&self) -> impl Iterator<Item = &[char]> {
+    self.map.keys().map(Vec::as_slice)
+  }
   pub fn entry_iter(&mut self) -> impl Iterator<Item = (&Vec<char>, &mut T)> {
     self.map.iter_mut()
   }

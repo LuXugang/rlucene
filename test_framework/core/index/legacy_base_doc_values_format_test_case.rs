@@ -27,6 +27,7 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
+use crate::core::index::check_index::CheckIndex;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -52,7 +53,8 @@ use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, DirectoryEnum};
+use crate::core::store::lock::LockEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -68,6 +70,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::{IndexedRandom, SliceRandom};
 use rand::{Rng, RngExt};
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::io::Sink;
 use std::sync::{Arc, Barrier};
 use std::thread;
 
@@ -1818,6 +1821,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     D: Directory + 'static,
   {
     let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir)?)?;
+    TestUtil::check_reader(&reader)?;
     let context = (&reader).get_context()?;
 
     for leaf in context.leaves()? {
@@ -2056,6 +2060,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.commit(random)?;
     {
       let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
+      TestUtil::check_reader(&reader)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
@@ -2064,6 +2069,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     {
       let reader = self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?;
+      TestUtil::check_reader(&reader)?;
       self.compare_stored_field_with_sorted_numerics_dv(random, &reader, "stored", "dv")?;
     }
 
@@ -2247,6 +2253,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let reader = writer.get_reader(random)?;
+    TestUtil::check_reader(&reader)?;
     let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -2271,6 +2278,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(random, 1)?;
 
     let reader = writer.get_reader(random)?;
+    TestUtil::check_reader(&reader)?;
     let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -2418,6 +2426,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     }
 
     let reader = writer.get_reader(random)?;
+    TestUtil::check_reader(&reader)?;
     let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -2443,6 +2452,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(random, 1)?;
 
     let reader = writer.get_reader(random)?;
+    TestUtil::check_reader(&reader)?;
     let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let leaf_reader = leaf.reader();
@@ -3316,11 +3326,13 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
 
     {
       let reader = writer.get_reader(random)?;
+      TestUtil::check_reader(&reader)?;
       self.compare_stored_field_with_sorted_set_dv(random, &reader, "stored", "dv")?;
     }
     writer.force_merge(random, 1)?;
     {
       let reader = writer.get_reader(random)?;
+      TestUtil::check_reader(&reader)?;
       self.compare_stored_field_with_sorted_set_dv(random, &reader, "stored", "dv")?;
     }
     writer.close(random)?;
@@ -3989,6 +4001,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
               assert_eq!(expected.parse::<i64>().unwrap(), numerics.long_value()?);
             }
           }
+          TestUtil::check_reader(reader.as_ref())?;
           Ok(())
         }));
       }
@@ -4154,6 +4167,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
               }
             }
           }
+          TestUtil::check_reader(reader.as_ref())?;
           Ok(())
         }));
       }
@@ -4235,8 +4249,16 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
           handles.push(scope.spawn(move || -> Result<()> {
             starting_gun.wait();
             let context = reader.clone().get_context()?;
-            for _leaf in context.leaves()? {
-              // TODO IMPORTANT CheckIndex未实现
+            let mut output = Vec::with_capacity(1024);
+            for leaf in context.leaves()? {
+              let status = CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_doc_values(
+                leaf.reader(),
+                Some(&mut output),
+                true,
+              )?;
+              if let Some(error) = status.error {
+                return Err(error);
+              }
             }
             Ok(())
           }));
@@ -5025,6 +5047,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     writer.force_merge(1)?;
 
     let reader = directory_reader::open_from_writer(&writer)?;
+    TestUtil::check_reader(&reader)?;
     let leaf = get_only_leaf_reader(&reader)?;
     let mut dv = leaf
       .get_sorted_set_doc_values("sorted_set_dv")?

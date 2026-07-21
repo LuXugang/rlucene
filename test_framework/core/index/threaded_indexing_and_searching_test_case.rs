@@ -771,7 +771,7 @@ where
       },
       Err(payload) => resume_unwind(payload),
     }
-    TestUtil::check_index(directory.as_ref())?;
+    TestUtil::check_index(random, directory.as_ref())?;
     directory.close()?;
     Ok(())
   }

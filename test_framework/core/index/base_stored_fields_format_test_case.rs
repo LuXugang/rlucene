@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldBase, Store};
 use crate::core::document::field_type::FieldType;
@@ -21,22 +22,37 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::directory_reader;
+use crate::core::index::BytesRef;
+use crate::core::index::base_composite_reader::{
+  BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
+};
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
+use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
+use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{
+  CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
+};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::stored_field_visitor::StoredFieldVisitor;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::term_query::TermQuery;
+use crate::core::util::bits::Bits;
+use crate::core::util::close::CloseableRef;
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -53,6 +69,7 @@ use rand::Rng;
 use rand::RngExt;
 use rand::seq::SliceRandom;
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::thread;
 
@@ -656,12 +673,97 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.close(random)?;
     Ok(())
   }
-  fn test_merge_filter_reader<R>(&self, _random: &mut R) -> Result<()>
+  fn test_merge_filter_reader<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO DummyFilterDirectoryReader 未实现
-    Ok(())
+    let dir = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, dir.clone())?;
+    let num_docs = at_least(random, 200) as usize;
+    let mut string_values = Vec::with_capacity(10);
+    for _ in 0..10 {
+      string_values.push(TestUtil::random_realistic_unicode_string_with_len(
+        random, 10,
+      ));
+    }
+    let mut docs = Vec::with_capacity(num_docs);
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(StringField::from_string(
+        "to_delete",
+        if random.random_bool(0.5) { "yes" } else { "no" },
+        Store::No,
+      )?);
+      doc.add(StoredField::from_i32("id", i as i32)?);
+      doc.add(StoredField::from_i32("i", random.random_range(0..50))?);
+      doc.add(StoredField::from_i64("l", random.random())?);
+      doc.add(StoredField::from_f64("d", random.random())?);
+      doc.add(StoredField::from_f32("f", random.random())?);
+      let string_value = string_values[random.random_range(0..string_values.len())].clone();
+      doc.add(StoredField::from_string("s", string_value)?);
+      let binary_value = string_values[random.random_range(0..string_values.len())].clone();
+      doc.add(StoredField::from_bytes_ref(
+        "b",
+        BytesRef::from_string(&binary_value),
+      )?);
+      docs.push(doc.clone());
+      writer.add_document(random, doc)?;
+    }
+    if random.random_bool(0.5) {
+      writer.delete_documents_with_terms(random, vec![Term::from_text("to_delete", "yes")])?;
+    }
+    writer.commit(random)?;
+    writer.close(random)?;
+
+    let reader = DummyFilterDirectoryReader::new(
+      self.maybe_wrap_with_merging_reader(directory_reader::open(dir.clone())?)?,
+    )?;
+
+    let dir2 = new_directory_shared(random)?;
+    let writer = RandomIndexWriter::new(random, dir2.clone())?;
+    TestUtil::add_indexes_slowly(&writer.w, std::slice::from_ref(&reader))?;
+    reader.close()?;
+    dir.close()?;
+
+    let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
+    let mut stored_fields = reader.stored_fields()?;
+    for i in 0..reader.max_doc()? {
+      let doc = stored_fields.document(i)?;
+      let id = doc
+        .get_field("id")
+        .expect("stored document must have an id")
+        .numeric_value()?
+        .expect("stored id must be numeric")
+        .to_i32()
+        .expect("stored id must fit in an i32");
+      let expected = &docs[id as usize];
+      assert_eq!(expected.get("s")?, doc.get("s")?);
+      assert_eq!(
+        expected.get_field("i").unwrap().numeric_value()?,
+        doc.get_field("i").unwrap().numeric_value()?
+      );
+      assert_eq!(
+        expected.get_field("l").unwrap().numeric_value()?,
+        doc.get_field("l").unwrap().numeric_value()?
+      );
+      assert_eq!(
+        expected.get_field("d").unwrap().numeric_value()?,
+        doc.get_field("d").unwrap().numeric_value()?
+      );
+      assert_eq!(
+        expected.get_field("f").unwrap().numeric_value()?,
+        doc.get_field("f").unwrap().numeric_value()?
+      );
+      assert_eq!(
+        expected.get_field("b").unwrap().binary_value()?,
+        doc.get_field("b").unwrap().binary_value()?
+      );
+    }
+
+    reader.close()?;
+    writer.close(random)?;
+    TestUtil::check_index(random, dir2.as_ref())?;
+    dir2.close()
   }
 
   fn test_big_documents<R>(&self, random: &mut R) -> Result<()>
@@ -792,7 +894,7 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
     writer.commit(random)?;
     writer.close(random)?;
 
-    TestUtil::check_index(dir)?;
+    TestUtil::check_index(random, dir)?;
     Ok(())
   }
 
@@ -848,8 +950,492 @@ pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
       w.close()?;
     }
 
-    TestUtil::check_index(dir)?;
+    TestUtil::check_index(random, dir)?;
 
     Ok(())
+  }
+}
+
+/// A dummy filter reader that reverses the order of documents in stored fields.
+struct DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  in_: LR,
+  index_base: IndexReaderBase,
+}
+
+impl<LR> DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  fn new(in_: LR) -> Self {
+    Self {
+      in_,
+      index_base: IndexReaderBase::new(),
+    }
+  }
+}
+
+impl<LR> Clone for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader + Clone,
+{
+  fn clone(&self) -> Self {
+    Self::new(self.in_.clone())
+  }
+}
+
+impl<LR> Display for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "DummyFilterLeafReader({})", self.in_)
+  }
+}
+
+impl<LR> FilterLeafReader for DummyFilterLeafReader<LR> where LR: LeafReader {}
+
+struct ReversedStoredFields<S>
+where
+  S: StoredFields,
+{
+  in_: S,
+  max_doc: i32,
+}
+
+impl<S> RawStoredFieldsReader for ReversedStoredFields<S>
+where
+  S: StoredFields,
+{
+  type IndexInput = S::IndexInput;
+}
+
+impl<S> StoredFields for ReversedStoredFields<S>
+where
+  S: StoredFields,
+{
+  fn document_with_visitor<W>(
+    &mut self,
+    doc_id: i32,
+    visitor: &mut impl StoredFieldVisitor,
+    writer: Option<&mut W>,
+  ) -> Result<()>
+  where
+    W: StoredFieldsWriter,
+  {
+    self
+      .in_
+      .document_with_visitor(self.max_doc - 1 - doc_id, visitor, writer)
+  }
+}
+
+impl<LR> IndexReader for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  type ContextKind = LeafReaderContextKind;
+
+  type TermVectors = LR::TermVectors;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.in_.term_vectors()
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    self.in_.max_doc()
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.in_.num_docs()
+  }
+
+  type StoredFields = ReversedStoredFields<LR::StoredFields>;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    Ok(ReversedStoredFields {
+      in_: self.in_.stored_fields()?,
+      max_doc: self.max_doc()?,
+    })
+  }
+
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
+  type ReaderCacheHelper = LR::ReaderCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    IndexReader::doc_freq(&self.in_, term)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.in_.total_term_freq(term)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_doc_freq(&self.in_, field)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    IndexReader::get_doc_count(&self.in_, field)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    IndexReader::get_sum_total_term_freq(&self.in_, field)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
+}
+
+impl<LR> LeafReader for DummyFilterLeafReader<LR>
+where
+  LR: LeafReader,
+{
+  type CacheHelper = LR::CacheHelper;
+
+  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
+    Ok(None)
+  }
+
+  type Terms = LR::Terms;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    self.in_.terms(field)
+  }
+
+  type NumericDocValues = LR::NumericDocValues;
+
+  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    self.in_.get_numeric_doc_values(field)
+  }
+
+  type BinaryDocValues = LR::BinaryDocValues;
+
+  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    self.in_.get_binary_doc_values(field)
+  }
+
+  type SortedDocValues = LR::SortedDocValues;
+
+  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    self.in_.get_sorted_doc_values(field)
+  }
+
+  type SortedNumericDocValues = LR::SortedNumericDocValues;
+
+  fn get_sorted_numeric_doc_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::SortedNumericDocValues>> {
+    self.in_.get_sorted_numeric_doc_values(field)
+  }
+
+  type SortedSetDocValues = LR::SortedSetDocValues;
+
+  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    self.in_.get_sorted_set_doc_values(field)
+  }
+
+  type NormNumericDocValues = LR::NormNumericDocValues;
+
+  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    self.in_.get_norm_values(field)
+  }
+
+  type DocValuesSkipper = LR::DocValuesSkipper;
+
+  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    self.in_.get_doc_values_skipper(field)
+  }
+
+  type FloatVectorValues = LR::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
+    self.in_.get_float_vector_values(field)
+  }
+
+  type ByteVectorValues = LR::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
+    self.in_.get_byte_vector_values(field)
+  }
+
+  fn search_nearest_vectors_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_nearest_vectors_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    self
+      .in_
+      .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
+  }
+
+  fn get_field_infos(&self) -> Result<Arc<crate::core::index::field_infos::FieldInfos>> {
+    self.in_.get_field_infos()
+  }
+
+  type Bits = LR::Bits;
+
+  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
+    self.in_.get_live_docs()
+  }
+
+  type PointValues = LR::PointValues;
+
+  fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
+    self.in_.get_point_values(field)
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    self.in_.check_integrity()
+  }
+
+  fn get_metadata(&self) -> Result<&LeafMetaData> {
+    self.in_.get_metadata()
+  }
+}
+
+struct DummyFilterDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  in_: DR,
+  base: BaseCompositeReaderBase<DummyFilterLeafReader<DR::LeafReader>>,
+  index_base: IndexReaderBase,
+}
+
+impl<DR> DummyFilterDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  fn new(in_: DR) -> Result<Self> {
+    let wrapper = DummySubReaderWrapper;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None)?;
+    Ok(Self {
+      in_,
+      base,
+      index_base: IndexReaderBase::new(),
+    })
+  }
+}
+
+impl<DR> BaseCompositeReader for DummyFilterDirectoryReader<DR> where DR: DirectoryReader {}
+
+impl<DR> CompositeReader for DummyFilterDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type LeafReader = DummyFilterLeafReader<DR::LeafReader>;
+  type SubReader = Self::LeafReader;
+
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
+    self.base.get_sequential_sub_readers()
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for reader in self.get_sequential_sub_readers() {
+      visitor(reader)?;
+    }
+    Ok(())
+  }
+
+  fn to_string(&self) -> String {
+    format!("DummyFilterDirectoryReader({})", self.in_.to_string())
+  }
+}
+
+impl<DR> IndexReader for DummyFilterDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type ContextKind = CompositeReaderContextKind;
+
+  type TermVectors = BCRTermVectorsImpl<<Self as CompositeReader>::LeafReader>;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.base.term_vector(self)
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    Ok(self.base.max_doc())
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    self.base.num_docs()
+  }
+
+  type StoredFields = BCRStoredFieldsImpl<<Self as CompositeReader>::LeafReader>;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.base.stored_fields(self)
+  }
+
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
+  type ReaderCacheHelper = DR::ReaderCacheHelper;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    Ok(None)
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    self.base.doc_freq(term, self)
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    self.base.total_term_freq(term, self)
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    self.base.get_sum_doc_freq(field, self)
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    self.base.get_doc_count(field, self)
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    self.base.get_sum_total_term_freq(field, self)
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    &self.index_base
+  }
+}
+
+impl<DR> Display for DummyFilterDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", CompositeReader::to_string(self))
+  }
+}
+
+impl<DR> DirectoryReader for DummyFilterDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type DirectoryReader = DummyFilterDirectoryReader<DR::DirectoryReader>;
+
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    self.wrap_directory_reader(self.in_.do_open_if_changed()?)
+  }
+
+  fn do_open_if_changed_with_commit<IC>(
+    &self,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: crate::core::index::index_commit::IndexCommit<Directory = Arc<Self::Directory>>,
+  {
+    self.wrap_directory_reader(self.in_.do_open_if_changed_with_commit(commit)?)
+  }
+
+  fn do_open_if_changed_with_deletes(
+    &self,
+    writer: &Arc<IndexWriter<Self::Directory>>,
+    apply_deletes: bool,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    self.wrap_directory_reader(
+      self
+        .in_
+        .do_open_if_changed_with_deletes(writer, apply_deletes)?,
+    )
+  }
+
+  fn get_version(&self) -> Result<i64> {
+    self.in_.get_version()
+  }
+
+  fn is_current(&self) -> Result<bool> {
+    self.in_.is_current()
+  }
+
+  type IndexCommit = DR::IndexCommit;
+
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    self.in_.get_index_commit()
+  }
+
+  type Directory = DR::Directory;
+
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    self.in_.directory()
+  }
+}
+
+impl<DR> FilterDirectoryReader for DummyFilterDirectoryReader<DR>
+where
+  DR: DirectoryReader,
+{
+  type Delegate = DR;
+
+  fn get_delegate(&self) -> &Self::Delegate {
+    &self.in_
+  }
+
+  type WrapDirectoryReader = DummyFilterDirectoryReader<DR::DirectoryReader>;
+
+  fn do_wrap_directory_reader(
+    &self,
+    in_: Option<<Self::Delegate as DirectoryReader>::DirectoryReader>,
+  ) -> Result<Option<Self::WrapDirectoryReader>> {
+    in_.map(DummyFilterDirectoryReader::new).transpose()
+  }
+}
+
+struct DummySubReaderWrapper;
+
+impl<LR> SubReaderWrapper<LR> for DummySubReaderWrapper
+where
+  LR: LeafReader,
+{
+  type LeafReader1 = Self::LeafReader2;
+
+  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers)
+  }
+
+  type LeafReader2 = DummyFilterLeafReader<LR>;
+
+  fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
+    Ok(DummyFilterLeafReader::new(reader))
   }
 }

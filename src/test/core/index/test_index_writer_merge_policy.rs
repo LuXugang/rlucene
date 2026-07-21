@@ -532,8 +532,102 @@ fn test_merge_on_commit_with_event_listener() -> Result<()> {
 
 #[test]
 fn test_carry_over_new_deletes_on_commit() -> Result<()> {
-  // TODO: SoftDeletesDirectoryReaderWrapper未实现
-  Ok(())
+  struct CarryOverNewDeletesHooks {
+    wait_for_merge: TestLatch,
+    wait_for_update: TestLatch,
+  }
+
+  impl IndexWriterHooks for CarryOverNewDeletesHooks {
+    fn do_before_merge(&self, _merge: &crate::core::index::merge_policy::MergeStat) -> Result<()> {
+      self.wait_for_merge.count_down();
+      await_latch(&self.wait_for_update, "update did not finish before merge")
+    }
+  }
+
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let use_soft_deletes = random.random_bool(0.5);
+  let wait_for_merge = TestLatch::new();
+  let wait_for_update = TestLatch::new();
+  let mut config = new_index_writer_config(&mut random)?;
+  config
+    .set_merge_policy(MergeOnXMergePolicy::new(
+      NoMergePolicy::default().into(),
+      MergeTrigger::Commit,
+    ))
+    .set_max_full_flush_merge_wait_millis(30 * 1000)
+    .set_soft_deletes_field("soft_delete")
+    .set_max_buffered_docs(i32::MAX)
+    .set_ram_buffer_size_mb(100.0)
+    .set_merge_scheduler(ConcurrentMergeScheduler::new());
+  let writer = IndexWriter::with_hooks(
+    directory.clone(),
+    config,
+    Some(IndexWriterHooksEnum::custom(CarryOverNewDeletesHooks {
+      wait_for_merge: wait_for_merge.clone(),
+      wait_for_update: wait_for_update.clone(),
+    })),
+  )?;
+
+  writer.add_document(id_doc("1")?)?;
+  writer.flush()?;
+  writer.add_document(id_doc("2")?)?;
+  let add_three_docs = random.random_bool(0.5);
+  let expected_num_docs = if add_three_docs {
+    writer.add_document(id_doc("3")?)?;
+    3
+  } else {
+    2
+  };
+
+  let thread_writer = writer.clone();
+  let thread_wait_for_merge = wait_for_merge.clone();
+  let thread_wait_for_update = wait_for_update.clone();
+  let handle = thread::spawn(move || -> Result<()> {
+    let update_result = (|| -> Result<()> {
+      await_latch(&thread_wait_for_merge, "commit merge did not start")?;
+      if use_soft_deletes {
+        thread_writer.soft_update_document(
+          Term::from_text("id", "2"),
+          id_doc("2")?,
+          soft_delete_marker(),
+        )?;
+      } else {
+        thread_writer.update_document_with_term(Term::from_text("id", "2"), id_doc("2")?)?;
+      }
+      thread_writer.flush()?;
+      Ok(())
+    })();
+    thread_wait_for_update.count_down();
+    update_result
+  });
+
+  writer.commit()?;
+  join_result(handle)?;
+
+  let reader = SoftDeletesDirectoryReaderWrapper::new(
+    directory_reader::open(directory.clone())?,
+    "soft_delete",
+  )?;
+  assert_eq!(expected_num_docs, reader.num_docs()?);
+  assert_eq!(
+    expected_num_docs,
+    reader.max_doc()?,
+    "we should not have any deletes"
+  );
+  reader.close()?;
+
+  let reader = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(expected_num_docs, reader.num_docs()?);
+  assert_eq!(
+    expected_num_docs + 1,
+    reader.max_doc()?,
+    "we should have one delete"
+  );
+  reader.close()?;
+
+  writer.close()?;
+  directory.as_ref().close()
 }
 
 fn id_doc(id: &str) -> Result<Document> {

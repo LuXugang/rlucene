@@ -24,6 +24,13 @@ use rand::prelude::StdRng;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90TermVectorsFormat;
 
+#[test]
+fn test_skip_redundant_prefetches() -> Result<()> {
+  // TODO: IndexWriterConfig::set_codec and DummyCompressingCodec are not implemented, so this
+  // test cannot yet force two documents per term-vector chunk as the Java test requires.
+  Ok(())
+}
+
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestLucene90TermVectorsFormat, &mut StdRng) -> Result<()>,

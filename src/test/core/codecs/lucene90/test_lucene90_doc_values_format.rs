@@ -1457,6 +1457,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     writer.close()?;
 
     let reader = directory_reader::open(dir.clone())?;
+    TestUtil::check_reader(&reader)?;
     let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let r = leaf.reader();
@@ -1537,6 +1538,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
     D: crate::core::store::directory::Directory + 'static,
   {
     let reader = directory_reader::open(dir)?;
+    TestUtil::check_reader(&reader)?;
     let context = (&reader).get_context()?;
     for leaf in context.leaves()? {
       let r = leaf.reader();

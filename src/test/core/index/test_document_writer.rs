@@ -415,7 +415,7 @@ fn test_lucene_1590() -> Result<()> {
   writer.force_merge(1)?;
   writer.close()?;
 
-  TestUtil::check_index(dir.clone())?;
+  TestUtil::check_index(&mut random, dir.clone())?;
 
   let reader = directory_reader::open(dir)?;
   let leaf = get_only_leaf_reader(&reader)?;

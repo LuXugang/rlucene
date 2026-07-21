@@ -492,7 +492,9 @@ fn test_ram_bytes_used() -> Result<()> {
     TermInSetQuery::new("f", vec![new_bytes_ref_from_string(&mut random, "term")?])?;
 
   assert!(ram_bytes_used > 0);
-  // TODO RamUsageTester 未定义
+  // TODO: Restore Java's reflection-based size comparison after a Rust RamUsageTester equivalent
+  // is available. The retained-heap invariants that Rust can currently express are checked above
+  // and below.
   assert!(ram_bytes_used > one_term_query.ram_bytes_used()?);
   assert_eq!(ram_bytes_used, query.ram_bytes_used()?);
   Ok(())
@@ -1111,7 +1113,7 @@ fn test_is_considered_costly_by_query_cache() -> Result<()> {
 
 #[test]
 fn test_visitor() -> Result<()> {
-  // TODO IMPORTANT QueryVisitor未实现
+  // TODO: Restore this Java test after QueryVisitor and TermInSetQuery::visit are implemented.
   Ok(())
 }
 

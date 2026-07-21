@@ -22,6 +22,8 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::FSDirectories;
+use crate::core::util::close::CloseableRef;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -29,6 +31,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_searcher_with_reader, new_text_field, random,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestReadOnlyIndex;
@@ -40,13 +43,13 @@ const TEXT_PREFIX: &str = "This is the text to be indexed. ";
 fn test_read_only_index() -> crate::core::util::error::lucene_error::Result<()> {
   let mut random = random();
   let text = format!("{TEXT_PREFIX}{LONG_TERM}");
-  let index_path = create_temp_dir_with_prefix("readonlyindex")?;
-  let directory = new_fs_directory(&mut random, index_path)?;
+  let temp_dir = create_temp_dir_with_prefix("readonlyindex")?;
+  let index_path = temp_dir.path().to_path_buf();
+  let directory = new_fs_directory(&mut random, temp_dir)?;
 
   {
     let analyzer = MockAnalyzer::new(&mut random);
     let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-    // TODO IMPORTANT setCodec未实现
     let iwriter = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
     let mut doc = Document::new();
     let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
@@ -60,12 +63,13 @@ fn test_read_only_index() -> crate::core::util::error::lucene_error::Result<()> 
     iwriter.add_document(&mut random, doc)?;
     iwriter.close(&mut random)?;
   }
+  directory.close()?;
 
-  do_test_read_only_index(directory, &text)
+  do_test_read_only_index(Arc::new(FSDirectories::open(index_path)?), &text)
 }
 
 fn do_test_read_only_index(
-  directory: std::sync::Arc<crate::core::store::directory::DirEnum>,
+  directory: Arc<FSDirectories>,
   text: &str,
 ) -> crate::core::util::error::lucene_error::Result<()> {
   let ireader = directory_reader::open(directory)?;

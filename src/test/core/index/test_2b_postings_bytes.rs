@@ -32,11 +32,13 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::store::mock_directory_wrapper::Throttling;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor, random,
+  create_temp_dir_with_prefix, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_merge_factor, new_mock_fs_directory, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use std::sync::Arc;
 
 /// Tests indexing two billion documents with about 65K frequencies each, producing more than
 /// `i32::MAX` bytes of postings data for the term.
@@ -48,12 +50,11 @@ struct Test2BPostingsBytes;
 #[ignore = "monster"]
 fn test() -> Result<()> {
   let mut random = random();
-  // TODO set_codec 未实现
-  // TODO MockDirectoryWrapper未判断
-  let dir = new_fs_directory(
+  let dir = Arc::new(new_mock_fs_directory(
     &mut random,
     create_temp_dir_with_prefix("2BPostingsBytes1")?,
-  )?;
+  )?);
+  dir.set_throttling(Throttling::Never);
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let mut merge_policy = new_log_merge_policy_with_merge_factor(&mut random, 10)?;
@@ -95,11 +96,11 @@ fn test() -> Result<()> {
 
   let one_thousand = directory_reader::open(dir.clone())?;
   let sub_readers = vec![&one_thousand; 1000];
-  // TODO MockDirectoryWrapper未判断
-  let dir2 = new_fs_directory(
+  let dir2 = Arc::new(new_mock_fs_directory(
     &mut random,
     create_temp_dir_with_prefix("2BPostingsBytes2")?,
-  )?;
+  )?);
+  dir2.set_throttling(Throttling::Never);
   let writer2 = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random)?)?;
   TestUtil::add_indexes_slowly(&writer2, &sub_readers)?;
   writer2.force_merge(1)?;
@@ -108,11 +109,11 @@ fn test() -> Result<()> {
 
   let one_million = directory_reader::open(dir2.clone())?;
   let sub_readers = vec![&one_million; 2000];
-  // TODO MockDirectoryWrapper未判断
-  let dir3 = new_fs_directory(
+  let dir3 = Arc::new(new_mock_fs_directory(
     &mut random,
     create_temp_dir_with_prefix("2BPostingsBytes3")?,
-  )?;
+  )?);
+  dir3.set_throttling(Throttling::Never);
   let writer3 = IndexWriter::new(dir3.clone(), new_index_writer_config(&mut random)?)?;
   TestUtil::add_indexes_slowly(&writer3, &sub_readers)?;
   writer3.force_merge(1)?;

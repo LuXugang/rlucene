@@ -18,18 +18,23 @@ use crate::core::analysis::standard::standard_analyzer::StandardAnalyzer;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
+use crate::core::store::FSDirectories;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, new_text_field, random,
+  create_temp_dir_with_prefix, new_index_writer_config_with_analyzer, new_searcher_with_reader,
+  new_text_field, random,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 pub struct TestDemo;
@@ -42,45 +47,54 @@ fn test_demo() -> Result<()> {
                    longtermlongtermlongterm";
   let text = format!("This is the text to be indexed. {}", long_term);
 
-  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("tempIndex")?)?;
-  let analyzer = StandardAnalyzer::new();
-  let writer = IndexWriter::new(
-    dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
-  )?;
-
-  let mut field_to_type = HashMap::new();
-  let mut doc = Document::new();
-  doc.add(new_text_field(
-    &mut random,
-    "fieldname",
-    &text,
-    Store::Yes,
-    &mut field_to_type,
+  let dir = Arc::new(FSDirectories::open(
+    create_temp_dir_with_prefix("tempIndex")?.keep(),
   )?);
-  writer.add_document(doc)?;
-  writer.close()?;
+  let body_result = (|| -> Result<()> {
+    let analyzer = StandardAnalyzer::new();
+    let writer = IndexWriter::new(
+      dir.clone(),
+      new_index_writer_config_with_analyzer(&mut random, analyzer)?,
+    )?;
 
-  let reader = directory_reader::open(dir.clone())?;
-  let searcher = new_searcher_with_reader(reader)?;
+    let write_result = (|| -> Result<()> {
+      let mut field_to_type = HashMap::new();
+      let mut doc = Document::new();
+      doc.add(new_text_field(
+        &mut random,
+        "fieldname",
+        &text,
+        Store::Yes,
+        &mut field_to_type,
+      )?);
+      writer.add_document(doc)?;
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(write_result, writer.close())?;
 
-  assert_eq!(
-    1,
-    searcher.count(TermQuery::new(Term::from_text("fieldname", long_term)))?
-  );
+    let reader = directory_reader::open(dir.clone())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    let search_result = (|| -> Result<()> {
+      assert_eq!(
+        1,
+        searcher.count(TermQuery::new(Term::from_text("fieldname", long_term)))?
+      );
 
-  let query = TermQuery::new(Term::from_text("fieldname", "text"));
-  let hits = searcher.search(query, 1)?;
-  assert_eq!(1, hits.total_hits().value());
+      let query = TermQuery::new(Term::from_text("fieldname", "text"));
+      let hits = searcher.search(query, 1)?;
+      assert_eq!(1, hits.total_hits().value());
 
-  let mut stored_fields = searcher.stored_fields()?;
-  for hit in hits.score_docs() {
-    let hit_doc = stored_fields.document(hit.doc)?;
-    assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
-  }
+      let mut stored_fields = searcher.stored_fields()?;
+      for hit in hits.score_docs() {
+        let hit_doc = stored_fields.document(hit.doc)?;
+        assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
+      }
 
-  let phrase_query = PhraseQuery::from_terms_no_slop("fieldname", &["to", "be"])?;
-  assert_eq!(1, searcher.count(phrase_query)?);
-
-  Ok(())
+      let phrase_query = PhraseQuery::from_terms_no_slop("fieldname", &["to", "be"])?;
+      assert_eq!(1, searcher.count(phrase_query)?);
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(search_result, searcher.get_index_reader().close())
+  })();
+  IOUtils::use_or_suppress_result(body_result, dir.close())
 }

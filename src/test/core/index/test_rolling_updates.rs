@@ -18,17 +18,22 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::Fields;
+use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
+use crate::core::util::TryIntoInt;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
@@ -149,23 +154,25 @@ fn test_rolling_updates() -> Result<()> {
 
   w.close()?;
 
+  assert_no_unreferenced_files(dir.clone(), "leftover files after rolling updates")?;
   docs.close();
-  // TODO IMPORTANT StandardDirectoryReader#do_close 没有正确的删除文件
-  // let infos = SegmentInfos::read_latest_commit(dir.clone())?;
-  // let mut total_bytes = 0i64;
-  // for sipc in infos.iter() {
-  //   total_bytes += sipc.size_in_bytes()?;
-  // }
-  // let mut total_bytes2 = 0i64;
-  //
-  // for file_name in dir.list_all()? {
-  //   if CODEC_FILE_PATTERN.is_match(&file_name) {
-  //     let file_length: i64 = dir.file_length(&file_name)?.try_convert()?;
-  //     total_bytes2 += file_length;
-  //   }
-  // }
-  // assert_eq!(total_bytes2, total_bytes);
-  Ok(())
+
+  // LUCENE-4455:
+  let infos = SegmentInfos::read_latest_commit(dir.clone())?;
+  let mut total_bytes = 0i64;
+  for sipc in infos.iter() {
+    total_bytes += sipc.size_in_bytes()?;
+  }
+  let mut total_bytes2 = 0i64;
+
+  for file_name in dir.list_all()? {
+    if CODEC_FILE_PATTERN.is_match(&file_name) {
+      let file_length: i64 = dir.file_length(&file_name)?.try_convert()?;
+      total_bytes2 += file_length;
+    }
+  }
+  assert_eq!(total_bytes2, total_bytes);
+  dir.as_ref().close()
 }
 
 #[test]

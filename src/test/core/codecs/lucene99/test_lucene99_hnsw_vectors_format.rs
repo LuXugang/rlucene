@@ -14,6 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
+  Lucene99HnswVectorsFormat, MAXIMUM_BEAM_WIDTH, MAXIMUM_MAX_CONN,
+};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_knn_vectors_format_test_case::BaseKnnVectorsFormatTestCase;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -22,6 +26,41 @@ use rand::prelude::StdRng;
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene99HnswVectorsFormat;
+
+#[test]
+fn test_to_string() -> Result<()> {
+  let format = Lucene99HnswVectorsFormat::with_graph_para(10, 20)?;
+  assert_eq!(
+    "Lucene99HnswVectorsFormat(name=Lucene99HnswVectorsFormat, maxConn=10, beamWidth=20, flatVectorFormat=Lucene99FlatVectorsFormat(vectorsScorer=DefaultFlatVectorScorer()))",
+    format.to_string()
+  );
+  Ok(())
+}
+
+#[test]
+fn test_limits() -> Result<()> {
+  // TODO: Rust uses usize for max_conn, so Java's maxConn=-1 constructor case cannot be expressed.
+  assert!(matches!(
+    Lucene99HnswVectorsFormat::with_graph_para(0, 20),
+    Err(LuceneError::IllegalArgument(_))
+  ));
+  assert!(matches!(
+    Lucene99HnswVectorsFormat::with_graph_para(20, 0),
+    Err(LuceneError::IllegalArgument(_))
+  ));
+  // TODO: Rust uses usize for beam_width, so Java's beamWidth=-1 constructor case cannot be expressed.
+  assert!(matches!(
+    Lucene99HnswVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20),
+    Err(LuceneError::IllegalArgument(_))
+  ));
+  assert!(matches!(
+    Lucene99HnswVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1),
+    Err(LuceneError::IllegalArgument(_))
+  ));
+  // TODO: The Rust format does not expose Java's executor constructor, so its executor validation
+  // case cannot be expressed yet.
+  Ok(())
+}
 
 mod base_knn_vectors_format_test_case_test {
   use crate::core::util::error::lucene_error::Result;

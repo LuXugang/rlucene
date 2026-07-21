@@ -26,7 +26,7 @@ mod lower_case_filter;
 pub mod reader;
 pub(crate) mod reusable_string_reader;
 pub mod standard;
-mod stop_filter;
+pub(crate) mod stop_filter;
 pub mod stop_word_analyzer_base;
 pub mod token_attributes;
 pub mod token_filter;

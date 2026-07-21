@@ -366,7 +366,7 @@ where
   D: Directory,
   R: Rng + ?Sized,
 {
-  let iwc = new_index_writer_config(random)?;
-  // TODO IMPORTANT setCodec未实现
+  let mut iwc = new_index_writer_config(random)?;
+  iwc.set_codec(TestUtil::get_default_codec());
   Ok(iwc)
 }

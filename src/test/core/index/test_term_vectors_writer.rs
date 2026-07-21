@@ -248,7 +248,8 @@ fn test_end_offset_position_char_analyzer() -> Result<()> {
 }
 #[test]
 fn test_end_offset_position_with_caching_token_filter() -> Result<()> {
-  // TODO CachingTokenFilter未实现
+  // TODO: CachingTokenFilter is not implemented, so the Java token-stream reuse path cannot be
+  // represented faithfully.
   Ok(())
 }
 #[test]

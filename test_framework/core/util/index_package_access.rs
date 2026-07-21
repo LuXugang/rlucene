@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::check_index::CheckIndex;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::Builder;
 use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
+use crate::core::index::impacts::Impacts;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::lock_api::Mutex;
 use std::sync::Arc;
@@ -31,7 +33,9 @@ pub(crate) trait IndexPackageAccess {
     soft_deletes_field_name: Option<String>,
     parent_field_name: Option<String>,
   ) -> Result<Self::FieldInfosBuilder>;
-  // fn check_impacts(&self, impacts: Impacts, max: i32);
+  fn check_impacts<I>(&self, impacts: &I, max: i32) -> Result<()>
+  where
+    I: Impacts;
 }
 pub(crate) trait FieldInfosBuilder {
   fn add(&mut self, fi: Arc<FieldInfo>) -> Result<&mut Self>;
@@ -48,6 +52,13 @@ impl IndexPackageAccess for IndexPackageAccessImpl {
     parent_field_name: Option<String>,
   ) -> Result<Self::FieldInfosBuilder> {
     FieldInfosBuilderImpl::new(soft_deletes_field_name, parent_field_name)
+  }
+
+  fn check_impacts<I>(&self, impacts: &I, max: i32) -> Result<()>
+  where
+    I: Impacts,
+  {
+    CheckIndex::check_impacts(impacts, max)
   }
 }
 

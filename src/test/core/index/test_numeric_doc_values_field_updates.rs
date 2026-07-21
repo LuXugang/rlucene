@@ -1325,7 +1325,7 @@ fn test_update_segment_with_no_doc_values2() -> Result<()> {
     assert!(ndv.next_doc()? > 1);
   }
 
-  TestUtil::check_index(dir.clone())?;
+  TestUtil::check_index(&mut random, dir.clone())?;
 
   let a = MockAnalyzer::new(&mut random);
   let conf = new_index_writer_config_with_analyzer(&mut random, a)?;

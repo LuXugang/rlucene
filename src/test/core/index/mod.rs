@@ -122,6 +122,8 @@ mod test_2b_sorted_doc_values_fixed_sorted;
 #[cfg(feature = "monster")]
 mod test_2b_sorted_doc_values_ords;
 #[cfg(feature = "monster")]
+mod test_2b_terms;
+#[cfg(feature = "monster")]
 mod test_4gb_stored_fields;
 mod test_all_file_have_codec_header;
 mod test_all_files_check_index_header;
@@ -133,6 +135,7 @@ mod test_bag_of_positions;
 mod test_bag_of_postings;
 pub(crate) mod test_binary_doc_values_field_updates;
 mod test_binary_terms;
+mod test_check_index;
 mod test_codec_holds_open_files;
 mod test_consistent_field_numbers;
 mod test_crash_causes_corrupt_index;

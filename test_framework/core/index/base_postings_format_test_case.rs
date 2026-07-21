@@ -1680,7 +1680,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       w.close()?;
     }
 
-    TestUtil::check_index(dir)?;
+    TestUtil::check_index(random, dir)?;
 
     Ok(())
   }

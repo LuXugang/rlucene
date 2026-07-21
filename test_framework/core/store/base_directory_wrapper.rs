@@ -23,6 +23,9 @@ use crate::core::util::HasIdentity;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::test_util::TestUtil;
+use parking_lot::Mutex;
+use rand::rngs::StdRng;
+use rand::{Rng, RngExt, SeedableRng};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -39,6 +42,7 @@ where
   pub(crate) in_: D,
   check_index_on_close: bool,
   level_for_check_on_close: i32,
+  check_index_random: Mutex<StdRng>,
   pub(crate) is_open: AtomicBool,
   id: Identity,
 }
@@ -47,11 +51,15 @@ impl<D> BaseDirectoryWrapper<D>
 where
   D: Directory,
 {
-  pub fn new(delegate: D) -> Self {
+  pub fn new<R>(random: &mut R, delegate: D) -> Self
+  where
+    R: Rng + ?Sized,
+  {
     Self {
       in_: delegate,
       check_index_on_close: true,
       level_for_check_on_close: check_index::Level::MIN_LEVEL_FOR_SLOW_CHECKS,
+      check_index_random: Mutex::new(StdRng::seed_from_u64(random.random())),
       is_open: AtomicBool::new(true),
       id: Identity::new(),
     }
@@ -106,7 +114,11 @@ where
       && self.check_index_on_close
       && directory_reader::index_exists(self)?
     {
-      TestUtil::check_index_with_level(self, self.level_for_check_on_close)?;
+      TestUtil::check_index_with_level(
+        &mut *self.check_index_random.lock(),
+        self,
+        self.level_for_check_on_close,
+      )?;
     }
     self.in_.close()
   }

@@ -27,6 +27,7 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::check_index::Level;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -61,6 +62,7 @@ use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::vector_scorer::VectorScorer;
+use crate::core::store::FSDirectories;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
 use crate::core::util::StringHelper;
@@ -70,17 +72,19 @@ use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::get_default_info_stream;
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_io_context,
-  new_log_merge_policy,
+  at_least, create_temp_dir, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
+  new_io_context, new_log_merge_policy,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use strum::EnumCount;
@@ -1191,8 +1195,8 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let dir = new_directory_shared(_random)?;
-    let w = IndexWriter::new(dir, new_index_writer_config(_random)?)?;
+    let dir = Arc::new(FSDirectories::open(create_temp_dir()?.keep())?);
+    let w = IndexWriter::new(dir.clone(), new_index_writer_config(_random)?)?;
 
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", "0", Store::No)?);
@@ -1212,7 +1216,8 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     )?);
     w.add_document(doc)?;
     w.force_merge(1)?;
-    Ok(())
+    w.close()?;
+    dir.close()
   }
   fn test_sparse_vectors<R>(&self, random: &mut R) -> Result<()>
   where
@@ -2492,26 +2497,74 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
 
-    {
+    let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let w = IndexWriter::new(dir.clone(), new_index_writer_config(random)?)?;
-      let mut doc = Document::new();
-      doc.add(KnnFloatVectorField::with_similarity_function(
-        "v1",
-        Self::random_normalized_vector(random, 4)?,
-        VectorSimilarityFunction::Euclidean,
-      )?);
-      w.add_document(doc.clone())?;
+      let writer_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+        let mut doc = Document::new();
+        doc.add(KnnFloatVectorField::with_similarity_function(
+          "v1",
+          Self::random_normalized_vector(random, 4)?,
+          VectorSimilarityFunction::Euclidean,
+        )?);
+        w.add_document(doc.clone())?;
 
-      doc.add(KnnFloatVectorField::with_similarity_function(
-        "v2",
-        Self::random_normalized_vector(random, 4)?,
-        VectorSimilarityFunction::Euclidean,
-      )?);
-      w.add_document(doc)?;
-      w.close()?;
+        doc.add(KnnFloatVectorField::with_similarity_function(
+          "v2",
+          Self::random_normalized_vector(random, 4)?,
+          VectorSimilarityFunction::Euclidean,
+        )?);
+        w.add_document(doc)?;
+        Ok(())
+      }));
+      let close_result = w.close();
+      match writer_result {
+        Ok(writer_result) => IOUtils::use_or_suppress_result(writer_result, close_result)?,
+        Err(mut payload) => {
+          if let Err(close_error) = close_result
+            && let Some(error) = payload.downcast_mut::<LuceneError>()
+          {
+            error.add_suppressed(close_error);
+          }
+          resume_unwind(payload)
+        },
+      }
+
+      let mut output = Vec::new();
+      let status = TestUtil::check_index_with_options(
+        random,
+        dir.clone(),
+        Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS,
+        true,
+        true,
+        Some(&mut output),
+      )?;
+      assert_eq!(1, status.segment_infos.len());
+      let seg_status = &status.segment_infos[0];
+      let vector_values_status = seg_status
+        .vector_values_status
+        .as_ref()
+        .expect("vector values status");
+      // total 3 vector values were indexed:
+      assert_eq!(3, vector_values_status.total_vector_values);
+      // ... across 2 fields:
+      assert_eq!(2, vector_values_status.total_knn_vector_fields);
+
+      // Make sure CheckIndex in fact declares that it is testing vectors!
+      assert!(String::from_utf8_lossy(&output).contains("test: vectors..."));
+      Ok(())
+    }));
+    let close_result = dir.as_ref().close();
+    match result {
+      Ok(result) => IOUtils::use_or_suppress_result(result, close_result),
+      Err(mut payload) => {
+        if let Err(close_error) = close_result
+          && let Some(error) = payload.downcast_mut::<LuceneError>()
+        {
+          error.add_suppressed(close_error);
+        }
+        resume_unwind(payload)
+      },
     }
-    // TODO IMPORTANT CheckIndex未实现
-    Ok(())
   }
   fn test_similarity_function_identifiers(&self) -> Result<()> {
     assert_eq!(0, VectorSimilarityFunction::Euclidean as usize);

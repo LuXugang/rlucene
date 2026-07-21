@@ -31,6 +31,7 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
+use crate::core::index::check_index::{CheckIndex, Level};
 use crate::core::index::concurrent_merge_scheduler::{
   ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
 };
@@ -1291,7 +1292,8 @@ fn test_no_docs_index() -> Result<()> {
 
 #[test]
 fn test_delete_unused_files() -> Result<()> {
-  // TODO WindowsFS未实现
+  // TODO: WindowsFS is not implemented, so delete-on-last-close pending-file behavior cannot be
+  // exercised.
   Ok(())
 }
 
@@ -1521,7 +1523,7 @@ fn test_no_unwanted_tv_files() -> Result<()> {
   writer.close()?;
   drop(writer);
 
-  TestUtil::check_index(dir.clone())?;
+  TestUtil::check_index(&mut random, dir.clone())?;
 
   assert_no_unreferenced_files(dir.clone(), "no tv files")?;
 
@@ -3070,9 +3072,30 @@ fn test_ids() -> Result<()> {
     .ok_or_else(|| LuceneError::illegal_state("missing segment commit info id"))?;
   assert_eq!(StringHelper::ID_LENGTH, id2.len());
   assert_eq!(StringHelper::ID_LENGTH, sci_id2.len());
-  TestUtil::check_index(d.clone())?;
 
+  // Make sure CheckIndex includes id output:
+  let mut output = Vec::with_capacity(1024);
+  let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(d.clone())?;
+  checker.set_level(Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS)?;
+  checker.set_info_stream_with_verbose(&mut output, false);
+  let index_status = checker.check_index()?;
+  checker.close()?;
+  drop(checker);
+  let output = String::from_utf8(output)?;
+  // Make sure CheckIndex didn't fail
+  assert!(index_status.clean, "{output}");
+
+  // Commit id is always stored:
   let id1 = StringHelper::id_to_string(Some(id1));
+  assert!(
+    output.contains(&format!("id={id1}")),
+    "missing id={id1} in:\n{output}"
+  );
+  assert!(
+    output.contains(&format!("id={id1}")),
+    "missing id={id1} in:\n{output}"
+  );
+
   assert_ne!("(null)", id1);
 
   let mut ids = HashSet::new();
@@ -3417,13 +3440,15 @@ fn test_pending_deletions_rollback_with_reader() -> Result<()> {
 
 #[test]
 fn test_with_pending_deletions() -> Result<()> {
-  // TODO WindowsFS未实现
+  // TODO: WindowsFS is not implemented, so pending deletions held by open file handles cannot be
+  // exercised.
   Ok(())
 }
 
 #[test]
 fn test_pending_deletes_already_written_files() -> Result<()> {
-  // TODO WindowsFS未实现
+  // TODO: WindowsFS is not implemented, so already-written pending-delete behavior cannot be
+  // exercised.
   Ok(())
 }
 

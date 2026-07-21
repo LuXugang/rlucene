@@ -1570,7 +1570,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO: SynonymQuery 未实现
+    // TODO: Restore this Java test after SynonymWeight::explain and matches are implemented.
     Ok(())
   }
 

@@ -444,14 +444,11 @@ where
     })();
     match result {
       Ok(()) => {
-        let mut close_result = IOUtils::close(
+        let close_result = IOUtils::close(
           [&mut self.meta_out, &mut self.terms_out, &mut self.index_out],
           Closeable::close,
         );
-        if let Err(postings_error) = self.postings_writer.close() {
-          close_result = Err(IOUtils::use_or_suppress(close_result.err(), postings_error));
-        }
-        close_result
+        IOUtils::use_or_suppress_result(close_result, self.postings_writer.close())
       },
       Err(err) => {
         IOUtils::close_resources_while_handling_error((

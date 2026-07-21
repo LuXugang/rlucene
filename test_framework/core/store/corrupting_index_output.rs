@@ -18,8 +18,9 @@ use crate::core::store::data_input::DataInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use std::fmt::{Display, Formatter};
 
 /// Corrupts on bit of a file after close.
@@ -108,27 +109,27 @@ where
         .open_input(&name, &IOContext::default_io_context()?)
       {
         Ok(input) => input,
-        Err(mut error) => {
-          if let Err(close_error) = tmp_out.close() {
-            error.add_suppressed(close_error);
-          }
-          return Err(error);
-        },
+        Err(error) => return IOUtils::use_or_suppress_result(Err(error), tmp_out.close()),
       };
 
-      let input_length = input.length()?;
+      let body_result = (|| -> Result<()> {
+        let input_length = input.length()?;
 
-      if self.byte_to_corrupt >= input_length {
-        return Err(LuceneError::illegal_argument(format!(
-          "byteToCorrupt={} but file \"{}\" is only length={}",
-          self.byte_to_corrupt, name, input_length
-        )));
-      }
+        if self.byte_to_corrupt >= input_length {
+          return Err(LuceneError::illegal_argument(format!(
+            "byteToCorrupt={} but file \"{}\" is only length={}",
+            self.byte_to_corrupt, name, input_length
+          )));
+        }
 
-      tmp_out.copy_bytes(&mut input, self.byte_to_corrupt)?;
-      // Flip the 0th bit:
-      tmp_out.write_byte(input.read_byte()? ^ 1)?;
-      tmp_out.copy_bytes(&mut input, input_length - self.byte_to_corrupt - 1)?;
+        tmp_out.copy_bytes(&mut input, self.byte_to_corrupt)?;
+        // Flip the 0th bit:
+        tmp_out.write_byte(input.read_byte()? ^ 1)?;
+        tmp_out.copy_bytes(&mut input, input_length - self.byte_to_corrupt - 1)?;
+        Ok(())
+      })();
+      let body_result = IOUtils::use_or_suppress_result(body_result, input.close());
+      IOUtils::use_or_suppress_result(body_result, tmp_out.close())?;
     }
 
     // Delete original and copy corrupt version back:

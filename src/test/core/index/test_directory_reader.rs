@@ -30,7 +30,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
@@ -66,6 +66,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
 use std::time::Duration;
 
@@ -1194,8 +1195,52 @@ fn test_get_sum_total_term_freq() -> Result<()> {
 
 #[test]
 fn test_reader_finished_listener() -> Result<()> {
-  // TODO  ClosedListener未实现
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut merge_policy = new_log_merge_policy(&mut random)?;
+  match &mut merge_policy {
+    MergePolicyEnum::LogDoc(policy) => policy.set_merge_factor(3)?,
+    MergePolicyEnum::LogBytesSize(policy) => policy.set_merge_factor(3)?,
+    _ => unreachable!("new_log_merge_policy must return a log merge policy"),
+  }
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  config.set_merge_policy(merge_policy);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  writer.add_document(Document::new())?;
+  writer.commit()?;
+  writer.add_document(Document::new())?;
+  writer.commit()?;
+
+  let reader = directory_reader::open_from_writer(&writer)?;
+  let close_count = Arc::new(AtomicI32::new(0));
+  let count = close_count.clone();
+  reader
+    .get_reader_cache_helper()?
+    .expect("DirectoryReader must expose a reader cache helper")
+    .add_closed_listener(Box::new(move |_: &CacheKey| {
+      count.fetch_add(1, Ordering::SeqCst);
+      Ok(())
+    }))?;
+  reader.close()?;
+
+  // Close the top reader, it's the only one that should be closed.
+  assert_eq!(1, close_count.load(Ordering::SeqCst));
+  writer.close()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  close_count.store(0, Ordering::SeqCst);
+  let count = close_count.clone();
+  reader
+    .get_reader_cache_helper()?
+    .expect("DirectoryReader must expose a reader cache helper")
+    .add_closed_listener(Box::new(move |_: &CacheKey| {
+      count.fetch_add(1, Ordering::SeqCst);
+      Ok(())
+    }))?;
+  reader.close()?;
+  assert_eq!(1, close_count.load(Ordering::SeqCst));
+  dir.as_ref().close()
 }
 
 #[test]

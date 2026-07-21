@@ -96,7 +96,8 @@ fn test_large_terms_nested_first() -> Result<()> {
   let query = builder.build();
 
   let _err = searcher.rewrite(query);
-  // TODO IMPORTANT  QueryBase的 visit 未实现
+  // TODO: Restore the TooManyNestedClauses assertion after QueryVisitor and query visit methods
+  // are implemented.
   // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
 
   Ok(())
@@ -129,7 +130,8 @@ fn test_large_terms_nested_last() -> Result<()> {
   let query = builder.build();
 
   let _err = searcher.rewrite(query);
-  // TODO IMPORTANT  QueryBase的 visit 未实现
+  // TODO: Restore the TooManyNestedClauses assertion after QueryVisitor and query visit methods
+  // are implemented.
   // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
 
   Ok(())
@@ -151,7 +153,8 @@ fn test_large_disjunction_max_query() -> Result<()> {
   let dmq = DisjunctionMaxQuery::new(clauses, 0.5f32)?;
 
   let _err = searcher.rewrite(dmq);
-  // TODO IMPORTANT  QueryBase的 visit 未实现
+  // TODO: Restore the TooManyNestedClauses assertion after QueryVisitor and query visit methods
+  // are implemented.
   // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
 
   Ok(())
@@ -175,7 +178,7 @@ fn test_multi_exact_with_repeats() -> Result<()> {
 
   let _query = qb.build();
 
-  // TODO IMPORTANT QueryVisitor未实现
+  // TODO: Restore this Java test after QueryVisitor and MultiPhraseQuery::visit are implemented.
   // let err = searcher.rewrite(query);
   // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
   Ok(())

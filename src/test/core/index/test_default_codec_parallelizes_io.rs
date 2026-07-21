@@ -73,7 +73,7 @@ impl TestDefaultCodecParallelizesIO {
       },
     };
 
-    let mut result = (|| -> Result<()> {
+    let result = (|| -> Result<()> {
       let num_docs = at_least(random, 10_000);
       for _ in 0..num_docs {
         let doc = docs.next_doc()?;
@@ -81,9 +81,7 @@ impl TestDefaultCodecParallelizesIO {
       }
       writer.force_merge(1)
     })();
-    if let Err(error) = writer.close() {
-      result = Err(IOUtils::use_or_suppress(result.err(), error));
-    }
+    let result = IOUtils::use_or_suppress_result(result, writer.close());
     docs.close();
     result?;
 
@@ -93,11 +91,7 @@ impl TestDefaultCodecParallelizesIO {
   }
 
   fn after_class(&self) -> Result<()> {
-    let mut result = self.reader.close();
-    if let Err(error) = self.dir.close() {
-      result = Err(IOUtils::use_or_suppress(result.err(), error));
-    }
-    result
+    IOUtils::use_or_suppress_result(self.reader.close(), self.dir.close())
   }
 }
 
@@ -106,7 +100,7 @@ impl TestDefaultCodecParallelizesIO {
 fn test_terms_seek_exact() -> Result<()> {
   let mut random = random();
   let case = TestDefaultCodecParallelizesIO::before_class(&mut random)?;
-  let mut result = (|| -> Result<()> {
+  let result = (|| -> Result<()> {
     let prev_count = case.dir.count();
 
     let leaf_reader = get_only_leaf_reader(&case.reader)?;
@@ -136,10 +130,7 @@ fn test_terms_seek_exact() -> Result<()> {
     assert!(new_count - prev_count < non_null_io_suppliers);
     Ok(())
   })();
-  if let Err(error) = case.after_class() {
-    result = Err(IOUtils::use_or_suppress(result.err(), error));
-  }
-  result
+  IOUtils::use_or_suppress_result(result, case.after_class())
 }
 
 /// Simulate stored fields retrieval.
@@ -147,7 +138,7 @@ fn test_terms_seek_exact() -> Result<()> {
 fn test_stored_fields() -> Result<()> {
   let mut random = random();
   let case = TestDefaultCodecParallelizesIO::before_class(&mut random)?;
-  let mut result = (|| -> Result<()> {
+  let result = (|| -> Result<()> {
     let prev_count = case.dir.count();
 
     let leaf_reader = get_only_leaf_reader(&case.reader)?;
@@ -166,8 +157,5 @@ fn test_stored_fields() -> Result<()> {
     assert!(new_count - prev_count < docs.len() as i64);
     Ok(())
   })();
-  if let Err(error) = case.after_class() {
-    result = Err(IOUtils::use_or_suppress(result.err(), error));
-  }
-  result
+  IOUtils::use_or_suppress_result(result, case.after_class())
 }

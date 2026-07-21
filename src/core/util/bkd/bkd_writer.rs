@@ -1395,10 +1395,8 @@ where
       source.destroy(&self.temp_dir)?;
       Ok(())
     })();
-    let mut close_result = writer.close();
-    if let Err(reader_error) = reader.close() {
-      close_result = Err(IOUtils::use_or_suppress(close_result.err(), reader_error));
-    }
+    let writer_close_result = writer.close();
+    let close_result = IOUtils::use_or_suppress_result(writer_close_result, reader.close());
     source.take_data(reader.remove_points());
     let result = IOUtils::use_or_suppress_result(result, close_result);
     if let Err(err) = result {

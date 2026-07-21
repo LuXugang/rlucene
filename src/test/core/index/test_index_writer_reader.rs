@@ -40,7 +40,9 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::term_query::TermQuery;
-use crate::core::store::directory::Directory;
+use crate::core::store::byte_buffers_directory::ByteBuffersDirectory;
+use crate::core::store::directory::{DirEnum, Directory, DirectoryEnum2};
+use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::Comparator;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -53,7 +55,7 @@ use crate::test_framework::core::store::mock_directory_wrapper::{
 };
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, call_stack_contains_any_of, is_night_mode, new_directory_shared,
-  new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_mock_directory, new_text_field, random,
   random_from_seed,
 };
@@ -62,6 +64,7 @@ use rand::RngExt;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::io::Error;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -448,7 +451,237 @@ fn test_delete_from_index_writer() -> Result<()> {
 
 #[test]
 fn test_add_indexes_and_do_deletes_threads() -> Result<()> {
-  Ok(())
+  let mut random = random();
+  let num_iter = if is_night_mode() { 2 } else { 1 };
+  let num_dirs = if is_night_mode() { 3 } else { 2 };
+
+  let main_directory = new_directory_shared(&mut random)?;
+  let main_dir = Arc::new(AddDirectoriesDirectory::A(main_directory));
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc
+    .set_merge_policy(new_log_merge_policy(&mut random)?)
+    .set_max_full_flush_merge_wait_millis(0);
+  let main_writer = IndexWriter::new(main_dir.clone(), iwc)?;
+  TestUtil::reduce_open_files(main_writer.as_ref())?;
+
+  let mut add_dir_threads = AddDirectoriesThreads::new(&mut random, num_iter, main_writer.clone())?;
+  add_dir_threads.launch_threads(&mut random, num_dirs);
+  add_dir_threads.join_threads()?;
+
+  // assert_eq!(100 + num_dirs * (3 * num_iter / 4) * add_dir_threads.num_threads
+  //     * AddDirectoriesThreads::NUM_INIT_DOCS, main_writer.get_doc_stats()?.num_docs);
+  assert_eq!(
+    add_dir_threads.count.load(AtomicOrdering::SeqCst),
+    main_writer.get_doc_stats()?.num_docs as usize
+  );
+
+  add_dir_threads.close(true)?;
+
+  assert!(
+    add_dir_threads
+      .failures
+      .lock()
+      .expect("failures lock poisoned")
+      .is_empty()
+  );
+
+  TestUtil::check_index(&mut random, main_dir.as_ref())?;
+
+  let reader = directory_reader::open(main_dir.clone())?;
+  assert_eq!(
+    add_dir_threads.count.load(AtomicOrdering::SeqCst) as i32,
+    reader.num_docs()?
+  );
+  // assert_eq!(100 + num_dirs * (3 * num_iter / 4) * add_dir_threads.num_threads
+  //     * AddDirectoriesThreads::NUM_INIT_DOCS, reader.num_docs()?);
+  reader.close()?;
+
+  add_dir_threads.close_dir()?;
+  main_dir.close()
+}
+
+type AddDirectoriesDirectory =
+  DirectoryEnum2<Arc<DirEnum>, Arc<ByteBuffersDirectory<SingleInstanceLockFactory>>>;
+
+struct AddDirectoriesThreads {
+  add_dir: Arc<AddDirectoriesDirectory>,
+  num_dirs: usize,
+  threads: Vec<thread::JoinHandle<()>>,
+  main_writer: Arc<IndexWriter<AddDirectoriesDirectory>>,
+  failures: Arc<Mutex<Vec<String>>>,
+  readers: Vec<Arc<StandardDirectoryReader<AddDirectoriesDirectory>>>,
+  count: Arc<AtomicUsize>,
+  num_add_indexes: Arc<AtomicUsize>,
+}
+
+impl AddDirectoriesThreads {
+  const NUM_INIT_DOCS: usize = 100;
+
+  fn new<R>(
+    random: &mut R,
+    num_dirs: usize,
+    main_writer: Arc<IndexWriter<AddDirectoriesDirectory>>,
+  ) -> Result<Self>
+  where
+    R: rand::Rng + ?Sized,
+  {
+    let add_directory = new_directory_shared(random)?;
+    let add_dir = Arc::new(AddDirectoriesDirectory::A(add_directory));
+    let analyzer = MockAnalyzer::new(random);
+    let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
+    config
+      .set_max_full_flush_merge_wait_millis(0)
+      .set_max_buffered_docs(2);
+    let writer = IndexWriter::new(add_dir.clone(), config)?;
+    TestUtil::reduce_open_files(&writer)?;
+    for i in 0..Self::NUM_INIT_DOCS {
+      writer.add_document(DocHelper::create_document(i as i32, "addindex", 4))?;
+    }
+    writer.close()?;
+
+    let mut readers = Vec::with_capacity(num_dirs);
+    for _ in 0..num_dirs {
+      readers.push(Arc::new(directory_reader::open(add_dir.clone())?));
+    }
+
+    Ok(Self {
+      add_dir,
+      num_dirs,
+      threads: Vec::new(),
+      main_writer,
+      failures: Arc::new(Mutex::new(Vec::new())),
+      readers,
+      count: Arc::new(AtomicUsize::new(0)),
+      num_add_indexes: Arc::new(AtomicUsize::new(0)),
+    })
+  }
+
+  fn join_threads(&mut self) -> Result<()> {
+    for thread in self.threads.drain(..) {
+      if thread.join().is_err() {
+        return Err(LuceneError::illegal_state(
+          "addIndexes worker thread panicked",
+        ));
+      }
+    }
+    Ok(())
+  }
+
+  fn close(&self, do_wait: bool) -> Result<()> {
+    if do_wait {
+      self.main_writer.close()
+    } else {
+      self.main_writer.rollback()
+    }
+  }
+
+  fn close_dir(&self) -> Result<()> {
+    for reader in &self.readers {
+      reader.close()?;
+    }
+    self.add_dir.close()
+  }
+
+  fn handle(failures: &Mutex<Vec<String>>, error: String) {
+    println!("{error}");
+    failures.lock().expect("failures lock poisoned").push(error);
+  }
+
+  fn launch_threads<R>(&mut self, random: &mut R, num_iter: usize)
+  where
+    R: rand::Rng + ?Sized,
+  {
+    let num_threads = if is_night_mode() { 5 } else { 2 };
+    for _ in 0..num_threads {
+      let seed = random.random::<u64>();
+      let add_dir = self.add_dir.clone();
+      let main_writer = self.main_writer.clone();
+      let failures = self.failures.clone();
+      let readers = self.readers.clone();
+      let count = self.count.clone();
+      let num_add_indexes = self.num_add_indexes.clone();
+      let num_dirs = self.num_dirs;
+      self.threads.push(thread::spawn(move || {
+        let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+          let mut random = random_from_seed(seed);
+          let mut dirs = Vec::with_capacity(num_dirs);
+          for _ in 0..num_dirs {
+            dirs.push(Arc::new(AddDirectoriesDirectory::B(TestUtil::ram_copy_of(
+              &mut random,
+              add_dir.as_ref(),
+            )?)));
+          }
+          // let mut j = 0;
+          // loop {
+          //   println!("{}: iter j={j}", thread::current().name().unwrap_or("worker"));
+          // only do addIndexes
+          for j in 0..num_iter {
+            Self::do_body(
+              j,
+              &dirs,
+              main_writer.as_ref(),
+              &readers,
+              num_add_indexes.as_ref(),
+              count.as_ref(),
+            )?;
+          }
+          // if num_iter > 0 && j == num_iter { break; }
+          // Self::do_body(j, &dirs, ...)?;
+          // Self::do_body(5, &dirs, ...)?;
+          // }
+          Ok(())
+        }));
+        match result {
+          Ok(Ok(())) => {},
+          Ok(Err(error)) => Self::handle(failures.as_ref(), format!("{error:?}")),
+          Err(payload) => {
+            let message = if let Some(message) = payload.downcast_ref::<String>() {
+              message.clone()
+            } else if let Some(message) = payload.downcast_ref::<&str>() {
+              (*message).to_string()
+            } else {
+              "addIndexes worker panicked".to_string()
+            };
+            Self::handle(failures.as_ref(), message);
+          },
+        }
+      }));
+    }
+  }
+
+  fn do_body(
+    j: usize,
+    dirs: &[Arc<AddDirectoriesDirectory>],
+    main_writer: &IndexWriter<AddDirectoriesDirectory>,
+    readers: &[Arc<StandardDirectoryReader<AddDirectoriesDirectory>>],
+    num_add_indexes: &AtomicUsize,
+    count: &AtomicUsize,
+  ) -> Result<()> {
+    match j % 4 {
+      0 => {
+        main_writer.add_indexes_from_directory(dirs)?;
+        main_writer.force_merge(1)?;
+      },
+      1 => {
+        main_writer.add_indexes_from_directory(dirs)?;
+        num_add_indexes.fetch_add(1, AtomicOrdering::SeqCst);
+      },
+      2 => {
+        TestUtil::add_indexes_slowly(main_writer, readers)?;
+      },
+      3 => {
+        main_writer.commit()?;
+      },
+      _ => unreachable!(),
+    }
+    count.fetch_add(
+      dirs.len() * AddDirectoriesThreads::NUM_INIT_DOCS,
+      AtomicOrdering::SeqCst,
+    );
+    Ok(())
+  }
 }
 
 #[test]
@@ -462,7 +695,8 @@ fn test_index_writer_reopen_segment() -> Result<()> {
 }
 
 fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
-  // TODO getAssertNoDeletesDirectory未实现
+  // TODO: getAssertNoDeletesDirectory is not implemented, so this currently lacks Java's wrapper
+  // assertion that reopened segments expose no deletes.
   let mut random = random();
   let dir1 = new_mock_directory(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
@@ -576,9 +810,9 @@ fn test_after_commit() -> Result<()> {
 
   // get a reader to put writer into near real-time mode
   let mut r1 = directory_reader::open_from_writer(&writer)?;
-  TestUtil::check_index(dir1.clone())?;
+  TestUtil::check_index(&mut random, dir1.clone())?;
   writer.commit()?;
-  TestUtil::check_index(dir1)?;
+  TestUtil::check_index(&mut random, dir1)?;
   assert_eq!(100, r1.num_docs()?);
 
   for i in 0..10 {
@@ -608,6 +842,8 @@ fn test_after_close() -> Result<()> {
 
   let r = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
+
+  TestUtil::check_index(&mut random, dir1)?;
 
   assert_eq!(100, r.num_docs()?);
   let q = TermQuery::new(Term::from_text("indexname", "test"));
@@ -1227,7 +1463,8 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
 
   // Test3: test that FilterDirectoryReader sorts leaves according
   // to leafSorter of its wrapped reader
-  // TODO: AssertingDirectoryReader未实现
+  // TODO: AssertingDirectoryReader is not implemented, so Test3 currently exercises the leaf
+  // sorter without Java's FilterDirectoryReader wrapper layer.
   {
     let reader = directory_reader::open_with_sorter(dir.clone(), leaf_sorter.clone())?;
     assert_leaves_sorted(&reader, &point_sorter)?;

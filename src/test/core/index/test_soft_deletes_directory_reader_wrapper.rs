@@ -45,6 +45,8 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use rand::RngExt;
 use std::collections::HashSet;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestSoftDeletesDirectoryReaderWrapper;
@@ -311,8 +313,109 @@ fn test_mix_soft_and_hard_deletes() -> Result<()> {
 
 #[test]
 fn test_reader_cache_key() -> Result<()> {
-  // TODO IMPORTANT: CacheHelper.addClosedListener and reader closed listeners are not implemented
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut index_writer_config = new_index_writer_config(&mut random)?;
+  let soft_deletes_field = "soft_delete";
+  index_writer_config
+    .set_soft_deletes_field(soft_deletes_field)
+    .set_merge_policy(NoMergePolicy::default());
+  let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
+
+  let body_result = (|| -> Result<()> {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    doc.add(StringField::from_string("version", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "2", Store::Yes)?);
+    doc.add(StringField::from_string("version", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    let mut reader = SoftDeletesDirectoryReaderWrapper::new(
+      directory_reader::open(dir.clone())?,
+      soft_deletes_field,
+    )?;
+    let reader_context = (&reader).get_context()?;
+    let leaf_cache_helper = reader_context.leaves()?[0]
+      .reader()
+      .get_reader_cache_helper()?
+      .expect("leaf reader must expose a reader cache helper");
+    let leaf_cache_key = leaf_cache_helper.get_key();
+    let leaf_called = Arc::new(AtomicI32::new(0));
+    let leaf_called_listener = leaf_called.clone();
+    leaf_cache_helper.add_closed_listener(Box::new(move |key: &CacheKey| {
+      leaf_called_listener.fetch_add(1, Ordering::SeqCst);
+      if &leaf_cache_key != key {
+        return Err(
+          crate::core::util::error::lucene_error::LuceneError::illegal_state(
+            "leaf close listener received a different cache key",
+          ),
+        );
+      }
+      Ok(())
+    }))?;
+
+    let dir_cache_helper = reader
+      .get_reader_cache_helper()?
+      .expect("directory reader must expose a reader cache helper");
+    let old_dir_cache_key = dir_cache_helper.get_key();
+    let listener_dir_cache_key = old_dir_cache_key.clone();
+    let dir_called = Arc::new(AtomicI32::new(0));
+    let dir_called_listener = dir_called.clone();
+    dir_cache_helper.add_closed_listener(Box::new(move |key: &CacheKey| {
+      dir_called_listener.fetch_add(1, Ordering::SeqCst);
+      if &listener_dir_cache_key != key {
+        return Err(
+          crate::core::util::error::lucene_error::LuceneError::illegal_state(
+            "directory close listener received a different cache key",
+          ),
+        );
+      }
+      Ok(())
+    }))?;
+
+    assert_eq!(2, reader.num_docs()?);
+    assert_eq!(2, reader.max_doc()?);
+    assert_eq!(0, reader.num_deleted_docs()?);
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "1", Store::Yes)?);
+    doc.add(StringField::from_string("version", "2", Store::Yes)?);
+    writer.soft_update_document(
+      Term::from_text("id", "1"),
+      doc,
+      vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+    )?;
+
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "3", Store::Yes)?);
+    doc.add(StringField::from_string("version", "1", Store::Yes)?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+
+    assert_eq!(0, leaf_called.load(Ordering::SeqCst));
+    assert_eq!(0, dir_called.load(Ordering::SeqCst));
+    let new_reader = directory_reader::open_if_changed(&reader)?
+      .expect("reader must observe the committed changes");
+    assert_eq!(0, leaf_called.load(Ordering::SeqCst));
+    assert_eq!(0, dir_called.load(Ordering::SeqCst));
+    let new_dir_cache_key = new_reader
+      .get_reader_cache_helper()?
+      .expect("directory reader must expose a reader cache helper")
+      .get_key();
+    assert_ne!(new_dir_cache_key, old_dir_cache_key);
+    reader.close()?;
+    reader = new_reader;
+    assert_eq!(1, dir_called.load(Ordering::SeqCst));
+    assert_eq!(1, leaf_called.load(Ordering::SeqCst));
+    reader.close()
+  })();
+
+  let body_result = IOUtils::use_or_suppress_result(body_result, writer.close());
+  IOUtils::use_or_suppress_result(body_result, dir.close())
 }
 
 #[test]

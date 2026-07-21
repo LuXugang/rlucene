@@ -28,7 +28,7 @@ use crate::core::index::codec_reader::{
 
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_writer::is_congruent_sort;
-use crate::core::index::multi_sorter::{MultiSorter, MultiSorterDocMap};
+use crate::core::index::multi_sorter::MultiSorter;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
@@ -224,7 +224,7 @@ where
     merge_state.build_doc_maps(readers)?;
     Ok(merge_state)
   }
-  pub(crate) fn get_meta(&self) -> MergeStateMeta<CR> {
+  pub(crate) fn get_meta(&self) -> MergeStateMeta<MergeStateDocMap<CR>> {
     MergeStateMeta {
       fields_producers_len: self.fields_producers.len(),
       doc_maps: self.doc_maps.clone(),
@@ -272,7 +272,85 @@ where
   }
 }
 
-pub type MergeStateDocMap<CR> = DocMapEnum2<MultiSorterDocMap<CR>, DocMapImpl2<CRBits<CR>>>;
+pub type MergeStateDocMap<CR> = MergeStateDocMapImpl<CRBits<CR>>;
+
+pub struct MergeStateDocMapImpl<B>
+where
+  B: Bits,
+{
+  live_docs: Option<B>,
+  hook: MergeStateDocMapHook,
+}
+
+enum MergeStateDocMapHook {
+  Sorted {
+    remapped: PackedLongValues,
+  },
+  Deletions {
+    del_doc_map: Option<PackedLongValues>,
+    doc_base: i32,
+  },
+}
+
+impl<B> MergeStateDocMapImpl<B>
+where
+  B: Bits,
+{
+  pub(crate) fn new_sorted(live_docs: Option<B>, remapped: PackedLongValues) -> Self {
+    Self {
+      live_docs,
+      hook: MergeStateDocMapHook::Sorted { remapped },
+    }
+  }
+
+  fn new_deletions(
+    live_docs: Option<B>,
+    del_doc_map: Option<PackedLongValues>,
+    doc_base: i32,
+  ) -> Self {
+    Self {
+      live_docs,
+      hook: MergeStateDocMapHook::Deletions {
+        del_doc_map,
+        doc_base,
+      },
+    }
+  }
+}
+
+impl<B> DocMap for MergeStateDocMapImpl<B>
+where
+  B: Bits,
+{
+  fn get(&self, doc_id: i32) -> Result<i32> {
+    match &self.hook {
+      MergeStateDocMapHook::Sorted { remapped } => {
+        if match self.live_docs {
+          None => true,
+          Some(ref bits) => bits.get(doc_id as usize)?,
+        } {
+          Ok(remapped.get(doc_id as usize)? as i32)
+        } else {
+          Ok(-1)
+        }
+      },
+      MergeStateDocMapHook::Deletions {
+        del_doc_map,
+        doc_base,
+      } => match (&self.live_docs, del_doc_map) {
+        (None, None) => Ok(doc_base + doc_id),
+        (Some(bits), Some(map)) => {
+          if bits.get(doc_id as usize)? {
+            Ok(doc_base + map.get(doc_id as usize)? as i32)
+          } else {
+            Ok(-1)
+          }
+        },
+        _ => Err(LuceneError::illegal_state("should not be here")),
+      },
+    }
+  }
+}
 
 // Remap docIDs around deletions
 fn build_deletion_doc_maps<CR>(readers: &[CR]) -> Result<Vec<MergeStateDocMap<CR>>>
@@ -294,11 +372,11 @@ where
 
     let doc_base = total_docs;
 
-    doc_maps.push(DocMapEnum2::B(DocMapImpl2::new(
+    doc_maps.push(MergeStateDocMapImpl::new_deletions(
       live_docs,
       del_doc_map,
       doc_base,
-    )));
+    ));
 
     total_docs += reader.num_docs()?;
   }
@@ -350,45 +428,6 @@ where
     }
   }
   builder.build()
-}
-
-pub struct DocMapImpl2<B>
-where
-  B: Bits,
-{
-  live_docs: Option<B>,
-  del_doc_map: Option<PackedLongValues>,
-  doc_base: i32,
-}
-impl<B> DocMapImpl2<B>
-where
-  B: Bits,
-{
-  fn new(live_docs: Option<B>, del_doc_map: Option<PackedLongValues>, doc_base: i32) -> Self {
-    Self {
-      live_docs,
-      del_doc_map,
-      doc_base,
-    }
-  }
-}
-impl<B> DocMap for DocMapImpl2<B>
-where
-  B: Bits,
-{
-  fn get(&self, doc_id: i32) -> Result<i32> {
-    match (&self.live_docs, &self.del_doc_map) {
-      (None, None) => Ok(self.doc_base + doc_id),
-      (Some(bits), Some(map)) => {
-        if bits.get(doc_id as usize)? {
-          Ok(self.doc_base + map.get(doc_id as usize)? as i32)
-        } else {
-          Ok(-1)
-        }
-      },
-      _ => Err(LuceneError::illegal_state("should not be here")),
-    }
-  }
 }
 
 /// A map of doc IDs.
@@ -447,19 +486,19 @@ where
 }
 
 // for shared
-pub struct MergeStateMeta<CR>
+pub struct MergeStateMeta<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   pub(crate) fields_producers_len: usize,
-  pub(crate) doc_maps: Vec<Rc<MergeStateDocMap<CR>>>,
+  pub(crate) doc_maps: Vec<Rc<DM>>,
   pub needs_index_sort: bool,
   pub merge_field_infos: Arc<FieldInfos>,
   pub field_infos: Vec<Arc<FieldInfos>>,
 }
-impl<CR> Clone for MergeStateMeta<CR>
+impl<DM> Clone for MergeStateMeta<DM>
 where
-  CR: CodecReader,
+  DM: DocMap,
 {
   fn clone(&self) -> Self {
     Self {

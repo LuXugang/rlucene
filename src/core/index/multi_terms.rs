@@ -22,7 +22,7 @@ use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
 use crate::core::index::postings_enum::ALL;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::terms::{Terms, TermsEnum2};
-use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum, TermsEnumEnum2};
+use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
@@ -82,10 +82,8 @@ where
     })
   }
 }
-pub type IntersectIterType<T> =
-  TermsEnumEnum2<MultiTermsEnumType<<T as Terms>::IntersectIter>, EmptyTermsEnum>;
-pub type IteratorType<T> =
-  TermsEnumEnum2<MultiTermsEnumType<<T as Terms>::TermsEnum>, EmptyTermsEnum>;
+pub type IntersectIterType<T> = MultiTermsEnumType<<T as Terms>::IntersectIter>;
+pub type IteratorType<T> = MultiTermsEnumType<<T as Terms>::TermsEnum>;
 impl<T> Terms for MultiTerms<T>
 where
   T: Terms,
@@ -102,9 +100,9 @@ where
 
     if !terms_enums.is_empty() {
       let v = MultiTermsEnum::new(self.sub_slices.clone())?;
-      Ok(TermsEnumEnum2::A(v.reset(terms_enums)?))
+      v.reset(terms_enums)
     } else {
-      Ok(TermsEnumEnum2::B(EmptyTermsEnum))
+      Ok(MultiTermsEnumType::B(EmptyTermsEnum))
     }
   }
 
@@ -123,9 +121,9 @@ where
     }
     if !terms_enums.is_empty() {
       let v = MultiTermsEnum::new(self.sub_slices.clone())?;
-      Ok(TermsEnumEnum2::A(v.reset(terms_enums)?))
+      v.reset(terms_enums)
     } else {
-      Ok(TermsEnumEnum2::B(EmptyTermsEnum))
+      Ok(MultiTermsEnumType::B(EmptyTermsEnum))
     }
   }
 

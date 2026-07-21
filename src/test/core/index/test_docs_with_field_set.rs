@@ -21,6 +21,7 @@ use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::test_util::TestUtil;
 
@@ -50,16 +51,14 @@ fn test_dense() -> Result<()> {
     _ => {
       set.add(0)?;
 
-      // TODO: 可以在这里获取内存使用情况
-      // let ram_bytes_used = set.ram_bytes_used();
+      let ram_bytes_used = set.ram_bytes_used()?;
 
       for i in 1..1000 {
         set.add(i)?;
       }
       set.finish();
 
-      // TODO: 之后可以加断言
-      // assert_eq!(ram_bytes_used, set.ram_bytes_used());
+      assert_eq!(ram_bytes_used, set.ram_bytes_used()?);
 
       it = set.iterator()?;
       for i in 0..1000 {

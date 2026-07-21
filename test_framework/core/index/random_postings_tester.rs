@@ -68,6 +68,9 @@ use crate::core::util::version::LATEST;
 use crate::test_framework::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
 };
+use crate::test_framework::core::util::index_package_access::{
+  IndexPackageAccess, IndexPackageAccessImpl,
+};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_fs_directory, random_from_seed, random_multiplier,
 };
@@ -832,7 +835,7 @@ impl RandomPostingsTester {
         if doc > max {
           impacts_enum.advance_shallow(doc)?;
           let impacts = impacts_enum.get_impacts()?;
-          // TODO IMPORTANT INDEX_PACKAGE_ACCESS未实现
+          IndexPackageAccessImpl.check_impacts(&impacts, doc)?;
           let impacts_vec = impacts.get_impacts(0)?;
           impacts_copy = Some(impacts_vec);
         }
@@ -877,7 +880,7 @@ impl RandomPostingsTester {
 
           impacts_enum.advance_shallow(target)?;
           let impacts = impacts_enum.get_impacts()?;
-          // TODO IMPORTANT INDEX_PACKAGE_ACCESS未实现
+          IndexPackageAccessImpl.check_impacts(&impacts, target)?;
           impacts_copy = Some(vec![Impact::new(i32::MAX, 1_i64)]);
           for level in 0..impacts.num_levels() {
             if impacts.get_doc_id_upto(level) >= max {
@@ -926,7 +929,7 @@ impl RandomPostingsTester {
           );
           max = doc.wrapping_add(delta);
           let impacts = impacts_enum.get_impacts()?;
-          // TODO IMPORTANT INDEX_PACKAGE_ACCESS未实现
+          IndexPackageAccessImpl.check_impacts(&impacts, doc)?;
           impacts_copy = Some(vec![Impact::new(i32::MAX, 1_i64)]);
           for level in 0..impacts.num_levels() {
             if impacts.get_doc_id_upto(level) >= max {

@@ -484,8 +484,7 @@ impl StandardTokenizerImpl {
   ///  Sets the scanner buffer size in chars
   pub fn set_buffer_size(&mut self, num_chars: usize) {
     self.zz_buffer_size = num_chars;
-    let len = self.zz_buffer.len().min(self.zz_buffer_size);
-    self.zz_buffer.truncate(len);
+    self.zz_buffer.resize(num_chars, '\0');
   }
   /// Translates raw input code points to DFA table row
   fn zz_cmap(input: i32) -> usize {
@@ -524,7 +523,7 @@ impl StandardTokenizerImpl {
 
     let num_read = self
       .zz_reader
-      .read_range(&mut self.zz_buffer, 0, requested)?;
+      .read_range(&mut self.zz_buffer, self.zz_end_read, requested)?;
     if num_read == 0 {
       return Err(LuceneError::io(Error::other(
         "Reader returned 0 characters. See JFlex examples/zero-reader for a workaround.",

@@ -16,16 +16,23 @@
  */
 use crate::core::document::fields::Fields;
 use crate::core::document::knn_byte_vector_field::KnnByteVectorField;
+use crate::core::index::directory_reader;
+use crate::core::index::term::Term;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
+use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
+use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::query::Query;
+use crate::core::search::query::QueryBase;
+use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::DirEnum;
+use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
-use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::{new_searcher_with_reader, random};
 use crate::test_framework::core::util::test_vector_util::random_vector_bytes_dim;
-use rand::Rng;
 use rand::rngs::StdRng;
+use rand::{Rng, RngExt};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -214,8 +221,12 @@ impl BaseKnnVectorQueryTestCase for TestKnnByteVectorQuery {
     k: usize,
     query_filter: Option<Query>,
   ) -> Result<Self::KnnVectorQuery> {
+    // TODO: Add the Java ThrowingKnnVectorQuery after KnnByteVectorQuery has a static hook for
+    // overriding exact_search in tests.
     let _ = (field, query, k, query_filter);
-    todo!()
+    Err(LuceneError::need_implemented(
+      "ThrowingKnnVectorQuery is not implemented",
+    ))
   }
 
   fn get_knn_vector_query_no_filter(
@@ -263,6 +274,70 @@ impl BaseKnnVectorQueryTestCase for TestKnnByteVectorQuery {
   {
     self.default_new_directory_for_test(random)
   }
+}
+
+#[test]
+fn test_to_string() -> Result<()> {
+  run_case(|case, random| {
+    let index_store = case.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader::open(index_store)?;
+    let searcher = new_searcher_with_reader(reader)?;
+
+    let query = case.get_knn_vector_query_no_filter("field", vec![0.0, 1.0], 10)?;
+    assert_eq!(
+      "KnnByteVectorQuery:field[0,...][10]",
+      query.to_string("ignored")?
+    );
+
+    let rewritten = searcher.rewrite(query.clone())?;
+    case.assert_doc_score_query_to_string(&rewritten)?;
+
+    // test with filter
+    let filter: Query = TermQuery::new(Term::from_text("id", "text")).into();
+    let query = case.get_knn_vector_query("field", vec![0.0, 1.0], 10, Some(filter))?;
+    assert_eq!(
+      "KnnByteVectorQuery:field[0,...][10][id:text]",
+      query.to_string("ignored")?
+    );
+    Ok(())
+  })
+}
+
+#[test]
+fn test_get_target() -> Result<()> {
+  let query_vector_bytes = float_to_bytes(vec![0.0, 1.0]);
+  let query = KnnByteVectorQuery::new("f1", query_vector_bytes.clone(), 10)?;
+  let copy = query.get_target_copy();
+  assert_eq!(query_vector_bytes, copy);
+  assert_ne!(query_vector_bytes.as_ptr(), copy.as_ptr());
+  Ok(())
+}
+
+#[test]
+fn test_vector_encoding_mismatch() -> Result<()> {
+  run_case(|case, random| {
+    let index_store = case.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let reader = directory_reader::open(index_store)?;
+    let searcher = new_searcher_with_reader(reader)?;
+    let filter = if random.random_bool(0.5) {
+      Some(MatchAllDocsQuery::new().into())
+    } else {
+      None
+    };
+    let query = KnnFloatVectorQuery::with_filter("field", vec![0.0, 1.0], 10, filter)?;
+    match searcher.search(query, 10) {
+      Err(LuceneError::IllegalState(_)) => Ok(()),
+      _ => unreachable!(""),
+    }
+  })
 }
 
 fn float_to_bytes(query: Vec<f32>) -> Vec<u8> {

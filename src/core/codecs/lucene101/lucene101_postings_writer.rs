@@ -518,15 +518,11 @@ where
       Ok(()) => {
         let mut close_result =
           IOUtils::close([&mut self.meta_out, &mut self.doc_out], Closeable::close);
-        if let Some(ref mut pos_out) = self.pos_out
-          && let Err(pos_error) = pos_out.close()
-        {
-          close_result = Err(IOUtils::use_or_suppress(close_result.err(), pos_error));
+        if let Some(ref mut pos_out) = self.pos_out {
+          close_result = IOUtils::use_or_suppress_result(close_result, pos_out.close());
         }
-        if let Some(ref mut pay_out) = self.pay_out
-          && let Err(pay_error) = pay_out.close()
-        {
-          close_result = Err(IOUtils::use_or_suppress(close_result.err(), pay_error));
+        if let Some(ref mut pay_out) = self.pay_out {
+          close_result = IOUtils::use_or_suppress_result(close_result, pay_out.close());
         }
         close_result?;
         self.pos_out = None;

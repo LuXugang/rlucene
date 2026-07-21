@@ -31,11 +31,13 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::store::mock_directory_wrapper::Throttling;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, random,
+  create_temp_dir_with_prefix, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_merge_factor, new_mock_fs_directory, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct Test2BNumericDocValues;
@@ -46,8 +48,11 @@ struct Test2BNumericDocValues;
 #[ignore = "monster"]
 fn test_numerics() -> Result<()> {
   let mut random = random();
-  // TODO MockDirectoryWrapper未判断
-  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BNumerics")?)?;
+  let dir = Arc::new(new_mock_fs_directory(
+    &mut random,
+    create_temp_dir_with_prefix("2BNumerics")?,
+  )?);
+  dir.set_throttling(Throttling::Never);
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;

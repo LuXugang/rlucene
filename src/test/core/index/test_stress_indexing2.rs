@@ -214,7 +214,7 @@ where
     }
   }
 
-  TestUtil::check_index(dir)?;
+  TestUtil::check_index(random, dir)?;
   Ok(DocsAndWriter { docs, writer: w })
 }
 #[allow(clippy::too_many_arguments)]
@@ -275,7 +275,7 @@ where
     }
   }
 
-  TestUtil::check_index(dir)?;
+  TestUtil::check_index(random, dir)?;
   Ok(docs)
 }
 

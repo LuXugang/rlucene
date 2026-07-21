@@ -36,8 +36,7 @@ fn test_ram_bytes_used() -> Result<()> {
   let mut random = random();
   let mut bu = BufferedUpdates::new("seg1");
 
-  // TODO
-  // assert_eq!(bu.ram_bytes_used(), 0);
+  assert_eq!(bu.ram_bytes_used()?, 0);
   assert!(!bu.any());
 
   let queries = at_least(&mut random, 1);
@@ -69,25 +68,22 @@ fn test_ram_bytes_used() -> Result<()> {
     "We have added a lot of docIds, terms, and queries, but `any()` returned false."
   );
 
-  // TODO
-  // let total_used = bu.ram_bytes_used();
-  // assert!(total_used > 0);
+  let total_used = bu.ram_bytes_used()?;
+  assert!(total_used > 0);
 
   bu.clear_delete_terms();
   assert!(
     bu.any(),
     "Only terms and docIds are cleaned, the queries should still be in memory."
   );
-  // TODO
-  // assert!(
-  //     total_used > bu.ram_bytes_used(),
-  //     "Terms are cleaned, so memory usage should decrease."
-  // );
+  assert!(
+    total_used > bu.ram_bytes_used()?,
+    "Terms are cleaned, so memory usage should decrease."
+  );
 
   bu.clear();
   assert!(!bu.any());
-  // TODO
-  // assert_eq!(bu.ram_bytes_used()?, 0);
+  assert_eq!(bu.ram_bytes_used()?, 0);
 
   Ok(())
 }

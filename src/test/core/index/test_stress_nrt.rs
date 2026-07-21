@@ -17,16 +17,30 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::field_type::FieldType;
+use crate::core::index::base_composite_reader::{
+  BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
+};
+use crate::core::index::codec_reader::CodecReaderEnum2;
+use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
-use crate::core::index::directory_reader::DirectoryReader;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
+use crate::core::index::index_commit::IndexCommit;
+use crate::core::index::index_reader::{
+  CacheHelperEnum2, CompositeReaderContextKind, IndexReader, IndexReaderBase,
+};
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::soft_deletes_directory_reader_wrapper::{
+  SoftDeletesCodecReader, SoftDeletesDirectoryReaderWrapper,
+};
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -38,11 +52,281 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::RngExt;
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicI32, AtomicI64, Ordering};
 
-type DirReader = Arc<StandardDirectoryReader<crate::core::store::directory::DirEnum>>;
+const SOFT_DELETES_FIELD: &str = "___soft_deletes";
+type StandardDirReader = StandardDirectoryReader<DirEnum>;
+type SoftDeletesDirReader = SoftDeletesDirectoryReaderWrapper<StandardDirReader>;
+type StressLeafReader = SoftDeletesCodecReader<<StandardDirReader as CompositeReader>::LeafReader>;
+type DirReader = Arc<StressDirReader>;
+
+enum StressDirReader {
+  Standard {
+    reader: StandardDirReader,
+    base: BaseCompositeReaderBase<StressLeafReader>,
+    index_base: IndexReaderBase,
+  },
+  SoftDeletes {
+    reader: SoftDeletesDirReader,
+    base: BaseCompositeReaderBase<StressLeafReader>,
+    index_base: IndexReaderBase,
+  },
+}
+
+impl StressDirReader {
+  fn from_standard(reader: StandardDirReader) -> Result<Self> {
+    let sub_readers = reader
+      .get_sequential_sub_readers()
+      .iter()
+      .cloned()
+      .map(CodecReaderEnum2::A)
+      .collect();
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None)?;
+    Ok(Self::Standard {
+      reader,
+      base,
+      index_base: IndexReaderBase::new(),
+    })
+  }
+
+  fn from_soft_deletes(reader: SoftDeletesDirReader) -> Result<Self> {
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(
+      reader.get_sequential_sub_readers().to_vec(),
+      None,
+    )?;
+    Ok(Self::SoftDeletes {
+      reader,
+      base,
+      index_base: IndexReaderBase::new(),
+    })
+  }
+}
+
+impl BaseCompositeReader for StressDirReader {}
+
+impl CompositeReader for StressDirReader {
+  type LeafReader = StressLeafReader;
+  type SubReader = StressLeafReader;
+
+  fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => {
+        base.get_sequential_sub_readers()
+      },
+    }
+  }
+
+  fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
+  where
+    F: FnMut(&Self::LeafReader) -> Result<()>,
+  {
+    for reader in self.get_sequential_sub_readers() {
+      visitor(reader)?;
+    }
+    Ok(())
+  }
+
+  fn to_string(&self) -> String {
+    match self {
+      Self::Standard { reader, .. } => CompositeReader::to_string(reader),
+      Self::SoftDeletes { reader, .. } => CompositeReader::to_string(reader),
+    }
+  }
+}
+
+impl IndexReader for StressDirReader {
+  type ContextKind = CompositeReaderContextKind;
+  type TermVectors = BCRTermVectorsImpl<StressLeafReader>;
+
+  fn term_vectors(&self) -> Result<Self::TermVectors> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => base.term_vector(self),
+    }
+  }
+
+  fn max_doc(&self) -> Result<i32> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => Ok(base.max_doc()),
+    }
+  }
+
+  fn num_docs(&self) -> Result<i32> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => base.num_docs(),
+    }
+  }
+
+  type StoredFields = BCRStoredFieldsImpl<StressLeafReader>;
+
+  fn stored_fields(&self) -> Result<Self::StoredFields> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => base.stored_fields(self),
+    }
+  }
+
+  fn do_close(&self) -> Result<()> {
+    match self {
+      Self::Standard { reader, .. } => reader.close(),
+      Self::SoftDeletes { reader, .. } => reader.close(),
+    }
+  }
+
+  type ReaderCacheHelper = CacheHelperEnum2<
+    <StandardDirReader as IndexReader>::ReaderCacheHelper,
+    <SoftDeletesDirReader as IndexReader>::ReaderCacheHelper,
+  >;
+
+  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
+    match self {
+      Self::Standard { reader, .. } => {
+        Ok(reader.get_reader_cache_helper()?.map(CacheHelperEnum2::A))
+      },
+      Self::SoftDeletes { reader, .. } => {
+        Ok(reader.get_reader_cache_helper()?.map(CacheHelperEnum2::B))
+      },
+    }
+  }
+
+  fn doc_freq(&self, term: &Term) -> Result<i32> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => base.doc_freq(term, self),
+    }
+  }
+
+  fn total_term_freq(&self, term: &Term) -> Result<i64> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => {
+        base.total_term_freq(term, self)
+      },
+    }
+  }
+
+  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => {
+        base.get_sum_doc_freq(field, self)
+      },
+    }
+  }
+
+  fn get_doc_count(&self, field: &str) -> Result<i32> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => {
+        base.get_doc_count(field, self)
+      },
+    }
+  }
+
+  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
+    match self {
+      Self::Standard { base, .. } | Self::SoftDeletes { base, .. } => {
+        base.get_sum_total_term_freq(field, self)
+      },
+    }
+  }
+
+  fn index_base(&self) -> &IndexReaderBase {
+    match self {
+      Self::Standard { index_base, .. } | Self::SoftDeletes { index_base, .. } => index_base,
+    }
+  }
+}
+
+impl DirectoryReader for StressDirReader {
+  type DirectoryReader = Self;
+  type Directory = DirEnum;
+
+  fn directory(&self) -> &DirectoryReaderBase<Self::Directory> {
+    match self {
+      Self::Standard { reader, .. } => reader.directory(),
+      Self::SoftDeletes { reader, .. } => reader.directory(),
+    }
+  }
+
+  fn do_open_if_changed(&self) -> Result<Option<Self::DirectoryReader>> {
+    match self {
+      Self::Standard { reader, .. } => reader
+        .do_open_if_changed()?
+        .map(Self::from_standard)
+        .transpose(),
+      Self::SoftDeletes { reader, .. } => reader
+        .do_open_if_changed()?
+        .map(Self::from_soft_deletes)
+        .transpose(),
+    }
+  }
+
+  fn do_open_if_changed_with_commit<IC>(
+    &self,
+    commit: Option<&IC>,
+  ) -> Result<Option<Self::DirectoryReader>>
+  where
+    IC: IndexCommit<Directory = Arc<Self::Directory>>,
+  {
+    match self {
+      Self::Standard { reader, .. } => reader
+        .do_open_if_changed_with_commit(commit)?
+        .map(Self::from_standard)
+        .transpose(),
+      Self::SoftDeletes { reader, .. } => reader
+        .do_open_if_changed_with_commit(commit)?
+        .map(Self::from_soft_deletes)
+        .transpose(),
+    }
+  }
+
+  fn do_open_if_changed_with_deletes(
+    &self,
+    writer: &Arc<IndexWriter<Self::Directory>>,
+    apply_deletes: bool,
+  ) -> Result<Option<Self::DirectoryReader>> {
+    match self {
+      Self::Standard { reader, .. } => reader
+        .do_open_if_changed_with_deletes(writer, apply_deletes)?
+        .map(Self::from_standard)
+        .transpose(),
+      Self::SoftDeletes { reader, .. } => reader
+        .do_open_if_changed_with_deletes(writer, apply_deletes)?
+        .map(Self::from_soft_deletes)
+        .transpose(),
+    }
+  }
+
+  fn get_version(&self) -> Result<i64> {
+    match self {
+      Self::Standard { reader, .. } => reader.get_version(),
+      Self::SoftDeletes { reader, .. } => reader.get_version(),
+    }
+  }
+
+  fn is_current(&self) -> Result<bool> {
+    match self {
+      Self::Standard { reader, .. } => reader.is_current(),
+      Self::SoftDeletes { reader, .. } => reader.is_current(),
+    }
+  }
+
+  type IndexCommit = <StandardDirReader as DirectoryReader>::IndexCommit;
+
+  fn get_index_commit(&self) -> Result<Self::IndexCommit> {
+    match self {
+      Self::Standard { reader, .. } => reader.get_index_commit(),
+      Self::SoftDeletes { reader, .. } => reader.get_index_commit(),
+    }
+  }
+}
+
+impl Display for StressDirReader {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Standard { reader, .. } => write!(f, "{reader}"),
+      Self::SoftDeletes { reader, .. } => write!(f, "{reader}"),
+    }
+  }
+}
 
 /// Corresponds to Java fields protected by `synchronized (TestStressNRT.this)`:
 /// `reader`, `committedModel`, `snapshotCount`, `committedModelClock`.
@@ -101,9 +385,7 @@ impl TestStressNRT {
     let max_concurrent_commits =
       TestUtil::next_int(&mut rand, 1, if is_night_mode() { 10 } else { 5 }); // number of committers at a time... needed if we want to avoid commit errors
     // due to exceeding the max
-    // TODO SoftDeletesDirectoryReaderWrapper未实现
-    // let use_soft_deletes = rand.random_range(0..10) < 3;
-    let use_soft_deletes = false;
+    let use_soft_deletes = rand.random_range(0..10) < 3;
 
     let tombstones = rand.random_bool(0.5);
 
@@ -149,8 +431,14 @@ impl TestStressNRT {
     writer.commit(&mut rand)?;
 
     {
-      // TODO: SoftDeletesDirectoryReaderWrapper 未实现
-      let open_reader = directory_reader::open(dir.clone())?;
+      let open_reader = if use_soft_deletes {
+        StressDirReader::from_soft_deletes(SoftDeletesDirectoryReaderWrapper::new(
+          directory_reader::open(dir.clone())?,
+          SOFT_DELETES_FIELD,
+        )?)?
+      } else {
+        StressDirReader::from_standard(directory_reader::open(dir.clone())?)?
+      };
       let mut synced = self.synced.lock();
       synced.reader = Some(Arc::new(open_reader));
     }
@@ -208,7 +496,14 @@ impl TestStressNRT {
                             std::thread::current().name().unwrap_or("unknown")
                           );
                         }
-                        Arc::new(writer_ref.get_reader(&mut thread_rand)?)
+                        let reader = writer_ref.get_reader(&mut thread_rand)?;
+                        Arc::new(if use_soft_deletes {
+                          StressDirReader::from_soft_deletes(
+                            SoftDeletesDirectoryReaderWrapper::new(reader, SOFT_DELETES_FIELD)?,
+                          )?
+                        } else {
+                          StressDirReader::from_standard(reader)?
+                        })
                       } else {
                         if cfg!(feature = "test_log_verbose") {
                           let old_reader_id = format!("{}", old_reader);

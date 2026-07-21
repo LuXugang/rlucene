@@ -1515,7 +1515,7 @@ impl Impacts for ImpactsImpl<'_> {
           level0_serialized_impacts_bytes_ref.length,
           self.max_num_impacts_at_level0,
         )?;
-        return Ok(level0_impacts.impacts);
+        return Ok(level0_impacts.impacts[..level0_impacts.length].to_vec());
       }
       if level == 1 {
         let level1_serialized_impacts_bytes_ref = self.level1_serialized_impacts.as_ref().unwrap();
@@ -1524,7 +1524,7 @@ impl Impacts for ImpactsImpl<'_> {
           level1_serialized_impacts_bytes_ref.length,
           self.max_num_impacts_at_level1,
         )?;
-        return Ok(level1_impacts.impacts);
+        return Ok(level1_impacts.impacts[..level1_impacts.length].to_vec());
       }
     }
     Ok(vec![Impact::new(i32::MAX, 1)])

@@ -255,7 +255,8 @@ impl LeafCollector for TestCollector {
   fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
     let _children = scorer.get_children()?;
     self.set_scorer_called.store(true, Ordering::SeqCst);
-    // TODO IMPORTANT  不支持get_children功能
+    // TODO: Restore the child-count assertion after ConjunctionScorer::get_children is implemented.
+    // The current owned ChildScorable API cannot borrow the live child scorers.
     // assert_eq!(2, children.len());
     Ok(())
   }

@@ -43,6 +43,7 @@ mod test_int_array_doc_id_set;
 mod test_intro_selector;
 mod test_intro_sorter;
 mod test_ints_ref;
+mod test_io_utils;
 mod test_line_file_docs;
 mod test_long_bit_set;
 mod test_long_heap;
@@ -65,6 +66,7 @@ mod test_stable_msb_radix_sorter;
 mod test_string_helper;
 mod test_string_sorter;
 mod test_tim_sorter;
+mod test_unicode_util;
 pub mod test_vector_util;
 mod test_version;
 

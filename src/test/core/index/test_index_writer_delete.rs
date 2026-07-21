@@ -26,6 +26,7 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
+use crate::core::index::check_index::CheckIndex;
 #[cfg(feature = "nightly")]
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
@@ -377,7 +378,8 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let iwc = new_index_writer_config(&mut random)?;
-  // TODO IMPORTANT: MockRandomMergePolicy 未实现
+  // TODO: MockRandomMergePolicy is not implemented; the default merge policy does not preserve
+  // this test's randomized merge/deadlock coverage.
   let modifier = Arc::new(RandomIndexWriter::with_config(
     &mut random,
     dir.clone(),
@@ -853,7 +855,7 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
 
       // If the close() succeeded, make sure index is OK:
       if success {
-        TestUtil::check_index(dir.as_ref())?;
+        TestUtil::check_index(&mut random, dir.as_ref())?;
       }
       dir.set_random_io_exception_rate(random_io_exception_rate);
       dir.set_max_size_in_bytes(max_size_in_bytes);
@@ -1451,8 +1453,56 @@ fn test_apply_deletes_on_flush() -> Result<()> {
 
 #[test]
 fn test_deletes_check_index_output() -> Result<()> {
-  // TODO IMPORTANT CheckIndex未实现
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc
+    .set_merge_policy(crate::core::index::no_merge_policy::NoMergePolicy::default())
+    .set_max_buffered_docs(2);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("field", "0", Store::No)?);
+  w.add_document(doc)?;
+
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("field", "1", Store::No)?);
+  w.add_document(doc)?;
+  w.commit()?;
+  assert_eq!(1, w.get_segment_count());
+
+  w.delete_documents_with_terms(vec![Term::from_text("field", "0")])?;
+  w.commit()?;
+  assert_eq!(1, w.get_segment_count());
+  w.close()?;
+
+  let mut output = Vec::with_capacity(1024);
+  let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(dir.clone())?;
+  checker.set_info_stream(&mut output);
+  let index_status = checker.check_index()?;
+  assert!(index_status.clean);
+  checker.close()?;
+  drop(checker);
+  let output = String::from_utf8_lossy(&output);
+
+  // Segment should have deletions:
+  assert!(output.contains("has deletions"));
+  let analyzer = MockAnalyzer::new(&mut random);
+  let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+  w.force_merge(1)?;
+  w.close()?;
+
+  let mut output = Vec::with_capacity(1024);
+  let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(dir.clone())?;
+  checker.set_info_stream(&mut output);
+  let index_status = checker.check_index()?;
+  assert!(index_status.clean);
+  checker.close()?;
+  drop(checker);
+  let output = String::from_utf8_lossy(&output);
+  assert!(!output.contains("has deletions"));
+  dir.as_ref().close()
 }
 
 #[test]

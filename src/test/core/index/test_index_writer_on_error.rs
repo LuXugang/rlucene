@@ -330,7 +330,7 @@ where
             writer.commit()?;
           }
           if directory_reader::index_exists(new_dir.as_ref())? {
-            TestUtil::check_index(new_dir.as_ref())?;
+            TestUtil::check_index(random, new_dir.as_ref())?;
           }
           Ok(())
         }));

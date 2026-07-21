@@ -20,6 +20,7 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
+use crate::core::index::check_index::CheckIndex;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -33,6 +34,8 @@ use crate::core::index::term::Term;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::store::directory::DirectoryEnum;
+use crate::core::store::lock::LockEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCase;
@@ -45,6 +48,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
+use std::io::Sink;
 
 pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
   /// Return `false` if the [`DocValuesSkipper`] produced by this format
@@ -676,8 +680,16 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     let context = (&ireader).get_context()?;
     let mut read_docs = 0;
     for reader_context in context.leaves()? {
-      // TODO IMPORTANT CheckIndex未实现
       let reader = reader_context.reader();
+      let mut output = Vec::with_capacity(1024);
+      let status = CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_doc_values(
+        reader,
+        Some(&mut output),
+        true,
+      )?;
+      if let Some(error) = status.error {
+        return Err(error);
+      }
       let skipper = test_doc_value_skipper.doc_values_skipper(reader)?;
       let wrapper = test_doc_value_skipper.doc_values_wrapper(reader)?;
       read_docs += self.assert_doc_values_skip_sequential(wrapper, skipper)?;

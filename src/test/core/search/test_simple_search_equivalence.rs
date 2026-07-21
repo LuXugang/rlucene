@@ -20,6 +20,7 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
+use crate::core::search::synonym_query::Builder as SynonymQueryBuilder;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::asserting_query::AssertingQuery;
@@ -320,24 +321,16 @@ fn test_boolean_or_vs_synonym() -> Result<()> {
   // let case = TestSimpleSearchEquivalence::new(&mut random);
   //
   // let t1 = case.random_term(&mut random);
+  // let t2 = case.random_term(&mut random);
+  // assert_eq!(t1.field(), t2.field());
   //
-  // let mut t2;
-  // loop {
-  //   t2 = case.random_term(&mut random);
-  //   if t1.field() == t2.field() {
-  //     break;
-  //   }
-  // }
-  //
-  // let q1 = SynonymQuery::builder(t1.field())
-  //   .add_term(t1.clone())?
-  //   .add_term(t2.clone())?
-  //   .build()?;
+  // let mut q1 = SynonymQueryBuilder::new(t1.field());
+  // q1.add_term(t1.clone())?.add_term(t2.clone())?;
   //
   // let mut q2 = BooleanQueryBuilder::new();
   // q2.add(TermQuery::new(t1), Occur::Should)?;
   // q2.add(TermQuery::new(t2), Occur::Should)?;
   //
-  // case.assert_same_set(&mut random, &q1.into(), &q2.build().into())
+  // case.assert_same_set(&mut random, &q1.build().into(), &q2.build().into())
   Ok(())
 }

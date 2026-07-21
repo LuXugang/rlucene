@@ -816,7 +816,7 @@ impl<'a> ScoreErrorCorrelator<'a> {
       }
       self
         .corr
-        .add(1.0 - self.errors.var() as f64 / score_variance as f64);
+        .add((1.0 - self.errors.var() / score_variance) as f64);
     }
     if self.corr.mean.is_nan() {
       Ok(0.0)

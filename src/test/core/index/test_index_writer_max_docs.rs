@@ -171,11 +171,11 @@ where
   }
 }
 
+#[cfg(feature = "monster")]
 #[test]
+#[ignore = "monster"]
 fn test_exactly_at_true_limit() -> Result<()> {
-  // let max_docs = MAX_DOCS;
-  // TODO IMPORTANT 这个在Java Lucene需要执行特别长的时间, 我们这里置为一个较小的值, 以便测试能够在合理的时间内完成. 在Java Lucene中, 这个值被设置为MAX_DOCS, 也就是2^31 - 1.
-  let max_docs = 1000000;
+  let max_docs = MAX_DOCS;
   let mut random = random();
 
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BDocs3")?)?;

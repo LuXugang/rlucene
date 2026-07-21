@@ -49,6 +49,7 @@ use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
@@ -64,7 +65,6 @@ use crate::test_framework::core::util::test_util::TestUtil;
 #[cfg(feature = "nightly")]
 use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
-#[cfg(feature = "nightly")]
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
@@ -1551,13 +1551,94 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
 
 #[test]
 fn test_change_codec() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  // TODO set_codec 未实现
+  Ok(())
 }
 
 #[test]
 fn test_add_indexes() -> Result<()> {
-  // TODO
-  Ok(())
+  let mut random = random();
+  let dir1 = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let writer = IndexWriter::new(dir1.clone(), config)?;
+
+  let num_docs = at_least(&mut random, 50);
+  let num_terms = TestUtil::next_int(&mut random, 1, num_docs / 5);
+  let mut random_terms = HashSet::new();
+  while random_terms.len() < num_terms as usize {
+    random_terms.insert(TestUtil::random_simple_string(&mut random));
+  }
+  let random_terms: Vec<String> = random_terms.into_iter().collect();
+
+  // Create first index.
+  for _ in 0..num_docs {
+    let term = &random_terms[random.random_range(0..random_terms.len())];
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", term, Store::No)?);
+    doc.add(BinaryDocValuesField::new(
+      "bdv",
+      to_bytes(&mut random, 4_i64)?,
+    ));
+    doc.add(BinaryDocValuesField::new(
+      "control",
+      to_bytes(&mut random, 8_i64)?,
+    ));
+    writer.add_document(doc)?;
+  }
+
+  if random.random_bool(0.5) {
+    writer.commit()?;
+  }
+
+  // Update some docs to a random value.
+  let value = random.random::<i32>() as i64;
+  let term = &random_terms[random.random_range(0..random_terms.len())];
+  writer.update_doc_values(
+    Term::from_text("id", term),
+    vec![
+      BinaryDocValuesField::new("bdv", to_bytes(&mut random, value)?).into(),
+      BinaryDocValuesField::new("control", to_bytes(&mut random, value.wrapping_mul(2))?).into(),
+    ],
+  )?;
+  writer.close()?;
+
+  let dir2 = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let writer = IndexWriter::new(dir2.clone(), config)?;
+  if random.random_bool(0.5) {
+    writer.add_indexes_from_directory(std::slice::from_ref(&dir1))?;
+  } else {
+    let reader = directory_reader::open(dir1.clone())?;
+    let add_result = TestUtil::add_indexes_slowly(&writer, &[&reader]);
+    let add_result =
+      crate::core::util::io_utils::IOUtils::use_or_suppress_result(add_result, reader.close());
+    add_result?;
+  }
+  writer.close()?;
+
+  let reader = directory_reader::open(dir2.clone())?;
+  let context = (&reader).get_context()?;
+  for context in context.leaves()? {
+    let leaf = context.reader();
+    let mut bdv = leaf.get_binary_doc_values("bdv")?.expect("bdv must exist");
+    let mut control = leaf
+      .get_binary_doc_values("control")?
+      .expect("control must exist");
+    for i in 0..leaf.max_doc()? {
+      assert_eq!(i, bdv.next_doc()?);
+      assert_eq!(i, control.next_doc()?);
+      assert_eq!(
+        get_value(&mut bdv)?.wrapping_mul(2),
+        get_value(&mut control)?
+      );
+    }
+  }
+  reader.close()?;
+
+  let close_result = dir1.as_ref().close();
+  crate::core::util::io_utils::IOUtils::use_or_suppress_result(close_result, dir2.as_ref().close())
 }
 
 #[test]
@@ -1884,7 +1965,8 @@ fn test_update_two_nonexisting_terms() -> Result<()> {
 
 #[test]
 fn test_io_context() -> Result<()> {
-  // TODO NRTCachingDirectory未实现
+  // TODO: NRTCachingDirectory is still only an empty shell, so cached-file IOContext behavior
+  // cannot be exercised.
   Ok(())
 }
 

@@ -189,6 +189,30 @@ fn test_repetitive_increasing_sloppiness3() -> Result<()> {
   }
   Ok(())
 }
+
+/** same as the above with posincr */
+#[test]
+fn test_repetitive_increasing_sloppiness3_with_holes() -> Result<()> {
+  let mut random = random();
+  let case = TestSloppyPhraseQuery2::new(&mut random);
+  let t = case.random_term(&mut random);
+  let pos1 = 1 + random.random_range(0..3);
+  let pos2 = pos1 + 1 + random.random_range(0..3);
+  for i in 0..10 {
+    let mut builder = Builder::new();
+    builder.add(t.clone(), 0)?;
+    builder.add(t.clone(), pos1)?;
+    builder.add(t.clone(), pos2)?;
+    builder.set_slop(i);
+    let q1 = builder.clone().build()?;
+    builder.set_slop(i + 1);
+    let q2 = builder.build()?;
+    case.assert_subset_of(&mut random, &q1.clone().into(), &q2.clone().into())?;
+    case.assert_subset_of(&mut random, &q1.into(), &q2.into())?;
+  }
+  Ok(())
+}
+
 #[test]
 fn test_random_increasing_sloppiness() -> Result<()> {
   let mut random = random();

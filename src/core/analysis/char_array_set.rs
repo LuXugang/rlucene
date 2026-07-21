@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::char_array_map::{CharArrayMap, empty_map};
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 /// A set that stores strings as character arrays in a hash table.
 #[derive(Clone)]
@@ -86,5 +86,21 @@ impl CharArraySet {
   }
   pub fn size(&self) -> usize {
     self.map.size()
+  }
+}
+
+impl Display for CharArraySet {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "[")?;
+    let mut first = true;
+    for key in self.map.original_keys() {
+      if !first {
+        write!(f, ", ")?;
+      }
+      first = false;
+      let key: String = key.iter().collect();
+      write!(f, "{key}")?;
+    }
+    write!(f, "]")
   }
 }

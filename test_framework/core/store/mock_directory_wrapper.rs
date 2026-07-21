@@ -213,7 +213,7 @@ where
     let test_nightly = is_night_mode();
     Self {
       state: Arc::new(MockDirectoryWrapperState {
-        base: Mutex::new(BaseDirectoryWrapper::new(delegate)),
+        base: Mutex::new(BaseDirectoryWrapper::new(&mut random_state, delegate)),
         id: Identity::new(),
         max_size: AtomicI64::new(0),
         max_used_size: AtomicI64::new(0),
@@ -945,7 +945,18 @@ where
           // synchronized methods such as MockDirectoryWrapper#fileLength.
           // Hence passing concurrent = false to this method to turn off
           // concurrent checks.
-          TestUtil::check_index_with_level(Arc::new(self.clone()), level_for_check_on_close)?;
+          let mut check_index_random = {
+            let mut random_state = self.state.random_state.lock();
+            StdRng::seed_from_u64(random_state.random())
+          };
+          TestUtil::check_index_with_options(
+            &mut check_index_random,
+            Arc::new(self.clone()),
+            level_for_check_on_close,
+            true,
+            false,
+            None,
+          )?;
         }
 
         // TODO: factor this out / share w/ TestIW.assertNoUnreferencedFiles

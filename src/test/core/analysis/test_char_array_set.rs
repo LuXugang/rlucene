@@ -26,25 +26,33 @@ static TEST_STOP_WORDS: &[&str] = &[
 ];
 #[test]
 fn test_rehash() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let mut cas = CharArraySet::new(true);
+  for stop_word in TEST_STOP_WORDS {
+    cas.add_str(stop_word);
+  }
+  assert_eq!(TEST_STOP_WORDS.len(), cas.size());
+  for test_stop_word in TEST_STOP_WORDS {
+    assert!(cas.contains_key_str(test_stop_word));
+  }
+  Ok(())
 }
 
 #[test]
-fn test_non_zero_offset() {
+fn test_non_zero_offset() -> Result<()> {
   let words = ["Hello", "World", "this", "is", "a", "test"];
   let findme: Vec<char> = "xthisy".chars().collect();
   let mut set = CharArraySet::new(true);
   set.add_all(words);
   assert!(set.contains_key(&findme, 1, 4));
   assert!(set.contains_key_str("this"));
-  let unmodifiable = set; // same to Java unmodifiable
 
-  assert!(unmodifiable.contains_key(&findme, 1, 4));
-  assert!(unmodifiable.contains_key_str("this"));
+  // TODO: Retest these lookups through an unmodifiable view after CharArraySet::unmodifiable_set
+  // is migrated.
+  Ok(())
 }
 
 #[test]
-fn test_object_contains() {
+fn test_object_contains() -> Result<()> {
   let mut set = CharArraySet::new(true);
   let val = 1;
   set.add_any(&val);
@@ -52,11 +60,10 @@ fn test_object_contains() {
   assert!(set.contains_key_str("1"));
   let chars: Vec<char> = vec!['1'];
   assert!(set.contains_key(chars.as_slice(), 0, 1));
-  let unmodifiable = set;
 
-  assert!(unmodifiable.contains_key_any(&val));
-  assert!(unmodifiable.contains_key_str("1"));
-  assert!(unmodifiable.contains_key(&chars, 0, 1));
+  // TODO: Retest these lookups through an unmodifiable view after CharArraySet::unmodifiable_set
+  // is migrated.
+  Ok(())
 }
 #[test]
 fn test_clear() {
@@ -80,9 +87,18 @@ fn test_clear() {
 }
 
 #[test]
-fn test_modify_on_unmodifiable() {
-  // TODO
+fn test_modify_on_unmodifiable() -> Result<()> {
+  // TODO: CharArraySet::unmodifiable_set and its unsupported-operation behavior have not been
+  // migrated.
+  Ok(())
 }
+
+#[test]
+fn test_unmodifiable_set() -> Result<()> {
+  // TODO: CharArraySet::unmodifiable_set and Java's null argument behavior have not been migrated.
+  Ok(())
+}
+
 #[test]
 fn test_supplementary_chars() {
   let missing = "Term {term} is missing in the set";
@@ -127,34 +143,189 @@ fn test_supplementary_chars() {
   }
 }
 #[test]
-fn test_single_high_surrogate() -> crate::core::util::error::lucene_error::Result<()> {
-  test_not_required_in_rust_lucene!();
+fn test_single_high_surrogate() -> Result<()> {
+  // TODO: Rust strings contain Unicode scalar values and cannot represent the isolated UTF-16 high
+  // surrogates exercised by this Java test.
+  Ok(())
 }
+
 #[test]
 fn test_copy_char_array_set_bw_compat() {
-  // TODO
+  let mut set_ignore_case = CharArraySet::new(true);
+  let mut set_case_sensitive = CharArraySet::new(false);
+
+  let stopwords_upper: Vec<String> = TEST_STOP_WORDS
+    .iter()
+    .map(|stop_word| stop_word.to_uppercase())
+    .collect();
+  set_ignore_case.add_all(TEST_STOP_WORDS);
+  set_ignore_case.add_any(&1);
+  set_case_sensitive.add_all(TEST_STOP_WORDS);
+  set_case_sensitive.add_any(&1);
+
+  let mut copy = set_ignore_case.clone();
+  let copy_case_sens = set_case_sensitive.clone();
+
+  assert_eq!(set_ignore_case.size(), copy.size());
+  assert_eq!(set_case_sensitive.size(), copy.size());
+
+  assert!(
+    TEST_STOP_WORDS
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    stopwords_upper
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    TEST_STOP_WORDS
+      .iter()
+      .all(|stop_word| copy_case_sens.contains_key_str(stop_word))
+  );
+  for stop_word in &stopwords_upper {
+    assert!(!copy_case_sens.contains_key_str(stop_word));
+  }
+  // test adding terms to the copy
+  let new_words: Vec<String> = TEST_STOP_WORDS
+    .iter()
+    .map(|stop_word| format!("{stop_word}_1"))
+    .collect();
+  copy.add_all(&new_words);
+
+  assert!(
+    TEST_STOP_WORDS
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    stopwords_upper
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    new_words
+      .iter()
+      .all(|new_word| copy.contains_key_str(new_word))
+  );
+  // new added terms are not in the source set
+  for new_word in &new_words {
+    assert!(!set_ignore_case.contains_key_str(new_word));
+    assert!(!set_case_sensitive.contains_key_str(new_word));
+  }
 }
+
+/// Tests copying a `CharArraySet` source.
 #[test]
 fn test_copy_char_array_set() {
-  // TODO
+  let mut set_ignore_case = CharArraySet::new(true);
+  let mut set_case_sensitive = CharArraySet::new(false);
+
+  let stopwords_upper: Vec<String> = TEST_STOP_WORDS
+    .iter()
+    .map(|stop_word| stop_word.to_uppercase())
+    .collect();
+  set_ignore_case.add_all(TEST_STOP_WORDS);
+  set_ignore_case.add_any(&1);
+  set_case_sensitive.add_all(TEST_STOP_WORDS);
+  set_case_sensitive.add_any(&1);
+
+  let mut copy = set_ignore_case.clone();
+  let copy_case_sens = set_case_sensitive.clone();
+
+  assert_eq!(set_ignore_case.size(), copy.size());
+  assert_eq!(set_case_sensitive.size(), copy.size());
+
+  assert!(
+    TEST_STOP_WORDS
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    stopwords_upper
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    TEST_STOP_WORDS
+      .iter()
+      .all(|stop_word| copy_case_sens.contains_key_str(stop_word))
+  );
+  for stop_word in &stopwords_upper {
+    assert!(!copy_case_sens.contains_key_str(stop_word));
+  }
+  // test adding terms to the copy
+  let new_words: Vec<String> = TEST_STOP_WORDS
+    .iter()
+    .map(|stop_word| format!("{stop_word}_1"))
+    .collect();
+  copy.add_all(&new_words);
+
+  assert!(
+    TEST_STOP_WORDS
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    stopwords_upper
+      .iter()
+      .all(|stop_word| copy.contains_key_str(stop_word))
+  );
+  assert!(
+    new_words
+      .iter()
+      .all(|new_word| copy.contains_key_str(new_word))
+  );
+  // new added terms are not in the source set
+  for new_word in &new_words {
+    assert!(!set_ignore_case.contains_key_str(new_word));
+    assert!(!set_case_sensitive.contains_key_str(new_word));
+  }
 }
+
+/// Tests copying a JDK `Set` source.
 #[test]
-fn test_copy_jdk_set() -> crate::core::util::error::lucene_error::Result<()> {
-  test_not_required_in_rust_lucene!();
+fn test_copy_jdk_set() -> Result<()> {
+  // TODO: CharArraySet has no generic collection-copy API corresponding to Java's copy(Set).
+  Ok(())
 }
+
+/// Tests the special case of copying `CharArraySet::EMPTY_SET`.
 #[test]
-fn test_copy_empty_set() {
-  // TODO
+fn test_copy_empty_set() -> Result<()> {
+  // TODO: Rust's CharArraySet::empty_set returns an owned value and has no shared EMPTY_SET
+  // singleton whose identity can be checked.
+  Ok(())
 }
+
+/// Smoke-tests the static empty set.
 #[test]
 fn test_empty_set() {
-  // TODO
+  let empty_set = CharArraySet::empty_set();
+  assert_eq!(0, empty_set.size());
+
+  for stop_word in TEST_STOP_WORDS {
+    assert!(!empty_set.contains_key_str(stop_word));
+  }
+  assert!(!empty_set.contains_key_str("foo"));
+  assert!(!empty_set.contains_key_any(&"foo"));
+  let foo: Vec<char> = "foo".chars().collect();
+  assert!(!empty_set.contains_key(&foo, 0, 3));
 }
+
+/// Tests null handling.
 #[test]
-fn test_contains_with_null() {
-  // TODO
+fn test_contains_with_null() -> Result<()> {
+  // TODO: Rust references cannot be null, so the Java null-overload behavior cannot be exercised.
+  Ok(())
 }
+
 #[test]
 fn test_to_string() {
-  // TODO
+  let mut set = CharArraySet::new(false);
+  set.add_str("test");
+  assert_eq!("[test]", set.to_string());
+  set.add_str("test2");
+  assert!(set.to_string().contains(", "));
 }
