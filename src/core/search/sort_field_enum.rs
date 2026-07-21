@@ -18,7 +18,7 @@ use crate::core::document::lat_lon_point_sort_field::LatLonPointSortField;
 use crate::core::document::xy_point_sort_field::XYPointSortField;
 use crate::core::index::doc_values::SortedSet;
 use crate::core::index::index_sorter::{
-  CPEnumType1, CPEnumType2, ComparableProviderEnum3, DocComparatorImpl, IndexSorter,
+  CPEnumType1, CPEnumType2, ComparableProvider, DocComparatorImpl, IndexSorter,
   StringComparableProvider, StringSorter,
 };
 use crate::core::index::leaf_reader::LeafReader;
@@ -226,11 +226,28 @@ impl_from_for_enum!(
     XYPointSortField=> XYPoint,
     LatLonPointSortField=> LatLonPoint,
 );
-pub type CPType<LR> = ComparableProviderEnum3<
-  CPEnumType2<NPImpl2, LR>,
-  StringComparableProvider<SortedDocValuesWrap<SortedSet<LR>>>,
-  CPEnumType1<NPImpl1, LR, SProviderImpl2>,
->;
+pub enum CPType<LR>
+where
+  LR: LeafReader,
+{
+  SortedNumeric(CPEnumType2<NPImpl2, LR>),
+  SortedSet(StringComparableProvider<SortedDocValuesWrap<SortedSet<LR>>>),
+  Sorter(CPEnumType1<NPImpl1, LR, SProviderImpl2>),
+}
+
+impl<LR> ComparableProvider for CPType<LR>
+where
+  LR: LeafReader,
+{
+  #[inline]
+  fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
+    match self {
+      Self::SortedNumeric(inner) => inner.get_as_comparable_long(doc_id),
+      Self::SortedSet(inner) => inner.get_as_comparable_long(doc_id),
+      Self::Sorter(inner) => inner.get_as_comparable_long(doc_id),
+    }
+  }
+}
 pub enum IndexSortEnum {
   SortedNumeric(IndexSorterNumeric),
   SortedSet(StringSorter<SProviderImpl1>),
@@ -269,7 +286,7 @@ impl IndexSorter for IndexSortEnum {
             &missing_value,
             ordinal_map.as_ref(),
           )?;
-          provider.push(ComparableProviderEnum3::SortedNumeric(v))
+          provider.push(CPType::SortedNumeric(v))
         }
         Ok(provider)
       },
@@ -281,7 +298,7 @@ impl IndexSorter for IndexSortEnum {
             &missing_value,
             ordinal_map.as_ref(),
           )?;
-          provider.push(ComparableProviderEnum3::SortedSet(v))
+          provider.push(CPType::SortedSet(v))
         }
         Ok(provider)
       },
@@ -293,7 +310,7 @@ impl IndexSorter for IndexSortEnum {
             &missing_value,
             ordinal_map.as_ref(),
           )?;
-          provider.push(ComparableProviderEnum3::Sorter(v))
+          provider.push(CPType::Sorter(v))
         }
         Ok(provider)
       },
