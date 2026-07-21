@@ -92,6 +92,15 @@ pub struct MMapDirectory {
   chunk_size_power: u32,
 }
 
+impl Default for MMapDirectory {
+  fn default() -> Self {
+    Self {
+      preload: MMapPreload::NoFiles,
+      chunk_size_power: DEFAULT_MAX_CHUNK_SIZE.trailing_zeros(),
+    }
+  }
+}
+
 impl MMapDirectory {
   /// Configures all files to be preloaded upon opening them.
   pub const ALL_FILES: MMapPreload = MMapPreload::AllFiles;

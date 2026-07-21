@@ -74,6 +74,11 @@ where
   pub fn count(&self) -> i64 {
     self.state.counter.load(Ordering::Relaxed)
   }
+
+  /// Returns the wrapped [`Directory`].
+  pub fn get_delegate_mut(&mut self) -> &mut D {
+    &mut self.in_
+  }
 }
 
 impl<D> Display for SerialIOCountingDirectory<D>

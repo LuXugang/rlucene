@@ -51,7 +51,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 pub const EXTRA_FILE_NAME: &str = "extra0";
 pub trait BaseDirectoryTestCase {
   type Directory: Directory<IndexInput = Self::Output> + Send + Sync + 'static;
-  type Output: IndexInput<IndexInput = Self::Output> + RandomAccessInput + Send + Sync + 'static;
+  type Output: IndexInput<IndexInput = Self::Output> + Send + Sync + 'static;
   fn get_directory<R>(&self, path: PathBuf, random: &mut R) -> Result<Self::Directory>
   where
     R: Rng + ?Sized;

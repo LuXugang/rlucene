@@ -17,9 +17,15 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::store::base_directory::{BaseDirectory, BaseDirectoryBase};
 use crate::core::store::directory::{Directory, get_temp_file_name};
-use crate::core::store::fs_directory_base::FSDirectoryBase;
-use crate::core::store::lock_factory::LockFactory;
-use crate::core::store::{IOContext, NativeFSLockFactory, OutputStreamIndexOutput};
+use crate::core::store::fs_directory_base::{FSDirectoryBase, FSDirectoryBaseEnum};
+use crate::core::store::lock_factory::{LockFactory, LockFactoryEnum};
+#[cfg(target_pointer_width = "64")]
+use crate::core::store::mmap_directory::MMapDirectory;
+#[cfg(not(target_pointer_width = "64"))]
+use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::{
+  IOContext, NativeFSLockFactory, OutputStreamIndexOutput, fs_lock_factory,
+};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, IOUtils};
@@ -64,6 +70,9 @@ where
   base: BaseDirectoryBase<D>,
   id: Identity,
 }
+
+pub type FSDirectories = FSDirectory<LockFactoryEnum, FSDirectoryBaseEnum>;
+
 impl<D, T> FSDirectory<D, T>
 where
   D: LockFactory,
@@ -222,6 +231,28 @@ where
     Ok(())
   }
 }
+
+impl FSDirectory<LockFactoryEnum, FSDirectoryBaseEnum> {
+  /// Creates an [`FSDirectory`] instance, selecting the best implementation
+  /// for the current platform and using the default lock factory.
+  pub fn open(directory: PathBuf) -> Result<FSDirectories> {
+    Self::open_with_lock(directory, fs_lock_factory::get_default())
+  }
+
+  /// Just like [`FSDirectory::open`], but uses the provided lock factory.
+  pub fn open_with_lock<L>(directory: PathBuf, lock_factory: L) -> Result<FSDirectories>
+  where
+    L: Into<LockFactoryEnum>,
+  {
+    #[cfg(target_pointer_width = "64")]
+    let sub_fs_directory = FSDirectoryBaseEnum::MMap(MMapDirectory::default());
+    #[cfg(not(target_pointer_width = "64"))]
+    let sub_fs_directory = FSDirectoryBaseEnum::NIO(NIOFSDirectory);
+
+    Self::with_lock_factory(directory, lock_factory.into(), sub_fs_directory)
+  }
+}
+
 impl<T> FSDirectory<NativeFSLockFactory, T>
 where
   T: FSDirectoryBase,

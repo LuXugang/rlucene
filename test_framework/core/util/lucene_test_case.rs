@@ -40,7 +40,6 @@ use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::store::fs_directory_base::FSDirectoryBaseEnum;
 use crate::core::store::lock_factory::{LockFactory, LockFactoryEnum};
 use crate::core::store::merge_info::MergeInfo;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
@@ -119,8 +118,6 @@ impl fmt::Display for EnvConfig {
     write!(f, "{}", key)
   }
 }
-
-pub type FSDirectories = FSDirectory<LockFactoryEnum, FSDirectoryBaseEnum>;
 
 pub const DEFAULT_LINE_DOCS_FILE: &str = "europarl.lines.txt.gz";
 
