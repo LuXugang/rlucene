@@ -17,7 +17,6 @@
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::numeric_doc_values::NumericDocValuesEnum3;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -51,22 +50,26 @@ impl SortedNumericSelector {
       },
     }
     let view = if sorted_numeric.is_single_valued() {
-      NumericDocValuesEnum3::A(DocValues::unwrap_singleton_numeric(&mut sorted_numeric)?)
+      SelectedNumericDocValues::Single(DocValues::unwrap_singleton_numeric(&mut sorted_numeric)?)
     } else {
       match selector {
-        SortedNumericSelectorType::Min => NumericDocValuesEnum3::B(MinValue::new(sorted_numeric)),
-        SortedNumericSelectorType::Max => NumericDocValuesEnum3::C(MaxValue::new(sorted_numeric)),
+        SortedNumericSelectorType::Min => {
+          SelectedNumericDocValues::Min(MinValue::new(sorted_numeric))
+        },
+        SortedNumericSelectorType::Max => {
+          SelectedNumericDocValues::Max(MaxValue::new(sorted_numeric))
+        },
       }
     };
 
     match numeric_type {
-      SortFieldType::Float => Ok(NumericDocValuesEnum3::A(FilterNumericDocValuesImpl1::new(
-        view,
-      ))),
-      SortFieldType::Double => Ok(NumericDocValuesEnum3::B(FilterNumericDocValuesImpl2::new(
-        view,
-      ))),
-      _ => Ok(NumericDocValuesEnum3::C(view)),
+      SortFieldType::Float => Ok(SortedNumericSelectorWrap::Float(
+        FilterNumericDocValuesImpl1::new(view),
+      )),
+      SortFieldType::Double => Ok(SortedNumericSelectorWrap::Double(
+        FilterNumericDocValuesImpl2::new(view),
+      )),
+      _ => Ok(SortedNumericSelectorWrap::Raw(view)),
     }
   }
 }
@@ -341,20 +344,162 @@ where
   }
 }
 
-pub type SortedNumericSelectorWrap<S> = NumericDocValuesEnum3<
-  FilterNumericDocValuesImpl1<
-    NumericDocValuesEnum3<
-      <S as SortedNumericDocValues>::NumericDocValues,
-      MinValue<S>,
-      MaxValue<S>,
-    >,
-  >,
-  FilterNumericDocValuesImpl2<
-    NumericDocValuesEnum3<
-      <S as SortedNumericDocValues>::NumericDocValues,
-      MinValue<S>,
-      MaxValue<S>,
-    >,
-  >,
-  NumericDocValuesEnum3<<S as SortedNumericDocValues>::NumericDocValues, MinValue<S>, MaxValue<S>>,
->;
+pub enum SelectedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+  Single(S::NumericDocValues),
+  Min(MinValue<S>),
+  Max(MaxValue<S>),
+}
+
+impl<S> DocValuesIterator for SelectedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Single(inner) => inner.advance_exact(target),
+      Self::Min(inner) => inner.advance_exact(target),
+      Self::Max(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<S> DocIdSetIterator for SelectedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Single(inner) => inner.doc_id(),
+      Self::Min(inner) => inner.doc_id(),
+      Self::Max(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(inner) => inner.next_doc(),
+      Self::Min(inner) => inner.next_doc(),
+      Self::Max(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(inner) => inner.advance(target),
+      Self::Min(inner) => inner.advance(target),
+      Self::Max(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(inner) => inner.slow_advance(target),
+      Self::Min(inner) => inner.slow_advance(target),
+      Self::Max(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Single(inner) => inner.cost(),
+      Self::Min(inner) => inner.cost(),
+      Self::Max(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<S> NumericDocValues for SelectedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Single(inner) => inner.long_value(),
+      Self::Min(inner) => inner.long_value(),
+      Self::Max(inner) => inner.long_value(),
+    }
+  }
+}
+
+pub enum SortedNumericSelectorWrap<S>
+where
+  S: SortedNumericDocValues,
+{
+  Float(FilterNumericDocValuesImpl1<SelectedNumericDocValues<S>>),
+  Double(FilterNumericDocValuesImpl2<SelectedNumericDocValues<S>>),
+  Raw(SelectedNumericDocValues<S>),
+}
+
+impl<S> DocValuesIterator for SortedNumericSelectorWrap<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Float(inner) => inner.advance_exact(target),
+      Self::Double(inner) => inner.advance_exact(target),
+      Self::Raw(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<S> DocIdSetIterator for SortedNumericSelectorWrap<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Float(inner) => inner.doc_id(),
+      Self::Double(inner) => inner.doc_id(),
+      Self::Raw(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Float(inner) => inner.next_doc(),
+      Self::Double(inner) => inner.next_doc(),
+      Self::Raw(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Float(inner) => inner.advance(target),
+      Self::Double(inner) => inner.advance(target),
+      Self::Raw(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Float(inner) => inner.slow_advance(target),
+      Self::Double(inner) => inner.slow_advance(target),
+      Self::Raw(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Float(inner) => inner.cost(),
+      Self::Double(inner) => inner.cost(),
+      Self::Raw(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<S> NumericDocValues for SortedNumericSelectorWrap<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Float(inner) => inner.long_value(),
+      Self::Double(inner) => inner.long_value(),
+      Self::Raw(inner) => inner.long_value(),
+    }
+  }
+}
