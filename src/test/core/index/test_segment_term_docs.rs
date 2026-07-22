@@ -22,6 +22,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::postings_enum::{FREQS, PostingsEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -37,8 +38,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper::{DocHelper, TEXT_FIELD_2_KEY};
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context, new_text_field,
-  random,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
+  new_log_merge_policy, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -138,7 +139,8 @@ fn test_skip_to() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_types = HashMap::new();
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let ta = Term::from_text("content", "aaa");
