@@ -16,8 +16,10 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::FieldBase;
+use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
@@ -89,22 +91,27 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   {
     let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let base = 13_i64;
     let day = 1000_i64 * 60 * 60 * 24;
 
     let mut doc = Document::new();
-    let mut dvf = NumericDocValuesField::new("dv", 0);
-    doc.add(dvf.clone());
+    doc.add(NumericDocValuesField::new("dv", 0));
     for _ in 0..300 {
+      let Some(Fields::NumericDocValues(dvf)) = doc.get_field_mut("dv") else {
+        unreachable!("dv should be a NumericDocValuesField");
+      };
       dvf.set_long_value(base + random.random_range(0..1000) * day)?;
       iwriter.add_document(doc.clone())?;
     }
     iwriter.force_merge(1)?;
     let size1 = self.dir_size(dir.as_ref())?;
     for _ in 0..50 {
+      let Some(Fields::NumericDocValues(dvf)) = doc.get_field_mut("dv") else {
+        unreachable!("dv should be a NumericDocValuesField");
+      };
       dvf.set_long_value(base + random.random_range(0..1000) * day)?;
       iwriter.add_document(doc.clone())?;
     }

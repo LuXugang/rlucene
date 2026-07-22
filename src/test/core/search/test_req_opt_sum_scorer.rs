@@ -251,7 +251,8 @@ fn test_max_score_segment() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let conf = new_index_writer_config(&mut random)?;
+  let mut conf = new_index_writer_config(&mut random)?;
+  conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
   let docs: &[&[&str]] = &[

@@ -41,6 +41,7 @@ use crate::core::index::index_options::IndexOptions::DocsAndFreqs;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, SOURCE, SOURCE_FLUSH, SOURCE_MERGE};
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
@@ -2183,7 +2184,7 @@ fn test_concurrent_updates() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
   let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Long)?])?;
   iwc.set_index_sort(index_sort)?;
 

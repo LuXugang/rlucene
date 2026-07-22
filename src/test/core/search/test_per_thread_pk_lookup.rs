@@ -21,6 +21,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
@@ -127,7 +128,7 @@ fn test_pk_lookup_with_update() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
