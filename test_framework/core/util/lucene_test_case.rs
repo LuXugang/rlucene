@@ -24,6 +24,9 @@ use std::sync::{Arc, LazyLock};
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerBase, ConcurrentMergeSchedulerHook, Inner,
+};
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -32,7 +35,10 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase};
 use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
+use crate::core::index::merge_scheduler::MergeSource;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
+use crate::core::index::simple_merged_segment_warmer::SimpleMergedSegmentWarmer;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
@@ -61,7 +67,10 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::info_stream::InfoStreamEnum;
+use crate::core::util::print_stream_info_stream::PrintStreamInfoStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
 #[cfg(test)]
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 use crate::test_framework::core::store::mock_directory_wrapper::{
@@ -72,6 +81,7 @@ use crate::test_framework::core::util::lucene_test_case::EnvConfig::{
   Multiplier, NightMode, TestSeed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use parking_lot::MutexGuard;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
 use tempfile::TempDir;
@@ -273,18 +283,19 @@ where
   Ok(config)
 }
 
+/// Creates a new index writer config with random defaults.
 pub(crate) fn new_index_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
 where
   D: Directory,
   R: Rng + ?Sized,
 {
-  // TODO: 这里简单返回IndexWriterConfig::new()，后续可以根据random随机生成不同的配置
   let mock = MockAnalyzer::new(random);
   new_index_writer_config_with_analyzer(random, mock)
 }
 
+/// Creates a new index writer config with random defaults using the specified random.
 pub(crate) fn new_index_writer_config_with_analyzer<D, T, R>(
-  _random: &mut R,
+  random: &mut R,
   analyzer: T,
 ) -> Result<IndexWriterConfig<D>>
 where
@@ -292,8 +303,127 @@ where
   R: Rng + ?Sized,
   T: Into<AnalyzerEnum>,
 {
-  // TODO: 这里简单返回IndexWriterConfig::with_analyzer()，后续可以根据random随机生成不同的配置
-  IndexWriterConfig::with_analyzer(analyzer)
+  let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
+
+  // The Rust test framework does not yet have the suite-level randomized
+  // similarity supplied by TestRuleSetupAndRestoreClassEnv, so the config
+  // retains the default similarity selected by IndexWriterConfig.
+  if std::env::var("tests.verbose").is_ok_and(|value| value == "true") {
+    // Even though TestRuleSetupAndRestoreClassEnv calls
+    // InfoStream::set_default, we do it again here so that
+    // the PrintStreamInfoStream message ID increments so
+    // that when there are separate instances of
+    // IndexWriter created we see "IW 0", "IW 1", "IW 2",
+    // ... instead of just always "IW 0":
+    config.set_info_stream(Arc::new(InfoStreamEnum::from(
+      PrintStreamInfoStream::stdout(),
+    )));
+  }
+
+  if rarely(random) {
+    config.set_merge_scheduler(SerialMergeScheduler::new());
+  } else if rarely(random) {
+    let concurrent_merge_scheduler = if random.random_bool(0.5) {
+      // Java's TestConcurrentMergeScheduler only overrides the unsupported
+      // intra-merge executor, so it maps to the default Rust scheduler.
+      ConcurrentMergeScheduler::new()
+    } else {
+      ConcurrentMergeScheduler::with_hook(
+        ConcurrentMergeSchedulerHook::LuceneTestCaseAlwaysProceed(
+          AlwaysProceedConcurrentMergeScheduler,
+        ),
+      )
+    };
+    let max_thread_count = TestUtil::next_int(random, 1, 4);
+    let max_merge_count = TestUtil::next_int(random, max_thread_count, max_thread_count + 4);
+    concurrent_merge_scheduler.set_max_merges_and_threads(max_merge_count, max_thread_count)?;
+    if random.random_bool(0.5) {
+      concurrent_merge_scheduler.disable_auto_io_throttle()?;
+      assert!(!concurrent_merge_scheduler.get_auto_io_throttle());
+    }
+    concurrent_merge_scheduler.set_force_merge_mb_per_sec(10.0 + 10.0 * random.random::<f64>())?;
+    config.set_merge_scheduler(concurrent_merge_scheduler);
+  } else {
+    // Always use consistent settings, else CMS's dynamic (SSD or not)
+    // defaults can change, hurting reproducibility. Java randomly chooses
+    // TestConcurrentMergeScheduler here, but its only override is the unsupported
+    // intra-merge executor, so both choices map to the default Rust scheduler.
+    let _ = random.random_bool(0.5);
+    let concurrent_merge_scheduler = ConcurrentMergeScheduler::new();
+
+    // Only 1 thread can run at once (should maybe help reproducibility),
+    // with up to 3 pending merges before segment-producing threads are
+    // stalled:
+    concurrent_merge_scheduler.set_max_merges_and_threads(3, 1)?;
+    config.set_merge_scheduler(concurrent_merge_scheduler);
+  }
+
+  if random.random_bool(0.5) {
+    if rarely(random) {
+      // crazy value
+      config.set_max_buffered_docs(TestUtil::next_int(random, 2, 15));
+    } else {
+      // reasonable value
+      config.set_max_buffered_docs(TestUtil::next_int(random, 16, 1000));
+    }
+  }
+
+  config.set_merge_policy(new_merge_policy(random)?);
+
+  if rarely(random) {
+    config.set_merged_segment_warmer(Some(
+      SimpleMergedSegmentWarmer::new(config.get_info_stream()).into(),
+    ));
+  }
+  config.set_use_compound_file(random.random_bool(0.5));
+  config.set_reader_pooling(random.random_bool(0.5));
+  if rarely(random) {
+    config.set_check_pending_flush_update(false);
+  }
+
+  if rarely(random) {
+    config.set_index_writer_event_listener(MockIndexWriterEventListener::new());
+  }
+  match random.random_range(0..3) {
+    0 => {
+      // Disable merge on refresh
+      config.set_max_full_flush_merge_wait_millis(0);
+    },
+    1 => {
+      // Very low timeout, merges will likely not be able to run in time
+      config.set_max_full_flush_merge_wait_millis(1);
+    },
+    _ => {
+      // Very long timeout, merges will almost always be able to run in time
+      config.set_max_full_flush_merge_wait_millis(1000);
+    },
+  }
+
+  let max_full_flush_merge_wait_millis = if rarely(random) {
+    at_least(random, 1000)
+  } else {
+    at_least(random, 200)
+  };
+  config.set_max_full_flush_merge_wait_millis(max_full_flush_merge_wait_millis as i64);
+  Ok(config)
+}
+
+#[derive(Clone)]
+pub(crate) struct AlwaysProceedConcurrentMergeScheduler;
+
+impl ConcurrentMergeSchedulerBase for AlwaysProceedConcurrentMergeScheduler {
+  fn maybe_stall<MS, D>(
+    &self,
+    _scheduler: &ConcurrentMergeScheduler,
+    _inner: &mut MutexGuard<'_, Inner>,
+    _merge_source: &MS,
+  ) -> Result<bool>
+  where
+    MS: MergeSource<D>,
+    D: Directory,
+  {
+    Ok(true)
+  }
 }
 
 pub fn new_merge_policy<D, R>(r: &mut R) -> Result<MergePolicyEnum<D>>

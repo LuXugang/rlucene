@@ -552,7 +552,7 @@ fn test_delete_all_repeated() -> Result<()> {
   conf.set_max_buffered_docs(1000);
   conf.set_ram_buffer_size_mb(1000.0);
   conf.get_base_mut().per_thread_hard_limit_mb = 1000;
-  conf.get_base_mut().check_pending_flush_on_update = false;
+  conf.set_check_pending_flush_update(false);
 
   let modifier = IndexWriter::new(dir.clone(), conf)?;
   let fields_per_doc = 1_000_i64;

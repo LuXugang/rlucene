@@ -3879,7 +3879,7 @@ fn test_check_pending_flush_post_update() -> Result<()> {
     do_fail: false,
   }));
   let mut config = IndexWriterConfig::new()?;
-  config.get_base_mut().check_pending_flush_on_update = false;
+  config.set_check_pending_flush_update(false);
   config.set_max_buffered_docs(i32::MAX);
   config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
   let w = IndexWriter::new(dir.clone(), config)?;
@@ -3930,9 +3930,7 @@ fn test_check_pending_flush_post_update() -> Result<()> {
         flushing_threads.retain(|thread| indexing_threads.lock().unwrap().contains(thread));
         assert!(flushing_threads.is_empty(), "{flushing_threads:?}");
       }
-      w.get_config_mut()
-        .get_base_mut()
-        .check_pending_flush_on_update = true;
+      w.get_config().set_check_pending_flush_update(true);
       let mut num_iters = 0;
       loop {
         assert!(num_iters < 100, "should finish in less than 100 iterations");

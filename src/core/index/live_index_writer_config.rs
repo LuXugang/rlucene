@@ -43,6 +43,7 @@ use std::collections::HashSet;
 use std::fmt::Display;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::util::comparator::Comparator;
@@ -108,6 +109,17 @@ pub trait LiveIndexWriterConfig: Display {
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   fn get_check_pending_flush_on_update(&self) -> bool;
+
+  /// Expert: sets whether indexing threads check for pending flushes on update
+  /// in order to help flush indexing buffers to disk.
+  ///
+  /// As a consequence, threads that open a changed reader or flush the writer
+  /// will be the only threads writing segments to disk unless flushes are
+  /// falling behind. If indexing is stalled due to too many pending flushes,
+  /// indexing threads will help write pending segment flushes to disk.
+  ///
+  /// Experimental: this API follows the original Lucene experimental status.
+  fn set_check_pending_flush_update(&self, check_pending_flush_on_update: bool) -> &Self;
 
   /// Returns the [`IndexDeletionPolicyEnum`] specified on this configuration, or
   /// the default keep-only-last-commit deletion policy.
@@ -363,7 +375,7 @@ where
   pub commit_on_close: bool,
   /// True if an indexing thread should check for pending flushes on update in
   /// order to help with a full flush.
-  pub check_pending_flush_on_update: bool,
+  pub check_pending_flush_on_update: AtomicBool,
   /// Parent document field name.
   pub parent_field: Option<String>,
   /// Sort order to use to write merged segments.
@@ -409,7 +421,7 @@ where
       event_listener: NoOpIndexWriterEventListener.into(),
       merged_segment_warmer: None,
       commit_on_close: DEFAULT_COMMIT_ON_CLOSE,
-      check_pending_flush_on_update: true,
+      check_pending_flush_on_update: AtomicBool::new(true),
       parent_field: None,
       index_sort: None,
       index_sort_fields: HashSet::new(),

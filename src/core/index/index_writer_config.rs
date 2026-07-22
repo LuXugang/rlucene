@@ -36,6 +36,7 @@ use crate::core::util::info_stream::InfoStreamMT;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 /// Holds all configuration that is used to create an `IndexWriter`.
 ///
@@ -404,7 +405,18 @@ where
   }
 
   fn get_check_pending_flush_on_update(&self) -> bool {
-    self.base.check_pending_flush_on_update
+    self
+      .base
+      .check_pending_flush_on_update
+      .load(Ordering::SeqCst)
+  }
+
+  fn set_check_pending_flush_update(&self, check_pending_flush_on_update: bool) -> &Self {
+    self
+      .base
+      .check_pending_flush_on_update
+      .store(check_pending_flush_on_update, Ordering::SeqCst);
+    self
   }
 
   fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum<D> {

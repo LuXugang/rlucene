@@ -56,6 +56,8 @@ use crate::test_framework::core::index::test_index_writer_merge_policy::{
 };
 #[cfg(test)]
 use crate::test_framework::core::index::test_tragic_index_writer_deadlock::StalledMergesConcurrentMergeScheduler;
+#[cfg(test)]
+use crate::test_framework::core::util::lucene_test_case::AlwaysProceedConcurrentMergeScheduler;
 
 thread_local! {
   static CURRENT_MERGE_RATE_LIMITER: RefCell<Option<Arc<MergeRateLimiter>>> =
@@ -164,6 +166,8 @@ pub(crate) enum ConcurrentMergeSchedulerHook {
   MergeDvUpdateFileOnCommit(MergeDvUpdateFileOnCommitConcurrentMergeScheduler),
   #[cfg(test)]
   StalledMerges(StalledMergesConcurrentMergeScheduler),
+  #[cfg(test)]
+  LuceneTestCaseAlwaysProceed(AlwaysProceedConcurrentMergeScheduler),
 }
 
 pub(crate) struct ConcurrentMergeSchedulerDefaults;
@@ -287,6 +291,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.update_merge_threads(scheduler, inner),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.update_merge_threads(scheduler, inner),
     }
   }
 
@@ -319,6 +325,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.close(scheduler),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.close(scheduler),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.close(scheduler),
     }
   }
 
@@ -361,6 +369,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.merge(scheduler, merge_source, trigger),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.merge(scheduler, merge_source, trigger),
     }
   }
 
@@ -404,6 +414,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.maybe_stall(scheduler, inner, merge_source),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.maybe_stall(scheduler, inner, merge_source),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.maybe_stall(scheduler, inner, merge_source),
     }
   }
 
@@ -436,6 +448,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.do_stall(scheduler, inner),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.do_stall(scheduler, inner),
     }
   }
 
@@ -477,6 +491,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.do_merge(scheduler, merge_source, merge),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.do_merge(scheduler, merge_source, merge),
     }
   }
 
@@ -536,6 +552,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       },
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.get_merge_thread(scheduler, inner, merge_source, merge),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => {
+        hook.get_merge_thread(scheduler, inner, merge_source, merge)
+      },
     }
   }
 
@@ -572,6 +592,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.handle_merge_exception(scheduler, exc),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.handle_merge_exception(scheduler, exc),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.handle_merge_exception(scheduler, exc),
     }
   }
 
@@ -604,6 +626,8 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
       Self::MergeDvUpdateFileOnCommit(hook) => hook.target_mb_per_sec_changed(scheduler),
       #[cfg(test)]
       Self::StalledMerges(hook) => hook.target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.target_mb_per_sec_changed(scheduler),
     }
   }
 }
