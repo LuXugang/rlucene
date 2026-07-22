@@ -20,7 +20,7 @@ use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use chrono::{NaiveDate, NaiveDateTime};
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 
@@ -134,7 +134,7 @@ impl LineFileDocs {
         }
         skipped += count as u64;
       }
-      Box::new(GzDecoder::new(is))
+      Box::new(MultiGzDecoder::new(is))
     } else {
       is
     };
