@@ -1600,6 +1600,7 @@ fn test_tie_break_order() -> Result<()> {
   let finalizer = writer.finish(&mut out)?.unwrap();
   let fp = out.get_file_pointer()?;
   writer.write_index(&mut out, None, &finalizer)?;
+  out.close()?;
 
   let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
   input.seek(fp)?;

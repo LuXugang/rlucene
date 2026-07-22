@@ -654,6 +654,7 @@ fn test_open_reader_after_delete() -> Result<()> {
   let dir_file = create_temp_dir_with_prefix("deletetest")?;
   let path = dir_file.path().to_path_buf();
   let dir = new_fs_directory(&mut random, dir_file)?;
+  dir.set_check_index_on_close(false);
 
   match directory_reader::open(dir.clone()) {
     Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},

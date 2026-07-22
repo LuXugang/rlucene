@@ -110,8 +110,8 @@ fn swap_one_file<R>(
 where
   R: Rng + ?Sized,
 {
-  // TODO IMPORTANT 这里要讲new_directory_shared的返回值优化后 才能进行调整
   let dir_copy = new_directory_shared(random)?;
+  dir_copy.set_check_index_on_close(false);
   let context = IOContext::default_io_context()?;
 
   // Copy all files from dir1 to dirCopy, except victim which we copy from dir2:

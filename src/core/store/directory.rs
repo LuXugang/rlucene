@@ -803,6 +803,16 @@ pub(crate) type MockDirWrapper = MockDirectoryWrapper<MaybeNrtDirEnum>;
 pub(crate) type DirEnum = DirectoryEnum2<RawDirWrapper, MockDirWrapper>;
 
 #[cfg(test)]
+impl DirectoryEnum2<RawDirWrapper, MockDirWrapper> {
+  pub(crate) fn set_check_index_on_close(&self, value: bool) {
+    match self {
+      Self::A(directory) => directory.set_check_index_on_close(value),
+      Self::B(directory) => directory.set_check_index_on_close(value),
+    }
+  }
+}
+
+#[cfg(test)]
 pub(crate) enum RawDirEnum {
   Nio(NioDir),
   MMap(MMapDir),

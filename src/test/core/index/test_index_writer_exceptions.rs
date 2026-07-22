@@ -1866,7 +1866,8 @@ fn test_rollback_exception_hang() -> Result<()> {
 fn test_segments_checksum_error() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  // We corrupt the index; the Rust directory does not run CheckIndex on close.
+  dir.set_check_index_on_close(false);
+  // we corrupt the index
   let analyzer = MockAnalyzer::new(&mut random);
   let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = IndexWriter::new(dir.clone(), config)?;
@@ -1909,7 +1910,8 @@ fn test_segments_checksum_error() -> Result<()> {
 fn test_simulated_corrupt_index1() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  // We are corrupting it; the Rust directory does not run CheckIndex on close.
+  dir.set_check_index_on_close(false);
+  // we are corrupting it!
   let analyzer = MockAnalyzer::new(&mut random);
   let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = IndexWriter::new(dir.clone(), config)?;
@@ -1954,7 +1956,8 @@ fn test_simulated_corrupt_index1() -> Result<()> {
 fn test_simulated_corrupt_index2() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  // We are corrupting it; the Rust directory does not run CheckIndex on close.
+  dir.set_check_index_on_close(false);
+  // we are corrupting it!
   let analyzer = MockAnalyzer::new(&mut random);
   let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let mut merge_policy =

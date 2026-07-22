@@ -3150,9 +3150,10 @@ where
         for sis in &commits {
           for info in sis.iter() {
             debug_assert!(
-              !infos.iter().any(|new_info| {
-                new_info.info.name == info.info.name && new_info.info.get_id() == info.info.get_id()
-              }),
+              !infos.iter().any(|new_info| std::ptr::eq(
+                (new_info as *const SegmentCommitInfo<D>).cast::<()>(),
+                (info as *const SegmentCommitInfo<SD>).cast::<()>(),
+              )),
               "dup info dir={} name={}",
               info.info.dir,
               info.info.name

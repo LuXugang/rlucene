@@ -17,9 +17,11 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::{BooleanQuery, Builder};
@@ -38,14 +40,17 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::total_hits::Relation::GreaterThanOrEqualTo;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_searcher_with_reader, new_text_field, random,
 };
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -94,59 +99,65 @@ fn test_matching<R>(random: &mut R, score_mode: ScoreMode) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let mut scorer = constant_score_scorer(random, TERM_QUERY.clone(), 1.0, score_mode)?;
+  let index = TestConstantScoreScorerIndex::new(random)?;
+  let result = (|| -> Result<()> {
+    let mut scorer = index.constant_score_scorer(TERM_QUERY.clone(), 1.0, score_mode)?;
 
-  let mut doc;
+    let mut doc;
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(2, doc);
-  assert!((scorer.score()? - 1.0).abs() <= 0.0);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(2, doc);
+    assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-  scorer.set_min_competitive_score(2.0)?;
-  assert_eq!(doc, scorer.doc_id()?);
-  assert_eq!(doc, scorer.iterator().doc_id());
-  assert!((scorer.score()? - 1.0).abs() <= 0.0);
+    scorer.set_min_competitive_score(2.0)?;
+    assert_eq!(doc, scorer.doc_id()?);
+    assert_eq!(doc, scorer.iterator().doc_id());
+    assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(3, doc);
-  assert!((scorer.score()? - 1.0).abs() <= 0.0);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(3, doc);
+    assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(4, doc);
-  assert!((scorer.score()? - 1.0).abs() <= 0.0);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(4, doc);
+    assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(5, doc);
-  assert!((scorer.score()? - 1.0).abs() <= 0.0);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(5, doc);
+    assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(NO_MORE_DOCS, doc);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(NO_MORE_DOCS, doc);
 
-  Ok(())
+    Ok(())
+  })();
+  IOUtils::use_or_suppress_result(result, index.close())
 }
 
 #[test]
 fn test_matching_score_mode_top_scores() -> Result<()> {
   let mut random = random();
+  let index = TestConstantScoreScorerIndex::new(&mut random)?;
+  let result = (|| -> Result<()> {
+    let mut scorer = index.constant_score_scorer(TERM_QUERY.clone(), 1.0, ScoreMode::TopScores)?;
 
-  let mut scorer =
-    constant_score_scorer(&mut random, TERM_QUERY.clone(), 1.0, ScoreMode::TopScores)?;
+    let mut doc;
 
-  let mut doc;
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(2, doc);
+    assert_eq!(1.0, scorer.score()?);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(2, doc);
-  assert_eq!(1.0, scorer.score()?);
+    scorer.set_min_competitive_score(2.0)?;
+    assert_eq!(doc, scorer.doc_id()?);
+    assert_eq!(doc, scorer.iterator().doc_id());
+    assert_eq!(1.0, scorer.score()?);
 
-  scorer.set_min_competitive_score(2.0)?;
-  assert_eq!(doc, scorer.doc_id()?);
-  assert_eq!(doc, scorer.iterator().doc_id());
-  assert_eq!(1.0, scorer.score()?);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(NO_MORE_DOCS, doc);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(NO_MORE_DOCS, doc);
-
-  Ok(())
+    Ok(())
+  })();
+  IOUtils::use_or_suppress_result(result, index.close())
 }
 #[test]
 fn test_two_phase_matching_score_mode_complete() -> Result<()> {
@@ -164,110 +175,131 @@ fn test_two_phase_matching<R>(random: &mut R, score_mode: ScoreMode) -> Result<(
 where
   R: Rng + ?Sized,
 {
-  let mut scorer = constant_score_scorer(random, PHRASE_QUERY.clone(), 1.0, score_mode)?;
+  let index = TestConstantScoreScorerIndex::new(random)?;
+  let result = (|| -> Result<()> {
+    let mut scorer = index.constant_score_scorer(PHRASE_QUERY.clone(), 1.0, score_mode)?;
 
-  let mut doc;
+    let mut doc;
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(2, doc);
-  assert_eq!(1.0, scorer.score()?);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(2, doc);
+    assert_eq!(1.0, scorer.score()?);
 
-  scorer.set_min_competitive_score(2.0)?;
-  assert_eq!(doc, scorer.doc_id()?);
-  assert_eq!(doc, scorer.iterator().doc_id());
-  assert_eq!(1.0, scorer.score()?);
+    scorer.set_min_competitive_score(2.0)?;
+    assert_eq!(doc, scorer.doc_id()?);
+    assert_eq!(doc, scorer.iterator().doc_id());
+    assert_eq!(1.0, scorer.score()?);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(5, doc);
-  assert_eq!(1.0, scorer.score()?);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(5, doc);
+    assert_eq!(1.0, scorer.score()?);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(NO_MORE_DOCS, doc);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(NO_MORE_DOCS, doc);
 
-  Ok(())
+    Ok(())
+  })();
+  IOUtils::use_or_suppress_result(result, index.close())
 }
 #[test]
 fn test_two_phase_matching_score_mode_top_scores() -> Result<()> {
   let mut random = random();
+  let index = TestConstantScoreScorerIndex::new(&mut random)?;
+  let result = (|| -> Result<()> {
+    let mut scorer =
+      index.constant_score_scorer(PHRASE_QUERY.clone(), 1.0, ScoreMode::TopScores)?;
 
-  let mut scorer =
-    constant_score_scorer(&mut random, PHRASE_QUERY.clone(), 1.0, ScoreMode::TopScores)?;
+    let mut doc;
 
-  let mut doc;
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(2, doc);
+    assert_eq!(1.0, scorer.score()?);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(2, doc);
-  assert_eq!(1.0, scorer.score()?);
+    scorer.set_min_competitive_score(2.0)?;
+    assert_eq!(doc, scorer.doc_id()?);
+    assert_eq!(doc, scorer.iterator().doc_id());
+    assert_eq!(1.0, scorer.score()?);
 
-  scorer.set_min_competitive_score(2.0)?;
-  assert_eq!(doc, scorer.doc_id()?);
-  assert_eq!(doc, scorer.iterator().doc_id());
-  assert_eq!(1.0, scorer.score()?);
+    doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(NO_MORE_DOCS, doc);
 
-  doc = scorer.iterator_mut().next_doc()?;
-  assert_eq!(NO_MORE_DOCS, doc);
-
-  Ok(())
+    Ok(())
+  })();
+  IOUtils::use_or_suppress_result(result, index.close())
 }
-fn constant_score_scorer<R, T>(
-  random: &mut R,
-  query: T,
-  score: f32,
-  score_mode: ScoreMode,
-) -> Result<Scorers>
-where
-  R: Rng + ?Sized,
-  T: Into<Query>,
-{
-  let query = query.into();
-  let directory = new_directory_shared(random)?;
+struct TestConstantScoreScorerIndex {
+  directory: Arc<DirEnum>,
+  reader: Arc<StandardDirectoryReader<DirEnum>>,
+}
 
-  let mut iwc = new_index_writer_config(random)?;
-  iwc.set_merge_policy(new_log_merge_policy(random)?);
+impl TestConstantScoreScorerIndex {
+  fn new<R>(random: &mut R) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+  {
+    let directory = new_directory_shared(random)?;
 
-  let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
-  let mut field_to_type = HashMap::new();
+    let mut iwc = new_index_writer_config(random)?;
+    iwc.set_merge_policy(new_log_merge_policy(random)?);
 
-  for value in VALUES.iter() {
-    let mut doc = Document::new();
-    doc.add(new_text_field(
-      random,
-      FIELD,
-      value,
-      Store::Yes,
-      &mut field_to_type,
-    )?);
-    writer.add_document(random, doc)?;
+    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
+    let mut field_to_type = HashMap::new();
+
+    for value in VALUES.iter() {
+      let mut doc = Document::new();
+      doc.add(new_text_field(
+        random,
+        FIELD,
+        value,
+        Store::Yes,
+        &mut field_to_type,
+      )?);
+      writer.add_document(random, doc)?;
+    }
+
+    writer.force_merge(random, 1)?;
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
+    Ok(Self {
+      directory,
+      reader: Arc::new(reader),
+    })
   }
 
-  writer.force_merge(random, 1)?;
-  let reader = writer.get_reader(random)?;
-  writer.close(random)?;
-  let searcher = new_searcher_with_reader(reader)?;
-  let weight = searcher.create_weight(ConstantScoreQuery::new(query), score_mode, 1.0)?;
+  fn constant_score_scorer<T>(&self, query: T, score: f32, score_mode: ScoreMode) -> Result<Scorers>
+  where
+    T: Into<Query>,
+  {
+    let searcher = new_searcher_with_reader(self.reader.clone())?;
+    let weight = searcher.create_weight(ConstantScoreQuery::new(query.into()), score_mode, 1.0)?;
 
-  let leaves = searcher.get_top_reader_context().leaves()?;
-  assert_eq!(1, leaves.len());
+    let leaves = searcher.get_top_reader_context().leaves()?;
+    assert_eq!(1, leaves.len());
 
-  let context = &leaves[0];
-  let scorer = weight
-    .scorer(context, &searcher)?
-    .ok_or_else(|| LuceneError::illegal_state("scorer is None"))?;
-  let has_tpi = scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
-  let v = if has_tpi {
-    ScorerEnum2::A(ConstantScoreScorer::from_tpi(
-      score,
-      score_mode,
-      scorer.take_two_phase_iterator().unwrap(),
-    ))
-  } else {
-    ScorerEnum2::B(ConstantScoreScorer::from_disi(
-      score,
-      score_mode,
-      scorer.take_iterator(),
-    ))
-  };
-  Ok(v)
+    let context = &leaves[0];
+    let scorer = weight
+      .scorer(context, &searcher)?
+      .ok_or_else(|| LuceneError::illegal_state("scorer is None"))?;
+    let has_tpi = scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
+    if has_tpi {
+      Ok(ScorerEnum2::A(ConstantScoreScorer::from_tpi(
+        score,
+        score_mode,
+        scorer.take_two_phase_iterator().unwrap(),
+      )))
+    } else {
+      Ok(ScorerEnum2::B(ConstantScoreScorer::from_disi(
+        score,
+        score_mode,
+        scorer.take_iterator(),
+      )))
+    }
+  }
+
+  fn close(&self) -> Result<()> {
+    self.reader.close()?;
+    self.directory.close()
+  }
 }
 #[test]
 fn test_early_termination() -> Result<()> {

@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderContextKind};
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
@@ -520,7 +520,7 @@ fn test_floor_blocks() -> Result<()> {
   assert_eq!(Some("aa9".to_string()), next_term(&mut te)?);
   assert_eq!(Some("xx".to_string()), next_term(&mut te)?);
 
-  test_random_seeks(&mut random, reader, &terms)?;
+  test_random_seeks(&mut random, &reader, &terms)?;
   Ok(())
 }
 fn seek_exact<R>(random: &mut R, te: &mut impl TermsEnum, term: &str) -> Result<bool>
@@ -555,10 +555,15 @@ where
   term: BytesRef<Vec<u8>>,
   state: Option<TS>,
 }
-fn test_random_seeks<R, IR>(random: &mut R, reader: IR, valid_term_strings: &[String]) -> Result<()>
+fn test_random_seeks<'a, R, IR>(
+  random: &mut R,
+  reader: &'a IR,
+  valid_term_strings: &[String],
+) -> Result<()>
 where
   R: Rng + ?Sized,
   IR: IndexReader,
+  IR::ContextKind: IndexReaderContextKind<&'a IR>,
 {
   let mut valid_terms: Vec<BytesRef<Vec<u8>>> = valid_term_strings
     .iter()

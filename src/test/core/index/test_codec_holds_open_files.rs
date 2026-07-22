@@ -20,7 +20,7 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::store::directory::{Directory, DirectoryEnum2};
+use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -37,11 +37,8 @@ struct TestCodecHoldsOpenFiles;
 fn test() -> Result<()> {
   let mut random = random();
 
-  let mut d = new_directory(&mut random)?;
-  match &mut d {
-    DirectoryEnum2::A(d) => d.set_check_index_on_close(false),
-    DirectoryEnum2::B(d) => d.set_check_index_on_close(false),
-  }
+  let d = new_directory(&mut random)?;
+  d.set_check_index_on_close(false);
   let d = Arc::new(d);
 
   let w = RandomIndexWriter::new(&mut random, d.clone())?;

@@ -40,7 +40,7 @@ where
   D: Directory,
 {
   pub(crate) in_: D,
-  check_index_on_close: bool,
+  check_index_on_close: AtomicBool,
   level_for_check_on_close: i32,
   check_index_random: Mutex<StdRng>,
   pub(crate) is_open: AtomicBool,
@@ -57,7 +57,7 @@ where
   {
     Self {
       in_: delegate,
-      check_index_on_close: true,
+      check_index_on_close: AtomicBool::new(true),
       level_for_check_on_close: check_index::Level::MIN_LEVEL_FOR_SLOW_CHECKS,
       check_index_random: Mutex::new(StdRng::seed_from_u64(random.random())),
       is_open: AtomicBool::new(true),
@@ -74,12 +74,12 @@ where
   }
 
   /// Set whether or not checkindex should be run on close.
-  pub fn set_check_index_on_close(&mut self, value: bool) {
-    self.check_index_on_close = value;
+  pub fn set_check_index_on_close(&self, value: bool) {
+    self.check_index_on_close.store(value, Ordering::Relaxed);
   }
 
   pub fn get_check_index_on_close(&self) -> bool {
-    self.check_index_on_close
+    self.check_index_on_close.load(Ordering::Relaxed)
   }
 
   pub fn set_cross_check_term_vectors_on_close(&mut self, value: bool) {
@@ -111,7 +111,7 @@ where
 {
   fn close(&self) -> Result<()> {
     if self.is_open.swap(false, Ordering::SeqCst)
-      && self.check_index_on_close
+      && self.get_check_index_on_close()
       && directory_reader::index_exists(self)?
     {
       TestUtil::check_index_with_level(

@@ -269,9 +269,13 @@ where
     length: usize,
   ) -> Result<Self::IndexInput> {
     self.ensure_open()?;
+    let resource_description = format!(
+      "(sliced) offset={offset}, length={length} {} [slice={slice_description}]",
+      self
+    );
     Ok(ByteBuffersIndexInput::new(
       self.in_.slice(offset, length)?,
-      slice_description,
+      &resource_description,
     ))
   }
 

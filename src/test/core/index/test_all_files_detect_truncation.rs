@@ -142,6 +142,7 @@ where
   R: Rng + ?Sized,
 {
   let dir_copy = new_directory_shared(random)?;
+  dir_copy.set_check_index_on_close(false);
   let result = (|| -> Result<()> {
     let victim_length = dir.file_length(victim)?;
     assert!(victim_length > 0);
