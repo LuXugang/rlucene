@@ -4237,7 +4237,7 @@ where
                 &self.global_field_number_map.lock(),
                 self.buffered_updates_stream.get_completed_del_gen(),
                 self.info_stream.as_ref(),
-                info,
+                Some(info),
               )? {
                 self.check_point_no_sis(&mut inner)?;
               }

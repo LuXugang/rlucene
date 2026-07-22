@@ -543,7 +543,7 @@ where
     field_numbers: &FieldNumbers,
     max_del_gen: i64,
     info_stream: &impl InfoStream,
-    info: &mut SegmentCommitInfo<D>,
+    info: Option<&mut SegmentCommitInfo<D>>,
   ) -> Result<bool>
   where
     D1: Directory,
@@ -568,6 +568,8 @@ where
       // no updates
       return Ok(false);
     }
+
+    let info = info.ok_or_else(|| LuceneError::illegal_state("SegmentCommitInfo missing"))?;
 
     // Do this so we can delete any created files on
     // error; this saves all codecs from having to do it:

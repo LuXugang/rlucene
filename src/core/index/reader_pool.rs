@@ -267,7 +267,7 @@ where
           global_field_number,
           self.completed_del_gen_supplier.get_as_long(),
           self.info_stream.as_ref(),
-          info,
+          Some(info),
         )? {
           changed = true;
         }
@@ -320,16 +320,12 @@ where
 
     let mut any = false;
     for rld in copy {
-      let info = match infos.index_of_mut(&rld.info_id) {
-        Some(info) => info,
-        None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
-      };
       any |= rld.write_field_updates(
         &self.directory,
         global_field_number,
         self.completed_del_gen_supplier.get_as_long(),
         self.info_stream.as_ref(),
-        info,
+        infos.index_of_mut(&rld.info_id),
       )?;
     }
     Ok(any)
@@ -355,7 +351,7 @@ where
           global_field_number,
           self.completed_del_gen_supplier.get_as_long(),
           self.info_stream.as_ref(),
-          info,
+          Some(info),
         )?;
         rld.set_is_merging();
       }
@@ -437,7 +433,7 @@ where
           global_field_number,
           self.completed_del_gen_supplier.get_as_long(),
           self.info_stream.as_ref(),
-          info,
+          Some(info),
         )?;
 
         if changed {
