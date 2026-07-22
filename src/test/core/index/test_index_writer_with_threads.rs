@@ -777,8 +777,9 @@ where
       let writer = writer.clone();
       let done = done.clone();
       let barrier = barrier.clone();
+      let seed = random.random();
       handles.push(scope.spawn(move || -> Result<()> {
-        let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
+        let mut thread_random = random_from_seed(seed);
         barrier.wait();
         let result = (|| -> Result<()> {
           for _ in 0..iters_per_thread {

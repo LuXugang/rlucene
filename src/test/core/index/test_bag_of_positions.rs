@@ -30,13 +30,11 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
-  random,
+  random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
-use rand::SeedableRng;
-use rand::rngs::StdRng;
 use rand::seq::SliceRandom;
 use std::collections::VecDeque;
 use std::sync::{Barrier, Mutex};
@@ -104,7 +102,7 @@ fn test() -> Result<()> {
       let field_type = field_type.clone();
 
       handles.push(scope.spawn(move || -> Result<()> {
-        let mut thread_random = StdRng::seed_from_u64(thread_seed);
+        let mut thread_random = random_from_seed(thread_seed);
 
         let _ = barrier.wait();
 

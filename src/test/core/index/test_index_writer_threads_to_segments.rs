@@ -40,9 +40,10 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir, is_night_mode, new_directory_shared, new_fs_directory,
-  new_index_writer_config_with_analyzer, random,
+  new_index_writer_config_with_analyzer, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use rand::RngExt;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
@@ -277,8 +278,9 @@ fn test_many_threads_close() -> Result<()> {
     for _ in 0..num_threads {
       let w = w.clone();
       let starting_gun = starting_gun.clone();
+      let seed = random.random();
       threads.push(scope.spawn(move || -> Result<()> {
-        let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
+        let mut thread_random = random_from_seed(seed);
         starting_gun.wait();
         let mut doc = Document::new();
         doc.add(TextField::from_string(

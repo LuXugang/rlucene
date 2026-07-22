@@ -62,7 +62,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::seq::SliceRandom;
-use rand::{Rng, RngExt, SeedableRng};
+use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -439,7 +439,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
           let reader = reader.clone();
           let docs = &docs;
           threads.push(scope.spawn(move || -> Result<()> {
-            let mut thread_random = StdRng::seed_from_u64(seed);
+            let mut thread_random = random_from_seed(seed);
             let mut term_vectors = reader.term_vectors()?;
             let mut i = 0;
             while i < at_least(&mut thread_random, 100) {

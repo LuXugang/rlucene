@@ -90,7 +90,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, create_temp_dir, get_only_leaf_reader, new_bytes_ref_from_string,
   new_directory_shared, new_fs_directory, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
-  new_text_field, random, rarely,
+  new_text_field, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::{SliceRandom, StdRng};
@@ -2198,7 +2198,8 @@ fn test_concurrent_updates() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for _ in 0..2 {
-      let mut thread_random = StdRng::seed_from_u64(random.random());
+      let seed = random.random();
+      let mut thread_random = random_from_seed(seed);
       let latch = latch.clone();
       let writer = writer.clone();
       let values = values.clone();
@@ -2352,7 +2353,8 @@ fn test_concurrent_dv_updates() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for _ in 0..2 {
-      let mut thread_random = StdRng::seed_from_u64(random.random());
+      let seed = random.random();
+      let mut thread_random = random_from_seed(seed);
       let latch = latch.clone();
       let writer = writer.clone();
       let values = values.clone();

@@ -42,6 +42,7 @@ use crate::test_framework::core::index::test_index_writer::{
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer,
   new_log_merge_policy_with_merge_factor, new_mock_directory, new_searcher_with_reader, random,
+  random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
@@ -373,8 +374,9 @@ fn test_commit_thread_safety() -> Result<()> {
     let dir = dir.clone();
     let writer = writer.clone();
     let failed = failed.clone();
+    let seed = random.random();
     threads.push(thread::spawn(move || -> Result<()> {
-      let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
+      let mut thread_random = random_from_seed(seed);
       let mut reader = directory_reader::open(dir.clone())?;
       let mut iterations = 0;
       let mut count = 0;

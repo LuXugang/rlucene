@@ -34,8 +34,9 @@ use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWra
 use crate::test_framework::core::util::english::English;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, is_night_mode, new_fs_directory,
-  new_index_writer_config_with_analyzer, random,
+  new_index_writer_config_with_analyzer, random, random_from_seed,
 };
+use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 use std::thread;
@@ -140,8 +141,9 @@ impl TestAtomicUpdate {
       let mut handles = Vec::new();
       for _ in 0..index_threads {
         let writer = writer.clone();
+        let seed = random.random();
         handles.push(scope.spawn(move || -> Result<()> {
-          let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
+          let mut thread_random = random_from_seed(seed);
           for count in 0..index_iterations {
             Self::indexer_do_work(&writer, &mut thread_random, count)?;
           }

@@ -54,7 +54,6 @@ use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
-#[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::slow_file_exists;
@@ -65,7 +64,6 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::test_util::TestUtil;
-#[cfg(feature = "nightly")]
 use rand::RngExt;
 use std::collections::HashMap;
 #[cfg(feature = "nightly")]
@@ -394,8 +392,9 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
     let modifier = modifier.clone();
     let latch = latch.clone();
     let done_latch = done_latch.clone();
+    let seed = random.random();
     threads.push(thread::spawn(move || -> Result<()> {
-      let mut thread_random = crate::test_framework::core::util::lucene_test_case::random();
+      let mut thread_random = random_from_seed(seed);
       let mut id = (i as i32) * 1000;
       let value = 100;
       latch.wait();
