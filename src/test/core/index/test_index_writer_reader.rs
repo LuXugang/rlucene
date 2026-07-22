@@ -698,10 +698,10 @@ fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
   // TODO: getAssertNoDeletesDirectory is not implemented, so this currently lacks Java's wrapper
   // assertion that reopened segments expose no deletes.
   let mut random = random();
-  let dir1 = new_mock_directory(&mut random)?;
+  let dir1 = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
-  let mut writer = IndexWriter::new(Arc::new(dir1.clone()), iwc)?;
+  let mut writer = IndexWriter::new(dir1.clone(), iwc)?;
   let r1 = directory_reader::open_from_writer(&writer)?;
   assert_eq!(0, r1.max_doc()?);
   create_index_no_close(false, "index1", &writer)?;
@@ -736,12 +736,12 @@ fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
   drop(writer);
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_max_full_flush_merge_wait_millis(0);
-  writer = IndexWriter::new(Arc::new(dir1.clone()), iwc)?;
+  writer = IndexWriter::new(dir1.clone(), iwc)?;
   let w2r1 = directory_reader::open_from_writer(&writer)?;
   assert_eq!(200, w2r1.max_doc()?);
   w2r1.close()?;
   writer.close()?;
-  Ok(())
+  dir1.close()
 }
 
 #[test]

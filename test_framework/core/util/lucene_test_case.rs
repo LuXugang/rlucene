@@ -24,7 +24,6 @@ use std::sync::{Arc, LazyLock};
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
-use crate::core::index::BytesRef;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -36,6 +35,7 @@ use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
+use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 #[cfg(test)]
 use crate::core::search::index_searcher::IndexSearcherHook;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
@@ -482,9 +482,13 @@ pub(crate) fn new_maybe_virus_checking_directory<R>(random: &mut R) -> Result<Ar
 where
   R: Rng + ?Sized,
 {
-  // TODO
-  let dir = new_directory(random)?;
-  Ok(Arc::new(dir))
+  if random.random_range(0..5) == 4 {
+    // TODO IMPORTANT VirusCheckingFS is not implemented yet, so use the same randomized FS directory without
+    // wrapping its temporary path in a virus-checking filesystem.
+    new_fs_directory(random, create_temp_dir()?)
+  } else {
+    new_directory_shared(random)
+  }
 }
 
 pub(crate) fn new_directory<R>(random: &mut R) -> Result<DirEnum>
@@ -559,14 +563,36 @@ where
   }
 }
 
+pub(crate) fn new_directory_from<R, D>(random: &mut R, source: &D) -> Result<DirEnum>
+where
+  R: Rng + ?Sized,
+  D: Directory + ?Sized,
+{
+  let directory = new_directory_impl(random, TEST_DIRECTORY)?;
+  for file in source.list_all()? {
+    if file.starts_with(IndexFileNames::SEGMENTS) || CODEC_FILE_PATTERN.is_match(&file) {
+      directory.copy_from(source, &file, &file, &new_io_context(random)?)?;
+    }
+  }
+  let bare = rarely(random);
+  Ok(wrap_directory(random, directory, bare, false))
+}
+
 pub(crate) fn new_fs_directory<R>(random: &mut R, temp_dir: TempDir) -> Result<Arc<DirEnum>>
+where
+  R: Rng + ?Sized,
+{
+  new_fs_directory_from_path(random, temp_dir.keep())
+}
+
+pub(crate) fn new_fs_directory_from_path<R>(random: &mut R, path: PathBuf) -> Result<Arc<DirEnum>>
 where
   R: Rng + ?Sized,
 {
   let bare = rarely(random);
   Ok(Arc::new(new_fs_directory_with_lock_factory_and_bare(
     random,
-    temp_dir.keep(),
+    path,
     fs_lock_factory::get_default(),
     bare,
   )?))

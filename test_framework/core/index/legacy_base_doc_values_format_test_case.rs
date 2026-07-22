@@ -61,10 +61,10 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir, get_only_leaf_reader, new_bytes_ref_empty, new_bytes_ref_from_bytes,
-  new_bytes_ref_from_string, new_directory_shared, new_fs_directory,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
-  new_string_field, new_text_field, rarely,
+  at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
+  new_bytes_ref_empty, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
+  new_fs_directory, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_searcher_with_reader, new_string_field, new_text_field, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::{IndexedRandom, SliceRandom};
@@ -2385,7 +2385,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
     F: FnMut(&mut R) -> Vec<u8>,
   {
-    let dir = new_directory_shared(random)?;
+    let dir = new_fs_directory(random, create_temp_dir_with_prefix("dvduel")?)?;
     let analyzer = MockAnalyzer::new(random);
     let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
@@ -3268,7 +3268,7 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let dir = new_directory_shared(random)?;
+    let dir = new_fs_directory(random, create_temp_dir_with_prefix("dvduel")?)?;
     let analyzer = MockAnalyzer::new(random);
     let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);

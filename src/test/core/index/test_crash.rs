@@ -31,8 +31,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_index_writer_config_with_analyzer, new_mock_directory_with_lock_factory, new_text_field,
-  random,
+  new_directory_from, new_index_writer_config_with_analyzer, new_mock_directory_with_lock_factory,
+  new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
@@ -124,7 +124,7 @@ fn test_crash_while_indexing() -> Result<()> {
   // Make a new dir, copying from the crashed dir, and
   // open IW on it, to confirm IW "recovers" after a
   // crash:
-  let dir2 = TestUtil::ram_copy_of(&mut random, dir.as_ref())?;
+  let dir2 = Arc::new(new_directory_from(&mut random, dir.as_ref())?);
   dir.close()?;
 
   RandomIndexWriter::new(&mut random, dir2.clone())?.close(&mut random)?;
@@ -157,7 +157,7 @@ fn test_writer_after_crash() -> Result<()> {
   // Make a new dir, copying from the crashed dir, and
   // open IW on it, to confirm IW "recovers" after a
   // crash:
-  let dir2 = TestUtil::ram_copy_of(&mut random, dir.as_ref())?;
+  let dir2 = Arc::new(new_directory_from(&mut random, dir.as_ref())?);
   dir.close()?;
 
   RandomIndexWriter::new(&mut random, dir2.clone())?.close(&mut random)?;
@@ -197,7 +197,7 @@ fn test_crash_after_reopen() -> Result<()> {
   // Make a new dir, copying from the crashed dir, and
   // open IW on it, to confirm IW "recovers" after a
   // crash:
-  let dir2 = TestUtil::ram_copy_of(&mut random, dir.as_ref())?;
+  let dir2 = Arc::new(new_directory_from(&mut random, dir.as_ref())?);
   dir.close()?;
 
   RandomIndexWriter::new(&mut random, dir2.clone())?.close(&mut random)?;

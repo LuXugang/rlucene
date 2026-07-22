@@ -55,8 +55,9 @@ use crate::test_framework::core::index::base_index_file_format_test_case::BaseIn
 use crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCase;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, random, rarely,
+  at_least, create_temp_dir, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
+  new_fs_directory, new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field,
+  random, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::SeedableRng;
@@ -1056,7 +1057,7 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
       *value = random.random::<i64>();
     }
 
-    let dir = new_directory_shared(random)?;
+    let dir = new_fs_directory(random, create_temp_dir()?)?;
     let analyzer = crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_scheduler(SerialMergeScheduler::new());

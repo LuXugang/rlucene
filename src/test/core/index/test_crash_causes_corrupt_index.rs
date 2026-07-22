@@ -25,15 +25,14 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{FSDirectories, IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, new_index_writer_config_with_analyzer, new_searcher_with_wrap,
-  new_text_field, random, slow_file_exists,
+  create_temp_dir_with_prefix, new_fs_directory_from_path, new_index_writer_config_with_analyzer,
+  new_searcher_with_wrap, new_text_field, random, slow_file_exists,
 };
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
@@ -106,7 +105,7 @@ impl TestCrashCausesCorruptIndex {
 
   /** Attempts to index another 1 document. */
   fn index_after_restart(&mut self, random: &mut StdRng) -> Result<()> {
-    let real_directory = Arc::new(NIOFSDirectory::new(self.path.clone())?);
+    let real_directory = new_fs_directory_from_path(random, self.path.clone())?;
 
     // LUCENE-3627 (before the fix): this line fails because
     // it doesn't know what to do with the created but empty
@@ -127,7 +126,7 @@ impl TestCrashCausesCorruptIndex {
 
   /** Run an example search. */
   fn search_for_fleas(&self, random: &mut StdRng, expected_total_hits: usize) -> Result<()> {
-    let real_directory = Arc::new(NIOFSDirectory::new(self.path.clone())?);
+    let real_directory = new_fs_directory_from_path(random, self.path.clone())?;
     let index_reader = directory_reader::open(real_directory.clone())?;
     let index_searcher = new_searcher_with_wrap(random, index_reader, true)?;
     let top_docs =
