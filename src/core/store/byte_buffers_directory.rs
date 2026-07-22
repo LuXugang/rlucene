@@ -26,10 +26,10 @@ use crate::core::store::{
   ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexInputOwned, ByteBuffersIndexOutput,
   ByteBuffersIndexOutputOnClose, IOContext,
 };
-use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{HasIdentity, TryIntoInt};
 use crc32fast::Hasher;
 use num_bigint::BigInt;
 use parking_lot::Mutex;
@@ -38,7 +38,7 @@ use std::fmt::{Display, Formatter};
 use std::io::{Cursor, Error, ErrorKind};
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
 pub type CustomByteBuffersDirectoryOutputToInput =
   Arc<dyn Fn(&str, ByteBuffersDataOutput) -> Result<ByteBuffersIndexInputOwned> + Send + Sync>;
@@ -48,6 +48,7 @@ pub enum BBOutputToInput {
   ManyBuffers,
   OneBuffer,
   ByteArray,
+  NRTCachingDirectory(Arc<AtomicI64>),
   Custom(CustomByteBuffersDirectoryOutputToInput),
 }
 
@@ -69,6 +70,11 @@ impl BBOutputToInput {
       Self::ManyBuffers => output_as_many_buffers(file_name, output),
       Self::OneBuffer => output_as_one_buffer(file_name, output),
       Self::ByteArray => output_as_byte_array(file_name, output),
+      Self::NRTCachingDirectory(cache_size) => {
+        let size: i64 = output.size().try_convert()?;
+        cache_size.fetch_add(size, Ordering::SeqCst);
+        output_as_many_buffers(file_name, output)
+      },
       Self::Custom(output_to_input) => output_to_input(file_name, output),
     }
   }
@@ -272,12 +278,14 @@ where
 
   fn delete_file(&self, name: &str) -> Result<()> {
     self.ensure_open()?;
-    if self.files.lock().remove(name).is_none() {
+    let entry = self.files.lock().remove(name);
+    let Some(entry) = entry else {
       return Err(LuceneError::io_with_path(
         name,
         Error::new(ErrorKind::NotFound, name.to_string()),
       ));
-    }
+    };
+    entry.lock().deleted = true;
     Ok(())
   }
 
@@ -453,6 +461,7 @@ struct FileEntry {
   file_name: String,
   content: Option<ByteBuffersIndexInputOwned>,
   cached_length: usize,
+  deleted: bool,
 }
 
 impl FileEntry {
@@ -461,6 +470,7 @@ impl FileEntry {
       file_name: name.to_string(),
       content: None,
       cached_length: 0,
+      deleted: false,
     }
   }
 
@@ -508,9 +518,15 @@ impl ByteBuffersDirectoryOutputOnClose {
 
 impl ByteBuffersIndexOutputOnClose for ByteBuffersDirectoryOutputOnClose {
   fn on_close(&mut self, output: ByteBuffersDataOutput) -> Result<()> {
+    let mut entry = self.entry.lock();
+    // Defensive check for an output that was deleted before it was closed. In
+    // that case the detached entry must not publish content or notify a custom
+    // output conversion strategy.
+    if entry.deleted {
+      return Ok(());
+    }
     let cached_length = output.size();
     let content = self.output_to_input.to_input(&self.file_name, output)?;
-    let mut entry = self.entry.lock();
     entry.content = Some(content);
     entry.cached_length = cached_length;
     Ok(())

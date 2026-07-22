@@ -37,6 +37,7 @@ mod test_multi_byte_buffers_directory;
 pub mod test_multi_mmap;
 mod test_native_fs_lock_factory;
 mod test_nio_fs_directory;
+mod test_nrt_caching_directory;
 mod test_output_stream_index_output;
 mod test_rate_limiter;
 mod test_serialized_io_counting_directory;

@@ -26,3 +26,4 @@ pub mod mock_index_output_wrapper;
 pub mod serial_io_counting_directory;
 pub mod slow_closing_mock_index_input_wrapper;
 pub mod slow_opening_mock_index_input_wrapper;
+pub(crate) mod test_nrt_caching_directory;
