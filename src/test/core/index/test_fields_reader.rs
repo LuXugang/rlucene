@@ -44,7 +44,8 @@ use crate::test_framework::core::index::doc_helper::{
   DocHelper, NO_TF_KEY, TEXT_FIELD_1_KEY, TEXT_FIELD_2_KEY, TEXT_FIELD_3_KEY,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
+  create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, random,
 };
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -158,7 +159,10 @@ fn test_exceptions() -> Result<()> {
   let mut test_doc = Document::new();
   DocHelper::setup_doc(&mut test_doc);
 
-  let fs_dir = new_directory_shared(&mut random)?;
+  let fs_dir = new_fs_directory(
+    &mut random,
+    create_temp_dir_with_prefix("testfieldswriterexceptions")?,
+  )?;
   let dir = Arc::new(FaultyFSDirectory::new(fs_dir));
   let mock = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;

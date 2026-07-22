@@ -16,6 +16,7 @@
  */
 use std::fmt::Display;
 use std::path::Path;
+use std::sync::Arc;
 
 use crate::impl_from_for_enum;
 
@@ -54,6 +55,17 @@ pub trait LockFactory: Display + Send + Sync {
   /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
   ///   the lock.
   fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock>;
+}
+
+impl<LF> LockFactory for Arc<LF>
+where
+  LF: LockFactory + ?Sized,
+{
+  type Lock = LF::Lock;
+
+  fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
+    (**self).obtain_lock(dir, lock_name)
+  }
 }
 
 pub type DynLockFactory = dyn LockFactory<Lock = LockEnum> + Send + Sync;

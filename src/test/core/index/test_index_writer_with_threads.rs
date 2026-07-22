@@ -35,9 +35,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::core::store::ByteBuffersDirectory;
-use crate::core::store::directory::Directory;
-use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+use crate::core::store::directory::{Directory, MaybeNrtDirEnum};
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -65,7 +63,7 @@ struct TestIndexWriterWithThreads;
 
 const SOFT_DELETES_FIELD: &str = "___soft_deletes";
 
-type MockDirectoryDelegate = ByteBuffersDirectory<SingleInstanceLockFactory>;
+type MockDirectoryDelegate = MaybeNrtDirEnum;
 
 // Used by test cases below
 fn indexer_thread<D>(

@@ -42,7 +42,7 @@ use crate::core::search::reference_manager::RefreshListener;
 use crate::core::search::searcher_factory::{SearcherFactory, SearcherFactoryHook};
 use crate::core::search::searcher_lifetime_manager::{PruneByAge, SearcherLifetimeManager};
 use crate::core::search::searcher_manager::SearcherManager;
-use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::directory::{DirEnum, Directory, MockDirWrapper};
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
@@ -58,7 +58,6 @@ use crate::test_framework::core::search::test_searcher_manager::{
   BlockingSearcherFactory, EvilSearcherFactory, TrackingSearcherFactory,
   TrackingSearcherFactoryState, WarmingSearcherFactory,
 };
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, ensure_sane_iwc_on_nightly, is_night_mode, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_text_field, random,
@@ -76,7 +75,7 @@ use std::thread;
 use std::time::Duration;
 use tempfile::TempDir;
 
-type TestDirectory = MockDirectoryWrapper<DirEnum>;
+type TestDirectory = MockDirWrapper;
 type TestDirectoryReader = StandardDirectoryReader<TestDirectory>;
 type TestIndexSearcher = ThreadedIndexSearcher<TestDirectoryReader>;
 

@@ -35,7 +35,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
@@ -432,8 +432,10 @@ fn test_max_merge_count() -> Result<()> {
 #[test]
 fn test_total_bytes_size() -> Result<()> {
   let mut random = random();
-  let directory = Arc::new(new_mock_directory(&mut random)?);
-  directory.set_throttling(Throttling::Never);
+  let directory = new_directory_shared(&mut random)?;
+  if let DirectoryEnum2::B(directory) = directory.as_ref() {
+    directory.set_throttling(Throttling::Never);
+  }
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_max_buffered_docs(5);

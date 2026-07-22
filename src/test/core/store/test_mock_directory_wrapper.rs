@@ -16,8 +16,10 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::Identity;
-use crate::core::store::directory::{DirEnum, Directory, DirectoryEnum2};
-use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+use crate::core::store::directory::{
+  Directory, DirectoryEnum2, MockDirWrapper, RawDirEnum, SharedLockFactory,
+};
+use crate::core::store::fs_lock_factory;
 use crate::core::store::{
   ByteArrayDataInput, ByteBuffersDirectory, DataInput, DataOutput, IOContext, IndexInputEnum2,
 };
@@ -30,7 +32,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir, new_mock_directory, random,
+  create_temp_dir, new_fs_directory, new_mock_directory, random,
 };
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
@@ -43,8 +45,8 @@ use std::sync::atomic::Ordering;
 #[allow(dead_code)] // for quick search
 struct TestMockDirectoryWrapper;
 
-type MemoryMockDirectory = MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>;
-type FsMockDirectory = MockDirectoryWrapper<DirEnum>;
+type MemoryMockDirectory = MockDirWrapper;
+type FsMockDirectory = MockDirectoryWrapper<RawDirEnum>;
 type TestDirectory = DirectoryEnum2<MemoryMockDirectory, FsMockDirectory>;
 type TestIndexInput = IndexInputEnum2<
   <MemoryMockDirectory as Directory>::IndexInput,
@@ -62,9 +64,15 @@ impl BaseDirectoryTestCase for TestMockDirectoryWrapper {
     if random.random_bool(0.5) {
       Ok(DirectoryEnum2::A(new_mock_directory(random)?))
     } else {
+      let lock_factory: SharedLockFactory = Arc::new(fs_lock_factory::get_default().into());
       Ok(DirectoryEnum2::B(MockDirectoryWrapper::new(
         random,
-        crate::core::store::nio_fs_directory::NIOFSDirectory::new(path)?,
+        RawDirEnum::Nio(
+          crate::core::store::nio_fs_directory::NIOFSDirectory::with_lock_factory(
+            path,
+            lock_factory,
+          )?,
+        ),
       )))
     }
   }
@@ -242,8 +250,7 @@ where
 #[test]
 fn test_corrupt_on_close_is_working_fs_dir() -> Result<()> {
   let mut random = random();
-  let path = create_temp_dir()?;
-  let dir = crate::core::store::nio_fs_directory::NIOFSDirectory::new(path.keep())?;
+  let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
   test_corrupt_on_close_is_working(&mut random, dir)
 }
 

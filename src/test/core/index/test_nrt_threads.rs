@@ -20,14 +20,13 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::directory::{Directory, MockDirWrapper};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::threaded_indexing_and_searching_test_case::{
   ThreadedIndexSearcher, ThreadedIndexingAndSearchingTestCase,
   ThreadedIndexingAndSearchingTestCaseState,
 };
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::random;
 use parking_lot::RwLock;
 use rand::RngExt;
@@ -39,7 +38,7 @@ use std::sync::atomic::Ordering;
 //   - mix in forceMerge, addIndexes
 //   - randomly mix in non-congruent docs
 
-type TestDirectory = MockDirectoryWrapper<DirEnum>;
+type TestDirectory = MockDirWrapper;
 type TestDirectoryReader = StandardDirectoryReader<TestDirectory>;
 type TestIndexSearcher = ThreadedIndexSearcher<TestDirectoryReader>;
 

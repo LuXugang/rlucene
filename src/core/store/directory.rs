@@ -16,11 +16,21 @@
  */
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_reader::Identity;
+#[cfg(test)]
+use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
+#[cfg(test)]
+use crate::core::store::file_switch_directory::FileSwitchDirectory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::lock::{Lock, LockEnum, LockEnum2, LockEnum3};
+#[cfg(test)]
+use crate::core::store::lock_factory::LockFactoryEnum;
+#[cfg(test)]
+use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
+#[cfg(test)]
+use crate::core::store::nrt_caching_directory::NRTCachingDirectory;
 use crate::core::store::{
   FSDirectory, IOContext, IndexInputEnum, IndexInputEnum2, IndexInputEnum3, IndexOutput,
   IndexOutputEnum, IndexOutputEnum2, IndexOutputEnum3, NativeFSLockFactory,
@@ -29,6 +39,10 @@ use crate::core::util::HasIdentity;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
+#[cfg(test)]
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+#[cfg(test)]
+use crate::test_framework::core::store::raw_directory_wrapper::RawDirectoryWrapper;
 use num_bigint::BigInt;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -767,4 +781,253 @@ impl<D: Directory> Directory for Arc<D> {
   }
 }
 
-pub(crate) type DirEnum = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
+#[cfg(test)]
+pub(crate) type SharedLockFactory = Arc<LockFactoryEnum>;
+#[cfg(test)]
+pub(crate) type NioDir = FSDirectory<SharedLockFactory, NIOFSDirectory>;
+#[cfg(test)]
+pub(crate) type MMapDir = FSDirectory<SharedLockFactory, MMapDirectory>;
+#[cfg(test)]
+pub(crate) type ByteBuffersDir = ByteBuffersDirectory<SharedLockFactory>;
+#[cfg(test)]
+pub(crate) type CoreDirEnum = DirectoryEnum3<NioDir, MMapDir, ByteBuffersDir>;
+#[cfg(test)]
+pub(crate) type FileSwitchDir = FileSwitchDirectory<CoreDirEnum, CoreDirEnum>;
+#[cfg(test)]
+pub(crate) type MaybeNrtDirEnum = DirectoryEnum2<RawDirEnum, NRTCachingDirectory<RawDirEnum>>;
+#[cfg(test)]
+pub(crate) type RawDirWrapper = RawDirectoryWrapper<MaybeNrtDirEnum>;
+#[cfg(test)]
+pub(crate) type MockDirWrapper = MockDirectoryWrapper<MaybeNrtDirEnum>;
+#[cfg(test)]
+pub(crate) type DirEnum = DirectoryEnum2<RawDirWrapper, MockDirWrapper>;
+
+#[cfg(test)]
+pub(crate) enum RawDirEnum {
+  Nio(NioDir),
+  MMap(MMapDir),
+  ByteBuffers(ByteBuffersDir),
+  FileSwitch(FileSwitchDir),
+}
+
+#[cfg(test)]
+impl From<NioDir> for RawDirEnum {
+  fn from(directory: NioDir) -> Self {
+    Self::Nio(directory)
+  }
+}
+
+#[cfg(test)]
+impl From<MMapDir> for RawDirEnum {
+  fn from(directory: MMapDir) -> Self {
+    Self::MMap(directory)
+  }
+}
+
+#[cfg(test)]
+impl From<ByteBuffersDir> for RawDirEnum {
+  fn from(directory: ByteBuffersDir) -> Self {
+    Self::ByteBuffers(directory)
+  }
+}
+
+#[cfg(test)]
+impl From<FileSwitchDir> for RawDirEnum {
+  fn from(directory: FileSwitchDir) -> Self {
+    Self::FileSwitch(directory)
+  }
+}
+
+#[cfg(test)]
+impl Display for RawDirEnum {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Nio(inner) => inner.fmt(f),
+      Self::MMap(inner) => inner.fmt(f),
+      Self::ByteBuffers(inner) => inner.fmt(f),
+      Self::FileSwitch(inner) => inner.fmt(f),
+    }
+  }
+}
+
+#[cfg(test)]
+impl HasIdentity for RawDirEnum {
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::Nio(inner) => inner.identity(),
+      Self::MMap(inner) => inner.identity(),
+      Self::ByteBuffers(inner) => inner.identity(),
+      Self::FileSwitch(inner) => inner.identity(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl CloseableRef for RawDirEnum {
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Nio(inner) => inner.close(),
+      Self::MMap(inner) => inner.close(),
+      Self::ByteBuffers(inner) => inner.close(),
+      Self::FileSwitch(inner) => inner.close(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl Directory for RawDirEnum {
+  fn list_all(&self) -> Result<Vec<String>> {
+    match self {
+      Self::Nio(inner) => inner.list_all(),
+      Self::MMap(inner) => inner.list_all(),
+      Self::ByteBuffers(inner) => inner.list_all(),
+      Self::FileSwitch(inner) => inner.list_all(),
+    }
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    match self {
+      Self::Nio(inner) => inner.delete_file(name),
+      Self::MMap(inner) => inner.delete_file(name),
+      Self::ByteBuffers(inner) => inner.delete_file(name),
+      Self::FileSwitch(inner) => inner.delete_file(name),
+    }
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    match self {
+      Self::Nio(inner) => inner.file_length(name),
+      Self::MMap(inner) => inner.file_length(name),
+      Self::ByteBuffers(inner) => inner.file_length(name),
+      Self::FileSwitch(inner) => inner.file_length(name),
+    }
+  }
+
+  type IndexOutput = IndexOutputEnum2<
+    <CoreDirEnum as Directory>::IndexOutput,
+    <FileSwitchDir as Directory>::IndexOutput,
+  >;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    match self {
+      Self::Nio(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::A(
+        inner.create_output(name, context)?,
+      ))),
+      Self::MMap(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::B(
+        inner.create_output(name, context)?,
+      ))),
+      Self::ByteBuffers(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::C(
+        inner.create_output(name, context)?,
+      ))),
+      Self::FileSwitch(inner) => Ok(IndexOutputEnum2::B(inner.create_output(name, context)?)),
+    }
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    match self {
+      Self::Nio(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::A(
+        inner.create_temp_output(prefix, suffix, context)?,
+      ))),
+      Self::MMap(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::B(
+        inner.create_temp_output(prefix, suffix, context)?,
+      ))),
+      Self::ByteBuffers(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::C(
+        inner.create_temp_output(prefix, suffix, context)?,
+      ))),
+      Self::FileSwitch(inner) => Ok(IndexOutputEnum2::B(
+        inner.create_temp_output(prefix, suffix, context)?,
+      )),
+    }
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    match self {
+      Self::Nio(inner) => inner.sync(names),
+      Self::MMap(inner) => inner.sync(names),
+      Self::ByteBuffers(inner) => inner.sync(names),
+      Self::FileSwitch(inner) => inner.sync(names),
+    }
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    match self {
+      Self::Nio(inner) => inner.sync_metadata(),
+      Self::MMap(inner) => inner.sync_metadata(),
+      Self::ByteBuffers(inner) => inner.sync_metadata(),
+      Self::FileSwitch(inner) => inner.sync_metadata(),
+    }
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    match self {
+      Self::Nio(inner) => inner.rename(source, dest),
+      Self::MMap(inner) => inner.rename(source, dest),
+      Self::ByteBuffers(inner) => inner.rename(source, dest),
+      Self::FileSwitch(inner) => inner.rename(source, dest),
+    }
+  }
+
+  type IndexInput = IndexInputEnum2<
+    <CoreDirEnum as Directory>::IndexInput,
+    <FileSwitchDir as Directory>::IndexInput,
+  >;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    match self {
+      Self::Nio(inner) => Ok(IndexInputEnum2::A(IndexInputEnum3::A(
+        inner.open_input(name, context)?,
+      ))),
+      Self::MMap(inner) => Ok(IndexInputEnum2::A(IndexInputEnum3::B(
+        inner.open_input(name, context)?,
+      ))),
+      Self::ByteBuffers(inner) => Ok(IndexInputEnum2::A(IndexInputEnum3::C(
+        inner.open_input(name, context)?,
+      ))),
+      Self::FileSwitch(inner) => Ok(IndexInputEnum2::B(inner.open_input(name, context)?)),
+    }
+  }
+
+  type Lock = LockEnum2<<CoreDirEnum as Directory>::Lock, <FileSwitchDir as Directory>::Lock>;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    match self {
+      Self::Nio(inner) => Ok(LockEnum2::A(LockEnum3::A(inner.obtain_lock(name)?))),
+      Self::MMap(inner) => Ok(LockEnum2::A(LockEnum3::B(inner.obtain_lock(name)?))),
+      Self::ByteBuffers(inner) => Ok(LockEnum2::A(LockEnum3::C(inner.obtain_lock(name)?))),
+      Self::FileSwitch(inner) => Ok(LockEnum2::B(inner.obtain_lock(name)?)),
+    }
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    match self {
+      Self::Nio(inner) => inner.get_pending_deletions(),
+      Self::MMap(inner) => inner.get_pending_deletions(),
+      Self::ByteBuffers(inner) => inner.get_pending_deletions(),
+      Self::FileSwitch(inner) => inner.get_pending_deletions(),
+    }
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    match self {
+      Self::Nio(inner) => inner.is_fs_directory(),
+      Self::MMap(inner) => inner.is_fs_directory(),
+      Self::ByteBuffers(inner) => inner.is_fs_directory(),
+      Self::FileSwitch(inner) => inner.is_fs_directory(),
+    }
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    match self {
+      Self::Nio(inner) => inner.ensure_open(),
+      Self::MMap(inner) => inner.ensure_open(),
+      Self::ByteBuffers(inner) => inner.ensure_open(),
+      Self::FileSwitch(inner) => inner.ensure_open(),
+    }
+  }
+}

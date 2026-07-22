@@ -14,17 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod base_chunked_directory_test_case;
-pub mod base_data_output_test_case;
-pub mod base_directory_test_case;
-pub mod base_directory_wrapper;
-pub mod base_lock_factory_test_case;
-pub mod corrupting_index_output;
-pub mod mock_directory_wrapper;
-pub mod mock_index_input_wrapper;
-pub mod mock_index_output_wrapper;
-pub mod raw_directory_wrapper;
-pub mod serial_io_counting_directory;
-pub mod slow_closing_mock_index_input_wrapper;
-pub mod slow_opening_mock_index_input_wrapper;
-pub(crate) mod test_nrt_caching_directory;
+use crate::test_framework::core::store::base_directory_wrapper::BaseDirectoryWrapper;
+
+/// Delegates all operations, even optional ones, to the wrapped directory.
+///
+/// This type is used for the most realistic testing while retaining check-index-on-close. Use
+/// [`MockDirectoryWrapper`](crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper)
+/// when assertions and disruptive test behavior are wanted.
+pub(crate) type RawDirectoryWrapper<D> = BaseDirectoryWrapper<D>;

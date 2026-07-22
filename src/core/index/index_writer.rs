@@ -3057,7 +3057,10 @@ where
     inner.merge_gen += 1;
   }
 
-  pub(crate) fn no_dup_dirs(&self, dirs: &[Arc<D>]) -> Result<()> {
+  pub(crate) fn no_dup_dirs<SD>(&self, dirs: &[Arc<SD>]) -> Result<()>
+  where
+    SD: Directory,
+  {
     let mut seen_dir_ids = HashSet::with_capacity(dirs.len());
     let self_dir_id = self.directory_orig.identity().clone();
     for dir in dirs {
@@ -3077,7 +3080,10 @@ where
 
     Ok(())
   }
-  fn acquire_write_locks(&self, dirs: &[Arc<D>]) -> Result<Vec<D::Lock>> {
+  fn acquire_write_locks<SD>(&self, dirs: &[Arc<SD>]) -> Result<Vec<SD::Lock>>
+  where
+    SD: Directory,
+  {
     let mut locks = Vec::with_capacity(dirs.len());
     for dir in dirs {
       match dir.obtain_lock(WRITE_LOCK_NAME) {
@@ -3096,9 +3102,10 @@ where
   /// same coarse-grained flow:
   /// flush current in-memory changes, validate incoming commits, copy segment files as-is,
   /// reserve document ids, publish the new segments, and finally trigger merges if needed.
-  pub fn add_indexes_from_directory(&self, dirs: &[Arc<D>]) -> Result<i64>
+  pub fn add_indexes_from_directory<SD>(&self, dirs: &[Arc<SD>]) -> Result<i64>
   where
     D: 'static,
+    SD: Directory + 'static,
   {
     self.ensure_open()?;
     self.no_dup_dirs(dirs)?;
@@ -3138,12 +3145,14 @@ where
 
       self.test_reserve_docs(total_max_doc)?;
 
-      let mut infos = Vec::new();
+      let mut infos: Vec<SegmentCommitInfo<D>> = Vec::new();
       let copy_result: Result<()> = (|| {
         for sis in &commits {
           for info in sis.iter() {
             debug_assert!(
-              !infos.contains(info),
+              !infos.iter().any(|new_info| {
+                new_info.info.name == info.info.name && new_info.info.get_id() == info.info.get_id()
+              }),
               "dup info dir={} name={}",
               info.info.dir,
               info.info.name
@@ -3681,12 +3690,15 @@ where
     Ok(())
   }
   /// Copies the segment files as-is into the IndexWriter's directory.
-  fn copy_segment_as_is(
+  fn copy_segment_as_is<SD>(
     &self,
-    info: &SegmentCommitInfo<D>,
+    info: &SegmentCommitInfo<SD>,
     seg_name: &str,
     context: &IOContext,
-  ) -> Result<SegmentCommitInfo<D>> {
+  ) -> Result<SegmentCommitInfo<D>>
+  where
+    SD: Directory,
+  {
     let mut new_info = SegmentInfo::new(
       self.directory_orig.clone(),
       info.info.get_version_ref().cloned(),

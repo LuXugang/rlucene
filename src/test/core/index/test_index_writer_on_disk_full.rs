@@ -39,9 +39,9 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::lucene_test_case::{
-  call_stack_contains_any_of, is_night_mode, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_cfs, new_mock_directory, new_searcher_with_reader, new_text_field,
-  random,
+  call_stack_contains_any_of, is_night_mode, new_directory_shared,
+  new_index_writer_config_with_analyzer, new_log_merge_policy_with_cfs, new_mock_directory,
+  new_searcher_with_reader, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -188,10 +188,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
   let mut dirs = Vec::with_capacity(num_dir as usize);
   let mut input_disk_usage = 0_i64;
   for i in 0..num_dir {
-    let dir = Arc::new(MockDirectoryWrapper::new(
-      &mut random,
-      Arc::new(ByteBuffersDirectory::new()),
-    ));
+    let dir = new_directory_shared(&mut random)?;
     let analyzer = MockAnalyzer::new(&mut random);
     let writer = IndexWriter::new(
       dir.clone(),
@@ -209,10 +206,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
 
   // Now, build a starting index that has START_COUNT docs.  We
   // will then try to addIndexes into a copy of this:
-  let start_dir = Arc::new(MockDirectoryWrapper::new(
-    &mut random,
-    Arc::new(ByteBuffersDirectory::new()),
-  ));
+  let start_dir = Arc::new(new_mock_directory(&mut random)?);
   let analyzer = MockAnalyzer::new(&mut random);
   let writer = IndexWriter::new(
     start_dir.clone(),

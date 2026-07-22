@@ -298,14 +298,14 @@ fn test_virus_scanner_doesnt_corrupt_index() -> Result<()> {
 #[test]
 fn test_no_segments_dot_gen_inflation() -> Result<()> {
   let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
+  let dir = new_mock_directory(&mut random)?;
 
   // empty commit
-  let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
+  let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
   writer.close()?;
   drop(writer);
 
-  let mut sis = SegmentInfos::read_latest_commit(dir.clone())?;
+  let mut sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
   assert_eq!(1, sis.get_generation());
 
   // no inflation

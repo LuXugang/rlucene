@@ -32,7 +32,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::english::English;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, random as new_random,
+  new_maybe_virus_checking_directory, new_searcher_with_reader, random as new_random,
 };
 use rand::RngExt;
 use std::sync::Arc;
@@ -200,7 +200,11 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
 #[test]
 fn test_stress_index_and_searching() -> Result<()> {
   let mut random = new_random();
-  let directory = new_directory_shared(&mut random)?;
+  let directory = if is_night_mode() {
+    new_maybe_virus_checking_directory(&mut random)?
+  } else {
+    new_directory_shared(&mut random)?
+  };
 
   run_stress_test(
     directory,

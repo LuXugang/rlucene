@@ -41,14 +41,13 @@ use crate::core::search::query::Query;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
-use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::directory::{Directory, MockDirWrapper};
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::fail_on_non_bulk_merges_info_stream::FailOnNonBulkMergesInfoStream;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -386,7 +385,7 @@ where
   #[allow(private_bounds)]
   fn run_test(&self, random: &mut StdRng, test_name: &str) -> Result<()>
   where
-    Self::Directory: From<MockDirectoryWrapper<DirEnum>>,
+    Self::Directory: From<MockDirWrapper>,
   {
     self.state().failed.store(false, Ordering::SeqCst);
     self.state().add_count.store(0, Ordering::SeqCst);

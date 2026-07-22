@@ -87,7 +87,6 @@ use crate::core::search::searcher_factory::SearcherFactory;
 use crate::core::search::searcher_manager::SearcherManager;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::store::{ByteBuffersDirectory, IndexOutput, NoLockFactory};
 use crate::core::store::{DataOutput, IOContext, SimpleFSLockFactory};
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -119,9 +118,10 @@ use crate::test_framework::core::index::test_index_writer::{
 use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains, create_temp_dir, get_only_leaf_reader, new_directory_shared,
-  new_field, new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_io_context, new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_merge_policy,
+  at_least, call_stack_contains, create_temp_dir, get_only_leaf_reader, new_directory,
+  new_directory_shared, new_field, new_fs_directory, new_fs_directory_with_lock_factory,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
+  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_merge_policy,
   new_mock_directory, new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field,
   new_text_field, random, random_from_seed, rarely, slow_file_exists,
 };
@@ -1370,7 +1370,8 @@ fn test_empty_fs_dir_with_no_lock() -> Result<()> {
   // when listAll() was called in IndexFileDeleter.
   let mut random = random();
   let temp_dir = create_temp_dir()?;
-  let dir = Arc::new(NIOFSDirectory::with_lock_factory(
+  let dir = Arc::new(new_fs_directory_with_lock_factory(
+    &mut random,
     temp_dir.keep(),
     NoLockFactory,
   )?);
@@ -1821,7 +1822,8 @@ fn test_whether_delete_all_deletes_write_lock() -> Result<()> {
   // NativeFSLockFactory somehow "knows" a lock is held against write.lock
   // even if you remove that file:
   let temp_dir = create_temp_dir()?;
-  let dir = Arc::new(NIOFSDirectory::with_lock_factory(
+  let dir = Arc::new(new_fs_directory_with_lock_factory(
+    &mut random,
     temp_dir.keep(),
     SimpleFSLockFactory::new(),
   )?);
@@ -4306,7 +4308,7 @@ fn test_delete_happens_before_while_flush() -> Result<()> {
   let latch = Arc::new(CountDownLatch::new(1));
   let in_flush = Arc::new(CountDownLatch::new(1));
   let dir = Arc::new(BlockOnIndexingChainFlushDirectory::new(
-    new_mock_directory(&mut random)?,
+    new_directory(&mut random)?,
     latch.clone(),
     in_flush.clone(),
   ));
@@ -6114,7 +6116,7 @@ fn test_parent_field_is_already_used() -> Result<()> {
 fn test_parent_field_empty_index() -> Result<()> {
   let mut random = random();
 
-  let dir = new_directory_shared(&mut random)?;
+  let dir = Arc::new(new_mock_directory(&mut random)?);
 
   {
     let mock = MockAnalyzer::new(&mut random);

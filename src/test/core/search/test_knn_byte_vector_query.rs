@@ -36,7 +36,7 @@ use rand::{Rng, RngExt};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
-pub struct TestKnnByteVectorQuery;
+pub(crate) struct TestKnnByteVectorQuery;
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestKnnByteVectorQuery, &mut StdRng) -> Result<()>,

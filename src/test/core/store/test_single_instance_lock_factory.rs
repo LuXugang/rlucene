@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::store::FSDirectory;
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::directory::DirEnum;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::{
+  new_directory_with_lock_factory, random,
+};
 use std::path::PathBuf;
 
 /// Simple tests for SingleInstanceLockFactory
@@ -27,16 +28,13 @@ use std::path::PathBuf;
 struct TestSingleInstanceLockFactory;
 
 impl BaseLockFactoryTestCase for TestSingleInstanceLockFactory {
-  type Directory = FSDirectory<SingleInstanceLockFactory, NIOFSDirectory>;
+  type Directory = DirEnum;
 
-  fn get_directory<R>(&self, _random: &mut R, path: PathBuf) -> Result<Self::Directory>
+  fn get_directory<R>(&self, random: &mut R, _path: PathBuf) -> Result<Self::Directory>
   where
     R: rand::Rng + ?Sized,
   {
-    // TODO: Java's newDirectory(random, lockFactory) can select in-memory, file-system, or
-    // FileSwitchDirectory implementations and wraps the result. Rust's test framework currently
-    // has no equivalent randomized directory enum with the requested lock factory.
-    NIOFSDirectory::with_lock_factory(path, SingleInstanceLockFactory::new())
+    new_directory_with_lock_factory(random, SingleInstanceLockFactory::new())
   }
 }
 

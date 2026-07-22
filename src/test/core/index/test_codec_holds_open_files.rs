@@ -20,12 +20,12 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, DirectoryEnum2};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_mock_fs_directory, new_text_field, random,
+  at_least, new_directory, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashMap;
@@ -37,11 +37,12 @@ struct TestCodecHoldsOpenFiles;
 fn test() -> Result<()> {
   let mut random = random();
 
-  let d = Arc::new(new_mock_fs_directory(
-    &mut random,
-    create_temp_dir_with_prefix("TestCodecHoldsOpenFiles")?,
-  )?);
-  d.set_check_index_on_close(false);
+  let mut d = new_directory(&mut random)?;
+  match &mut d {
+    DirectoryEnum2::A(d) => d.set_check_index_on_close(false),
+    DirectoryEnum2::B(d) => d.set_check_index_on_close(false),
+  }
+  let d = Arc::new(d);
 
   let w = RandomIndexWriter::new(&mut random, d.clone())?;
   let num_docs = at_least(&mut random, 100);

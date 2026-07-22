@@ -30,7 +30,7 @@ use rand::Rng;
 use rand::rngs::StdRng;
 use std::sync::Arc;
 
-pub struct TestByteVectorSimilarityQuery {
+pub(crate) struct TestByteVectorSimilarityQuery {
   base: BaseVectorSimilarityQueryBase,
 }
 impl TestByteVectorSimilarityQuery {

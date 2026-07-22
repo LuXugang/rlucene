@@ -34,16 +34,14 @@ use crate::core::search::sort_field::SortFieldType::Doc;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
-use crate::core::store::directory::{Directory, DirectoryEnum2};
-use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
-use crate::core::store::{ByteBuffersDirectory, IOContext, NoLockFactory};
+use crate::core::store::directory::{DirEnum, Directory, DirectoryEnum2, MockDirWrapper};
+use crate::core::store::{IOContext, NoLockFactory};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared, new_fs_directory,
-  new_index_writer_config, new_mock_directory, new_mock_directory_with_lock_factory,
+  create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared,
+  new_directory_with_lock_factory, new_fs_directory, new_index_writer_config, new_mock_directory,
   new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -519,16 +517,13 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
 fn test_add_too_many_indexes_dir() -> Result<()> {
   let mut random = random();
 
-  type SourceDirectory = MockDirectoryWrapper<ByteBuffersDirectory<NoLockFactory>>;
-  type TargetDirectory = MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>;
+  type SourceDirectory = DirEnum;
+  type TargetDirectory = MockDirWrapper;
   type FilterDirectory = AddIndexesFilterDirectory<SourceDirectory>;
   type TestDirectory = DirectoryEnum2<TargetDirectory, FilterDirectory>;
 
   // we cheat and add the same one over again... IW wants a write lock on each
-  let source = Arc::new(new_mock_directory_with_lock_factory(
-    &mut random,
-    NoLockFactory,
-  )?);
+  let source = Arc::new(new_directory_with_lock_factory(&mut random, NoLockFactory)?);
   let w = IndexWriter::new(source.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..100000 {
     w.add_document(Document::new())?;
@@ -578,10 +573,7 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
 fn test_add_too_many_indexes_codec_reader() -> Result<()> {
   let mut random = random();
 
-  let source = Arc::new(new_mock_directory_with_lock_factory(
-    &mut random,
-    NoLockFactory,
-  )?);
+  let source = Arc::new(new_directory_with_lock_factory(&mut random, NoLockFactory)?);
   let w = IndexWriter::new(source.clone(), new_index_writer_config(&mut random)?)?;
   for _ in 0..100000 {
     w.add_document(Document::new())?;

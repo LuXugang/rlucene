@@ -35,9 +35,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::store::byte_buffers_directory::ByteBuffersDirectory;
-use crate::core::store::directory::Directory;
-use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
+use crate::core::store::directory::{Directory, MaybeNrtDirEnum, MockDirWrapper};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
@@ -65,7 +63,7 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterOnError;
 
-type TestDirectory = MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>;
+type TestDirectory = MockDirWrapper;
 
 struct OnErrorAnalyzer {
   analyzer_seed: u64,
@@ -121,7 +119,7 @@ enum Disaster {
 fn do_test<F>(random: &mut StdRng, fail_on: F) -> Result<()>
 where
   F: Clone + Send + 'static,
-  F: Failure<ByteBuffersDirectory<SingleInstanceLockFactory>>,
+  F: Failure<MaybeNrtDirEnum>,
 {
   // log all exceptions we hit, in case we fail (for debugging)
   let mut exception_log = String::new();

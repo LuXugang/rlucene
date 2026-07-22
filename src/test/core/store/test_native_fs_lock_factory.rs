@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{FSDirectory, NativeFSLockFactory};
+use crate::core::store::NativeFSLockFactory;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
+use crate::test_framework::core::util::lucene_test_case::new_fs_directory_with_lock_factory;
 use std::path::PathBuf;
 
 /** Simple tests for NativeFSLockFactory */
@@ -25,27 +26,41 @@ use std::path::PathBuf;
 struct TestNativeFSLockFactory;
 
 impl BaseLockFactoryTestCase for TestNativeFSLockFactory {
-  type Directory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
+  type Directory = DirEnum;
 
-  fn get_directory<R>(&self, _random: &mut R, path: PathBuf) -> Result<Self::Directory>
+  fn get_directory<R>(&self, random: &mut R, path: PathBuf) -> Result<Self::Directory>
   where
     R: rand::Rng + ?Sized,
   {
-    // TODO: Java's newFSDirectory(path, lockFactory) randomizes the FSDirectory implementation
-    // and wraps it. Rust currently only supports NIOFSDirectory on this test path.
-    NIOFSDirectory::new(path)
+    new_fs_directory_with_lock_factory(random, path, NativeFSLockFactory::new())
   }
 }
 
 mod native_fs_lock_factory_tests {
   use super::TestNativeFSLockFactory;
-  use crate::core::store::directory::Directory;
-  use crate::core::store::lock::Lock;
+  use crate::core::store::directory::{DirEnum, Directory, RawDirEnum};
+  use crate::core::store::lock::{Lock, LockEnum, LockEnum2, LockEnum3};
   use crate::core::util::close::{Closeable, CloseableRef};
   use crate::core::util::error::lucene_error::Result;
   use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
   use crate::test_framework::core::util::lucene_test_case::{create_temp_dir, random};
   use std::fs::{self, File};
+
+  fn release_raw_native_lock(lock: &<RawDirEnum as Directory>::Lock) -> Result<()> {
+    match lock {
+      LockEnum2::A(LockEnum3::A(LockEnum::Native(lock)))
+      | LockEnum2::A(LockEnum3::B(LockEnum::Native(lock))) => lock.release_lock_for_test(),
+      _ => unreachable!("newFSDirectory must use NativeFSLockFactory"),
+    }
+  }
+
+  fn release_native_lock(lock: &<DirEnum as Directory>::Lock) -> Result<()> {
+    match lock {
+      LockEnum2::A(lock) | LockEnum2::B(lock) => match lock {
+        LockEnum2::A(lock) | LockEnum2::B(lock) => release_raw_native_lock(lock),
+      },
+    }
+  }
 
   /** Verify NativeFSLockFactory works correctly if the lock file exists */
   #[test]
@@ -72,7 +87,7 @@ mod native_fs_lock_factory_tests {
     let lock = dir.obtain_lock("test.lock")?;
     lock.ensure_valid()?;
 
-    lock.release_lock_for_test()?;
+    release_native_lock(&lock)?;
     assert!(lock.ensure_valid().is_err());
 
     lock.close()?;
@@ -127,10 +142,10 @@ mod native_fs_lock_factory_tests {
     // create a directory that will fail while creating test.lock
     let tmp_dir = create_temp_dir()?;
     let index_dir = tmp_dir.path().join("indexDir");
-    let dir = case.get_directory(&mut random, index_dir)?;
-    let mut permissions = fs::metadata(&dir.directory)?.permissions();
+    let dir = case.get_directory(&mut random, index_dir.clone())?;
+    let mut permissions = fs::metadata(&index_dir)?.permissions();
     permissions.set_readonly(true);
-    fs::set_permissions(&dir.directory, permissions)?;
+    fs::set_permissions(&index_dir, permissions)?;
 
     let result = dir.obtain_lock("test.lock");
 

@@ -45,8 +45,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, random, random_from_seed,
+  at_least, is_night_mode, new_index_writer_config_with_analyzer,
+  new_maybe_virus_checking_directory, new_searcher_with_reader, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -418,7 +418,7 @@ impl TestStressNRT {
 
     let num_committing = Arc::new(AtomicI32::new(0));
 
-    let dir = new_directory_shared(&mut rand)?;
+    let dir = new_maybe_virus_checking_directory(&mut rand)?;
 
     let writer = {
       let analyzer = MockAnalyzer::new(&mut rand);

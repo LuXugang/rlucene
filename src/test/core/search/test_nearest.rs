@@ -42,8 +42,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, at_least_usize, new_directory_shared, new_index_writer_config, new_log_merge_policy,
-  new_searcher_with_reader, random,
+  at_least, at_least_usize, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
+  new_index_writer_config, new_log_merge_policy, new_searcher_with_reader, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -263,7 +263,11 @@ fn test_nearest_neighbor_random() -> Result<()> {
   let mut random = random();
 
   let num_points = at_least_usize(&mut random, 1000);
-  let dir = new_directory_shared(&mut random)?;
+  let dir = if num_points > 100_000 {
+    new_fs_directory(&mut random, create_temp_dir_with_prefix("TestNearest")?)?
+  } else {
+    new_directory_shared(&mut random)?
+  };
 
   let mut lats = vec![0.0; num_points];
   let mut lons = vec![0.0; num_points];

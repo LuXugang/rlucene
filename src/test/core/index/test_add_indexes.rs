@@ -51,7 +51,7 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::byte_buffers_directory::ByteBuffersDirectory;
-use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::directory::{DirEnum, Directory, DirectoryEnum2};
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -522,8 +522,8 @@ fn test_no_copy_segments() -> Result<()> {
 #[test]
 fn test_no_merge_after_copy() -> Result<()> {
   let mut random = random();
-  let dir = Arc::new(ByteBuffersDirectory::new());
-  let aux = Arc::new(ByteBuffersDirectory::new());
+  let dir = new_directory_shared(&mut random)?;
+  let aux = new_directory_shared(&mut random)?;
   let mut field_types = HashMap::new();
 
   set_up_dirs(&mut random, dir.clone(), aux.clone(), &mut field_types)?;
@@ -535,7 +535,14 @@ fn test_no_merge_after_copy() -> Result<()> {
   conf.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 4)?);
   let writer = new_writer(dir.clone(), conf)?;
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
-  writer.add_indexes_from_directory(&[aux.clone(), aux_copy])?;
+  let dirs = [
+    Arc::new(DirectoryEnum2::A(aux.clone())),
+    Arc::new(DirectoryEnum2::B(MockDirectoryWrapper::new(
+      &mut random,
+      aux_copy,
+    ))),
+  ];
+  writer.add_indexes_from_directory(&dirs)?;
   assert_eq!(1060, writer.get_doc_stats()?.max_doc);
   assert_eq!(1000, writer.max_doc(0));
   writer.close()?;
@@ -548,8 +555,8 @@ fn test_no_merge_after_copy() -> Result<()> {
 #[test]
 fn test_merge_after_copy() -> Result<()> {
   let mut random = random();
-  let dir = Arc::new(ByteBuffersDirectory::new());
-  let aux = Arc::new(ByteBuffersDirectory::new());
+  let dir = new_directory_shared(&mut random)?;
+  let aux = new_directory_shared(&mut random)?;
   let mut field_types = HashMap::new();
 
   set_up_dirs_with_id(
@@ -585,7 +592,14 @@ fn test_merge_after_copy() -> Result<()> {
     println!("\nTEST: now addIndexes");
   }
   let aux_copy = TestUtil::ram_copy_of(&mut random, aux.as_ref())?;
-  writer.add_indexes_from_directory(&[aux.clone(), aux_copy])?;
+  let dirs = [
+    Arc::new(DirectoryEnum2::A(aux.clone())),
+    Arc::new(DirectoryEnum2::B(MockDirectoryWrapper::new(
+      &mut random,
+      aux_copy,
+    ))),
+  ];
+  writer.add_indexes_from_directory(&dirs)?;
   assert_eq!(1020, writer.get_doc_stats()?.max_doc);
   assert_eq!(1000, writer.max_doc(0));
   writer.close()?;
@@ -1125,10 +1139,7 @@ fn test_add_indexes_with_empty_merge_spec() -> Result<()> {
 #[test]
 fn test_add_indexes_with_empty_readers() -> Result<()> {
   let mut random = random();
-  let dest_dir: Arc<AddIndexesDirectory> = Arc::new(MockDirectoryWrapper::new(
-    &mut random,
-    Arc::new(ByteBuffersDirectory::new()),
-  ));
+  let dest_dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_merge_policy(ConcurrentAddIndexesMergePolicy::default());
@@ -1197,10 +1208,7 @@ fn test_add_indexes_hitting_max_docs_limit() -> Result<()> {
     let mut random = random();
 
     // Create destination writer.
-    let dest_dir: Arc<AddIndexesDirectory> = Arc::new(MockDirectoryWrapper::new(
-      &mut random,
-      Arc::new(ByteBuffersDirectory::new()),
-    ));
+    let dest_dir = new_directory_shared(&mut random)?;
     let analyzer = MockAnalyzer::new(&mut random);
     let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
     iwc.set_merge_policy(ConcurrentAddIndexesMergePolicy::default());

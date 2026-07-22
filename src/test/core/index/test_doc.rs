@@ -49,7 +49,8 @@ use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::{LATEST, StringHelper};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_io_context, new_io_context_with_default, random,
+  create_temp_dir_with_prefix, new_fs_directory, new_io_context, new_io_context_with_default,
+  random,
 };
 use parking_lot::Mutex;
 use std::collections::HashMap;
@@ -59,12 +60,13 @@ use std::sync::Arc;
 struct TestDoc;
 #[test]
 fn test_index_and_merge() -> Result<()> {
+  let mut random = random();
   let files = [
     ("test.txt", "This is the first test file"),
     ("test2.txt", "This is the second test file"),
   ];
 
-  let directory = new_directory_shared(&mut random())?;
+  let directory = new_fs_directory(&mut random, create_temp_dir_with_prefix("TestDoc-index")?)?;
 
   let si1 = index_doc(directory.clone(), files[0].0, files[0].1)?;
   let si2 = index_doc(directory.clone(), files[1].0, files[1].1)?;
@@ -84,7 +86,7 @@ fn test_index_and_merge() -> Result<()> {
     out
   };
 
-  let directory2 = new_directory_shared(&mut random())?;
+  let directory2 = new_fs_directory(&mut random, create_temp_dir_with_prefix("TestDoc-index2")?)?;
 
   let si1_2 = index_doc(directory2.clone(), files[0].0, files[0].1)?;
   let si2_2 = index_doc(directory2.clone(), files[1].0, files[1].1)?;

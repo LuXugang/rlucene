@@ -35,7 +35,6 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::store::directory::DirectoryEnum2;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -581,13 +580,9 @@ fn test_term_vector_corruption() -> Result<()> {
     iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     iwc.set_merge_policy(LogMergePolicy::log_doc());
-    let writer_dir = Arc::new(DirectoryEnum2::A(dir.clone()));
-    let writer = IndexWriter::new(writer_dir, iwc)?;
+    let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    let index_dirs = vec![Arc::new(DirectoryEnum2::B(TestUtil::ram_copy_of(
-      &mut random,
-      dir.as_ref(),
-    )?))];
+    let index_dirs = vec![TestUtil::ram_copy_of(&mut random, dir.as_ref())?];
     writer.add_indexes_from_directory(&index_dirs)?;
     writer.force_merge(1)?;
     writer.close()?;

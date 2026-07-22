@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 use std::backtrace::Backtrace;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::ErrorKind;
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, LazyLock};
 
 use crate::core::analysis::analyzer::AnalyzerEnum;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
@@ -40,14 +41,21 @@ use crate::core::search::index_searcher::IndexSearcherHook;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
-use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::directory::{
+  CoreDirEnum, DirEnum, Directory, DirectoryEnum2, DirectoryEnum3, MaybeNrtDirEnum, MockDirWrapper,
+  RawDirEnum, SharedLockFactory,
+};
+use crate::core::store::file_switch_directory::FileSwitchDirectory;
 use crate::core::store::flush_info::FlushInfo;
-use crate::core::store::lock_factory::{LockFactory, LockFactoryEnum};
+use crate::core::store::fs_lock_factory;
+use crate::core::store::lock_factory::LockFactoryEnum;
 use crate::core::store::merge_info::MergeInfo;
+use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::nrt_caching_directory::NRTCachingDirectory;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::store::{
-  ByteBuffersDirectory, FSDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext,
+  ByteBuffersDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext,
 };
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
@@ -56,49 +64,21 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 #[cfg(test)]
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::store::mock_directory_wrapper::{
+  MockDirectoryWrapper, Throttling,
+};
+use crate::test_framework::core::store::raw_directory_wrapper::RawDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::EnvConfig::{
   Multiplier, NightMode, TestSeed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
-use rand::prelude::StdRng;
+use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
 use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick search
 pub struct LuceneTestCase;
 
-/// A [`QueryCachingPolicy`] that randomly caches.
-pub(crate) struct MaybeCachePolicy {
-  random: parking_lot::Mutex<StdRng>,
-}
-
-impl MaybeCachePolicy {
-  pub(crate) fn new(random: StdRng) -> Self {
-    Self {
-      random: parking_lot::Mutex::new(random),
-    }
-  }
-}
-
-impl QueryCachingPolicy for MaybeCachePolicy {
-  fn on_use(&self, _query: &Query) {}
-
-  fn should_cache(&self, _query: &Query) -> Result<bool> {
-    Ok(self.random.lock().random_bool(0.5))
-  }
-}
-
-pub(crate) fn maybe_change_live_index_writer_config<R, C>(
-  _random: &mut R,
-  _config: &mut C,
-) -> Result<()>
-where
-  R: Rng + ?Sized,
-  C: LiveIndexWriterConfig + ?Sized,
-{
-  Ok(())
-}
 /// Describes the currently supported environment variables used to control
 /// Lucene tests.
 ///
@@ -125,6 +105,37 @@ impl fmt::Display for EnvConfig {
 
 pub const DEFAULT_LINE_DOCS_FILE: &str = "europarl.lines.txt.gz";
 
+#[derive(Clone, Copy)]
+pub(crate) enum DirectoryImpl {
+  Random,
+  NioFsDirectory,
+  MMapDirectory,
+  ByteBuffersDirectory,
+}
+
+pub(crate) const TEST_DIRECTORY: DirectoryImpl = DirectoryImpl::Random;
+
+pub(crate) static TEST_THROTTLING: LazyLock<Throttling> = LazyLock::new(|| {
+  if is_night_mode() {
+    Throttling::Sometimes
+  } else {
+    Throttling::Never
+  }
+});
+
+const FS_DIRECTORIES: [DirectoryImpl; 2] =
+  [DirectoryImpl::NioFsDirectory, DirectoryImpl::MMapDirectory];
+
+const CORE_DIRECTORIES: [DirectoryImpl; 3] = [
+  FS_DIRECTORIES[0],
+  FS_DIRECTORIES[1],
+  DirectoryImpl::ByteBuffersDirectory,
+];
+
+pub fn is_night_mode() -> bool {
+  std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
+}
+
 pub(crate) fn random_multiplier() -> i32 {
   let multiplier = std::env::var(Multiplier.to_string()).ok();
 
@@ -135,6 +146,66 @@ pub(crate) fn random_multiplier() -> i32 {
 
 fn default_random_multiplier() -> i32 {
   if is_night_mode() { 2 } else { 1 }
+}
+
+/// A [`QueryCachingPolicy`] that randomly caches.
+pub(crate) struct MaybeCachePolicy {
+  random: parking_lot::Mutex<StdRng>,
+}
+
+impl MaybeCachePolicy {
+  pub(crate) fn new(random: StdRng) -> Self {
+    Self {
+      random: parking_lot::Mutex::new(random),
+    }
+  }
+}
+
+impl QueryCachingPolicy for MaybeCachePolicy {
+  fn on_use(&self, _query: &Query) {}
+
+  fn should_cache(&self, _query: &Query) -> Result<bool> {
+    Ok(self.random.lock().random_bool(0.5))
+  }
+}
+
+/// Retrieves the seed from the environment variable "tests.seed".
+/// If the environment variable is not set or cannot be parsed as a `u64`,
+/// it generates a random seed and logs the result.
+///
+/// # Returns
+/// A valid `u64` seed.
+pub(crate) fn get_seed_from_env() -> u64 {
+  static GLOBAL_SEED: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+
+  fn current_seed() -> u64 {
+    if let Some(seed) = GLOBAL_SEED.get() {
+      *seed
+    } else if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
+      if let Ok(seed) = seed_str.parse::<u64>() {
+        println!("Using Global Seed from environment: '{}'", seed);
+        seed
+      } else {
+        println!("Environment variable tests.seed is invalid: '{}'", seed_str);
+        let seed = rand::rng().random_range(0..u64::MAX);
+        println!("Generated random seed: {}", seed);
+        seed
+      }
+    } else {
+      let seed = rand::rng().random_range(0..u64::MAX);
+      println!("Generated random seed: {}", seed);
+      seed
+    }
+  }
+  current_seed()
+}
+
+pub(crate) fn random() -> StdRng {
+  StdRng::seed_from_u64(get_seed_from_env())
+}
+
+pub(crate) fn random_from_seed(seed: u64) -> StdRng {
+  StdRng::seed_from_u64(seed)
 }
 
 pub fn get_only_leaf_reader<IR>(
@@ -191,6 +262,17 @@ where
   !rarely(random)
 }
 
+/// Creates a new index writer config with a snapshot deletion policy.
+pub(crate) fn new_snapshot_index_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let mut config = new_index_writer_config(random)?;
+  config.set_index_deletion_policy(SnapshotDeletionPolicy::new(NoDeletionPolicy));
+  Ok(config)
+}
+
 pub(crate) fn new_index_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
 where
   D: Directory,
@@ -200,6 +282,7 @@ where
   let mock = MockAnalyzer::new(random);
   new_index_writer_config_with_analyzer(random, mock)
 }
+
 pub(crate) fn new_index_writer_config_with_analyzer<D, T, R>(
   _random: &mut R,
   analyzer: T,
@@ -211,17 +294,6 @@ where
 {
   // TODO: 这里简单返回IndexWriterConfig::with_analyzer()，后续可以根据random随机生成不同的配置
   IndexWriterConfig::with_analyzer(analyzer)
-}
-
-/// Creates a new index writer config with a snapshot deletion policy.
-pub(crate) fn new_snapshot_index_writer_config<D, R>(random: &mut R) -> Result<IndexWriterConfig<D>>
-where
-  D: Directory,
-  R: Rng + ?Sized,
-{
-  let mut config = new_index_writer_config(random)?;
-  config.set_index_deletion_policy(SnapshotDeletionPolicy::new(NoDeletionPolicy));
-  Ok(config)
 }
 
 pub fn new_merge_policy<D, R>(r: &mut R) -> Result<MergePolicyEnum<D>>
@@ -243,63 +315,6 @@ where
   // TODO
   Ok(new_tiered_merge_policy(r).into())
 }
-pub fn new_tiered_merge_policy<R>(_r: &mut R) -> TieredMergePolicy
-where
-  R: Rng + ?Sized,
-{
-  // TODO
-  TieredMergePolicy::new()
-}
-pub fn new_log_merge_policy_with_merge_factor_cfs<D, R>(
-  r: &mut R,
-  use_cfs: bool,
-  merge_factor: i32,
-) -> Result<MergePolicyEnum<D>>
-where
-  D: Directory,
-  R: Rng + ?Sized,
-{
-  let lomp = new_log_merge_policy::<D, R>(r)?;
-  let ratio = if use_cfs { 1.0 } else { 0.0 };
-  match lomp {
-    MergePolicyEnum::LogDoc(mut log_doc) => {
-      MergePolicy::<D>::get_base_mut(&mut log_doc).set_no_cfs_ratio(ratio)?;
-      log_doc.set_merge_factor(merge_factor as usize)?;
-      Ok(log_doc.into())
-    },
-    MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
-      MergePolicy::<D>::get_base_mut(&mut log_bytes_size).set_no_cfs_ratio(ratio)?;
-      log_bytes_size.set_merge_factor(merge_factor as usize)?;
-      Ok(log_bytes_size.into())
-    },
-    _ => Err(LuceneError::illegal_argument(
-      "Expected a LogMergePolicyEnum variant",
-    )),
-  }
-}
-pub fn new_log_merge_policy_with_merge_factor<D, R>(
-  r: &mut R,
-  merge_factor: i32,
-) -> Result<MergePolicyEnum<D>>
-where
-  D: Directory,
-  R: Rng + ?Sized,
-{
-  let lomp = new_log_merge_policy::<D, R>(r)?;
-  match lomp {
-    MergePolicyEnum::LogDoc(mut log_doc) => {
-      log_doc.set_merge_factor(merge_factor as usize)?;
-      Ok(log_doc.into())
-    },
-    MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
-      log_bytes_size.set_merge_factor(merge_factor as usize)?;
-      Ok(log_bytes_size.into())
-    },
-    _ => Err(LuceneError::illegal_argument(
-      "Expected a LogMergePolicyEnum variant",
-    )),
-  }
-}
 pub fn new_log_merge_policy<D, R>(r: &mut R) -> Result<MergePolicyEnum<D>>
 where
   D: Directory,
@@ -316,27 +331,6 @@ where
   };
 
   Ok(logmp)
-}
-pub fn new_log_merge_policy_with_cfs<D, R>(r: &mut R, use_cfs: bool) -> Result<MergePolicyEnum<D>>
-where
-  D: Directory,
-  R: Rng + ?Sized,
-{
-  let lomp = new_log_merge_policy::<D, R>(r)?;
-  let ratio = if use_cfs { 1.0 } else { 0.0 };
-  match lomp {
-    MergePolicyEnum::LogDoc(mut log_doc) => {
-      MergePolicy::<D>::get_base_mut(&mut log_doc).set_no_cfs_ratio(ratio)?;
-      Ok(log_doc.into())
-    },
-    MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
-      MergePolicy::<D>::get_base_mut(&mut log_bytes_size).set_no_cfs_ratio(ratio)?;
-      Ok(log_bytes_size.into())
-    },
-    _ => Err(LuceneError::illegal_argument(
-      "Expected a LogMergePolicyEnum variant",
-    )),
-  }
 }
 fn set_meta<D, R>(r: &mut R, mp: &mut LogMergePolicy<impl LogMergePolicyBase>) -> Result<()>
 where
@@ -383,6 +377,107 @@ where
   Ok(())
 }
 
+pub fn new_tiered_merge_policy<R>(_r: &mut R) -> TieredMergePolicy
+where
+  R: Rng + ?Sized,
+{
+  // TODO
+  TieredMergePolicy::new()
+}
+
+pub fn new_log_merge_policy_with_cfs<D, R>(r: &mut R, use_cfs: bool) -> Result<MergePolicyEnum<D>>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let lomp = new_log_merge_policy::<D, R>(r)?;
+  let ratio = if use_cfs { 1.0 } else { 0.0 };
+  match lomp {
+    MergePolicyEnum::LogDoc(mut log_doc) => {
+      MergePolicy::<D>::get_base_mut(&mut log_doc).set_no_cfs_ratio(ratio)?;
+      Ok(log_doc.into())
+    },
+    MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
+      MergePolicy::<D>::get_base_mut(&mut log_bytes_size).set_no_cfs_ratio(ratio)?;
+      Ok(log_bytes_size.into())
+    },
+    _ => Err(LuceneError::illegal_argument(
+      "Expected a LogMergePolicyEnum variant",
+    )),
+  }
+}
+
+pub fn new_log_merge_policy_with_merge_factor_cfs<D, R>(
+  r: &mut R,
+  use_cfs: bool,
+  merge_factor: i32,
+) -> Result<MergePolicyEnum<D>>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let lomp = new_log_merge_policy::<D, R>(r)?;
+  let ratio = if use_cfs { 1.0 } else { 0.0 };
+  match lomp {
+    MergePolicyEnum::LogDoc(mut log_doc) => {
+      MergePolicy::<D>::get_base_mut(&mut log_doc).set_no_cfs_ratio(ratio)?;
+      log_doc.set_merge_factor(merge_factor as usize)?;
+      Ok(log_doc.into())
+    },
+    MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
+      MergePolicy::<D>::get_base_mut(&mut log_bytes_size).set_no_cfs_ratio(ratio)?;
+      log_bytes_size.set_merge_factor(merge_factor as usize)?;
+      Ok(log_bytes_size.into())
+    },
+    _ => Err(LuceneError::illegal_argument(
+      "Expected a LogMergePolicyEnum variant",
+    )),
+  }
+}
+
+pub fn new_log_merge_policy_with_merge_factor<D, R>(
+  r: &mut R,
+  merge_factor: i32,
+) -> Result<MergePolicyEnum<D>>
+where
+  D: Directory,
+  R: Rng + ?Sized,
+{
+  let lomp = new_log_merge_policy::<D, R>(r)?;
+  match lomp {
+    MergePolicyEnum::LogDoc(mut log_doc) => {
+      log_doc.set_merge_factor(merge_factor as usize)?;
+      Ok(log_doc.into())
+    },
+    MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
+      log_bytes_size.set_merge_factor(merge_factor as usize)?;
+      Ok(log_bytes_size.into())
+    },
+    _ => Err(LuceneError::illegal_argument(
+      "Expected a LogMergePolicyEnum variant",
+    )),
+  }
+}
+
+pub(crate) fn maybe_change_live_index_writer_config<R, C>(
+  _random: &mut R,
+  _config: &mut C,
+) -> Result<()>
+where
+  R: Rng + ?Sized,
+  C: LiveIndexWriterConfig + ?Sized,
+{
+  Ok(())
+}
+
+pub(crate) fn new_directory_shared<R>(random: &mut R) -> Result<Arc<DirEnum>>
+where
+  R: Rng + ?Sized,
+{
+  let dir = new_directory(random)?;
+  Ok(Arc::new(dir))
+}
+
 pub(crate) fn new_maybe_virus_checking_directory<R>(random: &mut R) -> Result<Arc<DirEnum>>
 where
   R: Rng + ?Sized,
@@ -392,76 +487,175 @@ where
   Ok(Arc::new(dir))
 }
 
-pub(crate) fn new_mock_directory<R>(
-  random: &mut R,
-) -> Result<MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>>
+pub(crate) fn new_directory<R>(random: &mut R) -> Result<DirEnum>
 where
   R: Rng + ?Sized,
 {
-  Ok(MockDirectoryWrapper::new(
-    random,
-    ByteBuffersDirectory::new(),
-  ))
+  let directory = new_directory_impl(random, TEST_DIRECTORY)?;
+  let bare = rarely(random);
+  Ok(wrap_directory(random, directory, bare, false))
 }
 
-pub(crate) fn new_mock_directory_with_lock_factory<R, LF>(
-  random: &mut R,
-  lock_factory: LF,
-) -> Result<MockDirectoryWrapper<ByteBuffersDirectory<LF>>>
-where
-  R: Rng + ?Sized,
-  LF: LockFactory + Send + Sync + 'static,
-{
-  Ok(MockDirectoryWrapper::new(
-    random,
-    ByteBuffersDirectory::with_lock_factory(lock_factory),
-  ))
-}
-
-pub(crate) fn new_mock_fs_directory<R>(
-  random: &mut R,
-  temp_dir: TempDir,
-) -> Result<MockDirectoryWrapper<DirEnum>>
-where
-  R: Rng + ?Sized,
-{
-  let dir = NIOFSDirectory::new(temp_dir.keep())?;
-  Ok(MockDirectoryWrapper::new(random, dir))
-}
-
-// TODO: When we have implemented multiple directories, we need to select one
-// randomly. Currently, we choose NIOFSDirectory.
-pub(crate) fn new_directory_shared<R>(random: &mut R) -> Result<Arc<DirEnum>>
-where
-  R: Rng + ?Sized,
-{
-  let dir = new_directory(random)?;
-  Ok(Arc::new(dir))
-}
-pub(crate) fn new_directory<R>(_random: &mut R) -> Result<DirEnum>
-where
-  R: Rng + ?Sized,
-{
-  let temp_dir = TempDir::new()?;
-  NIOFSDirectory::new(temp_dir.keep())
-}
 pub(crate) fn new_directory_with_lock_factory<R, T>(
-  _random: &mut R,
+  random: &mut R,
   lock_factory: T,
-) -> Result<FSDirectory<LockFactoryEnum, NIOFSDirectory>>
+) -> Result<DirEnum>
 where
   R: Rng + ?Sized,
   T: Into<LockFactoryEnum>,
 {
-  let temp_dir = TempDir::new()?;
-  NIOFSDirectory::with_lock_factory(temp_dir.keep(), lock_factory.into())
+  let directory =
+    new_directory_impl_with_lock_factory(random, TEST_DIRECTORY, Arc::new(lock_factory.into()))?;
+  let bare = rarely(random);
+  Ok(wrap_directory(random, directory, bare, false))
 }
 
-pub(crate) fn new_fs_directory<R>(_random: &mut R, temp_dir: TempDir) -> Result<Arc<DirEnum>>
+pub(crate) fn new_mock_directory<R>(random: &mut R) -> Result<MockDirWrapper>
 where
   R: Rng + ?Sized,
 {
-  Ok(Arc::new(NIOFSDirectory::new(temp_dir.keep())?))
+  let directory = new_directory_impl(random, TEST_DIRECTORY)?;
+  match wrap_directory(random, directory, false, false) {
+    DirectoryEnum2::B(directory) => Ok(directory),
+    _ => unreachable!("bare=false must create a MockDirectoryWrapper"),
+  }
+}
+
+pub(crate) fn new_mock_directory_with_lock_factory<R, T>(
+  random: &mut R,
+  lock_factory: T,
+) -> Result<MockDirWrapper>
+where
+  R: Rng + ?Sized,
+  T: Into<LockFactoryEnum>,
+{
+  let directory =
+    new_directory_impl_with_lock_factory(random, TEST_DIRECTORY, Arc::new(lock_factory.into()))?;
+  match wrap_directory(random, directory, false, false) {
+    DirectoryEnum2::B(directory) => Ok(directory),
+    _ => unreachable!("bare=false must create a MockDirectoryWrapper"),
+  }
+}
+
+pub(crate) fn new_mock_fs_directory<R>(random: &mut R, temp_dir: TempDir) -> Result<MockDirWrapper>
+where
+  R: Rng + ?Sized,
+{
+  new_mock_fs_directory_with_lock_factory(random, temp_dir, fs_lock_factory::get_default())
+}
+
+pub(crate) fn new_mock_fs_directory_with_lock_factory<R, T>(
+  random: &mut R,
+  temp_dir: TempDir,
+  lock_factory: T,
+) -> Result<MockDirWrapper>
+where
+  R: Rng + ?Sized,
+  T: Into<LockFactoryEnum>,
+{
+  match new_fs_directory_with_lock_factory_and_bare(random, temp_dir.keep(), lock_factory, false)? {
+    DirectoryEnum2::B(directory) => Ok(directory),
+    _ => unreachable!("bare=false must create a MockDirectoryWrapper"),
+  }
+}
+
+pub(crate) fn new_fs_directory<R>(random: &mut R, temp_dir: TempDir) -> Result<Arc<DirEnum>>
+where
+  R: Rng + ?Sized,
+{
+  let bare = rarely(random);
+  Ok(Arc::new(new_fs_directory_with_lock_factory_and_bare(
+    random,
+    temp_dir.keep(),
+    fs_lock_factory::get_default(),
+    bare,
+  )?))
+}
+
+pub(crate) fn new_fs_directory_with_lock_factory<R, T>(
+  random: &mut R,
+  path: PathBuf,
+  lock_factory: T,
+) -> Result<DirEnum>
+where
+  R: Rng + ?Sized,
+  T: Into<LockFactoryEnum>,
+{
+  let bare = rarely(random);
+  new_fs_directory_with_lock_factory_and_bare(random, path, lock_factory, bare)
+}
+
+fn new_fs_directory_with_lock_factory_and_bare<R, T>(
+  random: &mut R,
+  path: PathBuf,
+  lock_factory: T,
+  bare: bool,
+) -> Result<DirEnum>
+where
+  R: Rng + ?Sized,
+  T: Into<LockFactoryEnum>,
+{
+  let directory_impl = match TEST_DIRECTORY {
+    DirectoryImpl::NioFsDirectory | DirectoryImpl::MMapDirectory => TEST_DIRECTORY,
+    DirectoryImpl::Random | DirectoryImpl::ByteBuffersDirectory => {
+      FS_DIRECTORIES[random.random_range(0..FS_DIRECTORIES.len())]
+    },
+  };
+
+  let directory = new_fs_directory_impl(directory_impl, path, Arc::new(lock_factory.into()))?;
+  Ok(wrap_directory(random, directory, bare, true))
+}
+
+fn new_file_switch_directory<R>(
+  random: &mut R,
+  dir1: CoreDirEnum,
+  dir2: CoreDirEnum,
+) -> Result<RawDirEnum>
+where
+  R: Rng + ?Sized,
+{
+  let mut file_extensions = vec![
+    "fdt", "fdx", "tim", "tip", "si", "fnm", "pos", "dii", "dim", "nvm", "nvd", "dvm", "dvd",
+  ];
+  file_extensions.shuffle(random);
+  let length = random.random_range(1..=file_extensions.len());
+  let primary_extensions = file_extensions[..length]
+    .iter()
+    .map(|extension| (*extension).to_string())
+    .collect::<HashSet<_>>();
+  Ok(RawDirEnum::FileSwitch(FileSwitchDirectory::new(
+    primary_extensions,
+    dir1,
+    dir2,
+    true,
+  )?))
+}
+
+fn wrap_directory<R>(random: &mut R, directory: RawDirEnum, bare: bool, filesystem: bool) -> DirEnum
+where
+  R: Rng + ?Sized,
+{
+  // IOContext randomization might make NRTCachingDirectory make bad decisions, so avoid
+  // using it if the user requested a filesystem directory.
+  let directory: MaybeNrtDirEnum = if rarely(random) && !bare && !filesystem {
+    DirectoryEnum2::B(NRTCachingDirectory::new(
+      directory,
+      random.random::<f64>(),
+      random.random::<f64>(),
+    ))
+  } else {
+    DirectoryEnum2::A(directory)
+  };
+
+  // The Rust test framework does not yet have a suite-level close registry equivalent to
+  // closeAfterSuite; directory owners remain responsible for explicitly closing the wrapper.
+  if bare {
+    DirectoryEnum2::A(RawDirectoryWrapper::new(random, directory))
+  } else {
+    let mock = MockDirectoryWrapper::new(random, directory);
+    mock.set_throttling(*TEST_THROTTLING);
+    DirectoryEnum2::B(mock)
+  }
 }
 
 pub(crate) fn new_string_field<S1, S2, R>(
@@ -676,6 +870,111 @@ pub(crate) fn create_field(
   }
 }
 
+fn new_fs_directory_impl(
+  directory_impl: DirectoryImpl,
+  path: PathBuf,
+  lock_factory: SharedLockFactory,
+) -> Result<RawDirEnum> {
+  match directory_impl {
+    DirectoryImpl::NioFsDirectory => Ok(RawDirEnum::Nio(NIOFSDirectory::with_lock_factory(
+      path,
+      lock_factory,
+    )?)),
+    DirectoryImpl::MMapDirectory => Ok(RawDirEnum::MMap(MMapDirectory::with_lock_factory(
+      path,
+      lock_factory,
+    )?)),
+    DirectoryImpl::Random | DirectoryImpl::ByteBuffersDirectory => {
+      unreachable!("FS directory implementation must be resolved")
+    },
+  }
+}
+
+pub(crate) fn new_directory_impl<R>(
+  random: &mut R,
+  directory_impl: DirectoryImpl,
+) -> Result<RawDirEnum>
+where
+  R: Rng + ?Sized,
+{
+  new_directory_impl_with_lock_factory(
+    random,
+    directory_impl,
+    Arc::new(fs_lock_factory::get_default().into()),
+  )
+}
+
+pub(crate) fn new_directory_impl_with_lock_factory<R>(
+  random: &mut R,
+  mut directory_impl: DirectoryImpl,
+  lf: SharedLockFactory,
+) -> Result<RawDirEnum>
+where
+  R: Rng + ?Sized,
+{
+  if matches!(directory_impl, DirectoryImpl::Random) {
+    if rarely(random) {
+      directory_impl = CORE_DIRECTORIES[random.random_range(0..CORE_DIRECTORIES.len())];
+    } else if rarely(random) {
+      let directory_impl1 = if rarely(random) {
+        CORE_DIRECTORIES[random.random_range(0..CORE_DIRECTORIES.len())]
+      } else {
+        DirectoryImpl::ByteBuffersDirectory
+      };
+      let directory_impl2 = if rarely(random) {
+        CORE_DIRECTORIES[random.random_range(0..CORE_DIRECTORIES.len())]
+      } else {
+        DirectoryImpl::ByteBuffersDirectory
+      };
+      let dir1 = match new_directory_impl_with_lock_factory(random, directory_impl1, lf.clone())? {
+        RawDirEnum::Nio(directory) => DirectoryEnum3::A(directory),
+        RawDirEnum::MMap(directory) => DirectoryEnum3::B(directory),
+        RawDirEnum::ByteBuffers(directory) => DirectoryEnum3::C(directory),
+        RawDirEnum::FileSwitch(_) => {
+          unreachable!("CORE_DIRECTORIES must not create a FileSwitchDirectory")
+        },
+      };
+      let dir2 = match new_directory_impl_with_lock_factory(random, directory_impl2, lf)? {
+        RawDirEnum::Nio(directory) => DirectoryEnum3::A(directory),
+        RawDirEnum::MMap(directory) => DirectoryEnum3::B(directory),
+        RawDirEnum::ByteBuffers(directory) => DirectoryEnum3::C(directory),
+        RawDirEnum::FileSwitch(_) => {
+          unreachable!("CORE_DIRECTORIES must not create a FileSwitchDirectory")
+        },
+      };
+      return new_file_switch_directory(random, dir1, dir2);
+    } else {
+      directory_impl = DirectoryImpl::ByteBuffersDirectory;
+    }
+  }
+
+  match directory_impl {
+    DirectoryImpl::Random => unreachable!("random directory implementation must be resolved"),
+    DirectoryImpl::NioFsDirectory | DirectoryImpl::MMapDirectory => {
+      let prefix = match directory_impl {
+        DirectoryImpl::NioFsDirectory => "index-NIOFSDirectory",
+        DirectoryImpl::MMapDirectory => "index-MMapDirectory",
+        DirectoryImpl::Random | DirectoryImpl::ByteBuffersDirectory => unreachable!(),
+      };
+      let dir = create_temp_dir_with_prefix(prefix)?;
+      new_fs_directory_impl(directory_impl, dir.keep(), lf)
+    },
+    DirectoryImpl::ByteBuffersDirectory => {
+      let lock_factory = if matches!(
+        lf.as_ref(),
+        LockFactoryEnum::Simple(_) | LockFactoryEnum::Native(_)
+      ) {
+        Arc::new(SingleInstanceLockFactory::new().into())
+      } else {
+        lf
+      };
+      Ok(RawDirEnum::ByteBuffers(
+        ByteBuffersDirectory::with_lock_factory(lock_factory),
+      ))
+    },
+  }
+}
+
 pub(crate) fn new_io_context<R>(random: &mut R) -> Result<IOContext>
 where
   R: Rng + ?Sized,
@@ -736,42 +1035,8 @@ where
     }
   }
 }
-/// What level of concurrency is supported by the searcher being created
-pub enum Concurrency {
-  /// No concurrency, meaning an executor won't be provided to the searcher
-  None,
-  /// Inter-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search entire segments
-  InterSegment,
-  /// Intra-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search segment partitions
-  IntraSegment,
-}
-#[cfg(test)]
-pub fn new_searcher_with_concurrency<IR, R>(
-  random: &mut R,
+pub fn new_searcher_with_reader<IR>(
   reader: IR,
-  concurrency: Concurrency,
-) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
-where
-  IR: IndexReader,
-  R: Rng + ?Sized,
-{
-  let context = reader.get_context()?;
-  match concurrency {
-    Concurrency::None => IndexSearcher::new(context),
-    Concurrency::InterSegment => IndexSearcher::with_threads(context, random.random_range(2..=5)),
-    Concurrency::IntraSegment => Ok(
-      IndexSearcher::with_threads(context, random.random_range(2..=5))?.with_hook(
-        IndexSearcherHook::IntraSliceDocIdOrderWithPartitions(
-          IntraSliceDocIdOrderWithPartitionsIndexSearcher,
-        ),
-      ),
-    ),
-  }
-}
-pub fn new_searcher<IR>(
-  reader: IR,
-  _may_be_wrap: bool,
-  _wrap_with_assertions: bool,
 ) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
   IR: IndexReader,
@@ -779,6 +1044,7 @@ where
   let irc = reader.get_context()?;
   IndexSearcher::new(irc)
 }
+
 pub fn new_searcher_with_wrap<IR, R>(
   random: &mut R,
   reader: IR,
@@ -790,6 +1056,19 @@ where
 {
   new_searcher_with_wrap_assert(random, reader, may_be_wrap, true)
 }
+
+pub fn new_searcher<IR>(
+  reader: IR,
+  _may_be_wrap: bool,
+  _wrap_with_assertions: bool,
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
+where
+  IR: IndexReader,
+{
+  let irc = reader.get_context()?;
+  IndexSearcher::new(irc)
+}
+
 pub fn new_searcher_with_wrap_assert<IR, R>(
   random: &mut R,
   reader: IR,
@@ -823,14 +1102,87 @@ where
   }
 }
 
-pub fn new_searcher_with_reader<IR>(
+/// What level of concurrency is supported by the searcher being created
+pub enum Concurrency {
+  /// No concurrency, meaning an executor won't be provided to the searcher
+  None,
+  /// Inter-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search entire segments
+  InterSegment,
+  /// Intra-segment concurrency, meaning an executor will be provided to the searcher and slices will be randomly created to concurrently search segment partitions
+  IntraSegment,
+}
+
+#[cfg(test)]
+pub fn new_searcher_with_concurrency<IR, R>(
+  random: &mut R,
   reader: IR,
+  concurrency: Concurrency,
 ) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
   IR: IndexReader,
+  R: Rng + ?Sized,
 {
-  let irc = reader.get_context()?;
-  IndexSearcher::new(irc)
+  let context = reader.get_context()?;
+  match concurrency {
+    Concurrency::None => IndexSearcher::new(context),
+    Concurrency::InterSegment => IndexSearcher::with_threads(context, random.random_range(2..=5)),
+    Concurrency::IntraSegment => Ok(
+      IndexSearcher::with_threads(context, random.random_range(2..=5))?.with_hook(
+        IndexSearcherHook::IntraSliceDocIdOrderWithPartitions(
+          IntraSliceDocIdOrderWithPartitionsIndexSearcher,
+        ),
+      ),
+    ),
+  }
+}
+
+/// Inspects the stack trace to figure out if a method of a specific type
+/// called us.
+#[inline(never)]
+pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
+  let type_name = std::any::type_name::<T>();
+  let type_name = type_name.split('<').next().unwrap_or(type_name);
+  let method_name = format!("::{method_name}");
+  let helper_name = concat!(module_path!(), "::call_stack_contains");
+  Backtrace::force_capture().to_string().lines().any(|frame| {
+    !frame.contains(helper_name)
+      && frame.contains(type_name)
+      && frame.match_indices(&method_name).any(|(index, _)| {
+        let suffix = &frame[index + method_name.len()..];
+        suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
+      })
+  })
+}
+
+/// Inspects the stack trace to figure out if one of the given method names (no
+/// type restriction) called us.
+#[inline(never)]
+pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
+  let backtrace = Backtrace::force_capture().to_string();
+  let helper_name = concat!(module_path!(), "::call_stack_contains");
+  method_names.iter().any(|method_name| {
+    let method_name = format!("::{method_name}");
+    backtrace.lines().any(|frame| {
+      !frame.contains(helper_name)
+        && frame.match_indices(&method_name).any(|(index, _)| {
+          let suffix = &frame[index + method_name.len()..];
+          suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
+        })
+    })
+  })
+}
+
+/// Inspects the stack trace to figure out if a method of a specific type
+/// called us.
+#[inline(never)]
+pub(crate) fn call_stack_contains_type<T>() -> bool {
+  let type_name = std::any::type_name::<T>();
+  let type_name = type_name.split('<').next().unwrap_or(type_name);
+  let helper_name = concat!(module_path!(), "::call_stack_contains");
+  Backtrace::force_capture()
+    .to_string()
+    .lines()
+    .any(|frame| !frame.contains(helper_name) && frame.contains(type_name))
 }
 
 pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
@@ -847,6 +1199,21 @@ pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool>
     Err(error) => Err(error),
   }
 }
+
+pub fn create_temp_dir() -> Result<TempDir> {
+  let temp_dir = TempDir::new()?;
+  Ok(temp_dir)
+}
+
+pub fn create_temp_dir_with_prefix<T>(prefix: T) -> Result<TempDir>
+where
+  T: Into<String>,
+{
+  let name = prefix.into();
+  let temp_dir = TempDir::with_prefix(name)?;
+  Ok(temp_dir)
+}
+
 /// Ensures that the MergePolicy has sane values for tests that test with lots of documents.
 pub(crate) fn ensure_sane_iwc_on_nightly<D>(conf: &mut IndexWriterConfig<D>) -> Result<()>
 where
@@ -999,108 +1366,4 @@ where
       .access(|bytes| new_bytes_ref(random, bytes, it.offset as i32, it.length as i32));
   }
   Ok(it)
-}
-
-/// Retrieves the seed from the environment variable "tests.seed".
-/// If the environment variable is not set or cannot be parsed as a `u64`,
-/// it generates a random seed and logs the result.
-///
-/// # Returns
-/// A valid `u64` seed.
-pub(crate) fn get_seed_from_env() -> u64 {
-  static GLOBAL_SEED: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
-
-  fn current_seed() -> u64 {
-    if let Some(seed) = GLOBAL_SEED.get() {
-      *seed
-    } else if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
-      if let Ok(seed) = seed_str.parse::<u64>() {
-        println!("Using Global Seed from environment: '{}'", seed);
-        seed
-      } else {
-        println!("Environment variable tests.seed is invalid: '{}'", seed_str);
-        let seed = rand::rng().random_range(0..u64::MAX);
-        println!("Generated random seed: {}", seed);
-        seed
-      }
-    } else {
-      let seed = rand::rng().random_range(0..u64::MAX);
-      println!("Generated random seed: {}", seed);
-      seed
-    }
-  }
-  current_seed()
-}
-
-pub(crate) fn random() -> StdRng {
-  StdRng::seed_from_u64(get_seed_from_env())
-}
-
-pub(crate) fn random_from_seed(seed: u64) -> StdRng {
-  StdRng::seed_from_u64(seed)
-}
-
-/// Inspects the stack trace to figure out if a method of a specific type
-/// called us.
-#[inline(never)]
-pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
-  let type_name = std::any::type_name::<T>();
-  let type_name = type_name.split('<').next().unwrap_or(type_name);
-  let method_name = format!("::{method_name}");
-  let helper_name = concat!(module_path!(), "::call_stack_contains");
-  Backtrace::force_capture().to_string().lines().any(|frame| {
-    !frame.contains(helper_name)
-      && frame.contains(type_name)
-      && frame.match_indices(&method_name).any(|(index, _)| {
-        let suffix = &frame[index + method_name.len()..];
-        suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
-      })
-  })
-}
-
-/// Inspects the stack trace to figure out if one of the given method names (no
-/// type restriction) called us.
-#[inline(never)]
-pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
-  let backtrace = Backtrace::force_capture().to_string();
-  let helper_name = concat!(module_path!(), "::call_stack_contains");
-  method_names.iter().any(|method_name| {
-    let method_name = format!("::{method_name}");
-    backtrace.lines().any(|frame| {
-      !frame.contains(helper_name)
-        && frame.match_indices(&method_name).any(|(index, _)| {
-          let suffix = &frame[index + method_name.len()..];
-          suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
-        })
-    })
-  })
-}
-
-/// Inspects the stack trace to figure out if a method of a specific type
-/// called us.
-#[inline(never)]
-pub(crate) fn call_stack_contains_type<T>() -> bool {
-  let type_name = std::any::type_name::<T>();
-  let type_name = type_name.split('<').next().unwrap_or(type_name);
-  let helper_name = concat!(module_path!(), "::call_stack_contains");
-  Backtrace::force_capture()
-    .to_string()
-    .lines()
-    .any(|frame| !frame.contains(helper_name) && frame.contains(type_name))
-}
-
-pub fn is_night_mode() -> bool {
-  std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
-}
-pub fn create_temp_dir() -> Result<TempDir> {
-  let temp_dir = TempDir::new()?;
-  Ok(temp_dir)
-}
-pub fn create_temp_dir_with_prefix<T>(prefix: T) -> Result<TempDir>
-where
-  T: Into<String>,
-{
-  let name = prefix.into();
-  let temp_dir = TempDir::with_prefix(name)?;
-  Ok(temp_dir)
 }

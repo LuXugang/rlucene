@@ -53,7 +53,7 @@ use rand::{Rng, RngExt};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
-pub struct TestKnnFloatVectorQuery;
+pub(crate) struct TestKnnFloatVectorQuery;
 
 fn run_case<F>(f: F) -> Result<()>
 where

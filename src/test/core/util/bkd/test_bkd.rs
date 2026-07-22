@@ -43,7 +43,8 @@ use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use crate::test_framework::core::store::corrupting_index_output::CorruptingIndexOutput;
 pub use crate::test_framework::core::util::bkd::DocMapMock;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory, new_directory_shared, new_mock_directory, random, random_from_seed,
+  at_least, create_temp_dir, new_directory, new_directory_shared, new_fs_directory,
+  new_mock_directory, new_mock_fs_directory, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use bit_set::BitSet;
@@ -414,7 +415,7 @@ fn test_with_exceptions() -> Result<()> {
   // random IOExc from MDW:
   let mut done = false;
   while !done {
-    let dir = new_mock_directory(&mut random)?;
+    let dir = new_mock_fs_directory(&mut random, create_temp_dir()?)?;
     dir.set_random_io_exception_rate(0.05);
     dir.set_random_io_exception_rate_on_open(0.05);
 
@@ -1842,7 +1843,7 @@ fn test_wasted_leading_bytes() -> Result<()> {
   let bytes_per_dim = MAX_NUM_BYTES;
   let bytes_used = TestUtil::next_usize(&mut random, 1, 3);
 
-  let dir = new_directory_shared(&mut random)?;
+  let dir = new_fs_directory(&mut random, create_temp_dir()?)?;
   let num_docs = at_least(&mut random, 10000);
   let config = BKDConfig::new(num_dims, num_index_dims, bytes_per_dim, 32)?;
 

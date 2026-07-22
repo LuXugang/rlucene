@@ -22,14 +22,13 @@ use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::store::directory::{DirEnum, Directory};
+use crate::core::store::directory::{Directory, MockDirWrapper};
 use crate::core::store::io_context::IOContext;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::print_stream_info_stream::PrintStreamInfoStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, new_index_writer_config_with_analyzer,
@@ -59,7 +58,7 @@ fn test() -> Result<()> {
   let mut reader = None;
   let mut reader2 = None;
   let mut any = false;
-  let mut dir_copy: Option<Arc<MockDirectoryWrapper<DirEnum>>> = None;
+  let mut dir_copy: Option<Arc<MockDirWrapper>> = None;
   let mut last_num_docs = 0;
   for iter in 0..iters {
     let mut writer = None;

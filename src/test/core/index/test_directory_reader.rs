@@ -19,8 +19,9 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared, new_field,
-  new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_string_field, new_text_field, random,
+  new_fs_directory, new_fs_directory_with_lock_factory, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, new_text_field,
+  random,
 };
 
 use crate::core::document::string_field::StringField;
@@ -54,7 +55,7 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, directory_reader, field_infos, multi_terms};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
+use crate::core::store::fs_lock_factory;
 use crate::core::util::LATEST;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -618,7 +619,11 @@ fn test_files_open_close() -> Result<()> {
 
   // Try to erase the data - this ensures that the writer closed all files
   std::fs::remove_dir_all(&path)?;
-  let dir = Arc::new(NIOFSDirectory::new(path.clone())?);
+  let dir = Arc::new(new_fs_directory_with_lock_factory(
+    &mut random,
+    path.clone(),
+    fs_lock_factory::get_default(),
+  )?);
 
   // Now create the data set again, just as before
   let analyzer = MockAnalyzer::new(&mut random);
@@ -630,7 +635,11 @@ fn test_files_open_close() -> Result<()> {
   dir.close()?;
 
   // Now open existing directory and test that reader closes all files
-  let dir = Arc::new(NIOFSDirectory::new(path.clone())?);
+  let dir = Arc::new(new_fs_directory_with_lock_factory(
+    &mut random,
+    path.clone(),
+    fs_lock_factory::get_default(),
+  )?);
   let reader = directory_reader::open(dir.clone())?;
   reader.close()?;
   dir.close()?;

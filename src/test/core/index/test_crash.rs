@@ -24,14 +24,12 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::store::ByteBuffersDirectory;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, MockDirWrapper};
 use crate::core::store::no_lock_factory::NoLockFactory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
   new_index_writer_config_with_analyzer, new_mock_directory_with_lock_factory, new_text_field,
   random,
@@ -42,7 +40,7 @@ use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
 
-type CrashDirectory = MockDirectoryWrapper<ByteBuffersDirectory<NoLockFactory>>;
+type CrashDirectory = MockDirWrapper;
 type CrashIndexWriter = IndexWriter<CrashDirectory>;
 
 #[allow(dead_code)] // for quick search

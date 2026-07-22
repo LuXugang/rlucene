@@ -73,6 +73,7 @@ impl ThrottledOutputTemplate {
   }
 }
 
+#[derive(Clone, Copy)]
 pub enum Throttling {
   /// always emulate a slow hard disk. could be very slow!
   Always,

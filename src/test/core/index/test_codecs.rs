@@ -61,8 +61,7 @@ use crate::core::util::string_helper::StringHelper;
 use crate::core::util::version::LATEST;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
-  new_index_writer_config_with_analyzer, random, random_from_seed,
+  at_least, new_directory_shared, new_index_writer_config_with_analyzer, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use num_bigint::BigInt;
@@ -100,10 +99,7 @@ fn test_fixed_postings() -> Result<()> {
   let field = Arc::new(FieldData::new("field", &mut builder, terms, true, false)?);
   let fields = vec![Arc::clone(&field)];
   let field_infos = Arc::new(builder.finish()?);
-  let dir = new_fs_directory(
-    &mut random,
-    create_temp_dir_with_prefix("testFixedPostings")?,
-  )?;
+  let dir = new_directory_shared(&mut random)?;
   let codec = Lucene101Codec;
   let si = SegmentInfo::new(
     Arc::clone(&dir),

@@ -34,10 +34,10 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
+use crate::core::store::directory::MockDirWrapper;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
-use crate::core::store::{ByteArrayDataInput, ByteBuffersDirectory, IOContext};
+use crate::core::store::{ByteArrayDataInput, IOContext};
 use crate::core::util::Comparator;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -60,7 +60,6 @@ use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
-use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::fst_tester::{
   DummyFSTTesterBaseImpl, FSTTester, InputOutput, get_random_string, simple_random_string,
   to_ints_ref_from_string,
@@ -77,7 +76,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 struct TestFSTs {
-  dir: Rc<MockDirectoryWrapper<ByteBuffersDirectory<SingleInstanceLockFactory>>>,
+  dir: Rc<MockDirWrapper>,
 }
 impl TestFSTs {
   fn new<R>(random: &mut R) -> Result<Self>
@@ -258,17 +257,18 @@ impl TestFSTs {
   where
     R: Rng + ?Sized,
   {
+    let mut terms_random = random_from_seed(random.random());
     for iter in 0..num_iter {
       if cfg!(feature = "test_log_verbose") {
         println!("\nTEST: iter {iter}");
       }
 
       for input_mode in 0..2 {
-        let num_words = random.random_range(0..=max_num_words);
+        let num_words = terms_random.random_range(0..=max_num_words);
         let mut terms_set = HashSet::new();
 
         while terms_set.len() < num_words {
-          let term = get_random_string(random);
+          let term = get_random_string(&mut terms_random);
           let ints_ref = to_ints_ref_from_string(&term, input_mode);
           terms_set.insert(ints_ref);
         }
@@ -415,40 +415,15 @@ fn test_random_words() -> Result<()> {
     test.test_random_words_impl(&mut random, 100, 1)
   }
 }
-fn test_random_words_limit<R>(random: &mut R, max_num_words: usize, num_iter: usize) -> Result<()>
-where
-  R: Rng + ?Sized,
-{
-  let case = TestFSTs::new(random)?;
-  for iter in 0..num_iter {
-    if cfg!(feature = "test_log_verbose") {
-      println!("\nTEST: iter {iter}");
-    }
-
-    for input_mode in 0..2 {
-      let num_words = random.random_range(0..=max_num_words);
-      let mut terms_set = HashSet::new();
-
-      while terms_set.len() < num_words {
-        let term = get_random_string(random);
-        let ints_ref = to_ints_ref_from_string(&term, input_mode);
-        terms_set.insert(ints_ref);
-      }
-
-      let terms: Vec<_> = terms_set.into_iter().collect();
-      case.do_test(random, input_mode, terms)?;
-    }
-  }
-  Ok(())
-}
 
 #[cfg(feature = "nightly")]
 #[test]
 #[ignore = "nightly"]
 fn test_big_set() -> Result<()> {
   let mut random = random();
+  let test = TestFSTs::new(&mut random)?;
   let max_num_words = TestUtil::next_usize(&mut random, 50000, 60000);
-  test_random_words_limit(&mut random, max_num_words, 1)
+  test.test_random_words_impl(&mut random, max_num_words, 1)
 }
 
 fn assert_same<TE, O, F>(

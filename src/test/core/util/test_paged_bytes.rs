@@ -17,7 +17,7 @@
 // Migrated from src/core/util/paged_bytes.rs
 
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, random,
+  at_least, create_temp_dir_with_prefix, is_night_mode, new_fs_directory, random,
 };
 use rand::RngExt;
 
@@ -41,8 +41,7 @@ fn test_data_input_output() -> Result<()> {
   let num_iters = at_least(&mut random, 1);
 
   for _ in 0..num_iters {
-    // TODO: BaseDirectoryWrapper not implement
-    let dir = new_directory_shared(&mut random)?;
+    let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("testOverflow")?)?;
     let block_bits = TestUtil::next_int(&mut random, 1, 20);
     let block_size = 1 << block_bits;
     let mut paged_bytes = PagedBytes::new(block_bits as usize);
@@ -204,8 +203,7 @@ fn test_data_input_output_2() -> Result<()> {
 #[ignore = "nightly"] // memory hole
 fn test_overflow() -> Result<()> {
   let mut random = random();
-  // TODO: BaseDirectoryWrapper not implement
-  let dir = new_directory_shared(&mut random)?;
+  let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("testOverflow")?)?;
   let block_bits = TestUtil::next_int(&mut random, 14, 28);
   let block_size = 1 << block_bits;
 

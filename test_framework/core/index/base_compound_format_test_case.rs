@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least_usize, new_directory_shared, new_io_context, random,
+  at_least_usize, create_temp_dir_with_prefix, new_directory_shared, new_io_context,
+  new_mock_fs_directory, random,
 };
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -429,8 +430,10 @@ pub trait BaseCompoundFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO: should enhance after implementing the newMockFSDirectory
-    let dir = new_directory_shared(random)?;
+    let dir = Arc::new(new_mock_fs_directory(
+      random,
+      create_temp_dir_with_prefix("CFSManySubFiles")?,
+    )?);
     let file_count = at_least_usize(random, 500);
     let mut files = Vec::new();
     let mut si = new_segment_info(random, dir.clone(), "_123")?;

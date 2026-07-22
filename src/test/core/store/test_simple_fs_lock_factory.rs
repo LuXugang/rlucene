@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::store::nio_fs_directory::NIOFSDirectory;
-use crate::core::store::{FSDirectory, SimpleFSLockFactory};
+use crate::core::store::SimpleFSLockFactory;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::store::base_lock_factory_test_case::BaseLockFactoryTestCase;
-use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::{
+  new_fs_directory_with_lock_factory, random,
+};
 use std::path::PathBuf;
 
 /// Simple tests for SimpleFSLockFactory
@@ -26,15 +28,13 @@ use std::path::PathBuf;
 struct TestSimpleFSLockFactory;
 
 impl BaseLockFactoryTestCase for TestSimpleFSLockFactory {
-  type Directory = FSDirectory<SimpleFSLockFactory, NIOFSDirectory>;
+  type Directory = DirEnum;
 
-  fn get_directory<R>(&self, _random: &mut R, path: PathBuf) -> Result<Self::Directory>
+  fn get_directory<R>(&self, random: &mut R, path: PathBuf) -> Result<Self::Directory>
   where
     R: rand::Rng + ?Sized,
   {
-    // TODO: Java's newFSDirectory(path, lockFactory) randomizes the FSDirectory implementation
-    // and wraps it. Rust currently only supports NIOFSDirectory on this test path.
-    NIOFSDirectory::with_lock_factory(path, SimpleFSLockFactory::new())
+    new_fs_directory_with_lock_factory(random, path, SimpleFSLockFactory::new())
   }
 }
 
