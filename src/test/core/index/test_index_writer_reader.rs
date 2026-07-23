@@ -24,7 +24,9 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexReaderWarmer, IndexReaderWarmerEnum, IndexWriter};
-use crate::core::index::index_writer_config::{DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH};
+use crate::core::index::index_writer_config::{
+  DEFAULT_RAM_BUFFER_SIZE_MB, DISABLE_AUTO_FLUSH, IndexWriterConfig,
+};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LeafSorter;
@@ -1032,7 +1034,9 @@ fn test_during_add_delete() -> Result<()> {
 fn test_force_merge_deletes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
@@ -1336,20 +1340,25 @@ where
 #[test]
 fn test_too_many_segments() -> Result<()> {
   let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+  let dir = Arc::new(ByteBuffersDirectory::new());
+  // Don't use new_index_writer_config, because we need a "sane" merge policy:
+  let mut iwc = IndexWriterConfig::with_analyzer(MockAnalyzer::new(&mut random))?;
+  iwc.set_max_full_flush_merge_wait_millis(0);
+  let w = IndexWriter::new(dir.clone(), iwc)?;
 
+  // Create 500 segments:
   for i in 0..500 {
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
     w.add_document(doc)?;
     let r = directory_reader::open_from_writer(&w)?;
     let context = (&r).get_context()?;
+    // Make sure segment count never exceeds 100:
     assert!(context.leaves()?.len() < 100);
     r.close()?;
   }
   w.close()?;
-  Ok(())
+  dir.close()
 }
 
 #[test]

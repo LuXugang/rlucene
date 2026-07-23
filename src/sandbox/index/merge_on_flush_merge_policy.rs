@@ -34,7 +34,6 @@ pub struct MergeOnFlushMergePolicy<D>
 where
   D: Directory,
 {
-  base: MergePolicyBase,
   inner: Box<MergePolicyEnum<D>>,
   small_segment_threshold_bytes: i64,
 }
@@ -45,7 +44,6 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      base: self.base.clone(),
       inner: self.inner.clone(),
       small_segment_threshold_bytes: self.small_segment_threshold_bytes,
     }
@@ -58,7 +56,6 @@ where
 {
   pub fn new(inner: MergePolicyEnum<D>) -> Self {
     Self {
-      base: MergePolicyBase::default(),
       inner: Box::new(inner),
       small_segment_threshold_bytes: Units::mb_to_bytes(100.0),
     }
@@ -87,11 +84,11 @@ where
   D: Directory,
 {
   fn get_base(&self) -> &MergePolicyBase {
-    &self.base
+    self.inner.get_base()
   }
 
   fn get_base_mut(&mut self) -> &mut MergePolicyBase {
-    &mut self.base
+    self.inner.get_base_mut()
   }
 
   fn find_merges<MC>(

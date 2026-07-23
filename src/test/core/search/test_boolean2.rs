@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
@@ -43,15 +44,17 @@ use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least_usize, create_temp_dir, new_directory_shared, new_field, new_fs_directory,
+  at_least_usize, create_temp_dir, new_directory_shared, new_fs_directory,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::SeedableRng;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::sync::{Arc, LazyLock};
+
+use parking_lot::RwLock;
 
 #[allow(dead_code)] // for quick search
 pub struct TestBoolean2;
@@ -71,6 +74,10 @@ pub struct TestBoolean2Context {
   pub pre_filler_docs: usize,
   pub num_filler_docs: usize,
 }
+static CONTEXT: LazyLock<RwLock<TestBoolean2Context>> = LazyLock::new(|| {
+  let mut random = random();
+  RwLock::new(set_up(&mut random).expect("failed to initialize TestBoolean2"))
+});
 struct NoCallback;
 impl Callback for NoCallback {
   fn post_create<R>(&self, _random: &mut R, _q: &mut Builder) -> Result<()>
@@ -102,6 +109,7 @@ where
 
   let analyzer = MockAnalyzer::new(random);
   let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+  iwc.set_codec(TestUtil::get_default_codec());
   iwc.set_merge_policy(new_log_merge_policy(random)?);
   let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
   let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
@@ -111,10 +119,8 @@ where
   for _ in 0..pre_filler_docs {
     writer.add_document(random, doc.clone())?;
   }
-  let mut field_types = HashMap::new();
-
   for doc_field in &DOC_FIELDS {
-    doc.add(new_field(random, FIELD, *doc_field, &ft, &mut field_types)?);
+    doc.add(Field::new(FIELD, *doc_field, ft.clone()));
     writer.add_document(random, doc.clone())?;
 
     doc = Document::new();
@@ -156,6 +162,7 @@ where
   let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   // we need docID order to be preserved:
   // randomized codecs are sometimes too costly for this test:
+  iwc.set_codec(TestUtil::get_default_codec());
   iwc.set_merge_policy(new_log_merge_policy(random)?);
   {
     let w = IndexWriter::new(single_segment_directory.clone(), iwc)?;
@@ -180,7 +187,9 @@ where
     let copy = copy_of(random, dir2.as_ref())?;
 
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+    // randomized codecs are sometimes too costly for this test:
+    iwc.set_codec(TestUtil::get_default_codec());
     let w = RandomIndexWriter::with_config(random, dir2.clone(), iwc);
 
     w.add_indexes_from_dir(random, std::slice::from_ref(&copy))?;
@@ -197,22 +206,17 @@ where
   let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
   // randomized codecs are sometimes too costly for this test:
+  iwc.set_codec(TestUtil::get_default_codec());
   let w = RandomIndexWriter::with_config(random, dir2.clone(), iwc);
 
   doc = Document::new();
-  doc.add(new_field(random, "field2", "xxx", &ft, &mut field_types)?);
+  doc.add(Field::new("field2", "xxx", ft.clone()));
   for _ in 0..(NUM_EXTRA_DOCS / 2) {
     w.add_document(random, doc.clone())?;
   }
 
   doc = Document::new();
-  doc.add(new_field(
-    random,
-    "field2",
-    "big bad bug",
-    &ft,
-    &mut field_types,
-  )?);
+  doc.add(Field::new("field2", "big bad bug", ft.clone()));
   for _ in 0..(NUM_EXTRA_DOCS / 2) {
     w.add_document(random, doc.clone())?;
   }
@@ -308,7 +312,7 @@ where
 #[test]
 fn test_queries01() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Must)?;
@@ -321,7 +325,7 @@ fn test_queries01() -> Result<()> {
 #[test]
 fn test_queries02() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Must)?;
@@ -335,7 +339,7 @@ fn test_queries02() -> Result<()> {
 #[test]
 fn test_queries03() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Should)?;
@@ -349,7 +353,7 @@ fn test_queries03() -> Result<()> {
 #[test]
 fn test_queries04() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Should)?;
@@ -363,7 +367,7 @@ fn test_queries04() -> Result<()> {
 #[test]
 fn test_queries05() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Must)?;
@@ -377,7 +381,7 @@ fn test_queries05() -> Result<()> {
 #[test]
 fn test_queries06() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Must)?;
@@ -392,7 +396,7 @@ fn test_queries06() -> Result<()> {
 #[test]
 fn test_queries07() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::MustNot)?;
@@ -407,7 +411,7 @@ fn test_queries07() -> Result<()> {
 #[test]
 fn test_queries08() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Must)?;
@@ -422,7 +426,7 @@ fn test_queries08() -> Result<()> {
 #[test]
 fn test_queries09() -> Result<()> {
   let mut random = random();
-  let ctx = set_up(&mut random)?;
+  let ctx = CONTEXT.read();
 
   let mut query = Builder::new();
   query.add(TermQuery::new(Term::from_text(FIELD, "w3")), Occur::Must)?;
@@ -437,7 +441,7 @@ fn test_queries09() -> Result<()> {
 #[test]
 fn test_random_queries() -> Result<()> {
   let mut random = random();
-  let mut ctx = set_up(&mut random)?;
+  let mut ctx = CONTEXT.write();
   let vals: Vec<String> = ["w1", "w2", "w3", "w4", "w5", "xx", "yy", "zzz"]
     .into_iter()
     .map(str::to_string)
@@ -464,13 +468,17 @@ fn test_random_queries() -> Result<()> {
       let sort = Sort::get_index_order()?;
 
       QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher)?;
-      let baseline_similarity = classic_similarity::new();
+      let baseline_similarity = ctx.searcher.get_similarity();
       let random_similarity = ctx.big_searcher.get_similarity();
       ctx.searcher.set_similarity(random_similarity);
-      let random_check_result =
-        QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher);
+      let random_check_result = catch_unwind(AssertUnwindSafe(|| {
+        QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher)
+      }));
       ctx.searcher.set_similarity(baseline_similarity);
-      random_check_result?;
+      match random_check_result {
+        Ok(result) => result?,
+        Err(payload) => resume_unwind(payload),
+      }
 
       let cm = TopFieldCollectorManager::new(sort.clone(), 1000, 1)?;
       let hits1 = ctx

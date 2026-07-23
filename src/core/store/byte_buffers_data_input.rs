@@ -174,15 +174,31 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
   fn do_read_longs(&self, pos: usize, len: usize, output: &mut [i64]) -> Result<()> {
     self.read_buffer(pos, len, output, BitUtil::LONG_BYTES, LE::read_i64)
   }
-  fn do_read_bytes(&self, pos: usize, len: usize, output: &mut [u8]) -> Result<()> {
-    // This closure is not expected to be called under any circumstances.
-    self.read_buffer(pos, len, output, 1, |_| unreachable!())
-  }
-  fn do_read_ints(&self, pos: usize, len: usize, output: &mut [i32]) -> Result<()> {
-    self.read_buffer(pos, len, output, BitUtil::INT_BYTES, LE::read_i32)
-  }
-  fn do_read_shorts(&self, pos: usize, len: usize, output: &mut [i16]) -> Result<()> {
-    self.read_buffer(pos, len, output, BitUtil::SHORT_BYTES, LE::read_i16)
+  fn do_read_bytes(&self, mut pos: usize, mut len: usize, output: &mut [u8]) -> Result<()> {
+    let mut output_offset = 0;
+    while len > 0 {
+      let block_index = self.block_index(pos);
+      let block_offset = self.block_offset(pos);
+
+      if block_index >= self.blocks.len() || pos + len > self.length + self.offset {
+        return Err(LuceneError::eof(format!("{pos}")));
+      }
+
+      let block = self.blocks.get(block_index).unwrap();
+      let block_bytes = block.get_ref().as_slice();
+      let chunk = len.min(block_bytes.len().saturating_sub(block_offset));
+      if chunk == 0 {
+        return Err(LuceneError::eof(format!("{pos}")));
+      }
+
+      output[output_offset..output_offset + chunk]
+        .copy_from_slice(&block_bytes[block_offset..block_offset + chunk]);
+
+      pos += chunk;
+      len -= chunk;
+      output_offset += chunk;
+    }
+    Ok(())
   }
   fn do_read_floats(&self, pos: usize, len: usize, output: &mut [f32]) -> Result<()> {
     self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES, LE::read_f32)
@@ -305,10 +321,22 @@ where
   B: ByteBuffersDataInputBlock,
 {
   fn read_byte(&mut self) -> Result<u8> {
-    let mut bytes = [0; 1];
-    self.do_read_bytes(self.pos, 1, &mut bytes)?;
+    if self.pos >= self.length + self.offset {
+      return Err(LuceneError::eof(format!("{}", self.pos)));
+    }
+    let block_index = self.block_index(self.pos);
+    let block_offset = self.block_offset(self.pos);
+    let block = self
+      .blocks
+      .get(block_index)
+      .ok_or_else(|| LuceneError::eof(format!("{}", self.pos)))?;
+    let value = *block
+      .get_ref()
+      .as_slice()
+      .get(block_offset)
+      .ok_or_else(|| LuceneError::eof(format!("{}", self.pos)))?;
     self.pos += 1;
-    Ok(bytes[0])
+    Ok(value)
   }
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.do_read_bytes(self.pos, len, &mut b[offset..(offset + len)])?;
@@ -317,17 +345,55 @@ where
   }
 
   fn read_short(&mut self) -> Result<i16> {
-    let mut output = [0; 1];
-    self.do_read_shorts(self.pos, 1, &mut output)?;
+    let block_offset = self.block_offset(self.pos);
+    let value = if self.pos + BitUtil::SHORT_BYTES <= self.length + self.offset
+      && block_offset + BitUtil::SHORT_BYTES <= self.block_mask
+    {
+      let block = self
+        .blocks
+        .get(self.block_index(self.pos))
+        .ok_or_else(|| LuceneError::eof(format!("{}", self.pos)))?;
+      let block_bytes = block.get_ref().as_slice();
+      if block_offset + BitUtil::SHORT_BYTES <= block_bytes.len() {
+        LE::read_i16(&block_bytes[block_offset..])
+      } else {
+        let mut bytes = [0; BitUtil::SHORT_BYTES];
+        self.do_read_bytes(self.pos, BitUtil::SHORT_BYTES, &mut bytes)?;
+        LE::read_i16(&bytes)
+      }
+    } else {
+      let mut bytes = [0; BitUtil::SHORT_BYTES];
+      self.do_read_bytes(self.pos, BitUtil::SHORT_BYTES, &mut bytes)?;
+      LE::read_i16(&bytes)
+    };
     self.pos += BitUtil::SHORT_BYTES;
-    Ok(output[0])
+    Ok(value)
   }
 
   fn read_int(&mut self) -> Result<i32> {
-    let mut output = [0; 1];
-    self.do_read_ints(self.pos, 1, &mut output)?;
+    let block_offset = self.block_offset(self.pos);
+    let value = if self.pos + BitUtil::INT_BYTES <= self.length + self.offset
+      && block_offset + BitUtil::INT_BYTES <= self.block_mask
+    {
+      let block = self
+        .blocks
+        .get(self.block_index(self.pos))
+        .ok_or_else(|| LuceneError::eof(format!("{}", self.pos)))?;
+      let block_bytes = block.get_ref().as_slice();
+      if block_offset + BitUtil::INT_BYTES <= block_bytes.len() {
+        LE::read_i32(&block_bytes[block_offset..])
+      } else {
+        let mut bytes = [0; BitUtil::INT_BYTES];
+        self.do_read_bytes(self.pos, BitUtil::INT_BYTES, &mut bytes)?;
+        LE::read_i32(&bytes)
+      }
+    } else {
+      let mut bytes = [0; BitUtil::INT_BYTES];
+      self.do_read_bytes(self.pos, BitUtil::INT_BYTES, &mut bytes)?;
+      LE::read_i32(&bytes)
+    };
     self.pos += BitUtil::INT_BYTES;
-    Ok(output[0])
+    Ok(value)
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
@@ -348,10 +414,29 @@ where
     Ok(())
   }
   fn read_long(&mut self) -> Result<i64> {
-    let mut output = [0; 1];
-    self.do_read_longs(self.pos, 1, &mut output)?;
+    let block_offset = self.block_offset(self.pos);
+    let value = if self.pos + BitUtil::LONG_BYTES <= self.length + self.offset
+      && block_offset + BitUtil::LONG_BYTES <= self.block_mask
+    {
+      let block = self
+        .blocks
+        .get(self.block_index(self.pos))
+        .ok_or_else(|| LuceneError::eof(format!("{}", self.pos)))?;
+      let block_bytes = block.get_ref().as_slice();
+      if block_offset + BitUtil::LONG_BYTES <= block_bytes.len() {
+        LE::read_i64(&block_bytes[block_offset..])
+      } else {
+        let mut bytes = [0; BitUtil::LONG_BYTES];
+        self.do_read_bytes(self.pos, BitUtil::LONG_BYTES, &mut bytes)?;
+        LE::read_i64(&bytes)
+      }
+    } else {
+      let mut bytes = [0; BitUtil::LONG_BYTES];
+      self.do_read_bytes(self.pos, BitUtil::LONG_BYTES, &mut bytes)?;
+      LE::read_i64(&bytes)
+    };
     self.pos += BitUtil::LONG_BYTES;
-    Ok(output[0])
+    Ok(value)
   }
 
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
@@ -390,30 +475,84 @@ where
 
   fn read_byte(&mut self, pos: usize) -> Result<u8> {
     let pos = pos + self.offset;
-    let mut bytes = [0; 1];
-    self.do_read_bytes(pos, 1, &mut bytes)?;
-    Ok(bytes[0])
+    if pos >= self.length + self.offset {
+      return Err(LuceneError::eof(format!("{pos}")));
+    }
+    let block = self
+      .blocks
+      .get(self.block_index(pos))
+      .ok_or_else(|| LuceneError::eof(format!("{pos}")))?;
+    block
+      .get_ref()
+      .as_slice()
+      .get(self.block_offset(pos))
+      .copied()
+      .ok_or_else(|| LuceneError::eof(format!("{pos}")))
+  }
+
+  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    let pos = pos + self.offset;
+    self.do_read_bytes(pos, len, &mut buf[offset..offset + len])
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {
     let pos = pos + self.offset;
+    let block_offset = self.block_offset(pos);
+    if pos + BitUtil::SHORT_BYTES <= self.length + self.offset
+      && block_offset + BitUtil::SHORT_BYTES <= self.block_mask
+    {
+      let block = self
+        .blocks
+        .get(self.block_index(pos))
+        .ok_or_else(|| LuceneError::eof(format!("{pos}")))?;
+      let block_bytes = block.get_ref().as_slice();
+      if block_offset + BitUtil::SHORT_BYTES <= block_bytes.len() {
+        return Ok(LE::read_i16(&block_bytes[block_offset..]));
+      }
+    }
     let mut bytes = [0; BitUtil::SHORT_BYTES];
-    self.do_read_shorts(pos, 1, &mut bytes)?;
-    Ok(bytes[0])
+    self.do_read_bytes(pos, BitUtil::SHORT_BYTES, &mut bytes)?;
+    Ok(LE::read_i16(&bytes))
   }
 
   fn read_int(&mut self, pos: usize) -> Result<i32> {
     let pos = pos + self.offset;
+    let block_offset = self.block_offset(pos);
+    if pos + BitUtil::INT_BYTES <= self.length + self.offset
+      && block_offset + BitUtil::INT_BYTES <= self.block_mask
+    {
+      let block = self
+        .blocks
+        .get(self.block_index(pos))
+        .ok_or_else(|| LuceneError::eof(format!("{pos}")))?;
+      let block_bytes = block.get_ref().as_slice();
+      if block_offset + BitUtil::INT_BYTES <= block_bytes.len() {
+        return Ok(LE::read_i32(&block_bytes[block_offset..]));
+      }
+    }
     let mut bytes = [0; BitUtil::INT_BYTES];
-    self.do_read_ints(pos, 1, &mut bytes)?;
-    Ok(bytes[0])
+    self.do_read_bytes(pos, BitUtil::INT_BYTES, &mut bytes)?;
+    Ok(LE::read_i32(&bytes))
   }
 
   fn read_long(&mut self, pos: usize) -> Result<i64> {
     let pos = pos + self.offset;
+    let block_offset = self.block_offset(pos);
+    if pos + BitUtil::LONG_BYTES <= self.length + self.offset
+      && block_offset + BitUtil::LONG_BYTES <= self.block_mask
+    {
+      let block = self
+        .blocks
+        .get(self.block_index(pos))
+        .ok_or_else(|| LuceneError::eof(format!("{pos}")))?;
+      let block_bytes = block.get_ref().as_slice();
+      if block_offset + BitUtil::LONG_BYTES <= block_bytes.len() {
+        return Ok(LE::read_i64(&block_bytes[block_offset..]));
+      }
+    }
     let mut bytes = [0; BitUtil::LONG_BYTES];
-    self.do_read_longs(pos, 1, &mut bytes)?;
-    Ok(bytes[0])
+    self.do_read_bytes(pos, BitUtil::LONG_BYTES, &mut bytes)?;
+    Ok(LE::read_i64(&bytes))
   }
 
   fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {

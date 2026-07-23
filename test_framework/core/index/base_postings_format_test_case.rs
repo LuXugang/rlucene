@@ -24,6 +24,7 @@ use crate::core::document::field::Store::No;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
+use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
@@ -50,7 +51,6 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
-use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
@@ -60,9 +60,8 @@ use crate::test_framework::core::index::random_postings_tester::RandomPostingsTe
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
-  new_directory_shared, new_fs_directory, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, new_text_field,
-  new_tiered_merge_policy, random_from_seed,
+  new_directory_shared, new_fs_directory, new_index_writer_config, new_log_merge_policy,
+  new_string_field, new_text_field, new_tiered_merge_policy, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::{SliceRandom, StdRng};
@@ -413,17 +412,10 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iwc.base.codec = self.get_codec()?;
     iwc.base.merge_policy = new_tiered_merge_policy(random)?.into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
-    let mut field_types = HashMap::new();
 
     for i in 0..10000 {
       let mut document = Document::new();
-      document.add(new_string_field(
-        random,
-        "id",
-        i.to_string(),
-        No,
-        &mut field_types,
-      )?);
+      document.add(StringField::from_string("id", i.to_string(), No)?);
       iw.add_document(document)?;
     }
     iw.commit()?;
@@ -467,18 +459,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iwc.base.codec = self.get_codec()?;
     iwc.base.merge_policy = new_tiered_merge_policy(random)?.into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
-    let mut field_types = HashMap::new();
 
     for i in 100000..=100400 {
       if i % 2 == 1 {
         let mut document = Document::new();
-        document.add(new_string_field(
-          random,
-          "id",
-          i.to_string(),
-          No,
-          &mut field_types,
-        )?);
+        document.add(StringField::from_string("id", i.to_string(), No)?);
         iw.add_document(document)?;
       }
     }
@@ -542,30 +527,17 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iwc.base.codec = self.get_codec()?;
     iwc.base.merge_policy = new_log_merge_policy(random)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
-    let mut field_types = HashMap::new();
 
     let mut document = Document::new();
-    document.add(new_string_field(random, "id", "0", No, &mut field_types)?);
-    document.add(new_string_field(
-      random,
-      "suggest_field",
-      "apples",
-      No,
-      &mut field_types,
-    )?);
+    document.add(StringField::from_string("id", "0", No)?);
+    document.add(StringField::from_string("suggest_field", "apples", No)?);
     iw.add_document(document)?;
     iw.add_document(Document::new())?;
     iw.commit()?;
 
     let mut document = Document::new();
-    document.add(new_string_field(random, "id", "1", No, &mut field_types)?);
-    document.add(new_string_field(
-      random,
-      "suggest_field2",
-      "apples",
-      No,
-      &mut field_types,
-    )?);
+    document.add(StringField::from_string("id", "1", No)?);
+    document.add(StringField::from_string("suggest_field2", "apples", No)?);
     iw.add_document(document)?;
     iw.commit()?;
 
@@ -575,13 +547,17 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     iw.add_document(Document::new())?;
     iw.force_merge(1)?;
 
-    let reader = directory_reader::open(dir)?;
+    let reader = directory_reader::open_from_writer(&iw)?;
     let searcher = IndexSearcher::new(reader.get_context()?)?;
     assert_eq!(
       1,
       searcher.count(TermQuery::new(Term::from_text("id", "1")))?
     );
 
+    searcher.reader_context.reader().close()?;
+    drop(searcher);
+    iw.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -598,23 +574,14 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
-    let w = RandomIndexWriter::with_config(random, dir, iwc);
-    let mut field_types = HashMap::new();
+    let iwc = IndexWriterConfig::new()?;
+    let w = IndexWriter::new(dir.clone(), iwc)?;
     let mut doc = Document::new();
-    doc.add(new_string_field(
-      random,
-      "foo",
-      "bar",
-      No,
-      &mut field_types,
-    )?);
-    w.add_document(random, doc)?;
-    w.commit(random)?;
+    doc.add(StringField::from_string("foo", "bar", No)?);
+    w.add_document(doc)?;
 
-    let reader = w.get_reader(random)?;
-    let leaf = get_only_leaf_reader(reader)?;
+    let reader = directory_reader::open_from_writer(&w)?;
+    let leaf = get_only_leaf_reader(&reader)?;
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
       PostingsEnumEnum2::B(_) => unreachable!(),
@@ -649,6 +616,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(NO_MORE_DOCS, p2.next_doc()?);
     }
 
+    drop(terms_enum);
+    drop(leaf);
+    w.close()?;
+    reader.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -658,17 +630,17 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockTokenizerAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
-    let w = RandomIndexWriter::with_config(random, dir, iwc);
+    let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_index_options(IndexOptions::DocsAndFreqs)?;
     let mut doc = Document::new();
     doc.add(Field::from_string("foo", "bar bar", ft)?);
-    w.add_document(random, doc)?;
+    w.add_document(doc)?;
 
-    let reader = w.get_reader(random)?;
-    let leaf = get_only_leaf_reader(reader)?;
+    let reader = directory_reader::open_from_writer(&w)?;
+    let leaf = get_only_leaf_reader(&reader)?;
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
       PostingsEnumEnum2::B(_) => unreachable!(),
@@ -715,6 +687,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       assert_eq!(NO_MORE_DOCS, p2.next_doc()?);
     }
 
+    drop(terms_enum);
+    drop(leaf);
+    w.close()?;
+    reader.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -724,15 +701,15 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockTokenizerAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
-    let w = RandomIndexWriter::with_config(random, dir, iwc);
+    let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
     doc.add(TextField::from_string("foo", "bar bar", Store::No)?);
-    w.add_document(random, doc)?;
+    w.add_document(doc)?;
 
-    let reader = w.get_reader(random)?;
-    let leaf = get_only_leaf_reader(reader)?;
+    let reader = directory_reader::open_from_writer(&w)?;
+    let leaf = get_only_leaf_reader(&reader)?;
 
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
@@ -880,6 +857,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     assert!(docs_and_positions_enum2.get_payload()?.is_none());
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
+    drop(terms_enum);
+    drop(leaf);
+    w.close()?;
+    reader.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -889,17 +871,17 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let dir = new_directory_shared(random)?;
     let analyzer = MockTokenizerAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
-    let w = RandomIndexWriter::with_config(random, dir, iwc);
+    let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
     let mut doc = Document::new();
     doc.add(Field::from_string("foo", "bar bar", ft)?);
-    w.add_document(random, doc)?;
+    w.add_document(doc)?;
 
-    let reader = w.get_reader(random)?;
-    let leaf = get_only_leaf_reader(reader)?;
+    let reader = directory_reader::open_from_writer(&w)?;
+    let leaf = get_only_leaf_reader(&reader)?;
 
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
@@ -1083,6 +1065,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     assert!(docs_and_positions_enum2.get_payload()?.is_none());
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
+    drop(terms_enum);
+    drop(leaf);
+    w.close()?;
+    reader.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -1091,8 +1078,8 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random)?;
-    let w = RandomIndexWriter::with_config(random, dir, iwc);
+    let iwc = IndexWriterConfig::new()?;
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut token1 = token::with_range(Some("bar"), 0, 3)?;
     token1
@@ -1111,10 +1098,10 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       "foo",
       FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token1, token2])),
     )?);
-    w.add_document(random, doc)?;
+    w.add_document(doc)?;
 
-    let reader = w.get_reader(random)?;
-    let leaf = get_only_leaf_reader(reader)?;
+    let reader = directory_reader::open_from_writer(&w)?;
+    let leaf = get_only_leaf_reader(&reader)?;
     // sugar method (FREQS)
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
@@ -1343,6 +1330,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
+    drop(terms_enum);
+    drop(leaf);
+    w.close()?;
+    reader.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -1351,8 +1343,8 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let dir = new_directory_shared(random)?;
-    let iwc = new_index_writer_config(random)?;
-    let w = RandomIndexWriter::with_config(random, dir, iwc);
+    let iwc = IndexWriterConfig::new()?;
+    let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut token1 = token::with_range(Some("bar"), 0, 3)?;
     token1
@@ -1375,10 +1367,10 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token1, token2])),
       ft,
     )?);
-    w.add_document(random, doc)?;
+    w.add_document(doc)?;
 
-    let reader = w.get_reader(random)?;
-    let leaf = get_only_leaf_reader(reader)?;
+    let reader = directory_reader::open_from_writer(&w)?;
+    let leaf = get_only_leaf_reader(&reader)?;
 
     let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
       PostingsEnumEnum2::A(p) => p,
@@ -1642,6 +1634,11 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
+    drop(terms_enum);
+    drop(leaf);
+    w.close()?;
+    reader.close()?;
+    dir.close()?;
     Ok(())
   }
 

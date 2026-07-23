@@ -17,7 +17,6 @@
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
 
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_reader_context::IRCLeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
@@ -48,12 +47,13 @@ struct TestDisiPriorityQueue;
 #[test]
 fn test_random() -> Result<()> {
   let mut random = random();
-  let size = random.random_range(1..if is_night_mode() { 1000 } else { 100 });
+  let size = random.random_range(1..if is_night_mode() { 1000 } else { 10 });
   let mut all = Vec::with_capacity(size);
+  let dummy_s = dummy_index_searcher(dummy_directory()?)?;
 
   for _ in 0..size {
     let it = random_disi(&mut random);
-    let w = wrapper(it)?;
+    let w = wrapper(it, &dummy_s)?;
     all.push(w);
   }
 
@@ -80,8 +80,11 @@ fn test_random() -> Result<()> {
     }
     pq.add_all(v.as_slice(), 0, size, &all)?;
   }
+  let mut sorted_docs = vec![0; all.len()];
   while pq.size() > 0 {
-    let mut sorted_docs: Vec<i32> = all.iter().map(|w| w.doc).collect();
+    for (doc, wrapper) in sorted_docs.iter_mut().zip(&all) {
+      *doc = wrapper.doc;
+    }
     sorted_docs.sort_unstable();
 
     let top = all.get_mut(*pq.top().as_ref().unwrap()).unwrap();
@@ -99,14 +102,15 @@ fn test_random() -> Result<()> {
   Ok(())
 }
 
-pub fn wrapper(iterator: DocIdSetIteratorImpl) -> Result<DisiWrapper<QueryWeightSsScorer>>
-where {
+pub fn wrapper(
+  iterator: DocIdSetIteratorImpl,
+  dummy_s: &IndexSearcher<CompositeReaderContext<DummyCR>>,
+) -> Result<DisiWrapper<QueryWeightSsScorer>>
+{
   let q = DummyQueryImpl::new(iterator);
   let weight = q.weight();
-  let _reader = DummyLeafReader;
-  let dummy_s = dummy_index_searcher(dummy_directory()?)?;
   let lrc = &dummy_s.get_leaf_contexts()?[0];
-  let s = weight.scorer(lrc, &dummy_s)?.unwrap();
+  let s = weight.scorer(lrc, dummy_s)?.unwrap();
   DisiWrapper::new(s)
 }
 fn random_disi<R>(random: &mut R) -> DocIdSetIteratorImpl

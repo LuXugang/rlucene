@@ -74,22 +74,22 @@ fn test_random_minimized() -> Result<()> {
   let iters = if is_night_mode() { 20 } else { 5 };
 
   for _ in 0..iters {
-    let build_binary = false;
-    let size = 2;
+    let build_binary = random.random_bool(0.5);
+    let size = random.random_range(2..50);
 
-    let mut terms = Vec::new();
+    let mut terms = HashSet::with_capacity(size);
     let mut automaton_list = vec![];
 
     for _ in 0..size {
       if build_binary {
         let t = TestUtil::random_binary_term_with_len(&mut random, 8);
         automaton_list.push(Automata::make_binary(&t)?);
-        terms.push(t);
+        terms.insert(t);
       } else {
         let s = TestUtil::random_realistic_unicode_string_with_len(&mut random, 8);
         let t = new_bytes_ref_from_string(&mut random, &s)?;
         automaton_list.push(Automata::make_string(&s)?);
-        terms.push(t);
+        terms.insert(t);
       }
     }
 
@@ -97,8 +97,9 @@ fn test_random_minimized() -> Result<()> {
     let expected =
       MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
-    terms.sort_unstable();
-    let actual = build(&mut random, terms, build_binary)?;
+    let mut sorted_terms: Vec<_> = terms.into_iter().collect();
+    sorted_terms.sort_unstable();
+    let actual = build(&mut random, sorted_terms, build_binary)?;
 
     assert_same_automaton(&expected, &actual)?;
   }

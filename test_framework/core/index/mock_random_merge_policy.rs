@@ -22,14 +22,9 @@ use parking_lot::Mutex;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
 
-use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2, StoredFieldsType};
+use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
 use crate::core::index::doc_values::DocValues;
-use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
-use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::index_writer::Inner;
-use crate::core::index::leaf_metadata::LeafMetaData;
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{
   DefaultMergeSpecification, MergeContext, MergePolicy, MergePolicyBase, OneMerge, OneMergeHook,
   size,
@@ -41,14 +36,12 @@ use crate::core::index::slow_codec_reader_wrapper::{
   CodecReaderImpl as SlowCodecReader, SlowCodecReaderWrapper,
 };
 use crate::core::index::sorter::DocMap;
-use crate::core::index::term::Term;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
-use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet, of};
-use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::index::merge_reader_wrapper::MergeReaderWrapper;
 use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::util::test_util::TestUtil;
 
@@ -132,11 +125,9 @@ where
       }
       let one_merge = OneMerge::new(merge_segments)?;
       if self.do_non_bulk_merges && random.random_bool(0.5) {
-        merge_spec.add(
-          one_merge.with_hook(OneMergeHook::MockRandom(MockRandomOneMerge::new(
-            random.random(),
-          ))),
-        );
+        merge_spec.add(one_merge.with_hook(OneMergeHook::MockRandom(Box::new(
+          MockRandomOneMerge::new(random.random()),
+        ))));
       } else {
         merge_spec.add(one_merge);
       }
@@ -191,11 +182,9 @@ where
       }
       let one_merge = OneMerge::new(merge_segments)?;
       if self.do_non_bulk_merges && random.random_bool(0.5) {
-        merge_spec.add(
-          one_merge.with_hook(OneMergeHook::MockRandom(MockRandomOneMerge::new(
-            random.random(),
-          ))),
-        );
+        merge_spec.add(one_merge.with_hook(OneMergeHook::MockRandom(Box::new(
+          MockRandomOneMerge::new(random.random()),
+        ))));
       } else {
         merge_spec.add(one_merge);
       }
@@ -258,235 +247,9 @@ where
   }
 }
 
-pub(crate) struct MockRandomFilterLeafReader<CR>
-where
-  CR: CodecReader,
-{
-  in_: CR,
-}
-
-impl<CR> MockRandomFilterLeafReader<CR>
-where
-  CR: CodecReader,
-{
-  fn new(reader: CR) -> Self {
-    Self { in_: reader }
-  }
-}
-
-impl<CR> Clone for MockRandomFilterLeafReader<CR>
-where
-  CR: CodecReader + Clone,
-{
-  fn clone(&self) -> Self {
-    Self::new(self.in_.clone())
-  }
-}
-
-impl<CR> Display for MockRandomFilterLeafReader<CR>
-where
-  CR: CodecReader,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "MockRandomFilterLeafReader({})", self.in_)
-  }
-}
-
-impl<CR> FilterLeafReader for MockRandomFilterLeafReader<CR> where CR: CodecReader {}
-
-impl<CR> IndexReader for MockRandomFilterLeafReader<CR>
-where
-  CR: CodecReader,
-{
-  type ContextKind = LeafReaderContextKind;
-
-  type TermVectors = CR::TermVectorsReader;
-
-  fn term_vectors(&self) -> Result<Self::TermVectors> {
-    self
-      .in_
-      .get_term_vectors_reader()?
-      .ok_or_else(|| LuceneError::illegal_state("term vectors reader is None"))
-  }
-
-  fn max_doc(&self) -> Result<i32> {
-    self.in_.max_doc()
-  }
-
-  fn num_docs(&self) -> Result<i32> {
-    self.in_.num_docs()
-  }
-
-  type StoredFields = StoredFieldsType<CR::StoredFieldsReader>;
-
-  fn stored_fields(&self) -> Result<Self::StoredFields> {
-    CodecReader::stored_fields(&self.in_)
-  }
-
-  fn do_close(&self) -> Result<()> {
-    self.in_.do_close()
-  }
-
-  type ReaderCacheHelper = CR::ReaderCacheHelper;
-
-  fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-    self.in_.get_reader_cache_helper()
-  }
-
-  fn doc_freq(&self, term: &Term) -> Result<i32> {
-    IndexReader::doc_freq(&self.in_, term)
-  }
-
-  fn total_term_freq(&self, term: &Term) -> Result<i64> {
-    self.in_.total_term_freq(term)
-  }
-
-  fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-    IndexReader::get_sum_doc_freq(&self.in_, field)
-  }
-
-  fn get_doc_count(&self, field: &str) -> Result<i32> {
-    IndexReader::get_doc_count(&self.in_, field)
-  }
-
-  fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-    IndexReader::get_sum_total_term_freq(&self.in_, field)
-  }
-
-  fn index_base(&self) -> &IndexReaderBase {
-    self.in_.index_base()
-  }
-}
-
-impl<CR> LeafReader for MockRandomFilterLeafReader<CR>
-where
-  CR: CodecReader,
-{
-  type CacheHelper = CR::CacheHelper;
-
-  fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
-    self.in_.get_core_cache_helper()
-  }
-
-  type Terms = CR::Terms;
-
-  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-    LeafReader::terms(&self.in_, field)
-  }
-
-  type NumericDocValues = CR::NumericDocValues;
-
-  fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
-    LeafReader::get_numeric_doc_values(&self.in_, field)
-  }
-
-  type BinaryDocValues = CR::BinaryDocValues;
-
-  fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
-    LeafReader::get_binary_doc_values(&self.in_, field)
-  }
-
-  type SortedDocValues = CR::SortedDocValues;
-
-  fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
-    LeafReader::get_sorted_doc_values(&self.in_, field)
-  }
-
-  type SortedNumericDocValues = CR::SortedNumericDocValues;
-
-  fn get_sorted_numeric_doc_values(
-    &self,
-    field: &str,
-  ) -> Result<Option<Self::SortedNumericDocValues>> {
-    LeafReader::get_sorted_numeric_doc_values(&self.in_, field)
-  }
-
-  type SortedSetDocValues = CR::SortedSetDocValues;
-
-  fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-    LeafReader::get_sorted_set_doc_values(&self.in_, field)
-  }
-
-  type NormNumericDocValues = CR::NormNumericDocValues;
-
-  fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-    LeafReader::get_norm_values(&self.in_, field)
-  }
-
-  type DocValuesSkipper = CR::DocValuesSkipper;
-
-  fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
-    LeafReader::get_doc_values_skipper(&self.in_, field)
-  }
-
-  type FloatVectorValues = CR::FloatVectorValues;
-
-  fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
-    LeafReader::get_float_vector_values(&self.in_, field)
-  }
-
-  type ByteVectorValues = CR::ByteVectorValues;
-
-  fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
-    LeafReader::get_byte_vector_values(&self.in_, field)
-  }
-
-  fn search_nearest_vectors_f32<B, K>(
-    &self,
-    field: &str,
-    target: Vec<f32>,
-    knn_collector: &mut K,
-    accept_docs: Option<B>,
-  ) -> Result<()>
-  where
-    B: Bits,
-    K: KnnCollector,
-  {
-    LeafReader::search_nearest_vectors_f32(&self.in_, field, target, knn_collector, accept_docs)
-  }
-
-  fn search_nearest_vectors_u8<B, K>(
-    &self,
-    field: &str,
-    target: Vec<u8>,
-    knn_collector: &mut K,
-    accept_docs: Option<B>,
-  ) -> Result<()>
-  where
-    B: Bits,
-    K: KnnCollector,
-  {
-    LeafReader::search_nearest_vectors_u8(&self.in_, field, target, knn_collector, accept_docs)
-  }
-
-  fn get_field_infos(&self) -> Result<Arc<FieldInfos>> {
-    self.in_.get_field_infos()
-  }
-
-  type Bits = CR::Bits;
-
-  fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
-    self.in_.get_live_docs()
-  }
-
-  type PointValues = CR::PointValues;
-
-  fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
-    LeafReader::get_point_values(&self.in_, field)
-  }
-
-  fn check_integrity(&self) -> Result<()> {
-    self.in_.check_integrity()
-  }
-
-  fn get_metadata(&self) -> Result<&LeafMetaData> {
-    self.in_.get_metadata()
-  }
-}
-
 pub(crate) type MockRandomWrappedReader<CR> = CodecReaderEnum2<
   CR,
-  CodecReaderEnum2<SlowCodecReader<MockRandomFilterLeafReader<CR>>, MismatchedCodecReader<CR>>,
+  CodecReaderEnum2<SlowCodecReader<Arc<MergeReaderWrapper<CR>>>, MismatchedCodecReader<CR>>,
 >;
 
 pub(crate) struct MockRandomOneMerge {
@@ -512,7 +275,7 @@ impl MockRandomOneMerge {
     if thing_to_do == 0 {
       // Simple no-op FilterReader.
       Ok(CodecReaderEnum2::B(CodecReaderEnum2::A(
-        SlowCodecReaderWrapper::wrap_leaf_reader(MockRandomFilterLeafReader::new(reader)),
+        SlowCodecReaderWrapper::wrap_leaf_reader(Arc::new(MergeReaderWrapper::new(reader)?)),
       )))
     } else if thing_to_do == 1 {
       // Renumber fields.
@@ -580,7 +343,7 @@ pub(crate) struct ReverseDocMap {
   parents: Option<Arc<SparseFixedBitSetBitSet>>,
 }
 
-fn reverse<CR>(reader: &CR) -> Result<ReverseDocMap>
+pub(crate) fn reverse<CR>(reader: &CR) -> Result<ReverseDocMap>
 where
   CR: CodecReader,
 {

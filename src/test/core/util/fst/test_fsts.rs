@@ -24,6 +24,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_mock_directory, new_searcher_with_reader, random, random_from_seed, random_multiplier,
 };
 
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -42,6 +43,7 @@ use crate::core::util::Comparator;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
@@ -722,7 +724,6 @@ fn test_primary_keys() -> Result<()> {
 
     // turn writer into reader:
     let r = w.get_reader(&mut random)?;
-    let terms_reader = w.get_reader(&mut random)?;
     let s = new_searcher_with_reader(r)?;
     w.close(&mut random)?;
 
@@ -768,7 +769,7 @@ fn test_primary_keys() -> Result<()> {
     }
 
     // Verify w/ MultiTermsEnum
-    let mut terms_enum = multi_terms::get_terms(terms_reader, "id")?
+    let mut terms_enum = multi_terms::get_terms(s.reader_context.reader(), "id")?
       .expect("terms should exist")
       .iterator()?;
     for _ in 0..2 * num_ids {
@@ -827,7 +828,9 @@ fn test_primary_keys() -> Result<()> {
         assert_eq!(SeekStatus::Found, status);
       }
     }
+    s.reader_context.reader().close()?;
   }
+  dir.close()?;
 
   Ok(())
 }

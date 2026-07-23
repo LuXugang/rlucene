@@ -169,8 +169,21 @@ where
 
     self.resize_buffer(self.term_length + len)?;
     if len > 4 {
-      let chars: Vec<char> = csq.chars().skip(start).take(len).collect();
-      self.term_buffer.copy_from(&chars, self.term_length);
+      if csq.is_ascii() {
+        for (slot, c) in self.term_buffer[self.term_length..self.term_length + len]
+          .iter_mut()
+          .zip(&csq.as_bytes()[start..end])
+        {
+          *slot = *c as char;
+        }
+      } else {
+        for (slot, c) in self.term_buffer[self.term_length..self.term_length + len]
+          .iter_mut()
+          .zip(csq.chars().skip(start).take(len))
+        {
+          *slot = c;
+        }
+      }
       self.term_length += len;
     } else {
       for c in csq.chars().skip(start).take(len) {
@@ -193,10 +206,24 @@ where
       return self.append_null();
     }
     let s = s.unwrap();
-    let chars: Vec<char> = s.chars().collect();
-    self.resize_buffer(self.term_length + chars.len())?;
-    self.term_buffer.copy_from(&chars, self.term_length);
-    self.term_length += chars.len();
+    let len = s.chars().count();
+    self.resize_buffer(self.term_length + len)?;
+    if len == s.len() {
+      for (slot, c) in self.term_buffer[self.term_length..self.term_length + len]
+        .iter_mut()
+        .zip(s.bytes())
+      {
+        *slot = c as char;
+      }
+    } else {
+      for (slot, c) in self.term_buffer[self.term_length..self.term_length + len]
+        .iter_mut()
+        .zip(s.chars())
+      {
+        *slot = c;
+      }
+    }
+    self.term_length += len;
     Ok(self)
   }
 
@@ -291,8 +318,20 @@ where
   T: AttributeImpl + CharTermAttributeImplBase,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let s: String = self.term_buffer[..self.term_length].iter().collect();
-    write!(f, "{s}")
+    let mut buffer = [0u8; 1024];
+    let mut length = 0;
+    for c in &self.term_buffer[..self.term_length] {
+      let char_length = c.len_utf8();
+      if length + char_length > buffer.len() {
+        f.write_str(std::str::from_utf8(&buffer[..length]).expect("chars are valid UTF-8"))?;
+        length = 0;
+      }
+      length += c.encode_utf8(&mut buffer[length..]).len();
+    }
+    if length > 0 {
+      f.write_str(std::str::from_utf8(&buffer[..length]).expect("chars are valid UTF-8"))?;
+    }
+    Ok(())
   }
 }
 #[derive(Clone)]

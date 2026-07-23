@@ -16,11 +16,11 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
-use crate::core::index::directory_reader;
+use crate::core::index::directory_reader::{self, DirectoryReader};
+use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
-use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -35,6 +35,10 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
+// Make sure if you use NoDeletionPolicy that no file
+// referenced by a commit point is ever deleted
+
 #[allow(dead_code)] // for quick search
 pub struct TestNeverDelete;
 
@@ -55,9 +59,10 @@ fn test_indexing() -> Result<()> {
 
   w.commit(&mut random)?;
   let mut index_threads = Vec::new();
+  let index_thread_count = random.random_range(0..4);
   let stop_iterations = at_least(&mut random, 100);
   let field_types = Arc::new(Mutex::new(HashMap::new()));
-  for x in 0..random.random_range(0..4) {
+  for x in 0..index_thread_count {
     let w = w.clone();
     let seed = random.random();
     let field_types = field_types.clone();
@@ -98,14 +103,18 @@ fn test_indexing() -> Result<()> {
 
   let mut all_files = HashSet::new();
 
-  let mut r = directory_reader::open_from_writer(&w.w)?;
+  let mut r = directory_reader::open(d.clone())?;
   let mut iterations = 0;
   while {
     iterations += 1;
     iterations < stop_iterations
   } {
-    let ic = SegmentInfos::read_latest_commit(d.clone())?;
-    all_files.extend(ic.files(true)?);
+    let ic = r.get_index_commit()?;
+    let file_names = ic.get_file_names()?;
+    if cfg!(feature = "test_log_verbose") {
+      println!("TEST: check files: {file_names:?}");
+    }
+    all_files.extend(file_names.iter().cloned());
     // Make sure no old files were removed
     for file_name in &all_files {
       assert!(

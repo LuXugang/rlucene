@@ -26,7 +26,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_doc_values_format_test_case::BaseDocValuesFormatTestCase;
-use crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
@@ -51,7 +50,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   {
     let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let unique_value_count = TestUtil::next_int(random, 1, 256) as usize;
@@ -130,7 +129,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
   {
     let dir = Arc::new(ByteBuffersDirectory::new());
     let analyzer = MockAnalyzer::new(random);
-    let iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();

@@ -22,6 +22,7 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
@@ -30,12 +31,14 @@ use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 
 #[allow(dead_code)] // for quick search
@@ -46,7 +49,8 @@ fn test_use_index_for_selective_queries() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(TestUtil::get_default_codec());
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -114,8 +118,9 @@ fn test_use_index_for_selective_queries() -> Result<()> {
     .ok_or_else(|| LuceneError::illegal_state("scorer is None"))?;
   assert!(s2.two_phase_iterator().is_none()); // means we use points
 
+  searcher.get_index_reader().close()?;
   writer.close()?;
-  Ok(())
+  dir.close()
 }
 
 #[test]
@@ -123,7 +128,8 @@ fn test_use_index_for_selective_multi_value_queries() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = at_least(&mut random, 1000);
@@ -209,15 +215,17 @@ fn test_use_index_for_selective_multi_value_queries() -> Result<()> {
   let s3 = w3.scorer(&leaves[0], &searcher)?.unwrap();
   assert!(s3.two_phase_iterator().is_some()); // means we use doc values
 
+  searcher.get_index_reader().close()?;
   writer.close()?;
-  Ok(())
+  dir.close()
 }
 #[test]
 fn test_query_matches_count() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = random.random_range(0..5000);
@@ -251,6 +259,7 @@ fn test_query_matches_count() -> Result<()> {
 
   assert_eq!(search_count, weight_count);
 
+  searcher.get_index_reader().close()?;
   writer.close()?;
-  Ok(())
+  dir.close()
 }

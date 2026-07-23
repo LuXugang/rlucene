@@ -93,17 +93,12 @@ impl TestDefaultCodecParallelizesIO {
   fn after_class(&self) -> Result<()> {
     IOUtils::use_or_suppress_result(self.reader.close(), self.dir.close())
   }
-}
 
-/// Simulate term lookup in a BooleanQuery.
-#[test]
-fn test_terms_seek_exact() -> Result<()> {
-  let mut random = random();
-  let case = TestDefaultCodecParallelizesIO::before_class(&mut random)?;
-  let result = (|| -> Result<()> {
-    let prev_count = case.dir.count();
+  /// Simulate term lookup in a BooleanQuery.
+  fn test_terms_seek_exact(&self) -> Result<()> {
+    let prev_count = self.dir.count();
 
-    let leaf_reader = get_only_leaf_reader(&case.reader)?;
+    let leaf_reader = get_only_leaf_reader(&self.reader)?;
     let terms = leaf_reader
       .terms("body")?
       .expect("body must have indexed terms");
@@ -125,23 +120,17 @@ fn test_terms_seek_exact() -> Result<()> {
     }
 
     assert!(non_null_io_suppliers > 0);
-    let new_count = case.dir.count();
+    let new_count = self.dir.count();
     assert!(new_count - prev_count > 0);
     assert!(new_count - prev_count < non_null_io_suppliers);
     Ok(())
-  })();
-  IOUtils::use_or_suppress_result(result, case.after_class())
-}
+  }
 
-/// Simulate stored fields retrieval.
-#[test]
-fn test_stored_fields() -> Result<()> {
-  let mut random = random();
-  let case = TestDefaultCodecParallelizesIO::before_class(&mut random)?;
-  let result = (|| -> Result<()> {
-    let prev_count = case.dir.count();
+  /// Simulate stored fields retrieval.
+  fn test_stored_fields(&self, random: &mut StdRng) -> Result<()> {
+    let prev_count = self.dir.count();
 
-    let leaf_reader = get_only_leaf_reader(&case.reader)?;
+    let leaf_reader = get_only_leaf_reader(&self.reader)?;
     let mut stored_fields = leaf_reader.stored_fields()?;
     let mut docs = [0; 20];
     for doc in &mut docs {
@@ -152,10 +141,20 @@ fn test_stored_fields() -> Result<()> {
       stored_fields.document(doc)?;
     }
 
-    let new_count = case.dir.count();
+    let new_count = self.dir.count();
     assert!(new_count - prev_count > 0);
     assert!(new_count - prev_count < docs.len() as i64);
     Ok(())
+  }
+}
+
+#[test]
+fn test_default_codec_parallelizes_io() -> Result<()> {
+  let mut random = random();
+  let case = TestDefaultCodecParallelizesIO::before_class(&mut random)?;
+  let result = (|| -> Result<()> {
+    case.test_terms_seek_exact()?;
+    case.test_stored_fields(&mut random)
   })();
   IOUtils::use_or_suppress_result(result, case.after_class())
 }

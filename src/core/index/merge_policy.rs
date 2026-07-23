@@ -2390,7 +2390,7 @@ where
   #[cfg(test)]
   SoftUpdatesConcurrently(SoftUpdatesConcurrentlyOneMerge<D, CR>),
   #[cfg(test)]
-  MockRandom(MockRandomOneMerge),
+  MockRandom(Box<MockRandomOneMerge>),
 }
 
 pub(crate) struct OneMergeDefaults;

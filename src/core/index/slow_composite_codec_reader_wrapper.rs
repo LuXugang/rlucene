@@ -460,21 +460,10 @@ where
   }
 
   fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
-    todo!()
-  }
-
-  fn get_float_vector_values(
-    &self,
-    _field: &str,
-  ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::FloatVectorValues>> {
-    todo!()
-  }
-
-  fn get_byte_vector_values(
-    &self,
-    _field: &str,
-  ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::ByteVectorValues>> {
-    todo!()
+    Ok(Some(SlowCompositeKnnVectorsReaderWrapper::new(
+      self.codec_readers.clone(),
+      self.doc_stats.clone(),
+    )?))
   }
 }
 
@@ -590,7 +579,11 @@ where
     let reader = &mut self.readers[reader_id]
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("StoredFieldsReader is None"))?;
-    reader.document_with_visitor(doc_id, &mut sf_visitor, writer)
+    reader.document_with_visitor(
+      doc_id - self.doc_starts[reader_id] as i32,
+      &mut sf_visitor,
+      writer,
+    )
   }
 }
 
@@ -1278,7 +1271,10 @@ where
   CR: CodecReader + Clone,
 {
   fn check_integrity(&self) -> Result<()> {
-    todo!()
+    for reader in self.readers.iter().flatten() {
+      reader.check_integrity()?;
+    }
+    Ok(())
   }
 
   type FloatVectorValues = DummyFloatVectorValues;

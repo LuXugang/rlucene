@@ -72,6 +72,7 @@ mod test_max_term_frequency;
 mod test_merge_on_flush_merge_policy;
 mod test_merge_policy;
 mod test_mixed_doc_values_updates;
+mod test_mock_random_merge_policy;
 mod test_multi_terms_enum;
 mod test_newest_segment;
 mod test_no_merge_policy;

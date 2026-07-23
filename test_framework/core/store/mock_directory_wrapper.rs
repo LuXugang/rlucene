@@ -35,7 +35,7 @@ use crate::test_framework::core::store::mock_index_output_wrapper::{
   MockIndexOutputHandle, MockIndexOutputWrapper,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  is_night_mode, new_io_context, new_io_context_with_default,
+  is_night_mode, new_io_context, new_io_context_with_default, slow_file_exists,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use crate::test_framework::core::util::throttled_index_output::ThrottledIndexOutput;
@@ -1222,15 +1222,7 @@ where
     if self.state.fail_on_open_input.load(Ordering::SeqCst) {
       self.maybe_throw_deterministic_exception()?;
     }
-    if !self
-      .state
-      .base
-      .lock()
-      .get_delegate()
-      .list_all()?
-      .iter()
-      .any(|file| file == name)
-    {
+    if !slow_file_exists(self.state.base.lock().get_delegate(), name)? {
       return Err(LuceneError::io_with_path(
         name,
         Error::new(ErrorKind::NotFound, format!("{name} in dir={}", self)),

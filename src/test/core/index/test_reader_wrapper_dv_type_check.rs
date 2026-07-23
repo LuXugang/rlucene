@@ -20,13 +20,14 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_string_field, random, random_from_seed, rarely,
+  get_only_leaf_reader, new_directory_shared, new_string_field, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -40,9 +41,9 @@ fn test_no_dv_field_on_segment() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  // TODO IMPORTANT setCodec未实现
-  let cfg = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  let iw = RandomIndexWriter::with_config(&mut random, dir, cfg);
+  let mut cfg = IndexWriterConfig::with_analyzer(analyzer)?;
+  cfg.set_codec(TestUtil::get_default_codec());
+  let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), cfg);
 
   let mut sdv_exist = false;
   let mut ssdv_exist = false;
@@ -56,7 +57,7 @@ fn test_no_dv_field_on_segment() -> Result<()> {
     for i in 0..docs {
       let mut d = Document::new();
       d.add(new_string_field(
-        &mut index_random,
+        &mut random,
         "id",
         i.to_string(),
         Store::No,
@@ -77,8 +78,8 @@ fn test_no_dv_field_on_segment() -> Result<()> {
         ));
         ssdv_exist = true;
       }
-      iw.add_document(&mut index_random, d)?;
-      iw.commit(&mut index_random)?;
+      iw.add_document(&mut random, d)?;
+      iw.commit(&mut random)?;
     }
   }
   iw.force_merge(&mut random, 1)?;
@@ -112,6 +113,7 @@ fn test_no_dv_field_on_segment() -> Result<()> {
   assert_eq!(ssdv_exist, ssdv.is_some(), "optional ssdv field");
 
   reader.close()?;
+  dir.close()?;
 
   Ok(())
 }

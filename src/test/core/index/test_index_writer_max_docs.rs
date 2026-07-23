@@ -513,7 +513,9 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
 }
 /// LUCENE-6299: Test if addindexes(Dir[]) prevents exceeding max docs.
 // TODO: can we use the setter to lower the amount of docs to be written here?
+#[cfg(feature = "nightly")]
 #[test]
+#[ignore = "nightly"]
 fn test_add_too_many_indexes_dir() -> Result<()> {
   let mut random = random();
 

@@ -18,7 +18,7 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
-use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::codec_reader::{CodecReader, TermVectorsType};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
@@ -90,12 +90,10 @@ where
 {
   type ContextKind = LeafReaderContextKind;
 
-  type TermVectors = CR::TermVectorsReader;
+  type TermVectors = TermVectorsType<CR::TermVectorsReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
-    self
-      .get_term_vectors_reader()?
-      .ok_or_else(|| LuceneError::illegal_state("term vectors reader is None"))
+    CodecReader::term_vectors(self)
   }
 
   fn max_doc(&self) -> Result<i32> {

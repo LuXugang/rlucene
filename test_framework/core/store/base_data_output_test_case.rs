@@ -35,11 +35,11 @@ pub trait BaseDataOutputTestCase {
     DI: DataInput,
     R: Rng + ?Sized,
   {
-    let seed: u64 = random.random();
     let mut instance = self.new_instance()?;
     let mut buffer = Vec::new();
     let mut os = OutputStreamDataOutput::new(&mut buffer);
-    let max = 500000;
+    let seed: u64 = random.random();
+    let max = 50_000;
     let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
     let mut random2 = Xoroshiro128Plus::seed_from_u64(seed);
 

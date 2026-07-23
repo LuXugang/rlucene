@@ -198,7 +198,9 @@ fn test_field_number_gaps() -> Result<()> {
     }
 
     {
-      let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+      let mut config = new_index_writer_config(&mut random)?;
+      config.set_merge_policy(NoMergePolicy::default());
+      let writer = IndexWriter::new(dir.clone(), config)?;
 
       let mut d = Document::new();
       d.add(TextField::from_string("f1", "d2 first field", Store::Yes)?);
@@ -218,7 +220,9 @@ fn test_field_number_gaps() -> Result<()> {
     }
 
     {
-      let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+      let mut config = new_index_writer_config(&mut random)?;
+      config.set_merge_policy(NoMergePolicy::default());
+      let writer = IndexWriter::new(dir.clone(), config)?;
 
       let mut d = Document::new();
       d.add(TextField::from_string("f1", "d3 first field", Store::Yes)?);

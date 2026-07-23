@@ -40,7 +40,7 @@ use crate::test_framework::core::index::test_index_writer::{
   add_doc, add_doc_with_index, assert_no_unreferenced_files,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_mock_directory, new_searcher_with_reader, random,
   random_from_seed,
 };
@@ -361,7 +361,7 @@ fn test_commit_thread_safety() -> Result<()> {
 
   let mock = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  iwc.set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?);
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
   TestUtil::reduce_open_files(&writer.w)?;
   writer.commit(&mut random)?;

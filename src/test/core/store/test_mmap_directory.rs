@@ -17,7 +17,6 @@
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, random, random_multiplier,
 };
-use std::mem::size_of;
 use std::path::PathBuf;
 use std::sync::{Arc, Barrier};
 use std::thread;
@@ -33,8 +32,11 @@ use crate::core::store::mmap_directory::{MMapDirectory, MMapPreload};
 use crate::core::store::{
   DataInput, DataOutput, FSDirectory, IOContext, IndexInput, NativeFSLockFactory, ReadAdvice,
 };
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 
 #[allow(dead_code)] // for quick search
@@ -75,42 +77,47 @@ impl TestMMapDirectory {
     let temp_dir = Builder::new().prefix("testAceWithThreads").tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
-    {
+    let result = (|| -> Result<()> {
       let mut out = dir.create_output("test", &io_context)?;
-      for _ in 0..n_ints {
-        out.write_int(random.random())?;
-      }
-    }
-
-    let iters = random_multiplier() * if is_night_mode() { 50 } else { 10 };
-    for _ in 0..iters {
-      let input = dir.open_input("test", &io_context)?;
-      let mut clone = input.try_clone()?;
-      let mut accum = vec![0u8; n_ints * size_of::<i32>()];
-      let shotgun = Arc::new(Barrier::new(2));
-      let shotgun_clone = Arc::clone(&shotgun);
-      let t1 = thread::spawn(move || -> Result<()> {
-        shotgun_clone.wait();
-        for _ in 0..10 {
-          let read_result = (|| -> Result<()> {
-            clone.seek(0)?;
-            let accum_len = accum.len();
-            DataInput::read_bytes(&mut clone, &mut accum, 0, accum_len)
-          })();
-          match read_result {
-            Ok(()) => {},
-            Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
-            Err(err) => return Err(err),
-          }
+      let write_result = (|| -> Result<()> {
+        for _ in 0..n_ints {
+          out.write_int(random.random())?;
         }
         Ok(())
-      });
-      shotgun.wait();
-      drop(input);
-      t1.join().unwrap()?;
-    }
+      })();
+      IOUtils::use_or_suppress_result(write_result, out.close())?;
 
-    Ok(())
+      let iters = random_multiplier() * if is_night_mode() { 50 } else { 10 };
+      for _ in 0..iters {
+        let input = dir.open_input("test", &io_context)?;
+        let mut clone = input.try_clone()?;
+        let mut accum = vec![0u8; n_ints * BitUtil::INT_BYTES];
+        let shotgun = Arc::new(Barrier::new(2));
+        let shotgun_clone = Arc::clone(&shotgun);
+        let t1 = thread::spawn(move || -> Result<()> {
+          shotgun_clone.wait();
+          for _ in 0..10 {
+            let read_result = (|| -> Result<()> {
+              clone.seek(0)?;
+              let accum_len = accum.len();
+              DataInput::read_bytes(&mut clone, &mut accum, 0, accum_len)
+            })();
+            match read_result {
+              Ok(()) => {},
+              Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
+              Err(err) => return Err(err),
+            }
+          }
+          Ok(())
+        });
+        shotgun.wait();
+        input.close()?;
+        t1.join().unwrap()?;
+      }
+
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(result, dir.close())
   }
 
   fn test_with_normal<R>(&self, random: &mut R) -> Result<()>

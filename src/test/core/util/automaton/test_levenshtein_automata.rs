@@ -114,21 +114,21 @@ impl TestLevenshteinAutomata {
       match n {
         0 => {
           let expected = Automata::make_string(s)?;
-          let _a1 = Operations::remove_dead_states(&automata[0])?;
-          AutomatonTestUtil::same_language(&expected, &a2)?;
+          let a1 = Operations::remove_dead_states(&automata[0])?;
+          assert!(AutomatonTestUtil::same_language(&expected, &a1)?);
 
           let expected = Automata::make_string(s)?;
           let a2 = Operations::remove_dead_states(&tautomata[0])?;
-          AutomatonTestUtil::same_language(&expected, &a2)?;
+          assert!(AutomatonTestUtil::same_language(&expected, &a2)?);
         },
         1 => {
           let expected = Self::naive_lev1(s)?;
-          let a1 = Operations::remove_dead_states(&automata[0])?;
-          AutomatonTestUtil::same_language(&expected, &a1)?;
+          let a1 = Operations::remove_dead_states(&automata[1])?;
+          assert!(AutomatonTestUtil::same_language(&expected, &a1)?);
 
           let expected = Self::naive_lev1_t(s)?;
-          let a2 = Operations::remove_dead_states(&tautomata[0])?;
-          AutomatonTestUtil::same_language(&expected, &a2)?;
+          let a2 = Operations::remove_dead_states(&tautomata[1])?;
+          assert!(AutomatonTestUtil::same_language(&expected, &a2)?);
         },
         _ => {
           Self::assert_brute_force(s, &automata[n], n)?;

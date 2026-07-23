@@ -56,22 +56,25 @@ impl BaseMergePolicyTestCase for TestMergeOnFlushMergePolicy {
     R: Rng + ?Sized,
   {
     let mut inner = new_merge_policy_with_mock_mp(random, false).expect("");
+    let max_cfs_segment_size_mb = inner.get_base().get_max_cfs_segment_size_mb();
+    let no_cfs_ratio = inner.get_base().get_no_cfs_ratio();
+    let small_segment_threshold_mb = TestUtil::next_int(random, 1, 100) as f64;
     if let MergePolicyEnum::Tiered(tiered) = &mut inner {
       tiered
         .set_max_merged_segment_mb(TestUtil::next_int(random, 1024, 10 * 1024) as f64)
         .expect("");
     }
 
-    let mut merge_on_flush = MergeOnFlushMergePolicy::new(inner.clone());
+    let mut merge_on_flush = MergeOnFlushMergePolicy::new(inner);
     merge_on_flush
       .get_base_mut()
-      .set_max_cfs_segment_size_mb(inner.get_base().get_max_cfs_segment_size_mb())
+      .set_max_cfs_segment_size_mb(max_cfs_segment_size_mb)
       .expect("");
     merge_on_flush
       .get_base_mut()
-      .set_no_cfs_ratio(inner.get_base().get_no_cfs_ratio())
+      .set_no_cfs_ratio(no_cfs_ratio)
       .expect("");
-    merge_on_flush.set_small_segment_threshold_mb(TestUtil::next_int(random, 1, 100) as f64);
+    merge_on_flush.set_small_segment_threshold_mb(small_segment_threshold_mb);
     merge_on_flush.into()
   }
 

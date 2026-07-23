@@ -48,7 +48,9 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::multi_term_query::DOC_VALUES_REWRITE;
 use crate::core::search::query::{IntoQuery, Query, QueryBase};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::sort::Sort;
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
@@ -61,6 +63,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -142,7 +145,7 @@ fn test_duel() -> Result<()> {
       all_terms.push(new_bytes_ref_from_string(&mut random, &value)?);
     }
     let dir = new_directory_shared(&mut random)?;
-    let writer = RandomIndexWriter::new(&mut random, dir)?;
+    let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = at_least(&mut random, 10_000);
     for _ in 0..num_docs {
       let mut doc = Document::new();
@@ -152,8 +155,10 @@ fn test_duel() -> Result<()> {
       writer.add_document(&mut random, doc)?;
     }
     if num_terms > 1 && random.random_bool(0.5) {
-      writer
-        .delete_documents_with_terms(&mut random, vec![Term::new(field, all_terms[0].clone())])?;
+      writer.delete_documents_with_queries(
+        &mut random,
+        vec![TermQuery::new(Term::new(field, all_terms[0].clone())).into()],
+      )?;
     }
     writer.commit(&mut random)?;
     let reader = writer.get_reader(&mut random)?;
@@ -161,6 +166,8 @@ fn test_duel() -> Result<()> {
     writer.close(&mut random)?;
 
     if searcher.get_index_reader().num_docs()? == 0 {
+      // may occasionally happen if all documents got the same term
+      IOUtils::use_or_suppress_result(searcher.get_index_reader().close(), dir.close())?;
       continue;
     }
 
@@ -197,6 +204,9 @@ fn test_duel() -> Result<()> {
         false,
       )?;
     }
+
+    searcher.get_index_reader().close()?;
+    dir.close()?;
   }
   Ok(())
 }
@@ -332,16 +342,23 @@ where
   IRC: IndexReaderContext + Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
-  let td1 = searcher.search(q1, max_doc)?;
-  let td2 = searcher.search(q2, max_doc)?;
-  assert_eq!(td1.total_hits().value(), td2.total_hits().value());
-  for i in 0..td1.score_docs.len() {
-    assert_eq!(td1.score_docs[i].doc, td2.score_docs[i].doc);
-    if scores {
+  if scores {
+    let td1 = searcher.search(q1, max_doc)?;
+    let td2 = searcher.search(q2, max_doc)?;
+    assert_eq!(td1.total_hits().value(), td2.total_hits().value());
+    for i in 0..td1.score_docs.len() {
+      assert_eq!(td1.score_docs[i].doc, td2.score_docs[i].doc);
       assert!(
         (td1.score_docs[i].score - td2.score_docs[i].score).abs() <= 10e-7,
         "score for {i} was not the same"
       );
+    }
+  } else {
+    let td1 = searcher.search_with_sort(q1, max_doc, Sort::get_index_order()?)?;
+    let td2 = searcher.search_with_sort(q2, max_doc, Sort::get_index_order()?)?;
+    assert_eq!(td1.total_hits().value(), td2.total_hits().value());
+    for i in 0..td1.score_docs().len() {
+      assert_eq!(td1.score_docs()[i].doc(), td2.score_docs()[i].doc());
     }
   }
   Ok(())

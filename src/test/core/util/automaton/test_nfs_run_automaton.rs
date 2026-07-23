@@ -22,6 +22,7 @@ use std::collections::{HashMap, HashSet};
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::term::Term;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::util::accountable::Accountable;
@@ -31,6 +32,7 @@ use crate::core::util::automation::nfa_run_automaton::NFARunAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::automation::transition::Transition;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ints_ref::IntsRef;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -259,8 +261,9 @@ fn test_random_automaton_query() -> Result<()> {
     i += 1;
   }
 
+  searcher.get_index_reader().close()?;
   writer.close(&mut random)?;
-  Ok(())
+  directory.close()
 }
 
 fn test_accepted_string<R>(

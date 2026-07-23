@@ -39,6 +39,7 @@ use crate::core::store::directory::{Directory, MaybeNrtDirEnum};
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::suppressing_concurrent_merge_scheduler::SuppressingConcurrentMergeScheduler;
@@ -754,7 +755,7 @@ where
     .set_ram_buffer_size_mb(0.00001);
   let writer = Arc::new(RandomIndexWriter::with_soft_deletes(
     random,
-    dir,
+    dir.clone(),
     config,
     use_soft_deletes,
   ));
@@ -815,6 +816,5 @@ where
     Ok(())
   })?;
 
-  writer.close(random)?;
-  Ok(())
+  IOUtils::use_or_suppress_result(writer.close(random), dir.close())
 }

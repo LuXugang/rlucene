@@ -85,7 +85,8 @@ use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDi
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, call_stack_contains, call_stack_contains_any_of, get_only_leaf_reader, is_night_mode,
   new_directory_shared, new_field, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_mock_directory, new_searcher, new_text_field, random, random_from_seed, random_multiplier,
+  new_mock_directory, new_searcher, new_string_field, new_text_field, random, random_from_seed,
+  random_multiplier,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -206,41 +207,89 @@ where
 {
   writer: DefaultIndexWriter<D>,
   r: StdRng,
+  field_types: Arc<Mutex<HashMap<String, FieldType>>>,
 }
 
 impl<D> IndexerThread<D>
 where
   D: Directory + 'static,
 {
-  fn new(writer: DefaultIndexWriter<D>, seed: u64) -> Self {
+  fn new(
+    writer: DefaultIndexWriter<D>,
+    seed: u64,
+    field_types: Arc<Mutex<HashMap<String, FieldType>>>,
+  ) -> Self {
     Self {
       writer,
       r: StdRng::seed_from_u64(seed),
+      field_types,
     }
   }
 
   fn run(mut self) -> Result<()> {
     let mut doc = Document::new();
 
-    doc.add(TextField::from_string(
-      "content1",
-      "aaa bbb ccc ddd",
-      Store::Yes,
-    )?);
-    doc.add(Field::new("content6", "aaa bbb ccc ddd", CUSTOM_1.clone()));
-    doc.add(Field::new("content2", "aaa bbb ccc ddd", CUSTOM_2.clone()));
-    doc.add(Field::new("content3", "aaa bbb ccc ddd", CUSTOM_3.clone()));
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_text_field(
+        &mut self.r,
+        "content1",
+        "aaa bbb ccc ddd",
+        Store::Yes,
+        &mut field_types,
+      )?
+    });
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_field(
+        &mut self.r,
+        "content6",
+        "aaa bbb ccc ddd",
+        &CUSTOM_1,
+        &mut field_types,
+      )?
+    });
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_field(
+        &mut self.r,
+        "content2",
+        "aaa bbb ccc ddd",
+        &CUSTOM_2,
+        &mut field_types,
+      )?
+    });
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_field(
+        &mut self.r,
+        "content3",
+        "aaa bbb ccc ddd",
+        &CUSTOM_3,
+        &mut field_types,
+      )?
+    });
 
-    doc.add(TextField::from_string(
-      "content4",
-      "aaa bbb ccc ddd",
-      Store::No,
-    )?);
-    doc.add(StringField::from_string(
-      "content5",
-      "aaa bbb ccc ddd",
-      Store::No,
-    )?);
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_text_field(
+        &mut self.r,
+        "content4",
+        "aaa bbb ccc ddd",
+        Store::No,
+        &mut field_types,
+      )?
+    });
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_string_field(
+        &mut self.r,
+        "content5",
+        "aaa bbb ccc ddd",
+        Store::No,
+        &mut field_types,
+      )?
+    });
     doc.add(NumericDocValuesField::new("numericdv", 5));
     doc.add(BinaryDocValuesField::new(
       "binarydv",
@@ -261,9 +310,21 @@ where
     doc.add(SortedNumericDocValuesField::new("sortednumericdv", 10));
     doc.add(SortedNumericDocValuesField::new("sortednumericdv", 5));
 
-    doc.add(Field::new("content7", "aaa bbb ccc ddd", CUSTOM_4.clone()));
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_field(
+        &mut self.r,
+        "content7",
+        "aaa bbb ccc ddd",
+        &CUSTOM_4,
+        &mut field_types,
+      )?
+    });
 
-    doc.add(Field::new("id", "", CUSTOM_2.clone()));
+    doc.add({
+      let mut field_types = self.field_types.lock();
+      new_field(&mut self.r, "id", "", &CUSTOM_2, &mut field_types)?
+    });
 
     let max_iterations = 250;
     let mut iterations = 0;
@@ -1110,7 +1171,8 @@ fn test_random_exceptions() -> Result<()> {
   )?;
   writer.commit()?;
 
-  IndexerThread::new(writer.clone(), random.random()).run()?;
+  let field_types = Arc::new(Mutex::new(HashMap::new()));
+  IndexerThread::new(writer.clone(), random.random(), field_types).run()?;
 
   writer.commit()?;
   if writer.close().is_err() {
@@ -1149,12 +1211,14 @@ fn test_random_exceptions_threads() -> Result<()> {
   writer.commit()?;
 
   const NUM_THREADS: usize = 4;
+  let field_types = Arc::new(Mutex::new(HashMap::new()));
   let seeds: Vec<u64> = (0..NUM_THREADS).map(|_| random.random()).collect();
   thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::with_capacity(NUM_THREADS);
     for seed in seeds {
       let writer = writer.clone();
-      threads.push(scope.spawn(move || IndexerThread::new(writer, seed).run()));
+      let field_types = field_types.clone();
+      threads.push(scope.spawn(move || IndexerThread::new(writer, seed, field_types).run()));
     }
     for thread in threads {
       thread.join().map_err(|panic| {

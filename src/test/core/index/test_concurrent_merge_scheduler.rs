@@ -437,7 +437,7 @@ fn test_total_bytes_size() -> Result<()> {
     directory.set_throttling(Throttling::Never);
   }
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
   iwc.set_max_buffered_docs(5);
   let at_least_one_merge = CountDownLatch::new(1);
   let tracking_scheduler = TrackingConcurrentMergeScheduler::new(at_least_one_merge.clone());

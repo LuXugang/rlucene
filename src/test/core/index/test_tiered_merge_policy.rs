@@ -45,8 +45,8 @@ use crate::test_framework::core::index::base_merge_policy_test_case::{
   make_segment_commit_info,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_field, new_index_writer_config_with_analyzer, new_text_field,
-  new_tiered_merge_policy, random, random_multiplier,
+  at_least, is_night_mode, new_directory_shared, new_field, new_index_writer_config_with_analyzer,
+  new_text_field, new_tiered_merge_policy, random, random_multiplier,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
@@ -84,15 +84,38 @@ mod base_merge_policy_test_case_tests {
   #[test]
   fn test_simulate_append_only() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy::<FakeDirectory, _>(random);
-      case.test_simulate_append_only(random, &mp, Arc::new(FakeDirectory::new()))
+      let mut merge_policy = case.merge_policy::<FakeDirectory, _>(random);
+      // Avoid low values of the max merged segment size which prevent this merge policy from
+      // scaling well.
+      merge_policy.set_max_merged_segment_mb(TestUtil::next_int(random, 1024, 10 * 1024) as f64)?;
+      case.do_test_simulate_append_only(
+        random,
+        &merge_policy,
+        Arc::new(FakeDirectory::new()),
+        100_000_000,
+        10_000,
+      )
     })
   }
   #[test]
   fn test_simulate_updates() -> Result<()> {
     run_case(|case, random| {
-      let mp = case.merge_policy::<FakeDirectory, _>(random);
-      case.test_simulate_updates(random, &mp, Arc::new(FakeDirectory::new()))
+      let mut merge_policy = case.merge_policy::<FakeDirectory, _>(random);
+      // Avoid low values of the max merged segment size which prevent this merge policy from
+      // scaling well.
+      merge_policy.set_max_merged_segment_mb(TestUtil::next_int(random, 1024, 10 * 1024) as f64)?;
+      let num_docs = if is_night_mode() {
+        at_least(random, 10_000_000)
+      } else {
+        at_least(random, 1_000_000)
+      };
+      case.do_test_simulate_updates(
+        random,
+        &merge_policy,
+        Arc::new(FakeDirectory::new()),
+        num_docs,
+        2500,
+      )
     })
   }
   #[test]

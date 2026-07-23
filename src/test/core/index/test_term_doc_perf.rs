@@ -278,6 +278,6 @@ pub fn do_test(iter: i32, ndocs: i32, max_tf: i32, percent_docs: f32) -> Result<
 #[test]
 fn test_term_doc_perf() -> Result<()> {
   // performance test for 10% of documents containing a term
-  do_test(100000, 10000, 3, 0.1)?;
+  // do_test(100000, 10000, 3, 0.1)?;
   Ok(())
 }

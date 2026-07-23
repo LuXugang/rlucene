@@ -1495,62 +1495,64 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new().prefix("testBytes").tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
-    let num = if is_night_mode() {
-      TestUtil::next_usize(random, 1000, 3000)
-    } else {
-      TestUtil::next_usize(random, 50, 1000)
-    };
-    let mut bytes = vec![0u8; num];
-    random.fill_bytes(&mut bytes);
-    let io_context = new_io_context(random)?;
-
-    {
-      let mut output = dir.create_output("bytes", &io_context)?;
+    let body_result = (|| -> Result<()> {
+      let output_context = new_io_context(random)?;
+      let mut output = dir.create_output("bytes", &output_context)?;
+      let num = if is_night_mode() {
+        TestUtil::next_usize(random, 1000, 3000)
+      } else {
+        TestUtil::next_usize(random, 50, 1000)
+      };
+      let mut bytes = vec![0u8; num];
+      random.fill_bytes(&mut bytes);
       for &byte in &bytes {
         output.write_byte(byte)?;
       }
-    }
+      output.close()?;
 
-    // Slice
+      // Slice
 
-    let mut input = dir.open_input("bytes", &io_context)?;
-    let length = IndexInput::length(&input)?;
-    {
-      let mut slice = input.random_access_slice(0, length)?;
-      assert_eq!(length, RandomAccessInput::length(&slice)?);
-      Self::assert_bytes(&mut slice, &bytes, 0, random)?;
-    }
+      let input_context = new_io_context(random)?;
+      let mut input = dir.open_input("bytes", &input_context)?;
+      let length = IndexInput::length(&input)?;
+      {
+        let mut slice = input.random_access_slice(0, length)?;
+        assert_eq!(length, RandomAccessInput::length(&slice)?);
+        Self::assert_bytes(&mut slice, &bytes, 0, random)?;
+      }
 
-    // Subslices
-    let length = IndexInput::length(&input)?;
-    for offset in 1..bytes.len() {
-      let mut subslice = input.random_access_slice(offset, length - offset)?;
-      assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
-      Self::assert_bytes(&mut subslice, &bytes, offset, random)?;
-    }
+      // Subslices
+      let length = IndexInput::length(&input)?;
+      for offset in 1..bytes.len() {
+        let mut subslice = input.random_access_slice(offset, length - offset)?;
+        assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
+        Self::assert_bytes(&mut subslice, &bytes, offset, random)?;
+      }
 
-    // With padding
-    {
+      // With padding
       for i in 1..7 {
         let name = format!("bytes-{}", i);
-        {
-          let mut output = dir.create_output(&name, &io_context)?;
-          let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
-          output.write_bytes_with_len(&junk, junk.len())?;
-          let length = IndexInput::length(&input)?;
-          input.seek(0)?;
-          output.copy_bytes(&mut input, length)?;
-        }
+        let output_context = new_io_context(random)?;
+        let mut output = dir.create_output(&name, &output_context)?;
+        let junk: Vec<u8> = (0..i).map(|_| random.random()).collect();
+        output.write_bytes_with_len(&junk, junk.len())?;
+        let length = IndexInput::length(&input)?;
+        input.seek(0)?;
+        output.copy_bytes(&mut input, length)?;
+        output.close()?;
 
-        let padded = dir.open_input(&name, &io_context)?;
+        let input_context = new_io_context(random)?;
+        let padded = dir.open_input(&name, &input_context)?;
         let length = IndexInput::length(&padded)?;
         let mut whole = padded.random_access_slice(i, length - i)?;
         assert_eq!(length - i, RandomAccessInput::length(&whole)?);
         Self::assert_bytes(&mut whole, &bytes, 0, random)?;
+        padded.close()?;
       }
-    }
 
-    Ok(())
+      input.close()
+    })();
+    IOUtils::use_or_suppress_result(body_result, dir.close())
   }
   fn assert_bytes<R>(
     slice: &mut impl RandomAccessInput,
