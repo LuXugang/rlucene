@@ -54,7 +54,7 @@ fn test() -> Result<()> {
     &mut random,
     create_temp_dir_with_prefix("2BPostingsBytes1")?,
   )?;
-  if let crate::core::store::directory::DirectoryEnum2::B(dir) = dir.as_ref() {
+  if let crate::core::store::directory::DirEnum::B(dir) = dir.as_ref() {
     dir.set_throttling(Throttling::Never);
   }
   let analyzer = MockAnalyzer::new(&mut random);
@@ -102,7 +102,7 @@ fn test() -> Result<()> {
     &mut random,
     create_temp_dir_with_prefix("2BPostingsBytes2")?,
   )?;
-  if let crate::core::store::directory::DirectoryEnum2::B(dir) = dir2.as_ref() {
+  if let crate::core::store::directory::DirEnum::B(dir) = dir2.as_ref() {
     dir.set_throttling(Throttling::Never);
   }
   let writer2 = IndexWriter::new(dir2.clone(), new_index_writer_config(&mut random)?)?;
@@ -117,7 +117,7 @@ fn test() -> Result<()> {
     &mut random,
     create_temp_dir_with_prefix("2BPostingsBytes3")?,
   )?;
-  if let crate::core::store::directory::DirectoryEnum2::B(dir) = dir3.as_ref() {
+  if let crate::core::store::directory::DirEnum::B(dir) = dir3.as_ref() {
     dir.set_throttling(Throttling::Never);
   }
   let writer3 = IndexWriter::new(dir3.clone(), new_index_writer_config(&mut random)?)?;

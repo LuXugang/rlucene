@@ -48,7 +48,7 @@ struct Test2BPositions;
 fn test() -> Result<()> {
   let mut random = random();
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("2BPositions")?)?;
-  if let crate::core::store::directory::DirectoryEnum2::B(dir) = dir.as_ref() {
+  if let crate::core::store::directory::DirEnum::B(dir) = dir.as_ref() {
     dir.set_throttling(Throttling::Never);
   }
 

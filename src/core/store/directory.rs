@@ -18,7 +18,11 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::index_reader::Identity;
 #[cfg(test)]
 use crate::core::store::ByteBuffersDirectory;
+#[cfg(test)]
+use crate::core::store::ReadAdvice;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
+#[cfg(test)]
+use crate::core::store::data_input::DataInput;
 use crate::core::store::data_output::DataOutput;
 #[cfg(test)]
 use crate::core::store::file_switch_directory::FileSwitchDirectory;
@@ -31,11 +35,15 @@ use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::store::nio_fs_directory::NIOFSDirectory;
 #[cfg(test)]
 use crate::core::store::nrt_caching_directory::NRTCachingDirectory;
+#[cfg(test)]
+use crate::core::store::random_access_input::{RandomAccessInput, RandomAccessInputEnum2};
 use crate::core::store::{
   FSDirectory, IOContext, IndexInputEnum, IndexInputEnum2, IndexInputEnum3, IndexOutput,
   IndexOutputEnum, IndexOutputEnum2, IndexOutputEnum3, NativeFSLockFactory,
 };
 use crate::core::util::HasIdentity;
+#[cfg(test)]
+use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
@@ -44,6 +52,8 @@ use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWra
 #[cfg(test)]
 use crate::test_framework::core::store::raw_directory_wrapper::RawDirectoryWrapper;
 use num_bigint::BigInt;
+#[cfg(test)]
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -800,10 +810,409 @@ pub(crate) type RawDirWrapper = RawDirectoryWrapper<MaybeNrtDirEnum>;
 #[cfg(test)]
 pub(crate) type MockDirWrapper = MockDirectoryWrapper<MaybeNrtDirEnum>;
 #[cfg(test)]
-pub(crate) type DirEnum = DirectoryEnum2<RawDirWrapper, MockDirWrapper>;
+type DirIndexInputInner = IndexInputEnum2<
+  <RawDirWrapper as Directory>::IndexInput,
+  <MockDirWrapper as Directory>::IndexInput,
+>;
+#[cfg(test)]
+type DirRandomAccessInputInner = RandomAccessInputEnum2<
+  <<RawDirWrapper as Directory>::IndexInput as IndexInput>::RandomAccessSlice,
+  <<MockDirWrapper as Directory>::IndexInput as IndexInput>::RandomAccessSlice,
+>;
 
 #[cfg(test)]
-impl DirectoryEnum2<RawDirWrapper, MockDirWrapper> {
+pub(crate) struct DirIndexInput(DirIndexInputInner);
+
+#[cfg(test)]
+impl Display for DirIndexInput {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    self.0.fmt(f)
+  }
+}
+
+#[cfg(test)]
+impl CloseableRef for DirIndexInput {
+  fn close(&self) -> Result<()> {
+    self.0.close()
+  }
+}
+
+#[cfg(test)]
+impl TryClone for DirIndexInput {
+  fn try_clone(&self) -> Result<Self> {
+    Ok(Self(self.0.try_clone()?))
+  }
+}
+
+#[cfg(test)]
+impl DataInput for DirIndexInput {
+  fn read_byte(&mut self) -> Result<u8> {
+    DataInput::read_byte(&mut self.0)
+  }
+
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    DataInput::read_bytes(&mut self.0, b, offset, len)
+  }
+
+  fn read_bytes_with_buffer(
+    &mut self,
+    b: &mut [u8],
+    offset: usize,
+    len: usize,
+    use_buffer: bool,
+  ) -> Result<()> {
+    self.0.read_bytes_with_buffer(b, offset, len, use_buffer)
+  }
+
+  fn read_short(&mut self) -> Result<i16> {
+    DataInput::read_short(&mut self.0)
+  }
+
+  fn read_int(&mut self) -> Result<i32> {
+    DataInput::read_int(&mut self.0)
+  }
+
+  fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
+    self.0.read_group_vint(dst, offset)
+  }
+
+  fn read_vint(&mut self) -> Result<i32> {
+    self.0.read_vint()
+  }
+
+  fn read_zint(&mut self) -> Result<i32> {
+    self.0.read_zint()
+  }
+
+  fn read_long(&mut self) -> Result<i64> {
+    DataInput::read_long(&mut self.0)
+  }
+
+  fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+    self.0.read_longs(dst, offset, len)
+  }
+
+  fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+    self.0.read_ints(dst, offset, len)
+  }
+
+  fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
+    self.0.read_floats(dst, offset, len)
+  }
+
+  fn read_vlong(&mut self) -> Result<i64> {
+    self.0.read_vlong()
+  }
+
+  fn read_zlong(&mut self) -> Result<i64> {
+    self.0.read_zlong()
+  }
+
+  fn read_string(&mut self) -> Result<String> {
+    self.0.read_string()
+  }
+
+  fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
+    self.0.read_map_of_strings()
+  }
+
+  fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
+    self.0.read_set_of_strings()
+  }
+
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    DataInput::skip_bytes(&mut self.0, num_bytes)
+  }
+
+  fn is_index_input(&self) -> bool {
+    self.0.is_index_input()
+  }
+
+  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
+    self.0.seek_in_data_input(pos)
+  }
+
+  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+    self.0.get_file_pointer_in_data_input()
+  }
+}
+
+#[cfg(test)]
+pub(crate) struct DirRandomAccessInput(DirRandomAccessInputInner);
+
+#[cfg(test)]
+impl RandomAccessInput for DirRandomAccessInput {
+  fn length(&self) -> Result<usize> {
+    self.0.length()
+  }
+
+  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+    self.0.read_byte(pos)
+  }
+
+  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.0.read_bytes(pos, buf, offset, len)
+  }
+
+  fn read_short(&mut self, pos: usize) -> Result<i16> {
+    self.0.read_short(pos)
+  }
+
+  fn read_int(&mut self, pos: usize) -> Result<i32> {
+    self.0.read_int(pos)
+  }
+
+  fn read_long(&mut self, pos: usize) -> Result<i64> {
+    self.0.read_long(pos)
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    RandomAccessInput::prefetch(&mut self.0, pos, len)
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    self.0.is_loaded()
+  }
+}
+
+#[cfg(test)]
+impl IndexInput for DirIndexInput {
+  type IndexInput = Self;
+
+  fn get_file_pointer(&self) -> Result<usize> {
+    self.0.get_file_pointer()
+  }
+
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.0.seek(pos)
+  }
+
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    IndexInput::skip_bytes(&mut self.0, num_bytes)
+  }
+
+  fn length(&self) -> Result<usize> {
+    IndexInput::length(&self.0)
+  }
+
+  fn slice(
+    &self,
+    slice_description: &str,
+    offset: usize,
+    length: usize,
+  ) -> Result<Self::IndexInput> {
+    Ok(Self(self.0.slice(slice_description, offset, length)?))
+  }
+
+  fn slice_with_read_advice(
+    &self,
+    description: &str,
+    offset: usize,
+    length: usize,
+    read_advice: &ReadAdvice,
+  ) -> Result<Self::IndexInput> {
+    Ok(Self(self.0.slice_with_read_advice(
+      description,
+      offset,
+      length,
+      read_advice,
+    )?))
+  }
+
+  type RandomAccessSlice = DirRandomAccessInput;
+
+  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    Ok(DirRandomAccessInput(
+      self.0.random_access_slice(offset, length)?,
+    ))
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    IndexInput::prefetch(&mut self.0, pos, len)
+  }
+
+  fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
+    self.0.update_read_advice(read_advice)
+  }
+
+  fn is_loaded(&self) -> Result<Option<bool>> {
+    IndexInput::is_loaded(&self.0)
+  }
+}
+
+#[cfg(test)]
+pub(crate) enum DirEnum {
+  A(Box<RawDirWrapper>),
+  B(MockDirWrapper),
+}
+
+#[cfg(test)]
+impl Display for DirEnum {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::A(directory) => directory.fmt(f),
+      Self::B(directory) => directory.fmt(f),
+    }
+  }
+}
+
+#[cfg(test)]
+impl HasIdentity for DirEnum {
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::A(directory) => directory.identity(),
+      Self::B(directory) => directory.identity(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl Directory for DirEnum {
+  fn list_all(&self) -> Result<Vec<String>> {
+    match self {
+      Self::A(directory) => directory.list_all(),
+      Self::B(directory) => directory.list_all(),
+    }
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    match self {
+      Self::A(directory) => directory.delete_file(name),
+      Self::B(directory) => directory.delete_file(name),
+    }
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    match self {
+      Self::A(directory) => directory.file_length(name),
+      Self::B(directory) => directory.file_length(name),
+    }
+  }
+
+  type IndexOutput = IndexOutputEnum2<
+    <RawDirWrapper as Directory>::IndexOutput,
+    <MockDirWrapper as Directory>::IndexOutput,
+  >;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    match self {
+      Self::A(directory) => Ok(IndexOutputEnum2::A(directory.create_output(name, context)?)),
+      Self::B(directory) => Ok(IndexOutputEnum2::B(directory.create_output(name, context)?)),
+    }
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    match self {
+      Self::A(directory) => Ok(IndexOutputEnum2::A(
+        directory.create_temp_output(prefix, suffix, context)?,
+      )),
+      Self::B(directory) => Ok(IndexOutputEnum2::B(
+        directory.create_temp_output(prefix, suffix, context)?,
+      )),
+    }
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    match self {
+      Self::A(directory) => directory.sync(names),
+      Self::B(directory) => directory.sync(names),
+    }
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    match self {
+      Self::A(directory) => directory.sync_metadata(),
+      Self::B(directory) => directory.sync_metadata(),
+    }
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    match self {
+      Self::A(directory) => directory.rename(source, dest),
+      Self::B(directory) => directory.rename(source, dest),
+    }
+  }
+
+  type IndexInput = DirIndexInput;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    match self {
+      Self::A(directory) => Ok(DirIndexInput(IndexInputEnum2::A(
+        directory.open_input(name, context)?,
+      ))),
+      Self::B(directory) => Ok(DirIndexInput(IndexInputEnum2::B(
+        directory.open_input(name, context)?,
+      ))),
+    }
+  }
+
+  fn open_checksum_input(
+    &self,
+    name: &str,
+  ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
+    let input = self.open_input(name, &IOContext::default_io_context()?)?;
+    Ok(BufferedChecksumIndexInput::new(input))
+  }
+
+  type Lock = LockEnum2<<RawDirWrapper as Directory>::Lock, <MockDirWrapper as Directory>::Lock>;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    match self {
+      Self::A(directory) => Ok(LockEnum2::A(directory.obtain_lock(name)?)),
+      Self::B(directory) => Ok(LockEnum2::B(directory.obtain_lock(name)?)),
+    }
+  }
+
+  fn copy_from<D>(&self, from: &D, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    D: Directory + ?Sized,
+  {
+    match self {
+      Self::A(directory) => directory.copy_from(from, src, dest, context),
+      Self::B(directory) => directory.copy_from(from, src, dest, context),
+    }
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    match self {
+      Self::A(directory) => directory.get_pending_deletions(),
+      Self::B(directory) => directory.get_pending_deletions(),
+    }
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    match self {
+      Self::A(directory) => directory.is_fs_directory(),
+      Self::B(directory) => directory.is_fs_directory(),
+    }
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    match self {
+      Self::A(directory) => directory.ensure_open(),
+      Self::B(directory) => directory.ensure_open(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl CloseableRef for DirEnum {
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::A(directory) => directory.close(),
+      Self::B(directory) => directory.close(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl DirEnum {
   pub(crate) fn set_check_index_on_close(&self, value: bool) {
     match self {
       Self::A(directory) => directory.set_check_index_on_close(value),

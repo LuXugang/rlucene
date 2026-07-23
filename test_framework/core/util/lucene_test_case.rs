@@ -650,7 +650,7 @@ where
 {
   let directory = new_directory_impl(random, TEST_DIRECTORY)?;
   match wrap_directory(random, directory, false, false) {
-    DirectoryEnum2::B(directory) => Ok(directory),
+    DirEnum::B(directory) => Ok(directory),
     _ => unreachable!("bare=false must create a MockDirectoryWrapper"),
   }
 }
@@ -666,7 +666,7 @@ where
   let directory =
     new_directory_impl_with_lock_factory(random, TEST_DIRECTORY, Arc::new(lock_factory.into()))?;
   match wrap_directory(random, directory, false, false) {
-    DirectoryEnum2::B(directory) => Ok(directory),
+    DirEnum::B(directory) => Ok(directory),
     _ => unreachable!("bare=false must create a MockDirectoryWrapper"),
   }
 }
@@ -688,7 +688,7 @@ where
   T: Into<LockFactoryEnum>,
 {
   match new_fs_directory_with_lock_factory_and_bare(random, temp_dir.keep(), lock_factory, false)? {
-    DirectoryEnum2::B(directory) => Ok(directory),
+    DirEnum::B(directory) => Ok(directory),
     _ => unreachable!("bare=false must create a MockDirectoryWrapper"),
   }
 }
@@ -806,11 +806,11 @@ where
   // The Rust test framework does not yet have a suite-level close registry equivalent to
   // closeAfterSuite; directory owners remain responsible for explicitly closing the wrapper.
   if bare {
-    DirectoryEnum2::A(RawDirectoryWrapper::new(random, directory))
+    DirEnum::A(Box::new(RawDirectoryWrapper::new(random, directory)))
   } else {
     let mock = MockDirectoryWrapper::new(random, directory);
     mock.set_throttling(*TEST_THROTTLING);
-    DirectoryEnum2::B(mock)
+    DirEnum::B(mock)
   }
 }
 
