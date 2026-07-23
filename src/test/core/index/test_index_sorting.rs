@@ -3467,7 +3467,7 @@ fn test_wrong_sort_field_type() -> Result<()> {
 
       let index_sort = Sort::with_fields(vec![sort_field.clone()])?;
       let analyzer = MockAnalyzer::new(&mut random);
-      let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+      let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
       iwc.set_index_sort(index_sort)?;
       let writer = IndexWriter::new(dir.clone(), iwc)?;
 
