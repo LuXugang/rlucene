@@ -20,6 +20,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::point_values::{IntersectVisitor, PointValues, Relation};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::Result;
@@ -27,7 +28,7 @@ use crate::test_framework::core::index::base_index_file_format_test_case::BaseIn
 use crate::test_framework::core::index::base_points_format_test_case::BasePointsFormatTestCase;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_index_writer_config,
-  new_log_merge_policy, random,
+  new_merge_policy, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -56,8 +57,11 @@ impl TestLucene90PointsFormat {
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    // TODO MockRandomMergePolicy未实现
-    iwc.set_merge_policy(new_log_merge_policy(random)?);
+    // Avoid MockRandomMergePolicy since it may cause non-optimal merges that make the number of
+    // points per leaf hard to predict.
+    while matches!(iwc.get_merge_policy(), MergePolicyEnum::MockRandom(_)) {
+      iwc.set_merge_policy(new_merge_policy(random)?);
+    }
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut point_value = [0u8; 3];

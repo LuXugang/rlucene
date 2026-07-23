@@ -63,6 +63,18 @@ where
   }
 }
 
+impl<CR> Clone for MismatchedCodecReader<CR>
+where
+  CR: CodecReader + Clone,
+{
+  fn clone(&self) -> Self {
+    Self {
+      in_: self.in_.clone(),
+      shuffled: self.shuffled.clone(),
+    }
+  }
+}
+
 impl<CR> Display for MismatchedCodecReader<CR>
 where
   CR: CodecReader,
@@ -75,7 +87,6 @@ where
 impl<CR> IndexReader for MismatchedCodecReader<CR>
 where
   CR: CodecReader,
-  CR::StoredFieldsReader: RawStoredFieldsReader,
 {
   type ContextKind = LeafReaderContextKind;
 
@@ -141,7 +152,6 @@ where
 impl<CR> LeafReader for MismatchedCodecReader<CR>
 where
   CR: CodecReader,
-  CR::StoredFieldsReader: RawStoredFieldsReader,
 {
   type CacheHelper = CR::CacheHelper;
 
@@ -274,7 +284,6 @@ where
 impl<CR> CodecReader for MismatchedCodecReader<CR>
 where
   CR: CodecReader,
-  CR::StoredFieldsReader: RawStoredFieldsReader,
 {
   type StoredFieldsReader = MismatchedStoredFieldsReader<CR::StoredFieldsReader>;
   type TermVectorsReader = CR::TermVectorsReader;
@@ -332,7 +341,7 @@ where
 
 pub struct MismatchedStoredFieldsReader<SFR>
 where
-  SFR: StoredFieldsReader + RawStoredFieldsReader,
+  SFR: StoredFieldsReader,
 {
   in_: SFR,
   shuffled: Arc<FieldInfos>,
@@ -340,7 +349,7 @@ where
 
 impl<SFR> MismatchedStoredFieldsReader<SFR>
 where
-  SFR: StoredFieldsReader + RawStoredFieldsReader,
+  SFR: StoredFieldsReader,
 {
   fn new(in_: SFR, shuffled: Arc<FieldInfos>) -> Self {
     Self { in_, shuffled }
@@ -349,7 +358,7 @@ where
 
 impl<SFR> TryClone for MismatchedStoredFieldsReader<SFR>
 where
-  SFR: StoredFieldsReader + RawStoredFieldsReader,
+  SFR: StoredFieldsReader,
 {
   fn try_clone(&self) -> Result<Self>
   where
@@ -368,7 +377,7 @@ where
 
 impl<SFR> StoredFields for MismatchedStoredFieldsReader<SFR>
 where
-  SFR: StoredFieldsReader + RawStoredFieldsReader,
+  SFR: StoredFieldsReader,
 {
   fn document_with_visitor<S>(
     &mut self,
@@ -388,7 +397,7 @@ where
 
 impl<SFR> CloseableRef for MismatchedStoredFieldsReader<SFR>
 where
-  SFR: StoredFieldsReader + RawStoredFieldsReader,
+  SFR: StoredFieldsReader,
 {
   fn close(&self) -> Result<()> {
     self.in_.close()
@@ -397,7 +406,7 @@ where
 
 impl<SFR> StoredFieldsReader for MismatchedStoredFieldsReader<SFR>
 where
-  SFR: StoredFieldsReader + RawStoredFieldsReader,
+  SFR: StoredFieldsReader,
 {
   fn check_integrity(&self) -> Result<()> {
     self.in_.check_integrity()

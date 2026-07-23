@@ -102,7 +102,6 @@ mod test_transactions;
 mod test_unique_term_count;
 
 pub(crate) mod force_merge_policy;
-mod mismatched_codec_reader;
 #[cfg(feature = "monster")]
 mod test_2b_binary_doc_values;
 #[cfg(feature = "monster")]

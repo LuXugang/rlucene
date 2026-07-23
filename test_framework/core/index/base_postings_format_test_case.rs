@@ -411,7 +411,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
-    iwc.base.merge_policy = new_tiered_merge_policy(random).into();
+    iwc.base.merge_policy = new_tiered_merge_policy(random)?.into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
     let mut field_types = HashMap::new();
 
@@ -465,7 +465,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
     iwc.base.codec = self.get_codec()?;
-    iwc.base.merge_policy = new_tiered_merge_policy(random).into();
+    iwc.base.merge_policy = new_tiered_merge_policy(random)?.into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
     let mut field_types = HashMap::new();
 

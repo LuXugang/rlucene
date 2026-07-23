@@ -21,6 +21,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::term::Term;
@@ -33,8 +34,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::english::English;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, is_night_mode, new_fs_directory,
-  new_index_writer_config_with_analyzer, random, random_from_seed,
+  create_temp_dir_with_prefix, is_night_mode, new_fs_directory, random, random_from_seed,
 };
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;
@@ -104,7 +104,7 @@ impl TestAtomicUpdate {
     let search_iterations = if is_night_mode() { 10 } else { 1 };
 
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let mut conf = IndexWriterConfig::with_analyzer(analyzer)?;
     conf.set_max_buffered_docs(7);
     match conf.get_merge_policy_mut() {
       MergePolicyEnum::Tiered(merge_policy) => {

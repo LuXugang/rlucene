@@ -48,7 +48,8 @@ impl BaseMergePolicyTestCase for TestUpgradeIndexMergePolicy {
     D: Directory,
     R: Rng + ?Sized,
   {
-    let mut inner = new_tiered_merge_policy(random);
+    let mut inner =
+      new_tiered_merge_policy(random).expect("randomized TieredMergePolicy settings must be valid");
     let size = TestUtil::next_int(random, 1024, 10 * 1024);
     inner.set_max_merged_segment_mb(size as f64).expect("");
     UpgradeIndexMergePolicy::new(inner.into()).into()

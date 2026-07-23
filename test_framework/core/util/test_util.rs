@@ -274,6 +274,9 @@ impl TestUtil {
       MergePolicyEnum::LogBytesSize(lmp) => {
         lmp.set_merge_factor(std::cmp::min(5, lmp.get_merge_factor()))?;
       },
+      MergePolicyEnum::Alcoholic(lmp) => {
+        lmp.set_merge_factor(std::cmp::min(5, lmp.get_merge_factor()))?;
+      },
       MergePolicyEnum::Tiered(tmp) => {
         tmp.set_max_merge_at_once(std::cmp::min(5, tmp.get_max_merge_at_once()))?;
         tmp.set_segments_per_tier(tmp.get_segments_per_tier().min(5.0))?;

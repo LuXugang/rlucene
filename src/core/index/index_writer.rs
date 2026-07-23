@@ -1607,12 +1607,22 @@ where
         let merge_reader = merge.get_merge_reader();
         for merge_reader in merge_reader.iter() {
           let reader = &merge_reader.reader;
+          #[cfg(test)]
+          let wrapped_reader = merge.wrap_for_merge_for_test(reader.clone())?;
+          #[cfg(not(test))]
           let wrapped_reader = merge.wrap_for_merge(reader.clone())?;
+          #[cfg(test)]
+          let is_wrapped = match &wrapped_reader {
+            CodecReaderEnum2::A(reader2) => !Arc::ptr_eq(reader, reader2),
+            CodecReaderEnum2::B(_) => true,
+          };
+          #[cfg(not(test))]
+          let is_wrapped = !Arc::ptr_eq(reader, &wrapped_reader);
           self.validate_merge_reader(&wrapped_reader)?;
           let mut live_docs_wrapped_reader = None;
           if self.soft_deletes_enabled {
             // If we don't have a wrapped reader we won't preserve any soft-deletes.
-            if !Arc::ptr_eq(reader, &wrapped_reader) {
+            if is_wrapped {
               let hard_live_docs = merge_reader.hard_live_docs.as_ref();
               // We only need to do this accounting if we have mixed deletes.
               if let Some(hard_live_docs) = hard_live_docs {
@@ -1628,13 +1638,17 @@ where
                 let hard_delete_count: i32 = hard_delete_counter.get().try_convert()?;
                 // Wrap the wrapped reader again if we have excluded some hard-deleted docs.
                 if hard_delete_count > 0 {
+                  #[cfg(test)]
+                  let hard_live_docs = BitsEnum2::A(hard_live_docs.clone());
+                  #[cfg(not(test))]
+                  let hard_live_docs = hard_live_docs.clone();
                   let live_docs = match wrapped_live_docs {
                     Some(wrapped_live_docs) => LiveDocsBits::Mixed(BitsImpl {
-                      hard_live_docs: hard_live_docs.clone(),
+                      hard_live_docs,
                       wrapped_live_docs,
                       id: Identity::new(),
                     }),
-                    None => LiveDocsBits::Hard(hard_live_docs.clone()),
+                    None => LiveDocsBits::Hard(hard_live_docs),
                   };
                   let num_docs = wrapped_reader.num_docs()? - hard_delete_count;
                   live_docs_wrapped_reader = Some((live_docs, num_docs));
@@ -1693,6 +1707,9 @@ where
         // Create a merged view of the input segments. This effectively does the merge.
         let merged_view = wrap(merge_readers.clone())?;
 
+        #[cfg(test)]
+        let doc_map_opt = merge.reorder_for_test(&merged_view, self.directory.as_ref())?;
+        #[cfg(not(test))]
         let doc_map_opt = merge.reorder(&merged_view, self.directory.as_ref())?;
 
         if let Some(doc_map) = doc_map_opt {
@@ -7952,6 +7969,8 @@ use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bits::Bits;
+#[cfg(test)]
+use crate::core::util::bits::BitsEnum2;
 use crate::core::util::constants::Constants;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};

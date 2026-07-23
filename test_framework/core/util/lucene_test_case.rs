@@ -70,7 +70,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::print_stream_info_stream::PrintStreamInfoStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::alcoholic_merge_policy::AlcoholicMergePolicy;
 use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
+use crate::test_framework::core::index::mock_random_merge_policy::MockRandomMergePolicy;
 #[cfg(test)]
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 use crate::test_framework::core::store::mock_directory_wrapper::{
@@ -81,6 +83,7 @@ use crate::test_framework::core::util::lucene_test_case::EnvConfig::{
   Multiplier, NightMode, TestSeed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use chrono_tz::{TZ_VARIANTS, Tz, UTC};
 use parking_lot::MutexGuard;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
@@ -431,20 +434,41 @@ where
   D: Directory,
   R: Rng + ?Sized,
 {
-  // TODO
-  Ok(new_tiered_merge_policy(r).into())
+  new_merge_policy_with_mock_mp(r, true)
 }
 pub fn new_merge_policy_with_mock_mp<D, R>(
   r: &mut R,
-  _include_mock_mp: bool,
+  include_mock_mp: bool,
 ) -> Result<MergePolicyEnum<D>>
 where
   D: Directory,
   R: Rng + ?Sized,
 {
-  // TODO
-  Ok(new_tiered_merge_policy(r).into())
+  if include_mock_mp && rarely(r) {
+    Ok(MockRandomMergePolicy::new(r).into())
+  } else if r.random_bool(0.5) {
+    Ok(new_tiered_merge_policy(r)?.into())
+  } else if rarely(r) {
+    let time_zone = match std::env::var("tests.timezone") {
+      Ok(time_zone) if time_zone != "random" => time_zone.parse::<Tz>().unwrap_or(UTC),
+      _ => TZ_VARIANTS[r.random_range(0..TZ_VARIANTS.len())],
+    };
+    Ok(new_alcoholic_merge_policy(r, time_zone).into())
+  } else {
+    new_log_merge_policy(r)
+  }
 }
+
+pub fn new_alcoholic_merge_policy<R>(
+  r: &mut R,
+  time_zone: Tz,
+) -> LogMergePolicy<AlcoholicMergePolicy>
+where
+  R: Rng + ?Sized,
+{
+  AlcoholicMergePolicy::new(time_zone, StdRng::seed_from_u64(r.random()))
+}
+
 pub fn new_log_merge_policy<D, R>(r: &mut R) -> Result<MergePolicyEnum<D>>
 where
   D: Directory,
@@ -507,12 +531,37 @@ where
   Ok(())
 }
 
-pub fn new_tiered_merge_policy<R>(_r: &mut R) -> TieredMergePolicy
+pub fn new_tiered_merge_policy<R>(r: &mut R) -> Result<TieredMergePolicy>
 where
   R: Rng + ?Sized,
 {
-  // TODO
-  TieredMergePolicy::new()
+  let mut tmp = TieredMergePolicy::new();
+  if rarely(r) {
+    tmp.set_max_merge_at_once(TestUtil::next_int(r, 2, 9))?;
+  } else {
+    tmp.set_max_merge_at_once(TestUtil::next_int(r, 10, 50))?;
+  }
+  if rarely(r) {
+    tmp.set_max_merged_segment_mb(0.2 + r.random::<f64>() * 2.0)?;
+  } else {
+    tmp.set_max_merged_segment_mb(10.0 + r.random::<f64>() * 100.0)?;
+  }
+  tmp.set_floor_segment_mb(0.2 + r.random::<f64>() * 2.0)?;
+  tmp.set_force_merge_deletes_pct_allowed(r.random::<f64>() * 30.0)?;
+  if rarely(r) {
+    tmp.set_segments_per_tier(TestUtil::next_int(r, 2, 20) as f64)?;
+  } else {
+    tmp.set_segments_per_tier(TestUtil::next_int(r, 10, 50) as f64)?;
+  }
+  if rarely(r) {
+    tmp.set_target_search_concurrency(TestUtil::next_int(r, 10, 50))?;
+  } else {
+    tmp.set_target_search_concurrency(TestUtil::next_int(r, 2, 20))?;
+  }
+
+  configure_random::<DirEnum, R, _>(r, &mut tmp)?;
+  tmp.set_deletes_pct_allowed(20.0 + r.random::<f64>() * 30.0)?;
+  Ok(tmp)
 }
 
 pub fn new_log_merge_policy_with_cfs<D, R>(r: &mut R, use_cfs: bool) -> Result<MergePolicyEnum<D>>
@@ -548,15 +597,17 @@ where
 {
   let lomp = new_log_merge_policy::<D, R>(r)?;
   let ratio = if use_cfs { 1.0 } else { 0.0 };
+  let merge_factor = usize::try_from(merge_factor)
+    .map_err(|_| LuceneError::illegal_argument("mergeFactor cannot be less than 2"))?;
   match lomp {
     MergePolicyEnum::LogDoc(mut log_doc) => {
       MergePolicy::<D>::get_base_mut(&mut log_doc).set_no_cfs_ratio(ratio)?;
-      log_doc.set_merge_factor(merge_factor as usize)?;
+      log_doc.set_merge_factor(merge_factor)?;
       Ok(log_doc.into())
     },
     MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
       MergePolicy::<D>::get_base_mut(&mut log_bytes_size).set_no_cfs_ratio(ratio)?;
-      log_bytes_size.set_merge_factor(merge_factor as usize)?;
+      log_bytes_size.set_merge_factor(merge_factor)?;
       Ok(log_bytes_size.into())
     },
     _ => Err(LuceneError::illegal_argument(
@@ -574,13 +625,15 @@ where
   R: Rng + ?Sized,
 {
   let lomp = new_log_merge_policy::<D, R>(r)?;
+  let merge_factor = usize::try_from(merge_factor)
+    .map_err(|_| LuceneError::illegal_argument("mergeFactor cannot be less than 2"))?;
   match lomp {
     MergePolicyEnum::LogDoc(mut log_doc) => {
-      log_doc.set_merge_factor(merge_factor as usize)?;
+      log_doc.set_merge_factor(merge_factor)?;
       Ok(log_doc.into())
     },
     MergePolicyEnum::LogBytesSize(mut log_bytes_size) => {
-      log_bytes_size.set_merge_factor(merge_factor as usize)?;
+      log_bytes_size.set_merge_factor(merge_factor)?;
       Ok(log_bytes_size.into())
     },
     _ => Err(LuceneError::illegal_argument(
@@ -1387,6 +1440,9 @@ where
         mp.set_max_merge_mb(1000.0);
       },
       MergePolicyEnum::LogDoc(mp) => {
+        mp.set_max_merge_docs(100000);
+      },
+      MergePolicyEnum::Alcoholic(mp) => {
         mp.set_max_merge_docs(100000);
       },
       _ => {},

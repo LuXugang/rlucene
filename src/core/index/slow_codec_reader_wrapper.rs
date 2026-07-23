@@ -69,6 +69,16 @@ where
   reader: LR,
   index_base: IndexReaderBase,
 }
+
+impl<LR> Clone for CodecReaderImpl<LR>
+where
+  LR: LeafReader + Clone,
+{
+  fn clone(&self) -> Self {
+    Self::new(self.reader.clone())
+  }
+}
+
 impl<LR> CodecReaderImpl<LR>
 where
   LR: LeafReader,

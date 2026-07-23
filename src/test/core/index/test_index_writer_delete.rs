@@ -51,6 +51,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
+use crate::test_framework::core::index::mock_random_merge_policy::MockRandomMergePolicy;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
@@ -375,9 +376,8 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
-  // TODO: MockRandomMergePolicy is not implemented; the default merge policy does not preserve
-  // this test's randomized merge/deadlock coverage.
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_merge_policy(MockRandomMergePolicy::new(&mut random));
   let modifier = Arc::new(RandomIndexWriter::with_config(
     &mut random,
     dir.clone(),

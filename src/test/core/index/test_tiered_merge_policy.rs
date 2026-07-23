@@ -23,6 +23,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, SOURCE_FLUSH, SOURCE_MERGE};
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -113,7 +114,7 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
     D: Directory,
     R: Rng + ?Sized,
   {
-    new_tiered_merge_policy(random)
+    new_tiered_merge_policy(random).expect("randomized TieredMergePolicy settings must be valid")
   }
 
   fn assert_segment_infos<D>(tmp: &Self::MergePolicy<D>, infos: &SegmentInfos<D>) -> Result<()>
@@ -263,7 +264,7 @@ fn test_force_merge_deletes() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
 
-  let mut tmp = new_tiered_merge_policy(&mut random);
+  let mut tmp = new_tiered_merge_policy(&mut random)?;
 
   tmp.set_max_merge_at_once(100)?;
   tmp.set_segments_per_tier(100.0)?;
@@ -337,7 +338,7 @@ fn test_partial_merge() -> Result<()> {
 
     conf.set_merge_scheduler(SerialMergeScheduler::new());
 
-    let mut tmp = new_tiered_merge_policy(&mut random);
+    let mut tmp = new_tiered_merge_policy(&mut random)?;
     tmp.set_max_merge_at_once(3)?;
     tmp.set_segments_per_tier(6.0)?;
 
@@ -1084,7 +1085,7 @@ fn test_unbalanced_merge_selection() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
 
   let tmp = match iwc.get_merge_policy_mut() {
     MergePolicyEnum::Tiered(t) => t,

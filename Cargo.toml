@@ -38,6 +38,7 @@ thread_local = "1.1.9"
 num-integer = "0.1.46"
 rand_xoshiro = "0.8.1"
 tempfile = "3.27.0"
+chrono-tz = "0.10.4"
 
 [features]
 default = []

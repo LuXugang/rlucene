@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
+#[cfg(test)]
+use crate::core::index::codec_reader::CodecReaderEnum2;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_writer::{Inner, PointInTimeOneMerge};
@@ -44,11 +46,17 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
 use crate::sandbox::index::merge_on_flush_merge_policy::MergeOnFlushMergePolicy;
 #[cfg(test)]
+use crate::test_framework::core::index::alcoholic_merge_policy::AlcoholicMergePolicy;
+#[cfg(test)]
 use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;
 #[cfg(test)]
 use crate::test_framework::core::index::merge_policy::{
   KeepFullyDeletedSegmentsMergePolicy, MergeOnXMergePolicy, MockMergePolicy,
   OnlyForceMergeMergePolicy, RangeMergePolicy,
+};
+#[cfg(test)]
+use crate::test_framework::core::index::mock_random_merge_policy::{
+  MockRandomMergePolicy, MockRandomOneMerge, MockRandomOneMergeDocMap, MockRandomWrappedReader,
 };
 #[cfg(test)]
 use crate::test_framework::core::index::test_add_indexes::{
@@ -460,6 +468,8 @@ where
   Tiered(TieredMergePolicy),
   LogDoc(LogMergePolicy<LogDocMergePolicy>),
   LogBytesSize(LogMergePolicy<LogByteSizeMergePolicy>),
+  #[cfg(test)]
+  Alcoholic(LogMergePolicy<AlcoholicMergePolicy>),
   OneMergeWrapping(OneMergeWrappingMergePolicy<D>),
   SoftDeletesRetention(SoftDeletesRetentionMergePolicy<D>),
   Upgrade(UpgradeIndexMergePolicy<D>),
@@ -478,6 +488,8 @@ where
   Range(RangeMergePolicy),
   #[cfg(test)]
   Mock(MockMergePolicy),
+  #[cfg(test)]
+  MockRandom(MockRandomMergePolicy),
   #[cfg(test)]
   ConcurrentAddIndexes(ConcurrentAddIndexesMergePolicy),
   #[cfg(test)]
@@ -498,6 +510,8 @@ where
       Self::Tiered(mp) => Self::Tiered(mp.clone()),
       Self::LogDoc(mp) => Self::LogDoc(mp.clone()),
       Self::LogBytesSize(mp) => Self::LogBytesSize(mp.clone()),
+      #[cfg(test)]
+      Self::Alcoholic(mp) => Self::Alcoholic(mp.clone()),
       Self::OneMergeWrapping(mp) => Self::OneMergeWrapping(mp.clone()),
       Self::SoftDeletesRetention(mp) => Self::SoftDeletesRetention(mp.clone()),
       Self::Upgrade(mp) => Self::Upgrade(mp.clone()),
@@ -516,6 +530,8 @@ where
       Self::Range(mp) => Self::Range(mp.clone()),
       #[cfg(test)]
       Self::Mock(mp) => Self::Mock(mp.clone()),
+      #[cfg(test)]
+      Self::MockRandom(mp) => Self::MockRandom(mp.clone()),
       #[cfg(test)]
       Self::ConcurrentAddIndexes(mp) => Self::ConcurrentAddIndexes(mp.clone()),
       #[cfg(test)]
@@ -561,6 +577,26 @@ where
 {
   fn from(v: LogMergePolicy<LogByteSizeMergePolicy>) -> Self {
     Self::LogBytesSize(v)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<LogMergePolicy<AlcoholicMergePolicy>> for MergePolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(v: LogMergePolicy<AlcoholicMergePolicy>) -> Self {
+    Self::Alcoholic(v)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<MockRandomMergePolicy> for MergePolicyEnum<D>
+where
+  D: Directory,
+{
+  fn from(v: MockRandomMergePolicy) -> Self {
+    Self::MockRandom(v)
   }
 }
 
@@ -630,6 +666,8 @@ where
       MergePolicyEnum::Tiered(mp) => write!(f, "{}", mp),
       MergePolicyEnum::LogDoc(mp) => write!(f, "{}", mp),
       MergePolicyEnum::LogBytesSize(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => write!(f, "{}", mp),
       MergePolicyEnum::OneMergeWrapping(mp) => write!(f, "{}", mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => write!(f, "{}", mp),
       MergePolicyEnum::Upgrade(mp) => write!(f, "{}", mp),
@@ -648,6 +686,8 @@ where
       MergePolicyEnum::Range(mp) => write!(f, "{}", mp),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => write!(f, "{}", mp),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => write!(f, "{}", mp),
       #[cfg(test)]
@@ -670,6 +710,8 @@ where
       MergePolicyEnum::Tiered(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::LogDoc(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::get_base(mp),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::get_base(mp),
@@ -689,6 +731,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => MergePolicy::<D>::get_base(mp),
       #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => MergePolicy::<D>::get_base(mp),
+      #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => MergePolicy::<D>::get_base(mp),
       #[cfg(test)]
       MergePolicyEnum::SetDiagnostics(mp) => MergePolicy::<D>::get_base(mp),
@@ -705,6 +749,8 @@ where
       MergePolicyEnum::Tiered(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::LogDoc(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::get_base_mut(mp),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::get_base_mut(mp),
@@ -723,6 +769,8 @@ where
       MergePolicyEnum::Range(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => MergePolicy::<D>::get_base_mut(mp),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
@@ -753,6 +801,10 @@ where
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       MergePolicyEnum::LogBytesSize(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       MergePolicyEnum::OneMergeWrapping(mp) => {
@@ -796,6 +848,10 @@ where
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -823,6 +879,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::LogDoc(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::LogBytesSize(mp) => mp.find_merges_readers(readers),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::Upgrade(mp) => mp.find_merges_readers(readers),
@@ -841,6 +899,8 @@ where
       MergePolicyEnum::Range(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.find_merges_readers(readers),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
@@ -886,6 +946,14 @@ where
         merge_context,
       ),
       MergePolicyEnum::LogBytesSize(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.find_forced_merges(
         segment_infos,
         max_segment_count,
         segments_to_merge,
@@ -977,6 +1045,14 @@ where
         merge_context,
       ),
       #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.find_forced_merges(
         segment_infos,
         max_segment_count,
@@ -1031,6 +1107,10 @@ where
       MergePolicyEnum::LogBytesSize(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
@@ -1069,6 +1149,10 @@ where
       },
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
       #[cfg(test)]
@@ -1113,6 +1197,10 @@ where
       MergePolicyEnum::LogBytesSize(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -1154,6 +1242,10 @@ where
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -1186,6 +1278,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.use_compound_file(infos, merged_info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.use_compound_file(infos, merged_info, merge_context)
       },
@@ -1217,6 +1311,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.use_compound_file(infos, merged_info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => {
         mp.use_compound_file(infos, merged_info, merge_context)
       },
@@ -1242,6 +1338,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.size(info, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.size(info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.size(info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.size(info, merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.size(info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.size(info, merge_context),
@@ -1261,6 +1359,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.size(info, merge_context),
       #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.size(info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::SetDiagnostics(mp) => mp.size(info, merge_context),
@@ -1277,6 +1377,8 @@ where
       MergePolicyEnum::Tiered(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::LogDoc(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
@@ -1299,6 +1401,8 @@ where
       MergePolicyEnum::Range(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
@@ -1324,6 +1428,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.has_merged(infos, info, merge_context),
@@ -1342,6 +1448,8 @@ where
       MergePolicyEnum::Range(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
@@ -1362,6 +1470,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::LogDoc(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::LogBytesSize(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::Upgrade(mp) => mp.keep_fully_deleted_segment(reader_supplier),
@@ -1384,6 +1494,8 @@ where
       MergePolicyEnum::Range(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
@@ -1411,6 +1523,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
@@ -1444,6 +1558,8 @@ where
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
       #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
+      #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
@@ -1469,6 +1585,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::LogDoc(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::LogBytesSize(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::Upgrade(mp) => mp.seg_string(merge_context, infos),
@@ -1487,6 +1605,8 @@ where
       MergePolicyEnum::Range(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
@@ -1507,6 +1627,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.message(message, merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.message(message, merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.message(message, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.message(message, merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.message(message, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.message(message, merge_context),
@@ -1525,6 +1647,8 @@ where
       MergePolicyEnum::Range(mp) => mp.message(message, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.message(message, merge_context),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.message(message, merge_context),
       #[cfg(test)]
@@ -1545,6 +1669,8 @@ where
       MergePolicyEnum::Tiered(mp) => mp.verbose(merge_context),
       MergePolicyEnum::LogDoc(mp) => mp.verbose(merge_context),
       MergePolicyEnum::LogBytesSize(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Alcoholic(mp) => mp.verbose(merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.verbose(merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.verbose(merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.verbose(merge_context),
@@ -1563,6 +1689,8 @@ where
       MergePolicyEnum::Range(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::Mock(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::MockRandom(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::ConcurrentAddIndexes(mp) => mp.verbose(merge_context),
       #[cfg(test)]
@@ -2198,6 +2326,47 @@ where
   }
 }
 
+#[cfg(test)]
+impl<D> OneMerge<D, DefaultLeafReader<D>>
+where
+  D: Directory,
+{
+  pub(crate) fn wrap_for_merge_for_test(
+    &self,
+    reader: DefaultLeafReader<D>,
+  ) -> Result<MockRandomWrappedReader<DefaultLeafReader<D>>> {
+    match &self.hook {
+      OneMergeHook::MockRandom(hook) => hook.wrap_for_merge(reader),
+      _ => Ok(
+        CodecReaderEnum2::A(<OneMergeHook<D, DefaultLeafReader<D>> as OneMergeBase<
+          D,
+          DefaultLeafReader<D>,
+        >>::wrap_for_merge(&self.hook, reader)?),
+      ),
+    }
+  }
+
+  pub(crate) fn reorder_for_test<CR, D1>(
+    &self,
+    reader: &CR,
+    dir: D1,
+  ) -> Result<Option<MockRandomOneMergeDocMap>>
+  where
+    CR: CodecReader,
+    D1: Directory,
+  {
+    match &self.hook {
+      OneMergeHook::MockRandom(hook) => hook.reorder(reader, dir),
+      _ => {
+        <OneMergeHook<D, DefaultLeafReader<D>> as OneMergeBase<D, DefaultLeafReader<D>>>::reorder(
+          &self.hook, reader, dir,
+        )
+        .map(|doc_map| doc_map.map(MockRandomOneMergeDocMap::Default))
+      },
+    }
+  }
+}
+
 #[derive(Default)]
 pub(crate) enum OneMergeHook<D, CR>
 where
@@ -2220,6 +2389,8 @@ where
   ForceMergeDvUpdate(ForceMergeDvUpdateOneMerge<D, CR>),
   #[cfg(test)]
   SoftUpdatesConcurrently(SoftUpdatesConcurrentlyOneMerge<D, CR>),
+  #[cfg(test)]
+  MockRandom(MockRandomOneMerge),
 }
 
 pub(crate) struct OneMergeDefaults;
@@ -2334,6 +2505,10 @@ where
       Self::SoftUpdatesConcurrently(hook) => {
         hook.merge_finished(inner, stat, success, segment_dropped)
       },
+      #[cfg(test)]
+      Self::MockRandom(_) => {
+        OneMergeDefaults::merge_finished(inner, stat, success, segment_dropped)
+      },
     }
   }
 
@@ -2354,6 +2529,8 @@ where
       Self::ForceMergeDvUpdate(hook) => hook.wrap_for_merge(reader),
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => hook.wrap_for_merge(reader),
+      #[cfg(test)]
+      Self::MockRandom(_) => OneMergeDefaults::wrap_for_merge(reader),
     }
   }
 
@@ -2378,6 +2555,8 @@ where
       Self::ForceMergeDvUpdate(hook) => hook.reorder(reader, dir),
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => hook.reorder(reader, dir),
+      #[cfg(test)]
+      Self::MockRandom(_) => OneMergeDefaults::reorder(reader, dir),
     }
   }
 
@@ -2403,6 +2582,8 @@ where
       Self::ForceMergeDvUpdate(hook) => hook.set_merge_info(stat, merge_info, info),
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => hook.set_merge_info(stat, merge_info, info),
+      #[cfg(test)]
+      Self::MockRandom(_) => OneMergeDefaults::set_merge_info(stat, merge_info, info),
     }
   }
 
@@ -2436,6 +2617,10 @@ where
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => {
         hook.on_merge_complete(inner, stat, merge_info, is_aborted)
+      },
+      #[cfg(test)]
+      Self::MockRandom(_) => {
+        OneMergeDefaults::on_merge_complete(inner, stat, merge_info, is_aborted)
       },
     }
   }
@@ -2474,6 +2659,10 @@ where
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => {
         hook.init_merge_readers(merge_readers, stat, reader_factory)
+      },
+      #[cfg(test)]
+      Self::MockRandom(_) => {
+        OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)
       },
     }
   }

@@ -21,6 +21,8 @@ use crate::core::document::field_type::FieldType;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -28,8 +30,8 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
-  random, random_from_seed,
+  at_least, create_temp_dir_with_prefix, is_night_mode, new_fs_directory,
+  new_index_writer_config_with_analyzer, random, random_from_seed, random_multiplier,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -47,12 +49,16 @@ pub struct TestBagOfPostings;
 fn test() -> Result<()> {
   let mut random = random();
   let mut postings_list: Vec<String> = Vec::new();
-  let num_terms = at_least(&mut random, 300);
+  let mut num_terms = at_least(&mut random, 300);
   let max_terms_per_doc = TestUtil::next_int(&mut random, 10, 20);
   let analyzer = MockAnalyzer::new(&mut random);
-  // TODO: MockRandomMergePolicy is not implemented, so the Java test's randomized merge coverage
-  // cannot yet be configured faithfully.
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  if matches!(iwc.get_merge_policy(), MergePolicyEnum::MockRandom(_))
+    && (is_night_mode() || random_multiplier() > 1)
+  {
+    // Otherwise test can take way too long (> 2 hours).
+    num_terms /= 2;
+  }
 
   for i in 0..num_terms {
     let term = i.to_string();
