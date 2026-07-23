@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::Fields;
+use crate::core::index::BytesRef;
 use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -37,7 +38,7 @@ use crate::test_framework::core::index::test_index_writer::assert_no_unreference
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_string_field, random, random_from_seed,
+  new_string_field_binary, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -179,6 +180,7 @@ fn test_rolling_updates() -> Result<()> {
 fn test_update_same_doc() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
+  let mut docs = LineFileDocs::new(&mut random)?;
   let field_to_type: Mutex<HashMap<String, FieldType>> = Mutex::new(HashMap::new());
 
   for _ in 0..3 {
@@ -211,10 +213,11 @@ fn test_update_same_doc() -> Result<()> {
     writer.close()?;
   }
 
-  let open = directory_reader::open(dir)?;
+  let open = directory_reader::open(dir.clone())?;
   assert_eq!(1, open.num_docs()?);
   open.close()?;
-  Ok(())
+  docs.close();
+  dir.as_ref().close()
 }
 
 fn indexing_thread<D>(
@@ -231,12 +234,19 @@ where
 
   for i in 0..num {
     let mut doc = Document::new();
+    let bytes = BytesRef::from_string("test");
     let id_field = {
       let mut field_to_type = field_to_type.lock().unwrap();
-      new_string_field(&mut random, "id", "test", Store::No, &mut field_to_type)?
+      new_string_field_binary(
+        &mut random,
+        "id",
+        bytes.clone(),
+        Store::No,
+        &mut field_to_type,
+      )?
     };
     doc.add(id_field);
-    writer.update_document_with_term(Term::from_text("id", "test"), doc)?;
+    writer.update_document_with_term(Term::new("id", bytes), doc)?;
 
     if TestUtil::next_int(&mut random, 0, 2) == 0 {
       if let Some(old_reader) = open.take() {
