@@ -56,6 +56,8 @@ use num_bigint::BigInt;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
+#[cfg(test)]
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 /// A `Directory` provides an abstraction layer for storing a list of files.
@@ -808,16 +810,149 @@ pub(crate) type MaybeNrtDirEnum = DirectoryEnum2<RawDirEnum, NRTCachingDirectory
 #[cfg(test)]
 pub(crate) type RawDirWrapper = RawDirectoryWrapper<MaybeNrtDirEnum>;
 #[cfg(test)]
-pub(crate) type MockDirWrapper = MockDirectoryWrapper<MaybeNrtDirEnum>;
+type MockDirWrapperInner = MockDirectoryWrapper<MaybeNrtDirEnum>;
+#[cfg(test)]
+#[derive(Clone)]
+pub(crate) struct MockDirWrapper(MockDirWrapperInner);
+
+#[cfg(test)]
+impl MockDirWrapper {
+  pub(crate) fn from_inner(directory: MockDirWrapperInner) -> Self {
+    Self(directory)
+  }
+}
+
+#[cfg(test)]
+impl Deref for MockDirWrapper {
+  type Target = MockDirWrapperInner;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+#[cfg(test)]
+impl DerefMut for MockDirWrapper {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.0
+  }
+}
+
+#[cfg(test)]
+impl Display for MockDirWrapper {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    self.0.fmt(f)
+  }
+}
+
+#[cfg(test)]
+impl HasIdentity for MockDirWrapper {
+  fn identity(&self) -> &Identity {
+    self.0.identity()
+  }
+}
+
+#[cfg(test)]
+impl Directory for MockDirWrapper {
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.0.list_all()
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.0.delete_file(name)
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.0.file_length(name)
+  }
+
+  type IndexOutput = <MockDirWrapperInner as Directory>::IndexOutput;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.0.create_output(name, context)
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.0.create_temp_output(prefix, suffix, context)
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.0.sync(names)
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    self.0.sync_metadata()
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.0.rename(source, dest)
+  }
+
+  type IndexInput = DirIndexInput;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    Ok(DirIndexInput(IndexInputEnum2::B(
+      self.0.open_input(name, context)?,
+    )))
+  }
+
+  fn open_checksum_input(
+    &self,
+    name: &str,
+  ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
+    Ok(BufferedChecksumIndexInput::new(
+      self.open_input(name, &IOContext::read_once_io_context()?)?,
+    ))
+  }
+
+  type Lock = <MockDirWrapperInner as Directory>::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.0.obtain_lock(name)
+  }
+
+  fn copy_from<D>(&self, from: &D, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    D: Directory + ?Sized,
+  {
+    self.0.copy_from(from, src, dest, context)
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    self.0.get_pending_deletions()
+  }
+
+  #[cfg(debug_assertions)]
+  fn is_fs_directory(&self) -> bool {
+    self.0.is_fs_directory()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.0.ensure_open()
+  }
+}
+
+#[cfg(test)]
+impl CloseableRef for MockDirWrapper {
+  fn close(&self) -> Result<()> {
+    self.0.close()
+  }
+}
+
 #[cfg(test)]
 type DirIndexInputInner = IndexInputEnum2<
   <RawDirWrapper as Directory>::IndexInput,
-  <MockDirWrapper as Directory>::IndexInput,
+  <MockDirWrapperInner as Directory>::IndexInput,
 >;
 #[cfg(test)]
 type DirRandomAccessInputInner = RandomAccessInputEnum2<
   <<RawDirWrapper as Directory>::IndexInput as IndexInput>::RandomAccessSlice,
-  <<MockDirWrapper as Directory>::IndexInput as IndexInput>::RandomAccessSlice,
+  <<MockDirWrapperInner as Directory>::IndexInput as IndexInput>::RandomAccessSlice,
 >;
 
 #[cfg(test)]
@@ -1145,9 +1280,7 @@ impl Directory for DirEnum {
       Self::A(directory) => Ok(DirIndexInput(IndexInputEnum2::A(
         directory.open_input(name, context)?,
       ))),
-      Self::B(directory) => Ok(DirIndexInput(IndexInputEnum2::B(
-        directory.open_input(name, context)?,
-      ))),
+      Self::B(directory) => directory.open_input(name, context),
     }
   }
 

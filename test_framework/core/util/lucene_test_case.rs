@@ -810,7 +810,7 @@ where
   } else {
     let mock = MockDirectoryWrapper::new(random, directory);
     mock.set_throttling(*TEST_THROTTLING);
-    DirEnum::B(mock)
+    DirEnum::B(MockDirWrapper::from_inner(mock))
   }
 }
 
