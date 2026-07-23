@@ -25,7 +25,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{CacheHelper, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
-use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy;
 use crate::core::index::leaf_reader::LeafReader;
@@ -1132,7 +1132,7 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
   config.set_merge_policy(NoMergePolicy::default());
   let mut w = IndexWriter::new(dir.clone(), config)?;
 
@@ -1156,10 +1156,7 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
   }
 
   let analyzer = MockAnalyzer::new(&mut random);
-  w = IndexWriter::new(
-    dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
-  )?;
+  w = IndexWriter::new(dir.clone(), IndexWriterConfig::with_analyzer(analyzer)?)?;
 
   doc = Document::new();
   doc.add(StringField::from_string("id", "id", Store::No)?);
@@ -1193,7 +1190,7 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   let dir = Arc::new(ByteBuffersDirectory::new());
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
   config.set_merge_policy(NoMergePolicy::default());
   let mut w = IndexWriter::new(dir.clone(), config)?;
   let mut doc = Document::new();
@@ -1214,10 +1211,7 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   }
 
   let analyzer = MockAnalyzer::new(&mut random);
-  w = IndexWriter::new(
-    dir.clone(),
-    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
-  )?;
+  w = IndexWriter::new(dir.clone(), IndexWriterConfig::with_analyzer(analyzer)?)?;
   doc = Document::new();
   doc.add(StringField::from_string("id", "id", Store::No)?);
   doc.add(NumericDocValuesField::new("ndv", 13));
@@ -1227,11 +1221,11 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   doc.add(StringField::from_string("id", "id2", Store::No)?);
   w.add_document(doc)?;
   w.commit()?;
+  w.close()?;
 
   let err = directory_reader::open_if_changed(&r);
   assert!(matches!(err, Err(LuceneError::IllegalState(_))));
 
-  w.close()?;
   r.close()?;
   Ok(())
 }

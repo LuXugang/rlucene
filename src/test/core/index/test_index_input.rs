@@ -31,9 +31,28 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
+use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 struct TestIndexInput;
+
+struct TestIndexInputContext {
+  ints: Vec<i32>,
+  longs: Vec<i64>,
+  random_test_bytes: Vec<u8>,
+}
+
+static CONTEXT: LazyLock<TestIndexInputContext> = LazyLock::new(|| {
+  let mut random = random();
+  let (ints, longs, random_test_bytes) =
+    before_class(&mut random).expect("failed to initialize TestIndexInput");
+  TestIndexInputContext {
+    ints,
+    longs,
+    random_test_bytes,
+  }
+});
+
 pub static READ_TEST_BYTES: &[u8] = &[
   0x80, 0x01, 0xFF, 0x7F, 0x80, 0x80, 0x01, 0x81, 0x80, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0xFF,
   0xFF, 0xFF, 0xFF, 0x0F, 0xFF, 0xFF, 0xFF, 0xFF, 0x07, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
@@ -173,6 +192,7 @@ where
 #[test]
 fn test_raw_index_input_read() -> Result<()> {
   let mut random = random();
+  let context = &*CONTEXT;
 
   let read_test_bytes = READ_TEST_BYTES.to_vec();
 
@@ -190,16 +210,14 @@ fn test_raw_index_input_read() -> Result<()> {
       check_seeks_and_skips(&mut is, &mut random)?;
     }
 
-    let (ints, longs, random_test_bytes) = before_class(&mut random)?;
-
     {
       let mut os = dir.create_output("bar", &new_io_context(&mut random)?)?;
-      os.write_bytes_with_len(&random_test_bytes, random_test_bytes.len())?;
+      os.write_bytes_with_len(&context.random_test_bytes, context.random_test_bytes.len())?;
     }
 
     {
       let mut is = dir.open_input("bar", &new_io_context(&mut random)?)?;
-      check_random_reads(&mut is, &ints, &longs)?;
+      check_random_reads(&mut is, &context.ints, &context.longs)?;
       check_seeks_and_skips(&mut is, &mut random)?;
     }
   }
@@ -214,10 +232,9 @@ fn test_byte_array_data_input() -> Result<()> {
   }
 
   {
-    let mut random = random();
-    let (ints, longs, random_test_bytes) = before_class(&mut random)?;
-    let mut input = ByteArrayDataInput::with_bytes(random_test_bytes);
-    check_random_reads(&mut input, &ints, &longs)?;
+    let context = &*CONTEXT;
+    let mut input = ByteArrayDataInput::with_bytes(context.random_test_bytes.as_slice());
+    check_random_reads(&mut input, &context.ints, &context.longs)?;
   }
 
   Ok(())

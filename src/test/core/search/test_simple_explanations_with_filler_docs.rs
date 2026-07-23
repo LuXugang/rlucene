@@ -41,7 +41,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 const NUM_FILLER_DOCS_DEFAULT: usize = 4;
 const EXTRA: &str = "extra";
@@ -198,13 +198,18 @@ impl SimpleExplanations for TestSimpleExplanationsWithFillerDocs {
   }
 }
 
+static CONTEXT: LazyLock<TestSimpleExplanationsWithFillerDocs> = LazyLock::new(|| {
+  let mut random = random();
+  TestSimpleExplanationsWithFillerDocs::new(&mut random)
+    .expect("failed to initialize TestSimpleExplanationsWithFillerDocs")
+});
+
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestSimpleExplanationsWithFillerDocs, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestSimpleExplanationsWithFillerDocs::new(&mut random)?;
-  f(&case, &mut random)
+  f(&CONTEXT, &mut random)
 }
 
 mod simple_explanations_tests {

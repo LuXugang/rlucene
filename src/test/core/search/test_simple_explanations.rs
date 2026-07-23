@@ -34,6 +34,7 @@ use crate::test_framework::core::search::base_explanation_test_case::{
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
+use std::sync::LazyLock;
 
 /// TestExplanations implementation focusing on basic query types
 #[allow(dead_code)] // for quick search
@@ -60,13 +61,17 @@ impl SimpleExplanations for TestSimpleExplanations {
   }
 }
 
+static CONTEXT: LazyLock<TestSimpleExplanations> = LazyLock::new(|| {
+  let mut random = random();
+  TestSimpleExplanations::new(&mut random).expect("failed to initialize TestSimpleExplanations")
+});
+
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestSimpleExplanations, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestSimpleExplanations::new(&mut random)?;
-  f(&case, &mut random)
+  f(&CONTEXT, &mut random)
 }
 
 mod simple_explanations_tests {

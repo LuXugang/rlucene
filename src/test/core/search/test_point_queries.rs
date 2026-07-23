@@ -68,12 +68,39 @@ use rand::RngExt;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Barrier};
+use std::sync::{Arc, Barrier, LazyLock};
 use std::thread;
 use std::vec;
 
 #[allow(dead_code)] // for quick search
 pub struct TestPointQueries;
+
+struct PointValueRange {
+  value_mid: i64,
+  value_range: i64,
+}
+
+static POINT_VALUE_RANGE: LazyLock<PointValueRange> = LazyLock::new(|| {
+  let mut random = random();
+  if random.random_bool(0.5) {
+    PointValueRange {
+      value_mid: random.random(),
+      value_range: if random.random_bool(0.5) {
+        // Wide range
+        random.random_range(1..i32::MAX as i64)
+      } else {
+        // Narrow range
+        random.random_range(1..100_000)
+      },
+    }
+  } else {
+    // All longs
+    PointValueRange {
+      value_mid: 0,
+      value_range: 0,
+    }
+  }
+});
 
 #[test]
 fn test_basic_ints() -> Result<()> {
@@ -1073,26 +1100,12 @@ fn random_value<R>(random: &mut R) -> i64
 where
   R: Rng + ?Sized,
 {
-  let mut value_mid = 0;
-  let value_range;
-
-  if random.random_bool(0.5) {
-    value_mid = random.random();
-    value_range = if random.random_bool(0.5) {
-      // Wide range
-      random.random_range(1..i32::MAX as i64)
-    } else {
-      // Narrow range
-      random.random_range(1..100_000)
-    };
-  } else {
-    // All longs
-    value_range = 0;
-  }
-  if value_range == 0 {
+  if POINT_VALUE_RANGE.value_range == 0 {
     random.random()
   } else {
-    value_mid + random.random_range(-value_range..=value_range)
+    POINT_VALUE_RANGE.value_mid.wrapping_add(
+      random.random_range(-POINT_VALUE_RANGE.value_range..=POINT_VALUE_RANGE.value_range),
+    )
   }
 }
 #[test]

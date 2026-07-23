@@ -105,8 +105,7 @@ fn test_random() -> Result<()> {
 pub fn wrapper(
   iterator: DocIdSetIteratorImpl,
   dummy_s: &IndexSearcher<CompositeReaderContext<DummyCR>>,
-) -> Result<DisiWrapper<QueryWeightSsScorer>>
-{
+) -> Result<DisiWrapper<QueryWeightSsScorer>> {
   let q = DummyQueryImpl::new(iterator);
   let weight = q.weight();
   let lrc = &dummy_s.get_leaf_contexts()?[0];

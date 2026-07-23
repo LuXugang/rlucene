@@ -20,6 +20,7 @@ use crate::core::store::directory::{
   Directory, DirectoryEnum2, MockDirWrapper, RawDirEnum, SharedLockFactory,
 };
 use crate::core::store::fs_lock_factory;
+use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::store::{
   ByteArrayDataInput, ByteBuffersDirectory, DataInput, DataOutput, IOContext, IndexInputEnum2,
 };
@@ -74,6 +75,35 @@ impl BaseDirectoryTestCase for TestMockDirectoryWrapper {
           )?,
         ),
       )))
+    }
+  }
+
+  fn configure_is_loaded_test(&self, dir: &mut Self::Directory) -> bool {
+    match dir {
+      DirectoryEnum2::A(dir) => {
+        let mut base = dir.state.base.lock();
+        let raw_dir = match &mut base.in_ {
+          DirectoryEnum2::A(raw_dir) => raw_dir,
+          DirectoryEnum2::B(dir) => dir.get_delegate_mut(),
+        };
+        match raw_dir {
+          RawDirEnum::MMap(dir) => {
+            dir.set_preload(MMapDirectory::ALL_FILES);
+            true
+          },
+          _ => false,
+        }
+      },
+      DirectoryEnum2::B(dir) => {
+        let mut base = dir.state.base.lock();
+        match &mut base.in_ {
+          RawDirEnum::MMap(dir) => {
+            dir.set_preload(MMapDirectory::ALL_FILES);
+            true
+          },
+          _ => false,
+        }
+      },
     }
   }
 }

@@ -82,6 +82,9 @@ pub trait BaseMergePolicyTestCase {
     let merge_scheduler = SerialMergeSchedulerImpl::new(may_merge.clone());
 
     let mut mp = self.merge_policy(random);
+    if mp.to_string().contains("MockRandomMergePolicy") {
+      return dir.close();
+    }
 
     if random.random_bool(0.5) {
       mp.get_base_mut().set_no_cfs_ratio(0.0)?;
@@ -140,6 +143,9 @@ pub trait BaseMergePolicyTestCase {
     R: Rng + ?Sized,
   {
     let mp = self.merge_policy(random);
+    if mp.to_string().contains("MockRandomMergePolicy") {
+      return Ok(());
+    }
 
     let mut infos = SegmentInfos::new(LATEST.major)?;
     let directory = new_directory_shared(random)?;

@@ -63,10 +63,16 @@ use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::LazyLock;
 
 #[allow(dead_code)]
 struct TestPhraseQuery;
 pub const SCORE_COMP_THRESH: f32 = 1e-6;
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestPhraseQuery")
+});
 
 struct PhraseQueryAnalyzer {
   stored_value: AnalyzerStoredValue,
@@ -171,12 +177,12 @@ where
 #[test]
 fn test_not_close_enough() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let query = PhraseQuery::from_terms(2, "field", &["one", "five"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(0, hits.len());
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
@@ -184,13 +190,13 @@ fn test_not_close_enough() -> Result<()> {
 #[test]
 fn test_barely_close_enough() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let query = PhraseQuery::from_terms(3, "field", &["one", "five"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len());
 
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
   Ok(())
 }
 
@@ -198,19 +204,19 @@ fn test_barely_close_enough() -> Result<()> {
 #[test]
 fn test_exact() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   // slop is zero by default
   let query = PhraseQuery::from_terms(0, "field", &["four", "five"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "exact match");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   let query = PhraseQuery::from_terms(0, "field", &["two", "one"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(0, hits.len(), "reverse not exact");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
@@ -218,14 +224,14 @@ fn test_exact() -> Result<()> {
 #[test]
 fn test_slop1() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   // Ensures slop of 1 works with terms in order.
   let query = PhraseQuery::from_terms(1, "field", &["one", "two"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "in order");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // Ensures slop of 1 does not work for phrases out of order;
   // must be at least 2.
@@ -233,7 +239,7 @@ fn test_slop1() -> Result<()> {
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(0, hits.len(), "reversed, slop not 2 or more");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
@@ -242,20 +248,20 @@ fn test_slop1() -> Result<()> {
 #[test]
 fn test_order_doesnt_matter() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   // must be at least two for reverse order match
   let query = PhraseQuery::from_terms(2, "field", &["two", "one"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "just sloppy enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   let query = PhraseQuery::from_terms(2, "field", &["three", "one"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(0, hits.len(), "not sloppy enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
@@ -264,26 +270,26 @@ fn test_order_doesnt_matter() -> Result<()> {
 #[test]
 fn test_multiple_terms() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let query = PhraseQuery::from_terms(2, "field", &["one", "three", "five"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "two total moves");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // it takes six moves to match this phrase
   let query = PhraseQuery::from_terms(5, "field", &["five", "three", "one"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(0, hits.len(), "slop of 5 not close enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   let query = PhraseQuery::from_terms(6, "field", &["five", "three", "one"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "slop of 6 just right");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
@@ -555,40 +561,40 @@ fn test_to_string() -> Result<()> {
 #[test]
 fn test_wrapped_phrase() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let query = PhraseQuery::from_terms(100, "repeated", &["first", "part", "second", "part"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "slop of 100 just right");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   let query = PhraseQuery::from_terms(99, "repeated", &["first", "part", "second", "part"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(0, hits.len(), "slop of 99 not enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
 #[test]
 fn test_non_existing_phrase() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   // phrase without repetitions that exists in 2 docs
   let query = PhraseQuery::from_terms(2, "nonexist", &["phrase", "notexist", "found"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(2, hits.len(), "phrase without repetitions exists in 2 docs");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // phrase with repetitions that exists in 2 docs
   let query = PhraseQuery::from_terms(1, "nonexist", &["phrase", "exist", "exist"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(2, hits.len(), "phrase with repetitions exists in two docs");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // phrase I with repetitions that does not exist in any doc
   let query = PhraseQuery::from_terms(1000, "nonexist", &["phrase", "notexist", "phrase"])?;
@@ -599,7 +605,7 @@ fn test_non_existing_phrase() -> Result<()> {
     hits.len(),
     "nonexisting phrase with repetitions does not exist in any doc"
   );
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // phrase II with repetitions that does not exist in any doc
   let query = PhraseQuery::from_terms(1000, "nonexist", &["phrase", "exist", "exist", "exist"])?;
@@ -610,14 +616,14 @@ fn test_non_existing_phrase() -> Result<()> {
     hits.len(),
     "nonexisting phrase with repetitions does not exist in any doc"
   );
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
 #[test]
 fn test_palyndrome2() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   // search on non palyndrome, find phrase with no slop, using exact phrase scorer
   let query = PhraseQuery::from_terms(0, "field", &["two", "three"])?; // to use exact phrase scorer
@@ -625,7 +631,7 @@ fn test_palyndrome2() -> Result<()> {
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "phrase found with exact phrase scorer");
   let score0 = hits[0].score;
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // search on non palyndrome, find phrase with slop 2, though no slop required here.
   let query = PhraseQuery::from_terms(2, "field", &["two", "three"])?; // to use sloppy scorer
@@ -637,28 +643,28 @@ fn test_palyndrome2() -> Result<()> {
     (score0 - score1).abs() <= SCORE_COMP_THRESH,
     "exact scorer and sloppy scorer score the same when slop does not matter"
   );
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // search ordered in palyndrome, find it twice
   let query = PhraseQuery::from_terms(2, "palindrome", &["two", "three"])?; // must be at least two for both ordered and reversed to match
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "just sloppy enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // search reveresed in palyndrome, find it twice
   let query = PhraseQuery::from_terms(2, "palindrome", &["three", "two"])?; // must be at least two for both ordered and reversed to match
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "just sloppy enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
 #[test]
 fn test_palyndrome3() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   // search on non palyndrome, find phrase with no slop, using exact phrase scorer
   // slop=0 to use exact phrase scorer
@@ -667,7 +673,7 @@ fn test_palyndrome3() -> Result<()> {
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "phrase found with exact phrase scorer");
   let score0 = hits[0].score;
-  QueryUtils::check_from_searcher(&mut random, query.clone(), &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query.clone(), searcher)?;
 
   // just make sure no exc:
   searcher.explain(query.clone(), 0)?;
@@ -683,7 +689,7 @@ fn test_palyndrome3() -> Result<()> {
     (score0 - score1).abs() <= SCORE_COMP_THRESH,
     "exact scorer and sloppy scorer score the same when slop does not matter"
   );
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // search ordered in palyndrome, find it twice
   // slop must be at least four for both ordered and reversed to match
@@ -695,7 +701,7 @@ fn test_palyndrome3() -> Result<()> {
   let _ = searcher.explain(query.clone(), 0)?;
 
   assert_eq!(1, hits.len(), "just sloppy enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   // search reveresed in palyndrome, find it twice
   // must be at least four for both ordered and reversed to match
@@ -703,7 +709,7 @@ fn test_palyndrome3() -> Result<()> {
   let top_docs = searcher.search(query.clone(), 1000)?;
   let hits = top_docs.score_docs();
   assert_eq!(1, hits.len(), "just sloppy enough");
-  QueryUtils::check_from_searcher(&mut random, query, &searcher)?;
+  QueryUtils::check_from_searcher(&mut random, query, searcher)?;
 
   Ok(())
 }
@@ -718,11 +724,10 @@ fn test_empty_phrase_query() -> Result<()> {
 
 #[test]
 fn test_rewrite() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let pq: Query = PhraseQuery::from_terms(0, "foo", &["bar"])?.into();
-  let rewritten = pq.rewrite(&searcher)?;
+  let rewritten = pq.rewrite(searcher)?;
 
   assert!(matches!(rewritten, Query::Term(_)));
   Ok(())

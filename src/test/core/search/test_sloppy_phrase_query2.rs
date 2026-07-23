@@ -28,18 +28,26 @@ use rand::RngExt;
 use rand_chacha::ChaCha8Rng;
 use rand_chacha::rand_core::Rng;
 use rand_chacha::rand_core::SeedableRng;
+use std::sync::LazyLock;
 
 pub struct TestSloppyPhraseQuery2 {
   meta: SearchEquivalenceTestBaseMeta,
 }
+
+static CONTEXT: LazyLock<TestSloppyPhraseQuery2> = LazyLock::new(|| {
+  let mut random = random();
+  TestSloppyPhraseQuery2 {
+    meta: SearchEquivalenceTestBaseMeta::new(&mut random)
+      .expect("failed to initialize TestSloppyPhraseQuery2"),
+  }
+});
+
 impl TestSloppyPhraseQuery2 {
-  fn new<R>(random: &mut R) -> Self
+  fn new<R>(_random: &mut R) -> &'static Self
   where
     R: Rng + ?Sized,
   {
-    Self {
-      meta: SearchEquivalenceTestBaseMeta::new(random).expect(""),
-    }
+    &CONTEXT
   }
 }
 impl SearchEquivalenceTestBase for TestSloppyPhraseQuery2 {

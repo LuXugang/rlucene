@@ -51,13 +51,22 @@ use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestFieldsReader;
 
-fn before_class() -> Result<(Document, Arc<DirEnum>)> {
+struct TestFieldsReaderContext {
+  test_doc: Document,
+  dir: Arc<DirEnum>,
+}
+
+static CONTEXT: LazyLock<TestFieldsReaderContext> = LazyLock::new(|| {
+  before_class().expect("failed to initialize TestFieldsReader class-level test data")
+});
+
+fn before_class() -> Result<TestFieldsReaderContext> {
   let mut random = random();
 
   let mut test_doc = Document::new();
@@ -102,12 +111,12 @@ fn before_class() -> Result<(Document, Arc<DirEnum>)> {
   writer.add_document(test_doc.clone())?;
   writer.close()?;
 
-  Ok((test_doc, dir))
+  Ok(TestFieldsReaderContext { test_doc, dir })
 }
 #[test]
 fn test() -> Result<()> {
-  let (_, dir) = before_class()?;
-  let reader = directory_reader::open(dir.clone())?;
+  let context = &*CONTEXT;
+  let reader = directory_reader::open(context.dir.clone())?;
   let doc = reader.stored_fields()?.document(0)?;
   assert!(doc.get_field(TEXT_FIELD_1_KEY).is_some());
 
@@ -156,8 +165,7 @@ fn test() -> Result<()> {
 #[test]
 fn test_exceptions() -> Result<()> {
   let mut random = random();
-  let mut test_doc = Document::new();
-  DocHelper::setup_doc(&mut test_doc);
+  let context = &*CONTEXT;
 
   let fs_dir = new_fs_directory(
     &mut random,
@@ -169,7 +177,7 @@ fn test_exceptions() -> Result<()> {
   iwc.set_open_mode(OpenMode::Create);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   for _ in 0..2 {
-    writer.add_document(test_doc.clone())?;
+    writer.add_document(context.test_doc.clone())?;
   }
   writer.force_merge(1)?;
   writer.close()?;

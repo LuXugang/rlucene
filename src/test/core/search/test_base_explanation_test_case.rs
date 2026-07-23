@@ -38,7 +38,7 @@ use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use std::hash::{Hash, Hasher};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 /// Tests that the [`BaseExplanationTestCase`] helper code, as well as
 /// [`CheckHits::check_no_match_explanations`] are checking what they are suppose to.
@@ -58,12 +58,18 @@ impl TestBaseExplanationTestCase {
   }
 }
 
+static CONTEXT: LazyLock<TestBaseExplanationTestCase> = LazyLock::new(|| {
+  let mut random = random();
+  TestBaseExplanationTestCase::new(&mut random)
+    .expect("failed to initialize TestBaseExplanationTestCase")
+});
+
 impl BaseExplanationTestCase for TestBaseExplanationTestCase {}
 
 #[test]
 fn test_query_no_match_when_expected() -> Result<()> {
   let mut random = random();
-  let test = TestBaseExplanationTestCase::new(&mut random)?;
+  let test = &*CONTEXT;
   let result = catch_unwind(AssertUnwindSafe(|| {
     test
       .q_test(
@@ -81,7 +87,7 @@ fn test_query_no_match_when_expected() -> Result<()> {
 #[test]
 fn test_query_match_when_not_expected() -> Result<()> {
   let mut random = random();
-  let test = TestBaseExplanationTestCase::new(&mut random)?;
+  let test = &*CONTEXT;
   let result = catch_unwind(AssertUnwindSafe(|| {
     test
       .q_test(
@@ -98,7 +104,7 @@ fn test_query_match_when_not_expected() -> Result<()> {
 #[test]
 fn test_incorrect_explain_scores() -> Result<()> {
   let mut random = random();
-  let test = TestBaseExplanationTestCase::new(&mut random)?;
+  let test = &*CONTEXT;
   // sanity check what a real TermQuery matches
   test.q_test(
     &mut random,
@@ -125,7 +131,7 @@ fn test_incorrect_explain_scores() -> Result<()> {
 #[test]
 fn test_incorrect_explain_matches() -> Result<()> {
   let mut random = random();
-  let test = TestBaseExplanationTestCase::new(&mut random)?;
+  let test = &*CONTEXT;
   // sanity check what a real TermQuery matches
   test.q_test(
     &mut random,

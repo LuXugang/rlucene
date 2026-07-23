@@ -29,10 +29,16 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use rand::Rng;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 const FIELD: &str = "name";
 #[allow(dead_code)] // for quick search
 pub struct TestPrefixInBooleanQuery;
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestPrefixInBooleanQuery")
+});
 
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
@@ -97,8 +103,7 @@ where
 }
 #[test]
 fn test_prefix_query() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let query = PrefixQuery::new(Term::from_text(FIELD, "tang"))?;
   assert_eq!(2, searcher.search(query, 1000)?.total_hits.value());
@@ -108,8 +113,7 @@ fn test_prefix_query() -> Result<()> {
 
 #[test]
 fn test_term_query() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let query = TermQuery::new(Term::from_text(FIELD, "tangfulin"));
   assert_eq!(2, searcher.search(query, 1000)?.total_hits.value());
@@ -119,8 +123,7 @@ fn test_term_query() -> Result<()> {
 
 #[test]
 fn test_term_boolean_query() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut query = Builder::new();
   query.add(
@@ -139,8 +142,7 @@ fn test_term_boolean_query() -> Result<()> {
 
 #[test]
 fn test_prefix_boolean_query() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut query = Builder::new();
   query.add(

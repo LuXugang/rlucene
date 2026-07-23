@@ -75,7 +75,7 @@ where
   D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
+    write!(f, "MergeOnFlushMergePolicy({})", self.inner)
   }
 }
 

@@ -32,6 +32,7 @@ use crate::test_framework::core::search::base_explanation_test_case::{
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
+use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 pub(crate) struct TestComplexExplanations {
@@ -66,13 +67,17 @@ impl ComplexExplanations for TestComplexExplanations {
   }
 }
 
+static CONTEXT: LazyLock<TestComplexExplanations> = LazyLock::new(|| {
+  let mut random = random();
+  TestComplexExplanations::new(&mut random).expect("failed to initialize TestComplexExplanations")
+});
+
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestComplexExplanations, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestComplexExplanations::new(&mut random)?;
-  f(&case, &mut random)
+  f(&CONTEXT, &mut random)
 }
 
 mod complex_explanations_tests {

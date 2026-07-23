@@ -27,19 +27,26 @@ use crate::test_framework::core::search::search_equivalence_test_base::{
 };
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
+use std::sync::LazyLock;
 /// Basic equivalence tests for approximations.
 pub struct TestApproximationSearchEquivalence {
   meta: SearchEquivalenceTestBaseMeta,
 }
 
+static CONTEXT: LazyLock<TestApproximationSearchEquivalence> = LazyLock::new(|| {
+  let mut random = random();
+  TestApproximationSearchEquivalence {
+    meta: SearchEquivalenceTestBaseMeta::new(&mut random)
+      .expect("failed to initialize TestApproximationSearchEquivalence"),
+  }
+});
+
 impl TestApproximationSearchEquivalence {
-  fn new<R>(random: &mut R) -> Self
+  fn new<R>(_random: &mut R) -> &'static Self
   where
     R: Rng + ?Sized,
   {
-    Self {
-      meta: SearchEquivalenceTestBaseMeta::new(random).expect(""),
-    }
+    &CONTEXT
   }
 
   fn random_approximation_query<R>(&self, query: impl Into<Query>, random: &mut R) -> Query

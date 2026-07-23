@@ -31,7 +31,9 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::info_stream::InfoStreamEnum;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::util::fail_on_non_bulk_merges_info_stream::FailOnNonBulkMergesInfoStream;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   random,
@@ -263,6 +265,7 @@ fn test_field_number_gaps() -> Result<()> {
       let a = MockAnalyzer::new(&mut random);
       let mut config = new_index_writer_config_with_analyzer(&mut random, a)?;
       config.set_merge_policy(LogMergePolicy::log_bytes_size());
+      config.set_info_stream(InfoStreamEnum::from(FailOnNonBulkMergesInfoStream));
       let writer = IndexWriter::new(dir.clone(), config)?;
 
       writer.force_merge(1)?;

@@ -30,19 +30,26 @@ use crate::test_framework::core::search::search_equivalence_test_base::{
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;
+use std::sync::LazyLock;
 
 pub struct TestSimpleSearchEquivalence {
   meta: SearchEquivalenceTestBaseMeta,
 }
 
+static CONTEXT: LazyLock<TestSimpleSearchEquivalence> = LazyLock::new(|| {
+  let mut random = random();
+  TestSimpleSearchEquivalence {
+    meta: SearchEquivalenceTestBaseMeta::new(&mut random)
+      .expect("failed to initialize TestSimpleSearchEquivalence"),
+  }
+});
+
 impl TestSimpleSearchEquivalence {
-  fn new<R>(random: &mut R) -> Self
+  fn new<R>(_random: &mut R) -> &'static Self
   where
     R: Rng + ?Sized,
   {
-    Self {
-      meta: SearchEquivalenceTestBaseMeta::new(random).expect(""),
-    }
+    &CONTEXT
   }
 }
 

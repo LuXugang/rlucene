@@ -38,9 +38,14 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::ulp_f32;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 pub struct TestBooleanMinShouldMatch;
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestBooleanMinShouldMatch")
+});
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
@@ -126,7 +131,7 @@ where
 #[test]
 fn test_all_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   for i in 1..=4 {
@@ -136,14 +141,14 @@ fn test_all_optional() -> Result<()> {
     )?;
   }
   q.set_minimum_number_should_match(2);
-  verify_nr_hits(&mut random, &s, q.build(), 2)?;
+  verify_nr_hits(&mut random, s, q.build(), 2)?;
 
   Ok(())
 }
 #[test]
 fn test_one_req_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
@@ -153,14 +158,14 @@ fn test_one_req_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(2);
 
-  verify_nr_hits(&mut random, &s, q.build(), 5)?;
+  verify_nr_hits(&mut random, s, q.build(), 5)?;
 
   Ok(())
 }
 #[test]
 fn test_some_req_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
@@ -171,7 +176,7 @@ fn test_some_req_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(2);
 
-  verify_nr_hits(&mut random, &s, q.build(), 5)?;
+  verify_nr_hits(&mut random, s, q.build(), 5)?;
 
   Ok(())
 }
@@ -179,7 +184,7 @@ fn test_some_req_and_some_optional() -> Result<()> {
 #[test]
 fn test_one_prohib_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
@@ -189,7 +194,7 @@ fn test_one_prohib_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(2);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
@@ -197,7 +202,7 @@ fn test_one_prohib_and_some_optional() -> Result<()> {
 #[test]
 fn test_some_prohib_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
@@ -208,7 +213,7 @@ fn test_some_prohib_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(2);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
@@ -216,7 +221,7 @@ fn test_some_prohib_and_some_optional() -> Result<()> {
 #[test]
 fn test_one_req_one_prohib_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("data", "6")), Occur::Must)?;
@@ -228,7 +233,7 @@ fn test_one_req_one_prohib_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(3);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
@@ -236,7 +241,7 @@ fn test_one_req_one_prohib_and_some_optional() -> Result<()> {
 #[test]
 fn test_some_req_one_prohib_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
@@ -249,7 +254,7 @@ fn test_some_req_one_prohib_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(3);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
@@ -257,7 +262,7 @@ fn test_some_req_one_prohib_and_some_optional() -> Result<()> {
 #[test]
 fn test_one_req_some_prohib_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("data", "6")), Occur::Must)?;
@@ -270,14 +275,14 @@ fn test_one_req_some_prohib_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(3);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
 #[test]
 fn test_some_req_some_prohib_and_some_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
@@ -291,7 +296,7 @@ fn test_some_req_some_prohib_and_some_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(3);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
@@ -299,7 +304,7 @@ fn test_some_req_some_prohib_and_some_optional() -> Result<()> {
 #[test]
 fn test_min_higher_then_num_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
@@ -313,7 +318,7 @@ fn test_min_higher_then_num_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(90);
 
-  verify_nr_hits(&mut random, &s, q.build(), 0)?;
+  verify_nr_hits(&mut random, s, q.build(), 0)?;
 
   Ok(())
 }
@@ -321,7 +326,7 @@ fn test_min_higher_then_num_optional() -> Result<()> {
 #[test]
 fn test_min_equal_to_num_optional() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Should)?;
@@ -331,7 +336,7 @@ fn test_min_equal_to_num_optional() -> Result<()> {
 
   q.set_minimum_number_should_match(2);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
@@ -339,7 +344,7 @@ fn test_min_equal_to_num_optional() -> Result<()> {
 #[test]
 fn test_one_optional_equal_to_min() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
@@ -348,7 +353,7 @@ fn test_one_optional_equal_to_min() -> Result<()> {
 
   q.set_minimum_number_should_match(1);
 
-  verify_nr_hits(&mut random, &s, q.build(), 1)?;
+  verify_nr_hits(&mut random, s, q.build(), 1)?;
 
   Ok(())
 }
@@ -356,7 +361,7 @@ fn test_one_optional_equal_to_min() -> Result<()> {
 #[test]
 fn test_no_optional_but_min() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
@@ -364,7 +369,7 @@ fn test_no_optional_but_min() -> Result<()> {
 
   q.set_minimum_number_should_match(1);
 
-  verify_nr_hits(&mut random, &s, q.build(), 0)?;
+  verify_nr_hits(&mut random, s, q.build(), 0)?;
 
   Ok(())
 }
@@ -372,14 +377,14 @@ fn test_no_optional_but_min() -> Result<()> {
 #[test]
 fn test_no_optional_but_min_2() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("all", "all")), Occur::Must)?;
 
   q.set_minimum_number_should_match(1);
 
-  verify_nr_hits(&mut random, &s, q.build(), 0)?;
+  verify_nr_hits(&mut random, s, q.build(), 0)?;
 
   Ok(())
 }
@@ -387,7 +392,7 @@ fn test_no_optional_but_min_2() -> Result<()> {
 #[test]
 fn test_random_queries() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let field = "data".to_string();
   let vals = vec![
@@ -442,8 +447,8 @@ fn test_random_queries() -> Result<()> {
     let top1 = s.search(q1.clone(), 100)?;
     let top2 = s.search(q2.clone(), 100)?;
     if i < 100 {
-      QueryUtils::check_from_searcher(&mut random, q1.clone(), &s)?;
-      QueryUtils::check_from_searcher(&mut random, q2.clone(), &s)?;
+      QueryUtils::check_from_searcher(&mut random, q1.clone(), s)?;
+      QueryUtils::check_from_searcher(&mut random, q2.clone(), s)?;
     }
     assert_subset_of_same_scores(&q2, top1, top2)?;
   }
@@ -488,8 +493,7 @@ fn assert_subset_of_same_scores(
 
 #[test]
 fn test_rewrite_msm1() -> Result<()> {
-  let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
   let mut q1 = Builder::new();
   q1.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
 
@@ -507,8 +511,7 @@ fn test_rewrite_msm1() -> Result<()> {
 
 #[test]
 fn test_rewrite_negate() -> Result<()> {
-  let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
   let mut q1 = Builder::new();
   q1.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
 
@@ -528,14 +531,14 @@ fn test_rewrite_negate() -> Result<()> {
 #[test]
 fn test_flatten_inner_disjunctions() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
   let mut builder = Builder::new();
   builder.set_minimum_number_should_match(2);
   builder.add(TermQuery::new(Term::from_text("all", "all")), Occur::Should)?;
   builder.add(TermQuery::new(Term::from_text("data", "1")), Occur::Should)?;
   builder.add(TermQuery::new(Term::from_text("data", "2")), Occur::Must)?;
   let q: Query = builder.build().into();
-  verify_nr_hits(&mut random, &s, q, 1)?;
+  verify_nr_hits(&mut random, s, q, 1)?;
 
   let mut inner_builder = Builder::new();
   inner_builder.add(TermQuery::new(Term::from_text("all", "all")), Occur::Should)?;
@@ -548,7 +551,7 @@ fn test_flatten_inner_disjunctions() -> Result<()> {
   builder.add(TermQuery::new(Term::from_text("data", "2")), Occur::Must)?;
   let q: Query = builder.build().into();
 
-  verify_nr_hits(&mut random, &s, q, 0)?;
+  verify_nr_hits(&mut random, s, q, 0)?;
   Ok(())
 }
 fn print_hits<IRC>(_hits: &[ScoreDoc], _searcher: &IndexSearcher<IRC>) -> Result<()>

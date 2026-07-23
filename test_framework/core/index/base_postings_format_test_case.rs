@@ -64,13 +64,14 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_string_field, new_text_field, new_tiered_merge_policy, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use parking_lot::Mutex;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use strum::IntoEnumIterator;
 
 pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
-  fn create_postings<R>(&self, random: &mut R) -> RandomPostingsTester
+  fn create_postings<R>(&self, random: &mut R) -> &Mutex<RandomPostingsTester>
   where
     R: Rng + ?Sized;
 
@@ -78,7 +79,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut postings_tester = self.create_postings(random);
+    let mut postings_tester = self.create_postings(random).lock();
     postings_tester.test_full(
       random,
       &self.get_codec()?,
@@ -92,7 +93,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut postings_tester = self.create_postings(random);
+    let mut postings_tester = self.create_postings(random).lock();
     postings_tester.test_full(
       random,
       &self.get_codec()?,
@@ -106,7 +107,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut postings_tester = self.create_postings(random);
+    let mut postings_tester = self.create_postings(random).lock();
     postings_tester.test_full(
       random,
       &self.get_codec()?,
@@ -120,7 +121,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut postings_tester = self.create_postings(random);
+    let mut postings_tester = self.create_postings(random).lock();
     postings_tester.test_full(
       random,
       &self.get_codec()?,
@@ -134,7 +135,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut postings_tester = self.create_postings(random);
+    let mut postings_tester = self.create_postings(random).lock();
     postings_tester.test_full(
       random,
       &self.get_codec()?,
@@ -151,7 +152,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let mut postings_tester = self.create_postings(random);
+    let mut postings_tester = self.create_postings(random).lock();
     postings_tester.test_full(
       random,
       &self.get_codec()?,
@@ -171,7 +172,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
       let dir = new_fs_directory(random, path)?;
 
       let index_payloads = random.random_bool(0.5);
-      let mut postings_tester = self.create_postings(random);
+      let mut postings_tester = self.create_postings(random).lock();
       let fields_producer = postings_tester.build_index(
         &self.get_codec()?,
         dir.clone(),
@@ -209,7 +210,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     let path = create_temp_dir_with_prefix("testPostingsEnumReuse")?;
     let dir = new_fs_directory(random, path)?;
 
-    let mut postings_tester = self.create_postings(random);
+    let mut postings_tester = self.create_postings(random).lock();
     let fields_producer = postings_tester.build_index(
       &self.get_codec()?,
       dir.clone(),

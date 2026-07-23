@@ -17,7 +17,7 @@
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use rand::Rng;
 use rand::RngExt;
-use std::rc::Rc;
+use std::sync::LazyLock;
 
 use crate::core::index::byte_slice_pool::ByteSlicePool;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
@@ -30,12 +30,29 @@ use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestByteSliceReader;
 
+struct TestByteSliceReaderContext {
+  random_data: Vec<u8>,
+  block_pool: ByteBlockPool,
+  block_pool_end: i32,
+}
+
+static CONTEXT: LazyLock<TestByteSliceReaderContext> = LazyLock::new(|| {
+  let mut random = random();
+  let (random_data, block_pool, block_pool_end) =
+    set_up(&mut random).expect("failed to initialize TestByteSliceReader");
+  TestByteSliceReaderContext {
+    random_data,
+    block_pool,
+    block_pool_end,
+  }
+});
+
 #[allow(clippy::type_complexity)]
 pub fn set_up<R>(random: &mut R) -> Result<(Vec<u8>, ByteBlockPool, i32)>
 where
   R: Rng + ?Sized,
 {
-  let len = 100; // You can adjust this value if needed
+  let len = at_least(random, 100) as usize;
   let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
   let allocator = DirectAllocatorByte::new();
@@ -61,11 +78,10 @@ where
 }
 #[test]
 fn test_read_byte() -> Result<()> {
-  let mut random = random();
-  let (random_data, block_pool, block_pool_end) = set_up(&mut random)?;
-  let mut reader = ByteSliceReader::new(&block_pool);
-  reader.init(0, block_pool_end.try_convert()?);
-  for &expected in random_data.iter() {
+  let context = &*CONTEXT;
+  let mut reader = ByteSliceReader::new(&context.block_pool);
+  reader.init(0, context.block_pool_end.try_convert()?);
+  for &expected in context.random_data.iter() {
     let byte = reader.read_byte()?;
     assert_eq!(byte, expected);
   }
@@ -74,19 +90,22 @@ fn test_read_byte() -> Result<()> {
 #[test]
 fn test_skip_bytes() -> Result<()> {
   let mut random = random();
-  let (random_data, block_pool, block_pool_end) = set_up(&mut random)?;
-  let mut slice_reader = ByteSliceReader::new(Rc::new(block_pool));
-  let max_skip_to = random_data.len() as i32 - 1;
+  let context = &*CONTEXT;
+  let mut slice_reader = ByteSliceReader::new(&context.block_pool);
+  let max_skip_to = context.random_data.len() as i32 - 1;
   let iterations = at_least(&mut random, 10);
   for _ in 0..iterations {
-    slice_reader.init(0, block_pool_end.try_convert()?);
+    slice_reader.init(0, context.block_pool_end.try_convert()?);
     // Skip random chunks of bytes until exhausted
     let mut curr = 0;
     while curr < max_skip_to {
       let skip_to = TestUtil::next_int(&mut random, curr, max_skip_to);
       let step = skip_to - curr;
       slice_reader.skip_bytes(step as i64)?;
-      assert_eq!(random_data[skip_to as usize], slice_reader.read_byte()?);
+      assert_eq!(
+        context.random_data[skip_to as usize],
+        slice_reader.read_byte()?
+      );
       curr = skip_to + 1; // +1 for read byte
     }
   }

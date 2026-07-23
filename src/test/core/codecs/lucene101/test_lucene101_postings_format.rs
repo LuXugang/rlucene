@@ -31,11 +31,22 @@ use crate::test_framework::core::index::base_index_file_format_test_case::BaseIn
 use crate::test_framework::core::index::base_postings_format_test_case::BasePostingsFormatTestCase;
 use crate::test_framework::core::index::random_postings_tester::RandomPostingsTester;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
+use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
+use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 struct TestLucene101PostingsFormat;
+
+static POSTINGS_TESTER: LazyLock<Mutex<RandomPostingsTester>> = LazyLock::new(|| {
+  let mut random = random();
+  Mutex::new(
+    RandomPostingsTester::new(&mut random)
+      .expect("failed to initialize TestLucene101PostingsFormat"),
+  )
+});
+
 impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
   fn add_random_fields<R>(_random: &mut R) -> Result<()>
   where
@@ -45,11 +56,11 @@ impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
   }
 }
 impl BasePostingsFormatTestCase for TestLucene101PostingsFormat {
-  fn create_postings<R>(&self, random: &mut R) -> RandomPostingsTester
+  fn create_postings<R>(&self, _random: &mut R) -> &Mutex<RandomPostingsTester>
   where
     R: Rng + ?Sized,
   {
-    RandomPostingsTester::new(random).unwrap()
+    &POSTINGS_TESTER
   }
 }
 fn run_case<F>(f: F) -> Result<()>

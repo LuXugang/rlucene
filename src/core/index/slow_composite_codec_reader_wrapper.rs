@@ -19,25 +19,27 @@ use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
+use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
   CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer, CRPointsReader,
   CRStoredFieldsReader, CRTermVectorsReader, CodecReader, CodecReaderEnum2,
 };
 use crate::core::index::doc_values::DocValues;
-use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
-use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
+use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{FieldInfos, get_merged_field_infos};
 use crate::core::index::fields::Fields;
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
-use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
+use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_bits::{BitsType, get_live_docs};
@@ -61,8 +63,10 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{
   EmptyTermVectors, RawTermVectors, TermVectors, TermVectorsEnum2,
 };
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bits::Bits;
@@ -75,6 +79,7 @@ use crate::core::util::merged_iterator::MergedIterator;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use parking_lot::Mutex;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -1277,16 +1282,62 @@ where
     Ok(())
   }
 
-  type FloatVectorValues = DummyFloatVectorValues;
+  type FloatVectorValues =
+    MergedFloatVectorValues<<CRKnnVectorReader<CR> as KnnVectorsReader>::FloatVectorValues>;
 
-  fn get_float_vector_values(&self, _field: &str) -> Result<Self::FloatVectorValues> {
-    todo!()
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    let mut subs = Vec::with_capacity(self.codec_readers.len());
+    let mut dimension = None;
+    let mut size = 0;
+    for (i, reader) in self.codec_readers.iter().enumerate() {
+      let values = CodecReader::get_float_vector_values(reader, field)?;
+      let ord_start = size;
+      if let Some(values) = &values {
+        if dimension.is_none() {
+          dimension = Some(values.dimension());
+        }
+        size += values.size();
+      }
+      subs.push(DocValuesSub::new(
+        values,
+        self.doc_starts[i] as i32,
+        ord_start as i32,
+      ));
+    }
+    MergedFloatVectorValues::new(
+      dimension.ok_or_else(|| LuceneError::illegal_state("field has no float vector values"))?,
+      size,
+      subs,
+    )
   }
 
-  type ByteVectorValues = DummyByteVectorValues;
+  type ByteVectorValues =
+    MergedByteVectorValues<<CRKnnVectorReader<CR> as KnnVectorsReader>::ByteVectorValues>;
 
-  fn get_byte_vector_values(&self, _field: &str) -> Result<Self::ByteVectorValues> {
-    todo!()
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    let mut subs = Vec::with_capacity(self.codec_readers.len());
+    let mut dimension = None;
+    let mut size = 0;
+    for (i, reader) in self.codec_readers.iter().enumerate() {
+      let values = CodecReader::get_byte_vector_values(reader, field)?;
+      let ord_start = size;
+      if let Some(values) = &values {
+        if dimension.is_none() {
+          dimension = Some(values.dimension());
+        }
+        size += values.size();
+      }
+      subs.push(DocValuesSub::new(
+        values,
+        self.doc_starts[i] as i32,
+        ord_start as i32,
+      ));
+    }
+    MergedByteVectorValues::new(
+      dimension.ok_or_else(|| LuceneError::illegal_state("field has no byte vector values"))?,
+      size,
+      subs,
+    )
   }
 
   fn search_f32<B, K>(
@@ -1340,20 +1391,43 @@ where
 }
 pub struct MergedDocIterator<T>
 where
-  T: KnnVectorValues,
+  T: DocIndexIterator,
 {
-  subs: Vec<DocValuesSub<T>>,
+  subs: Vec<DocIteratorSub<T>>,
   current: usize,
-  current_iter: Option<T::DocIndexIterator>,
+  current_iter: Option<T>,
   ord: i32,
   doc: i32,
 }
 
+struct DocIteratorSub<T>
+where
+  T: DocIndexIterator,
+{
+  iterator: Option<T>,
+  doc_start: i32,
+  ord_start: i32,
+}
+
 impl<T> MergedDocIterator<T>
 where
-  T: KnnVectorValues,
+  T: DocIndexIterator,
 {
-  pub fn new(mut subs: Vec<DocValuesSub<T>>) -> Result<Self> {
+  pub fn new<V>(values_subs: &[DocValuesSub<V>]) -> Result<Self>
+  where
+    V: KnnVectorValues<DocIndexIterator = T>,
+  {
+    let mut subs = Vec::with_capacity(values_subs.len());
+    for sub in values_subs {
+      subs.push(DocIteratorSub {
+        iterator: match &sub.sub {
+          Some(values) => Some(values.iterator()?),
+          None => None,
+        },
+        doc_start: sub.doc_start,
+        ord_start: sub.ord_start,
+      });
+    }
     if subs.is_empty() {
       return Err(LuceneError::illegal_argument(
         "at least one document must be supplied",
@@ -1371,20 +1445,14 @@ where
       doc: -1,
     })
   }
-  fn current_iterator(
-    subs: &mut [DocValuesSub<T>],
-    current_idx: usize,
-  ) -> Result<Option<T::DocIndexIterator>> {
-    match subs[current_idx].sub.take() {
-      Some(v) => Ok(Some(v.iterator()?)),
-      None => Ok(None),
-    }
+  fn current_iterator(subs: &mut [DocIteratorSub<T>], current_idx: usize) -> Result<Option<T>> {
+    Ok(subs[current_idx].iterator.take())
   }
 }
 
 impl<T> DocIdSetIterator for MergedDocIterator<T>
 where
-  T: KnnVectorValues,
+  T: DocIndexIterator,
 {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -1401,7 +1469,7 @@ where
         }
       }
 
-      if self.current >= self.subs.len() {
+      if self.current + 1 >= self.subs.len() {
         self.ord = NO_MORE_DOCS;
         self.doc = NO_MORE_DOCS;
         return Ok(NO_MORE_DOCS);
@@ -1423,10 +1491,275 @@ where
 
 impl<T> DocIndexIterator for MergedDocIterator<T>
 where
-  T: KnnVectorValues,
+  T: DocIndexIterator,
 {
   fn index(&self) -> Result<i32> {
     Ok(self.ord)
+  }
+}
+
+pub struct MergedFloatVectorValues<F>
+where
+  F: FloatVectorValues,
+{
+  dimension: usize,
+  size: usize,
+  subs: Vec<DocValuesSub<F>>,
+  starts: Vec<i32>,
+  last_sub_index: Cell<usize>,
+}
+
+impl<F> MergedFloatVectorValues<F>
+where
+  F: FloatVectorValues,
+{
+  fn new(dimension: usize, size: usize, subs: Vec<DocValuesSub<F>>) -> Result<Self> {
+    let mut starts = Vec::with_capacity(subs.len() + 1);
+    for sub in &subs {
+      starts.push(sub.ord_start);
+    }
+    starts.push(size as i32);
+    Ok(Self {
+      dimension,
+      size,
+      subs,
+      starts,
+      last_sub_index: Cell::new(0),
+    })
+  }
+}
+
+impl<F> KnnVectorValues for MergedFloatVectorValues<F>
+where
+  F: FloatVectorValues,
+{
+  fn dimension(&self) -> usize {
+    self.dimension
+  }
+
+  fn size(&self) -> usize {
+    self.size
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
+    self.last_sub_index.set(sub_index);
+    let sub = &self.subs[sub_index];
+    let values = sub
+      .sub
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("missing float vector values"))?;
+    Ok(sub.doc_start as usize + values.ord_to_doc(ord - sub.ord_start as usize)?)
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    FloatVectorValues::get_encoding(self)
+  }
+
+  type Bits<'a, B>
+    = BitsImpl1<B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = MergedDocIterator<F::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    MergedDocIterator::new(&self.subs)
+  }
+}
+
+impl<F> FloatVectorValues for MergedFloatVectorValues<F>
+where
+  F: FloatVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    debug_assert!(ord < self.size);
+    let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
+    self.last_sub_index.set(sub_index);
+    let sub = &self.subs[sub_index];
+    sub
+      .sub
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("missing float vector values"))?
+      .vector_value(ord - sub.ord_start as usize)
+  }
+
+  type FloatVectorValues = MergedFloatVectorValues<F::FloatVectorValues>;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    let mut subs = Vec::with_capacity(self.subs.len());
+    for sub in &self.subs {
+      let values = match &sub.sub {
+        Some(values) => match values.float_copy()? {
+          Some(values) => Some(values),
+          None => return Ok(None),
+        },
+        None => None,
+      };
+      subs.push(DocValuesSub::new(values, sub.doc_start, sub.ord_start));
+    }
+    Ok(Some(MergedFloatVectorValues::new(
+      self.dimension,
+      self.size,
+      subs,
+    )?))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+
+pub struct MergedByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  dimension: usize,
+  size: usize,
+  subs: Vec<DocValuesSub<B>>,
+  starts: Vec<i32>,
+  last_sub_index: Cell<usize>,
+}
+
+impl<B> MergedByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  fn new(dimension: usize, size: usize, subs: Vec<DocValuesSub<B>>) -> Result<Self> {
+    let mut starts = Vec::with_capacity(subs.len() + 1);
+    for sub in &subs {
+      starts.push(sub.ord_start);
+    }
+    starts.push(size as i32);
+    Ok(Self {
+      dimension,
+      size,
+      subs,
+      starts,
+      last_sub_index: Cell::new(0),
+    })
+  }
+}
+
+impl<B> KnnVectorValues for MergedByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  fn dimension(&self) -> usize {
+    self.dimension
+  }
+
+  fn size(&self) -> usize {
+    self.size
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
+    self.last_sub_index.set(sub_index);
+    let sub = &self.subs[sub_index];
+    let values = sub
+      .sub
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("missing byte vector values"))?;
+    Ok(sub.doc_start as usize + values.ord_to_doc(ord - sub.ord_start as usize)?)
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    ByteVectorValues::get_encoding(self)
+  }
+
+  type Bits<'a, B1>
+    = BitsImpl1<B1>
+  where
+    B1: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
+  where
+    B1: Bits,
+  {
+    self.default_get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = MergedDocIterator<B::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    MergedDocIterator::new(&self.subs)
+  }
+}
+
+impl<B> ByteVectorValues for MergedByteVectorValues<B>
+where
+  B: ByteVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    debug_assert!(ord < self.size);
+    let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
+    self.last_sub_index.set(sub_index);
+    let sub = &self.subs[sub_index];
+    sub
+      .sub
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("missing byte vector values"))?
+      .vector_value(ord - sub.ord_start as usize)
+  }
+
+  type ByteVectorValues = MergedByteVectorValues<B::ByteVectorValues>;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    let mut subs = Vec::with_capacity(self.subs.len());
+    for sub in &self.subs {
+      let values = match &sub.sub {
+        Some(values) => match values.byte_copy()? {
+          Some(values) => Some(values),
+          None => return Ok(None),
+        },
+        None => None,
+      };
+      subs.push(DocValuesSub::new(values, sub.doc_start, sub.ord_start));
+    }
+    Ok(Some(MergedByteVectorValues::new(
+      self.dimension,
+      self.size,
+      subs,
+    )?))
+  }
+
+  type VectorScorer = DummyVectorScorer;
+}
+
+fn find_sub(ord: usize, last_sub_index: usize, starts: &[i32]) -> usize {
+  let ord = ord as i32;
+  if ord >= starts[last_sub_index] {
+    if ord >= starts[last_sub_index + 1] {
+      return binary_search_starts(starts, ord, last_sub_index + 1, starts.len());
+    }
+  } else {
+    return binary_search_starts(starts, ord, 0, last_sub_index);
+  }
+  last_sub_index
+}
+
+fn binary_search_starts(starts: &[i32], ord: i32, from: usize, to: usize) -> usize {
+  match starts[from..to].binary_search(&ord) {
+    Ok(pos) => {
+      let mut pos = from + pos;
+      while pos < starts.len() - 1 && starts[pos + 1] == ord {
+        pos += 1;
+      }
+      pos
+    },
+    Err(pos) => from + pos - 1,
   }
 }
 

@@ -27,6 +27,7 @@ use crate::test_framework::core::util::DefaultIndexSearchCRShared;
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
+use std::sync::LazyLock;
 
 /// TestSimpleExplanations that verifies non matches.
 #[allow(dead_code)] // for quick search
@@ -34,14 +35,19 @@ struct TestComplexExplanationsOfNonMatches {
   base: TestComplexExplanations,
 }
 
+static CONTEXT: LazyLock<TestComplexExplanationsOfNonMatches> = LazyLock::new(|| {
+  let mut random = random();
+  let base = TestComplexExplanations::new(&mut random)
+    .expect("failed to initialize TestComplexExplanationsOfNonMatches");
+  TestComplexExplanationsOfNonMatches { base }
+});
+
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestComplexExplanationsOfNonMatches, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestComplexExplanations::new(&mut random)?;
-  let case = TestComplexExplanationsOfNonMatches { base: case };
-  f(&case, &mut random)
+  f(&CONTEXT, &mut random)
 }
 
 impl BaseExplanationTestCase for TestComplexExplanationsOfNonMatches {

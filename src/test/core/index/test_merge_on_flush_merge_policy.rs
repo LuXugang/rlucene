@@ -26,7 +26,7 @@ use crate::sandbox::index::merge_on_flush_merge_policy::{MergeOnFlushMergePolicy
 use crate::test_framework::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory, MockMergeContext, make_segment_commit_info,
 };
-use crate::test_framework::core::util::lucene_test_case::{new_merge_policy_with_mock_mp, random};
+use crate::test_framework::core::util::lucene_test_case::{new_merge_policy, random};
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
@@ -55,7 +55,7 @@ impl BaseMergePolicyTestCase for TestMergeOnFlushMergePolicy {
     D: Directory,
     R: Rng + ?Sized,
   {
-    let mut inner = new_merge_policy_with_mock_mp(random, false).expect("");
+    let mut inner = new_merge_policy(random).expect("");
     let max_cfs_segment_size_mb = inner.get_base().get_max_cfs_segment_size_mb();
     let no_cfs_ratio = inner.get_base().get_no_cfs_ratio();
     let small_segment_threshold_mb = TestUtil::next_int(random, 1, 100) as f64;

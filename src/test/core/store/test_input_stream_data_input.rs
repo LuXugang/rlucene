@@ -17,6 +17,7 @@
 use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use std::fmt::{Display, Formatter};
 use std::io::{Cursor, Read, Seek};
+use std::sync::LazyLock;
 
 use rand::{Rng, RngExt};
 
@@ -27,34 +28,32 @@ use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestInputStreamDataInput;
 
-fn before() -> (
-  rand::prelude::StdRng,
-  Vec<u8>,
-  NoReadInputStreamDataInput<Cursor<Vec<u8>>>,
-) {
+static RANDOM_DATA: LazyLock<Vec<u8>> = LazyLock::new(|| {
   let mut random = random();
-  let random_data = vec![0u8; at_least_usize(&mut random, 100)];
-  let input = NoReadInputStreamDataInput::new(Cursor::new(random_data.clone()));
-  (random, random_data, input)
+  let mut random_data = vec![0u8; at_least_usize(&mut random, 100)];
+  random.fill_bytes(&mut random_data);
+  random_data
+});
+
+fn before() -> NoReadInputStreamDataInput<Cursor<&'static [u8]>> {
+  NoReadInputStreamDataInput::new(Cursor::new(RANDOM_DATA.as_slice()))
 }
 
 #[test]
 fn test_skip_bytes() -> Result<()> {
   let mut random = random();
-  let mut random_data = vec![0u8; at_least_usize(&mut random, 100)];
-  random.fill_bytes(&mut random_data);
 
   // not using the wrapped (NoReadInputStreamDataInput) here since we want to actually read and
   // verify
-  let mut input = InputStreamDataInput::new(Cursor::new(random_data.clone()));
-  let max_skip_to = random_data.len() - 1;
+  let mut input = InputStreamDataInput::new(Cursor::new(RANDOM_DATA.as_slice()));
+  let max_skip_to = RANDOM_DATA.len() - 1;
   // skip chunks of bytes until exhausted
   let mut curr = 0;
   while curr < max_skip_to {
     let skip_to = TestUtil::next_usize(&mut random, curr, max_skip_to);
     let step = skip_to - curr;
     input.skip_bytes(step as i64)?;
-    assert_eq!(random_data[skip_to], input.read_byte()?);
+    assert_eq!(RANDOM_DATA[skip_to], input.read_byte()?);
     curr = skip_to + 1; // +1 for read byte
   }
   Ok(())
@@ -62,8 +61,9 @@ fn test_skip_bytes() -> Result<()> {
 
 #[test]
 fn test_no_read_when_skipping() -> Result<()> {
-  let (mut random, random_data, mut input) = before();
-  let max_skip_to = random_data.len() - 1;
+  let mut random = random();
+  let mut input = before();
+  let max_skip_to = RANDOM_DATA.len() - 1;
   // skip chunks of bytes until exhausted
   let mut curr = 0;
   while curr < max_skip_to {
@@ -76,15 +76,15 @@ fn test_no_read_when_skipping() -> Result<()> {
 
 #[test]
 fn test_full_skip() -> Result<()> {
-  let (_, random_data, mut input) = before();
-  input.skip_bytes(random_data.len() as i64)
+  let mut input = before();
+  input.skip_bytes(RANDOM_DATA.len() as i64)
 }
 
 #[test]
 fn test_skip_off_end() -> Result<()> {
-  let (_, random_data, mut input) = before();
+  let mut input = before();
   assert!(matches!(
-    input.skip_bytes(random_data.len() as i64 + 1),
+    input.skip_bytes(RANDOM_DATA.len() as i64 + 1),
     Err(LuceneError::Eof(_))
   ));
   Ok(())

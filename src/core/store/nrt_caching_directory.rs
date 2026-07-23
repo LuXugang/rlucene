@@ -109,6 +109,10 @@ where
     )
   }
 
+  pub(crate) fn get_delegate_mut(&mut self) -> &mut D {
+    &mut self.delegate
+  }
+
   pub(crate) fn with_hook(
     delegate: D,
     max_merge_size_mb: f64,

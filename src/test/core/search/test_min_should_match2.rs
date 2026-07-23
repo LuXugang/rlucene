@@ -56,6 +56,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 pub struct TestMinShouldMatch2;
@@ -71,6 +72,10 @@ enum Mode {
   BulkScorer,
   DocValues,
 }
+static CONTEXT: LazyLock<DefaultIndexSearchLR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestMinShouldMatch2")
+});
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
 where
   R: Rng + ?Sized,
@@ -254,7 +259,7 @@ fn assert_advance(
 #[test]
 fn test_advance_all_terms() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut terms_list = Vec::new();
   terms_list.extend(COMMON_TERMS.iter().cloned());
@@ -270,14 +275,14 @@ fn test_advance_all_terms() -> Result<()> {
         terms,
         min_nr_should_match as i32,
         Mode::DocValues,
-        &searcher,
+        searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
         min_nr_should_match as i32,
         Mode::Scorer,
-        &searcher,
+        searcher,
       )?;
 
       assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
@@ -287,14 +292,14 @@ fn test_advance_all_terms() -> Result<()> {
         terms,
         min_nr_should_match as i32,
         Mode::DocValues,
-        &searcher,
+        searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
         min_nr_should_match as i32,
         Mode::BulkScorer,
-        &searcher,
+        searcher,
       )?;
 
       assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
@@ -307,20 +312,20 @@ fn test_advance_all_terms() -> Result<()> {
 #[test]
 fn test_next_cmr2() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   for common in COMMON_TERMS {
     for medium in MEDIUM_TERMS {
       for rare in RARE_TERMS {
         let terms = [*common, *medium, *rare];
 
-        let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, &searcher)?;
-        let mut actual = scorer(&mut random, &terms, 2, Mode::Scorer, &searcher)?;
+        let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, searcher)?;
+        let mut actual = scorer(&mut random, &terms, 2, Mode::Scorer, searcher)?;
 
         assert_next(expected.as_mut().unwrap(), actual.as_mut())?;
 
-        let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, &searcher)?;
-        let mut actual = scorer(&mut random, &terms, 2, Mode::BulkScorer, &searcher)?;
+        let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, searcher)?;
+        let mut actual = scorer(&mut random, &terms, 2, Mode::BulkScorer, searcher)?;
 
         assert_next(expected.as_mut().unwrap(), actual.as_mut())?;
       }
@@ -333,7 +338,7 @@ fn test_next_cmr2() -> Result<()> {
 #[test]
 fn test_advance_cmr2() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   for amount in (25..200).step_by(25) {
     for common in COMMON_TERMS {
@@ -341,13 +346,13 @@ fn test_advance_cmr2() -> Result<()> {
         for rare in RARE_TERMS {
           let terms = [*common, *medium, *rare];
 
-          let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, &searcher)?;
-          let mut actual = scorer(&mut random, &terms, 2, Mode::Scorer, &searcher)?;
+          let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, searcher)?;
+          let mut actual = scorer(&mut random, &terms, 2, Mode::Scorer, searcher)?;
 
           assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
 
-          let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, &searcher)?;
-          let mut actual = scorer(&mut random, &terms, 2, Mode::BulkScorer, &searcher)?;
+          let mut expected = scorer(&mut random, &terms, 2, Mode::DocValues, searcher)?;
+          let mut actual = scorer(&mut random, &terms, 2, Mode::BulkScorer, searcher)?;
 
           assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
         }
@@ -361,7 +366,7 @@ fn test_advance_cmr2() -> Result<()> {
 #[test]
 fn test_next_all_terms() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut terms_list = Vec::new();
   terms_list.extend(COMMON_TERMS.iter().cloned());
@@ -376,14 +381,14 @@ fn test_next_all_terms() -> Result<()> {
       terms,
       min_nr_should_match as i32,
       Mode::DocValues,
-      &searcher,
+      searcher,
     )?;
     let mut actual = scorer(
       &mut random,
       terms,
       min_nr_should_match as i32,
       Mode::Scorer,
-      &searcher,
+      searcher,
     )?;
 
     assert_next(expected.as_mut().unwrap(), actual.as_mut())?;
@@ -393,14 +398,14 @@ fn test_next_all_terms() -> Result<()> {
       terms,
       min_nr_should_match as i32,
       Mode::DocValues,
-      &searcher,
+      searcher,
     )?;
     let mut actual = scorer(
       &mut random,
       terms,
       min_nr_should_match as i32,
       Mode::BulkScorer,
-      &searcher,
+      searcher,
     )?;
 
     assert_next(expected.as_mut().unwrap(), actual.as_mut())?;
@@ -413,7 +418,7 @@ fn test_next_all_terms() -> Result<()> {
 #[test]
 fn test_advance_all_terms_again() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut terms_list = Vec::new();
   terms_list.extend(COMMON_TERMS.iter().cloned());
@@ -429,14 +434,14 @@ fn test_advance_all_terms_again() -> Result<()> {
         terms,
         min_nr_should_match as i32,
         Mode::DocValues,
-        &searcher,
+        searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
         min_nr_should_match as i32,
         Mode::Scorer,
-        &searcher,
+        searcher,
       )?;
 
       assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
@@ -446,14 +451,14 @@ fn test_advance_all_terms_again() -> Result<()> {
         terms,
         min_nr_should_match as i32,
         Mode::DocValues,
-        &searcher,
+        searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
         min_nr_should_match as i32,
         Mode::BulkScorer,
-        &searcher,
+        searcher,
       )?;
 
       assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
@@ -467,7 +472,7 @@ fn test_advance_all_terms_again() -> Result<()> {
 #[test]
 fn test_next_varying_number_of_terms() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut terms_list = Vec::new();
   terms_list.extend(COMMON_TERMS.iter().cloned());
@@ -485,14 +490,14 @@ fn test_next_varying_number_of_terms() -> Result<()> {
         terms,
         min_nr_should_match as i32,
         Mode::DocValues,
-        &searcher,
+        searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
         min_nr_should_match as i32,
         Mode::Scorer,
-        &searcher,
+        searcher,
       )?;
 
       assert_next(expected.as_mut().unwrap(), actual.as_mut())?;
@@ -502,14 +507,14 @@ fn test_next_varying_number_of_terms() -> Result<()> {
         terms,
         min_nr_should_match as i32,
         Mode::DocValues,
-        &searcher,
+        searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
         min_nr_should_match as i32,
         Mode::BulkScorer,
-        &searcher,
+        searcher,
       )?;
 
       assert_next(expected.as_mut().unwrap(), actual.as_mut())?;
@@ -524,7 +529,7 @@ fn test_next_varying_number_of_terms() -> Result<()> {
 #[ignore = "nightly"]
 fn test_advance_varying_number_of_terms() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let mut terms_list = Vec::new();
   terms_list.extend(COMMON_TERMS.iter().cloned());
   terms_list.extend(MEDIUM_TERMS.iter().cloned());
@@ -542,14 +547,14 @@ fn test_advance_varying_number_of_terms() -> Result<()> {
           terms,
           min_nr_should_match as i32,
           Mode::DocValues,
-          &searcher,
+          searcher,
         )?;
         let mut actual = scorer(
           &mut random,
           terms,
           min_nr_should_match as i32,
           Mode::Scorer,
-          &searcher,
+          searcher,
         )?;
 
         assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
@@ -559,14 +564,14 @@ fn test_advance_varying_number_of_terms() -> Result<()> {
           terms,
           min_nr_should_match as i32,
           Mode::DocValues,
-          &searcher,
+          searcher,
         )?;
         let mut actual = scorer(
           &mut random,
           terms,
           min_nr_should_match as i32,
           Mode::Scorer,
-          &searcher,
+          searcher,
         )?;
 
         assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;

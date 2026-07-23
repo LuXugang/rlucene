@@ -36,13 +36,19 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_mock_directory, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use parking_lot::Mutex;
 use rand::RngExt;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::{Arc, LazyLock};
 use std::thread;
 
 #[allow(dead_code)] // for quick search
 struct TestFlushByRamOrCountsPolicy;
+
+static LINE_DOCS: LazyLock<Mutex<LineFileDocs>> = LazyLock::new(|| {
+  let mut random = random();
+  Mutex::new(LineFileDocs::new(&mut random).expect("failed to create LineFileDocs"))
+});
 
 #[test]
 fn test_flush_by_ram() -> Result<()> {
@@ -100,7 +106,7 @@ fn run_flush_by_ram(num_threads: i32, max_ram_mb: f64, ensure_not_stalled: bool)
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for _ in 0..num_threads {
-      handles.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, false)));
+      handles.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, &LINE_DOCS, false)));
     }
 
     for handle in handles {
@@ -169,7 +175,7 @@ fn test_flush_doc_count() -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut handles = Vec::new();
       for _ in 0..num_threads {
-        handles.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, false)));
+        handles.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, &LINE_DOCS, false)));
       }
 
       for handle in handles {
@@ -232,7 +238,7 @@ fn test_random() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for _ in 0..num_threads {
-      handles.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, true)));
+      handles.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, &LINE_DOCS, true)));
     }
 
     for handle in handles {
@@ -311,7 +317,7 @@ fn test_stall_control() -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::new();
       for _ in 0..num_threads {
-        threads.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, false)));
+        threads.push(scope.spawn(|| index_thread(seed, &num_docs, &writer, &LINE_DOCS, false)));
       }
       for thread in threads {
         thread.join().expect("thread panicked")?;
@@ -351,19 +357,19 @@ fn index_thread<D>(
   seed: u64,
   pending_docs: &AtomicI32,
   writer: &IndexWriter<D>,
+  docs: &Mutex<LineFileDocs>,
   do_random_commit: bool,
 ) -> Result<()>
 where
   D: Directory + 'static,
 {
   let mut random = random_from_seed(seed);
-  let mut docs = LineFileDocs::new(&mut random)?;
   loop {
     let remaining = pending_docs.fetch_sub(1, Ordering::SeqCst) - 1;
     if remaining < 0 {
       break;
     }
-    let doc = docs.next_doc()?;
+    let doc = docs.lock().next_doc()?;
     writer.add_document(doc)?;
     if do_random_commit && rarely(&mut random) {
       writer.commit()?;

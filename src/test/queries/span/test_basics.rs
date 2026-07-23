@@ -37,6 +37,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 /// Tests basic search capabilities.
 ///
@@ -48,6 +49,11 @@ use std::collections::HashMap;
 /// code.
 #[allow(dead_code)]
 pub struct TestBasics;
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  TestBasics::set_up(&mut random).expect("failed to initialize TestBasics")
+});
 
 impl TestBasics {
   fn set_up(random: &mut impl Rng) -> Result<DefaultIndexSearchCR> {
@@ -89,12 +95,12 @@ impl TestBasics {
 #[test]
 fn test_term() -> Result<()> {
   let mut random = random();
-  let searcher = TestBasics::set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let query = TermQuery::new(Term::from_text("field", "seventy"));
   TestBasics::check_hits(
     &mut random,
     query.into(),
-    &searcher,
+    searcher,
     &[
       70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179,
       270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 370, 371, 372, 373, 374, 375, 376, 377,
@@ -116,20 +122,20 @@ fn test_term() -> Result<()> {
 #[test]
 fn test_term2() -> Result<()> {
   let mut random = random();
-  let searcher = TestBasics::set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let query = TermQuery::new(Term::from_text("field", "seventish"));
-  TestBasics::check_hits(&mut random, query.into(), &searcher, &[])
+  TestBasics::check_hits(&mut random, query.into(), searcher, &[])
 }
 
 #[test]
 fn test_phrase() -> Result<()> {
   let mut random = random();
-  let searcher = TestBasics::set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let query = PhraseQuery::from_terms_no_slop("field", &["seventy", "seven"])?;
   TestBasics::check_hits(
     &mut random,
     query.into(),
-    &searcher,
+    searcher,
     &[
       77, 177, 277, 377, 477, 577, 677, 777, 877, 977, 1077, 1177, 1277, 1377, 1477, 1577, 1677,
       1777, 1877, 1977,
@@ -140,15 +146,15 @@ fn test_phrase() -> Result<()> {
 #[test]
 fn test_phrase2() -> Result<()> {
   let mut random = random();
-  let searcher = TestBasics::set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let query = PhraseQuery::from_terms_no_slop("field", &["seventish", "seven"])?;
-  TestBasics::check_hits(&mut random, query.into(), &searcher, &[])
+  TestBasics::check_hits(&mut random, query.into(), searcher, &[])
 }
 
 #[test]
 fn test_boolean() -> Result<()> {
   let mut random = random();
-  let searcher = TestBasics::set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let mut bq = BooleanQueryBuilder::new();
   bq.add(
     TermQuery::new(Term::from_text("field", "seventy")),
@@ -162,7 +168,7 @@ fn test_boolean() -> Result<()> {
   TestBasics::check_hits(
     &mut random,
     query.into(),
-    &searcher,
+    searcher,
     &[
       77, 177, 277, 377, 477, 577, 677, 770, 771, 772, 773, 774, 775, 776, 777, 778, 779, 877, 977,
       1077, 1177, 1277, 1377, 1477, 1577, 1677, 1770, 1771, 1772, 1773, 1774, 1775, 1776, 1777,
@@ -174,7 +180,7 @@ fn test_boolean() -> Result<()> {
 #[test]
 fn test_boolean2() -> Result<()> {
   let mut random = random();
-  let searcher = TestBasics::set_up(&mut random)?;
+  let searcher = &*CONTEXT;
   let mut bq = BooleanQueryBuilder::new();
   bq.add(
     TermQuery::new(Term::from_text("field", "sevento")),
@@ -185,7 +191,7 @@ fn test_boolean2() -> Result<()> {
     Occur::Must,
   )?;
   let query = bq.build();
-  TestBasics::check_hits(&mut random, query.into(), &searcher, &[])
+  TestBasics::check_hits(&mut random, query.into(), searcher, &[])
 }
 
 // TODO: SpanNearQuery 未实现

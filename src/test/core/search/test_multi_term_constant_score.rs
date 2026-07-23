@@ -40,12 +40,13 @@ use crate::test::core::search::test_base_range_filter::pad;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::query_utils::QueryUtils;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher, new_text_field, random,
 };
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 pub struct TestMultiTermConstantScore;
@@ -53,6 +54,37 @@ pub struct TestMultiTermConstantScore;
 const SCORE_COMP_THRESH: f32 = 1e-6f32;
 const T: bool = true;
 const F: bool = false;
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let (_small, reader) = set_up().expect("failed to initialize TestMultiTermConstantScore");
+  new_searcher(reader, false, false)
+    .expect("failed to initialize TestMultiTermConstantScore searcher")
+});
+
+struct RangeContext {
+  min_id: i32,
+  max_id: i32,
+  min_r: i32,
+  max_r: i32,
+  searcher: DefaultIndexSearchCR,
+  _unsigned_searcher: DefaultIndexSearchCR,
+}
+
+static RANGE_CONTEXT: LazyLock<RangeContext> = LazyLock::new(|| {
+  let mut random = random();
+  let (min_id, max_id, min_r, max_r, reader, unsigned_reader) =
+    test_base_range_filter::set_up(&mut random).expect("failed to initialize TestBaseRangeFilter");
+  RangeContext {
+    min_id,
+    max_id,
+    min_r,
+    max_r,
+    searcher: new_searcher(reader, false, false)
+      .expect("failed to initialize TestBaseRangeFilter signed searcher"),
+    _unsigned_searcher: new_searcher(unsigned_reader, false, false)
+      .expect("failed to initialize TestBaseRangeFilter unsigned searcher"),
+  }
+});
 
 fn constant_score_rewrites() -> [RewriteMethodEnum; 2] {
   [
@@ -168,8 +200,7 @@ fn test_basics() -> Result<()> {
 
 #[test]
 fn test_equal_scores() -> Result<()> {
-  let (_small, reader) = set_up()?;
-  let search = new_searcher(reader, false, false)?;
+  let search = &*CONTEXT;
 
   let mut result = search
     .search(
@@ -236,8 +267,7 @@ fn test_equal_scores() -> Result<()> {
 
 #[test]
 fn test_equal_scores_when_no_hits() -> Result<()> {
-  let (_small, reader) = set_up()?;
-  let search = new_searcher(reader, false, false)?;
+  let search = &*CONTEXT;
   let dummy_term = TermQuery::new(Term::from_text("data", "1"));
 
   let mut bq = BooleanQueryBuilder::new();
@@ -308,8 +338,7 @@ fn test_equal_scores_when_no_hits() -> Result<()> {
 
 #[test]
 fn test_boolean_order_un_affected() -> Result<()> {
-  let (_small, reader) = set_up()?;
-  let search = new_searcher(reader, false, false)?;
+  let search = &*CONTEXT;
 
   for rw in constant_score_rewrites() {
     let rq = csrq("data", Some("1"), Some("4"), T, T, rw.clone())?;
@@ -337,10 +366,10 @@ fn test_boolean_order_un_affected() -> Result<()> {
 }
 #[test]
 fn test_range_query_id() -> Result<()> {
-  let mut random = random();
-  let (min_id, max_id, _min_r, _max_r, reader, _unsigned_index_reader) =
-    test_base_range_filter::set_up(&mut random)?;
-  let search = new_searcher(reader, false, false)?;
+  let context = &*RANGE_CONTEXT;
+  let min_id = context.min_id;
+  let max_id = context.max_id;
+  let search = &context.searcher;
 
   let med_id = (max_id - min_id) / 2;
 
@@ -526,10 +555,12 @@ fn test_range_query_id() -> Result<()> {
 }
 #[test]
 fn test_range_query_rand() -> Result<()> {
-  let mut random = random();
-  let (min_id, max_id, min_r, max_r, reader, _unsigned_index_reader) =
-    test_base_range_filter::set_up(&mut random)?;
-  let search = new_searcher(reader, false, false)?;
+  let context = &*RANGE_CONTEXT;
+  let min_id = context.min_id;
+  let max_id = context.max_id;
+  let min_r = context.min_r;
+  let max_r = context.max_r;
+  let search = &context.searcher;
 
   let min_rp = pad(min_r);
   let max_rp = pad(max_r);

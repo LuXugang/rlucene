@@ -43,9 +43,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::HasIdentity;
-use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::search::multi_term::BoostCheckingQuery;
@@ -53,11 +51,13 @@ use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, new_string_field, random,
 };
+use parking_lot::RwLock;
 use rand::Rng;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::sync::{Arc, LazyLock};
 
 pub struct TestMultiTermQueryRewrites;
 
@@ -65,24 +65,17 @@ type MultiTermRewriteSearcher =
   DefaultIndexSearcher<CompositeReaderContext<MultiReader<StandardDirectoryReader<DirEnum>>>>;
 
 struct TestMultiTermQueryRewritesContext {
-  dir: Arc<DirEnum>,
-  sdir1: Arc<DirEnum>,
-  sdir2: Arc<DirEnum>,
   searcher: DefaultIndexSearchCR,
   multi_searcher: MultiTermRewriteSearcher,
   multi_searcher_dupls: MultiTermRewriteSearcher,
 }
 
-impl TestMultiTermQueryRewritesContext {
-  fn close(&self) -> Result<()> {
-    self.searcher.get_index_reader().close()?;
-    self.multi_searcher.get_index_reader().close()?;
-    self.multi_searcher_dupls.get_index_reader().close()?;
-    self.dir.as_ref().close()?;
-    self.sdir1.as_ref().close()?;
-    self.sdir2.as_ref().close()
-  }
-}
+static CONTEXT: LazyLock<TestMultiTermQueryRewritesContext> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestMultiTermQueryRewrites")
+});
+
+static MAX_CLAUSE_COUNT_LOCK: RwLock<()> = RwLock::new(());
 
 fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<TestMultiTermQueryRewritesContext> {
   let dir = new_directory_shared(random)?;
@@ -143,9 +136,6 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<TestMultiTermQueryRewritesC
   let multi_searcher_dupls = new_searcher_with_reader(multi_reader_dupls)?;
 
   Ok(TestMultiTermQueryRewritesContext {
-    dir,
-    sdir1,
-    sdir2,
     searcher,
     multi_searcher,
     multi_searcher_dupls,
@@ -183,11 +173,11 @@ fn check_boolean_query_order(q: Query) {
     last = Some(act.clone());
   }
 }
-fn check_duplicate_terms<R, T>(random: &mut R, method: T) -> Result<()>
+fn check_duplicate_terms<T>(method: T) -> Result<()>
 where
-  R: Rng + ?Sized,
   T: Into<RewriteMethodEnum>,
 {
+  let _max_clause_count_guard = MAX_CLAUSE_COUNT_LOCK.read();
   let mtq = TermRangeQuery::new_string_range_with_rewrite(
     "data",
     Some("2"),
@@ -196,40 +186,35 @@ where
     true,
     method,
   )?;
-  let context = set_up(random)?;
-  let result = (|| -> Result<()> {
-    let q1 = context.searcher.rewrite(mtq.clone())?;
-    let q2 = context.multi_searcher.rewrite(mtq.clone())?;
-    let q3 = context.multi_searcher_dupls.rewrite(mtq)?;
+  let context = &*CONTEXT;
+  let q1 = context.searcher.rewrite(mtq.clone())?;
+  let q2 = context.multi_searcher.rewrite(mtq.clone())?;
+  let q3 = context.multi_searcher_dupls.rewrite(mtq)?;
 
-    assert_eq!(
-      q1, q2,
-      "The multi-segment case must produce same rewritten query"
-    );
-    assert_eq!(
-      q1, q3,
-      "The multi-segment case with duplicates must produce same rewritten query"
-    );
+  assert_eq!(
+    q1, q2,
+    "The multi-segment case must produce same rewritten query"
+  );
+  assert_eq!(
+    q1, q3,
+    "The multi-segment case with duplicates must produce same rewritten query"
+  );
 
-    check_boolean_query_order(q1);
-    check_boolean_query_order(q2);
-    check_boolean_query_order(q3);
+  check_boolean_query_order(q1);
+  check_boolean_query_order(q2);
+  check_boolean_query_order(q3);
 
-    Ok(())
-  })();
-  IOUtils::use_or_suppress_result(result, context.close())
+  Ok(())
 }
 #[test]
 fn test_rewrites_with_duplicate_terms() -> Result<()> {
-  let mut random = random();
+  check_duplicate_terms(SCORING_BOOLEAN_REWRITE)?;
 
-  check_duplicate_terms(&mut random, SCORING_BOOLEAN_REWRITE)?;
-
-  check_duplicate_terms(&mut random, CONSTANT_SCORE_BOOLEAN_REWRITE)?;
+  check_duplicate_terms(CONSTANT_SCORE_BOOLEAN_REWRITE)?;
   // use a large PQ here to only test duplicate terms and dont mix up when all scores are equal
-  check_duplicate_terms(&mut random, TopTermsScoringBooleanQueryRewrite::new(1024))?;
+  check_duplicate_terms(TopTermsScoringBooleanQueryRewrite::new(1024))?;
 
-  check_duplicate_terms(&mut random, TopTermsBoostOnlyBooleanQueryRewrite::new(1024))?;
+  check_duplicate_terms(TopTermsBoostOnlyBooleanQueryRewrite::new(1024))?;
 
   Ok(())
 }
@@ -254,60 +239,56 @@ fn check_boolean_query_boosts(bq: &BooleanQuery) -> Result<()> {
   Ok(())
 }
 
-fn check_boosts<R, T>(random: &mut R, method: T) -> Result<()>
+fn check_boosts<T>(method: T) -> Result<()>
 where
-  R: Rng + ?Sized,
   T: Into<RewriteMethodEnum>,
 {
+  let _max_clause_count_guard = MAX_CLAUSE_COUNT_LOCK.read();
   let mtq = BoostCheckingQuery::new("data", method);
-  let context = set_up(random)?;
-  let result = (|| -> Result<()> {
-    let q1 = context.searcher.rewrite(mtq.clone())?;
-    let q2 = context.multi_searcher.rewrite(mtq.clone())?;
-    let q3 = context.multi_searcher_dupls.rewrite(mtq)?;
+  let context = &*CONTEXT;
+  let q1 = context.searcher.rewrite(mtq.clone())?;
+  let q2 = context.multi_searcher.rewrite(mtq.clone())?;
+  let q3 = context.multi_searcher_dupls.rewrite(mtq)?;
 
-    assert_eq!(
-      q1, q2,
-      "The multi-segment case must produce same rewritten query"
-    );
-    assert_eq!(
-      q1, q3,
-      "The multi-segment case with duplicates must produce same rewritten query"
-    );
+  assert_eq!(
+    q1, q2,
+    "The multi-segment case must produce same rewritten query"
+  );
+  assert_eq!(
+    q1, q3,
+    "The multi-segment case with duplicates must produce same rewritten query"
+  );
 
-    if matches!(q1, Query::MatchNoDocs(_)) {
-      assert!(matches!(q2, Query::MatchNoDocs(_)));
-      assert!(matches!(q3, Query::MatchNoDocs(_)));
-    } else {
-      check_boolean_query_order(q1);
-      check_boolean_query_order(q2);
-      check_boolean_query_order(q3);
-    }
-
-    Ok(())
-  })();
-  IOUtils::use_or_suppress_result(result, context.close())
-}
-#[test]
-fn test_boosts() -> Result<()> {
-  let mut random = random();
-
-  check_boosts(&mut random, SCORING_BOOLEAN_REWRITE)?;
-
-  // use a large PQ here to only test boosts and dont mix up when all scores are equal
-  check_boosts(&mut random, TopTermsScoringBooleanQueryRewrite::new(1024))?;
+  if matches!(q1, Query::MatchNoDocs(_)) {
+    assert!(matches!(q2, Query::MatchNoDocs(_)));
+    assert!(matches!(q3, Query::MatchNoDocs(_)));
+  } else {
+    check_boolean_query_order(q1);
+    check_boolean_query_order(q2);
+    check_boolean_query_order(q3);
+  }
 
   Ok(())
 }
-fn check_max_clause_limitation<R, T>(random: &mut R, method: T) -> Result<()>
+#[test]
+fn test_boosts() -> Result<()> {
+  check_boosts(SCORING_BOOLEAN_REWRITE)?;
+
+  // use a large PQ here to only test boosts and dont mix up when all scores are equal
+  check_boosts(TopTermsScoringBooleanQueryRewrite::new(1024))?;
+
+  Ok(())
+}
+fn check_max_clause_limitation<T>(method: T) -> Result<()>
 where
-  R: Rng + ?Sized,
   T: Into<RewriteMethodEnum>,
 {
+  let _max_clause_count_guard = MAX_CLAUSE_COUNT_LOCK.write();
+  let context = &*CONTEXT;
   let saved_max_clause_count = index_searcher::get_max_clause_count();
   set_max_clause_count(3)?;
 
-  let result: Result<()> = (|| {
+  let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
     let mtq = TermRangeQuery::new_string_range_with_rewrite(
       "data",
       Some("2"),
@@ -316,29 +297,29 @@ where
       true,
       method,
     )?;
-    let context = set_up(random)?;
-    let result = {
-      let err = context.multi_searcher_dupls.rewrite(mtq);
-      assert!(matches!(err, Err(LuceneError::TooManyClauses(_))));
-      Ok(())
-    };
-    IOUtils::use_or_suppress_result(result, context.close())
-  })();
+    let err = context.multi_searcher_dupls.rewrite(mtq);
+    assert!(matches!(err, Err(LuceneError::TooManyClauses(_))));
+    Ok(())
+  }));
 
   set_max_clause_count(saved_max_clause_count)?;
 
-  result
+  match result {
+    Ok(result) => result,
+    Err(payload) => resume_unwind(payload),
+  }
 }
 
-fn check_no_max_clause_limitation<T, R>(random: &mut R, method: T) -> Result<()>
+fn check_no_max_clause_limitation<T>(method: T) -> Result<()>
 where
-  R: Rng + ?Sized,
   T: Into<RewriteMethodEnum>,
 {
+  let _max_clause_count_guard = MAX_CLAUSE_COUNT_LOCK.write();
+  let context = &*CONTEXT;
   let saved_max_clause_count = index_searcher::get_max_clause_count();
   set_max_clause_count(3)?;
 
-  let result: Result<()> = (|| {
+  let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
     let mtq = TermRangeQuery::new_string_range_with_rewrite(
       "data",
       Some("2"),
@@ -347,26 +328,25 @@ where
       true,
       method,
     )?;
-    let context = set_up(random)?;
-    let result = context.multi_searcher_dupls.rewrite(mtq).map(|_| ());
-    IOUtils::use_or_suppress_result(result, context.close())
-  })();
+    context.multi_searcher_dupls.rewrite(mtq).map(|_| ())
+  }));
 
   set_max_clause_count(saved_max_clause_count)?;
 
-  result
+  match result {
+    Ok(result) => result,
+    Err(payload) => resume_unwind(payload),
+  }
 }
 #[test]
 fn test_max_clause_limitations() -> Result<()> {
-  let mut random = random();
+  check_max_clause_limitation(SCORING_BOOLEAN_REWRITE)?;
+  check_max_clause_limitation(CONSTANT_SCORE_BOOLEAN_REWRITE)?;
 
-  check_max_clause_limitation(&mut random, SCORING_BOOLEAN_REWRITE)?;
-  check_max_clause_limitation(&mut random, CONSTANT_SCORE_BOOLEAN_REWRITE)?;
-
-  check_no_max_clause_limitation(&mut random, ConstantScoreRewrite)?;
-  check_no_max_clause_limitation(&mut random, ConstantScoreBlendedRewrite)?;
-  check_no_max_clause_limitation(&mut random, TopTermsScoringBooleanQueryRewrite::new(1024))?;
-  check_no_max_clause_limitation(&mut random, TopTermsBoostOnlyBooleanQueryRewrite::new(1024))?;
+  check_no_max_clause_limitation(ConstantScoreRewrite)?;
+  check_no_max_clause_limitation(ConstantScoreBlendedRewrite)?;
+  check_no_max_clause_limitation(TopTermsScoringBooleanQueryRewrite::new(1024))?;
+  check_no_max_clause_limitation(TopTermsBoostOnlyBooleanQueryRewrite::new(1024))?;
 
   Ok(())
 }
