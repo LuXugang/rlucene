@@ -16,7 +16,8 @@
  */
 use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::doc_values_producer::{
-  DefaultDocValuesProducer, DocValuesProducer, DocValuesProducerEnum2,
+  DefaultBinary, DefaultDocValuesProducer, DefaultNumeric, DefaultSkipper, DefaultSorted,
+  DefaultSortedNumeric, DefaultSortedSet, DocValuesProducer,
 };
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
@@ -29,6 +30,7 @@ use crate::core::codecs::knn_vectors_reader::{DefaultKnnVectorsReader, KnnVector
 use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
+use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{
@@ -50,6 +52,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use parking_lot::Mutex;
@@ -289,7 +292,7 @@ where
     let dir = &core.cfs_reader;
 
     let producer = match si.has_field_updates() {
-      true => DocValuesProducerEnum2::A(SegmentDocValuesProducer::new(
+      true => DocValuesProducers::A(SegmentDocValuesProducer::new(
         si,
         dir.as_ref(),
         Arc::clone(&core.core_field_infos),
@@ -297,7 +300,7 @@ where
         seg_doc_values,
       )?),
       // simple case, no DocValues updates
-      false => DocValuesProducerEnum2::B(seg_doc_values.get_doc_values_producer(
+      false => DocValuesProducers::B(seg_doc_values.get_doc_values_producer(
         -1,
         si,
         dir.as_ref(),
@@ -367,10 +370,98 @@ where
     }
   }
 }
-pub type DocValuesProducers<D> = DocValuesProducerEnum2<
-  SegmentDocValuesProducer<D>,
-  Arc<DefaultDocValuesProducer<<D as Directory>::IndexInput>>,
->;
+pub enum DocValuesProducers<D>
+where
+  D: Directory,
+{
+  A(SegmentDocValuesProducer<D>),
+  B(Arc<DefaultDocValuesProducer<D::IndexInput>>),
+}
+
+impl<D> CloseableRef for DocValuesProducers<D>
+where
+  D: Directory,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::A(producer) => producer.close(),
+      Self::B(producer) => producer.close(),
+    }
+  }
+}
+
+impl<D> DocValuesProducer for DocValuesProducers<D>
+where
+  D: Directory,
+{
+  type NumericDocValues = DefaultNumeric<D::IndexInput>;
+
+  fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::A(producer) => producer.get_numeric(field),
+      Self::B(producer) => producer.get_numeric(field),
+    }
+  }
+
+  type BinaryDocValues = DefaultBinary<D::IndexInput>;
+
+  fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    match self {
+      Self::A(producer) => producer.get_binary(field),
+      Self::B(producer) => producer.get_binary(field),
+    }
+  }
+
+  type SortedDocValues = DefaultSorted<D::IndexInput>;
+
+  fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    match self {
+      Self::A(producer) => producer.get_sorted(field),
+      Self::B(producer) => producer.get_sorted(field),
+    }
+  }
+
+  type SortedNumericDocValues = DefaultSortedNumeric<D::IndexInput>;
+
+  fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
+    match self {
+      Self::A(producer) => producer.get_sorted_numeric(field),
+      Self::B(producer) => producer.get_sorted_numeric(field),
+    }
+  }
+
+  type SortedSetDocValues = DefaultSortedSet<D::IndexInput>;
+
+  fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    match self {
+      Self::A(producer) => producer.get_sorted_set(field),
+      Self::B(producer) => producer.get_sorted_set(field),
+    }
+  }
+
+  type DocValuesSkipper = DefaultSkipper<D::IndexInput>;
+
+  fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
+    match self {
+      Self::A(producer) => producer.get_skipper(field),
+      Self::B(producer) => producer.get_skipper(field),
+    }
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::A(producer) => producer.check_integrity(),
+      Self::B(producer) => producer.check_integrity(),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self {
+      Self::A(producer) => Ok(producer.get_merge_instance()?.map(Self::A)),
+      Self::B(producer) => Ok(producer.get_merge_instance()?.map(Self::B)),
+    }
+  }
+}
 
 impl<D> Display for SegmentReader<D>
 where
@@ -422,8 +513,8 @@ where
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.core.dec_ref()));
     let doc_values_result = match &self.doc_values_producer {
       Some(dv) => match dv.as_ref() {
-        DocValuesProducerEnum2::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens),
-        DocValuesProducerEnum2::B(_) => self.seg_doc_values.dec_ref(&[-1]),
+        DocValuesProducers::A(a) => self.seg_doc_values.dec_ref(&a.dv_gens),
+        DocValuesProducers::B(_) => self.seg_doc_values.dec_ref(&[-1]),
       },
       None => Ok(()),
     };
