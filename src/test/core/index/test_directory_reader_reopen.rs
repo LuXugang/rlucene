@@ -585,7 +585,7 @@ where
     let analyzer = MockAnalyzer::new(random);
     let modifier = IndexWriter::new(
       self.dir.clone(),
-      new_index_writer_config_with_analyzer(random, analyzer)?,
+      IndexWriterConfig::with_analyzer(analyzer)?,
     )?;
     modifier.add_document(create_document(self.n + i, 6)?)?;
     modifier.close()?;
@@ -759,10 +759,7 @@ where
   match i {
     0 => {
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(
-        dir,
-        new_index_writer_config_with_analyzer(random, analyzer)?,
-      )?;
+      let writer = IndexWriter::new(dir, IndexWriterConfig::with_analyzer(analyzer)?)?;
       writer.delete_documents_with_terms(vec![Term::from_text("field2", "a11")])?;
       writer.delete_documents_with_terms(vec![Term::from_text("field2", "b30")])?;
       writer.close()?;
@@ -770,20 +767,14 @@ where
     },
     1 => {
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(
-        dir,
-        new_index_writer_config_with_analyzer(random, analyzer)?,
-      )?;
+      let writer = IndexWriter::new(dir, IndexWriterConfig::with_analyzer(analyzer)?)?;
       writer.force_merge(1)?;
       writer.close()?;
       Ok(writer)
     },
     2 => {
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(
-        dir,
-        new_index_writer_config_with_analyzer(random, analyzer)?,
-      )?;
+      let writer = IndexWriter::new(dir, IndexWriterConfig::with_analyzer(analyzer)?)?;
       writer.add_document(create_document(101, 4)?)?;
       writer.force_merge(1)?;
       writer.add_document(create_document(102, 4)?)?;
@@ -793,20 +784,14 @@ where
     },
     3 => {
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(
-        dir,
-        new_index_writer_config_with_analyzer(random, analyzer)?,
-      )?;
+      let writer = IndexWriter::new(dir, IndexWriterConfig::with_analyzer(analyzer)?)?;
       writer.add_document(create_document(101, 4)?)?;
       writer.close()?;
       Ok(writer)
     },
     _ => {
       let analyzer = MockAnalyzer::new(random);
-      let writer = IndexWriter::new(
-        dir,
-        new_index_writer_config_with_analyzer(random, analyzer)?,
-      )?;
+      let writer = IndexWriter::new(dir, IndexWriterConfig::with_analyzer(analyzer)?)?;
       writer.close()?;
       Ok(writer)
     },
