@@ -25,6 +25,7 @@ use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{DefaultIndexWriter, IndexWriter};
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term_vectors::TermVectors;
@@ -179,7 +180,7 @@ fn test_merge_with_payloads() -> Result<()> {
   for has_payloads in [false, true] {
     let dir = new_directory_shared(&mut random)?;
     let mock = MockAnalyzer::new(&mut random);
-    let mut index_writer_config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+    let mut index_writer_config = IndexWriterConfig::with_analyzer(mock)?;
     index_writer_config.set_max_buffered_docs(num_docs_in_segment);
     let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
     let tkg1 = TokenStreamGenerator::new(&mut random, has_payloads);

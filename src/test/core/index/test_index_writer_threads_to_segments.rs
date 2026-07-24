@@ -25,6 +25,7 @@ use crate::core::index::index_file_names::IndexFileNames;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
@@ -58,10 +59,7 @@ fn test_segment_count_on_flush_basic() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let w = IndexWriter::new(
-    dir,
-    new_index_writer_config_with_analyzer(&mut random, analyzer)?,
-  )?;
+  let w = IndexWriter::new(dir, IndexWriterConfig::with_analyzer(analyzer)?)?;
   let starting_gun = Arc::new(Barrier::new(3));
   let start_done = Arc::new(Barrier::new(3));
   let middle_gun = Arc::new(Barrier::new(3));
