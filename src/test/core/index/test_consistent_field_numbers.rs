@@ -73,7 +73,7 @@ fn test_same_field_numbers_across_segments() -> Result<()> {
         None => {
           let mut conf = new_index_writer_config::<DirEnum, _>(&mut random)?;
           conf.set_merge_policy(NoMergePolicy::default());
-          IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?
+          IndexWriter::new(dir.clone(), conf)?
         },
       };
 
