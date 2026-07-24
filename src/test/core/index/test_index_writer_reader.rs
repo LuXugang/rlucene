@@ -1365,7 +1365,8 @@ fn test_too_many_segments() -> Result<()> {
 fn test_reopen_nrt_reader_on_commit() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+  let iwc = IndexWriterConfig::with_analyzer(MockAnalyzer::new(&mut random))?;
+  let w = IndexWriter::new(dir.clone(), iwc)?;
   w.add_document(Document::new())?;
 
   let r1 = directory_reader::open_from_writer(&w)?;
