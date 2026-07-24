@@ -20,6 +20,7 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::store::directory::Directory;
@@ -159,7 +160,8 @@ impl TestLucene90StoredFieldsFormat {
     let counter = Arc::new(AtomicUsize::new(0));
     let dir = Arc::new(CountingPrefetchDirectory::new(orig_dir, counter.clone()));
 
-    let mut iwc = new_index_writer_config(random)?;
+    // TODO IMPORTANT DummyCompressingCodec未实现
+    let mut iwc = IndexWriterConfig::new()?;
     iwc.set_use_compound_file(false);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 

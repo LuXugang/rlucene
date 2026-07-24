@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 use crate::core::util::compress::lz4::{HashTableEnum, HighCompressionHashTable};
+use crate::core::util::error::lucene_error::Result;
 use crate::test::core::util::compress::lz4_test_case::{AssertingHashTable, LZ4TestCase};
 use crate::test_framework::core::util::lucene_test_case::random;
+use rand::prelude::StdRng;
 
 #[allow(dead_code)] // for quick search
 struct TestHighLZ4;
@@ -25,61 +27,63 @@ impl LZ4TestCase for TestHighLZ4 {
     AssertingHashTable::new(HashTableEnum::High(HighCompressionHashTable::new()))
   }
 }
-#[test]
-fn test_empty_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_empty(&mut random)
-}
-#[test]
-fn test_short_literals_and_matches_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_short_literals_and_matches(&mut random)
-}
-#[test]
-fn test_long_matches_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_long_matches(&mut random)
-}
-#[test]
-fn test_long_literals_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_long_literals(&mut random)
-}
-#[test]
-fn test_match_right_before_last_literals_high() -> crate::core::util::error::lucene_error::Result<()>
+
+fn run_case<F>(f: F) -> Result<()>
+where
+  F: FnOnce(&TestHighLZ4, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
   let case = TestHighLZ4;
-  case.test_match_right_before_last_literals(&mut random)
+  f(&case, &mut random)
 }
-#[test]
-fn test_incompressible_random_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_incompressible_random(&mut random)
-}
-// TODO IMPORTANT 这个测试太慢了
-#[cfg(feature = "nightly")]
-#[test]
-#[ignore = "nightly"]
-fn test_compressible_random_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_compressible_random(&mut random)
-}
-#[test]
-fn test_lucene5201_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_lucene5201(&mut random)
-}
-#[test]
-fn test_use_dictionary_high() -> crate::core::util::error::lucene_error::Result<()> {
-  let mut random = random();
-  let case = TestHighLZ4;
-  case.test_use_dictionary(&mut random)
+
+mod lz4_test_case_tests {
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test::core::util::compress::lz4_test_case::LZ4TestCase;
+  use crate::test::core::util::compress::test_high_lz4::run_case;
+
+  #[test]
+  fn test_empty_high() -> Result<()> {
+    run_case(|case, random| case.test_empty(random))
+  }
+
+  #[test]
+  fn test_short_literals_and_matches_high() -> Result<()> {
+    run_case(|case, random| case.test_short_literals_and_matches(random))
+  }
+
+  #[test]
+  fn test_long_matches_high() -> Result<()> {
+    run_case(|case, random| case.test_long_matches(random))
+  }
+
+  #[test]
+  fn test_long_literals_high() -> Result<()> {
+    run_case(|case, random| case.test_long_literals(random))
+  }
+
+  #[test]
+  fn test_match_right_before_last_literals_high() -> Result<()> {
+    run_case(|case, random| case.test_match_right_before_last_literals(random))
+  }
+
+  #[test]
+  fn test_incompressible_random_high() -> Result<()> {
+    run_case(|case, random| case.test_incompressible_random(random))
+  }
+
+  #[test]
+  fn test_compressible_random_high() -> Result<()> {
+    run_case(|case, random| case.test_compressible_random(random))
+  }
+
+  #[test]
+  fn test_lucene5201_high() -> Result<()> {
+    run_case(|case, random| case.test_lucene5201(random))
+  }
+
+  #[test]
+  fn test_use_dictionary_high() -> Result<()> {
+    run_case(|case, random| case.test_use_dictionary(random))
+  }
 }

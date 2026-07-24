@@ -33,8 +33,8 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_infos::get_merged_field_infos;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
-use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::OpenMode::Create;
+use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
@@ -251,8 +251,7 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
   let mut random = random();
 
   let d = new_directory_shared(&mut random)?;
-  let mock = MockAnalyzer::new(&mut random);
-  let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  let config = IndexWriterConfig::with_analyzer(MockAnalyzer::new(&mut random))?;
   let w = IndexWriter::new(d.clone(), config)?;
 
   let mut doc = Document::new();
