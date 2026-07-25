@@ -7086,7 +7086,7 @@ where
   /// The `sequence number` of the last operation in the commit.
   /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
   fn prepare_commit(&self) -> Result<i64> {
-    self.do_ensure_open(false)?;
+    self.ensure_open()?;
     self
       .pending_seq_no
       .store(self.prepare_commit_internal(None)?, Ordering::SeqCst);
