@@ -140,7 +140,7 @@ pub(crate) trait LZ4TestCase {
     assert_eq!(left, right);
 
     // Now restore with an offset
-    let restore_offset: i32 = random.random_range(1..10);
+    let restore_offset = TestUtil::next_int(random, 1, 10);
     restored = vec![0; restore_offset as usize + length as usize + random.random_range(0..10)];
     let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
     LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
@@ -165,7 +165,7 @@ pub(crate) trait LZ4TestCase {
     R: Rng + ?Sized,
   {
     let mut copy = ByteBuffersDataOutput::new();
-    let dict_off = random.random_range(0..10);
+    let dict_off = TestUtil::next_int(random, 0, 10);
     copy.write_bytes(&vec![0u8; dict_off as usize])?;
 
     // Create a dictionary from substrings of the input to compress
@@ -282,7 +282,7 @@ pub(crate) trait LZ4TestCase {
     R: Rng + ?Sized,
   {
     // match length >= 20
-    let len = random.random_range(300..1024);
+    let len = TestUtil::next_usize(random, 300, 1024);
     let mut data = vec![0u8; len];
     for (index, element) in data.iter_mut().enumerate() {
       *element = index as u8;
@@ -295,12 +295,12 @@ pub(crate) trait LZ4TestCase {
     R: Rng + ?Sized,
   {
     // long literals (length >= 16) which are not the last literals
-    let len = random.random_range(400..1024);
+    let len = TestUtil::next_usize(random, 400, 1024);
     let mut data = vec![0u8; len];
     random.fill_bytes(&mut data);
     let match_ref = random.random_range(0..30);
-    let match_off = random.random_range(len - 40..len - 20);
-    let match_length = random.random_range(4..10);
+    let match_off = TestUtil::next_usize(random, len - 40, len - 20);
+    let match_length = TestUtil::next_usize(random, 4, 10);
     data.copy_within(match_ref..match_ref + match_length, match_off);
     Self::do_test(random, data.as_slice(), &mut self.new_hash_table())?;
     Ok(())
@@ -319,7 +319,7 @@ pub(crate) trait LZ4TestCase {
   where
     R: Rng + ?Sized,
   {
-    let len = random.random_range(1..1 << 18);
+    let len = TestUtil::next_usize(random, 1, 1 << 18);
     let mut b = vec![0u8; len];
     random.fill_bytes(&mut b);
     Self::do_test(random, &b, &mut self.new_hash_table())?;
