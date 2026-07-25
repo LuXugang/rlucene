@@ -155,7 +155,7 @@ fn test_increasing_segment_sizes() -> Result<()> {
   for one_merge in &spec.merges {
     segment_infos = apply_merge(
       &mut r,
-      &segment_infos,
+      segment_infos,
       one_merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,
@@ -221,7 +221,7 @@ fn test_one_small_middle_segment() -> Result<()> {
   for one_merge in &spec.merges {
     segment_infos = apply_merge(
       &mut r,
-      &segment_infos,
+      segment_infos,
       one_merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,
@@ -285,7 +285,7 @@ fn test_many_small_middle_segment() -> Result<()> {
   for one_merge in &spec.merges {
     segment_infos = apply_merge(
       &mut r,
-      &segment_infos,
+      segment_infos,
       one_merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,
@@ -354,7 +354,7 @@ fn test_reject_unbalanced_merges() -> Result<()> {
   for one_merge in &spec.merges {
     segment_infos = apply_merge(
       &mut r,
-      &segment_infos,
+      segment_infos,
       one_merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,
@@ -399,7 +399,7 @@ fn test_pack_large_segments() -> Result<()> {
   for one_merge in &spec.merges {
     segment_infos = apply_merge(
       &mut r,
-      &segment_infos,
+      segment_infos,
       one_merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,
@@ -452,7 +452,7 @@ fn test_ignore_large_segments() -> Result<()> {
   for one_merge in &spec.merges {
     segment_infos = apply_merge(
       &mut r,
-      &segment_infos,
+      segment_infos,
       one_merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,
@@ -512,7 +512,7 @@ fn test_full_flush_merges() -> Result<()> {
   for merge in &spec.merges {
     segment_infos = apply_merge(
       &mut r,
-      &segment_infos,
+      segment_infos,
       merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,

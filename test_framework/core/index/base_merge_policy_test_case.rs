@@ -277,7 +277,7 @@ pub trait BaseMergePolicyTestCase {
 
           segment_infos = apply_merge(
             random,
-            &segment_infos,
+            segment_infos,
             one_merge,
             &name,
             &mut stats,
@@ -394,7 +394,7 @@ pub trait BaseMergePolicyTestCase {
 
           segment_infos = apply_merge(
             random,
-            &segment_infos,
+            segment_infos,
             one_merge,
             &name,
             &mut stats,
@@ -497,7 +497,7 @@ pub trait BaseMergePolicyTestCase {
 
           segment_infos = apply_merge(
             random,
-            &segment_infos,
+            segment_infos,
             one_merge,
             &name,
             &mut stats,
@@ -586,7 +586,7 @@ where
 }
 pub(crate) fn apply_merge<D, CR, R>(
   random: &mut R,
-  infos: &SegmentInfos<D>,
+  mut infos: SegmentInfos<D>,
   merge: &OneMerge<D, CR>,
   merged_segment_name: &str,
   stats: &mut IOStats,
@@ -599,14 +599,18 @@ where
 {
   let mut new_max_doc = 0i32;
   let mut new_size_mb = 0f64;
-  let infos_by_id: HashMap<_, _> = infos
-    .iter()
-    .iter()
-    .map(|info| (info.info.get_id_key(), info))
-    .collect();
+  let mut merged_away = vec![false; infos.size()];
+  let mut merged_ids: Vec<_> = merge.stat.segments.iter().map(String::as_str).collect();
+  merged_ids.sort_unstable();
 
-  for id in &merge.stat.segments {
-    let sci = infos_by_id.get(id.as_str()).copied().unwrap();
+  let mut num_merged_segments = 0;
+  for (index, sci) in infos.iter().iter().enumerate() {
+    if merged_ids.binary_search(&sci.info.get_id_key()).is_err() {
+      continue;
+    }
+
+    num_merged_segments += 1;
+    merged_away[index] = true;
     let max_doc = sci.info.max_doc()?;
     let num_live_docs = max_doc - sci.get_del_count();
 
@@ -617,6 +621,7 @@ where
 
     new_max_doc += num_live_docs;
   }
+  assert_eq!(merge.stat.segments.len(), num_merged_segments);
 
   let merged_info = make_segment_commit_info(
     random,
@@ -628,21 +633,17 @@ where
     SOURCE_MERGE,
   )?;
 
-  let merged_away: HashSet<_> = merge.stat.segments.iter().cloned().collect();
-
   let mut merged_segment_added = false;
   let mut new_infos = SegmentInfos::new(LATEST.major)?;
 
-  for i in 0..infos.size() {
-    let info = infos.info(i).unwrap();
-
-    if merged_away.contains(info.info.get_id_key()) {
+  for (index, info) in infos.segments.drain(..).enumerate() {
+    if merged_away[index] {
       if !merged_segment_added {
         new_infos.add(merged_info.clone())?;
         merged_segment_added = true;
       }
     } else {
-      new_infos.add(info.clone())?;
+      new_infos.add(info)?;
     }
   }
 

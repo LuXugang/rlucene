@@ -1364,7 +1364,7 @@ fn test_full_flush_merges() -> Result<()> {
   for merge in &spec.merges {
     segment_infos = apply_merge(
       &mut random,
-      &segment_infos,
+      segment_infos,
       merge,
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       &mut stats,
