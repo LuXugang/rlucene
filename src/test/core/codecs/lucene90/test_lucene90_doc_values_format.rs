@@ -56,8 +56,8 @@ use crate::test_framework::core::index::legacy_base_doc_values_format_test_case:
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
-  new_fs_directory, new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field,
-  random, rarely,
+  new_fs_directory, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_log_merge_policy_with_cfs, new_string_field, random, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::SeedableRng;
@@ -1426,7 +1426,8 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
       Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE,
     ));
     conf.set_ram_buffer_size_mb(-1.0);
-    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let use_cfs = random.random_bool(0.5);
+    conf.set_merge_policy(new_log_merge_policy_with_cfs(random, use_cfs)?);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
     let num_docs = at_least(random, Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE * 3);
@@ -1510,7 +1511,8 @@ trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
       Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE,
     ));
     conf.set_ram_buffer_size_mb(-1.0);
-    conf.set_merge_policy(new_log_merge_policy(random)?);
+    let use_cfs = random.random_bool(0.5);
+    conf.set_merge_policy(new_log_merge_policy_with_cfs(random, use_cfs)?);
     let writer = IndexWriter::new(dir.clone(), conf)?;
 
     let num_docs = at_least(random, Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE * 3);

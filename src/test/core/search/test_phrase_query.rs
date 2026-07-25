@@ -37,6 +37,7 @@ use crate::core::search::exact_phrase_matcher::merge_impacts_from_ie;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
@@ -54,8 +55,9 @@ use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config, new_log_merge_policy,
-  new_searcher_with_reader, new_text_field, random, random_from_seed,
+  at_least, is_night_mode, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
+  new_text_field, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
@@ -464,6 +466,7 @@ fn test_slop_scoring() -> Result<()> {
 
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  iwc.set_similarity(BM25Similarity::new()?);
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut field_to_type = HashMap::new();
@@ -781,7 +784,9 @@ fn test_random_phrases() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
-  let writer = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer)?;
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
   let mut docs: Vec<Vec<String>> = Vec::new();
   let mut field_to_type = HashMap::new();
 

@@ -34,7 +34,6 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, read_field_infos};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::postings_enum::{ALL, NONE, PostingsEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::term_vectors::TermVectors;
@@ -49,7 +48,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context, random,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
+  new_log_merge_policy_with_merge_factor_cfs, random,
 };
 use rand::RngExt;
 use std::sync::Arc;
@@ -102,7 +102,11 @@ impl TestTermVectorsReader {
     let mut config =
       new_index_writer_config_with_analyzer(&mut random, MyAnalyzer::new(tokens.clone()))?;
     config.set_max_buffered_docs(-1);
-    config.set_merge_policy(LogMergePolicy::log_doc());
+    config.set_merge_policy(new_log_merge_policy_with_merge_factor_cfs(
+      &mut random,
+      false,
+      10,
+    )?);
     config.set_use_compound_file(false);
     let writer = IndexWriter::new(dir.clone(), config)?;
 

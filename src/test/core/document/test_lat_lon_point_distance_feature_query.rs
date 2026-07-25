@@ -38,7 +38,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
+  at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy_with_cfs,
   new_searcher_with_reader, random,
 };
 use rand::RngExt;
@@ -74,7 +74,8 @@ fn test_basics() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mut iwc = new_index_writer_config(&mut random)?;
-  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let use_cfs = random.random_bool(0.5);
+  iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc = Document::new();
@@ -199,7 +200,8 @@ fn test_crosses_date_line() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mut iwc = new_index_writer_config(&mut random)?;
-  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let use_cfs = random.random_bool(0.5);
+  iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut point = LatLonPoint::new("foo", 0.0, 0.0)?;
@@ -299,7 +301,8 @@ fn test_missing_value() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mut iwc = new_index_writer_config(&mut random)?;
-  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let use_cfs = random.random_bool(0.5);
+  iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut point = LatLonPoint::new("foo", 0.0, 0.0)?;
@@ -363,7 +366,8 @@ fn test_multi_valued() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mut iwc = new_index_writer_config(&mut random)?;
-  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let use_cfs = random.random_bool(0.5);
+  iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc = Document::new();
@@ -469,7 +473,8 @@ fn test_random() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mut iwc = new_index_writer_config(&mut random)?;
-  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let use_cfs = random.random_bool(0.5);
+  iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut point = LatLonPoint::new("foo", 0.0, 0.0)?;
@@ -515,7 +520,8 @@ fn test_compare_sorting() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mut iwc = new_index_writer_config(&mut random)?;
-  iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
+  let use_cfs = random.random_bool(0.5);
+  iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let num_docs = at_least(&mut random, 10000);

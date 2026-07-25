@@ -861,9 +861,12 @@ fn test_get_index_commit() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_max_buffered_docs(2);
-  let mut merge_policy = LogMergePolicy::log_doc();
-  merge_policy.set_merge_factor(10)?;
-  config.set_merge_policy(merge_policy);
+  config.set_merge_policy(
+    crate::test_framework::core::util::lucene_test_case::new_log_merge_policy_with_merge_factor(
+      &mut random,
+      10,
+    )?,
+  );
   let writer = IndexWriter::new(d.clone(), config)?;
   for _ in 0..27 {
     add_document_with_fields(&mut random, &writer, &mut field_to_type)?;
@@ -885,9 +888,12 @@ fn test_get_index_commit() -> Result<()> {
   let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   config.set_open_mode(OpenMode::Append);
   config.set_max_buffered_docs(2);
-  let mut merge_policy = LogMergePolicy::log_doc();
-  merge_policy.set_merge_factor(10)?;
-  config.set_merge_policy(merge_policy);
+  config.set_merge_policy(
+    crate::test_framework::core::util::lucene_test_case::new_log_merge_policy_with_merge_factor(
+      &mut random,
+      10,
+    )?,
+  );
   let writer = IndexWriter::new(d.clone(), config)?;
   for _ in 0..7 {
     add_document_with_fields(&mut random, &writer, &mut field_to_type)?;

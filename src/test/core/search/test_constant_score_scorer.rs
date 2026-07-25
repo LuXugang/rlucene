@@ -46,9 +46,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_searcher_with_reader, new_text_field, random,
+  new_log_merge_policy, new_log_merge_policy_with_cfs, new_searcher_with_reader, new_text_field,
+  random,
 };
-use rand::Rng;
+use rand::{Rng, RngExt};
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
@@ -240,7 +241,8 @@ impl TestConstantScoreScorerIndex {
     let directory = new_directory_shared(random)?;
 
     let mut iwc = new_index_writer_config(random)?;
-    iwc.set_merge_policy(new_log_merge_policy(random)?);
+    let use_cfs = random.random_bool(0.5);
+    iwc.set_merge_policy(new_log_merge_policy_with_cfs(random, use_cfs)?);
 
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
     let mut field_to_type = HashMap::new();

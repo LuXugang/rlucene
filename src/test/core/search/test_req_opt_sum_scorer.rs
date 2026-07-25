@@ -50,7 +50,7 @@ use crate::test_framework::core::search::random_approximation_query::RandomAppro
 use crate::test_framework::core::search::similarity::new_simple_similarity;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
-  new_searcher_with_reader, random,
+  new_log_merge_policy_with_cfs, new_searcher_with_reader, random,
 };
 use rand::Rng;
 use rand::RngExt;
@@ -76,7 +76,8 @@ where
   let dir = new_directory_shared(random)?;
 
   let mut iwc = new_index_writer_config(random)?;
-  iwc.set_merge_policy(new_log_merge_policy(random)?);
+  let use_cfs = random.random_bool(0.5);
+  iwc.set_merge_policy(new_log_merge_policy_with_cfs(random, use_cfs)?);
   let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
   {

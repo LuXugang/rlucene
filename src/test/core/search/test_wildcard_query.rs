@@ -19,6 +19,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_terms::get_terms;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
@@ -41,8 +42,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_string_field, new_text_field, random,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_searcher_with_reader, new_string_field, new_text_field, random,
 };
 use rand::Rng;
 use std::collections::HashMap;
@@ -396,7 +397,8 @@ fn test_parsing_and_searching() -> Result<()> {
   // prepare the index
   let dir = new_directory_shared(&mut random)?;
   let a = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, a)?;
+  conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), conf);
   let mut field_to_type = HashMap::new();
 

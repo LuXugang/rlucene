@@ -55,8 +55,8 @@ use crate::test_framework::core::store::mock_directory_wrapper::{
 };
 use crate::test_framework::core::util::lucene_test_case::{
   call_stack_contains_any_of, is_night_mode, new_directory_shared,
-  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
-  new_mock_directory, random,
+  new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_log_merge_policy_with_merge_factor, new_mock_directory, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -674,9 +674,22 @@ fn test_merge_thread_messages() -> Result<()> {
     info_stream.clone(),
   ))));
   iwc.set_max_buffered_docs(2);
-  let mut lmp = LogMergePolicy::log_doc();
-  lmp.set_merge_factor(2)?;
-  lmp.set_target_search_concurrency(1)?;
+  let mut lmp = new_log_merge_policy(&mut random)?;
+  match &mut lmp {
+    crate::core::index::merge_policy::MergePolicyEnum::LogDoc(lmp) => {
+      lmp.set_merge_factor(2)?;
+      lmp.set_target_search_concurrency(1)?;
+    },
+    crate::core::index::merge_policy::MergePolicyEnum::LogBytesSize(lmp) => {
+      lmp.set_merge_factor(2)?;
+      lmp.set_target_search_concurrency(1)?;
+    },
+    _ => {
+      return Err(LuceneError::illegal_state(
+        "expected LogMergePolicy variant",
+      ));
+    },
+  }
   iwc.set_merge_policy(lmp);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;

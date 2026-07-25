@@ -18,11 +18,11 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
 use crate::core::index::index_writer::IndexWriter;
-use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_log_merge_policy, new_searcher_with_reader, random,
+  new_directory_shared, new_index_writer_config, new_log_merge_policy, new_searcher_with_reader,
+  random,
 };
 use std::fmt::{Display, Formatter};
 
@@ -61,7 +61,7 @@ where
   R: Rng + ?Sized,
   D: Directory + 'static,
 {
-  let mut iwc = IndexWriterConfig::new()?;
+  let mut iwc = new_index_writer_config(random)?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -342,7 +342,7 @@ fn test_basics_with_three_disjunction_clauses_and_skipping() -> Result<()> {
 fn test_deletes() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let mut iwc = IndexWriterConfig::new()?;
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 

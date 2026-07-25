@@ -43,7 +43,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, new_searcher, random,
+  new_log_merge_policy_with_merge_factor_cfs, new_searcher, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -156,7 +156,7 @@ fn test_2b_terms() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
-  let mut merge_policy = new_log_merge_policy_with_merge_factor(&mut random, 10)?;
+  let mut merge_policy = new_log_merge_policy_with_merge_factor_cfs(&mut random, false, 10)?;
   if let MergePolicyEnum::LogBytesSize(policy) = &mut merge_policy {
     // 1 petabyte:
     policy.set_max_merge_mb(1024.0 * 1024.0 * 1024.0);

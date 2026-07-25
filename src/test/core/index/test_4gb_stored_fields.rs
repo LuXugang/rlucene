@@ -21,7 +21,7 @@ use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
-use crate::core::index::index_writer_config::OpenMode;
+use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::stored_fields::StoredFields;
@@ -34,8 +34,7 @@ use crate::test_framework::core::store::mock_directory_wrapper::{
   MockDirectoryWrapper, Throttling,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, random,
+  create_temp_dir_with_prefix, new_log_merge_policy_with_merge_factor_cfs, random,
 };
 use rand::{Rng, RngExt};
 use std::sync::Arc;
@@ -54,8 +53,8 @@ fn test() -> Result<()> {
   dir.set_throttling(Throttling::Never);
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  let mut merge_policy = new_log_merge_policy_with_merge_factor(&mut random, 10)?;
+  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  let mut merge_policy = new_log_merge_policy_with_merge_factor_cfs(&mut random, false, 10)?;
   if let MergePolicyEnum::LogBytesSize(policy) = &mut merge_policy {
     // 1 petabyte:
     policy.set_max_merge_mb(1024.0 * 1024.0 * 1024.0);

@@ -31,6 +31,7 @@ use crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fiel
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
@@ -82,7 +83,7 @@ impl TestFileSwitchDirectory {
 
     // For now we use the default codec because we rely upon its specific impl.
     let analyzer = MockAnalyzer::new(random);
-    let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
     config.set_merge_policy(new_log_merge_policy_with_cfs(random, false)?);
     config.set_codec(TestUtil::get_default_codec());
     config.set_use_compound_file(false);

@@ -757,7 +757,8 @@ fn test_basics_with_filtered_disjunction_and_min_should_match_and_non_scoring_mo
 fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let conf = new_index_writer_config(&mut random)?;
+  let mut conf = new_index_writer_config(&mut random)?;
+  conf.set_merge_policy(new_log_merge_policy(&mut random)?);
   let w = IndexWriter::new(dir.clone(), conf)?;
 
   let docs: &[&[&str]] = &[

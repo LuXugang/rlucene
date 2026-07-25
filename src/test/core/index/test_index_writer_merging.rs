@@ -351,9 +351,22 @@ fn test_set_max_merge_docs() -> Result<()> {
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   conf.set_merge_scheduler(MergeSchedulerEnum::IndexWriterMerging(MyMergeScheduler));
   conf.set_max_buffered_docs(2);
-  let mut lmp = LogMergePolicy::log_doc();
-  lmp.set_max_merge_docs(20);
-  lmp.set_merge_factor(2)?;
+  let mut lmp = new_log_merge_policy(&mut random)?;
+  match &mut lmp {
+    crate::core::index::merge_policy::MergePolicyEnum::LogDoc(lmp) => {
+      lmp.set_max_merge_docs(20);
+      lmp.set_merge_factor(2)?;
+    },
+    crate::core::index::merge_policy::MergePolicyEnum::LogBytesSize(lmp) => {
+      lmp.set_max_merge_docs(20);
+      lmp.set_merge_factor(2)?;
+    },
+    _ => {
+      return Err(LuceneError::illegal_state(
+        "expected LogMergePolicy variant",
+      ));
+    },
+  }
   conf.set_merge_policy(lmp);
 
   let writer = IndexWriter::new(dir, conf)?;

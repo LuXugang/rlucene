@@ -37,7 +37,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::store::mock_directory_wrapper::Throttling;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer,
-  new_log_merge_policy_with_merge_factor, random,
+  new_log_merge_policy_with_merge_factor_cfs, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::sync::Arc;
@@ -62,7 +62,11 @@ fn test_2b_ords() -> Result<()> {
     .set_max_buffered_docs(-1)
     .set_ram_buffer_size_mb(256.0)
     .set_merge_scheduler(ConcurrentMergeScheduler::new())
-    .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 10)?)
+    .set_merge_policy(new_log_merge_policy_with_merge_factor_cfs(
+      &mut random,
+      false,
+      10,
+    )?)
     .set_open_mode(OpenMode::Create)
     .set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
