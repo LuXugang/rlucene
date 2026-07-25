@@ -8,6 +8,14 @@ The image uses the rsproxy sparse registry for Cargo dependencies.
 
 No credential value or private key may be added to these files.
 
+## Resource allocation
+
+The Jenkins VM is dedicated to Jenkins, so the Compose service intentionally
+has no `cpus` or `mem_limit` setting. The controller and its build processes can
+use all CPU and memory assigned to the VM. `JAVA_OPTS` still caps the Jenkins
+controller heap at 8 GiB; this does not limit separate Cargo and test
+processes.
+
 ## Deploy
 
 Copy `Dockerfile` and `docker-compose.yml` to `/home/xugang/jenkins`, then run:

@@ -4,8 +4,6 @@ services:
     image: local-jenkins-rust:lts
     container_name: jenkins
     restart: unless-stopped
-    cpus: 6
-    mem_limit: 12g
     cap_add:
       - SYS_PTRACE
     ports:

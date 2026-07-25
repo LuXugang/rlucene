@@ -161,6 +161,10 @@
   `sparse+https://rsproxy.cn/index/`。2026-07-25 从容器内连续探测时，
   rsproxy 三次请求均在 0.15 秒内完成；原 USTC sparse index 一次首字节
   需要 13.6 秒，另两次 15 秒超时且未收到数据，因此不再使用 USTC。
+- Jenkins 虚拟机只用于运行 Jenkins，当前可见 20 个 vCPU 和约 30 GiB
+  内存。Compose 不设置 `cpus` 或 `mem_limit`，让 Jenkins 控制器及其
+  Cargo/测试子进程使用虚拟机的全部资源；`JAVA_OPTS=-Xms2g -Xmx8g`
+  只限制 Jenkins Java 控制器堆，不限制独立的构建和测试进程。
 
 ### nextest、超时和诊断
 
