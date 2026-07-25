@@ -148,8 +148,10 @@
   - `legency`：旧 Freestyle 测试任务，保持禁用，只用于保留五万多次历史
     构建记录，不再作为主 CI。
 - Jenkins 每两分钟检查一次 `main`。同一 commit 仍会直接运行 nextest
-  和 doctest，但会跳过依赖/基础设施预检并复用 Git、Cargo 和 target
-  缓存；新 commit 才执行完整预检。
+  和 doctest，但会从
+  `/var/jenkins_home/ci-state/rlucene-ci/Cargo.lock.<sha>` 恢复该 SHA
+  已成功使用的 `Cargo.lock`，跳过依赖/基础设施预检，并复用 Git、Cargo
+  和 target 缓存；新 commit 或缺失对应 lock 缓存时才执行完整预检。
 - Jenkins 使用仓库中的配置作为唯一来源。长期维护时优先修改：
   `rlucene/Jenkinsfile`、`rlucene/.config/nextest.toml` 和
   `rlucene/ci/jenkins/README.md`。Jenkins 控制器的 Dockerfile 和
@@ -161,14 +163,19 @@
 ### nextest、超时和诊断
 
 - 常规 Rust 测试使用
-  `cargo nextest run --profile ci --workspace`；nextest 不运行 doctest，
-  因此另行执行 `cargo test --workspace --doc -q`。
+  `cargo nextest run --locked --profile ci --workspace`；nextest 不运行
+  doctest，因此另行执行 `cargo test --locked --workspace --doc -q`。
 - `.config/nextest.toml` 当前设置：60 秒标记 `SLOW`，
   `terminate-after = 6`，因此 60 秒只产生告警；测试运行到 300 秒时，
   Jenkins 会记录 nextest 当前运行测试、进程树、系统负载、线程 `/proc`
   状态、内核等待栈，以及可用时由 `eu-stack`、`gdb` 或 `pstack` 生成的
   用户态堆栈；单个测试约 360 秒才会被终止并报告 `TIMEOUT`。
   `fail-fast = false`，失败输出保留，成功输出不打印。
+- 慢测试诊断只把 nextest 直接启动且命令行含 `--exact` 的 test harness
+  识别为测试进程。nextest 初始化阶段的 Cargo、Git、registry 等子进程
+  即使运行超过 300 秒也不能触发 `SIGUSR1`，避免 nextest 尚未安装信号
+  处理器时被误杀。该约束来自构建 `#107` 的实际故障：registry 网络卡顿
+  被旧脚本误判后，nextest 因 `SIGUSR1` 以状态 138 退出。
 - 主 CI 对 nextest 使用 20 分钟整套测试外层超时，对 doctest 使用
   4 分钟超时，整个 CI Pipeline 使用 30 分钟超时。
 - nextest 会在日志和 JUnit 中保留具体失败或超时测试的诊断信息，供人工

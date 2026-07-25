@@ -28,8 +28,11 @@ repository and later builds normally fetch only changes to `main`.
 
 The most recent successfully tested SHA is stored at
 `/var/jenkins_home/ci-state/rlucene-ci/last-successful-sha`. If the current SHA
-is unchanged, Jenkins skips dependency and infrastructure preflight, but still
-runs nextest and doctests.
+is unchanged, Jenkins restores the matching
+`/var/jenkins_home/ci-state/rlucene-ci/Cargo.lock.<sha>` into the clean
+workspace and skips dependency and infrastructure preflight, but still runs
+nextest and doctests. If either cached state file is missing, Jenkins runs the
+full preflight and generates a fresh lock file.
 
 The persistent Cargo target is
 `/var/jenkins_home/cargo-target/rlucene-ci`. Do not run `cargo clean` on every
@@ -41,13 +44,13 @@ Jenkins home and `/tmp`, plus the target directory size.
 The main test command is:
 
 ```sh
-cargo nextest run --profile ci --workspace
+cargo nextest run --locked --profile ci --workspace
 ```
 
 Because nextest does not run Rust doctests, Jenkins also runs:
 
 ```sh
-cargo test --workspace --doc -q
+cargo test --locked --workspace --doc -q
 ```
 
 `.config/nextest.toml` marks an individual test as slow after 60 seconds. A slow
@@ -59,6 +62,11 @@ backtrace from `eu-stack`, `gdb`, or `pstack` to
 `nextest-diagnostics.log`. If no debugger is installed or Linux ptrace policy
 blocks attachment, the nextest status, process tree, resource usage, and
 readable `/proc` diagnostics are still preserved.
+
+The diagnostics helper recognizes a nextest test process by the `--exact`
+argument used for a test-harness invocation. Cargo, Git, and other child
+processes used while nextest is resolving dependencies are not treated as slow
+tests and never cause the helper to send `SIGUSR1` to nextest.
 
 The deployed container configuration and its verification procedure are
 documented in `ci/jenkins/deployment/README.md`.

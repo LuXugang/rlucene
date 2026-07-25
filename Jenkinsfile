@@ -104,6 +104,9 @@ pipeline {
               set -euo pipefail
               test -f "$LAST_SUCCESSFUL_SHA_FILE"
               test "$(cat "$LAST_SUCCESSFUL_SHA_FILE")" = "$FAILED_SHA"
+              cached_lock="$CI_STATE_ROOT/Cargo.lock.$FAILED_SHA"
+              test -f "$cached_lock"
+              cp "$cached_lock" Cargo.lock
             '''
           )
           if (alreadyTested == 0) {
@@ -111,7 +114,7 @@ pipeline {
             currentBuild.description =
               "${checkedOutSha.take(12)}: unchanged, direct nextest"
             echo """${checkedOutSha} already passed once.
-Skipping dependency preflight and running cargo nextest directly."""
+Restored its Cargo.lock, skipping dependency preflight, and running cargo nextest directly."""
           }
         }
       }
@@ -162,7 +165,7 @@ Skipping dependency preflight and running cargo nextest directly."""
 
               set +e
               timeout --kill-after=30s 20m \
-                cargo nextest run --profile ci --workspace \
+                cargo nextest run --locked --profile ci --workspace \
                 >> nextest.log 2>&1 &
               nextest_launcher_pid=$!
               bash ci/jenkins/capture-slow-test-diagnostics.sh \
@@ -233,7 +236,7 @@ Skipping dependency preflight and running cargo nextest directly."""
               set -uo pipefail
               set +e
               timeout --kill-after=30s 4m \
-                cargo test --workspace --doc -q \
+                cargo test --locked --workspace --doc -q \
                 > doctest.log 2>&1
               test_status=$?
               cat doctest.log
@@ -270,6 +273,11 @@ Skipping dependency preflight and running cargo nextest directly."""
           set -euo pipefail
           umask 077
           mkdir -p "$CI_STATE_ROOT"
+          test -f Cargo.lock
+          lock_file="$CI_STATE_ROOT/Cargo.lock.$FAILED_SHA"
+          lock_tmp="$lock_file.tmp.$BUILD_NUMBER"
+          cp Cargo.lock "$lock_tmp"
+          mv "$lock_tmp" "$lock_file"
           state_tmp="$LAST_SUCCESSFUL_SHA_FILE.tmp.$BUILD_NUMBER"
           printf '%s\n' "$FAILED_SHA" > "$state_tmp"
           mv "$state_tmp" "$LAST_SUCCESSFUL_SHA_FILE"

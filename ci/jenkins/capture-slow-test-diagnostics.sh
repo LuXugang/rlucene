@@ -104,10 +104,17 @@ while kill -0 "$launcher_pid" 2>/dev/null; do
 
   if [ -n "$nextest_runner_pid" ]; then
     mapfile -t slow_test_pids < <(
-      ps -eo pid=,ppid=,etimes= |
+      ps -eo pid=,ppid=,etimes=,args= |
         awk -v parent_pid="$nextest_runner_pid" \
           -v minimum_seconds="$delay_seconds" \
-          '$2 == parent_pid && $3 >= minimum_seconds { print $1 }'
+          '$2 == parent_pid && $3 >= minimum_seconds {
+            for (field = 4; field <= NF; field++) {
+              if ($field == "--exact") {
+                print $1
+                break
+              }
+            }
+          }'
     )
 
     new_slow_test_pids=()
