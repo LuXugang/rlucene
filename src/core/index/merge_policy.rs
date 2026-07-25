@@ -239,12 +239,17 @@ where
       None => Ok(None),
       Some(merge_spec) => {
         let mut new_merge_spec = None;
+        let segment_infos_by_id: HashMap<_, _> = segment_infos
+          .iter()
+          .iter()
+          .map(|info| (info.info.get_id_key(), info))
+          .collect();
 
         for one_merge in merge_spec.merges.into_iter() {
           let mut below_max_full_flush_size = true;
 
           for seg_id in &one_merge.stat.segments {
-            match segment_infos.index_of(seg_id) {
+            match segment_infos_by_id.get(seg_id.as_str()).copied() {
               Some(sci) => {
                 if self.size(sci, merge_context)? >= self.max_full_flush_merge_size() {
                   below_max_full_flush_size = false;

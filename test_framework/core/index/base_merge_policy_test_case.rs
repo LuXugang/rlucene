@@ -599,9 +599,14 @@ where
 {
   let mut new_max_doc = 0i32;
   let mut new_size_mb = 0f64;
+  let infos_by_id: HashMap<_, _> = infos
+    .iter()
+    .iter()
+    .map(|info| (info.info.get_id_key(), info))
+    .collect();
 
   for id in &merge.stat.segments {
-    let sci = infos.index_of(id).unwrap();
+    let sci = infos_by_id.get(id.as_str()).copied().unwrap();
     let max_doc = sci.info.max_doc()?;
     let num_live_docs = max_doc - sci.get_del_count();
 

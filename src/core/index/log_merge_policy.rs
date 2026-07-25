@@ -168,7 +168,7 @@ where
       if let Some(Some(v)) = is_original {
         segment_is_original = v;
         num_to_merge += 1;
-        merge_info = Some(seg_id.to_string());
+        merge_info = Some(info);
       }
       i += 1;
     }
@@ -176,10 +176,7 @@ where
     Ok(
       num_to_merge <= max_num_segments
         && (num_to_merge != 1 || !segment_is_original || {
-          let merge_info = merge_info.ok_or_else(|| LuceneError::illegal_state(""))?;
-          let info = infos
-            .index_of(&merge_info)
-            .ok_or_else(|| LuceneError::illegal_state(""))?;
+          let info = merge_info.ok_or_else(|| LuceneError::illegal_state(""))?;
           self.has_merged(infos, info, merge_context)?
         }),
     )
@@ -523,10 +520,7 @@ where
       }
 
       let level = ((size as f64).ln() as f32) / norm;
-      levels.push(SegmentInfoAndLevel::new(
-        info.info.get_id_key().to_string(),
-        level,
-      ));
+      levels.push(SegmentInfoAndLevel::new(info, level));
     }
 
     let level_floor: f32 = if self.min_merge_size <= 0 {
@@ -600,9 +594,7 @@ where
         let mut i = start;
         while i < end {
           let seg_level = &levels[i];
-          let info = infos
-            .index_of(&seg_level.info_id)
-            .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
+          let info = seg_level.info;
 
           if merging_segments.contains(info.info.get_id_key()) {
             any_merging = true;
@@ -640,12 +632,10 @@ where
 
           let mut meta = Vec::new();
           for level in levels.iter().take(end).skip(start) {
-            let idx = &level.info_id;
-            let info = infos
-              .index_of(idx)
-              .ok_or_else(|| LuceneError::illegal_state("segment missing?"))?;
+            let info = level.info;
+            let idx = info.info.get_id_key();
             debug_assert!(infos.contains(idx));
-            meta.push(SegmentDocAndID::new(idx.clone(), info.info.max_doc()?));
+            meta.push(SegmentDocAndID::new(idx.to_string(), info.info.max_doc()?));
           }
 
           v.add(OneMerge::new(meta)?);
@@ -822,17 +812,26 @@ where
   }
 }
 #[derive(Clone)]
-pub(crate) struct SegmentInfoAndLevel {
-  pub(crate) info_id: String,
+pub(crate) struct SegmentInfoAndLevel<'a, D>
+where
+  D: Directory,
+{
+  pub(crate) info: &'a SegmentCommitInfo<D>,
   pub(crate) level: f32,
 }
-impl SegmentInfoAndLevel {
-  fn new(info_id: String, level: f32) -> Self {
-    Self { info_id, level }
+impl<'a, D> SegmentInfoAndLevel<'a, D>
+where
+  D: Directory,
+{
+  fn new(info: &'a SegmentCommitInfo<D>, level: f32) -> Self {
+    Self { info, level }
   }
 }
 
-impl Ord for SegmentInfoAndLevel {
+impl<D> Ord for SegmentInfoAndLevel<'_, D>
+where
+  D: Directory,
+{
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
     other
       .level
@@ -841,16 +840,22 @@ impl Ord for SegmentInfoAndLevel {
   }
 }
 
-impl PartialOrd for SegmentInfoAndLevel {
+impl<D> PartialOrd for SegmentInfoAndLevel<'_, D>
+where
+  D: Directory,
+{
   fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
     Some(self.cmp(other))
   }
 }
 
-impl PartialEq for SegmentInfoAndLevel {
+impl<D> PartialEq for SegmentInfoAndLevel<'_, D>
+where
+  D: Directory,
+{
   fn eq(&self, other: &Self) -> bool {
     self.level.to_bits() == other.level.to_bits()
   }
 }
 
-impl Eq for SegmentInfoAndLevel {}
+impl<D> Eq for SegmentInfoAndLevel<'_, D> where D: Directory {}

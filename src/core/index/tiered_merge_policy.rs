@@ -267,11 +267,11 @@ impl TieredMergePolicy {
   // The size can change concurrently while we are running here, because deletes
   // are now applied concurrently, and this can piss off TimSort! So we
   // call size() once per segment and sort by that:
-  fn get_sorted_by_segment_size<D, MC>(
+  fn get_sorted_by_segment_size<'a, D, MC>(
     &self,
-    infos: &SegmentInfos<D>,
+    infos: &'a SegmentInfos<D>,
     merge_context: &MC,
-  ) -> Result<Vec<SegmentSizeAndDocs>>
+  ) -> Result<Vec<SegmentSizeAndDocs<'a, D>>>
   where
     D: Directory,
     MC: MergeContext<D>,
@@ -290,7 +290,7 @@ impl TieredMergePolicy {
       // Sort by largest size:
       let mut cmp = o2.size_in_bytes.cmp(&o1.size_in_bytes);
       if cmp == std::cmp::Ordering::Equal {
-        cmp = o1.name.cmp(&o2.name);
+        cmp = o1.seg_info.info.name.cmp(&o2.seg_info.info.name);
       }
       cmp
     });
@@ -300,7 +300,7 @@ impl TieredMergePolicy {
   #[allow(clippy::too_many_arguments)]
   fn do_find_merges<MC, D>(
     &self,
-    sorted_eligible_infos: &[SegmentSizeAndDocs],
+    sorted_eligible_infos: &[SegmentSizeAndDocs<'_, D>],
     max_merged_segment_bytes: i64,
     merge_factor: i32,
     allowed_seg_count: usize,
@@ -314,11 +314,11 @@ impl TieredMergePolicy {
     MC: MergeContext<D>,
     D: Directory,
   {
-    let mut sorted_eligible: Vec<SegmentSizeAndDocs> = sorted_eligible_infos.to_vec();
+    let mut sorted_eligible: Vec<SegmentSizeAndDocs<'_, D>> = sorted_eligible_infos.to_vec();
 
     let mut seg_infos_sizes = HashMap::new();
     for seg in &sorted_eligible {
-      seg_infos_sizes.insert(seg.seg_info.clone(), seg.clone());
+      seg_infos_sizes.insert(seg.seg_info.info.get_id_key(), *seg);
     }
 
     let original_sorted_size = sorted_eligible.len();
@@ -349,7 +349,7 @@ impl TieredMergePolicy {
 
       // Remove ineligible segments. These are either already being merged or already picked by
       // prior iterations
-      sorted_eligible.retain(|s| !to_be_merged.contains(&s.seg_info));
+      sorted_eligible.retain(|s| !to_be_merged.contains(s.seg_info.info.get_id_key()));
 
       if self.verbose(merge_context) {
         self.message(
@@ -425,10 +425,10 @@ impl TieredMergePolicy {
           }
 
           candidate.push(SegmentCommitInfoMeta::new(
-            seg_size_docs.seg_info.clone(),
+            seg_size_docs.seg_info.info.get_id_key().to_string(),
             seg_size_docs.size_in_seg,
             seg_size_docs.max_doc,
-            seg_size_docs.name.clone(),
+            seg_size_docs.seg_info.info.name.clone(),
           ));
           bytes_this_merge += seg_bytes;
           doc_count_this_merge += seg_doc_count as i64;
@@ -438,7 +438,7 @@ impl TieredMergePolicy {
         // segments, and already pre-excluded the too-large segments:
         debug_assert!(!candidate.is_empty());
 
-        let max_candidate_segment_size = match seg_infos_sizes.get(&candidate[0].seg_id) {
+        let max_candidate_segment_size = match seg_infos_sizes.get(candidate[0].seg_id.as_str()) {
           Some(c) => c,
           None => return Err(LuceneError::illegal_state("could not  find candidate")),
         };
@@ -507,18 +507,24 @@ impl TieredMergePolicy {
   }
 
   /// Expert: scores one merge; implementations may provide custom behavior.
-  fn score(
+  fn score<D>(
     &self,
     candidate: &[SegmentCommitInfoMeta],
     hit_too_large: bool,
-    segments_sizes: &HashMap<String, SegmentSizeAndDocs>,
-  ) -> Result<MergeScoreImpl> {
+    segments_sizes: &HashMap<&str, SegmentSizeAndDocs<'_, D>>,
+  ) -> Result<MergeScoreImpl>
+  where
+    D: Directory,
+  {
     let mut tot_before_merge_bytes: i64 = 0;
     let mut tot_after_merge_bytes: i64 = 0;
     let mut tot_after_merge_bytes_floored: i64 = 0;
 
     for info in candidate {
-      let seg_bytes = segments_sizes.get(&info.seg_id).unwrap().size_in_bytes;
+      let seg_bytes = segments_sizes
+        .get(info.seg_id.as_str())
+        .unwrap()
+        .size_in_bytes;
       tot_after_merge_bytes += seg_bytes;
       tot_after_merge_bytes_floored += self.floor_size(seg_bytes);
       tot_before_merge_bytes += info.size_in_seg;
@@ -540,7 +546,7 @@ impl TieredMergePolicy {
     } else {
       (self.floor_size(
         segments_sizes
-          .get(&candidate[0].seg_id)
+          .get(candidate[0].seg_id.as_str())
           .unwrap()
           .size_in_bytes,
       ) as f64)
@@ -668,7 +674,7 @@ where
       min_segment_bytes = std::cmp::min(seg_bytes, min_segment_bytes);
       tot_index_bytes += seg_bytes;
 
-      if merging.contains(&seg.seg_info) {
+      if merging.contains(seg.seg_info.info.get_id_key()) {
         merging_bytes += seg_bytes;
         // if this segment is merging, then its deletes are being reclaimed already.
         // only count live docs in the total max doc
@@ -783,9 +789,10 @@ where
     // Presumably it's been merged before and is close enough to the max segment size we
     // shouldn't add it in again.
     sorted_size_and_docs.retain(|seg| {
-      let is_original = segments_to_merge.get(&seg.seg_info).copied();
+      let seg_id = seg.seg_info.info.get_id_key();
+      let is_original = segments_to_merge.get(seg_id).copied();
       if let Some(Some(_)) = is_original {
-        if merging.contains(&seg.seg_info) {
+        if merging.contains(seg_id) {
           force_merge_running = true;
           false
         } else {
@@ -820,7 +827,9 @@ where
     let mut found_deletes = false;
 
     sorted_size_and_docs.retain(|seg| {
-      let is_original = segments_to_merge.get(&seg.seg_info).copied();
+      let is_original = segments_to_merge
+        .get(seg.seg_info.info.get_id_key())
+        .copied();
 
       if seg.del_count != 0 {
         // This is forceMerge; all segments with deleted docs should be merged.
@@ -850,7 +859,8 @@ where
     let sorted_size_and_docs_len = sorted_size_and_docs.len();
     // We only bail if there are no deletions
     if !found_deletes {
-      let info_zero = &sorted_size_and_docs[0].seg_info;
+      let info_zero = sorted_size_and_docs[0].seg_info;
+      let info_zero_id = info_zero.info.get_id_key();
 
       let already = if max_segment_count != i32::MAX as usize
         && max_segment_count > 1
@@ -860,14 +870,8 @@ where
       } else {
         max_segment_count == 1
           && sorted_size_and_docs_len == 1
-          && (segments_to_merge.get(info_zero).is_some()
-            || self.has_merged(
-              infos,
-              infos
-                .index_of(info_zero)
-                .ok_or_else(|| LuceneError::illegal_argument("Missing numeric value"))?,
-              merge_context,
-            )?)
+          && (segments_to_merge.get(info_zero_id).is_some()
+            || self.has_merged(infos, info_zero, merge_context)?)
       };
 
       if already {
@@ -891,7 +895,12 @@ where
       let all_of_them: Vec<SegmentCommitInfoMeta> = sorted_size_and_docs
         .iter()
         .map(|s| {
-          SegmentCommitInfoMeta::new(s.seg_info.clone(), s.size_in_seg, s.max_doc, s.name.clone())
+          SegmentCommitInfoMeta::new(
+            s.seg_info.info.get_id_key().to_string(),
+            s.size_in_seg,
+            s.max_doc,
+            s.seg_info.info.name.clone(),
+          )
         })
         .collect();
       spec.add(OneMerge::from_meta(all_of_them.as_ref())?);
@@ -918,10 +927,10 @@ where
           || initial_candidate_size < 2
         {
           candidate.push(SegmentCommitInfoMeta::new(
-            sorted_size_and_doc.seg_info.clone(),
+            sorted_size_and_doc.seg_info.info.get_id_key().to_string(),
             sorted_size_and_doc.size_in_seg,
             sorted_size_and_doc.max_doc,
-            sorted_size_and_doc.name.clone(),
+            sorted_size_and_doc.seg_info.info.name.clone(),
           ));
           index -= 1;
           current_candidate_bytes += current_segment_size;
@@ -991,7 +1000,7 @@ where
       let pct_deletes = 100.0 * (seg.del_count as f64) / (seg.max_doc as f64);
       !(merge_context
         .get_merging_segments(inner)
-        .contains(&seg.seg_info)
+        .contains(seg.seg_info.info.get_id_key())
         || pct_deletes <= self.force_merge_deletes_pct_allowed)
     });
 
@@ -1025,26 +1034,37 @@ enum MergeType {
   ForceMerge,
   ForceMergeDeletes,
 }
-#[derive(Clone)]
-struct SegmentSizeAndDocs {
-  seg_info: String,
+struct SegmentSizeAndDocs<'a, D>
+where
+  D: Directory,
+{
+  seg_info: &'a SegmentCommitInfo<D>,
   /// Size of the segment in bytes, pro-rated by the number of live documents.
   size_in_bytes: i64,
   size_in_seg: i64,
   del_count: i32,
   max_doc: i32,
-  name: String,
 }
 
-impl SegmentSizeAndDocs {
-  fn new<D>(info: &SegmentCommitInfo<D>, size_in_bytes: i64, seg_del_count: i32) -> Result<Self>
-  where
-    D: Directory,
-  {
+impl<D> Copy for SegmentSizeAndDocs<'_, D> where D: Directory {}
+
+impl<D> Clone for SegmentSizeAndDocs<'_, D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    *self
+  }
+}
+
+impl<'a, D> SegmentSizeAndDocs<'a, D>
+where
+  D: Directory,
+{
+  fn new(info: &'a SegmentCommitInfo<D>, size_in_bytes: i64, seg_del_count: i32) -> Result<Self> {
     let max_doc = info.info.max_doc()?;
     Ok(Self {
-      seg_info: info.info.get_id_key().to_string(),
-      name: info.info.name.clone(),
+      seg_info: info,
       size_in_bytes,
       size_in_seg: info.size_in_bytes()?,
       del_count: seg_del_count,

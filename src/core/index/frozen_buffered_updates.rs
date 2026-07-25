@@ -547,6 +547,9 @@ impl FrozenBufferedUpdates {
         continue;
       }
 
+      let info = infos
+        .index_of(&seg_state.rld.info_id)
+        .ok_or_else(|| LuceneError::illegal_state("not find in IndexWriter's SegmentInfos"))?;
       let mut iter = self.delete_terms.iterator()?;
       {
         let mut inner = seg_state.rld.inner.lock();
@@ -559,9 +562,6 @@ impl FrozenBufferedUpdates {
               if doc_id == NO_MORE_DOCS {
                 break;
               }
-              let info = infos.index_of(&seg_state.rld.info_id).ok_or_else(|| {
-                LuceneError::illegal_state("not find in IndexWriter's SegmentInfos")
-              })?;
               if seg_state.rld.delete(doc_id, info, Some(&mut inner))? {
                 del_count += 1;
               }
