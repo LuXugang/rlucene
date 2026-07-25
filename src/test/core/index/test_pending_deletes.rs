@@ -19,7 +19,7 @@ use crate::core::codecs::live_docs_format::LiveDocsFormat;
 use crate::core::codecs::{Codec, codec};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesBase, PendingDeletesEnum};
-use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::test_framework::core::util::lucene_test_case::random;
 
@@ -66,10 +66,7 @@ mod test_pending_deletes_base_tests {
 }
 
 impl TestPendingDeletesBase for TestPendingDeletes {
-  fn new_pending_deletes<D>(
-    &self,
-    commit_info: &SegmentCommitInfoMeta<D>,
-  ) -> Result<PendingDeletesEnum>
+  fn new_pending_deletes<D>(&self, commit_info: &SegmentCommitInfo<D>) -> Result<PendingDeletesEnum>
   where
     D: Directory,
   {
@@ -80,7 +77,7 @@ impl TestPendingDeletesBase for TestPendingDeletes {
 pub(crate) trait TestPendingDeletesBase {
   fn new_pending_deletes<D>(
     &self,
-    commit_info: &SegmentCommitInfoMeta<D>,
+    commit_info: &SegmentCommitInfo<D>,
   ) -> Result<PendingDeletesEnum>
   where
     D: Directory;
@@ -105,8 +102,7 @@ pub(crate) trait TestPendingDeletesBase {
       None,
     )?;
     let commit_info = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
-    let meta = commit_info.to_meta()?;
-    let mut deletes = self.new_pending_deletes(&meta)?;
+    let mut deletes = self.new_pending_deletes(&commit_info)?;
     assert!(deletes.get_live_docs().is_none());
 
     let doc_to_delete = random.random_range(0..=7);
@@ -155,8 +151,7 @@ pub(crate) trait TestPendingDeletesBase {
     let mut commit_info =
       SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
 
-    let meta = commit_info.to_meta()?;
-    let mut deletes = self.new_pending_deletes(&meta)?;
+    let mut deletes = self.new_pending_deletes(&commit_info)?;
     assert!(!deletes.write_live_docs(dir.clone(), &mut commit_info)?);
     assert_eq!(dir.list_all()?.len(), 0);
 
@@ -254,8 +249,7 @@ pub(crate) trait TestPendingDeletesBase {
       &field_infos,
       &IOContext::default_io_context()?,
     )?;
-    let meta = commit_info.to_meta()?;
-    let mut deletes = self.new_pending_deletes(&meta)?;
+    let mut deletes = self.new_pending_deletes(&commit_info)?;
 
     for i in 0..3 {
       assert!(deletes.delete(i, &commit_info)?);

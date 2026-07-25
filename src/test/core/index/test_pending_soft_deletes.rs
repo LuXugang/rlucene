@@ -36,7 +36,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::pending_deletes::{PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
-use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -85,10 +85,7 @@ mod test_pending_deletes_base_tests {
 }
 
 impl TestPendingDeletesBase for TestPendingSoftDeletes {
-  fn new_pending_deletes<D>(
-    &self,
-    commit_info: &SegmentCommitInfoMeta<D>,
-  ) -> Result<PendingDeletesEnum>
+  fn new_pending_deletes<D>(&self, commit_info: &SegmentCommitInfo<D>) -> Result<PendingDeletesEnum>
   where
     D: Directory,
   {
@@ -139,8 +136,7 @@ fn test_hard_delete_soft_deleted() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info: &SegmentCommitInfo<_> = segment_reader.get_segment_info();
-  let meta = segment_info.to_meta()?;
-  let mut pending_soft_deletes = match TestPendingSoftDeletes.new_pending_deletes(&meta)? {
+  let mut pending_soft_deletes = match TestPendingSoftDeletes.new_pending_deletes(segment_info)? {
     PendingDeletesEnum::Soft(deletes) => deletes,
     PendingDeletesEnum::PD(_) => unreachable!(),
   };
@@ -202,8 +198,7 @@ fn test_delete_soft() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info: &SegmentCommitInfo<_> = segment_reader.get_segment_info();
-  let meta = segment_info.to_meta()?;
-  let mut pending_soft_deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
+  let mut pending_soft_deletes = TestPendingSoftDeletes.new_pending_deletes(segment_info)?;
   pending_soft_deletes.on_new_reader(segment_reader, segment_info)?;
   assert_eq!(0, pending_soft_deletes.num_pending_deletes());
   assert_eq!(1, pending_soft_deletes.get_del_count(segment_info));
@@ -230,8 +225,7 @@ fn test_delete_soft() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info: &SegmentCommitInfo<_> = segment_reader.get_segment_info();
-  let meta = segment_info.to_meta()?;
-  pending_soft_deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
+  pending_soft_deletes = TestPendingSoftDeletes.new_pending_deletes(segment_info)?;
   pending_soft_deletes.on_new_reader(segment_reader, segment_info)?;
   assert_eq!(0, pending_soft_deletes.num_pending_deletes());
   assert_eq!(2, pending_soft_deletes.get_del_count(segment_info));
@@ -282,8 +276,7 @@ fn test_apply_updates() -> Result<()> {
   let leaves = context.leaves()?;
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
-  let meta = commit_info.to_meta()?;
-  let mut deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
+  let mut deletes = TestPendingSoftDeletes.new_pending_deletes(&commit_info)?;
   deletes.on_new_reader(segment_reader, &commit_info)?;
   reader.close()?;
   writer.close()?;
@@ -407,8 +400,7 @@ fn test_update_applied_only_once() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info = segment_reader.get_segment_info();
-  let meta = segment_info.to_meta()?;
-  let mut deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
+  let mut deletes = TestPendingSoftDeletes.new_pending_deletes(segment_info)?;
   deletes.on_new_reader(segment_reader, segment_info)?;
   let field_info = FieldInfo::new(
     "_soft_deletes",
@@ -497,8 +489,7 @@ fn test_reset_on_update() -> Result<()> {
   assert_eq!(1, leaves.len());
   let segment_reader = leaves[0].reader();
   let segment_info = segment_reader.get_segment_info();
-  let meta = segment_info.to_meta()?;
-  let mut deletes = TestPendingSoftDeletes.new_pending_deletes(&meta)?;
+  let mut deletes = TestPendingSoftDeletes.new_pending_deletes(segment_info)?;
   deletes.on_new_reader(segment_reader, segment_info)?;
   let field_info = FieldInfo::new(
     "_soft_deletes",

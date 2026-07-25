@@ -158,11 +158,11 @@ where
     let mut old_segments: HashMap<String, Option<bool>> = HashMap::new();
     for i in 0..segment_infos.size() {
       if let Some(sci) = segment_infos.info(i) {
-        let seg_key = sci.info.get_id_key().to_string();
-        if let Some(v) = segments_to_merge.get(&seg_key)
+        let seg_key = sci.info.get_id_key();
+        if let Some(v) = segments_to_merge.get(seg_key)
           && Self::should_upgrade_segment(sci)
         {
-          old_segments.insert(seg_key, *v);
+          old_segments.insert(seg_key.to_string(), *v);
         }
       }
     }
@@ -193,9 +193,12 @@ where
       let mut new_infos: Vec<SegmentDocAndID> = Vec::new();
       for i in 0..segment_infos.size() {
         if let Some(sci) = segment_infos.info(i) {
-          let seg_key = sci.info.get_id_key().to_string();
-          if old_segments.contains_key(&seg_key) {
-            new_infos.push(SegmentDocAndID::new(seg_key, sci.info.max_doc()?));
+          let seg_key = sci.info.get_id_key();
+          if old_segments.contains_key(seg_key) {
+            new_infos.push(SegmentDocAndID::new(
+              seg_key.to_string(),
+              sci.info.max_doc()?,
+            ));
           }
         }
       }

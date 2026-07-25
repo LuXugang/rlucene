@@ -22,7 +22,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesEnum};
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
-use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::sorter::DocMapImpl;
@@ -145,7 +145,7 @@ where
     })
   }
   /// Asserts this info still exists in IW's segment infos
-  pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfoMeta<D>) -> bool {
+  pub(crate) fn assert_info_is_live(&self, _info: &SegmentCommitInfo<D>) -> bool {
     // TODO IMPORTANT
     true
   }
@@ -176,14 +176,21 @@ where
   /// Returns true iff any of the buffered readers and updates has at least one pending delete
   pub(crate) fn any_deletions(&self, infos: &SegmentInfos<D>) -> Result<bool> {
     let inner = self.inner.lock();
-    for rld in inner.reader_map.values() {
-      let info = match infos.index_of(&rld.info_id) {
-        Some(info) => info,
-        None => return Err(LuceneError::illegal_state("SegmentCommitInfo missing")),
-      };
-      if rld.get_del_count(info) > 0 {
-        return Ok(true);
+    let mut found = 0;
+    for info in infos
+      .iter()
+      .iter()
+      .chain(infos.dropped_segment_commit_infos.values())
+    {
+      if let Some(rld) = inner.reader_map.get(info.info.get_id_key()) {
+        found += 1;
+        if rld.get_del_count(info) > 0 {
+          return Ok(true);
+        }
       }
+    }
+    if found != inner.reader_map.len() {
+      return Err(LuceneError::illegal_state("SegmentCommitInfo missing"));
     }
     Ok(false)
   }
@@ -345,7 +352,7 @@ where
           ids
         ))
       })?;
-      if let Some(rld) = self.get(info.to_meta()?, false, None)? {
+      if let Some(rld) = self.get(info, false, None)? {
         any |= rld.write_field_updates(
           &self.directory,
           global_field_number,
@@ -438,7 +445,7 @@ where
 
         if changed {
           // Make sure we only write del docs for a live segment:
-          debug_assert!(self.assert_info_is_live(&info.to_meta()?));
+          debug_assert!(self.assert_info_is_live(info));
 
           // Must checkpoint because we just
           // created new _X_N.del and field updates files;
@@ -468,15 +475,15 @@ where
   /// If `create` is `true`, you must later call [`release(ReadersAndUpdates, bool)`](Self::release).
   pub(crate) fn get(
     &self,
-    info: SegmentCommitInfoMeta<D>,
+    info: &SegmentCommitInfo<D>,
     create: bool,
     sort_map: Option<Arc<DocMapImpl>>,
   ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
     let mut inner = self.inner.lock();
     debug_assert!(
-      info.dir.identity() == self.original_directory.identity(),
+      info.info.dir.identity() == self.original_directory.identity(),
       "info.dir={} vs {}",
-      info.dir,
+      info.info.dir,
       self.original_directory
     );
 
@@ -489,15 +496,16 @@ where
       return Err(LuceneError::already_closed("ReaderPool is already closed"));
     }
 
-    let rld = if let Some(rld) = inner.reader_map.get(&info.id) {
+    let info_id = info.info.get_id_key();
+    let rld = if let Some(rld) = inner.reader_map.get(info_id) {
       // TODO
       debug_assert!(
-        rld.info_id == info.id,
+        rld.info_id == info_id,
         "rld.info={} info={} isLive?={} ",
         rld.info_id,
         info,
         // self.assert_info_is_live(&rld.get_info_id(None)),
-        self.assert_info_is_live(&info),
+        self.assert_info_is_live(info),
       );
       rld.clone()
     } else {
@@ -506,12 +514,14 @@ where
       }
       let mut v = ReadersAndUpdates::new(
         self.index_created_version_major,
-        info.id.clone(),
-        self.new_pending_deletes(&info)?,
+        info_id.to_string(),
+        self.new_pending_deletes(info)?,
       );
       v.sort_map = sort_map;
       let rld = Arc::new(v);
-      inner.reader_map.insert(info.id.clone(), Arc::clone(&rld));
+      inner
+        .reader_map
+        .insert(info_id.to_string(), Arc::clone(&rld));
       rld
     };
 
@@ -523,7 +533,7 @@ where
 
     Ok(Some(rld))
   }
-  fn new_pending_deletes(&self, info: &SegmentCommitInfoMeta<D>) -> Result<PendingDeletesEnum> {
+  fn new_pending_deletes(&self, info: &SegmentCommitInfo<D>) -> Result<PendingDeletesEnum> {
     match &self.soft_deletes_field {
       Some(field) => Ok(PendingDeletesEnum::Soft(PendingSoftDeletes::new(
         field, info,

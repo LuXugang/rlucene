@@ -2076,10 +2076,13 @@ where
       info: None,
     })
   }
-  pub fn from_meta(segments: &[SegmentCommitInfoMeta]) -> Result<Self> {
+  pub fn from_meta(segments: &[SegmentCommitInfoMeta<'_, D>]) -> Result<Self> {
     let mut segments_meta = Vec::with_capacity(segments.len());
     for v in segments {
-      segments_meta.push(SegmentDocAndID::new(v.seg_id.clone(), v.max_doc))
+      segments_meta.push(SegmentDocAndID::new(
+        v.seg_info.info.get_id_key().to_string(),
+        v.max_doc,
+      ))
     }
     Self::new(segments_meta)
   }

@@ -21,7 +21,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, TryIntoInt};
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -417,16 +416,6 @@ where
       self.id.as_ref()
     }
   }
-
-  pub(crate) fn to_meta(&self) -> Result<SegmentCommitInfoMeta<D>> {
-    Ok(SegmentCommitInfoMeta::with_deletions(
-      self.info.dir.clone(),
-      self.info.max_doc()?,
-      self.info.get_id_key().to_string(),
-      self.del_gen != -1,
-      self.soft_del_count != 0,
-    ))
-  }
 }
 pub fn validate_soft_del_count(del_count: i32, max_doc: i32, soft_del_count: i32) -> Result<()> {
   if soft_del_count < 0 || soft_del_count > max_doc {
@@ -443,73 +432,6 @@ pub fn validate_soft_del_count(del_count: i32, max_doc: i32, soft_del_count: i32
     soft_del_count
   );
   Ok(())
-}
-pub struct SegmentCommitInfoMeta<D>
-where
-  D: Directory,
-{
-  pub(crate) dir: Arc<D>,
-  max_doc: Option<i32>,
-  pub(crate) id: String,
-  has_deletions: Option<bool>,
-  has_soft_deletions: Option<bool>,
-}
-impl<D> SegmentCommitInfoMeta<D>
-where
-  D: Directory,
-{
-  pub(crate) fn with_deletions(
-    dir: Arc<D>,
-    max_doc: i32,
-    id: String,
-    has_deletions: bool,
-    has_soft_deletions: bool,
-  ) -> Self {
-    Self {
-      dir,
-      max_doc: Some(max_doc),
-      id,
-      has_deletions: Some(has_deletions),
-      has_soft_deletions: Some(has_soft_deletions),
-    }
-  }
-  pub(crate) fn new(dir: Arc<D>, id: String) -> Self {
-    Self {
-      dir,
-      max_doc: None,
-      id,
-      has_deletions: None,
-      has_soft_deletions: None,
-    }
-  }
-  pub(crate) fn has_deletions(&self) -> Result<bool> {
-    self
-      .has_deletions
-      .ok_or_else(|| LuceneError::illegal_argument("deletions not init, could not be used"))
-  }
-  pub(crate) fn has_soft_deletions(&self) -> Result<bool> {
-    self
-      .has_soft_deletions
-      .ok_or_else(|| LuceneError::illegal_argument("soft deletions not init, could not be used"))
-  }
-  pub(crate) fn max_doc(&self) -> Result<i32> {
-    self
-      .max_doc
-      .ok_or_else(|| LuceneError::illegal_argument("maxDoc not init, could not be used"))
-  }
-}
-
-impl<D> Display for SegmentCommitInfoMeta<D>
-where
-  D: Directory,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "SegmentCommitInfoMeta(dir={}, maxDoc={:?}, id={}, hasDeletions={:?})",
-      self.dir, self.max_doc, self.id, self.has_deletions
-    )
-  }
 }
 /// Implement `Display` for `SegmentCommitInfo`.
 impl<D> std::fmt::Display for SegmentCommitInfo<D>

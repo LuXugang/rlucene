@@ -23,7 +23,7 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::pending_deletes::{DocBits, PendingDeletes, PendingDeletesBase};
-use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::search::field_exists_query::get_doc_values_doc_id_set_iterator;
 use crate::core::store::IOContext;
@@ -41,15 +41,15 @@ pub(crate) struct PendingSoftDeletes {
   pub(crate) base: PendingDeletes,
 }
 impl PendingSoftDeletes {
-  pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfoMeta<D>) -> Result<Self>
+  pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfo<D>) -> Result<Self>
   where
     D: Directory,
   {
     let base = PendingDeletes::with(
-      info.id.clone(),
+      info.info.get_id_key().to_string(),
       None,
-      !info.has_deletions()? && !info.has_soft_deletions()?,
-      info.max_doc()?,
+      info.get_del_count_with_soft_deletes(true) == 0,
+      info.info.max_doc()?,
     );
     let hard_deletes = PendingDeletes::new(info)?;
     Ok(Self {

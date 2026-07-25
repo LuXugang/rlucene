@@ -1119,7 +1119,7 @@ where
     let info_id_owned = leaf_reader.get_original_segment_info_id().to_string();
     let info_id = info_id_owned.as_str();
     if let Some(info) = inner.segment_infos.index_of_live(info_id) {
-      let rld_opt = self.get_pooled_instance(info.to_meta()?, false)?;
+      let rld_opt = self.get_pooled_instance(info, false)?;
       if let Some(rld) = rld_opt {
         let _guard = self.buffered_updates_stream_lock.lock();
         to_apply.run(leaf_doc_id, info_id, &rld, self, inner)?;
@@ -1572,7 +1572,7 @@ where
           let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
             LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
           })?;
-          let rld_opt = self.get_pooled_instance(sci.to_meta()?, true)?;
+          let rld_opt = self.get_pooled_instance(sci, true)?;
           match rld_opt {
             Some(v) => v,
             None => {
@@ -1947,11 +1947,9 @@ where
           .info
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("merge info is None"))?;
-        let rld = self
-          .get_pooled_instance(info.to_meta()?, true)?
-          .ok_or_else(|| {
-            LuceneError::illegal_state("failed to get pooled instance for merged segment warmer")
-          })?;
+        let rld = self.get_pooled_instance(info, true)?.ok_or_else(|| {
+          LuceneError::illegal_state("failed to get pooled instance for merged segment warmer")
+        })?;
         let sr = {
           let mut inner = rld.inner.lock();
           readers_and_updates::get_reader(
@@ -3010,7 +3008,7 @@ where
       self.checkpoint(&mut *inner)?;
       let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
       if packet_any && let Some(sort_map) = sort_map {
-        let _ = self.get_pooled_instance_with_sort_map(new_segment.to_meta()?, true, sort_map)?;
+        let _ = self.get_pooled_instance_with_sort_map(new_segment, true, sort_map)?;
       }
       // this is a corner case where documents delete them-self with soft deletes. This is used to
       // build delete tombstones etc. in this case we haven't seen any updates to the DV in this
@@ -3034,7 +3032,7 @@ where
       // accurate numbers
       // for the soft delete right after we flushed to disk.
       if has_initial_soft_deleted || is_fully_hard_deleted {
-        let rld = self.get_pooled_instance(new_segment.to_meta()?, true)?;
+        let rld = self.get_pooled_instance(new_segment, true)?;
         let result: Result<()> = (|| {
           match rld {
             None => {
@@ -4072,11 +4070,9 @@ where
             let sci = segment_infos.index_of(sci_id).ok_or_else(|| {
               LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
             })?;
-            let rld = self
-              .get_pooled_instance(sci.to_meta()?, true)?
-              .ok_or_else(|| {
-                LuceneError::illegal_state("failed to get pooled instance for merge")
-              })?;
+            let rld = self.get_pooled_instance(sci, true)?.ok_or_else(|| {
+              LuceneError::illegal_state("failed to get pooled instance for merge")
+            })?;
             // Calling setIsMerging is important since it causes the ReadersAndUpdates to record
             // all doc values updates in a separate map in order to be applied to the merged
             // segment after it's done.
@@ -4134,7 +4130,7 @@ where
     let mut to_drop = Vec::new();
 
     for info in inner.segment_infos.iter() {
-      if let Some(rld) = self.reader_pool.get(info.to_meta()?, false, None)?
+      if let Some(rld) = self.reader_pool.get(info, false, None)?
         && self.is_fully_deleted(rld.as_ref(), info, inner)?
       {
         to_drop.push(info.info.get_id_key().to_string());
@@ -4241,11 +4237,7 @@ where
               let Some(info) = inner.segment_infos.index_of_mut(&rld.info_id) else {
                 continue;
               };
-              if self
-                .reader_pool
-                .get(info.to_meta()?, false, None)?
-                .is_none()
-              {
+              if self.reader_pool.get(info, false, None)?.is_none() {
                 continue;
               }
 
@@ -4288,7 +4280,7 @@ where
   pub fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
     self.do_ensure_open(false)?;
     self.validate(info)?;
-    if let Some(rld) = self.get_pooled_instance(info.to_meta()?, false)? {
+    if let Some(rld) = self.get_pooled_instance(info, false)? {
       Ok(rld.get_del_count(info)) // get the full count from here since SCI might change concurrently
     } else {
       let del_count = info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
@@ -4707,12 +4699,9 @@ where
 
     let sci = merge.info.as_ref().unwrap();
     // Lazy init (only when we find a delete or update to carry over):
-    let merged_deletes_and_updates =
-      self
-        .get_pooled_instance(sci.to_meta()?, true)?
-        .ok_or_else(|| {
-          LuceneError::illegal_state("failed to get pooled instance for a merged segment")
-        })?;
+    let merged_deletes_and_updates = self.get_pooled_instance(sci, true)?.ok_or_else(|| {
+      LuceneError::illegal_state("failed to get pooled instance for a merged segment")
+    })?;
 
     let _ = merged_deletes_and_updates.get_del_count(sci);
 
@@ -4729,11 +4718,9 @@ where
 
       let max_doc = info.info.max_doc()?;
 
-      let rld = self
-        .get_pooled_instance(info.to_meta()?, false)?
-        .ok_or_else(|| {
-          LuceneError::illegal_state(format!("seg={} not found in reader pool", info.info.name))
-        })?;
+      let rld = self.get_pooled_instance(info, false)?.ok_or_else(|| {
+        LuceneError::illegal_state(format!("seg={} not found in reader pool", info.info.name))
+      })?;
 
       let seg_doc_map = &doc_maps[i];
 
@@ -5450,11 +5437,13 @@ where
       let c = |inner: &mut Inner<D>, mr: &MergeReaderSR<D>| {
         let sr = &mr.reader;
         if uses_pooled_readers {
-          let info_meta = SegmentCommitInfoMeta::new(
-            sr.get_original_dir(),
-            sr.get_original_segment_info_id().to_string(),
-          );
-          match self.get_pooled_instance(info_meta, false)? {
+          let original_si = inner
+            .segment_infos
+            .index_of(sr.get_original_segment_info_id())
+            .ok_or_else(|| {
+              LuceneError::illegal_state("merge reader's original segment info could not be found")
+            })?;
+          match self.get_pooled_instance(original_si, false)? {
             Some(rld) => {
               if drop {
                 rld.drop_changes();
@@ -6121,7 +6110,7 @@ where
 
   pub(crate) fn get_pooled_instance(
     &self,
-    info: SegmentCommitInfoMeta<D>,
+    info: &SegmentCommitInfo<D>,
     create: bool,
   ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
     self.get_pooled_instance_helper(info, create, None)
@@ -6129,7 +6118,7 @@ where
 
   pub(crate) fn get_pooled_instance_with_sort_map(
     &self,
-    info: SegmentCommitInfoMeta<D>,
+    info: &SegmentCommitInfo<D>,
     create: bool,
     sort_map: Arc<DocMapImpl>,
   ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
@@ -6138,7 +6127,7 @@ where
 
   fn get_pooled_instance_helper(
     &self,
-    info: SegmentCommitInfoMeta<D>,
+    info: &SegmentCommitInfo<D>,
     create: bool,
     sort_map: Option<Arc<DocMapImpl>>,
   ) -> Result<Option<Arc<ReadersAndUpdates<D>>>> {
@@ -6204,18 +6193,20 @@ where
       {
         let mut inner = self.inner.lock();
         let v = self.get_infos_to_apply(updates, &inner)?;
-        let keys = match &v {
+        match &v {
           InfoFrom::None => break,
           InfoFrom::Updates => {
-            vec![updates.private_segment.clone().unwrap()]
+            let info_id = updates.private_segment.as_deref().unwrap();
+            let info = inner.segment_infos.index_of_live(info_id).ok_or_else(|| {
+              LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", info_id))
+            })?;
+            del_files.extend(info.files()?);
           },
-          InfoFrom::All => inner.segment_infos.seg_ids(),
-        };
-        for id in &keys {
-          let info = inner.segment_infos.index_of(id).ok_or_else(|| {
-            LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", id))
-          })?;
-          del_files.extend(info.files()?);
+          InfoFrom::All => {
+            for info in inner.segment_infos.iter() {
+              del_files.extend(info.files()?);
+            }
+          },
         }
         let v = match v {
           InfoFrom::None => return Err(LuceneError::unreachable("")),
@@ -6421,10 +6412,17 @@ where
     let mut tot_del_count: i64 = 0;
 
     let res: Result<()> = (|| {
-      for seg_state in seg_states.iter_mut() {
-        if success {
+      if success {
+        let infos_by_id: HashMap<_, _> = inner
+          .segment_infos
+          .iter()
+          .iter()
+          .chain(inner.segment_infos.dropped_segment_commit_infos.values())
+          .map(|info| (info.info.get_id_key(), info))
+          .collect();
+        for seg_state in seg_states.iter_mut() {
           let info_id = &seg_state.rld.info_id;
-          let info = match inner.segment_infos.index_of(info_id) {
+          let info = match infos_by_id.get(info_id.as_str()).copied() {
             Some(info) => info,
             None => Err(LuceneError::illegal_state(
               "could not find segment info from IndexWriter#segment_infos",
@@ -6448,7 +6446,7 @@ where
               .get_merge_policy()
               .keep_fully_deleted_segment(|| Ok(seg_state.reader.clone()))?
           {
-            all_deleted.push(seg_state.reader.original_si_id.clone());
+            all_deleted.push(seg_state.reader.get_original_segment_info_id().to_string());
           }
         }
       }
@@ -6525,21 +6523,34 @@ where
     let mut seg_states = Vec::new();
 
     let result: Result<()> = (|| {
-      let infos = match info_from {
+      match info_from {
         // all segments, `segments_idx`'s values are sorted by segment name
-        None => inner.segment_infos.seg_ids(),
-        Some(it) => vec![it],
-      };
-      for info_id in infos {
-        let info = inner.segment_infos.index_of(&info_id).unwrap();
-        if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(&info_id) {
-          let rld = self
-            .get_pooled_instance(info.to_meta()?, true)?
-            .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
-          let seg_state = SegmentState::new(rld, info)?;
-          seg_states.push(seg_state);
-          already_seen.insert(info_id);
-        }
+        None => {
+          for info in inner.segment_infos.iter() {
+            let info_id = info.info.get_id_key();
+            if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(info_id) {
+              let rld = self
+                .get_pooled_instance(info, true)?
+                .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
+              let seg_state = SegmentState::new(rld, info)?;
+              seg_states.push(seg_state);
+              already_seen.insert(info_id.to_string());
+            }
+          }
+        },
+        Some(info_id) => {
+          let info = inner.segment_infos.index_of_live(&info_id).ok_or_else(|| {
+            LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", info_id))
+          })?;
+          if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(&info_id) {
+            let rld = self
+              .get_pooled_instance(info, true)?
+              .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
+            let seg_state = SegmentState::new(rld, info)?;
+            seg_states.push(seg_state);
+            already_seen.insert(info_id);
+          }
+        },
       }
       Ok(())
     })();
@@ -7445,7 +7456,7 @@ where
 
     let merge_policy = self.config.get_merge_policy();
 
-    let num_deletes_to_merge = match self.get_pooled_instance(info.to_meta()?, false)? {
+    let num_deletes_to_merge = match self.get_pooled_instance(info, false)? {
       Some(rld) => rld.num_deletes_to_merge(merge_policy, info)?,
       None => {
         // If we don't have a pooled instance, just return hard deletes; this is safe.
@@ -7470,10 +7481,7 @@ where
     self.do_ensure_open(false).unwrap();
     self.validate(info).unwrap();
 
-    if let Some(rld) = self
-      .get_pooled_instance(info.to_meta().unwrap(), false)
-      .unwrap()
-    {
+    if let Some(rld) = self.get_pooled_instance(info, false).unwrap() {
       // get the full count from here since SCI might change concurrently
       rld.get_del_count(info)
     } else {
@@ -7619,7 +7627,7 @@ where
   ) -> Result<DefaultLeafReader<D>> {
     let rld = self
       .writer
-      .get_pooled_instance(sci.to_meta()?, true)?
+      .get_pooled_instance(sci, true)?
       .ok_or_else(|| LuceneError::illegal_state("should always be able to get pooled instance"))?;
     let mut result = rld
       .get_read_only_clone(&IOContext::default_io_context()?, sci)?
@@ -7940,9 +7948,7 @@ use crate::core::index::one_merge_wrapping_merge_policy::{
 use crate::core::index::pending_soft_deletes::count_soft_deletes;
 use crate::core::index::reader_pool::ReaderPool;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
-use crate::core::index::segment_commit_info::{
-  SegmentCommitInfo, SegmentCommitInfoMeta, validate_soft_del_count,
-};
+use crate::core::index::segment_commit_info::{SegmentCommitInfo, validate_soft_del_count};
 use crate::core::index::segment_merger::SegmentMerger;
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::simple_merged_segment_warmer::SimpleMergedSegmentWarmer;

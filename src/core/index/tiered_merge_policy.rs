@@ -425,10 +425,9 @@ impl TieredMergePolicy {
           }
 
           candidate.push(SegmentCommitInfoMeta::new(
-            seg_size_docs.seg_info.info.get_id_key().to_string(),
+            seg_size_docs.seg_info,
             seg_size_docs.size_in_seg,
             seg_size_docs.max_doc,
-            seg_size_docs.seg_info.info.name.clone(),
           ));
           bytes_this_merge += seg_bytes;
           doc_count_this_merge += seg_doc_count as i64;
@@ -438,10 +437,11 @@ impl TieredMergePolicy {
         // segments, and already pre-excluded the too-large segments:
         debug_assert!(!candidate.is_empty());
 
-        let max_candidate_segment_size = match seg_infos_sizes.get(candidate[0].seg_id.as_str()) {
-          Some(c) => c,
-          None => return Err(LuceneError::illegal_state("could not  find candidate")),
-        };
+        let max_candidate_segment_size =
+          match seg_infos_sizes.get(candidate[0].seg_info.info.get_id_key()) {
+            Some(c) => c,
+            None => return Err(LuceneError::illegal_state("could not  find candidate")),
+          };
 
         if !hit_too_large
           && merge_type == MergeType::Natural
@@ -501,7 +501,7 @@ impl TieredMergePolicy {
       // whether we're going to return this list in the spec of not, we need to remove it from
       // consideration on the next loop.
       for s in best {
-        to_be_merged.insert(s.seg_id);
+        to_be_merged.insert(s.seg_info.info.get_id_key());
       }
     }
   }
@@ -509,7 +509,7 @@ impl TieredMergePolicy {
   /// Expert: scores one merge; implementations may provide custom behavior.
   fn score<D>(
     &self,
-    candidate: &[SegmentCommitInfoMeta],
+    candidate: &[SegmentCommitInfoMeta<'_, D>],
     hit_too_large: bool,
     segments_sizes: &HashMap<&str, SegmentSizeAndDocs<'_, D>>,
   ) -> Result<MergeScoreImpl>
@@ -522,7 +522,7 @@ impl TieredMergePolicy {
 
     for info in candidate {
       let seg_bytes = segments_sizes
-        .get(info.seg_id.as_str())
+        .get(info.seg_info.info.get_id_key())
         .unwrap()
         .size_in_bytes;
       tot_after_merge_bytes += seg_bytes;
@@ -546,7 +546,7 @@ impl TieredMergePolicy {
     } else {
       (self.floor_size(
         segments_sizes
-          .get(candidate[0].seg_id.as_str())
+          .get(candidate[0].seg_info.info.get_id_key())
           .unwrap()
           .size_in_bytes,
       ) as f64)
@@ -584,19 +584,23 @@ impl TieredMergePolicy {
     std::cmp::max(self.floor_segment_bytes, bytes)
   }
 }
-pub struct SegmentCommitInfoMeta {
-  pub(crate) seg_id: String,
+pub struct SegmentCommitInfoMeta<'a, D>
+where
+  D: Directory,
+{
+  pub(crate) seg_info: &'a SegmentCommitInfo<D>,
   pub(crate) size_in_seg: i64,
   pub(crate) max_doc: i32,
-  pub(crate) name: String,
 }
-impl SegmentCommitInfoMeta {
-  fn new(seg_id: String, size_in_seg: i64, max_doc: i32, name: String) -> Self {
+impl<'a, D> SegmentCommitInfoMeta<'a, D>
+where
+  D: Directory,
+{
+  fn new(seg_info: &'a SegmentCommitInfo<D>, size_in_seg: i64, max_doc: i32) -> Self {
     Self {
-      seg_id,
+      seg_info,
       size_in_seg,
       max_doc,
-      name,
     }
   }
 }
@@ -892,16 +896,9 @@ where
     // This is the special case of merging down to one segment
     if max_segment_count == 1 && total_merge_bytes < max_merge_bytes {
       let mut spec = DefaultMergeSpecification::new();
-      let all_of_them: Vec<SegmentCommitInfoMeta> = sorted_size_and_docs
+      let all_of_them: Vec<SegmentCommitInfoMeta<'_, D>> = sorted_size_and_docs
         .iter()
-        .map(|s| {
-          SegmentCommitInfoMeta::new(
-            s.seg_info.info.get_id_key().to_string(),
-            s.size_in_seg,
-            s.max_doc,
-            s.seg_info.info.name.clone(),
-          )
-        })
+        .map(|s| SegmentCommitInfoMeta::new(s.seg_info, s.size_in_seg, s.max_doc))
         .collect();
       spec.add(OneMerge::from_meta(all_of_them.as_ref())?);
       return Ok(Some(spec));
@@ -927,10 +924,9 @@ where
           || initial_candidate_size < 2
         {
           candidate.push(SegmentCommitInfoMeta::new(
-            sorted_size_and_doc.seg_info.info.get_id_key().to_string(),
+            sorted_size_and_doc.seg_info,
             sorted_size_and_doc.size_in_seg,
             sorted_size_and_doc.max_doc,
-            sorted_size_and_doc.seg_info.info.name.clone(),
           ));
           index -= 1;
           current_candidate_bytes += current_segment_size;

@@ -464,6 +464,9 @@ impl FrozenBufferedUpdates {
         continue;
       }
 
+      let info = infos
+        .index_of(&seg_state.rld.info_id)
+        .ok_or_else(|| LuceneError::illegal_state("segment is missing"))?;
       let reader_context = Arc::new((seg_state.reader.clone()).get_context()?);
 
       for (i, query0) in self.delete_queries.iter().cloned().enumerate() {
@@ -482,9 +485,6 @@ impl FrozenBufferedUpdates {
 
         if let Some(mut scorer) = scorer {
           let mut it = scorer.iterator_mut();
-          let info = infos
-            .index_of(&seg_state.rld.info_id)
-            .ok_or_else(|| LuceneError::illegal_state("segment is missing"))?;
           if let (Some(sort_map), true) = (seg_state.rld.sort_map.as_ref(), limit != i32::MAX) {
             debug_assert!(self.private_segment.is_some());
 

@@ -24,7 +24,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
-use crate::core::index::segment_commit_info::{SegmentCommitInfo, SegmentCommitInfoMeta};
+use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -64,15 +64,15 @@ impl PendingDeletes {
     v.pending_delete_count = reader.num_deleted_docs()? - info.get_del_count();
     Ok(v)
   }
-  pub(crate) fn new<D>(info_meta: &SegmentCommitInfoMeta<D>) -> Result<Self>
+  pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self>
   where
     D: Directory,
   {
     Ok(PendingDeletes::with(
-      info_meta.id.clone(),
+      info.info.get_id_key().to_string(),
       None,
-      !info_meta.has_deletions()?,
-      info_meta.max_doc()?,
+      !info.has_deletions(),
+      info.info.max_doc()?,
     ))
     // if we don't have deletions we can mark it as initialized since we might receive deletes on a
     // segment
