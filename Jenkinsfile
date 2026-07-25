@@ -6,7 +6,7 @@ pipeline {
     timestamps()
     disableConcurrentBuilds()
     timeout(time: 30, unit: 'MINUTES')
-    buildDiscarder(logRotator(numToKeepStr: '100'))
+    buildDiscarder(logRotator(numToKeepStr: '500'))
   }
 
   triggers {
