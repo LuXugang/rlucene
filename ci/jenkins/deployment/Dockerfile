@@ -31,10 +31,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 
 RUN mkdir -p /opt/cargo && cat > /opt/cargo/config.toml <<'EOF'
 [source.crates-io]
-replace-with = "ustc"
+replace-with = "rsproxy"
 
-[source.ustc]
-registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"
+[source.rsproxy]
+registry = "sparse+https://rsproxy.cn/index/"
 EOF
 
 USER root

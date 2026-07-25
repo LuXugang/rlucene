@@ -14,7 +14,8 @@ disabled as `legency` so its historical build records remain available.
   through `/opt/cargo/bin`.
 - The version-controlled controller image and Compose configuration under
   `ci/jenkins/deployment`. They install `eu-stack` and `gdb` and grant the
-  minimum ptrace capability needed by the dedicated `eu-stack` executable.
+  minimum ptrace capability needed by the dedicated `eu-stack` executable. The
+  image configures Cargo to use the rsproxy sparse registry.
 - Outbound access to GitHub and the configured Rust package mirrors.
 
 Never put credential values in a Jenkinsfile, build parameter, email,
@@ -28,11 +29,8 @@ repository and later builds normally fetch only changes to `main`.
 
 The most recent successfully tested SHA is stored at
 `/var/jenkins_home/ci-state/rlucene-ci/last-successful-sha`. If the current SHA
-is unchanged, Jenkins restores the matching
-`/var/jenkins_home/ci-state/rlucene-ci/Cargo.lock.<sha>` into the clean
-workspace and skips dependency and infrastructure preflight, but still runs
-nextest and doctests. If either cached state file is missing, Jenkins runs the
-full preflight and generates a fresh lock file.
+is unchanged, Jenkins skips dependency and infrastructure preflight, but still
+runs nextest and doctests.
 
 The persistent Cargo target is
 `/var/jenkins_home/cargo-target/rlucene-ci`. Do not run `cargo clean` on every
@@ -44,13 +42,13 @@ Jenkins home and `/tmp`, plus the target directory size.
 The main test command is:
 
 ```sh
-cargo nextest run --locked --profile ci --workspace
+cargo nextest run --profile ci --workspace
 ```
 
 Because nextest does not run Rust doctests, Jenkins also runs:
 
 ```sh
-cargo test --locked --workspace --doc -q
+cargo test --workspace --doc -q
 ```
 
 `.config/nextest.toml` marks an individual test as slow after 60 seconds. A slow

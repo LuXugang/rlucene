@@ -4,6 +4,7 @@ These files are the version-controlled backup of the Jenkins controller
 deployment. The deployed copies live together in `/home/xugang/jenkins` on the
 Jenkins VM. Jenkins configuration, credentials, job history, and workspaces
 remain in the external `jenkins_home` named volume and are not stored here.
+The image uses the rsproxy sparse registry for Cargo dependencies.
 
 No credential value or private key may be added to these files.
 

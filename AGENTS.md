@@ -148,10 +148,8 @@
   - `legency`：旧 Freestyle 测试任务，保持禁用，只用于保留五万多次历史
     构建记录，不再作为主 CI。
 - Jenkins 每两分钟检查一次 `main`。同一 commit 仍会直接运行 nextest
-  和 doctest，但会从
-  `/var/jenkins_home/ci-state/rlucene-ci/Cargo.lock.<sha>` 恢复该 SHA
-  已成功使用的 `Cargo.lock`，跳过依赖/基础设施预检，并复用 Git、Cargo
-  和 target 缓存；新 commit 或缺失对应 lock 缓存时才执行完整预检。
+  和 doctest，但会跳过依赖/基础设施预检并复用 Git、Cargo 和 target
+  缓存；新 commit 才执行完整预检。
 - Jenkins 使用仓库中的配置作为唯一来源。长期维护时优先修改：
   `rlucene/Jenkinsfile`、`rlucene/.config/nextest.toml` 和
   `rlucene/ci/jenkins/README.md`。Jenkins 控制器的 Dockerfile 和
@@ -159,12 +157,16 @@
   Jenkins 页面或虚拟机中临时修改。
 - Jenkins Git SSH 凭据 ID 为 `github-ssh`。只记录凭据 ID，任何 Secret
   或私钥实值都不得写入仓库、记忆、构建参数或日志。
+- Jenkins 容器的 Cargo sparse registry 使用
+  `sparse+https://rsproxy.cn/index/`。2026-07-25 从容器内连续探测时，
+  rsproxy 三次请求均在 0.15 秒内完成；原 USTC sparse index 一次首字节
+  需要 13.6 秒，另两次 15 秒超时且未收到数据，因此不再使用 USTC。
 
 ### nextest、超时和诊断
 
 - 常规 Rust 测试使用
-  `cargo nextest run --locked --profile ci --workspace`；nextest 不运行
-  doctest，因此另行执行 `cargo test --locked --workspace --doc -q`。
+  `cargo nextest run --profile ci --workspace`；nextest 不运行 doctest，
+  因此另行执行 `cargo test --workspace --doc -q`。
 - `.config/nextest.toml` 当前设置：60 秒标记 `SLOW`，
   `terminate-after = 6`，因此 60 秒只产生告警；测试运行到 300 秒时，
   Jenkins 会记录 nextest 当前运行测试、进程树、系统负载、线程 `/proc`
