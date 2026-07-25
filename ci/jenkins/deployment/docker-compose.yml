@@ -1,0 +1,28 @@
+services:
+  jenkins:
+    build: .
+    image: local-jenkins-rust:lts
+    container_name: jenkins
+    restart: unless-stopped
+    cpus: 6
+    mem_limit: 12g
+    cap_add:
+      - SYS_PTRACE
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      JAVA_OPTS: -Xms2g -Xmx8g
+      TZ: Asia/Shanghai
+      RUSTUP_DIST_SERVER: https://mirrors.tuna.tsinghua.edu.cn/rustup
+      RUSTUP_UPDATE_ROOT: https://mirrors.tuna.tsinghua.edu.cn/rustup/rustup
+      RUSTUP_HOME: /opt/rustup
+      CARGO_HOME: /opt/cargo
+      PATH: /opt/cargo/bin:/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
+volumes:
+  jenkins_home:

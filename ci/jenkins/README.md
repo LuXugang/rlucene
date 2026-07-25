@@ -12,8 +12,9 @@ disabled as `legency` so its historical build records remain available.
   `Rustify-All/rlucene`.
 - Rust 1.97.0 with `rustfmt`, `clippy`, and `cargo-nextest` 0.9.140 available
   through `/opt/cargo/bin`.
-- `eu-stack`, `gdb`, or `pstack` is recommended for userspace stack capture.
-  The Jenkins process must also have permission to trace its test processes.
+- The version-controlled controller image and Compose configuration under
+  `ci/jenkins/deployment`. They install `eu-stack` and `gdb` and grant the
+  minimum ptrace capability needed by the dedicated `eu-stack` executable.
 - Outbound access to GitHub and the configured Rust package mirrors.
 
 Never put credential values in a Jenkinsfile, build parameter, email,
@@ -58,6 +59,9 @@ backtrace from `eu-stack`, `gdb`, or `pstack` to
 `nextest-diagnostics.log`. If no debugger is installed or Linux ptrace policy
 blocks attachment, the nextest status, process tree, resource usage, and
 readable `/proc` diagnostics are still preserved.
+
+The deployed container configuration and its verification procedure are
+documented in `ci/jenkins/deployment/README.md`.
 
 An individual test is terminated and reported as `TIMEOUT` only after 360
 seconds. Nextest first sends `SIGTERM`, waits for a 30-second grace period, and

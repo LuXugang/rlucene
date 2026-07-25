@@ -139,15 +139,12 @@
 
 ### 已部署拓扑
 
-- Jenkins CI 已于 2026-07-25 完成并通过真实构建验证。Jenkins
-  对用户可访问的地址是 `http://192.168.3.15:8080/`；Jenkins 所在
-  Ubuntu 虚拟机内部地址是 `192.168.132.129`，SSH 用户是 `xugang`。
-  Mac 不一定能直接路由到虚拟机内部地址，因此管理 Jenkins 时优先使用
-  可访问的 Jenkins Web 地址和已登录的 Google Chrome 会话。
+- Jenkins CI 已于 2026-07-25 完成并通过真实构建验证。Jenkins Web
+  地址统一使用 `http://192.168.3.24:8080/`，SSH 地址同样使用
+  `xugang@192.168.3.24`；不再通过 `192.168.3.15` 访问 Jenkins。
 - 当前与本仓库 CI 相关的保留任务是：
   - `rlucene-ci`：Pipeline from SCM，脚本路径为 `Jenkinsfile`，只测试
-    `Rustify-All/rlucene:main`；当前按用户要求保持禁用，后续重新安排任务
-    时再决定是否启用。
+    `Rustify-All/rlucene:main`；当前已启用。
   - `legency`：旧 Freestyle 测试任务，保持禁用，只用于保留五万多次历史
     构建记录，不再作为主 CI。
 - Jenkins 每两分钟检查一次 `main`。同一 commit 仍会直接运行 nextest
@@ -155,8 +152,9 @@
   缓存；新 commit 才执行完整预检。
 - Jenkins 使用仓库中的配置作为唯一来源。长期维护时优先修改：
   `rlucene/Jenkinsfile`、`rlucene/.config/nextest.toml` 和
-  `rlucene/ci/jenkins/README.md`，不要只在 Jenkins 页面里临时改
-  Pipeline 内容。
+  `rlucene/ci/jenkins/README.md`。Jenkins 控制器的 Dockerfile 和
+  Compose 配置备份在 `rlucene/ci/jenkins/deployment/`；不要只在
+  Jenkins 页面或虚拟机中临时修改。
 - Jenkins Git SSH 凭据 ID 为 `github-ssh`。只记录凭据 ID，任何 Secret
   或私钥实值都不得写入仓库、记忆、构建参数或日志。
 
@@ -181,6 +179,15 @@
   复制为 `nextest-junit.xml`。
 - 主 CI 归档 `nextest.log`、`nextest-junit.xml`、
   `nextest-diagnostics.log`、`doctest.log`。
+- Jenkins 控制器镜像已安装 `elfutils`、`gdb` 和 `libcap2-bin`。
+  `/usr/bin/eu-stack` 使用 `cap_sys_ptrace=eip` 文件 capability，Compose
+  同时保留 `SYS_PTRACE` capability 上限，使非 root 的 `jenkins` 用户能
+  抓取测试子进程的用户态堆栈，而 Jenkins Java 进程本身不获得有效的
+  ptrace capability。
+- 2026-07-25 的确定性双 `Mutex` 死锁验收中，诊断脚本成功记录
+  `deadlock-left`、`deadlock-right` 和测试主线程，两个死锁线程的
+  `eu-stack` 调用栈均落在 Rust `Mutex::lock_contended`；缩放后的
+  nextest 在 70.016 秒报告 `TIMEOUT`，诊断脚本退出状态为 0。
 
 ### 缓存、磁盘与已验证基线
 
