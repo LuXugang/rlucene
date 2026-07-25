@@ -137,84 +137,128 @@
 
 ## `rlucene` Jenkins CI 部署记忆
 
-### 已部署拓扑
+### 当前访问、拓扑与资源
 
-- Jenkins CI 已于 2026-07-25 完成并通过真实构建验证。Jenkins Web
-  地址统一使用 `http://192.168.3.24:8080/`，SSH 地址同样使用
-  `xugang@192.168.3.24`；不再通过 `192.168.3.15` 访问 Jenkins。
-- 当前与本仓库 CI 相关的保留任务是：
-  - `rlucene-ci`：Pipeline from SCM，脚本路径为 `Jenkinsfile`，只测试
-    `Rustify-All/rlucene:main`；当前已启用。
-  - `legency`：旧 Freestyle 测试任务，保持禁用，只用于保留五万多次历史
-    构建记录，不再作为主 CI。
-- Jenkins 每两分钟检查一次 `main`。同一 commit 仍会直接运行 nextest
-  和 doctest，但会跳过依赖/基础设施预检并复用 Git、Cargo 和 target
-  缓存；新 commit 才执行完整预检。
-- Jenkins 使用仓库中的配置作为唯一来源。长期维护时优先修改：
-  `rlucene/Jenkinsfile`、`rlucene/.config/nextest.toml` 和
-  `rlucene/ci/jenkins/README.md`。Jenkins 控制器的 Dockerfile 和
-  Compose 配置备份在 `rlucene/ci/jenkins/deployment/`；不要只在
-  Jenkins 页面或虚拟机中临时修改。
+- Jenkins Web 地址是 `http://192.168.3.24:8080/`，SSH 使用
+  `xugang@192.168.3.24`。
+- 物理 CPU 是 Intel Core i9-12900KF，规格为 16 核 24 线程。Jenkins
+  运行在 VMware 虚拟机中，虚拟机当前可见 20 个 vCPU、约 30 GiB 内存
+  和 8 GiB swap，并且该虚拟机只用于 Jenkins。
+- Jenkins Compose 服务不设置 `cpus` 或 `mem_limit`。运行中的容器必须
+  显示 `HostConfig.NanoCpus=0`、`HostConfig.Memory=0`，
+  `/sys/fs/cgroup/cpu.max` 和 `memory.max` 均为 `max`，使控制器和构建
+  子进程使用虚拟机的全部资源。`JAVA_OPTS=-Xms2g -Xmx8g` 只限制
+  Jenkins Java 控制器堆，不限制独立的 Cargo 和测试进程。
+- 控制器容器名为 `jenkins`，镜像为 `local-jenkins-rust:lts`，
+  `/var/jenkins_home` 使用持久化 named volume `jenkins_jenkins_home`。
+  重建容器不能删除该 volume。
+- `rlucene-ci` 是已启用的 Pipeline from SCM，脚本路径为 `Jenkinsfile`，
+  只构建 `Rustify-All/rlucene:main`。`legency` 是保持禁用的旧
+  Freestyle 任务，只保留历史记录。
 - Jenkins Git SSH 凭据 ID 为 `github-ssh`。只记录凭据 ID，任何 Secret
   或私钥实值都不得写入仓库、记忆、构建参数或日志。
-- Jenkins 容器的 Cargo sparse registry 使用
-  `sparse+https://rsproxy.cn/index/`。2026-07-25 从容器内连续探测时，
-  rsproxy 三次请求均在 0.15 秒内完成；原 USTC sparse index 一次首字节
-  需要 13.6 秒，另两次 15 秒超时且未收到数据，因此不再使用 USTC。
-- Jenkins 虚拟机只用于运行 Jenkins，当前可见 20 个 vCPU 和约 30 GiB
-  内存。Compose 不设置 `cpus` 或 `mem_limit`，让 Jenkins 控制器及其
-  Cargo/测试子进程使用虚拟机的全部资源；`JAVA_OPTS=-Xms2g -Xmx8g`
-  只限制 Jenkins Java 控制器堆，不限制独立的构建和测试进程。
 
-### nextest、超时和诊断
+### 配置来源与容器部署
 
-- 常规 Rust 测试使用
-  `cargo nextest run --profile ci --workspace`；nextest 不运行 doctest，
-  因此另行执行 `cargo test --workspace --doc -q`。
-- `.config/nextest.toml` 当前设置：60 秒标记 `SLOW`，
-  `terminate-after = 6`，因此 60 秒只产生告警；测试运行到 300 秒时，
-  Jenkins 会记录 nextest 当前运行测试、进程树、系统负载、线程 `/proc`
-  状态、内核等待栈，以及可用时由 `eu-stack`、`gdb` 或 `pstack` 生成的
-  用户态堆栈；单个测试约 360 秒才会被终止并报告 `TIMEOUT`。
-  `fail-fast = false`，失败输出保留，成功输出不打印。
-- 慢测试诊断只把 nextest 直接启动且命令行含 `--exact` 的 test harness
-  识别为测试进程。nextest 初始化阶段的 Cargo、Git、registry 等子进程
-  即使运行超过 300 秒也不能触发 `SIGUSR1`，避免 nextest 尚未安装信号
-  处理器时被误杀。该约束来自构建 `#107` 的实际故障：registry 网络卡顿
-  被旧脚本误判后，nextest 因 `SIGUSR1` 以状态 138 退出。
-- 主 CI 对 nextest 使用 20 分钟整套测试外层超时，对 doctest 使用
-  4 分钟超时，整个 CI Pipeline 使用 30 分钟超时。
-- nextest 会在日志和 JUnit 中保留具体失败或超时测试的诊断信息，供人工
-  排查。整套测试外层 124/137、Jenkins 被杀死、网络/磁盘/工具链错误应
-  归类为基础设施失败。
-- nextest JUnit 的真实来源路径固定为工作区相对路径
-  `target/nextest/ci/junit.xml`，不跟随 `CARGO_TARGET_DIR`。主 CI 将它
-  复制为 `nextest-junit.xml`。
-- 主 CI 归档 `nextest.log`、`nextest-junit.xml`、
-  `nextest-diagnostics.log`、`doctest.log`。
-- Jenkins 控制器镜像已安装 `elfutils`、`gdb` 和 `libcap2-bin`。
-  `/usr/bin/eu-stack` 使用 `cap_sys_ptrace=eip` 文件 capability，Compose
-  同时保留 `SYS_PTRACE` capability 上限，使非 root 的 `jenkins` 用户能
-  抓取测试子进程的用户态堆栈，而 Jenkins Java 进程本身不获得有效的
+- 仓库是 Jenkins CI 配置的唯一真实来源。Pipeline、nextest、诊断和部署
+  配置分别维护在 `Jenkinsfile`、`.config/nextest.toml`、
+  `ci/jenkins/capture-slow-test-diagnostics.sh`、
+  `ci/jenkins/README.md` 和 `ci/jenkins/deployment/`。不要只修改
+  Jenkins 页面、运行中容器或虚拟机上的副本。
+- 部署副本位于虚拟机 `/home/xugang/jenkins`。仓库与部署目录中的
+  `Dockerfile`、`docker-compose.yml` 必须保持一致；替换部署文件前先
+  备份现有文件并运行 `docker compose config --quiet`。
+- Cargo crates.io sparse registry 统一使用
+  `sparse+https://rsproxy.cn/index/`。运行中容器的
+  `/opt/cargo/config.toml` 和新构建的 `local-jenkins-rust:lts` 镜像都
+  必须是 rsproxy，不使用 USTC。
+- Dockerfile 变化后，不能只执行 `docker compose up --force-recreate`，
+  否则会继续使用旧镜像层。应先执行 `docker compose build jenkins`，
+  验证新镜像内容，再在没有构建且不会立即触发新构建的维护窗口重建
+  容器。临时修改运行中容器只用于即时恢复，不能代替镜像重建。
+- 镜像安装 `elfutils`、`gdb` 和 `libcap2-bin`。
+  `/usr/bin/eu-stack` 使用 `cap_sys_ptrace=eip` 文件 capability，
+  Compose 保留 `SYS_PTRACE` capability 上限，使非 root 的 `jenkins`
+  用户能抓取测试子进程堆栈，而 Jenkins Java 进程本身不获得有效的
   ptrace capability。
-- 2026-07-25 的确定性双 `Mutex` 死锁验收中，诊断脚本成功记录
-  `deadlock-left`、`deadlock-right` 和测试主线程，两个死锁线程的
-  `eu-stack` 调用栈均落在 Rust `Mutex::lock_contended`；缩放后的
-  nextest 在 70.016 秒报告 `TIMEOUT`，诊断脚本退出状态为 0。
 
-### 缓存、磁盘与已验证基线
+### Pipeline 触发、检出与失败处理
 
-- `rlucene-ci` 的持久化 Cargo target 是
-  `/var/jenkins_home/cargo-target/rlucene-ci`。不要每两分钟运行
-  `cargo clean`，否则会丢失编译缓存。
-- 每次 CI 构建必须在日志中打印 Jenkins home、`/tmp`、Cargo target
-  的构建前后磁盘状态。需要清理时先确认没有构建正在使用，仅清理明确
-  的旧 target；旧的约 99G `/var/jenkins_home/cargo-target/rlucene`
-  已经在用户确认后删除。
-- 最终验收基线：PR `Rustify-All/rlucene#133` 引入 nextest，PR `#134`
-  修正 JUnit 工作区路径；合并提交 `9793ce6e77baf81058fa7ea235f95c28680c1c2c`
-  在 Jenkins `rlucene-ci` 构建 `#49` 成功。
-- 构建 `#49` 归档了 `doctest.log`、`nextest.log` 和
-  `nextest-junit.xml`。JUnit 文件大小为 985851 字节，包含 4807 个
-  `<testcase>`，没有 `<failure>` 或 `<error>`。这证明 nextest、
-  doctest、JUnit 诊断和归档链路已经真实生效。
+- `rlucene-ci` 使用 `cron('H/2 * * * *')`，即每两分钟触发一次，不以
+  commit 是否变化作为是否运行的条件；禁止并发构建，只保留最近 100 个
+  构建，整条 Pipeline 的上限为 30 分钟。
+- 每次构建都对 `main` 执行无 tag、深度为 1 的 clean checkout。最近
+  成功 SHA 保存在
+  `/var/jenkins_home/ci-state/rlucene-ci/last-successful-sha`。当前 SHA
+  已成功时只跳过 `git diff`、`rustup show`、`cargo fetch` 和 nextest
+  版本检查，nextest 与 doctest 仍必须运行。
+- 代码失败、测试超时和基础设施失败只通知人工处理，不再触发
+  `rlucene-autofix` 或其他自动修复任务。失败邮件发送到
+  `luxugang@apache.org`，包含 commit、失败分类、压缩控制台日志和可用
+  诊断附件。
+- nextest 明确报告测试失败或单测超时时分别归类为 `code` 或
+  `test-timeout`；整套 nextest 外层超时归类为 `suite-timeout`；
+  cargo-nextest 不可用、registry/网络、磁盘、工具链、进程被外部终止等
+  没有测试失败证据的情况归类为 `infrastructure`；doctest 失败和超时
+  分别归类为 `code` 和 `doctest-timeout`。
+
+### nextest 并发、缓存和运行标识
+
+- 常规测试命令是 `cargo nextest run --profile ci --workspace`。
+  nextest 不运行 doctest，因此另行执行
+  `cargo test --workspace --doc -q`。
+- `.config/nextest.toml` 使用 `test-threads = "num-cpus"`。在当前无
+  Docker CPU 配额的虚拟机中，测试进程实测
+  `NEXTEST_TEST_THREADS=20`，并可同时存在 20 个带 `--exact` 的测试
+  harness 进程。日志中的 `across 3 binaries` 表示测试来自 3 个测试
+  可执行文件，不代表并发数是 3。
+- `Nextest run ID` 是每次 `cargo nextest run` 新生成的 UUID。同一次运行
+  的 list/run 阶段和所有测试共享该 ID，用于关联日志和 JUnit；它不是
+  测试随机 seed，也不决定并行调度顺序。
+- 持久化编译缓存是
+  `/var/jenkins_home/cargo-target/rlucene-ci`。不得在周期构建中执行
+  `cargo clean`；需要清理时必须先确认没有构建使用该 target，并只清理
+  明确目标。
+- 本仓库是 library，`Cargo.lock` 在 `.gitignore` 中；Jenkins 不持久化
+  Cargo.lock，也不对 workspace 测试使用 `--locked`。因此相同 commit
+  仍可能打印 `Updating rsproxy index` 和 `Locking ... packages`，这不
+  代表重新编译；`Finished test profile ... in 0.05s` 一类输出表示
+  target 编译缓存已命中。
+- 每次构建必须在开始和结束时记录 Jenkins home、`/tmp` 和 Cargo target
+  的磁盘状态。
+
+### 慢测试、超时与诊断
+
+- `.config/nextest.toml` 设置
+  `slow-timeout = { period = "60s", terminate-after = 6,
+  grace-period = "30s" }`。测试超过 60 秒只标记 `SLOW` 并继续运行；
+  约 360 秒才终止并标记 `TIMEOUT`，终止时先发 `SIGTERM`，30 秒后仍未
+  退出才发 `SIGKILL`。`fail-fast = false`，失败输出立即及最终保留，
+  成功输出不打印。
+- 测试运行到 300 秒时，
+  `ci/jenkins/capture-slow-test-diagnostics.sh` 记录运行测试、系统负载、
+  进程树、线程 `/proc` 状态、内核等待栈和用户态堆栈，并向 nextest
+  发送 `SIGUSR1`，使当前运行测试详情写入 `nextest.log`。
+- 诊断脚本只把 nextest 的直接子进程且命令行包含 `--exact` 的 test
+  harness 视为测试。Cargo、Git、registry 和元数据子进程即使长时间运行
+  也不能触发慢测试抓栈或 `SIGUSR1`。
+- 用户态堆栈优先使用 `eu-stack`，不可用时回退到 `gdb` 或 `pstack`。
+  确定性双 `Mutex` 死锁 smoke test 已验证能够记录
+  `deadlock-left`、`deadlock-right`、测试主线程和落在 Rust
+  `Mutex::lock_contended` 的阻塞调用栈，并由 nextest 正确报告超时。
+- nextest 整套运行的外层上限为 20 分钟，doctest 上限为 4 分钟，二者
+  终止时均有额外 30 秒强杀窗口。
+- nextest JUnit 的源文件固定为工作区相对路径
+  `target/nextest/ci/junit.xml`，不跟随 `CARGO_TARGET_DIR`；Pipeline
+  将它复制为 `nextest-junit.xml`。每次构建归档 `nextest.log`、
+  `nextest-junit.xml`、`nextest-diagnostics.log` 和 `doctest.log`。
+
+### 当前验收基线
+
+- 截至 2026-07-25，资源和镜像最终配置对应提交
+  `876a8c7a9b1f425043ef306d98c0719c941a415e`。Jenkins `rlucene-ci`
+  构建 `#123` 使用 rsproxy，实测 20 个 nextest 并发槽；4807 个测试
+  全部通过、1 个跳过，nextest 用时 56.480 秒，整条 Pipeline 成功。
+- 修改 Jenkins Pipeline、nextest、诊断脚本、Dockerfile、Compose 或
+  资源配置后，应以新的真实 Jenkins 成功构建替换本节基线，而不是继续
+  累积已经过时的构建历史。
