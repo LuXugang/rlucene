@@ -29,8 +29,8 @@ use parking_lot::Mutex;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::{Arc, Weak};
 
 /// Provides an interface for accessing a point-in-time view of an index.
 ///
@@ -129,16 +129,16 @@ pub trait IndexReader: Display {
     // only check ref_count here (don't call ensure_open()),
     // so we can still close the reader if it was made invalid by a child.
     let base = self.index_base();
-    let count = base.ref_count.load(Ordering::SeqCst);
+    let count = base.state.ref_count.load(Ordering::SeqCst);
     if count <= 0 {
       return Err(LuceneError::already_closed(
         "this IndexReader is closed".to_string(),
       ));
     }
 
-    let rc = base.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
+    let rc = base.state.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
     if rc == 0 {
-      base.closed.store(true, Ordering::SeqCst);
+      base.state.closed.store(true, Ordering::SeqCst);
       IOUtils::close(0..3, |operation| match operation {
         0 => self.do_close(),
         1 => self.notify_reader_closed_listeners(),
@@ -159,7 +159,7 @@ pub trait IndexReader: Display {
   /// closed; otherwise returns `Ok(())`.
   fn ensure_open(&self) -> Result<()> {
     let base = self.index_base();
-    if base.ref_count.load(Ordering::SeqCst) <= 0 {
+    if base.state.ref_count.load(Ordering::SeqCst) <= 0 {
       return Err(LuceneError::already_closed(
         "this IndexReader is closed".to_string(),
       ));
@@ -167,7 +167,7 @@ pub trait IndexReader: Display {
 
     // The "happens-before" rule on reading ref_count after a fake write
     // ensures visibility of closed_by_child state.
-    if base.closed_by_child.load(Ordering::SeqCst) {
+    if base.state.closed_by_child.load(Ordering::Relaxed) {
       return Err(LuceneError::already_closed(
         "this IndexReader cannot be used anymore as one of its child readers was closed"
           .to_string(),
@@ -197,9 +197,9 @@ pub trait IndexReader: Display {
   /// No other methods should be called after this has been called.
   fn close(&self) -> Result<()> {
     let base = self.index_base();
-    if !base.closed.load(Ordering::SeqCst) {
+    if !base.state.closed.load(Ordering::SeqCst) {
       self.dec_ref()?;
-      base.closed.store(true, Ordering::SeqCst);
+      base.state.closed.store(true, Ordering::SeqCst);
     }
     Ok(())
   }
@@ -232,12 +232,24 @@ pub trait IndexReader: Display {
     Self::ContextKind::create(self)
   }
 
+  /// Expert: called by readers that wrap other readers to register the parent
+  /// at the child on construction of the parent.
+  ///
+  /// When this reader is closed, it marks all registered parents as closed,
+  /// too. Parent reader states are held weakly so that they can be dropped once
+  /// they are no longer in use.
+  fn register_parent_reader(&self, reader: &IndexReaderBase) -> Result<()> {
+    self.ensure_open()?;
+    self.index_base().register_parent_reader(reader);
+    Ok(())
+  }
+
   fn notify_reader_closed_listeners(&self) -> Result<()> {
     Ok(())
   }
 
   fn report_close_to_parent_readers(&self) -> Result<()> {
-    // TODO IMPORTANT 未实现
+    self.index_base().report_close_to_parent_readers();
     Ok(())
   }
 
@@ -305,15 +317,17 @@ pub trait IndexReader: Display {
   fn try_inc_ref(&self) -> bool {
     let base = self.index_base();
     loop {
-      let count = base.ref_count.load(Ordering::SeqCst);
+      let count = base.state.ref_count.load(Ordering::SeqCst);
       if count <= 0 {
         return false;
       }
 
-      match base
-        .ref_count
-        .compare_exchange(count, count + 1, Ordering::SeqCst, Ordering::SeqCst)
-      {
+      match base.state.ref_count.compare_exchange(
+        count,
+        count + 1,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+      ) {
         Ok(_) => return true,
         Err(_) => continue,
       }
@@ -323,21 +337,52 @@ pub trait IndexReader: Display {
   /// Expert: returns the current ref count for this reader.
   fn get_ref_count(&self) -> i32 {
     let base = self.index_base();
-    base.ref_count.load(Ordering::SeqCst)
+    base.state.ref_count.load(Ordering::SeqCst)
   }
 }
 
+#[derive(Clone)]
 pub struct IndexReaderBase {
+  state: Arc<IndexReaderState>,
+}
+
+struct IndexReaderState {
   closed: AtomicBool,
   closed_by_child: AtomicBool,
   ref_count: AtomicI32,
+  parent_readers: Mutex<Vec<Weak<IndexReaderState>>>,
 }
+
 impl IndexReaderBase {
   pub(crate) fn new() -> Self {
     Self {
-      closed: AtomicBool::new(false),
-      closed_by_child: AtomicBool::new(false),
-      ref_count: AtomicI32::new(1),
+      state: Arc::new(IndexReaderState {
+        closed: AtomicBool::new(false),
+        closed_by_child: AtomicBool::new(false),
+        ref_count: AtomicI32::new(1),
+        parent_readers: Mutex::new(Vec::new()),
+      }),
+    }
+  }
+
+  fn register_parent_reader(&self, reader: &Self) {
+    let reader = Arc::downgrade(&reader.state);
+    let mut parent_readers = self.state.parent_readers.lock();
+    parent_readers.retain(|parent| parent.strong_count() > 0);
+    if !parent_readers.iter().any(|parent| parent.ptr_eq(&reader)) {
+      parent_readers.push(reader);
+    }
+  }
+
+  fn report_close_to_parent_readers(&self) {
+    let mut parent_readers = self.state.parent_readers.lock();
+    parent_readers.retain(|parent| parent.strong_count() > 0);
+    for parent in parent_readers.iter().filter_map(Weak::upgrade) {
+      parent.closed_by_child.store(true, Ordering::Relaxed);
+      // Cross the memory barrier with a fake write, matching
+      // AtomicInteger.addAndGet(0) in Java.
+      parent.ref_count.fetch_add(0, Ordering::SeqCst);
+      Self { state: parent }.report_close_to_parent_readers();
     }
   }
 }

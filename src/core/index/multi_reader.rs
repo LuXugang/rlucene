@@ -111,11 +111,12 @@ where
   R::ContextKind: MultiReaderKind<R>,
 {
   pub fn new(sub_readers: Vec<R>) -> Result<Self> {
+    let index_reader_base = IndexReaderBase::new();
     let base_composite_reader_base =
-      BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None)?;
+      BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None, &index_reader_base)?;
     Ok(Self {
       base_composite_reader_base,
-      index_reader_base: IndexReaderBase::new(),
+      index_reader_base,
       close_sub_readers: true,
     })
   }

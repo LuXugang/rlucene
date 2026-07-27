@@ -77,7 +77,9 @@ where
     apply_all_deletes: bool,
     write_all_deletes: bool,
   ) -> Result<Self> {
-    let base_composite_reader_base = BaseCompositeReaderBase::new(readers, leaf_sorter.as_ref())?;
+    let index_base = IndexReaderBase::new();
+    let base_composite_reader_base =
+      BaseCompositeReaderBase::new(readers, leaf_sorter.as_ref(), &index_base)?;
     let directory_reader_base = DirectoryReaderBase::new(directory);
     Ok(StandardDirectoryReader {
       writer,
@@ -87,7 +89,7 @@ where
       base_composite_reader_base,
       directory_reader_base,
       sub_reader_sorter: leaf_sorter,
-      index_base: IndexReaderBase::new(),
+      index_base,
       cache_helper: CacheHelperImpl::new(),
     })
   }

@@ -36,6 +36,7 @@ use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
+use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{
   CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
@@ -1731,7 +1732,7 @@ where
   type LeafReader2 = NoIndexLeafReader<LR>;
 
   fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
-    Ok(NoIndexLeafReader::new(reader))
+    NoIndexLeafReader::new(reader)
   }
 }
 pub struct NoIndexLeafReader<LR>
@@ -1739,15 +1740,20 @@ where
   LR: LeafReader,
 {
   in_: LR,
+  index_base: IndexReaderBase,
 }
 impl<LR> NoIndexLeafReader<LR>
 where
   LR: LeafReader,
 {
-  pub fn new(in_: LR) -> Self {
-    Self { in_ }
+  pub fn new(in_: LR) -> Result<Self> {
+    let index_base = IndexReaderBase::new();
+    in_.register_parent_reader(&index_base)?;
+    Ok(Self { in_, index_base })
   }
 }
+
+impl<LR> FilterLeafReader for NoIndexLeafReader<LR> where LR: LeafReader {}
 
 impl<LR> IndexReader for NoIndexLeafReader<LR>
 where
@@ -1777,6 +1783,10 @@ where
     self.in_.stored_fields()
   }
 
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
   type ReaderCacheHelper = DummyCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
@@ -1804,7 +1814,7 @@ where
   }
 
   fn index_base(&self) -> &IndexReaderBase {
-    self.in_.index_base()
+    &self.index_base
   }
 }
 
@@ -1984,6 +1994,7 @@ where
 {
   in_: DR,
   base: BaseCompositeReaderBase<NoIndexLeafReader<DR::LeafReader>>,
+  index_base: IndexReaderBase,
 }
 impl<DR> NoIndexDirectoryReader<DR>
 where
@@ -1993,11 +2004,13 @@ where
     let wrap = SubReaderWrapperImpl;
     let leaf_reads = in_.get_sequential_sub_readers().to_vec();
     let wrap_readers = wrap.wrap_readers(leaf_reads)?;
+    let index_base = IndexReaderBase::new();
     let base_composite_reader_base: BaseCompositeReaderBase<NoIndexLeafReader<_>> =
-      BaseCompositeReaderBase::new::<DummyComparator>(wrap_readers, None)?;
+      BaseCompositeReaderBase::new::<DummyComparator>(wrap_readers, None, &index_base)?;
     Ok(Self {
       in_,
       base: base_composite_reader_base,
+      index_base,
     })
   }
 }
@@ -2103,6 +2116,10 @@ where
     self.in_.stored_fields()
   }
 
+  fn do_close(&self) -> Result<()> {
+    self.in_.close()
+  }
+
   type ReaderCacheHelper = DR::ReaderCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
@@ -2130,7 +2147,7 @@ where
   }
 
   fn index_base(&self) -> &IndexReaderBase {
-    self.in_.index_base()
+    &self.index_base
   }
 }
 

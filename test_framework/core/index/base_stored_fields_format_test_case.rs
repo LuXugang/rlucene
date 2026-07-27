@@ -969,11 +969,10 @@ impl<LR> DummyFilterLeafReader<LR>
 where
   LR: LeafReader,
 {
-  fn new(in_: LR) -> Self {
-    Self {
-      in_,
-      index_base: IndexReaderBase::new(),
-    }
+  fn new(in_: LR) -> Result<Self> {
+    let index_base = IndexReaderBase::new();
+    in_.register_parent_reader(&index_base)?;
+    Ok(Self { in_, index_base })
   }
 }
 
@@ -982,7 +981,10 @@ where
   LR: LeafReader + Clone,
 {
   fn clone(&self) -> Self {
-    Self::new(self.in_.clone())
+    Self {
+      in_: self.in_.clone(),
+      index_base: self.index_base.clone(),
+    }
   }
 }
 
@@ -1241,11 +1243,12 @@ where
   fn new(in_: DR) -> Result<Self> {
     let wrapper = DummySubReaderWrapper;
     let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
-    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None)?;
+    let index_base = IndexReaderBase::new();
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {
       in_,
       base,
-      index_base: IndexReaderBase::new(),
+      index_base,
     })
   }
 }
@@ -1436,6 +1439,6 @@ where
   type LeafReader2 = DummyFilterLeafReader<LR>;
 
   fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
-    Ok(DummyFilterLeafReader::new(reader))
+    DummyFilterLeafReader::new(reader)
   }
 }

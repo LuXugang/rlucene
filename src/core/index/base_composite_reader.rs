@@ -18,7 +18,7 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::fields::Fields;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{IndexReader, IndexReaderBase};
 use crate::core::index::index_writer::get_actual_max_docs;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
@@ -81,7 +81,14 @@ where
   ///
   /// * `sub_readers_sorter` – a comparator for sorting sub-readers.
   ///   If not `None`, this comparator is used to sort sub-readers before resolving doc IDs.
-  pub fn new<C>(mut sub_readers: Vec<R>, sub_reader_sorter: Option<&C>) -> Result<Self>
+  ///
+  /// * `index_reader_base` – the base state of the parent reader that is being
+  ///   constructed.
+  pub fn new<C>(
+    mut sub_readers: Vec<R>,
+    sub_reader_sorter: Option<&C>,
+    index_reader_base: &IndexReaderBase,
+  ) -> Result<Self>
   where
     C: Comparator<R>,
   {
@@ -107,6 +114,7 @@ where
     for (i, reader) in sub_readers.iter().enumerate() {
       starts[i] = max_doc as usize;
       max_doc += reader.max_doc()? as i64;
+      reader.register_parent_reader(index_reader_base)?;
     }
 
     let max_allowed = get_actual_max_docs();

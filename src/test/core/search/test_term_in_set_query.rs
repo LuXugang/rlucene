@@ -534,12 +534,13 @@ where
   fn new(in_: DR, counter: Arc<AtomicI32>) -> Result<Self> {
     let wrapper = TermsCountingSubReaderWrapper::new(counter.clone());
     let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
-    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None)?;
+    let index_base = IndexReaderBase::new();
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {
       in_,
       counter,
       base,
-      index_base: IndexReaderBase::new(),
+      index_base,
     })
   }
 }
@@ -567,10 +568,7 @@ where
   type LeafReader2 = TermsCountingLeafReaderWrapper<LR>;
 
   fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
-    Ok(TermsCountingLeafReaderWrapper::new(
-      reader,
-      self.counter.clone(),
-    ))
+    TermsCountingLeafReaderWrapper::new(reader, self.counter.clone())
   }
 }
 
@@ -587,12 +585,14 @@ impl<LR> TermsCountingLeafReaderWrapper<LR>
 where
   LR: LeafReader,
 {
-  fn new(in_: LR, counter: Arc<AtomicI32>) -> Self {
-    Self {
+  fn new(in_: LR, counter: Arc<AtomicI32>) -> Result<Self> {
+    let index_base = IndexReaderBase::new();
+    in_.register_parent_reader(&index_base)?;
+    Ok(Self {
       in_,
       counter,
-      index_base: IndexReaderBase::new(),
-    }
+      index_base,
+    })
   }
 }
 
@@ -601,7 +601,11 @@ where
   LR: LeafReader + Clone,
 {
   fn clone(&self) -> Self {
-    Self::new(self.in_.clone(), self.counter.clone())
+    Self {
+      in_: self.in_.clone(),
+      counter: self.counter.clone(),
+      index_base: self.index_base.clone(),
+    }
   }
 }
 

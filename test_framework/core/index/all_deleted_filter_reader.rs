@@ -41,11 +41,13 @@ where
   LR: LeafReader,
 {
   pub fn new(reader: LR) -> Result<Self> {
+    let index_base = IndexReaderBase::new();
+    reader.register_parent_reader(&index_base)?;
     let live_docs = MatchNoBits::new(reader.max_doc()? as usize);
     let result = Self {
       reader,
       live_docs,
-      index_base: IndexReaderBase::new(),
+      index_base,
     };
     debug_assert!(result.max_doc()? == 0 || result.has_deletions()?);
     Ok(result)
@@ -60,7 +62,7 @@ where
     Self {
       reader: self.reader.clone(),
       live_docs: self.live_docs.clone(),
-      index_base: IndexReaderBase::new(),
+      index_base: self.index_base.clone(),
     }
   }
 }

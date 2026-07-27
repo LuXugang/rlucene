@@ -507,7 +507,7 @@ fn test_soft_delete_with_retention() -> Result<()> {
 
     let leaf_reader = context.leaves()?[0].reader().clone();
     let searcher =
-      new_searcher_with_reader(SoftDeleteWithRetentionFilterLeafReader::new(leaf_reader))?;
+      new_searcher_with_reader(SoftDeleteWithRetentionFilterLeafReader::new(leaf_reader)?)?;
     let seq_id = searcher.search(
       IntPoint::new_range_query("seq_id", seq_ids.load(SeqCst) - 50, i32::MAX)?,
       10,
@@ -1173,11 +1173,10 @@ impl<LR> SoftDeleteWithRetentionFilterLeafReader<LR>
 where
   LR: LeafReader,
 {
-  fn new(in_: LR) -> Self {
-    Self {
-      in_,
-      index_base: Arc::new(IndexReaderBase::new()),
-    }
+  fn new(in_: LR) -> Result<Self> {
+    let index_base = Arc::new(IndexReaderBase::new());
+    in_.register_parent_reader(index_base.as_ref())?;
+    Ok(Self { in_, index_base })
   }
 }
 
@@ -1409,6 +1408,8 @@ where
   D: Directory,
 {
   fn new(in_: DefaultLeafReader<D>) -> Result<Self> {
+    let index_base = Arc::new(IndexReaderBase::new());
+    in_.register_parent_reader(index_base.as_ref())?;
     let hard_live_docs = in_.get_hard_live_docs()?;
     let num_docs = if let Some(hard_live_docs) = &hard_live_docs {
       let mut bits = 0;
@@ -1425,7 +1426,7 @@ where
       in_,
       hard_live_docs,
       num_docs,
-      index_base: Arc::new(IndexReaderBase::new()),
+      index_base,
     })
   }
 }
@@ -1680,11 +1681,12 @@ where
   fn new(in_: Arc<StandardDirectoryReader<D>>) -> Result<Self> {
     let wrapper = IncludeSoftDeletesSubReaderWrapper;
     let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
-    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None)?;
+    let index_base = IndexReaderBase::new();
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {
       in_,
       base,
-      index_base: IndexReaderBase::new(),
+      index_base,
     })
   }
 }

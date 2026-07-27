@@ -84,23 +84,26 @@ impl StressDirReader {
       .cloned()
       .map(CodecReaderEnum2::A)
       .collect();
-    let base = BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None)?;
+    let index_base = IndexReaderBase::new();
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None, &index_base)?;
     Ok(Self::Standard {
       reader,
       base,
-      index_base: IndexReaderBase::new(),
+      index_base,
     })
   }
 
   fn from_soft_deletes(reader: SoftDeletesDirReader) -> Result<Self> {
+    let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(
       reader.get_sequential_sub_readers().to_vec(),
       None,
+      &index_base,
     )?;
     Ok(Self::SoftDeletes {
       reader,
       base,
-      index_base: IndexReaderBase::new(),
+      index_base,
     })
   }
 }

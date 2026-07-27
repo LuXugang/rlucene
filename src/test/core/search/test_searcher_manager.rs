@@ -596,11 +596,13 @@ impl<LR> MyFilterLeafReader<LR>
 where
   LR: LeafReader,
 {
-  fn new(in_: LR) -> Self {
-    Self {
+  fn new(in_: LR) -> Result<Self> {
+    let index_base = Arc::new(IndexReaderBase::new());
+    in_.register_parent_reader(index_base.as_ref())?;
+    Ok(Self {
       in_: Arc::new(in_),
-      index_base: Arc::new(IndexReaderBase::new()),
-    }
+      index_base,
+    })
   }
 
   fn get_delegate(&self) -> &LR {
@@ -837,7 +839,7 @@ where
 
   fn wrap(&self, reader: LR) -> Result<Self::LeafReader2> {
     let reader_base = reader.index_base() as *const IndexReaderBase;
-    let wrapped = MyFilterLeafReader::new(reader);
+    let wrapped = MyFilterLeafReader::new(reader)?;
     assert_eq!(
       reader_base,
       wrapped.get_delegate().index_base() as *const IndexReaderBase
@@ -862,11 +864,12 @@ where
   fn new(in_: DR) -> Result<Self> {
     let wrapper = MySubReaderWrapper;
     let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
-    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None)?;
+    let index_base = IndexReaderBase::new();
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {
       in_,
       base,
-      index_base: IndexReaderBase::new(),
+      index_base,
     })
   }
 

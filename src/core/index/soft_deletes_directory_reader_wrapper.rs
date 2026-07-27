@@ -23,6 +23,7 @@ use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase}
 use crate::core::index::filter_directory_reader::{
   DelegatingCacheHelper, FilterDirectoryReader, SubReaderWrapper,
 };
+use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{
   CacheHelper, CacheKey, CompositeReaderContextKind, IndexReader, IndexReaderBase,
@@ -85,7 +86,8 @@ where
 
     let field = wrapper.field.clone();
     let wrapped_readers = wrapper.wrap_readers(leaf_reads)?;
-    let base = BaseCompositeReaderBase::new::<DummyComparator>(wrapped_readers, None)?;
+    let index_base = IndexReaderBase::new();
+    let base = BaseCompositeReaderBase::new::<DummyComparator>(wrapped_readers, None, &index_base)?;
     let reader_cache_helper = in_
       .get_reader_cache_helper()?
       .map(DelegatingCacheHelper::new);
@@ -94,7 +96,7 @@ where
       in_,
       field,
       base,
-      index_base: IndexReaderBase::new(),
+      index_base,
       reader_cache_helper,
     })
   }
@@ -443,6 +445,8 @@ where
   LR::ReaderCacheHelper: Clone,
 {
   fn new(reader: LR, bits: FixedBitSet, num_docs: i32) -> Result<Self> {
+    let index_base = IndexReaderBase::new();
+    reader.register_parent_reader(&index_base)?;
     let reader_cache_helper = reader
       .get_reader_cache_helper()?
       .map(DelegatingCacheHelper::new);
@@ -450,7 +454,7 @@ where
       reader,
       bits: Arc::new(bits),
       num_docs,
-      index_base: IndexReaderBase::new(),
+      index_base,
       reader_cache_helper,
     })
   }
@@ -470,7 +474,7 @@ where
       reader: self.reader.clone(),
       bits: self.bits.clone(),
       num_docs: self.num_docs,
-      index_base: IndexReaderBase::new(),
+      index_base: self.index_base.clone(),
       reader_cache_helper: self.reader_cache_helper.clone(),
     }
   }
@@ -484,6 +488,13 @@ where
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SoftDeletesFilterLeafReader({})", self.reader)
   }
+}
+
+impl<LR> FilterLeafReader for SoftDeletesFilterLeafReader<LR>
+where
+  LR: LeafReader,
+  LR::ReaderCacheHelper: Clone,
+{
 }
 
 impl<LR> IndexReader for SoftDeletesFilterLeafReader<LR>
