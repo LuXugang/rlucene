@@ -367,6 +367,7 @@ impl IndexReaderBase {
 
   fn register_parent_reader(&self, reader: &Self) {
     let reader = Arc::downgrade(&reader.state);
+    // TODO IMPORTANT 检查正确性
     let mut parent_readers = self.state.parent_readers.lock();
     parent_readers.retain(|parent| parent.strong_count() > 0);
     if !parent_readers.iter().any(|parent| parent.ptr_eq(&reader)) {
@@ -402,7 +403,7 @@ pub trait CacheHelper {
 
   /// Adds a [`ClosedListener`] that will be called when the resource guarded by
   /// [`Self::get_key`] is closed.
-  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()>;
+  fn add_closed_listener(&self, listener: Arc<dyn ClosedListener>) -> Result<()>;
 }
 #[derive(Clone)]
 pub enum CacheHelperEnum2<A, B> {
@@ -421,7 +422,7 @@ where
     }
   }
 
-  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+  fn add_closed_listener(&self, listener: Arc<dyn ClosedListener>) -> Result<()> {
     match self {
       CacheHelperEnum2::A(a) => a.add_closed_listener(listener),
       CacheHelperEnum2::B(b) => b.add_closed_listener(listener),
@@ -450,7 +451,7 @@ where
   }
 }
 
-pub(crate) type ClosedListenerList = Arc<Mutex<Option<Vec<Box<dyn ClosedListener>>>>>;
+pub(crate) type ClosedListenerList = Arc<Mutex<Option<Vec<Arc<dyn ClosedListener>>>>>;
 
 #[doc(hidden)]
 pub trait IndexReaderContextKind<R>

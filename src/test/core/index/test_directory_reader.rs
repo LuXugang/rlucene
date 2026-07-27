@@ -1234,7 +1234,7 @@ fn test_reader_finished_listener() -> Result<()> {
   reader
     .get_reader_cache_helper()?
     .expect("DirectoryReader must expose a reader cache helper")
-    .add_closed_listener(Box::new(move |_: &CacheKey| {
+    .add_closed_listener(Arc::new(move |_: &CacheKey| {
       count.fetch_add(1, Ordering::SeqCst);
       Ok(())
     }))?;
@@ -1250,7 +1250,7 @@ fn test_reader_finished_listener() -> Result<()> {
   reader
     .get_reader_cache_helper()?
     .expect("DirectoryReader must expose a reader cache helper")
-    .add_closed_listener(Box::new(move |_: &CacheKey| {
+    .add_closed_listener(Arc::new(move |_: &CacheKey| {
       count.fetch_add(1, Ordering::SeqCst);
       Ok(())
     }))?;

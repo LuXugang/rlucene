@@ -346,7 +346,7 @@ fn test_reader_cache_key() -> Result<()> {
     let leaf_cache_key = leaf_cache_helper.get_key();
     let leaf_called = Arc::new(AtomicI32::new(0));
     let leaf_called_listener = leaf_called.clone();
-    leaf_cache_helper.add_closed_listener(Box::new(move |key: &CacheKey| {
+    leaf_cache_helper.add_closed_listener(Arc::new(move |key: &CacheKey| {
       leaf_called_listener.fetch_add(1, Ordering::SeqCst);
       if &leaf_cache_key != key {
         return Err(
@@ -365,7 +365,7 @@ fn test_reader_cache_key() -> Result<()> {
     let listener_dir_cache_key = old_dir_cache_key.clone();
     let dir_called = Arc::new(AtomicI32::new(0));
     let dir_called_listener = dir_called.clone();
-    dir_cache_helper.add_closed_listener(Box::new(move |key: &CacheKey| {
+    dir_cache_helper.add_closed_listener(Arc::new(move |key: &CacheKey| {
       dir_called_listener.fetch_add(1, Ordering::SeqCst);
       if &listener_dir_cache_key != key {
         return Err(

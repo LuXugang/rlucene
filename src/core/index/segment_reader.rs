@@ -772,14 +772,19 @@ impl CacheHelper for CacheHelperImpl {
     self.cache_key.clone()
   }
 
-  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+  fn add_closed_listener(&self, listener: Arc<dyn ClosedListener>) -> Result<()> {
     let mut reader_closed_listeners = self.reader_closed_listeners.lock();
     let Some(reader_closed_listeners) = reader_closed_listeners.as_mut() else {
       return Err(LuceneError::already_closed(
         "this IndexReader is closed".to_string(),
       ));
     };
-    reader_closed_listeners.push(listener);
+    if !reader_closed_listeners
+      .iter()
+      .any(|existing| Arc::ptr_eq(existing, &listener))
+    {
+      reader_closed_listeners.push(listener);
+    }
     Ok(())
   }
 }

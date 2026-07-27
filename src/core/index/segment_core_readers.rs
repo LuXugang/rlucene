@@ -244,14 +244,19 @@ impl CacheHelper for SegmentCoreReadersCacheHelperImpl {
     self.cache_key.clone()
   }
 
-  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+  fn add_closed_listener(&self, listener: Arc<dyn ClosedListener>) -> Result<()> {
     let mut core_closed_listeners = self.core_closed_listeners.lock();
     let Some(core_closed_listeners) = core_closed_listeners.as_mut() else {
       return Err(LuceneError::already_closed(
         "SegmentCoreReaders is already closed".to_string(),
       ));
     };
-    core_closed_listeners.push(listener);
+    if !core_closed_listeners
+      .iter()
+      .any(|existing| Arc::ptr_eq(existing, &listener))
+    {
+      core_closed_listeners.push(listener);
+    }
     Ok(())
   }
 }

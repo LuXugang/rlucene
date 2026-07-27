@@ -16,6 +16,7 @@
  */
 use crate::core::index::index_reader::{CacheHelper, CacheKey, ClosedListener};
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 pub struct DummyCacheHelper;
 impl CacheHelper for DummyCacheHelper {
@@ -23,7 +24,7 @@ impl CacheHelper for DummyCacheHelper {
     dummy_unreachable!()
   }
 
-  fn add_closed_listener(&self, _listener: Box<dyn ClosedListener>) -> Result<()> {
+  fn add_closed_listener(&self, _listener: Arc<dyn ClosedListener>) -> Result<()> {
     dummy_unreachable!()
   }
 }

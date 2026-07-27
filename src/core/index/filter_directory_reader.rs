@@ -18,6 +18,7 @@ use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::index::index_reader::{CacheHelper, CacheKey, ClosedListener};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 
 pub trait FilterDirectoryReader: DirectoryReader {
   type Delegate: DirectoryReader;
@@ -94,11 +95,11 @@ where
     self.cache_key.clone()
   }
 
-  fn add_closed_listener(&self, listener: Box<dyn ClosedListener>) -> Result<()> {
+  fn add_closed_listener(&self, listener: Arc<dyn ClosedListener>) -> Result<()> {
     let cache_key = self.cache_key.clone();
     self
       ._delegate
-      .add_closed_listener(Box::new(move |_unused: &CacheKey| {
+      .add_closed_listener(Arc::new(move |_unused: &CacheKey| {
         listener.on_close(&cache_key)
       }))
   }

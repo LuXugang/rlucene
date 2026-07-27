@@ -654,7 +654,7 @@ where
           std::sync::atomic::Ordering::SeqCst,
         );
         let cache = Arc::downgrade(self);
-        cache_helper.add_closed_listener(Box::new(move |core_key: &CacheKey| {
+        cache_helper.add_closed_listener(Arc::new(move |core_key: &CacheKey| {
           if let Some(cache) = cache.upgrade() {
             cache.clear_core_cache_key(core_key);
           }
