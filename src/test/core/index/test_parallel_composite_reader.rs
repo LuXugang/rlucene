@@ -223,6 +223,10 @@ fn test_ref_counts2() -> Result<()> {
 }
 
 impl TestParallelCompositeReader {
+  #[allow(
+    clippy::explicit_counter_loop,
+    reason = "Mirrors the Java test's leaf index progression"
+  )]
   fn test_reader_closed_listener1<R>(
     random: &mut R,
     close_sub_readers: bool,
@@ -768,6 +772,10 @@ where
 
 // Fields 1 & 2 in one index, 3 & 4 in the other, with
 // ParallelCompositeReader.
+#[allow(
+  clippy::type_complexity,
+  reason = "Mirrors Java's concrete ParallelCompositeReader return type"
+)]
 fn parallel<R>(
   random: &mut R,
   composite_composite: bool,
@@ -1085,6 +1093,10 @@ where
   Ok(dir2)
 }
 
+#[allow(
+  clippy::large_enum_variant,
+  reason = "Test-only enum mirrors Java's common CompositeReader variable"
+)]
 enum CompositeReaderEnum {
   Standard {
     reader: StandardTestReader,

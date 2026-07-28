@@ -59,11 +59,11 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct ParallelLeafReader<R>
 where
-  R: LeafReader + Clone,
+  R: LeafReader,
 {
   field_infos: Arc<FieldInfos>,
-  parallel_readers: Vec<R>,
-  stored_fields_readers: Vec<R>,
+  parallel_reader_indices: Vec<usize>,
+  stored_fields_reader_indices: Vec<usize>,
   complete_reader_set: Vec<R>,
   close_sub_readers: bool,
   max_doc: i32,
@@ -87,7 +87,7 @@ pub(crate) enum ParallelLeafReaderHook {
 
 impl<R> ParallelLeafReader<R>
 where
-  R: LeafReader + Clone,
+  R: LeafReader,
 {
   /// Creates a `ParallelLeafReader` based on the provided readers and
   /// automatically closes them when this reader is closed.
@@ -97,7 +97,12 @@ where
 
   /// Creates a `ParallelLeafReader` based on the provided readers.
   pub fn new_with_close_sub_readers(close_sub_readers: bool, readers: Vec<R>) -> Result<Self> {
-    Self::new_with_stored_fields(close_sub_readers, readers.clone(), readers)
+    Self::new_internal(
+      close_sub_readers,
+      readers,
+      None,
+      ParallelLeafReaderHook::Default,
+    )
   }
 
   /// Expert: creates a `ParallelLeafReader` based on the provided readers and
@@ -108,10 +113,10 @@ where
     readers: Vec<R>,
     stored_fields_readers: Vec<R>,
   ) -> Result<Self> {
-    Self::new_with_stored_fields_and_hook(
+    Self::new_internal(
       close_sub_readers,
       readers,
-      stored_fields_readers,
+      Some(stored_fields_readers),
       ParallelLeafReaderHook::Default,
     )
   }
@@ -122,7 +127,25 @@ where
     stored_fields_readers: Vec<R>,
     hook: ParallelLeafReaderHook,
   ) -> Result<Self> {
-    if readers.is_empty() && !stored_fields_readers.is_empty() {
+    Self::new_internal(
+      close_sub_readers,
+      readers,
+      Some(stored_fields_readers),
+      hook,
+    )
+  }
+
+  fn new_internal(
+    close_sub_readers: bool,
+    readers: Vec<R>,
+    stored_fields_readers: Option<Vec<R>>,
+    hook: ParallelLeafReaderHook,
+  ) -> Result<Self> {
+    if readers.is_empty()
+      && stored_fields_readers
+        .as_ref()
+        .is_some_and(|readers| !readers.is_empty())
+    {
       return Err(LuceneError::illegal_argument(
         "There must be at least one main reader if storedFieldsReaders are used.",
       ));
@@ -134,22 +157,35 @@ where
     };
 
     let mut complete_reader_set = Vec::new();
-    for reader in &readers {
-      if !complete_reader_set
+    let mut parallel_reader_indices = Vec::with_capacity(readers.len());
+    for reader in readers {
+      let reader_index = complete_reader_set
         .iter()
-        .any(|existing: &R| existing.index_base().ptr_eq(reader.index_base()))
-      {
-        complete_reader_set.push(reader.clone());
-      }
+        .position(|existing: &R| existing.index_base().ptr_eq(reader.index_base()))
+        .unwrap_or_else(|| {
+          complete_reader_set.push(reader);
+          complete_reader_set.len() - 1
+        });
+      parallel_reader_indices.push(reader_index);
     }
-    for reader in &stored_fields_readers {
-      if !complete_reader_set
-        .iter()
-        .any(|existing| existing.index_base().ptr_eq(reader.index_base()))
-      {
-        complete_reader_set.push(reader.clone());
-      }
-    }
+
+    let stored_fields_reader_indices = match stored_fields_readers {
+      Some(stored_fields_readers) => {
+        let mut indices = Vec::with_capacity(stored_fields_readers.len());
+        for reader in stored_fields_readers {
+          let reader_index = complete_reader_set
+            .iter()
+            .position(|existing| existing.index_base().ptr_eq(reader.index_base()))
+            .unwrap_or_else(|| {
+              complete_reader_set.push(reader);
+              complete_reader_set.len() - 1
+            });
+          indices.push(reader_index);
+        }
+        indices
+      },
+      None => parallel_reader_indices.clone(),
+    };
 
     // Check compatibility.
     for reader in &complete_reader_set {
@@ -186,18 +222,19 @@ where
     let mut terms_field_to_reader = HashMap::new();
 
     // Build FieldInfos and field-to-reader maps.
-    for (reader_index, reader) in readers.iter().enumerate() {
+    for complete_reader_index in &parallel_reader_indices {
+      let reader = &complete_reader_set[*complete_reader_index];
       let leaf_meta_data = reader.get_metadata()?;
       let leaf_index_sort = leaf_meta_data.get_sort().clone();
       if index_sort.is_none() {
         index_sort = leaf_index_sort;
-      } else if let Some(leaf_index_sort) = leaf_index_sort
-        && index_sort.as_ref() != Some(&leaf_index_sort)
+      } else if let Some(index_sort) = &index_sort
+        && let Some(leaf_index_sort) = leaf_index_sort
+        && index_sort != &leaf_index_sort
       {
         return Err(LuceneError::illegal_argument(format!(
           "cannot combine LeafReaders that have different index sorts: saw both sort={} and {}",
-          index_sort.as_ref().unwrap(),
-          leaf_index_sort
+          index_sort, leaf_index_sort
         )));
       }
 
@@ -216,18 +253,18 @@ where
         // NOTE: the first reader having a given field wins.
         if !field_to_reader.contains_key(&field_info.name) {
           builder.add_with_dv_gen(field_info.clone(), field_info.get_doc_values_gen())?;
-          field_to_reader.insert(field_info.name.clone(), reader_index);
+          field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
           // Only add these if the reader responsible for that field name is
           // the current reader.
           // TODO consider populating the first leaf with vectors even if the
           // field name has been seen on a previous leaf.
           if field_info.has_term_vectors() {
-            tv_field_to_reader.insert(field_info.name.clone(), reader_index);
+            tv_field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
           }
           // TODO consider populating the first leaf with terms even if the
           // field name has been seen on a previous leaf.
           if field_info.get_index_options() != &IndexOptions::None {
-            terms_field_to_reader.insert(field_info.name.clone(), reader_index);
+            terms_field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
           }
         }
       }
@@ -240,7 +277,8 @@ where
 
     let mut min_version = Some((*LATEST).clone());
     let mut has_blocks = false;
-    for reader in &readers {
+    for reader_index in &parallel_reader_indices {
+      let reader = &complete_reader_set[*reader_index];
       let leaf_meta_data = reader.get_metadata()?;
       has_blocks |= leaf_meta_data.get_has_blocks();
       match leaf_meta_data.get_min_version() {
@@ -273,8 +311,8 @@ where
 
     Ok(Self {
       field_infos,
-      parallel_readers: readers,
-      stored_fields_readers,
+      parallel_reader_indices,
+      stored_fields_reader_indices,
       complete_reader_set,
       close_sub_readers,
       max_doc,
@@ -292,7 +330,7 @@ where
 
 impl<R> Display for ParallelLeafReader<R>
 where
-  R: LeafReader + Clone,
+  R: LeafReader,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "ParallelLeafReader(")?;
@@ -477,7 +515,7 @@ where
 
 impl<R> IndexReader for ParallelLeafReader<R>
 where
-  R: LeafReader + Clone,
+  R: LeafReader,
 {
   type ContextKind = LeafReaderContextKind;
 
@@ -485,9 +523,11 @@ where
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     self.ensure_open()?;
-    let mut term_vectors = Vec::with_capacity(self.parallel_readers.len());
-    for reader in &self.parallel_readers {
-      if reader.get_field_infos()?.has_term_vectors() {
+    let mut term_vectors = Vec::with_capacity(self.complete_reader_set.len());
+    for (reader_index, reader) in self.complete_reader_set.iter().enumerate() {
+      if self.parallel_reader_indices.contains(&reader_index)
+        && reader.get_field_infos()?.has_term_vectors()
+      {
         term_vectors.push(Some(reader.term_vectors()?));
       } else {
         term_vectors.push(None);
@@ -511,9 +551,9 @@ where
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
     self.ensure_open()?;
-    let mut fields = Vec::with_capacity(self.stored_fields_readers.len());
-    for reader in &self.stored_fields_readers {
-      fields.push(reader.stored_fields()?);
+    let mut fields = Vec::with_capacity(self.stored_fields_reader_indices.len());
+    for reader_index in &self.stored_fields_reader_indices {
+      fields.push(self.complete_reader_set[*reader_index].stored_fields()?);
     }
     Ok(ParallelStoredFields { fields })
   }
@@ -550,13 +590,11 @@ where
   type ReaderCacheHelper = R::ReaderCacheHelper;
 
   fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
-    if self.parallel_readers.len() == 1
-      && self.stored_fields_readers.len() == 1
-      && self.parallel_readers[0]
-        .index_base()
-        .ptr_eq(self.stored_fields_readers[0].index_base())
+    if self.parallel_reader_indices.len() == 1
+      && self.stored_fields_reader_indices.len() == 1
+      && self.parallel_reader_indices[0] == self.stored_fields_reader_indices[0]
     {
-      self.parallel_readers[0].get_reader_cache_helper()
+      self.complete_reader_set[self.parallel_reader_indices[0]].get_reader_cache_helper()
     } else {
       Ok(None)
     }
@@ -589,7 +627,7 @@ where
 
 impl<R> LeafReader for ParallelLeafReader<R>
 where
-  R: LeafReader + Clone,
+  R: LeafReader,
 {
   type CacheHelper = R::CacheHelper;
 
@@ -597,13 +635,11 @@ where
     // Parallel reader instances can be short-lived, which would make caching
     // trappy, so do not cache on them unless they wrap a single reader, in
     // which case delegate.
-    if self.parallel_readers.len() == 1
-      && self.stored_fields_readers.len() == 1
-      && self.parallel_readers[0]
-        .index_base()
-        .ptr_eq(self.stored_fields_readers[0].index_base())
+    if self.parallel_reader_indices.len() == 1
+      && self.stored_fields_reader_indices.len() == 1
+      && self.parallel_reader_indices[0] == self.stored_fields_reader_indices[0]
     {
-      self.parallel_readers[0].get_core_cache_helper()
+      self.complete_reader_set[self.parallel_reader_indices[0]].get_core_cache_helper()
     } else {
       Ok(None)
     }
@@ -614,7 +650,7 @@ where
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     self.ensure_open()?;
     match self.terms_field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].terms(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].terms(field),
       None => Ok(None),
     }
   }
@@ -624,7 +660,7 @@ where
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_numeric_doc_values(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_numeric_doc_values(field),
       None => Ok(None),
     }
   }
@@ -634,7 +670,7 @@ where
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_binary_doc_values(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_binary_doc_values(field),
       None => Ok(None),
     }
   }
@@ -644,7 +680,7 @@ where
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_sorted_doc_values(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_sorted_doc_values(field),
       None => Ok(None),
     }
   }
@@ -658,7 +694,7 @@ where
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
       Some(reader_index) => {
-        self.parallel_readers[*reader_index].get_sorted_numeric_doc_values(field)
+        self.complete_reader_set[*reader_index].get_sorted_numeric_doc_values(field)
       },
       None => Ok(None),
     }
@@ -669,7 +705,9 @@ where
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_sorted_set_doc_values(field),
+      Some(reader_index) => {
+        self.complete_reader_set[*reader_index].get_sorted_set_doc_values(field)
+      },
       None => Ok(None),
     }
   }
@@ -679,7 +717,7 @@ where
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_norm_values(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_norm_values(field),
       None => Ok(None),
     }
   }
@@ -689,7 +727,7 @@ where
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_doc_values_skipper(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_doc_values_skipper(field),
       None => Ok(None),
     }
   }
@@ -699,7 +737,7 @@ where
   fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_float_vector_values(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_float_vector_values(field),
       None => Ok(None),
     }
   }
@@ -709,7 +747,7 @@ where
   fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_byte_vector_values(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_byte_vector_values(field),
       None => Ok(None),
     }
   }
@@ -727,7 +765,7 @@ where
   {
     self.ensure_open()?;
     if let Some(reader_index) = self.field_to_reader.get(field) {
-      self.parallel_readers[*reader_index].search_nearest_vectors_f32(
+      self.complete_reader_set[*reader_index].search_nearest_vectors_f32(
         field,
         target,
         knn_collector,
@@ -750,7 +788,7 @@ where
   {
     self.ensure_open()?;
     if let Some(reader_index) = self.field_to_reader.get(field) {
-      self.parallel_readers[*reader_index].search_nearest_vectors_u8(
+      self.complete_reader_set[*reader_index].search_nearest_vectors_u8(
         field,
         target,
         knn_collector,
@@ -769,7 +807,7 @@ where
   fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
     self.ensure_open()?;
     if self.has_deletions {
-      self.parallel_readers[0].get_live_docs()
+      self.complete_reader_set[self.parallel_reader_indices[0]].get_live_docs()
     } else {
       Ok(None)
     }
@@ -780,7 +818,7 @@ where
   fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
     self.ensure_open()?;
     match self.field_to_reader.get(field) {
-      Some(reader_index) => self.parallel_readers[*reader_index].get_point_values(field),
+      Some(reader_index) => self.complete_reader_set[*reader_index].get_point_values(field),
       None => Ok(None),
     }
   }
@@ -800,11 +838,17 @@ where
 
 impl<R> ParallelLeafReader<R>
 where
-  R: LeafReader + Clone,
+  R: LeafReader,
 {
   /// Returns the [`LeafReader`]s that were passed on initialization.
-  pub fn get_parallel_readers(&self) -> Result<&[R]> {
+  pub fn get_parallel_readers(&self) -> Result<Vec<&R>> {
     self.ensure_open()?;
-    Ok(&self.parallel_readers)
+    Ok(
+      self
+        .parallel_reader_indices
+        .iter()
+        .map(|reader_index| &self.complete_reader_set[*reader_index])
+        .collect(),
+    )
   }
 }
