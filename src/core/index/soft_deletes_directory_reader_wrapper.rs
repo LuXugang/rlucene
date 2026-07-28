@@ -23,7 +23,6 @@ use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase}
 use crate::core::index::filter_directory_reader::{
   DelegatingCacheHelper, FilterDirectoryReader, SubReaderWrapper,
 };
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{
   CacheHelper, CacheKey, CompositeReaderContextKind, IndexReader, IndexReaderBase,
@@ -488,13 +487,6 @@ where
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SoftDeletesFilterLeafReader({})", self.reader)
   }
-}
-
-impl<LR> FilterLeafReader for SoftDeletesFilterLeafReader<LR>
-where
-  LR: LeafReader,
-  LR::ReaderCacheHelper: Clone,
-{
 }
 
 impl<LR> IndexReader for SoftDeletesFilterLeafReader<LR>

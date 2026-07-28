@@ -16,6 +16,8 @@
  */
 pub mod alcoholic_merge_policy;
 pub mod all_deleted_filter_reader;
+pub mod asserting_directory_reader;
+pub mod asserting_leaf_reader;
 pub mod base_compound_format_test_case;
 pub mod base_compressing_doc_values_format_test_case;
 pub mod base_doc_values_format_test_case;

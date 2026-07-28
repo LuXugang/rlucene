@@ -17,7 +17,6 @@
 use crate::core::document::document::Document;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_reader::{
   CacheHelper, CacheKey, ClosedListener, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
@@ -272,8 +271,6 @@ where
     write!(f, "FilterLeafReader({})", self.reader)
   }
 }
-
-impl<LR> FilterLeafReader for CloseUnderExceptionFilterLeafReader<LR> where LR: LeafReader {}
 
 impl<LR> IndexReader for CloseUnderExceptionFilterLeafReader<LR>
 where

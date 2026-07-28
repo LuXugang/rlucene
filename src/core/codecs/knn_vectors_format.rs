@@ -25,6 +25,9 @@ use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 
+/// The maximum number of vector dimensions.
+pub const DEFAULT_MAX_DIMENSIONS: usize = 1024;
+
 pub trait KnnVectorsFormat: Display {
   type KnnVectorsWriter<T: IndexOutput>: KnnVectorsWriter;
   /// Returns a [`KnnVectorsWriter`] to write the vectors to the index.

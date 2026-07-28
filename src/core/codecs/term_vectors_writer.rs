@@ -16,14 +16,16 @@
  */
 use crate::core::codecs::DefaultTermVectorsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
+use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
 use crate::core::index::merge_state::{DocMap, MergeState, MergeStateMeta};
 use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
+use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::index::{BytesRef, BytesRefBuilder, DocIDMerger, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
@@ -33,6 +35,51 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
+use std::rc::Rc;
+
+struct TermVectorsMergeSub<DM>
+where
+  DM: DocMap,
+{
+  reader_index: usize,
+  max_doc: i32,
+  doc_id: i32,
+  doc_map: Rc<DM>,
+}
+
+impl<DM> TermVectorsMergeSub<DM>
+where
+  DM: DocMap,
+{
+  fn new(doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
+    Self {
+      reader_index,
+      max_doc,
+      doc_id: -1,
+      doc_map,
+    }
+  }
+}
+
+impl<DM> SubBase for TermVectorsMergeSub<DM>
+where
+  DM: DocMap,
+{
+  fn next_doc(&mut self) -> Result<i32> {
+    self.doc_id += 1;
+    if self.doc_id == self.max_doc {
+      Ok(NO_MORE_DOCS)
+    } else {
+      Ok(self.doc_id)
+    }
+  }
+
+  type DocMap = DM;
+
+  fn get_doc_map(&self) -> Result<&Self::DocMap> {
+    Ok(&self.doc_map)
+  }
+}
 
 pub trait TermVectorsWriter: Accountable + Closeable {
   fn start_document(&mut self, num_vector_fields: i32) -> Result<()>;
@@ -122,11 +169,49 @@ pub trait TermVectorsWriter: Accountable + Closeable {
 
     Ok(())
   }
+  /// Merges in the term vectors from the readers in `merge_state`. The default
+  /// implementation skips over deleted documents, and uses
+  /// [`Self::start_document`], [`Self::start_field`], [`Self::start_term`],
+  /// [`Self::add_position`], and [`Self::finish`], returning the number of
+  /// documents that were written. Implementations can override this method for
+  /// more sophisticated merging (bulk-byte copying, etc).
   fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
   where
     D: Directory,
     D1: Directory,
-    CR: CodecReader;
+    CR: CodecReader,
+    Self: Sized,
+  {
+    let mut subs = Vec::with_capacity(merge_state.term_vectors_readers.len());
+    for i in 0..merge_state.term_vectors_readers.len() {
+      if let Some(reader) = &merge_state.term_vectors_readers[i] {
+        reader.check_integrity()?;
+      }
+      subs.push(Sub::new(TermVectorsMergeSub::new(
+        merge_state.doc_maps[i].clone(),
+        i,
+        merge_state.max_docs[i],
+      )));
+    }
+
+    let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
+    let merge_state_meta = merge_state.get_meta();
+    let mut doc_count = 0;
+    while let Some(sub_index) = doc_id_merger.next()? {
+      let sub = &doc_id_merger.get_subs()[sub_index].sub;
+
+      // NOTE: it's very important to first assign to vectors then pass it to
+      // termVectorsWriter.addAllDocVectors; see LUCENE-1282
+      let vectors = match merge_state.term_vectors_readers[sub.reader_index].as_mut() {
+        Some(reader) => reader.get(sub.doc_id)?,
+        None => None,
+      };
+      self.add_all_doc_vectors(vectors.as_ref(), &merge_state_meta)?;
+      doc_count += 1;
+    }
+    self.finish(doc_count, dir)?;
+    Ok(doc_count)
+  }
 
   /// Safe (but, slowish) default method to write every vector field in the document.
   fn add_all_doc_vectors<F, DM>(
@@ -253,5 +338,6 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     Ok(())
   }
 }
+
 pub type DefaultTermVectorsWriter<D> =
   <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>;

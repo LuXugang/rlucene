@@ -135,6 +135,7 @@ mod test_all_files_check_index_header;
 mod test_all_files_detect_mismatched_checksum;
 mod test_all_files_detect_truncation;
 mod test_all_files_have_checksum_footer;
+mod test_asserting_leaf_reader;
 mod test_atomic_update;
 mod test_bag_of_positions;
 mod test_bag_of_postings;

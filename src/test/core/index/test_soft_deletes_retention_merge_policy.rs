@@ -31,7 +31,6 @@ use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReade
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_reader::{
   CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
@@ -1201,8 +1200,6 @@ where
   }
 }
 
-impl<LR> FilterLeafReader for SoftDeleteWithRetentionFilterLeafReader<LR> where LR: LeafReader {}
-
 impl<LR> IndexReader for SoftDeleteWithRetentionFilterLeafReader<LR>
 where
   LR: LeafReader,
@@ -1453,8 +1450,6 @@ where
     write!(f, "IncludeSoftDeletesFilterLeafReader({})", self.in_)
   }
 }
-
-impl<D> FilterLeafReader for IncludeSoftDeletesFilterLeafReader<D> where D: Directory {}
 
 impl<D> IndexReader for IncludeSoftDeletesFilterLeafReader<D>
 where

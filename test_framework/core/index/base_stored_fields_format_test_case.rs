@@ -29,7 +29,6 @@ use crate::core::index::base_composite_reader::{
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{
   CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
@@ -996,8 +995,6 @@ where
     write!(f, "DummyFilterLeafReader({})", self.in_)
   }
 }
-
-impl<LR> FilterLeafReader for DummyFilterLeafReader<LR> where LR: LeafReader {}
 
 struct ReversedStoredFields<S>
 where

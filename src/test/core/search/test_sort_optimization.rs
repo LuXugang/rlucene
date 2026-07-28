@@ -36,7 +36,6 @@ use crate::core::index::dummy::dummy_terms::DummyTerms;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{
   CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
@@ -1756,8 +1755,6 @@ where
     Ok(Self { in_, index_base })
   }
 }
-
-impl<LR> FilterLeafReader for NoIndexLeafReader<LR> where LR: LeafReader {}
 
 impl<LR> IndexReader for NoIndexLeafReader<LR>
 where

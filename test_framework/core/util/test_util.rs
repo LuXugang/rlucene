@@ -23,7 +23,8 @@ use rand::prelude::IndexedRandom;
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::{Arc, LazyLock};
 
-use crate::core::codecs::Codecs;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
+use crate::core::codecs::{Codec, Codecs, DefaultDocValuesFormat, DefaultPostingsFormat};
 use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::check_index::{CheckIndex, Status};
 use crate::core::index::composite_reader::CompositeReader;
@@ -132,6 +133,21 @@ impl TestUtil {
   /// Returns the actual default codec for this version of Lucene.
   pub fn get_default_codec() -> Codecs {
     Codecs::default()
+  }
+
+  /// Returns the actual default postings format for this version of Lucene.
+  pub fn get_default_postings_format() -> DefaultPostingsFormat {
+    Self::get_default_codec().postings_format()
+  }
+
+  /// Returns the actual default doc values format for this version of Lucene.
+  pub fn get_default_doc_values_format() -> DefaultDocValuesFormat {
+    Self::get_default_codec().doc_values_format()
+  }
+
+  /// Returns the actual default vector format for this version of Lucene.
+  pub fn get_default_knn_vectors_format() -> Result<Lucene99HnswVectorsFormat> {
+    Lucene99HnswVectorsFormat::new()
   }
 
   pub fn sync_concurrent_merges<D>(writer: &IndexWriter<D>) -> Result<()>

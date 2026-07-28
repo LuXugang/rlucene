@@ -26,7 +26,6 @@ use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_reader::{
   CacheHelper, CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
@@ -630,8 +629,6 @@ where
     write!(f, "MyFilterLeafReader({})", self.in_)
   }
 }
-
-impl<LR> FilterLeafReader for MyFilterLeafReader<LR> where LR: LeafReader {}
 
 impl<LR> IndexReader for MyFilterLeafReader<LR>
 where

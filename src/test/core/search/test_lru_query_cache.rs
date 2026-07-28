@@ -28,7 +28,6 @@ use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::filter_directory_reader::{FilterDirectoryReader, SubReaderWrapper};
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_reader::{
   CacheHelper, CompositeReaderContextKind, Identity, IndexReader, IndexReaderBase,
   LeafReaderContextKind,
@@ -1578,8 +1577,6 @@ where
     write!(f, "DummyFilterLeafReader({})", self.in_)
   }
 }
-
-impl<LR> FilterLeafReader for DummyFilterLeafReader<LR> where LR: LeafReader {}
 
 impl<LR> IndexReader for DummyFilterLeafReader<LR>
 where

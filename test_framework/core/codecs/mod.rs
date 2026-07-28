@@ -14,12 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod analysis;
-pub mod codecs;
-pub mod document;
-pub mod geo;
-pub mod index;
-pub mod internal;
-pub mod search;
-pub mod store;
-pub mod util;
+pub mod asserting_doc_values_format;
+pub mod asserting_knn_vectors_format;
+pub mod asserting_live_docs_format;
+pub mod asserting_norms_format;
+pub mod asserting_points_format;
+pub mod asserting_postings_format;
+pub mod asserting_stored_fields_format;
+pub mod asserting_term_vectors_format;

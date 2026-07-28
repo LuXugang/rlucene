@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::filter_leaf_reader::FilterLeafReader;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -75,8 +74,6 @@ where
     write!(f, "AllDeletedFilterReader({})", self.reader)
   }
 }
-
-impl<LR> FilterLeafReader for AllDeletedFilterReader<LR> where LR: LeafReader {}
 
 impl<LR> IndexReader for AllDeletedFilterReader<LR>
 where
