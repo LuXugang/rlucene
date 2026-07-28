@@ -44,6 +44,7 @@ mod test_field_infos;
 mod test_field_invert_state;
 mod test_field_updates_buffer;
 mod test_fields_reader;
+mod test_filter_directory_reader;
 mod test_flush_by_ram_or_counts_policy;
 mod test_force_merge_forever;
 mod test_freq_prox_terms_writer;
