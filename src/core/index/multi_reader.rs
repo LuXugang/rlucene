@@ -111,13 +111,22 @@ where
   R::ContextKind: MultiReaderKind<R>,
 {
   pub fn new(sub_readers: Vec<R>) -> Result<Self> {
+    Self::new_with_close_sub_readers(true, sub_readers)
+  }
+
+  pub fn new_with_close_sub_readers(close_sub_readers: bool, sub_readers: Vec<R>) -> Result<Self> {
     let index_reader_base = IndexReaderBase::new();
     let base_composite_reader_base =
       BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None, &index_reader_base)?;
+    if !close_sub_readers {
+      for reader in base_composite_reader_base.get_sequential_sub_readers() {
+        reader.inc_ref()?;
+      }
+    }
     Ok(Self {
       base_composite_reader_base,
       index_reader_base,
-      close_sub_readers: true,
+      close_sub_readers,
     })
   }
 }

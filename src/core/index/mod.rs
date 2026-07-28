@@ -131,6 +131,8 @@ pub(crate) mod numeric_doc_values_writer;
 pub mod one_merge_wrapping_merge_policy;
 pub mod ord_term_state;
 pub mod ordinal_map;
+pub mod parallel_composite_reader;
+pub mod parallel_leaf_reader;
 pub(crate) mod parallel_postings_array;
 pub(crate) mod pending_deletes;
 pub(crate) mod pending_soft_deletes;

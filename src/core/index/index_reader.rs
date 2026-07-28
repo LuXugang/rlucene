@@ -365,6 +365,10 @@ impl IndexReaderBase {
     }
   }
 
+  pub(crate) fn ptr_eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.state, &other.state)
+  }
+
   fn register_parent_reader(&self, reader: &Self) {
     let reader = Arc::downgrade(&reader.state);
     // TODO IMPORTANT 检查正确性

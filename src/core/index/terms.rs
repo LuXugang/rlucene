@@ -24,6 +24,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Trait representing base term statistics and access.
 pub trait Terms {
@@ -185,6 +186,82 @@ pub trait Terms {
   }
 }
 impl<T> Terms for Rc<T>
+where
+  T: Terms,
+{
+  type TermsEnum = T::TermsEnum;
+
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    (**self).iterator()
+  }
+
+  type IntersectIter = T::IntersectIter;
+
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    (**self).intersect(compiled, start_term)
+  }
+
+  fn default_intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>>
+  where
+    Self: Sized,
+  {
+    (**self).default_intersect(compiled, start_term)
+  }
+
+  fn size(&self) -> Result<i64> {
+    (**self).size()
+  }
+
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    (**self).get_sum_total_term_freq()
+  }
+
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    (**self).get_sum_doc_freq()
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    (**self).get_doc_count()
+  }
+
+  fn has_freqs(&self) -> bool {
+    (**self).has_freqs()
+  }
+
+  fn has_offsets(&self) -> bool {
+    (**self).has_offsets()
+  }
+
+  fn has_positions(&self) -> bool {
+    (**self).has_positions()
+  }
+
+  fn has_payloads(&self) -> bool {
+    (**self).has_payloads()
+  }
+
+  fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    (**self).get_min()
+  }
+
+  fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    (**self).get_max()
+  }
+
+  fn get_stats(&self) -> Result<String> {
+    (**self).get_stats()
+  }
+}
+
+impl<T> Terms for Arc<T>
 where
   T: Terms,
 {
