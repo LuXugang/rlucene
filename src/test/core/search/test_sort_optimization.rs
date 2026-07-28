@@ -78,7 +78,8 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, is_night_mode, new_directory_shared, new_index_writer_config,
-  new_log_merge_policy, new_searcher, new_searcher_with_reader, new_searcher_with_threads, random,
+  new_log_merge_policy, new_searcher_with_reader, new_searcher_with_threads,
+  new_searcher_with_wrap_assert, random,
 };
 use rand::RngExt;
 use rand::prelude::SliceRandom;
@@ -1093,7 +1094,10 @@ fn test_point_validation() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;
 
-  let searcher = new_searcher(reader, random.random_bool(0.5), random.random_bool(0.5))?;
+  let maybe_wrap = random.random_bool(0.5);
+  let wrap_with_assertions = random.random_bool(0.5);
+  let searcher =
+    new_searcher_with_wrap_assert(&mut random, reader, maybe_wrap, wrap_with_assertions)?;
 
   let mut long_sort_on_int_field = SortField::new("intField".into(), SortFieldType::Long)?;
   assert!(

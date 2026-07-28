@@ -41,6 +41,7 @@ pub(crate) mod mismatched_codec_reader;
 pub mod mismatched_leaf_reader;
 pub mod mock_index_writer_event_listener;
 pub mod mock_random_merge_policy;
+pub mod own_cache_key_multi_reader;
 pub mod per_thread_pk_lookup;
 pub mod random_index_writer;
 pub mod random_postings_tester;

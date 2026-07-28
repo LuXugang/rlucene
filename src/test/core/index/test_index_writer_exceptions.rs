@@ -2230,7 +2230,7 @@ fn test_add_docs_non_aborting_exception() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;
 
-  let searcher = new_searcher(reader, false, false)?;
+  let searcher = new_searcher(&mut random, reader)?;
   let query = PhraseQuery::from_terms_no_slop("content", &["silly", "good"])?;
   assert_eq!(0, searcher.count(query)?);
 
@@ -2340,7 +2340,7 @@ fn test_update_docs_non_aborting_exception() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;
 
-  let searcher = new_searcher(reader, false, false)?;
+  let searcher = new_searcher(&mut random, reader)?;
   let query = PhraseQuery::from_terms_no_slop("content", &["silly", "content"])?;
   assert_eq!(num_docs2, searcher.count(query)?);
 

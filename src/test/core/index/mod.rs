@@ -80,6 +80,8 @@ mod test_norms;
 mod test_ordinal_map;
 mod test_parallel_composite_reader;
 mod test_parallel_leaf_reader;
+mod test_parallel_reader_empty_index;
+mod test_parallel_term_enum;
 mod test_pending_deletes;
 mod test_pending_soft_deletes;
 pub(crate) mod test_per_segment_deletes;

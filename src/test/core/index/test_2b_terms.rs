@@ -267,7 +267,7 @@ where
   IndexReaderContextType<IR>: Sync + 'static,
 {
   println!("TEST: run {} terms on reader", terms.len());
-  let searcher = new_searcher(reader.clone(), false, false)?;
+  let searcher = new_searcher(random, reader.clone())?;
   terms.shuffle(random);
   let terms_data = multi_terms::get_terms(reader, "field")?.expect("field terms must exist");
   let mut terms_enum = terms_data.iterator()?;

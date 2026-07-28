@@ -1254,6 +1254,19 @@ where
   IndexSearcher::new(irc)
 }
 
+/// Create a new searcher over the reader. This searcher might randomly use threads.
+pub fn new_searcher<IR, R>(
+  random: &mut R,
+  reader: IR,
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
+where
+  IR: IndexReader,
+  R: Rng + ?Sized,
+{
+  new_searcher_with_wrap(random, reader, true)
+}
+
+/// Create a new searcher over the reader. This searcher might randomly use threads.
 pub fn new_searcher_with_wrap<IR, R>(
   random: &mut R,
   reader: IR,
@@ -1264,18 +1277,6 @@ where
   R: Rng + ?Sized,
 {
   new_searcher_with_wrap_assert(random, reader, may_be_wrap, true)
-}
-
-pub fn new_searcher<IR>(
-  reader: IR,
-  _may_be_wrap: bool,
-  _wrap_with_assertions: bool,
-) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
-where
-  IR: IndexReader,
-{
-  let irc = reader.get_context()?;
-  IndexSearcher::new(irc)
 }
 
 pub fn new_searcher_with_wrap_assert<IR, R>(

@@ -45,6 +45,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher, new_text_field, random,
 };
+use rand::Rng;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
@@ -56,8 +57,10 @@ const T: bool = true;
 const F: bool = false;
 
 static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
-  let (_small, reader) = set_up().expect("failed to initialize TestMultiTermConstantScore");
-  new_searcher(reader, false, false)
+  let mut random = random();
+  let (_small, reader) =
+    set_up(&mut random).expect("failed to initialize TestMultiTermConstantScore");
+  new_searcher(&mut random, reader)
     .expect("failed to initialize TestMultiTermConstantScore searcher")
 });
 
@@ -79,9 +82,9 @@ static RANGE_CONTEXT: LazyLock<RangeContext> = LazyLock::new(|| {
     max_id,
     min_r,
     max_r,
-    searcher: new_searcher(reader, false, false)
+    searcher: new_searcher(&mut random, reader)
       .expect("failed to initialize TestBaseRangeFilter signed searcher"),
-    _unsigned_searcher: new_searcher(unsigned_reader, false, false)
+    _unsigned_searcher: new_searcher(&mut random, unsigned_reader)
       .expect("failed to initialize TestBaseRangeFilter unsigned searcher"),
   }
 });
@@ -93,7 +96,10 @@ fn constant_score_rewrites() -> [RewriteMethodEnum; 2] {
   ]
 }
 
-fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReader<DirEnum>)> {
+fn set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, StandardDirectoryReader<DirEnum>)>
+where
+  R: Rng + ?Sized,
+{
   let data = [
     Some("A 1 2 3 4 5 6"),
     Some("Z       4 5 6"),
@@ -105,12 +111,11 @@ fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReader<DirEnum>)> {
     Some("X       4 5 6"),
   ];
 
-  let mut random = random();
-  let small = new_directory_shared(&mut random)?;
-  let analyzer = MockAnalyzer::new(&mut random);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  config.set_merge_policy(new_log_merge_policy(&mut random)?);
-  let writer = RandomIndexWriter::with_config(&mut random, small.clone(), config);
+  let small = new_directory_shared(random)?;
+  let analyzer = MockAnalyzer::new(random);
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
+  config.set_merge_policy(new_log_merge_policy(random)?);
+  let writer = RandomIndexWriter::with_config(random, small.clone(), config);
   let mut field_types = HashMap::new();
   let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_tokenized(false)?;
@@ -118,14 +123,14 @@ fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReader<DirEnum>)> {
   for (i, value) in data.iter().enumerate() {
     let mut doc = Document::new();
     doc.add(new_field(
-      &mut random,
+      random,
       "id",
       i.to_string(),
       &custom_type,
       &mut field_types,
     )?);
     doc.add(new_field(
-      &mut random,
+      random,
       "all",
       "all",
       &custom_type,
@@ -133,18 +138,18 @@ fn set_up() -> Result<(Arc<DirEnum>, StandardDirectoryReader<DirEnum>)> {
     )?);
     if let Some(value) = value {
       doc.add(new_text_field(
-        &mut random,
+        random,
         "data",
         *value,
         Yes,
         &mut field_types,
       )?);
     }
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  let reader = writer.get_reader(&mut random)?;
-  writer.close(&mut random)?;
+  let reader = writer.get_reader(random)?;
+  writer.close(random)?;
   Ok((small, reader))
 }
 fn csrq(
