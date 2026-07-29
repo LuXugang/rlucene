@@ -24,7 +24,9 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamMT;
 use std::sync::Arc;
@@ -90,13 +92,22 @@ where
     DM: DocMap,
   {
     if let Some(mut writer) = self.writer.take() {
-      writer.flush(segment_info.max_doc()?, sort_map)?;
-      writer.finish()?;
+      let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        writer.flush(segment_info.max_doc()?, sort_map)?;
+        writer.finish()
+      }));
+      writer.close()?;
+      match body_result {
+        Ok(result) => result?,
+        Err(payload) => std::panic::resume_unwind(payload),
+      }
     }
     Ok(())
   }
   pub(crate) fn abort(&mut self) {
-    let _ = self.writer.take();
+    if let Some(mut writer) = self.writer.take() {
+      let _ = IOUtils::close_resources_while_handling_error(&mut writer);
+    }
   }
   pub(crate) fn get_accountable(&self) -> &Self {
     self

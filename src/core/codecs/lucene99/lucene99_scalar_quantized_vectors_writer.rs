@@ -70,7 +70,9 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
+use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::{
+  CloseableRandomVectorScorerSupplier, CloseableRandomVectorScorerSupplierEnum2,
+};
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
@@ -339,7 +341,7 @@ where
 {
   fn merge_one_field_to_index_with_quantization_state<'a, D1, D2, CR>(
     &'a mut self,
-    segment_write_state: &SegmentWriteState<&'a D2>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     merged_quantization_state: ScalarQuantizer,
@@ -430,14 +432,14 @@ where
               quantization_data_input,
             ),
           )?;
-        Ok(
+        Ok(CloseableRandomVectorScorerSupplierEnum2::B(
           ScalarQuantizedCloseableRandomVectorScorerSupplier::new_quantized(
             docs_with_field.cardinality(),
             random_vector_scorer_supplier,
             segment_write_state.directory,
             temp_quantized_vector_name.clone(),
           ),
-        )
+        ))
       })();
 
     if result.is_err() {
@@ -665,15 +667,18 @@ where
   }
 
   type CloseableRandomVectorScorerSupplier<'a, I, D>
-    = ScalarQuantizedCloseableRandomVectorScorerSupplier<
-    'a,
-    ScalarQuantizedRandomVectorScorerSupplier<
-      off_heap_quantized_byte_vector_values::DenseOffHeapVectorValues<
-        I,
-        Lucene99ScalarQuantizedVectorScorer<S>,
+    = CloseableRandomVectorScorerSupplierEnum2<
+    R::CloseableRandomVectorScorerSupplier<'a, I, D>,
+    ScalarQuantizedCloseableRandomVectorScorerSupplier<
+      'a,
+      ScalarQuantizedRandomVectorScorerSupplier<
+        off_heap_quantized_byte_vector_values::DenseOffHeapVectorValues<
+          I,
+          Lucene99ScalarQuantizedVectorScorer<S>,
+        >,
       >,
+      D,
     >,
-    D,
   >
   where
     I: IndexInput + 'a,
@@ -686,7 +691,7 @@ where
     &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
-    segment_write_state: &SegmentWriteState<&'a D2>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
   ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
     D1: Directory,
@@ -722,9 +727,10 @@ where
     }
     // We only merge the delegate, since the field type isn't float32, quantization wasn't
     // supported, so bypass it.
-    Err(LuceneError::unsupported_operation(
-      "Lucene99ScalarQuantizedVectorsWriter mergeOneFieldToIndex only supports FLOAT32 fields",
-    ))
+    self
+      .raw_vector_delegate
+      .merge_one_field_to_index(field_info, merge_state, segment_write_state)
+      .map(CloseableRandomVectorScorerSupplierEnum2::A)
   }
 }
 

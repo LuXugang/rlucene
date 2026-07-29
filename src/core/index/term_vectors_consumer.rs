@@ -125,13 +125,21 @@ where
   }
   fn fill(&mut self, doc_id: i32) -> Result<()> {
     while self.last_doc_id < doc_id {
-      if let Some(ref mut w) = self.writer {
-        w.start_document(0)?;
-        w.finish_document()?;
-      } else {
-        Err(LuceneError::illegal_state(
-          "TermVectorsConsumer writer is not initialized",
-        ))?;
+      match self.sub {
+        Some(ref mut sub) => {
+          let writer = sub.writer.as_mut().ok_or_else(|| {
+            LuceneError::illegal_state("TermVectorsConsumer writer is not initialized")
+          })?;
+          writer.start_document(0)?;
+          writer.finish_document()?;
+        },
+        None => {
+          let writer = self.writer.as_mut().ok_or_else(|| {
+            LuceneError::illegal_state("TermVectorsConsumer writer is not initialized")
+          })?;
+          writer.start_document(0)?;
+          writer.finish_document()?;
+        },
       }
       self.last_doc_id += 1;
     }
