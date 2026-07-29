@@ -134,10 +134,10 @@ fn test_field_names() -> Result<()> {
   ])?;
   let field_infos = pr.get_field_infos()?;
   assert_eq!(4, field_infos.size());
-  assert!(field_infos.field_info_by_name("f1").is_some());
-  assert!(field_infos.field_info_by_name("f2").is_some());
-  assert!(field_infos.field_info_by_name("f3").is_some());
-  assert!(field_infos.field_info_by_name("f4").is_some());
+  assert!(field_infos.field_info_by_name("f1")?.is_some());
+  assert!(field_infos.field_info_by_name("f2")?.is_some());
+  assert!(field_infos.field_info_by_name("f3")?.is_some());
+  assert!(field_infos.field_info_by_name("f4")?.is_some());
   pr.close()?;
   dir1.close()?;
   dir2.close()
@@ -700,7 +700,7 @@ fn test_with_doc_values_updates() -> Result<()> {
   assert_eq!(
     1,
     lr.get_field_infos()?
-      .field_info_by_name("age")
+      .field_info_by_name("age")?
       .ok_or_else(|| LuceneError::illegal_state("missing age field info"))?
       .get_doc_values_gen()
   );

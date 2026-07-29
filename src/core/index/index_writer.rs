@@ -3016,7 +3016,7 @@ where
       // if we have seen updates the update code checks if the segment is fully deleted.
       let has_initial_soft_deleted = {
         if let Some(name) = self.config.get_soft_deletes_field() {
-          if let Some(fi) = field_infos.field_info_by_name(name) {
+          if let Some(fi) = field_infos.field_info_by_name(name)? {
             fi.get_doc_values_gen() == -1 && *fi.get_doc_values_type() != DocValuesType::None
           } else {
             false

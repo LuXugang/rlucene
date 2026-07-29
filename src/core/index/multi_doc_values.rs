@@ -114,7 +114,7 @@ impl MultiDocValues {
     // Check if any of the leaf reader which has this field has norms.
     let mut norm_found = false;
     for leaf in leaves.iter() {
-      if let Some(info) = leaf.reader().get_field_infos()?.field_info_by_name(field)
+      if let Some(info) = leaf.reader().get_field_infos()?.field_info_by_name(field)?
         && info.has_norms()
       {
         norm_found = true;
@@ -153,7 +153,7 @@ impl MultiDocValues {
 
     let mut any_real = false;
     for leaf in leaves.iter() {
-      if let Some(info) = leaf.reader().get_field_infos()?.field_info_by_name(field)
+      if let Some(info) = leaf.reader().get_field_infos()?.field_info_by_name(field)?
         && *info.get_doc_values_type() == DocValuesType::Numeric
       {
         any_real = true;
@@ -190,7 +190,7 @@ impl MultiDocValues {
 
     let mut any_real = false;
     for leaf in leaves.iter() {
-      if let Some(info) = leaf.reader().get_field_infos()?.field_info_by_name(field)
+      if let Some(info) = leaf.reader().get_field_infos()?.field_info_by_name(field)?
         && *info.get_doc_values_type() == DocValuesType::Binary
       {
         any_real = true;

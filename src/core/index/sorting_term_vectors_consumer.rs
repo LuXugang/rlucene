@@ -117,7 +117,7 @@ where
       match iter.next()? {
         Some(field_name) => {
           field_count += 1;
-          let field_info = match field_infos.field_info_by_name(field_name) {
+          let field_info = match field_infos.field_info_by_name(field_name)? {
             Some(fi) => fi,
             None => {
               return Err(LuceneError::illegal_state(format!(

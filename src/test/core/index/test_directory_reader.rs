@@ -283,10 +283,10 @@ fn test_get_field_names() -> Result<()> {
   // set up reader
   let reader = directory_reader::open(d.clone())?;
   let field_infos = field_infos::get_merged_field_infos(&reader)?;
-  assert!(field_infos.field_info_by_name("keyword").is_some());
-  assert!(field_infos.field_info_by_name("text").is_some());
-  assert!(field_infos.field_info_by_name("unindexed").is_some());
-  assert!(field_infos.field_info_by_name("unstored").is_some());
+  assert!(field_infos.field_info_by_name("keyword")?.is_some());
+  assert!(field_infos.field_info_by_name("text")?.is_some());
+  assert!(field_infos.field_info_by_name("unindexed")?.is_some());
+  assert!(field_infos.field_info_by_name("unstored")?.is_some());
   reader.close()?;
 
   // add more documents

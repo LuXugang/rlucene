@@ -255,7 +255,7 @@ where
       None => return Ok(None),
     };
     let field_infos = reader.get_field_infos()?;
-    let Some(field_info) = field_infos.field_info_by_name(&self.query.field) else {
+    let Some(field_info) = field_infos.field_info_by_name(&self.query.field)? else {
       // No docs in this segment indexed this field at all
       return Ok(None);
     };

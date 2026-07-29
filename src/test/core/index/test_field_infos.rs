@@ -93,23 +93,23 @@ fn test_field_infos() -> Result<()> {
     ); // lookup by number
     assert_eq!(
       format!("f{}", i),
-      fis1.field_info_by_name(&format!("f{}", i)).unwrap().name
+      fis1.field_info_by_name(&format!("f{}", i))?.unwrap().name
     ); // lookup by name
   }
 
   // testing sparse FieldInfos
   assert_eq!("f0", fis2.field_info_by_number(0)?.unwrap().name);
-  assert_eq!("f0", fis2.field_info_by_name("f0").unwrap().name);
+  assert_eq!("f0", fis2.field_info_by_name("f0")?.unwrap().name);
   assert!(fis2.field_info_by_number(1)?.is_none());
-  assert!(fis2.field_info_by_name("f1").is_none());
+  assert!(fis2.field_info_by_name("f1")?.is_none());
   assert_eq!("f15", fis2.field_info_by_number(15)?.unwrap().name);
-  assert_eq!("f15", fis2.field_info_by_name("f15").unwrap().name);
+  assert_eq!("f15", fis2.field_info_by_name("f15")?.unwrap().name);
   assert_eq!("f16", fis2.field_info_by_number(16)?.unwrap().name);
-  assert_eq!("f16", fis2.field_info_by_name("f16").unwrap().name);
+  assert_eq!("f16", fis2.field_info_by_name("f16")?.unwrap().name);
 
   // testing empty FieldInfos
   assert!(fis3.field_info_by_number(0)?.is_none());
-  assert!(fis3.field_info_by_name("f0").is_none());
+  assert!(fis3.field_info_by_name("f0")?.is_none());
   assert_eq!(0, fis3.size());
   let mut it3 = fis3.iter();
   assert!(it3.next().is_none());
@@ -209,12 +209,12 @@ fn test_field_attributes_single_segment() -> Result<()> {
   let reader = directory_reader::open_from_writer(&writer)?;
   let fis = get_merged_field_infos(reader)?;
 
-  let fi1 = fis.field_info_by_name("f1").unwrap();
+  let fi1 = fis.field_info_by_name("f1")?.unwrap();
   assert_eq!(Some("attdoc1".to_string()), fi1.get_attribute("att1"));
   assert_eq!(Some("attdoc1".to_string()), fi1.get_attribute("att2"));
   assert_eq!(None, fi1.get_attribute("att3"));
 
-  let fi2 = fis.field_info_by_name("f2").unwrap();
+  let fi2 = fis.field_info_by_name("f2")?.unwrap();
   assert_eq!(Some("attdoc2".to_string()), fi2.get_attribute("att4"));
 
   writer.close()?;

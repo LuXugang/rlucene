@@ -371,7 +371,7 @@ where
   type FloatVectorValues = KVR::FloatVectorValues;
 
   fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
-    let field_info = self.fis.field_info_by_name(field);
+    let field_info = self.fis.field_info_by_name(field)?;
     assert!(field_info.as_ref().is_some_and(|field_info| {
       field_info.get_vector_dimension() > 0
         && matches!(field_info.get_vector_encoding(), VectorEncoding::FLOAT32(_))
@@ -386,7 +386,7 @@ where
   type ByteVectorValues = KVR::ByteVectorValues;
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
-    let field_info = self.fis.field_info_by_name(field);
+    let field_info = self.fis.field_info_by_name(field)?;
     assert!(field_info.as_ref().is_some_and(|field_info| {
       field_info.get_vector_dimension() > 0
         && matches!(field_info.get_vector_encoding(), VectorEncoding::BYTE(_))
@@ -414,7 +414,7 @@ where
     K: KnnCollector,
   {
     assert!(!self.merge_instance);
-    let field_info = self.fis.field_info_by_name(field);
+    let field_info = self.fis.field_info_by_name(field)?;
     assert!(field_info.as_ref().is_some_and(|field_info| {
       field_info.get_vector_dimension() > 0
         && matches!(field_info.get_vector_encoding(), VectorEncoding::FLOAT32(_))
@@ -436,7 +436,7 @@ where
     K: KnnCollector,
   {
     assert!(!self.merge_instance);
-    let field_info = self.fis.field_info_by_name(field);
+    let field_info = self.fis.field_info_by_name(field)?;
     assert!(field_info.as_ref().is_some_and(|field_info| {
       field_info.get_vector_dimension() > 0
         && matches!(field_info.get_vector_encoding(), VectorEncoding::BYTE(_))

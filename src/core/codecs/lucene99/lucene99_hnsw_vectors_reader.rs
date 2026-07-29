@@ -224,7 +224,7 @@ where
   fn get_field_entry(&self, field: &str, expected_encoding: VectorEncoding) -> Result<&FieldEntry> {
     let info = self
       .field_infos
-      .field_info_by_name(field)
+      .field_info_by_name(field)?
       .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
 
     let field_entry = self
@@ -333,7 +333,7 @@ where
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     let info = self
       .field_infos
-      .field_info_by_name(field)
+      .field_info_by_name(field)?
       .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
 
     let entry = self

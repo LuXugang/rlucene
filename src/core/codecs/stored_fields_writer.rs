@@ -240,7 +240,7 @@ impl MergeVisitor {
     if let Some(ref remapper) = self.remapper {
       // field numbers are not aligned, we need to remap to the new field
       // number
-      match remapper.field_info_by_name(&field.name) {
+      match remapper.field_info_by_name(&field.name)? {
         Some(new_field) => Ok(new_field),
         None => Err(LuceneError::illegal_state(format!(
           "FieldInfo not found in remapper with filed_name: {}",

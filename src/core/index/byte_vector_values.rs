@@ -241,7 +241,7 @@ pub fn check_field<LR>(reader: &LR, field: &str) -> Result<()>
 where
   LR: LeafReader,
 {
-  if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field)
+  if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field)?
     && fi.has_vector_values()
     && *fi.get_vector_encoding() != VectorEncoding::BYTE(1)
   {

@@ -129,7 +129,7 @@ fn test_mixed_ram() -> Result<()> {
   assert_eq!(
     IndexOptions::DocsAndFreqsAndPositions,
     *fi
-      .field_info_by_name("f1")
+      .field_info_by_name("f1")?
       .ok_or_else(|| LuceneError::illegal_state("field info for f1 is None"))?
       .get_index_options(),
     "OmitTermFreqAndPositions field bit should not be set."
@@ -137,7 +137,7 @@ fn test_mixed_ram() -> Result<()> {
   assert_eq!(
     IndexOptions::Docs,
     *fi
-      .field_info_by_name("f2")
+      .field_info_by_name("f2")?
       .ok_or_else(|| LuceneError::illegal_state("field info for f2 is None"))?
       .get_index_options(),
     "OmitTermFreqAndPositions field bit should be set."

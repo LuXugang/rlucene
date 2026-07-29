@@ -38,22 +38,245 @@ use std::sync::atomic::Ordering::Relaxed;
 /// # Experimental
 #[derive(Default)]
 pub struct FieldInfos {
-  pub has_freq: bool,
-  pub has_postings: bool,
-  pub has_prox: bool,
-  pub has_payloads: bool,
-  pub has_offsets: bool,
-  pub has_term_vectors: bool,
-  pub has_norms: bool,
-  pub has_doc_values: bool,
-  pub has_point_values: bool,
-  pub has_vector_values: bool,
-  pub soft_deletes_field: Option<String>,
+  has_freq: bool,
+  has_postings: bool,
+  has_prox: bool,
+  has_payloads: bool,
+  has_offsets: bool,
+  has_term_vectors: bool,
+  has_norms: bool,
+  has_doc_values: bool,
+  has_point_values: bool,
+  has_vector_values: bool,
+  soft_deletes_field: Option<String>,
 
-  pub parent_field: Option<String>,
-  pub by_number: Vec<Option<Arc<FieldInfo>>>,
-  pub by_name: HashMap<String, Arc<FieldInfo>>,
-  pub values: Vec<Arc<FieldInfo>>,
+  parent_field: Option<String>,
+  by_number: Vec<Option<Arc<FieldInfo>>>,
+  by_name: HashMap<String, Arc<FieldInfo>>,
+  values: Vec<Arc<FieldInfo>>,
+  pub(crate) hook: FieldInfosHook,
+}
+
+#[derive(Default)]
+pub(crate) enum FieldInfosHook {
+  #[default]
+  Default,
+  Filter(FilterFieldInfosHook),
+}
+
+pub(crate) struct FilterFieldInfosHook {
+  pub(crate) filtered_names: HashSet<String>,
+  pub(crate) filtered: Vec<Arc<FieldInfo>>,
+
+  // Copy of the private fields from FieldInfos
+  // Renamed so as to be less confusing about which fields we're referring to
+  pub(crate) filtered_has_vectors: bool,
+  pub(crate) filtered_has_postings: bool,
+  pub(crate) filtered_has_prox: bool,
+  pub(crate) filtered_has_payloads: bool,
+  pub(crate) filtered_has_offsets: bool,
+  pub(crate) filtered_has_freq: bool,
+  pub(crate) filtered_has_norms: bool,
+  pub(crate) filtered_has_doc_values: bool,
+  pub(crate) filtered_has_point_values: bool,
+}
+
+struct FieldInfosDefaults;
+
+impl FieldInfosDefaults {
+  fn has_freq(in_: &FieldInfos) -> bool {
+    in_.has_freq
+  }
+
+  fn has_postings(in_: &FieldInfos) -> bool {
+    in_.has_postings
+  }
+
+  fn has_prox(in_: &FieldInfos) -> bool {
+    in_.has_prox
+  }
+
+  fn has_payloads(in_: &FieldInfos) -> bool {
+    in_.has_payloads
+  }
+
+  fn has_offsets(in_: &FieldInfos) -> bool {
+    in_.has_offsets
+  }
+
+  fn has_term_vectors(in_: &FieldInfos) -> bool {
+    in_.has_term_vectors
+  }
+
+  fn has_norms(in_: &FieldInfos) -> bool {
+    in_.has_norms
+  }
+
+  fn has_doc_values(in_: &FieldInfos) -> bool {
+    in_.has_doc_values
+  }
+
+  fn has_point_values(in_: &FieldInfos) -> bool {
+    in_.has_point_values
+  }
+
+  fn size(in_: &FieldInfos) -> usize {
+    in_.by_name.len()
+  }
+
+  fn values(in_: &FieldInfos) -> &[Arc<FieldInfo>] {
+    &in_.values
+  }
+
+  fn field_info_by_name(in_: &FieldInfos, field_name: &str) -> Result<Option<Arc<FieldInfo>>> {
+    Ok(in_.by_name.get(field_name).cloned())
+  }
+
+  fn field_info_by_number(in_: &FieldInfos, field_number: i32) -> Result<Option<Arc<FieldInfo>>> {
+    if field_number < 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "Illegal field number: {field_number}"
+      )));
+    }
+    Ok(
+      in_
+        .by_number
+        .get(field_number as usize)
+        .and_then(|fi| fi.clone()),
+    )
+  }
+}
+
+impl FieldInfosHook {
+  fn has_freq(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_freq(in_),
+      Self::Filter(hook) => hook.filtered_has_freq,
+    }
+  }
+
+  fn has_postings(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_postings(in_),
+      Self::Filter(hook) => hook.filtered_has_postings,
+    }
+  }
+
+  fn has_prox(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_prox(in_),
+      Self::Filter(hook) => hook.filtered_has_prox,
+    }
+  }
+
+  fn has_payloads(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_payloads(in_),
+      Self::Filter(hook) => hook.filtered_has_payloads,
+    }
+  }
+
+  fn has_offsets(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_offsets(in_),
+      Self::Filter(hook) => hook.filtered_has_offsets,
+    }
+  }
+
+  fn has_term_vectors(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_term_vectors(in_),
+      Self::Filter(hook) => hook.filtered_has_vectors,
+    }
+  }
+
+  fn has_norms(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_norms(in_),
+      Self::Filter(hook) => hook.filtered_has_norms,
+    }
+  }
+
+  fn has_doc_values(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_doc_values(in_),
+      Self::Filter(hook) => hook.filtered_has_doc_values,
+    }
+  }
+
+  fn has_point_values(&self, in_: &FieldInfos) -> bool {
+    match self {
+      Self::Default => FieldInfosDefaults::has_point_values(in_),
+      Self::Filter(hook) => hook.filtered_has_point_values,
+    }
+  }
+
+  fn size(&self, in_: &FieldInfos) -> usize {
+    match self {
+      Self::Default => FieldInfosDefaults::size(in_),
+      Self::Filter(hook) => hook.filtered.len(),
+    }
+  }
+
+  fn values<'a>(&'a self, in_: &'a FieldInfos) -> &'a [Arc<FieldInfo>] {
+    match self {
+      Self::Default => FieldInfosDefaults::values(in_),
+      Self::Filter(hook) => &hook.filtered,
+    }
+  }
+
+  fn field_info_by_name(
+    &self,
+    in_: &FieldInfos,
+    field_name: &str,
+  ) -> Result<Option<Arc<FieldInfo>>> {
+    match self {
+      Self::Default => FieldInfosDefaults::field_info_by_name(in_, field_name),
+      Self::Filter(hook) => {
+        if !hook.filtered_names.contains(field_name) {
+          // Throw IAE to be consistent with fieldInfo(int) which throws it as well on invalid numbers
+          let available_fields = hook
+            .filtered_names
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(", ");
+          return Err(LuceneError::illegal_argument(format!(
+            "The field named '{field_name}' is not accessible in the current merge context, available ones are: [{available_fields}]"
+          )));
+        }
+        FieldInfosDefaults::field_info_by_name(in_, field_name)
+      },
+    }
+  }
+
+  fn field_info_by_number(
+    &self,
+    in_: &FieldInfos,
+    field_number: i32,
+  ) -> Result<Option<Arc<FieldInfo>>> {
+    match self {
+      Self::Default => FieldInfosDefaults::field_info_by_number(in_, field_number),
+      Self::Filter(hook) => {
+        let field_info = FieldInfosDefaults::field_info_by_number(in_, field_number)?;
+        if let Some(field_info) = &field_info
+          && !hook.filtered_names.contains(&field_info.name)
+        {
+          let available_fields = hook
+            .filtered_names
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(", ");
+          return Err(LuceneError::illegal_argument(format!(
+            "The field named '{}' numbered '{field_number}' is not accessible in the current merge context, available ones are: [{available_fields}]",
+            field_info.name
+          )));
+        }
+        Ok(field_info)
+      },
+    }
+  }
 }
 
 impl FieldInfos {
@@ -186,51 +409,53 @@ impl FieldInfos {
       by_number,
       by_name,
       values,
+      hook: FieldInfosHook::Default,
     })
   }
+
   /// Returns true if any fields have freqs.
   pub fn has_freq(&self) -> bool {
-    self.has_freq
+    self.hook.has_freq(self)
   }
 
   /// Returns true if any fields have postings.
   pub fn has_postings(&self) -> bool {
-    self.has_postings
+    self.hook.has_postings(self)
   }
 
   /// Returns true if any fields have positions.
   pub fn has_prox(&self) -> bool {
-    self.has_prox
+    self.hook.has_prox(self)
   }
 
   /// Returns true if any fields have payloads.
   pub fn has_payloads(&self) -> bool {
-    self.has_payloads
+    self.hook.has_payloads(self)
   }
 
   /// Returns true if any fields have offsets.
   pub fn has_offsets(&self) -> bool {
-    self.has_offsets
+    self.hook.has_offsets(self)
   }
 
   /// Returns true if any fields have term vectors.
   pub fn has_term_vectors(&self) -> bool {
-    self.has_term_vectors
+    self.hook.has_term_vectors(self)
   }
 
   /// Returns true if any fields have norms.
   pub fn has_norms(&self) -> bool {
-    self.has_norms
+    self.hook.has_norms(self)
   }
 
   /// Returns true if any fields have DocValues.
   pub fn has_doc_values(&self) -> bool {
-    self.has_doc_values
+    self.hook.has_doc_values(self)
   }
 
   /// Returns true if any fields have PointValues.
   pub fn has_point_values(&self) -> bool {
-    self.has_point_values
+    self.hook.has_point_values(self)
   }
 
   /// Returns true if any fields have vector values.
@@ -252,37 +477,27 @@ impl FieldInfos {
 
   /// Returns the number of fields.
   pub fn size(&self) -> usize {
-    self.by_name.len()
+    self.hook.size(self)
   }
 
   /// Returns an iterator over all the FieldInfo objects present, ordered by
   /// ascending field number.
-  pub fn iter(&self) -> impl Iterator<Item = &Arc<FieldInfo>> {
-    self.values.iter()
+  pub fn iter(&self) -> std::slice::Iter<'_, Arc<FieldInfo>> {
+    self.hook.values(self).iter()
   }
 
   /// Return the FieldInfo object referenced by the field name.
   ///
   /// Returns None if the given field name doesn't exist.
-  pub fn field_info_by_name(&self, field_name: &str) -> Option<Arc<FieldInfo>> {
-    self.by_name.get(field_name).cloned()
+  pub fn field_info_by_name(&self, field_name: &str) -> Result<Option<Arc<FieldInfo>>> {
+    self.hook.field_info_by_name(self, field_name)
   }
 
   /// Return the FieldInfo object referenced by the field number.
   ///
   /// Returns None if the given field number doesn't exist.
   pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Arc<FieldInfo>>> {
-    if field_number < 0 {
-      return Err(LuceneError::illegal_argument(format!(
-        "Illegal field number: {field_number}"
-      )));
-    }
-    Ok(
-      self
-        .by_number
-        .get(field_number as usize)
-        .and_then(|fi| fi.clone()),
-    )
+    self.hook.field_info_by_number(self, field_number)
   }
 }
 pub(crate) static EMPTY: LazyLock<Arc<FieldInfos>> =
@@ -381,7 +596,7 @@ impl<'a> IntoIterator for &'a FieldInfos {
   type IntoIter = std::slice::Iter<'a, Arc<FieldInfo>>;
 
   fn into_iter(self) -> Self::IntoIter {
-    self.values.iter()
+    self.iter()
   }
 }
 

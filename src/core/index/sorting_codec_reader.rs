@@ -1628,7 +1628,7 @@ where
       Some(terms) => {
         let field_info = self
           .field_infos
-          .field_info_by_name(field)
+          .field_info_by_name(field)?
           .ok_or_else(|| LuceneError::illegal_state(format!("{}'s field info", field)))?;
         Ok(Some(SortingTerms::new(
           terms,

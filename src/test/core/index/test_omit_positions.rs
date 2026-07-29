@@ -145,15 +145,15 @@ fn test_positions() -> Result<()> {
 
   assert_eq!(
     IndexOptions::Docs,
-    *fi.field_info_by_name("f1").unwrap().get_index_options()
+    *fi.field_info_by_name("f1")?.unwrap().get_index_options()
   );
   assert_eq!(
     IndexOptions::DocsAndFreqs,
-    *fi.field_info_by_name("f2").unwrap().get_index_options()
+    *fi.field_info_by_name("f2")?.unwrap().get_index_options()
   );
   assert_eq!(
     IndexOptions::DocsAndFreqsAndPositions,
-    *fi.field_info_by_name("f3").unwrap().get_index_options()
+    *fi.field_info_by_name("f3")?.unwrap().get_index_options()
   );
 
   Ok(())

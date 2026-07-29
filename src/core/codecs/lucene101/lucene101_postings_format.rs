@@ -26,12 +26,14 @@ use crate::core::codecs::lucene101::lucene101_postings_reader::Lucene101Postings
 use crate::core::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::push_postings_writer_base::PushPostingsWriterBase;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::term_state::TermState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 /// Lucene 10.1 postings format, which encodes postings in packed integer blocks for fast decode.
@@ -237,6 +239,7 @@ use crate::core::util::error::lucene_error::Result;
 pub struct Lucene101PostingsFormat {
   min_term_block_size: i32,
   max_term_block_size: i32,
+  identity: Identity,
 }
 
 impl Default for Lucene101PostingsFormat {
@@ -297,6 +300,7 @@ impl Lucene101PostingsFormat {
     Ok(Self {
       min_term_block_size: min_items_in_block,
       max_term_block_size: max_items_in_block,
+      identity: Identity::new(),
     })
   }
 
@@ -320,7 +324,17 @@ impl Lucene101PostingsFormat {
   }
 }
 
+impl HasIdentity for Lucene101PostingsFormat {
+  fn identity(&self) -> &Identity {
+    &self.identity
+  }
+}
+
 impl PostingsFormat for Lucene101PostingsFormat {
+  fn get_name(&self) -> &str {
+    "Lucene101"
+  }
+
   type FieldsConsumer<O: IndexOutput> =
     Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;
 
@@ -333,16 +347,15 @@ impl PostingsFormat for Lucene101PostingsFormat {
     D1: Directory,
     D2: Directory,
   {
-    let posting_writer =
+    let postings_writer =
       PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state, segment_info)?);
-    let ret = Lucene90BlockTreeTermsWriter::new(
+    Lucene90BlockTreeTermsWriter::new(
       state,
-      posting_writer,
+      postings_writer,
       self.min_term_block_size,
       self.max_term_block_size,
       segment_info,
-    )?;
-    Ok(ret)
+    )
   }
 
   type FieldsProducer<I: IndexInput> = Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>;
@@ -359,6 +372,15 @@ impl PostingsFormat for Lucene101PostingsFormat {
     let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
     let ret = Lucene90BlockTreeTermsReader::new(postings_reader, state, segment_info)?;
     Ok(ret)
+  }
+
+  fn for_name(name: &str) -> Result<Self> {
+    match name {
+      "Lucene101" => Ok(Self::new()),
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Could not load postings format named \"{name}\""
+      ))),
+    }
   }
 }
 

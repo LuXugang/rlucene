@@ -255,7 +255,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
 
       let field_info = merge_state
         .merge_field_infos
-        .field_info_by_name(field_name)
+        .field_info_by_name(field_name)?
         .ok_or_else(|| LuceneError::illegal_state("missing FieldInfo"))?;
 
       if let Some(ref last) = last_field_name {

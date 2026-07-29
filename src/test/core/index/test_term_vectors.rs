@@ -216,7 +216,7 @@ fn test_merge_with_payloads() -> Result<()> {
         leaves[0]
           .reader()
           .get_field_infos()?
-          .field_info_by_name("c")
+          .field_info_by_name("c")?
           .expect("field c must exist")
           .has_payloads()
       );
@@ -225,7 +225,7 @@ fn test_merge_with_payloads() -> Result<()> {
         leaves[1]
           .reader()
           .get_field_infos()?
-          .field_info_by_name("c")
+          .field_info_by_name("c")?
           .expect("field c must exist")
           .has_payloads()
       );
@@ -242,7 +242,7 @@ fn test_merge_with_payloads() -> Result<()> {
         leaves[0]
           .reader()
           .get_field_infos()?
-          .field_info_by_name("c")
+          .field_info_by_name("c")?
           .expect("field c must exist")
           .has_payloads()
       );

@@ -237,7 +237,7 @@ where
     if context
       .reader()
       .get_field_infos()?
-      .field_info_by_name(&self.query.field)
+      .field_info_by_name(&self.query.field)?
       .is_none()
     {
       return Ok(None);

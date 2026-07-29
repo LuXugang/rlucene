@@ -97,7 +97,7 @@ where
   }
 
   /// Create a shallow copy of SegmentWriteState with a new segment suffix.
-  pub fn copy_with_suffix(state: &'a mut SegmentWriteState<'a, D>, segment_suffix: String) -> Self {
+  pub fn copy_with_suffix(state: &SegmentWriteState<'a, D>, segment_suffix: String) -> Self {
     Self {
       info_stream: state.info_stream.clone(),
       directory: state.directory,

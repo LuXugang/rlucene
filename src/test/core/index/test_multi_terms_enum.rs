@@ -500,15 +500,13 @@ where
 
 /// Iterator over field names from FieldInfos.
 pub struct FieldInfosIter<'a> {
-  values: &'a [Arc<FieldInfo>],
-  index: usize,
+  values: std::slice::Iter<'a, Arc<FieldInfo>>,
 }
 
 impl<'a> FieldInfosIter<'a> {
   fn new(field_infos: &'a FieldInfos) -> Self {
     FieldInfosIter {
-      values: &field_infos.values,
-      index: 0,
+      values: field_infos.iter(),
     }
   }
 }
@@ -517,16 +515,11 @@ impl<'a> IteratorExt for FieldInfosIter<'a> {
   type Item = &'a String;
 
   fn next(&mut self) -> Result<Option<Self::Item>> {
-    if self.index >= self.values.len() {
-      return Ok(None);
-    }
-    let name = &self.values[self.index].name;
-    self.index += 1;
-    Ok(Some(name))
+    Ok(self.values.next().map(|field_info| &field_info.name))
   }
 
   fn has_next(&self) -> Result<bool> {
-    Ok(self.index < self.values.len())
+    Ok(!self.values.as_slice().is_empty())
   }
 }
 
@@ -798,7 +791,7 @@ where
   }
 
   fn size(&self) -> Result<i32> {
-    Ok(self.new_field_info.values.len() as i32)
+    Ok(self.new_field_info.size() as i32)
   }
 }
 

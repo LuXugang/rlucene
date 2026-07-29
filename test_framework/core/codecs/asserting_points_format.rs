@@ -153,7 +153,7 @@ where
   type PointValuesType = AssertingPointValues<PR::PointValuesType>;
 
   fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
-    let field_info = self.field_infos.field_info_by_name(field);
+    let field_info = self.field_infos.field_info_by_name(field)?;
     assert!(
       field_info
         .as_ref()

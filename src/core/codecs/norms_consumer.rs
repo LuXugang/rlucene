@@ -145,7 +145,7 @@ where
       let norms_producer_opt = &self.merge_state.norms_producers[i];
       if let Some(norms_producer) = norms_producer_opt {
         let reader_field_info =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
+          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?;
         if let Some(reader_field_info) = &reader_field_info
           && reader_field_info.has_norms()
         {

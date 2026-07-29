@@ -158,7 +158,7 @@ where
       if let Some(info) = context
         .reader()
         .get_field_infos()?
-        .field_info_by_name(field)
+        .field_info_by_name(field)?
       {
         if info.get_point_dimension_count() == 0 {
           return Err(LuceneError::illegal_state(format!(

@@ -830,7 +830,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let leaf_reader = get_only_leaf_reader(&reader)?;
     let field_info = leaf_reader
       .get_field_infos()?
-      .field_info_by_name("field")
+      .field_info_by_name("field")?
       .clone();
     assert!(field_info.is_some());
     let field_info = field_info.unwrap();

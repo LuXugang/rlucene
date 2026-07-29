@@ -435,12 +435,12 @@ where
   fn remap_field_info(&self, field: &Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
     let shuffled = self
       .shuffled
-      .field_info_by_name(&field.name)
+      .field_info_by_name(&field.name)?
       .ok_or_else(|| {
         LuceneError::illegal_state(format!("missing shuffled field info for {}", field.name))
       })?;
     assert_eq!(shuffled.number, field.number);
-    self.orig.field_info_by_name(&field.name).ok_or_else(|| {
+    self.orig.field_info_by_name(&field.name)?.ok_or_else(|| {
       LuceneError::illegal_state(format!("missing original field info for {}", field.name))
     })
   }
@@ -524,12 +524,12 @@ where
   fn remap_field_info(&self, field: &Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
     let shuffled = self
       .shuffled
-      .field_info_by_name(&field.name)
+      .field_info_by_name(&field.name)?
       .ok_or_else(|| {
         LuceneError::illegal_state(format!("missing shuffled field info for {}", field.name))
       })?;
     assert_eq!(shuffled.number, field.number);
-    self.orig.field_info_by_name(&field.name).ok_or_else(|| {
+    self.orig.field_info_by_name(&field.name)?.ok_or_else(|| {
       LuceneError::illegal_state(format!("missing original field info for {}", field.name))
     })
   }

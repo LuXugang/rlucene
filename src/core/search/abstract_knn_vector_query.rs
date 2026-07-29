@@ -263,7 +263,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
     Q: QueryTimeout,
   {
     let field_infos = context.reader().get_field_infos()?;
-    let fi = match field_infos.field_info_by_name(&self.base().field) {
+    let fi = match field_infos.field_info_by_name(&self.base().field)? {
       Some(fi) => fi,
       None => {
         // The field does not exist or does not index vectors

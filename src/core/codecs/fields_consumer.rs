@@ -19,12 +19,14 @@ use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::lucene101::lucene101_postings_writer::Lucene101PostingsWriter;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::push_postings_writer_base::PushPostingsWriterBase;
-use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::fields::Fields;
 use crate::core::index::mapped_multi_fields::MappedMultiFields;
-use crate::core::index::merge_state::MergeState;
+use crate::core::index::merge_state::MergeStateAccess;
 use crate::core::index::multi_fields::MultiFields;
 use crate::core::index::reader_slice::ReaderSlice;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -33,7 +35,13 @@ use std::rc::Rc;
 /// Abstract API that consumes terms, doc, freq, prox, offset and payloads postings. Concrete
 /// implementations of this actually do "something" with the postings (write it into the index in a
 /// specific format).
+///
+/// The caller retains ownership of the segment state and segment info. Implementations borrow them
+/// only for the duration of each [`Self::write`] or [`Self::merge`] call.
 pub trait FieldsConsumer: Closeable {
+  /// Output type retained by this consumer after it is bound to a write operation.
+  type IndexOutput: IndexOutput;
+
   /// Write all fields, terms and postings. This is the "pull" API, allowing you to iterate more than
   /// once over the postings, somewhat analogous to using a DOM API to traverse an XML tree.
   ///
@@ -46,8 +54,18 @@ pub trait FieldsConsumer: Closeable {
   ///   term until you’ve actually seen the first term or document.
   /// - The provided `Fields` instance is limited: you cannot call any methods that return
   ///   statistics/counts; you cannot pass a present live docs when pulling docs/positions enums.
-  fn write<F, N>(&mut self, fields: &mut F, norms: Option<&N>) -> Result<()>
+  ///
+  /// `state` and `segment_info` must describe the segment being written.
+  fn write<D1, D2, F, N>(
+    &mut self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    fields: &mut F,
+    norms: Option<&N>,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     F: Fields,
     N: NormsProducer;
   /// Merges the fields from the readers in `merge_state`.
@@ -58,20 +76,29 @@ pub trait FieldsConsumer: Closeable {
   ///
   /// Implementations may provide this method to perform more sophisticated
   /// merging strategies (such as bulk byte copying, etc.).
-  fn merge<D, N, CR>(&mut self, merge_state: &MergeState<D, CR>, norms: Option<&N>) -> Result<()>
+  ///
+  /// `state` and `segment_info` must describe the target segment.
+  fn merge<D1, D2, N, MS>(
+    &mut self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    merge_state: &MS,
+    norms: Option<&N>,
+  ) -> Result<()>
   where
-    D: Directory,
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     N: NormsProducer,
-    CR: CodecReader,
+    MS: MergeStateAccess,
   {
     let mut fields = Vec::new();
     let mut slices = Vec::new();
 
     let mut doc_base = 0;
 
-    for reader_index in 0..merge_state.fields_producers.len() {
-      let f = &merge_state.fields_producers[reader_index];
-      let max_doc = merge_state.max_docs[reader_index] as usize;
+    for reader_index in 0..merge_state.fields_producers().len() {
+      let f = &merge_state.fields_producers()[reader_index];
+      let max_doc = merge_state.max_docs()[reader_index] as usize;
 
       if let Some(f) = f {
         f.check_integrity()?;
@@ -87,9 +114,9 @@ pub trait FieldsConsumer: Closeable {
     }
 
     let field = MultiFields::new(fields, slices);
-    let mut merged_fields = MappedMultiFields::new(merge_state, &field);
+    let mut merged_fields = MappedMultiFields::new(merge_state.get_meta(), &field);
 
-    self.write(&mut merged_fields, norms)
+    self.write(state, segment_info, &mut merged_fields, norms)
   }
 }
 pub type FieldsConsumerEnum<O> =

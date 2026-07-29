@@ -253,7 +253,7 @@ where
       let field_info = context
         .reader()
         .get_field_infos()?
-        .field_info_by_name(&comparator.field);
+        .field_info_by_name(&comparator.field)?;
       match field_info {
         None => {
           if leaf.terms_index.get_value_count()? != 0 {

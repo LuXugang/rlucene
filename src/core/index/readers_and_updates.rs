@@ -321,7 +321,7 @@ where
         let dv_gen = inner.pending_deletes.dv_gen()?;
         let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
           let field_infos = pending_soft_deletes::read_field_infos(info)?;
-          let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?);
+          let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?)?;
           let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
           let reader = if on_new_reader {
             Some(self.get_latest_read(info, &mut inner, self.index_created_version_major)?)
@@ -448,7 +448,7 @@ where
       let updates_context = IOContext::with_flush(FlushInfo::new(info.info.max_doc()?, bytes))?;
 
       let field_info = infos
-        .field_info_by_name(field)
+        .field_info_by_name(field)?
         .ok_or_else(|| LuceneError::illegal_argument("fieldInfo is None"))?;
       field_info.set_doc_values_gen(next_doc_values_gen)?;
 
@@ -821,7 +821,7 @@ where
       let dv_gen = inner.pending_deletes.dv_gen()?;
       let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
         let field_infos = pending_soft_deletes::read_field_infos(info)?;
-        let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?);
+        let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?)?;
         let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
         let reader = if on_new_reader {
           Some(self.get_latest_read(info, &mut inner, self.index_created_version_major)?)

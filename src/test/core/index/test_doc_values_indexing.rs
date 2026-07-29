@@ -316,7 +316,7 @@ fn test_doc_values_unstored() -> Result<()> {
   let reader = directory_reader::open_from_writer(&writer)?;
   let fi = get_merged_field_infos(&reader)?;
   let dv_info = fi
-    .field_info_by_name("dv")
+    .field_info_by_name("dv")?
     .ok_or_else(|| LuceneError::illegal_state("missing field dv"))?;
   assert_ne!(*dv_info.get_doc_values_type(), DocValuesType::None);
 

@@ -21,11 +21,15 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 /// Encodes/decodes terms, postings, and proximity data.
-pub trait PostingsFormat {
-  type FieldsConsumer<T: IndexOutput>: FieldsConsumer;
-  /// Writes a new segment
+pub trait PostingsFormat: HasIdentity {
+  /// Returns this postings format's name.
+  fn get_name(&self) -> &str;
+
+  type FieldsConsumer<O: IndexOutput>: FieldsConsumer<IndexOutput = O>;
+  /// Creates a consumer for a new segment.
   fn fields_consumer<D1, D2>(
     &self,
     state: &SegmentWriteState<D1>,
@@ -48,4 +52,9 @@ pub trait PostingsFormat {
   where
     D1: Directory,
     D2: Directory;
+
+  /// Looks up a format by name.
+  fn for_name(name: &str) -> Result<Self>
+  where
+    Self: Sized;
 }

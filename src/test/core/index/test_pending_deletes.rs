@@ -264,7 +264,7 @@ pub(crate) trait TestPendingDeletesBase {
       };
       let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
         let field_infos = pending_soft_deletes::read_field_infos(&commit_info)?;
-        let field_info = field_infos.field_info_by_name(field.as_ref());
+        let field_info = field_infos.field_info_by_name(field.as_ref())?;
         let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
         (None, Some(field_infos), on_new_reader)
       } else {

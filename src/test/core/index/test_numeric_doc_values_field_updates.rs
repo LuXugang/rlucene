@@ -1339,7 +1339,7 @@ fn test_update_segment_with_no_doc_values2() -> Result<()> {
     DocValuesType::Numeric,
     *ar
       .get_field_infos()?
-      .field_info_by_name("foo")
+      .field_info_by_name("foo")?
       .unwrap()
       .get_doc_values_type()
   );
@@ -1820,7 +1820,7 @@ fn test_add_new_field_after_add_indexes() -> Result<()> {
         assert_eq!(
           DocValuesType::Numeric,
           *new_field_infos
-            .field_info_by_name("ndv")
+            .field_info_by_name("ndv")?
             .unwrap()
             .get_doc_values_type()
         );
@@ -1917,18 +1917,18 @@ fn test_updates_after_add_indexes() -> Result<()> {
         let orig_field_infos = &original_field_infos[i];
         let new_field_infos = leaf_reader.get_field_infos()?;
         ensure_consistent_field_infos(orig_field_infos, &new_field_infos)?;
-        assert!(new_field_infos.field_info_by_name("ndv").is_some());
+        assert!(new_field_infos.field_info_by_name("ndv")?.is_some());
         assert_eq!(
           DocValuesType::Numeric,
           *new_field_infos
-            .field_info_by_name("ndv")
+            .field_info_by_name("ndv")?
             .unwrap()
             .get_doc_values_type()
         );
         assert_eq!(
           DocValuesType::Numeric,
           *new_field_infos
-            .field_info_by_name("control")
+            .field_info_by_name("control")?
             .unwrap()
             .get_doc_values_type()
         );
@@ -1968,7 +1968,7 @@ fn ensure_consistent_field_infos(old: &FieldInfos, after: &FieldInfos) -> Result
     let by_number = after.field_info_by_number(fi.number)?;
     assert!(by_number.is_some());
 
-    let by_name = after.field_info_by_name(&fi.name);
+    let by_name = after.field_info_by_name(&fi.name)?;
     assert!(by_name.is_some());
 
     let after_fi = by_name.unwrap();

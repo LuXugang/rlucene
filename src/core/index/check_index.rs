@@ -1827,7 +1827,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
       // check that the field is in fieldinfos, and is indexed.
       // TODO: add a separate test to check this for different reader impls
-      let field_info = field_infos.field_info_by_name(field).ok_or_else(|| {
+      let field_info = field_infos.field_info_by_name(field)?.ok_or_else(|| {
         LuceneError::corrupt_index(format!(
           "fieldsEnum inconsistent with fieldInfos, no fieldInfos for: {field}"
         ))
@@ -4446,7 +4446,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
             }
 
             // Make sure FieldInfo thinks this field is vector'd:
-            let field_info = field_infos.field_info_by_name(field).ok_or_else(|| {
+            let field_info = field_infos.field_info_by_name(field)?.ok_or_else(|| {
               LuceneError::corrupt_index(format!(
                 "docID={j} has term vectors for field={field} but field is missing from FieldInfos"
               ))

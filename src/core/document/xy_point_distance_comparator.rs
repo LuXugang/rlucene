@@ -110,7 +110,7 @@ impl FieldComparator for XYPointDistanceComparator {
     LR: LeafReader,
   {
     let reader = context.reader();
-    if let Some(info) = reader.get_field_infos()?.field_info_by_name(&self.field) {
+    if let Some(info) = reader.get_field_infos()?.field_info_by_name(&self.field)? {
       XYDocValuesField::check_compatible(info.as_ref())?;
     }
 

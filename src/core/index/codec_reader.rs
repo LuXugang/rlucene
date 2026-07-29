@@ -108,7 +108,7 @@ pub trait CodecReader: LeafReader {
     field: &str,
   ) -> Result<Option<<<Self as CodecReader>::FieldsProducer as Fields>::Terms>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
 
     if fi.is_none() || *fi.unwrap().get_index_options() == IndexOptions::None {
       // Field does not exist or does not index postings
@@ -122,7 +122,7 @@ pub trait CodecReader: LeafReader {
     }
   }
   fn get_dv_field(&self, field: &str, ty: DocValuesType) -> Result<Option<Arc<FieldInfo>>> {
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
 
     let fi = match fi {
       Some(f) => f,
@@ -229,7 +229,7 @@ pub trait CodecReader: LeafReader {
   ) -> Result<Option<<Self::DocValuesProducer as DocValuesProducer>::DocValuesSkipper>> {
     self.ensure_open()?;
 
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(f) if *f.doc_values_skip_index_type() != DocValuesSkipIndexType::None => f,
       _ => return Ok(None),
@@ -247,7 +247,7 @@ pub trait CodecReader: LeafReader {
   ) -> Result<Option<<Self::NormsProducer as NormsProducer>::NumericDocValues>> {
     self.ensure_open()?;
 
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(f) if f.has_norms() => f,
       _ => return Ok(None),
@@ -264,7 +264,7 @@ pub trait CodecReader: LeafReader {
   ) -> Result<Option<<Self::PointsReader as PointsReader>::PointValuesType>> {
     self.ensure_open()?;
 
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     match fi {
       Some(f) if f.get_point_dimension_count() > 0 => f,
       _ => return Ok(None),
@@ -282,7 +282,7 @@ pub trait CodecReader: LeafReader {
   ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::FloatVectorValues>> {
     self.ensure_open()?;
 
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     match fi {
       Some(f)
         if f.get_vector_dimension() > 0
@@ -302,7 +302,7 @@ pub trait CodecReader: LeafReader {
   ) -> Result<Option<<Self::KnnVectorsReader as KnnVectorsReader>::ByteVectorValues>> {
     self.ensure_open()?;
 
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     match fi {
       Some(f)
         if f.get_vector_dimension() > 0 && *f.get_vector_encoding() == VectorEncoding::BYTE(1) => {
@@ -330,7 +330,7 @@ pub trait CodecReader: LeafReader {
   {
     self.ensure_open()?;
 
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     match fi {
       Some(f)
         if f.get_vector_dimension() > 0
@@ -357,7 +357,7 @@ pub trait CodecReader: LeafReader {
   {
     self.ensure_open()?;
 
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     match fi {
       Some(f)
         if f.get_vector_dimension() > 0 && *f.get_vector_encoding() == VectorEncoding::BYTE(1) => {

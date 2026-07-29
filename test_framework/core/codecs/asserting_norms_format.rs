@@ -77,7 +77,7 @@ impl NormsFormat for AssertingNormsFormat {
     D1: Directory,
     D2: Directory,
   {
-    assert!(state.field_infos.has_norms);
+    assert!(state.field_infos.has_norms());
     Ok(AssertingNormsProducer::new(
       self.in_.norms_producer(state, segment_info)?,
       segment_info.max_doc()?,

@@ -99,12 +99,12 @@ fn test_mixed_merge_throws_error() -> Result<()> {
 
   assert!(
     !fi
-      .field_info_by_name("f1")
+      .field_info_by_name("f1")?
       .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
       .omits_norms()
   );
   assert!(
-    fi.field_info_by_name("f2")
+    fi.field_info_by_name("f2")?
       .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
       .omits_norms()
   );
@@ -152,12 +152,12 @@ fn test_mixed_ram() -> Result<()> {
 
   assert!(
     !fi
-      .field_info_by_name("f1")
+      .field_info_by_name("f1")?
       .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
       .omits_norms()
   );
   assert!(
-    fi.field_info_by_name("f2")
+    fi.field_info_by_name("f2")?
       .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
       .omits_norms()
   );

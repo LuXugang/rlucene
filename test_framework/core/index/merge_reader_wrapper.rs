@@ -199,7 +199,7 @@ where
 
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(fi) => fi,
       None => return Ok(None), // Field does not exist
@@ -219,7 +219,7 @@ where
 
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(fi) => fi,
       None => return Ok(None), // Field does not exist
@@ -239,7 +239,7 @@ where
 
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(fi) => fi,
       None => return Ok(None), // Field does not exist
@@ -263,7 +263,7 @@ where
     field: &str,
   ) -> Result<Option<Self::SortedNumericDocValues>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(fi) => fi,
       None => return Ok(None), // Field does not exist
@@ -283,7 +283,7 @@ where
 
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(fi) => fi,
       None => return Ok(None), // Field does not exist
@@ -303,7 +303,7 @@ where
 
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(fi) if fi.has_norms() => fi,
       _ => return Ok(None), // Field does not exist or does not index norms
@@ -319,7 +319,7 @@ where
 
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
     self.ensure_open()?;
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let fi = match fi {
       Some(fi) => fi,
       None => return Ok(None), // Field does not exist

@@ -201,7 +201,7 @@ where
     Ok(())
   }
   fn get_field_entry(&self, field: &str, expected_encoding: VectorEncoding) -> Result<&FieldEntry> {
-    let info = match self.field_infos.field_info_by_name(field) {
+    let info = match self.field_infos.field_info_by_name(field)? {
       Some(info) => info,
       None => {
         return Err(LuceneError::illegal_argument(format!(

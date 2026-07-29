@@ -89,7 +89,7 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
     )?;
 
     assert_eq!(1, infos2.size());
-    match infos2.field_info_by_name("field") {
+    match infos2.field_info_by_name("field")? {
       None => {
         unreachable!("field not found");
       },

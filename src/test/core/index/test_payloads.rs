@@ -129,18 +129,18 @@ fn test_payload_field_bit() -> Result<()> {
   let fi = leaf.get_field_infos()?;
   assert!(
     !fi
-      .field_info_by_name("f1")
+      .field_info_by_name("f1")?
       .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
       .has_payloads()
   );
   assert!(
-    fi.field_info_by_name("f2")
+    fi.field_info_by_name("f2")?
       .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
       .has_payloads()
   );
   assert!(
     !fi
-      .field_info_by_name("f3")
+      .field_info_by_name("f3")?
       .ok_or_else(|| LuceneError::illegal_state("field f3 not found"))?
       .has_payloads()
   );
@@ -181,17 +181,17 @@ fn test_payload_field_bit() -> Result<()> {
   let fi = leaf.get_field_infos()?;
   assert!(
     !fi
-      .field_info_by_name("f1")
+      .field_info_by_name("f1")?
       .ok_or_else(|| LuceneError::illegal_state("field f1 not found"))?
       .has_payloads()
   );
   assert!(
-    fi.field_info_by_name("f2")
+    fi.field_info_by_name("f2")?
       .ok_or_else(|| LuceneError::illegal_state("field f2 not found"))?
       .has_payloads()
   );
   assert!(
-    fi.field_info_by_name("f3")
+    fi.field_info_by_name("f3")?
       .ok_or_else(|| LuceneError::illegal_state("field f3 not found"))?
       .has_payloads()
   );

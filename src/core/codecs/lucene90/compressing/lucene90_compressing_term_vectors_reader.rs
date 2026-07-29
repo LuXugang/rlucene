@@ -1100,7 +1100,7 @@ impl Fields for TVFields {
   type Terms = TVTerms;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-    let field_info = match self.field_infos.field_info_by_name(field) {
+    let field_info = match self.field_infos.field_info_by_name(field)? {
       Some(info) => info,
       None => return Ok(None),
     };

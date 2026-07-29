@@ -101,7 +101,7 @@ impl PendingSoftDeletes {
     if self.dv_generation == -2 {
       let field_infos =
         field_infos.ok_or_else(|| LuceneError::illegal_state("field_infos should not be None"))?;
-      let field_info = field_infos.field_info_by_name(&self.field);
+      let field_info = field_infos.field_info_by_name(&self.field)?;
 
       // we try to only open a reader if it's really necessary i.e. indices that are mainly append
       // only might have

@@ -4597,7 +4597,7 @@ fn test_prevent_changing_soft_deletes_field() -> Result<()> {
     );
     assert!(
       field_infos
-        .field_info_by_name("my_deletes")
+        .field_info_by_name("my_deletes")?
         .expect("soft-deletes field should exist")
         .is_soft_deletes_field()
     );
@@ -4635,7 +4635,7 @@ fn test_prevent_changing_soft_deletes_field() -> Result<()> {
     );
     assert!(
       field_infos
-        .field_info_by_name("my_deletes")
+        .field_info_by_name("my_deletes")?
         .expect("soft-deletes field should exist")
         .is_soft_deletes_field()
     );
@@ -4712,7 +4712,7 @@ fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()>
 
   for si in w3.clone_segment_infos()?.iter() {
     let field_infos = read_field_infos(si)?;
-    let soft_delete_field = field_infos.field_info_by_name("soft_deletes_1").unwrap();
+    let soft_delete_field = field_infos.field_info_by_name("soft_deletes_1")?.unwrap();
     assert!(soft_delete_field.is_soft_deletes_field());
   }
 

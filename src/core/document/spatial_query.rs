@@ -294,7 +294,7 @@ where
       None => return Ok(None),
     };
     let field_infos = reader.get_field_infos()?;
-    if field_infos.field_info_by_name(&field).is_none() {
+    if field_infos.field_info_by_name(&field)?.is_none() {
       return Ok(None);
     }
     let query_relation = self.parent_query.get_query_relation();

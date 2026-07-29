@@ -421,7 +421,7 @@ fn test_lucene_1590() -> Result<()> {
   let leaf = get_only_leaf_reader(&reader)?;
   let fi = leaf.get_field_infos()?;
   let f1 = fi
-    .field_info_by_name("f1")
+    .field_info_by_name("f1")?
     .ok_or_else(|| LuceneError::illegal_state("f1 should exist"))?;
   assert!(!f1.has_norms(), "f1 should have no norms");
   assert_eq!(
@@ -430,7 +430,7 @@ fn test_lucene_1590() -> Result<()> {
     "omitTermFreqAndPositions field bit should not be set for f1"
   );
   let f2 = fi
-    .field_info_by_name("f2")
+    .field_info_by_name("f2")?
     .ok_or_else(|| LuceneError::illegal_state("f2 should exist"))?;
   assert!(f2.has_norms(), "f2 should have norms");
   assert_eq!(

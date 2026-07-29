@@ -97,7 +97,7 @@ impl DocValuesFormat for AssertingDocValuesFormat {
     D1: Directory,
     D2: Directory,
   {
-    assert!(state.field_infos.has_doc_values);
+    assert!(state.field_infos.has_doc_values());
     Ok(AssertingDocValuesProducer::new(
       self.in_.fields_producer(state, segment_info)?,
       state.field_infos.clone(),
@@ -333,7 +333,7 @@ where
     assert_eq!(
       self
         .field_infos
-        .field_info_by_name(&field.name)
+        .field_info_by_name(&field.name)?
         .expect("field must exist")
         .number,
       field.number
@@ -359,7 +359,7 @@ where
     assert_eq!(
       self
         .field_infos
-        .field_info_by_name(&field.name)
+        .field_info_by_name(&field.name)?
         .expect("field must exist")
         .number,
       field.number
@@ -385,7 +385,7 @@ where
     assert_eq!(
       self
         .field_infos
-        .field_info_by_name(&field.name)
+        .field_info_by_name(&field.name)?
         .expect("field must exist")
         .number,
       field.number
@@ -408,7 +408,7 @@ where
     assert_eq!(
       self
         .field_infos
-        .field_info_by_name(&field.name)
+        .field_info_by_name(&field.name)?
         .expect("field must exist")
         .number,
       field.number
@@ -431,7 +431,7 @@ where
     assert_eq!(
       self
         .field_infos
-        .field_info_by_name(&field.name)
+        .field_info_by_name(&field.name)?
         .expect("field must exist")
         .number,
       field.number
@@ -454,7 +454,7 @@ where
     assert_eq!(
       self
         .field_infos
-        .field_info_by_name(&field.name)
+        .field_info_by_name(&field.name)?
         .expect("field must exist")
         .number,
       field.number

@@ -172,9 +172,9 @@ where
       if let Some(doc_map) = sort_map {
         let mut filter_fields =
           FilterFieldsImpl::new(fields, state.field_infos.clone(), doc_map.clone());
-        consumer.write(&mut filter_fields, norms)?;
+        consumer.write(state, info, &mut filter_fields, norms)?;
       } else {
-        consumer.write(&mut fields, norms)?;
+        consumer.write(state, info, &mut fields, norms)?;
       }
       Ok(())
     })();
@@ -252,7 +252,7 @@ where
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match self.inner.terms(field)? {
       Some(terms) => {
-        let index_options = self.field_infos.field_info_by_name(field);
+        let index_options = self.field_infos.field_info_by_name(field)?;
         if index_options.is_none() {
           return Err(LuceneError::illegal_state(format!(
             "Field '{field}' not found in field infos"

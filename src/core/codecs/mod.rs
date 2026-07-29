@@ -47,6 +47,7 @@ pub mod mutable_point_tree;
 pub mod norms_consumer;
 pub mod norms_format;
 pub mod norms_producer;
+pub mod perfield;
 pub mod points_format;
 pub mod points_reader;
 pub mod points_writer;

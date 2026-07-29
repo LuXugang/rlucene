@@ -125,7 +125,7 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
         let fi = ctx
           .reader()
           .get_field_infos()?
-          .field_info_by_name("foo")
+          .field_info_by_name("foo")?
           .expect("field foo must exist");
 
         let mut sorted_set_doc_values = sorting_codec_reader

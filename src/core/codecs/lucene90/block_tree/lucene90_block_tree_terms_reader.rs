@@ -300,7 +300,7 @@ where
   type Terms = FieldReader<I, PR>;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-    let field_info = self.field_infos.field_info_by_name(field);
+    let field_info = self.field_infos.field_info_by_name(field)?;
     Ok(field_info.and_then(|f| self.field_map.read().get(&f.number).cloned()))
   }
 

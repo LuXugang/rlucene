@@ -39,7 +39,7 @@ impl<'a, V> MismatchedVisitor<'a, V> {
   fn renumber(&self, field_info: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
     self
       .shuffled
-      .field_info_by_name(&field_info.name)
+      .field_info_by_name(&field_info.name)?
       .ok_or_else(|| {
         LuceneError::illegal_state(format!(
           "missing shuffled field info for {}",

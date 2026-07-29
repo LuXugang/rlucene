@@ -284,7 +284,7 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
     accept_docs: Option<impl Bits>,
     visited_limit: usize,
   ) -> Result<TopDocs<ScoreDoc>> {
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());
     };
@@ -340,7 +340,7 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
     accept_docs: Option<impl Bits>,
     visited_limit: usize,
   ) -> Result<TopDocs<ScoreDoc>> {
-    let fi = self.get_field_infos()?.field_info_by_name(field);
+    let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());
     };

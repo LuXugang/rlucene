@@ -282,7 +282,7 @@ where
     };
     let Some(field_info) = reader
       .get_field_infos()?
-      .field_info_by_name(&self.query.field)
+      .field_info_by_name(&self.query.field)?
     else {
       return Ok(None);
     };

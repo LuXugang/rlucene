@@ -345,14 +345,16 @@ pub(crate) fn validate_field_encoding(
   Ok(())
 }
 
-pub(crate) fn has_vector_values(field_infos: &FieldInfos, field_name: &str) -> bool {
+pub(crate) fn has_vector_values(field_infos: &FieldInfos, field_name: &str) -> Result<bool> {
   if !field_infos.has_vector_values() {
-    return false;
+    return Ok(false);
   }
 
-  field_infos
-    .field_info_by_name(field_name)
-    .is_some_and(|info| info.has_vector_values())
+  Ok(
+    field_infos
+      .field_info_by_name(field_name)?
+      .is_some_and(|info| info.has_vector_values()),
+  )
 }
 
 struct MergedFloat32VectorValuesState<F, DM>
@@ -813,7 +815,7 @@ where
   let mut subs = Vec::new();
   for i in 0..merge_state.knn_vectors_readers.len() {
     let source_field_info = &merge_state.field_infos[i];
-    if !has_vector_values(source_field_info, &merging_field.name) {
+    if !has_vector_values(source_field_info, &merging_field.name)? {
       continue;
     }
 

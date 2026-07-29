@@ -366,7 +366,12 @@ impl RandomPostingsTester {
       let mut consumer = codec
         .postings_format()
         .fields_consumer(&write_state, &segment_info)?;
-      consumer.write(&mut seed_fields, Some(&fake_norms))?;
+      consumer.write(
+        &write_state,
+        &segment_info,
+        &mut seed_fields,
+        Some(&fake_norms),
+      )?;
       consumer.close()?;
     }
 
@@ -403,7 +408,7 @@ impl RandomPostingsTester {
     assert_eq!(term, terms_enum.term()?.as_ref());
 
     let field_infos = self.current_field_infos.as_ref().unwrap();
-    let field_info = field_infos.field_info_by_name(field).unwrap();
+    let field_info = field_infos.field_info_by_name(field)?.unwrap();
 
     let mut expected = get_seed_postings(
       &term.utf8_to_string()?,
@@ -1019,7 +1024,7 @@ impl Fields for SeedFields {
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match self.fields.get(field) {
       Some(terms) => {
-        let field_info = self.field_infos.field_info_by_name(field).ok_or_else(|| {
+        let field_info = self.field_infos.field_info_by_name(field)?.ok_or_else(|| {
           LuceneError::illegal_state(format!("missing FieldInfo for field {field}"))
         })?;
         Ok(Some(SeedTerms::new(

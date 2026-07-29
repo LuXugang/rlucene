@@ -130,7 +130,7 @@ fn do_test_change_index_options_add_indexes_codec_reader(
       expected,
       *leaf
         .get_field_infos()?
-        .field_info_by_name("foo")
+        .field_info_by_name("foo")?
         .unwrap()
         .get_index_options()
     );
@@ -201,7 +201,7 @@ where
       expected,
       *leaf
         .get_field_infos()?
-        .field_info_by_name("foo")
+        .field_info_by_name("foo")?
         .unwrap()
         .get_index_options()
     );

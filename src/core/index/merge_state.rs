@@ -82,6 +82,57 @@ where
   /// [InfoStream] for debugging messages.
   pub(crate) info_stream: Arc<InfoStreamEnum>,
 }
+
+/// Access to the portion of a [`MergeState`] used when merging postings.
+///
+/// Java's per-field codecs create a new `MergeState` whose field infos and
+/// fields producers are restricted to one format's fields. Rust represents
+/// that restricted view with another implementation of this trait so the
+/// producer type can remain statically dispatched.
+pub trait MergeStateAccess {
+  type FieldsProducer: FieldsProducer;
+  type DocMap: DocMap;
+
+  fn fields_producers(&self) -> &[Option<Self::FieldsProducer>];
+
+  fn merge_field_infos(&self) -> &Arc<FieldInfos>;
+
+  fn field_infos(&self) -> &[Arc<FieldInfos>];
+
+  fn max_docs(&self) -> &[i32];
+
+  fn get_meta(&self) -> MergeStateMeta<Self::DocMap>;
+}
+
+impl<D, CR> MergeStateAccess for MergeState<'_, D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+{
+  type FieldsProducer = CRFieldsProducer<CR>;
+  type DocMap = MergeStateDocMap<CR>;
+
+  fn fields_producers(&self) -> &[Option<Self::FieldsProducer>] {
+    &self.fields_producers
+  }
+
+  fn merge_field_infos(&self) -> &Arc<FieldInfos> {
+    &self.merge_field_infos
+  }
+
+  fn field_infos(&self) -> &[Arc<FieldInfos>] {
+    &self.field_infos
+  }
+
+  fn max_docs(&self) -> &[i32] {
+    &self.max_docs
+  }
+
+  fn get_meta(&self) -> MergeStateMeta<Self::DocMap> {
+    MergeState::get_meta(self)
+  }
+}
+
 impl<'a, D, CR> MergeState<'a, D, CR>
 where
   D: Directory,

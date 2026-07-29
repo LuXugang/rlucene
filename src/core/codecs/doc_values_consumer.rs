@@ -181,7 +181,7 @@ pub trait DocValuesConsumer: Closeable {
 
       if let Some(doc_values_producer) = &merge_state.doc_values_producers[i]
         && let Some(reader_field_info) =
-          merge_state.field_infos[i].field_info_by_name(&field_info.name)
+          merge_state.field_infos[i].field_info_by_name(&field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
         values = Some(SortedDocValuesEnum2::A(
@@ -258,7 +258,7 @@ pub trait DocValuesConsumer: Closeable {
 
       if let Some(doc_values_producer) = &merge_state.doc_values_producers[i]
         && let Some(field_info) =
-          merge_state.field_infos[i].field_info_by_name(&merge_field_info.name)
+          merge_state.field_infos[i].field_info_by_name(&merge_field_info.name)?
         && *field_info.get_doc_values_type() == DocValuesType::SortedSet
       {
         values = Some(SortedSetDocValuesEnum2::A(
@@ -494,7 +494,7 @@ where
       let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
       if let Some(doc_values_producer) = doc_values_producer_opt {
         let reader_field_info =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
+          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?;
         if let Some(reader_field_info) = &reader_field_info
           && *reader_field_info.get_doc_values_type() == DocValuesType::Numeric
         {
@@ -666,7 +666,7 @@ where
 
       if let Some(doc_values_producer) = doc_values_producer_opt {
         let reader_field_info =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
+          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?;
         if let Some(reader_field_info) = &reader_field_info
           && *reader_field_info.get_doc_values_type() == DocValuesType::Binary
         {
@@ -875,7 +875,7 @@ where
       let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
       if let Some(doc_values_producer) = doc_values_producer_opt {
         let reader_field_info =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name);
+          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?;
         if let Some(reader_field_info) = reader_field_info
           && *reader_field_info.get_doc_values_type() == DocValuesType::SortedNumeric
         {
@@ -1041,7 +1041,7 @@ where
 
       if let Some(doc_values_producer) = &self.merge_state.doc_values_producers[i]
         && let Some(reader_field_info) =
-          self.merge_state.field_infos[i].field_info_by_name(&self.field_info.name)
+          self.merge_state.field_infos[i].field_info_by_name(&self.field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
         values = Some(SortedDocValuesEnum2::A(
@@ -1535,7 +1535,7 @@ where
 
       if let Some(doc_values_producer) = &self.merge_state.doc_values_producers[i]
         && let Some(reader_field_info) =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)
+          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::SortedSet
       {
         values = Some(SortedSetDocValuesEnum2::A(

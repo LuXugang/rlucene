@@ -17,17 +17,15 @@
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
-use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::mapping_multi_postings_enum::MappingMultiPostingsEnum;
-use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap, MergeStateMeta};
+use crate::core::index::merge_state::{DocMap, MergeStateMeta};
 use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
 use crate::core::index::multi_terms::IteratorType;
 use crate::core::index::multi_terms_enum::MultiTermsEnum;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
-use crate::core::store::directory::Directory;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -37,36 +35,31 @@ use std::borrow::Cow;
 /// while accounting for deleted documents.
 ///
 /// This implementation is used during index merging.
-pub struct MappedMultiFields<'a, F, CR>
+pub struct MappedMultiFields<'a, F, DM>
 where
   F: Fields,
-  CR: CodecReader,
+  DM: DocMap,
 {
-  merge_state_meta: MergeStateMeta<MergeStateDocMap<CR>>,
+  merge_state_meta: MergeStateMeta<DM>,
   inner: &'a MultiFields<F>,
 }
 
-impl<'a, F, CR> MappedMultiFields<'a, F, CR>
+impl<'a, F, DM> MappedMultiFields<'a, F, DM>
 where
   F: Fields,
-  CR: CodecReader,
+  DM: DocMap,
 {
-  pub fn new<D>(merge_state: &MergeState<D, CR>, multi_fields: &'a MultiFields<F>) -> Self
-  where
-    D: Directory,
-    CR: CodecReader,
-  {
-    let merge_state_meta = merge_state.get_meta();
+  pub fn new(merge_state_meta: MergeStateMeta<DM>, multi_fields: &'a MultiFields<F>) -> Self {
     MappedMultiFields {
       merge_state_meta,
       inner: multi_fields,
     }
   }
 }
-impl<F, CR> Fields for MappedMultiFields<'_, F, CR>
+impl<F, DM> Fields for MappedMultiFields<'_, F, DM>
 where
   F: Fields,
-  CR: CodecReader,
+  DM: DocMap,
 {
   type FieldIter<'a>
     = <MultiFields<F> as Fields>::FieldIter<'a>
@@ -77,7 +70,7 @@ where
     self.inner.iterator()
   }
 
-  type Terms = MappedMultiTerms<<F as Fields>::Terms, MergeStateDocMap<CR>>;
+  type Terms = MappedMultiTerms<<F as Fields>::Terms, DM>;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     let terms = self.inner.terms(field)?;

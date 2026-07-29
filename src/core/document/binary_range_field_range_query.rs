@@ -234,7 +234,7 @@ where
     let field_info = context
       .reader()
       .get_field_infos()?
-      .field_info_by_name(self.query.sub.field());
+      .field_info_by_name(self.query.sub.field())?;
     if field_info.is_none() {
       return Ok(None);
     }

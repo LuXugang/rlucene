@@ -148,7 +148,7 @@ impl QueryBase for FieldExistsQuery {
     for context in searcher.get_leaf_contexts()? {
       let leaf = context.reader();
       let field_infos = leaf.get_field_infos()?;
-      let field_info = field_infos.field_info_by_name(&self.field);
+      let field_info = field_infos.field_info_by_name(&self.field)?;
 
       let field_info = match field_info {
         Some(fi) => fi,
@@ -250,7 +250,7 @@ where
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field_infos = ctx.reader().get_field_infos()?;
-    let field_info = field_infos.field_info_by_name(&self.query.field);
+    let field_info = field_infos.field_info_by_name(&self.query.field)?;
 
     if let Some(fi) = field_info
       && *fi.get_doc_values_type() != DocValuesType::None
@@ -308,7 +308,7 @@ where
     let reader = context.reader();
     let field = self.query.get_field();
     let field_infos = reader.get_field_infos()?;
-    let field_info = field_infos.field_info_by_name(field);
+    let field_info = field_infos.field_info_by_name(field)?;
 
     let Some(fi) = field_info else {
       return Ok(None);
@@ -383,7 +383,7 @@ where
     let reader = ctx.reader();
 
     let field_infos = reader.get_field_infos()?;
-    let field_info = field_infos.field_info_by_name(self.query.get_field());
+    let field_info = field_infos.field_info_by_name(self.query.get_field())?;
 
     let Some(fi) = field_info else {
       return Ok(0);
@@ -448,7 +448,7 @@ pub fn get_doc_values_doc_id_set_iterator<LR>(
 where
   LR: LeafReader,
 {
-  let field_info = reader.get_field_infos()?.field_info_by_name(field);
+  let field_info = reader.get_field_infos()?.field_info_by_name(field)?;
 
   let Some(fi) = field_info else {
     return Ok(None);

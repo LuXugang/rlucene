@@ -1015,7 +1015,7 @@ fn write(
     max_doc: si.max_doc()?,
   };
   let mut data_fields = DataFields::new(fields);
-  consumer.write(&mut data_fields, Some(&fake_norms))?;
+  consumer.write(&state, si, &mut data_fields, Some(&fake_norms))?;
   consumer.close()
 }
 #[test]

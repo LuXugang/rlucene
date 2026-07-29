@@ -19,9 +19,9 @@ use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
-use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_writer::MAX_POSITION;
 use crate::core::index::postings_enum::{FREQS, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum};
 use crate::core::index::segment_info::SegmentInfo;
@@ -32,30 +32,42 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::test_framework::core::index::asserting_leaf_reader::AssertingTerms;
 use crate::test_framework::core::util::test_util::TestUtil;
-use std::sync::Arc;
 
 /// Just like the default postings format but with additional asserts.
 pub struct AssertingPostingsFormat {
   in_: DefaultPostingsFormat,
+  identity: Identity,
 }
 
 impl AssertingPostingsFormat {
   pub fn new() -> Self {
     Self {
       in_: TestUtil::get_default_postings_format(),
+      identity: Identity::new(),
     }
   }
 }
 
+impl HasIdentity for AssertingPostingsFormat {
+  fn identity(&self) -> &Identity {
+    &self.identity
+  }
+}
+
 impl PostingsFormat for AssertingPostingsFormat {
-  type FieldsConsumer<T: IndexOutput> =
-    AssertingFieldsConsumer<<DefaultPostingsFormat as PostingsFormat>::FieldsConsumer<T>>;
+  fn get_name(&self) -> &str {
+    "Asserting"
+  }
+
+  type FieldsConsumer<O: IndexOutput> =
+    AssertingFieldsConsumer<<DefaultPostingsFormat as PostingsFormat>::FieldsConsumer<O>>;
 
   fn fields_consumer<D1, D2>(
     &self,
@@ -67,7 +79,6 @@ impl PostingsFormat for AssertingPostingsFormat {
     D2: Directory,
   {
     Ok(AssertingFieldsConsumer::new(
-      state.field_infos.clone(),
       self.in_.fields_consumer(state, segment_info)?,
     ))
   }
@@ -87,6 +98,15 @@ impl PostingsFormat for AssertingPostingsFormat {
     Ok(AssertingFieldsProducer::new(
       self.in_.fields_producer(state, segment_info)?,
     ))
+  }
+
+  fn for_name(name: &str) -> Result<Self> {
+    match name {
+      "Asserting" => Ok(Self::new()),
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Could not load postings format named \"{name}\""
+      ))),
+    }
   }
 }
 
@@ -161,20 +181,13 @@ where
   }
 }
 
-pub struct AssertingFieldsConsumer<FC>
-where
-  FC: FieldsConsumer,
-{
+pub struct AssertingFieldsConsumer<FC> {
   in_: FC,
-  field_infos: Arc<FieldInfos>,
 }
 
-impl<FC> AssertingFieldsConsumer<FC>
-where
-  FC: FieldsConsumer,
-{
-  fn new(field_infos: Arc<FieldInfos>, in_: FC) -> Self {
-    Self { in_, field_infos }
+impl<FC> AssertingFieldsConsumer<FC> {
+  fn new(in_: FC) -> Self {
+    Self { in_ }
   }
 }
 
@@ -182,12 +195,22 @@ impl<FC> FieldsConsumer for AssertingFieldsConsumer<FC>
 where
   FC: FieldsConsumer,
 {
-  fn write<F, N>(&mut self, fields: &mut F, norms: Option<&N>) -> Result<()>
+  type IndexOutput = FC::IndexOutput;
+
+  fn write<D1, D2, F, N>(
+    &mut self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    fields: &mut F,
+    norms: Option<&N>,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {
-    self.in_.write(fields, norms)?;
+    self.in_.write(state, segment_info, fields, norms)?;
 
     // TODO: more asserts?  can we somehow run a
     // "limited" CheckIndex here???  Or ... can we improve
@@ -198,9 +221,9 @@ where
     let mut fields_iterator = fields.iterator()?;
 
     while let Some(field) = fields_iterator.next()? {
-      let field_info = self
+      let field_info = state
         .field_infos
-        .field_info_by_name(field)
+        .field_info_by_name(field)?
         .expect("field returned by Fields must have FieldInfo");
       assert!(
         last_field
@@ -297,7 +320,7 @@ where
 
 impl<FC> Closeable for AssertingFieldsConsumer<FC>
 where
-  FC: FieldsConsumer,
+  FC: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     self.in_.close()?;

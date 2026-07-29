@@ -63,7 +63,7 @@ where
 
   /// Creates a copy of an existing SegmentReadState with a different segment
   /// suffix.
-  pub fn copy_with_suffix(other: &'a mut SegmentReadState<'_, D>, segment_suffix: &str) -> Self {
+  pub fn copy_with_suffix(other: &SegmentReadState<'a, D>, segment_suffix: &str) -> Self {
     Self {
       directory: other.directory,
       field_infos: other.field_infos.clone(),

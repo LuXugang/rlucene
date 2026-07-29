@@ -71,11 +71,11 @@ pub trait PointsWriter: Closeable {
         None => continue,
       };
 
-      let reader_field_info = match merge_state.field_infos[i].field_info_by_name(&field_info.name)
-      {
-        Some(v) => v,
-        None => continue,
-      };
+      let reader_field_info =
+        match merge_state.field_infos[i].field_info_by_name(&field_info.name)? {
+          Some(v) => v,
+          None => continue,
+        };
 
       if reader_field_info.get_point_dimension_count() == 0 {
         continue;

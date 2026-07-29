@@ -361,8 +361,18 @@ where
   O: IndexOutput,
   PW: PostingsWriterBase,
 {
-  fn write<F, N>(&mut self, fields: &mut F, norms: Option<&N>) -> Result<()>
+  type IndexOutput = O;
+
+  fn write<D1, D2, F, N>(
+    &mut self,
+    _state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+    fields: &mut F,
+    norms: Option<&N>,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
     F: Fields,
     PW: PostingsWriterBase,
     N: NormsProducer,
@@ -388,7 +398,7 @@ where
           let mut terms_enum = terms.iterator()?;
           let field_info = self
             .field_infos
-            .field_info_by_name(field)
+            .field_info_by_name(field)?
             .ok_or_else(|| LuceneError::illegal_state(format!("Missing fields:{field}")))?;
           let mut terms_writer = TermsWriter::new(
             field_info.clone(),

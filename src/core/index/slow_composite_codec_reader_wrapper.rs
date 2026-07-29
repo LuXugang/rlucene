@@ -661,7 +661,7 @@ where
     }
   }
   fn remap(&self, field_info: &FieldInfo) -> Result<Arc<FieldInfo>> {
-    let fi = self.field_infos.field_info_by_name(&field_info.name);
+    let fi = self.field_infos.field_info_by_name(&field_info.name)?;
     match fi {
       Some(fi) => Ok(fi.clone()),
       None => Err(LuceneError::illegal_state(format!(
@@ -1818,7 +1818,7 @@ where
     for i in 0..self.readers.len() {
       if let Some(fi) = self.codec_readers[i]
         .get_field_infos()?
-        .field_info_by_name(field)
+        .field_info_by_name(field)?
         && fi.get_point_dimension_count() > 0
         && let Some(reader) = &self.readers[i]
         && let Some(v) = reader.get_values(field)?

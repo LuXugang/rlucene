@@ -103,7 +103,7 @@ impl DocValues {
   where
     LR: LeafReader,
   {
-    if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field) {
+    if let Some(fi) = reader.get_field_infos()?.field_info_by_name(field)? {
       let actual = *fi.get_doc_values_type();
       if !expected.contains(&actual) {
         let expected_str = if expected.len() == 1 {
@@ -250,7 +250,7 @@ impl DocValues {
     LR: LeafReader,
   {
     for field in fields {
-      if let Some(fi) = ctx.reader().get_field_infos()?.field_info_by_name(field)
+      if let Some(fi) = ctx.reader().get_field_infos()?.field_info_by_name(field)?
         && fi.get_doc_values_gen() > -1
       {
         return Ok(false);

@@ -698,7 +698,7 @@ where
       // segment file
       let field_info_arc = merge_state
         .merge_field_infos
-        .field_info_by_name(&field_info.name)
+        .field_info_by_name(&field_info.name)?
         .ok_or_else(|| {
           LuceneError::illegal_argument(format!("field=\"{}\" not found", field_info.name))
         })?;
@@ -1004,7 +1004,7 @@ where
   let mut quantization_states = Vec::with_capacity(merge_state.live_docs.len());
   let mut segment_sizes = Vec::with_capacity(merge_state.live_docs.len());
   for i in 0..merge_state.live_docs.len() {
-    if has_vector_values(&merge_state.field_infos[i], &field_info.name)
+    if has_vector_values(&merge_state.field_infos[i], &field_info.name)?
       && let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref()
     {
       let fvv = knn_vectors_reader.get_float_vector_values(&field_info.name)?;
@@ -1465,7 +1465,7 @@ where
 
     let mut subs = Vec::new();
     for i in 0..merge_state.knn_vectors_readers.len() {
-      if has_vector_values(&merge_state.field_infos[i], &field_info.name)
+      if has_vector_values(&merge_state.field_infos[i], &field_info.name)?
         && let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref()
       {
         debug_assert!(scalar_quantizer.get_bits() > 0);
