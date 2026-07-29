@@ -68,7 +68,8 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
-use crate::core::util::close::Closeable;
+use crate::core::util::clone::TryClone;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::{
   CloseableRandomVectorScorerSupplier, CloseableRandomVectorScorerSupplierEnum2,
@@ -80,9 +81,9 @@ use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByte
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::vector_util::VectorUtil;
-use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::rc::Rc;
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 use std::sync::Arc;
 
 // Used for determining when merged quantiles shifted too far from individual segment quantiles.
@@ -179,58 +180,61 @@ where
       VECTOR_DATA_EXTENSION,
     );
 
-    let mut meta = match state
-      .directory
-      .create_output(&meta_file_name, state.context)
-    {
-      Ok(meta) => meta,
-      Err(err) => {
-        return IOUtils::use_or_suppress_result::<Self>(Err(err), raw_vector_delegate.close());
-      },
-    };
-    let mut quantized_vector_data = match state
-      .directory
-      .create_output(&quantized_vector_data_file_name, state.context)
-    {
-      Ok(quantized_vector_data) => quantized_vector_data,
-      Err(err) => {
-        let output_close_result = IOUtils::close(std::iter::once(&mut meta), Closeable::close);
-        let close_result =
-          IOUtils::use_or_suppress_result(output_close_result, raw_vector_delegate.close());
-        return IOUtils::use_or_suppress_result::<Self>(Err(err), close_result);
-      },
-    };
-
-    let result = (|| -> Result<()> {
+    let mut meta = None;
+    let mut quantized_vector_data = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      meta = Some(
+        state
+          .directory
+          .create_output(&meta_file_name, state.context)?,
+      );
+      quantized_vector_data = Some(
+        state
+          .directory
+          .create_output(&quantized_vector_data_file_name, state.context)?,
+      );
       CodecUtil::write_index_header(
-        &mut meta,
+        meta
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("meta output is missing"))?,
         META_CODEC_NAME,
         version,
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
       CodecUtil::write_index_header(
-        &mut quantized_vector_data,
+        quantized_vector_data
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("quantized vector data output is missing"))?,
         VECTOR_DATA_CODEC_NAME,
         version,
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
       Ok(())
-    })();
+    }));
 
-    if let Err(err) = result {
-      let output_close_result =
-        IOUtils::close([&mut meta, &mut quantized_vector_data], Closeable::close);
-      let close_result =
-        IOUtils::use_or_suppress_result(output_close_result, raw_vector_delegate.close());
-      return IOUtils::use_or_suppress_result::<Self>(Err(err), close_result);
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        IOUtils::close_resources_while_handling_error((
+          meta.as_mut(),
+          quantized_vector_data.as_mut(),
+          &mut raw_vector_delegate,
+        ))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
     }
 
     Ok(Self {
       fields: Vec::new(),
-      meta,
-      quantized_vector_data,
+      meta: meta.expect("meta output must be initialized on successful construction"),
+      quantized_vector_data: quantized_vector_data
+        .expect("quantized vector data output must be initialized on successful construction"),
       confidence_interval,
       raw_vector_delegate,
       flat_vector_scorer,
@@ -376,8 +380,9 @@ where
       segment_write_state.context,
     )?;
     let temp_quantized_vector_name = temp_quantized_vector_data.get_name().to_string();
-    let result =
-      (|| -> Result<
+    let mut quantization_data_input = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+      || -> Result<
         <Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'_, D2::IndexInput, D2>,
       > {
         let byte_vector_values = MergedQuantizedVectorValues::merge_quantized_byte_vector_values(
@@ -394,15 +399,20 @@ where
         CodecUtil::write_footer(&mut temp_quantized_vector_data)?;
         IOUtils::close_one(&mut temp_quantized_vector_data)?;
 
-        let mut quantization_data_input = segment_write_state
-          .directory
-          .open_input(&temp_quantized_vector_name, segment_write_state.context)?;
-        let copy_len = quantization_data_input.length()? - CodecUtil::footer_length();
+        quantization_data_input = Some(
+          segment_write_state
+            .directory
+            .open_input(&temp_quantized_vector_name, segment_write_state.context)?,
+        );
+        let quantization_data_input_ref = quantization_data_input
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("quantization data input is missing"))?;
+        let copy_len = quantization_data_input_ref.length()? - CodecUtil::footer_length();
         self
           .quantized_vector_data
-          .copy_bytes(&mut quantization_data_input, copy_len)?;
+          .copy_bytes(quantization_data_input_ref, copy_len)?;
         let vector_data_length = self.quantized_vector_data.get_file_pointer()? - vector_data_offset;
-        CodecUtil::retrieve_checksum(&mut quantization_data_input)?;
+        CodecUtil::retrieve_checksum(quantization_data_input_ref)?;
         write_meta(
           &mut self.meta,
           &mut self.quantized_vector_data,
@@ -419,6 +429,7 @@ where
           self.version,
         )?;
 
+        let vector_values_input = quantization_data_input_ref.try_clone()?;
         let random_vector_scorer_supplier =
           self.flat_vector_scorer.get_random_vector_scorer_supplier_quantized(
             *field_info.get_vector_similarity_function(),
@@ -429,26 +440,42 @@ where
               self.compress,
               *field_info.get_vector_similarity_function(),
               self.flat_vector_scorer.clone(),
-              quantization_data_input,
+              vector_values_input,
             ),
           )?;
+        let quantization_data_input = quantization_data_input
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("quantization data input is missing"))?;
         Ok(CloseableRandomVectorScorerSupplierEnum2::B(
           ScalarQuantizedCloseableRandomVectorScorerSupplier::new_quantized(
             docs_with_field.cardinality(),
             random_vector_scorer_supplier,
             segment_write_state.directory,
             temp_quantized_vector_name.clone(),
+            quantization_data_input,
           ),
         ))
-      })();
+      },
+    ));
 
-    if result.is_err() {
-      IOUtils::delete_files_ignoring_exceptions(
-        segment_write_state.directory,
-        std::iter::once(&temp_quantized_vector_name),
-      );
+    match result {
+      Ok(Ok(supplier)) => Ok(supplier),
+      result => {
+        IOUtils::close_resources_while_handling_error((
+          &mut temp_quantized_vector_data,
+          quantization_data_input.as_ref(),
+        ))?;
+        IOUtils::delete_files_ignoring_exceptions(
+          segment_write_state.directory,
+          std::iter::once(&temp_quantized_vector_name),
+        );
+        match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(_)) => unreachable!(),
+        }
+      },
     }
-    result
   }
 }
 
@@ -477,11 +504,21 @@ where
   F: FlatVectorsScorer,
 {
   fn close(&mut self) -> Result<()> {
-    let output_close_result = IOUtils::close(
-      [&mut self.meta, &mut self.quantized_vector_data],
-      Closeable::close,
-    );
-    IOUtils::use_or_suppress_result(output_close_result, self.raw_vector_delegate.close())
+    let output_close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      IOUtils::close(
+        [&mut self.meta, &mut self.quantized_vector_data],
+        Closeable::close,
+      )
+    }));
+    let delegate_close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.raw_vector_delegate.close()
+    }));
+    match (output_close_result, delegate_close_result) {
+      (Ok(output_close_result), Ok(delegate_close_result)) => {
+        IOUtils::use_or_suppress_result(output_close_result, delegate_close_result)
+      },
+      (Err(payload), _) | (_, Err(payload)) => std::panic::resume_unwind(payload),
+    }
   }
 }
 
@@ -678,6 +715,7 @@ where
         >,
       >,
       D,
+      I,
     >,
   >
   where
@@ -1430,7 +1468,10 @@ where
   V: QuantizedByteVectorValues,
   CR: CodecReader,
 {
-  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMap<CR>>>>>,
+  state: RefCell<Option<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMap<CR>>>>>,
+  #[allow(clippy::type_complexity)]
+  iterator_state:
+    RefCell<Weak<RefCell<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMap<CR>>>>>>,
   size: usize,
   dimension: usize,
 }
@@ -1516,12 +1557,13 @@ where
     let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
     let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
     Ok(Self {
-      state: Arc::new(Mutex::new(MergedQuantizedVectorValuesState {
+      state: RefCell::new(Some(MergedQuantizedVectorValuesState {
         doc_id: -1,
         ord: -1,
         current: None,
         doc_id_merger,
       })),
+      iterator_state: RefCell::new(Weak::new()),
       size,
       dimension,
     })
@@ -1570,8 +1612,15 @@ where
   type DocIndexIterator = MergedQuantizedVectorValuesIterator<V, CR>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    let state = self.state.borrow_mut().take().ok_or_else(|| {
+      LuceneError::illegal_state(
+        "iterator() can only be called once on MergedQuantizedVectorValues",
+      )
+    })?;
+    let state = Rc::new(RefCell::new(state));
+    *self.iterator_state.borrow_mut() = Rc::downgrade(&state);
     Ok(MergedQuantizedVectorValuesIterator {
-      state: self.state.clone(),
+      state,
       size: self.size,
     })
   }
@@ -1583,7 +1632,12 @@ where
   CR: CodecReader,
 {
   fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    let state = self.state.lock();
+    let state = self
+      .iterator_state
+      .borrow()
+      .upgrade()
+      .ok_or_else(|| LuceneError::illegal_state("missing merged quantized vector iterator"))?;
+    let state = state.borrow();
     let current = state
       .current
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
@@ -1609,7 +1663,12 @@ where
   CR: CodecReader,
 {
   fn get_score_correction_constant(&self, _ord: usize) -> Result<f32> {
-    let state = self.state.lock();
+    let state = self
+      .iterator_state
+      .borrow()
+      .upgrade()
+      .ok_or_else(|| LuceneError::illegal_state("missing merged quantized vector iterator"))?;
+    let state = state.borrow();
     let current = state
       .current
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
@@ -1636,7 +1695,7 @@ where
   V: QuantizedByteVectorValues,
   CR: CodecReader,
 {
-  state: Arc<Mutex<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMap<CR>>>>>,
+  state: Rc<RefCell<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMap<CR>>>>>,
   size: usize,
 }
 
@@ -1646,11 +1705,11 @@ where
   CR: CodecReader,
 {
   fn doc_id(&self) -> i32 {
-    self.state.lock().doc_id
+    self.state.borrow().doc_id
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    let mut state = self.state.lock();
+    let mut state = self.state.borrow_mut();
     state.current = state.doc_id_merger.next()?;
     match state.current {
       Some(current) => {
@@ -1681,7 +1740,7 @@ where
   CR: CodecReader,
 {
   fn index(&self) -> Result<i32> {
-    Ok(self.state.lock().ord)
+    Ok(self.state.borrow().ord)
   }
 }
 
@@ -1691,7 +1750,7 @@ where
 {
   values: FVV,
   quantizer: ScalarQuantizer,
-  inner: Mutex<QuantizedFloatVectorValuesInner>,
+  inner: RefCell<QuantizedFloatVectorValuesInner>,
   vector_similarity_function: VectorSimilarityFunction,
 }
 
@@ -1714,7 +1773,7 @@ where
     Self {
       values,
       quantizer,
-      inner: Mutex::new(QuantizedFloatVectorValuesInner {
+      inner: RefCell::new(QuantizedFloatVectorValuesInner {
         quantized_vector,
         last_ord: -1,
         offset_value: 0.0,
@@ -1782,7 +1841,7 @@ where
   FVV: FloatVectorValues,
 {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    let mut inner = self.inner.lock();
+    let mut inner = self.inner.borrow_mut();
     let ord_i32: i32 = ord.try_convert()?;
     if ord_i32 != inner.last_ord {
       inner.offset_value = self.quantize(ord, &mut inner)?;
@@ -1811,7 +1870,7 @@ where
   }
 
   fn get_score_correction_constant(&self, ord: usize) -> Result<f32> {
-    let inner = self.inner.lock();
+    let inner = self.inner.borrow();
     let ord: i32 = ord.try_convert()?;
     if ord != inner.last_ord {
       return Err(LuceneError::illegal_state(format!(
@@ -2003,7 +2062,15 @@ where
     self.values.ord_to_doc(ord)
   }
 
-  type KnnVectorValues = Self;
+  type KnnVectorValues = NormalizedFloatVectorValues<FVV::FloatVectorValues>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    self
+      .values
+      .float_copy()?
+      .map(NormalizedFloatVectorValues::new)
+      .ok_or_else(|| LuceneError::unsupported_operation(""))
+  }
 
   fn get_encoding(&self) -> VectorEncoding {
     KnnVectorValues::get_encoding(&self.values)
@@ -2040,48 +2107,62 @@ where
     Ok(Cow::Owned(VectorValueEnum::Float(normalized_vector)))
   }
 
-  type FloatVectorValues = Self;
+  type FloatVectorValues = NormalizedFloatVectorValues<FVV::FloatVectorValues>;
 
   fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
-    Ok(None)
+    self
+      .values
+      .float_copy()
+      .map(|values| values.map(NormalizedFloatVectorValues::new))
   }
 
   type VectorScorer = DummyVectorScorer;
 }
 
-pub struct ScalarQuantizedCloseableRandomVectorScorerSupplier<'a, Q, D>
+pub struct ScalarQuantizedCloseableRandomVectorScorerSupplier<'a, Q, D, I>
 where
   Q: RandomVectorScorerSupplier,
   D: Directory,
+  I: IndexInput,
 {
   supplier: Q,
   num_vectors: i32,
   dir: &'a D,
   temp_file: String,
+  quantization_data_input: I,
   closed: bool,
 }
 
-impl<'a, Q, D> ScalarQuantizedCloseableRandomVectorScorerSupplier<'a, Q, D>
+impl<'a, Q, D, I> ScalarQuantizedCloseableRandomVectorScorerSupplier<'a, Q, D, I>
 where
   Q: RandomVectorScorerSupplier,
   D: Directory,
+  I: IndexInput,
 {
-  fn new_quantized(num_vectors: i32, supplier: Q, dir: &'a D, temp_file: String) -> Self {
+  fn new_quantized(
+    num_vectors: i32,
+    supplier: Q,
+    dir: &'a D,
+    temp_file: String,
+    quantization_data_input: I,
+  ) -> Self {
     Self {
       supplier,
       num_vectors,
       dir,
       temp_file,
+      quantization_data_input,
       closed: false,
     }
   }
 }
 
-impl<Q, D> RandomVectorScorerSupplier
-  for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+impl<Q, D, I> RandomVectorScorerSupplier
+  for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D, I>
 where
   Q: RandomVectorScorerSupplier,
   D: Directory,
+  I: IndexInput,
 {
   type Scorer<'a>
     = Q::Scorer<'a>
@@ -2114,14 +2195,16 @@ where
   }
 }
 
-impl<Q, D> Closeable for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+impl<Q, D, I> Closeable for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D, I>
 where
   Q: RandomVectorScorerSupplier,
   D: Directory,
+  I: IndexInput,
 {
   fn close(&mut self) -> Result<()> {
     if !self.closed {
       self.closed = true;
+      CloseableRef::close(&self.quantization_data_input)?;
       self.dir.delete_file(&self.temp_file)
     } else {
       Ok(())
@@ -2129,21 +2212,23 @@ where
   }
 }
 
-impl<Q, D> CloseableRandomVectorScorerSupplier
-  for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+impl<Q, D, I> CloseableRandomVectorScorerSupplier
+  for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D, I>
 where
   Q: RandomVectorScorerSupplier,
   D: Directory,
+  I: IndexInput,
 {
   fn total_vector_count(&self) -> Result<i32> {
     Ok(self.num_vectors)
   }
 }
 
-impl<Q, D> Drop for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D>
+impl<Q, D, I> Drop for ScalarQuantizedCloseableRandomVectorScorerSupplier<'_, Q, D, I>
 where
   Q: RandomVectorScorerSupplier,
   D: Directory,
+  I: IndexInput,
 {
   fn drop(&mut self) {
     let _ = self.close();

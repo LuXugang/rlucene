@@ -526,6 +526,13 @@ macro_rules! either_knn_vector_values_named {
             }
 
             #[inline]
+            fn get_vector_byte_length(&self) -> usize {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_vector_byte_length(), )+
+                }
+            }
+
+            #[inline]
             fn get_encoding(&self) -> $crate::core::index::vector_encoding::VectorEncoding {
                 match self {
                     $( Self::$Variant(inner) => inner.get_encoding(), )+

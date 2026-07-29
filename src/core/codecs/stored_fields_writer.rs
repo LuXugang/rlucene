@@ -27,6 +27,7 @@ use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
@@ -42,7 +43,7 @@ use std::sync::Arc;
 ///    [`finish(int)`](StoredFieldsWriter::finish) is called for
 ///    verification/sanity-checks.
 /// 4. Finally, the writer is closed.
-pub trait StoredFieldsWriter: Closeable {
+pub trait StoredFieldsWriter: Accountable + Closeable {
   /// Called before writing the stored fields of the document.
   /// `write_field` will be called for each stored field.
   /// This is called even if the document has no stored fields.

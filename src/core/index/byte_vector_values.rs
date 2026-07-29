@@ -139,8 +139,32 @@ macro_rules! either_byte_vector_values {
                 match self { $( Self::$Variant(inner) => inner.size(), )+ }
             }
 
+            #[inline]
+            fn ord_to_doc(&self, ord: usize) -> $crate::core::util::error::lucene_error::Result<usize> {
+                match self {
+                    $( Self::$Variant(inner) => $crate::core::index::knn_vector_values::KnnVectorValues::ord_to_doc(inner, ord), )+
+                }
+            }
+
             type KnnVectorValues =
-                $crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
+                $crate::core::index::knn_vector_values::KnnVectorValuesEnm2<
+                    $( < $T as $crate::core::index::knn_vector_values::KnnVectorValues >::KnnVectorValues ),+
+                >;
+
+            #[inline]
+            fn copy(&self) -> $crate::core::util::error::lucene_error::Result<Self::KnnVectorValues> {
+                match self {
+                    $( Self::$Variant(inner) => $crate::core::index::knn_vector_values::KnnVectorValues::copy(inner)
+                        .map($crate::core::index::knn_vector_values::KnnVectorValuesEnm2::$Variant), )+
+                }
+            }
+
+            #[inline]
+            fn get_vector_byte_length(&self) -> usize {
+                match self {
+                    $( Self::$Variant(inner) => $crate::core::index::knn_vector_values::KnnVectorValues::get_vector_byte_length(inner), )+
+                }
+            }
 
             #[inline]
             fn get_encoding(&self) -> $crate::core::index::vector_encoding::VectorEncoding {

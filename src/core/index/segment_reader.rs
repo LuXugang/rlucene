@@ -57,6 +57,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
 
 /// IndexReader implementation over a single segment.
@@ -103,10 +104,11 @@ where
     )?;
 
     let is_nrt = false;
+    let original_si_id = si.info.get_id_key().to_string();
+    let index_base = IndexReaderBase::new();
+    let reader_cache_helper = CacheHelperImpl::new();
     let core = Arc::new(SegmentCoreReaders::new(si.info.dir.as_ref(), &si, context)?);
     let seg_doc_values = Arc::new(SegmentDocValues::new());
-    let num_docs = si.info.max_doc()? - si.get_del_count();
-    let original_si_id = si.info.get_id_key().to_string();
     let mut segment_reader = Self {
       si,
       original_si_id,
@@ -116,13 +118,13 @@ where
       seg_doc_values,
       hard_live_docs: None,
       live_docs: None,
-      num_docs,
+      num_docs: 0,
       field_infos: Arc::new(FieldInfos::default()),
       doc_values_producer: None,
-      index_base: IndexReaderBase::new(),
-      reader_cache_helper: CacheHelperImpl::new(),
+      index_base,
+      reader_cache_helper,
     };
-    let result = (|| {
+    let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let si = &segment_reader.si;
       let (hard_live_docs, live_docs) = if si.has_deletions() {
         // NOTE: the bitvector is stored using the regular directory, not cfs
@@ -137,33 +139,36 @@ where
         (None, None)
       };
 
+      segment_reader.hard_live_docs = hard_live_docs;
+      segment_reader.live_docs = live_docs;
+      segment_reader.num_docs = si.info.max_doc()? - si.get_del_count();
+
       let field_infos = Self::init_field_infos(si, segment_reader.core.core_field_infos.clone())?;
-      let doc_values_producer = Self::init_doc_values_producer(
+      segment_reader.field_infos = field_infos;
+      segment_reader.doc_values_producer = Self::init_doc_values_producer(
         si,
-        field_infos.clone(),
+        segment_reader.field_infos.clone(),
         &segment_reader.seg_doc_values,
         &segment_reader.core,
       )?;
 
       debug_assert!(Self::assert_live_docs(
         is_nrt,
-        hard_live_docs.as_ref(),
-        live_docs.as_ref()
+        segment_reader.hard_live_docs.as_ref(),
+        segment_reader.live_docs.as_ref()
       )?);
 
-      Ok((hard_live_docs, live_docs, field_infos, doc_values_producer))
-    })();
+      Ok(())
+    }));
     match result {
-      Ok(r) => {
-        segment_reader.hard_live_docs = r.0;
-        segment_reader.live_docs = r.1;
-        segment_reader.field_infos = r.2;
-        segment_reader.doc_values_producer = r.3;
-        Ok(segment_reader)
-      },
-      Err(e) => {
+      Ok(Ok(())) => Ok(segment_reader),
+      Ok(Err(e)) => {
         segment_reader.do_close()?;
         Err(e)
+      },
+      Err(payload) => {
+        segment_reader.do_close()?;
+        resume_unwind(payload)
       },
     }
   }
@@ -198,13 +203,15 @@ where
     let meta_data = sr.meta_data.clone();
     let core = sr.core.clone();
     let seg_doc_values = sr.seg_doc_values.clone();
-    core.inc_ref()?;
     debug_assert!(Self::assert_live_docs(
       is_nrt,
       hard_live_docs.as_ref(),
       live_docs.as_ref()
     )?);
     let original_si_id = si.info.get_id_key().to_string();
+    let index_base = IndexReaderBase::new();
+    let reader_cache_helper = CacheHelperImpl::new();
+    core.inc_ref()?;
     let mut segment_reader = Self {
       si,
       original_si_id,
@@ -217,25 +224,30 @@ where
       num_docs,
       field_infos: Arc::new(FieldInfos::default()),
       doc_values_producer: None,
-      index_base: IndexReaderBase::new(),
-      reader_cache_helper: CacheHelperImpl::new(),
+      index_base,
+      reader_cache_helper,
     };
-    let result = (|| {
+    let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let si = &segment_reader.si;
       let field_infos = Self::init_field_infos(si, core.core_field_infos.clone())?;
-      let doc_values_producer =
-        Self::init_doc_values_producer(si, field_infos.clone(), &seg_doc_values, &core)?;
-      Ok((field_infos, doc_values_producer))
-    })();
+      segment_reader.field_infos = field_infos;
+      segment_reader.doc_values_producer = Self::init_doc_values_producer(
+        si,
+        segment_reader.field_infos.clone(),
+        &seg_doc_values,
+        &core,
+      )?;
+      Ok(())
+    }));
     match result {
-      Ok(r) => {
-        segment_reader.field_infos = r.0;
-        segment_reader.doc_values_producer = r.1;
-        Ok(segment_reader)
-      },
-      Err(e) => {
+      Ok(Ok(())) => Ok(segment_reader),
+      Ok(Err(e)) => {
         segment_reader.do_close()?;
         Err(e)
+      },
+      Err(payload) => {
+        segment_reader.do_close()?;
+        resume_unwind(payload)
       },
     }
   }

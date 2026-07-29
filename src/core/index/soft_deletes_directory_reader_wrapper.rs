@@ -499,6 +499,7 @@ where
   type TermVectors = LR::TermVectors;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
+    self.ensure_open()?;
     self.reader.term_vectors()
   }
 
@@ -513,6 +514,7 @@ where
   type StoredFields = LR::StoredFields;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
+    self.ensure_open()?;
     self.reader.stored_fields()
   }
 
@@ -527,23 +529,23 @@ where
   }
 
   fn doc_freq(&self, term: &Term) -> Result<i32> {
-    IndexReader::doc_freq(&self.reader, term)
+    LeafReader::doc_freq(self, term)
   }
 
   fn total_term_freq(&self, term: &Term) -> Result<i64> {
-    self.reader.total_term_freq(term)
+    self.get_total_term_freq(term)
   }
 
   fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-    IndexReader::get_sum_doc_freq(&self.reader, field)
+    LeafReader::get_sum_doc_freq(self, field)
   }
 
   fn get_doc_count(&self, field: &str) -> Result<i32> {
-    IndexReader::get_doc_count(&self.reader, field)
+    LeafReader::get_doc_count(self, field)
   }
 
   fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-    IndexReader::get_sum_total_term_freq(&self.reader, field)
+    LeafReader::get_sum_total_term_freq(self, field)
   }
 
   fn index_base(&self) -> &IndexReaderBase {
@@ -565,24 +567,28 @@ where
   type Terms = LR::Terms;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    self.ensure_open()?;
     self.reader.terms(field)
   }
 
   type NumericDocValues = LR::NumericDocValues;
 
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
+    self.ensure_open()?;
     self.reader.get_numeric_doc_values(field)
   }
 
   type BinaryDocValues = LR::BinaryDocValues;
 
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
+    self.ensure_open()?;
     self.reader.get_binary_doc_values(field)
   }
 
   type SortedDocValues = LR::SortedDocValues;
 
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
+    self.ensure_open()?;
     self.reader.get_sorted_doc_values(field)
   }
 
@@ -592,24 +598,28 @@ where
     &self,
     field: &str,
   ) -> Result<Option<Self::SortedNumericDocValues>> {
+    self.ensure_open()?;
     self.reader.get_sorted_numeric_doc_values(field)
   }
 
   type SortedSetDocValues = LR::SortedSetDocValues;
 
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
+    self.ensure_open()?;
     self.reader.get_sorted_set_doc_values(field)
   }
 
   type NormNumericDocValues = LR::NormNumericDocValues;
 
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
+    self.ensure_open()?;
     self.reader.get_norm_values(field)
   }
 
   type DocValuesSkipper = LR::DocValuesSkipper;
 
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
+    self.ensure_open()?;
     self.reader.get_doc_values_skipper(field)
   }
 
@@ -674,10 +684,12 @@ where
   }
 
   fn check_integrity(&self) -> Result<()> {
+    self.ensure_open()?;
     self.reader.check_integrity()
   }
 
   fn get_metadata(&self) -> Result<&LeafMetaData> {
+    self.ensure_open()?;
     self.reader.get_metadata()
   }
 }

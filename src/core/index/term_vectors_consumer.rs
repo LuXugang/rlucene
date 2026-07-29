@@ -37,7 +37,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
-use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, TryIntoInt};
+use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, IOUtils, TryIntoInt};
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -286,35 +286,46 @@ where
       let num_docs = info.max_doc()?;
       debug_assert!(num_docs > 0);
       // At least one doc in this run had term vectors enabled
-      let fill_result = self.fill(num_docs);
+      let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        self.fill(num_docs)?;
+        match self.sub {
+          Some(ref mut sub) => {
+            let writer = sub
+              .writer
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+            writer.finish(num_docs, &sub.tmp_directory)
+          },
+          None => {
+            let writer = self
+              .writer
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+            writer.finish(num_docs, state.directory)
+          },
+        }
+      }));
       match self.sub {
         Some(ref mut sub) => {
-          let tmp_directory = &sub.tmp_directory;
           let writer = sub
             .writer
             .as_mut()
             .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-          let finish_result = match fill_result {
-            Ok(()) => writer.finish(num_docs, tmp_directory),
-            Err(e) => Err(e),
-          };
           let close_result = writer.close();
           close_result?;
-          finish_result?;
         },
         None => {
           let writer = self
             .writer
             .as_mut()
             .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-          let finish_result = match fill_result {
-            Ok(()) => writer.finish(num_docs, state.directory),
-            Err(e) => Err(e),
-          };
           let close_result = writer.close();
           close_result?;
-          finish_result?;
         },
+      }
+      match finish_result {
+        Ok(result) => result?,
+        Err(payload) => std::panic::resume_unwind(payload),
       }
 
       if let Some(ref mut sub) = self.sub {
@@ -354,10 +365,17 @@ where
   }
 
   pub(crate) fn abort(&mut self) -> Result<()> {
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match self.sub {
+      Some(ref mut sub) => IOUtils::close_resources_while_handling_error(sub.writer.as_mut()),
+      None => IOUtils::close_resources_while_handling_error(self.writer.as_mut()),
+    }));
     if let Some(ref mut sub) = self.sub {
       sub.abort()?;
     }
-    Ok(())
+    match close_result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 }
 

@@ -33,7 +33,6 @@ use crate::core::index::codec_reader::{
 };
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
-use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{FieldInfos, get_merged_field_infos};
 use crate::core::index::fields::Fields;
@@ -79,7 +78,7 @@ use crate::core::util::merged_iterator::MergedIterator;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -1505,6 +1504,7 @@ where
   dimension: usize,
   size: usize,
   subs: Vec<DocValuesSub<F>>,
+  iterator: RefCell<Option<MergedDocIterator<F::DocIndexIterator>>>,
   starts: Vec<i32>,
   last_sub_index: Cell<usize>,
 }
@@ -1514,6 +1514,7 @@ where
   F: FloatVectorValues,
 {
   fn new(dimension: usize, size: usize, subs: Vec<DocValuesSub<F>>) -> Result<Self> {
+    let iterator = MergedDocIterator::new(&subs)?;
     let mut starts = Vec::with_capacity(subs.len() + 1);
     for sub in &subs {
       starts.push(sub.ord_start);
@@ -1523,6 +1524,7 @@ where
       dimension,
       size,
       subs,
+      iterator: RefCell::new(Some(iterator)),
       starts,
       last_sub_index: Cell::new(0),
     })
@@ -1552,7 +1554,11 @@ where
     Ok(sub.doc_start as usize + values.ord_to_doc(ord - sub.ord_start as usize)?)
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  type KnnVectorValues = MergedFloatVectorValues<F::FloatVectorValues>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    FloatVectorValues::float_copy(self)?.ok_or_else(|| LuceneError::unsupported_operation(""))
+  }
 
   fn get_encoding(&self) -> VectorEncoding {
     FloatVectorValues::get_encoding(self)
@@ -1574,7 +1580,9 @@ where
   type DocIndexIterator = MergedDocIterator<F::DocIndexIterator>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    MergedDocIterator::new(&self.subs)
+    self.iterator.borrow_mut().take().ok_or_else(|| {
+      LuceneError::illegal_state("iterator() can only be called once on MergedFloatVectorValues")
+    })
   }
 }
 
@@ -1625,6 +1633,7 @@ where
   dimension: usize,
   size: usize,
   subs: Vec<DocValuesSub<B>>,
+  iterator: RefCell<Option<MergedDocIterator<B::DocIndexIterator>>>,
   starts: Vec<i32>,
   last_sub_index: Cell<usize>,
 }
@@ -1634,6 +1643,7 @@ where
   B: ByteVectorValues,
 {
   fn new(dimension: usize, size: usize, subs: Vec<DocValuesSub<B>>) -> Result<Self> {
+    let iterator = MergedDocIterator::new(&subs)?;
     let mut starts = Vec::with_capacity(subs.len() + 1);
     for sub in &subs {
       starts.push(sub.ord_start);
@@ -1643,6 +1653,7 @@ where
       dimension,
       size,
       subs,
+      iterator: RefCell::new(Some(iterator)),
       starts,
       last_sub_index: Cell::new(0),
     })
@@ -1672,7 +1683,11 @@ where
     Ok(sub.doc_start as usize + values.ord_to_doc(ord - sub.ord_start as usize)?)
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  type KnnVectorValues = MergedByteVectorValues<B::ByteVectorValues>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    ByteVectorValues::byte_copy(self)?.ok_or_else(|| LuceneError::unsupported_operation(""))
+  }
 
   fn get_encoding(&self) -> VectorEncoding {
     ByteVectorValues::get_encoding(self)
@@ -1694,7 +1709,9 @@ where
   type DocIndexIterator = MergedDocIterator<B::DocIndexIterator>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    MergedDocIterator::new(&self.subs)
+    self.iterator.borrow_mut().take().ok_or_else(|| {
+      LuceneError::illegal_state("iterator() can only be called once on MergedByteVectorValues")
+    })
   }
 }
 

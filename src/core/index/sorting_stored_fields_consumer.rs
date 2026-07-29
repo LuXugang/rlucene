@@ -120,7 +120,7 @@ where
         .stored_fields_format()
         .fields_writer(state.directory, info, state.context)?;
 
-    let result: Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       reader.check_integrity()?;
       let mut visitor = CopyVisitor::new(&mut sort_writer);
       let max_doc = info.max_doc()?;
@@ -141,7 +141,7 @@ where
 
       sort_writer.finish(max_doc, state.directory)?;
       Ok(())
-    })();
+    }));
 
     let finally_result: Result<()> = (|| {
       let close_result = reader.close();
@@ -160,7 +160,10 @@ where
       Ok(())
     })();
     finally_result?;
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 
   fn abort(&mut self) -> Result<()> {
@@ -172,7 +175,7 @@ where
       .values()
       .cloned()
       .collect();
-    IOUtils::delete_files(&self.tmp_directory, &file_names)?;
+    IOUtils::delete_files_ignoring_exceptions(&self.tmp_directory, &file_names);
     Ok(())
   }
 }

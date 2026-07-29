@@ -369,7 +369,11 @@ where
     self.base.size
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    self.try_clone()
+  }
 
   fn get_vector_byte_length(&self) -> usize {
     self.base.num_bytes
@@ -599,7 +603,21 @@ where
     Ok(self.ord_to_doc.borrow_mut().get_mut(ord)? as usize)
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    Self::new(
+      self.configuration.clone(),
+      self.base.dimension,
+      self.base.size,
+      self.base.scalar_quantizer.clone(),
+      self.base.compress,
+      self.data_in.clone(),
+      self.base.similarity_function,
+      self.base.vectors_scorer.clone(),
+      self.base.inner.lock().slice.try_clone()?,
+    )
+  }
 
   fn get_vector_byte_length(&self) -> usize {
     self.base.num_bytes
@@ -959,6 +977,14 @@ where
   }
 
   type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
+      Self::Dense(e) => KnnVectorValues::copy(e).map(Self::Dense),
+      Self::Sparse(e) => KnnVectorValues::copy(e).map(Self::Sparse),
+    }
+  }
 
   fn get_vector_byte_length(&self) -> usize {
     match self {

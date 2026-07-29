@@ -109,34 +109,60 @@ where
 
     let mut meta = state.directory.open_checksum_input(&meta_file_name)?;
 
-    let mut version_meta = -1;
+    let mut footer_attempted = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i32> {
+      let result = (|| {
+        let version_meta = CodecUtil::check_index_header(
+          &mut meta,
+          META_CODEC_NAME,
+          VERSION_START,
+          VERSION_CURRENT,
+          segment_info.get_id(),
+          &state.segment_suffix,
+        )?;
 
-    let result: Result<()> = (|| {
-      version_meta = CodecUtil::check_index_header(
-        &mut meta,
-        META_CODEC_NAME,
-        VERSION_START,
-        VERSION_CURRENT,
-        segment_info.get_id(),
-        &state.segment_suffix,
-      )?;
+        Self::read_fields(&mut meta, &state.field_infos, fields)?;
+        Ok(version_meta)
+      })();
+      footer_attempted = true;
+      match result {
+        Ok(version_meta) => {
+          CodecUtil::check_footer(&mut meta)?;
+          Ok(version_meta)
+        },
+        Err(error) => Err(CodecUtil::check_footer_with_error(&mut meta, error)),
+      }
+    }));
 
-      Self::read_fields(&mut meta, &state.field_infos, fields)?;
-      Ok(())
-    })();
-    let result: Result<()> = match result {
-      Ok(()) => {
-        CodecUtil::check_footer(&mut meta)?;
-        Ok(())
+    if let Err(payload) = &result
+      && !footer_attempted
+    {
+      let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let error = LuceneError::tragedy_from_panic(
+          "panic while reading flat vector metadata",
+          payload.as_ref(),
+        );
+        let _ = CodecUtil::check_footer_with_error(&mut meta, error);
+      }));
+    }
+
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| meta.close()));
+    match result {
+      Ok(result) => match close_result {
+        Ok(close_result) => IOUtils::use_or_suppress_result(result, close_result),
+        Err(payload) => match result {
+          Ok(_) => std::panic::resume_unwind(payload),
+          Err(mut error) => {
+            error.add_suppressed(LuceneError::tragedy_from_panic(
+              "panic while closing flat vector metadata",
+              payload.as_ref(),
+            ));
+            Err(error)
+          },
+        },
       },
-      Err(e) => {
-        let err = CodecUtil::check_footer_with_error(&mut meta, e);
-        Err(err)
-      },
-    };
-    IOUtils::use_or_suppress_result(result, meta.close())?;
-
-    Ok(version_meta)
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
   fn open_data_input<D1, D2>(
     state: &SegmentReadState<D1>,
@@ -153,7 +179,7 @@ where
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
     let mut input = state.directory.open_input(&file_name, context)?;
-    let result = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let version_vector_data = CodecUtil::check_index_header(
         &mut input,
         codec_name,
@@ -172,9 +198,18 @@ where
 
       CodecUtil::retrieve_checksum(&mut input)?;
       Ok(())
-    })();
-    result?;
-    Ok(input)
+    }));
+    match result {
+      Ok(Ok(())) => Ok(input),
+      result => {
+        IOUtils::close_resources_while_handling_error(&input)?;
+        match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        }
+      },
+    }
   }
   fn read_fields(
     meta: &mut impl ChecksumIndexInput,

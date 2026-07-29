@@ -25,6 +25,7 @@ use crate::core::index::sorter::DocMap;
 use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -215,14 +216,15 @@ where
           .writer
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("sub writer must be initialized"))?;
-        let max_doc_result = info.max_doc();
-        let finish_result = match max_doc_result {
-          Ok(max_doc) => writer.finish(max_doc, tmp_directory),
-          Err(e) => Err(e),
-        };
+        let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          writer.finish(info.max_doc()?, tmp_directory)
+        }));
         let close_result = writer.close();
         close_result?;
-        finish_result?;
+        match finish_result {
+          Ok(result) => result?,
+          Err(payload) => std::panic::resume_unwind(payload),
+        }
         sub.flush(state, sort_map, info)?;
       },
       None => {
@@ -230,23 +232,31 @@ where
           .writer
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
-        let max_doc_result = info.max_doc();
-        let finish_result = match max_doc_result {
-          Ok(max_doc) => writer.finish(max_doc, dir),
-          Err(e) => Err(e),
-        };
+        let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          writer.finish(info.max_doc()?, dir)
+        }));
         let close_result = writer.close();
         close_result?;
-        finish_result?;
+        match finish_result {
+          Ok(result) => result?,
+          Err(payload) => std::panic::resume_unwind(payload),
+        }
       },
     }
     Ok(())
   }
 
   pub(crate) fn abort(&mut self) -> Result<()> {
-    match self.sub {
-      Some(ref mut sub) => sub.abort(),
-      None => Ok(()),
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match self.sub {
+      Some(ref mut sub) => IOUtils::close_resources_while_handling_error(sub.writer.as_mut()),
+      None => IOUtils::close_resources_while_handling_error(self.writer.as_mut()),
+    }));
+    if let Some(ref mut sub) = self.sub {
+      sub.abort()?;
+    }
+    match close_result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
     }
   }
 }

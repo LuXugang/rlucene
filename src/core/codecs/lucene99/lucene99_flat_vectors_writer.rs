@@ -95,31 +95,56 @@ where
       VECTOR_DATA_EXTENSION,
     );
 
-    let mut meta = state
-      .directory
-      .create_output(&meta_file_name, state.context)?;
-    let mut vector_data = state
-      .directory
-      .create_output(&vector_data_file_name, state.context)?;
+    let mut meta = None;
+    let mut vector_data = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      meta = Some(
+        state
+          .directory
+          .create_output(&meta_file_name, state.context)?,
+      );
+      vector_data = Some(
+        state
+          .directory
+          .create_output(&vector_data_file_name, state.context)?,
+      );
 
-    CodecUtil::write_index_header(
-      &mut meta,
-      META_CODEC_NAME,
-      VERSION_CURRENT,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
-    CodecUtil::write_index_header(
-      &mut vector_data,
-      VECTOR_DATA_CODEC_NAME,
-      VERSION_CURRENT,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
+      CodecUtil::write_index_header(
+        meta
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("meta output is missing"))?,
+        META_CODEC_NAME,
+        VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
+      CodecUtil::write_index_header(
+        vector_data
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("vector data output is missing"))?,
+        VECTOR_DATA_CODEC_NAME,
+        VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )
+    }));
+
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        IOUtils::close_resources_while_handling_error((meta.as_mut(), vector_data.as_mut()))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
+    }
 
     Ok(Self {
-      meta,
-      vector_data,
+      meta: meta.expect("meta output must be initialized on successful construction"),
+      vector_data: vector_data
+        .expect("vector data output must be initialized on successful construction"),
       fields: Vec::new(),
       finished: false,
       flat_vectors_scorer: scorer,

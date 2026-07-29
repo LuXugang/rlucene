@@ -73,8 +73,16 @@ where
     let codec = si.info.get_codec()?;
     let use_compound_file = si.info.get_use_compound_file();
 
-    (|| {
-      let cfs_reader = if use_compound_file {
+    let mut cfs_reader = None;
+    let mut fields = None;
+    let mut norms_producer = None;
+    let mut fields_reader_orig = None;
+    let mut term_vectors_reader_orig = None;
+    let mut points_reader = None;
+    let mut knn_vectors_reader = None;
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      cfs_reader = if use_compound_file {
         Some(codec.compound_format().get_compound_reader(dir, &si.info)?)
       } else {
         None
@@ -92,14 +100,14 @@ where
           .read(&cfs_dir, &si.info, "", context)?,
       );
 
-      let fields_reader_orig = codec.stored_fields_format().fields_reader(
+      fields_reader_orig = Some(codec.stored_fields_format().fields_reader(
         &cfs_dir,
         &si.info,
         core_field_infos.clone(),
         context,
-      )?;
+      )?);
 
-      let term_vectors_reader_orig = if core_field_infos.has_term_vectors() {
+      term_vectors_reader_orig = if core_field_infos.has_term_vectors() {
         Some(codec.term_vectors_format().vectors_reader(
           &cfs_dir,
           &si.info,
@@ -112,7 +120,7 @@ where
 
       let read_state = SegmentReadState::new(&cfs_dir, core_field_infos.clone(), context);
 
-      let fields = if core_field_infos.has_postings() {
+      fields = if core_field_infos.has_postings() {
         Some(Arc::new(
           codec
             .postings_format()
@@ -122,21 +130,21 @@ where
         None
       };
 
-      let norms_producer = if core_field_infos.has_norms() {
+      norms_producer = if core_field_infos.has_norms() {
         Some(Arc::new(
           codec.norms_format().norms_producer(&read_state, &si.info)?,
         ))
       } else {
         None
       };
-      let points_reader = if core_field_infos.has_point_values() {
+      points_reader = if core_field_infos.has_point_values() {
         Some(Arc::new(
           codec.points_format().fields_reader(&read_state, &si.info)?,
         ))
       } else {
         None
       };
-      let knn_vectors_reader = if core_field_infos.has_vector_values() {
+      knn_vectors_reader = if core_field_infos.has_vector_values() {
         Some(Arc::new(
           codec
             .knn_vectors_format()?
@@ -146,11 +154,16 @@ where
         None
       };
 
-      Ok(SegmentCoreReaders {
+      Ok((segment, core_field_infos))
+    }));
+
+    match result {
+      Ok(Ok((segment, core_field_infos))) => Ok(SegmentCoreReaders {
         ref_: AtomicI32::new(1),
         fields,
         norms_producer,
-        fields_reader_orig,
+        fields_reader_orig: fields_reader_orig
+          .expect("stored fields reader must be initialized on successful construction"),
         term_vectors_reader_orig,
         points_reader,
         knn_vectors_reader,
@@ -158,8 +171,24 @@ where
         segment,
         core_field_infos,
         cache_helper: SegmentCoreReadersCacheHelperImpl::new(),
-      })
-    })()
+      }),
+      result => {
+        IOUtils::close_refs_tuple((
+          fields.as_ref(),
+          term_vectors_reader_orig.as_ref(),
+          fields_reader_orig.as_ref(),
+          cfs_reader.as_ref(),
+          norms_producer.as_ref(),
+          points_reader.as_ref(),
+          knn_vectors_reader.as_ref(),
+        ))?;
+        match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(_)) => unreachable!(),
+        }
+      },
+    }
   }
 
   pub(crate) fn get_ref_count(&self) -> i32 {

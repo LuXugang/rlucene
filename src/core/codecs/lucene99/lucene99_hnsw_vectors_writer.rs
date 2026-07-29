@@ -93,7 +93,7 @@ where
     state: &SegmentWriteState<D1>,
     m: usize,
     beam_width: usize,
-    flat_vector_writer: F,
+    mut flat_vector_writer: F,
     num_merge_workers: usize,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self>
@@ -109,16 +109,23 @@ where
       &state.segment_suffix,
       VECTOR_INDEX_EXTENSION,
     );
-    let mut meta = state
-      .directory
-      .create_output(&meta_file_name, state.context)?;
-
-    let mut vector_index = state
-      .directory
-      .create_output(&index_data_file_name, state.context)?;
-    let result = (|| -> Result<()> {
+    let mut meta = None;
+    let mut vector_index = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      meta = Some(
+        state
+          .directory
+          .create_output(&meta_file_name, state.context)?,
+      );
+      vector_index = Some(
+        state
+          .directory
+          .create_output(&index_data_file_name, state.context)?,
+      );
       CodecUtil::write_index_header(
-        &mut meta,
+        meta
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("meta output is missing"))?,
         META_CODEC_NAME,
         VERSION_CURRENT,
         segment_info.get_id(),
@@ -126,20 +133,37 @@ where
       )?;
 
       CodecUtil::write_index_header(
-        &mut vector_index,
+        vector_index
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("vector index output is missing"))?,
         VECTOR_INDEX_CODEC_NAME,
         VERSION_CURRENT,
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
       Ok(())
-    })();
+    }));
 
-    result?;
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        IOUtils::close_resources_while_handling_error((
+          meta.as_mut(),
+          vector_index.as_mut(),
+          &mut flat_vector_writer,
+        ))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
+    }
 
     Ok(Self {
-      meta,
-      vector_index,
+      meta: meta.expect("meta output must be initialized on successful construction"),
+      vector_index: vector_index
+        .expect("vector index output must be initialized on successful construction"),
       m,
       beam_width,
       flat_vector_writer,
@@ -541,9 +565,18 @@ where
   O: IndexOutput,
 {
   fn close(&mut self) -> Result<()> {
-    let output_close_result =
-      IOUtils::close([&mut self.meta, &mut self.vector_index], Closeable::close);
-    IOUtils::use_or_suppress_result(output_close_result, self.flat_vector_writer.close())
+    let output_close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      IOUtils::close([&mut self.meta, &mut self.vector_index], Closeable::close)
+    }));
+    let delegate_close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.flat_vector_writer.close()
+    }));
+    match (output_close_result, delegate_close_result) {
+      (Ok(output_close_result), Ok(delegate_close_result)) => {
+        IOUtils::use_or_suppress_result(output_close_result, delegate_close_result)
+      },
+      (Err(payload), _) | (_, Err(payload)) => std::panic::resume_unwind(payload),
+    }
   }
 }
 

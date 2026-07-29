@@ -251,7 +251,19 @@ where
     Ok(ord)
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    let inner = self.base.inner.lock();
+    Self::new(
+      self.base.dimension,
+      self.base.size,
+      inner.slice.try_clone()?,
+      self.base.byte_size,
+      self.base.flat_vectors_scorer.clone(),
+      self.base.similarity_function,
+    )
+  }
 
   fn get_encoding(&self) -> VectorEncoding {
     FloatVectorValues::get_encoding(self)
@@ -470,7 +482,19 @@ where
     Ok(self.ord_to_doc.borrow_mut().get_mut(ord)? as usize)
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    Self::new(
+      self.configuration.clone(),
+      self.data_in.clone(),
+      self.base.inner.lock().slice.try_clone()?,
+      self.base.dimension,
+      self.base.byte_size,
+      self.base.flat_vectors_scorer.clone(),
+      self.base.similarity_function,
+    )
+  }
 
   fn get_encoding(&self) -> VectorEncoding {
     FloatVectorValues::get_encoding(self)
@@ -749,7 +773,19 @@ where
     }
   }
 
-  type KnnVectorValues = DummyKnnVectorsWriter;
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      OffHeapFloatVectorValuesEnum::Empty(_) => Err(LuceneError::unsupported_operation("")),
+      OffHeapFloatVectorValuesEnum::Dense(e) => {
+        KnnVectorValues::copy(e).map(OffHeapFloatVectorValuesEnum::Dense)
+      },
+      OffHeapFloatVectorValuesEnum::Sparse(e) => {
+        KnnVectorValues::copy(e).map(OffHeapFloatVectorValuesEnum::Sparse)
+      },
+    }
+  }
 
   fn get_vector_byte_length(&self) -> usize {
     match self {

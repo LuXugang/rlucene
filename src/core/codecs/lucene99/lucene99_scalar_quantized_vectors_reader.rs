@@ -96,38 +96,35 @@ where
     let mut version_meta = -1;
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
-    let mut meta = match state.directory.open_checksum_input(&meta_file_name) {
-      Ok(meta) => meta,
-      Err(e) => {
-        return IOUtils::use_or_suppress_result(Err(e), raw_vectors_reader.close());
-      },
-    };
-
-    let mut success = false;
+    let mut meta = None;
     let mut quantized_vector_data = None;
-
-    let result = (|| -> Result<()> {
+    let mut footer_attempted = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      meta = Some(state.directory.open_checksum_input(&meta_file_name)?);
       let read_result = (|| -> Result<()> {
+        let meta = meta.as_mut().ok_or_else(|| {
+          LuceneError::illegal_state("scalar quantized metadata input is missing")
+        })?;
         version_meta = CodecUtil::check_index_header(
-          &mut meta,
+          meta,
           META_CODEC_NAME,
           VERSION_START,
           VERSION_CURRENT,
           segment_info.get_id(),
           &state.segment_suffix,
         )?;
-        Self::read_fields(
-          &mut meta,
-          version_meta,
-          state.field_infos.as_ref(),
-          &mut fields,
-        )
+        Self::read_fields(meta, version_meta, state.field_infos.as_ref(), &mut fields)
       })();
 
-      match read_result {
-        Ok(()) => CodecUtil::check_footer(&mut meta).map(|_| ()),
-        Err(e) => Err(CodecUtil::check_footer_with_error(&mut meta, e)),
-      }?;
+      let meta = meta
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("scalar quantized metadata input is missing"))?;
+      footer_attempted = true;
+      let footer_result = match read_result {
+        Ok(()) => CodecUtil::check_footer(meta).map(|_| ()),
+        Err(error) => Err(CodecUtil::check_footer_with_error(meta, error)),
+      };
+      IOUtils::use_or_suppress_result(footer_result, meta.close())?;
 
       quantized_vector_data = Some(Self::open_data_input(
         state,
@@ -139,25 +136,35 @@ where
         &state.context.with_read_advice_self(ReadAdvice::Random)?,
         segment_info,
       )?);
-      success = true;
       Ok(())
-    })();
-    let result = IOUtils::use_or_suppress_result(result, meta.close());
+    }));
 
-    if let Err(e) = result {
-      let mut result: Result<()> = Err(e);
-      if !success {
-        if let Some(input) = quantized_vector_data {
-          result = IOUtils::use_or_suppress_result(result, input.close());
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        if let Err(payload) = &result
+          && !footer_attempted
+          && let Some(meta) = meta.as_mut()
+        {
+          let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let error = LuceneError::tragedy_from_panic(
+              "panic while reading scalar quantized metadata",
+              payload.as_ref(),
+            );
+            let _ = CodecUtil::check_footer_with_error(meta, error);
+          }));
         }
-        result = IOUtils::use_or_suppress_result(result, raw_vectors_reader.close());
-      }
-      return match result {
-        Ok(()) => Err(LuceneError::illegal_state(
-          "constructor failed but close handling cleared the error",
-        )),
-        Err(e) => Err(e),
-      };
+        IOUtils::close_resources_while_handling_error((
+          meta.as_ref(),
+          quantized_vector_data.as_ref(),
+          &raw_vectors_reader,
+        ))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
     }
 
     Ok(Self {
@@ -258,7 +265,7 @@ where
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
     let mut input = state.directory.open_input(&file_name, context)?;
-    let result = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let version_vector_data = CodecUtil::check_index_header(
         &mut input,
         codec_name,
@@ -275,10 +282,17 @@ where
       }
       CodecUtil::retrieve_checksum(&mut input)?;
       Ok(())
-    })();
+    }));
     match result {
-      Ok(()) => Ok(input),
-      Err(e) => IOUtils::use_or_suppress_result(Err(e), input.close()),
+      Ok(Ok(())) => Ok(input),
+      result => {
+        IOUtils::close_resources_while_handling_error(&input)?;
+        match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        }
+      },
     }
   }
 

@@ -82,7 +82,7 @@ where
       .unwrap_or_else(|| CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, ""))
       + CodecUtil::footer_length();
 
-    let result = (|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::check_index_header(
         &mut handle,
         Lucene90CompoundFormat::DATA_CODEC,
@@ -106,9 +106,17 @@ where
         )));
       }
       Ok(())
-    })();
-    if let Err(error) = result {
-      return IOUtils::use_or_suppress_result(Err(error), handle.close());
+    }));
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        IOUtils::close_resources_while_handling_error(&handle)?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
     }
     let dir_fmt = directory.to_string();
     Ok(Self {
@@ -127,27 +135,59 @@ where
     entries_file_name: &str,
   ) -> Result<(i32, HashMap<String, FileEntry>)> {
     let mut entries_stream = directory.open_checksum_input(entries_file_name)?;
-    let result = (|| {
-      let version = CodecUtil::check_index_header(
-        &mut entries_stream,
-        Lucene90CompoundFormat::ENTRY_CODEC,
-        Lucene90CompoundFormat::VERSION_START,
-        Lucene90CompoundFormat::VERSION_CURRENT,
-        segment_id,
-        "",
-      )?;
-      let mapping = Self::read_mapping(&mut entries_stream)?;
-      Ok((version, mapping))
-    })();
-
-    let result = match result {
-      Ok((version, mapping)) => {
-        CodecUtil::check_footer(&mut entries_stream)?;
+    let mut footer_attempted = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      let result = (|| {
+        let version = CodecUtil::check_index_header(
+          &mut entries_stream,
+          Lucene90CompoundFormat::ENTRY_CODEC,
+          Lucene90CompoundFormat::VERSION_START,
+          Lucene90CompoundFormat::VERSION_CURRENT,
+          segment_id,
+          "",
+        )?;
+        let mapping = Self::read_mapping(&mut entries_stream)?;
         Ok((version, mapping))
+      })();
+
+      footer_attempted = true;
+      match result {
+        Ok((version, mapping)) => {
+          CodecUtil::check_footer(&mut entries_stream)?;
+          Ok((version, mapping))
+        },
+        Err(e) => Err(CodecUtil::check_footer_with_error(&mut entries_stream, e)),
+      }
+    }));
+
+    if let Err(payload) = &result
+      && !footer_attempted
+    {
+      let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let error =
+          LuceneError::tragedy_from_panic("panic while reading compound entries", payload.as_ref());
+        let _ = CodecUtil::check_footer_with_error(&mut entries_stream, error);
+      }));
+    }
+
+    let close_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| entries_stream.close()));
+    match result {
+      Ok(result) => match close_result {
+        Ok(close_result) => IOUtils::use_or_suppress_result(result, close_result),
+        Err(payload) => match result {
+          Ok(_) => std::panic::resume_unwind(payload),
+          Err(mut error) => {
+            error.add_suppressed(LuceneError::tragedy_from_panic(
+              "panic while closing compound entries",
+              payload.as_ref(),
+            ));
+            Err(error)
+          },
+        },
       },
-      Err(e) => Err(CodecUtil::check_footer_with_error(&mut entries_stream, e)),
-    };
-    IOUtils::use_or_suppress_result(result, entries_stream.close())
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
   fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {
     let num_entries = entries_stream.read_vint()?;

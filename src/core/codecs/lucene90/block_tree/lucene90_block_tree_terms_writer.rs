@@ -283,46 +283,78 @@ where
     let terms_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, TERMS_EXTENSION);
     let mut terms_out = state.directory.create_output(&terms_name, state.context)?;
-    CodecUtil::write_index_header(
-      &mut terms_out,
-      TERMS_CODEC_NAME,
-      version,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
-    let index_name = IndexFileNames::segment_file_name(
-      &segment_info.name,
-      &state.segment_suffix,
-      TERMS_INDEX_EXTENSION,
-    );
-    let mut index_out = state.directory.create_output(&index_name, state.context)?;
-    CodecUtil::write_index_header(
-      &mut index_out,
-      TERMS_INDEX_CODEC_NAME,
-      version,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
-    let meta_name = IndexFileNames::segment_file_name(
-      &segment_info.name,
-      &state.segment_suffix,
-      TERMS_META_EXTENSION,
-    );
-    let mut meta_out = state.directory.create_output(&meta_name, state.context)?;
-    CodecUtil::write_index_header(
-      &mut meta_out,
-      TERMS_META_CODEC_NAME,
-      version,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
+    let mut meta_out = None;
+    let mut index_out = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      CodecUtil::write_index_header(
+        &mut terms_out,
+        TERMS_CODEC_NAME,
+        version,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
+      let index_name = IndexFileNames::segment_file_name(
+        &segment_info.name,
+        &state.segment_suffix,
+        TERMS_INDEX_EXTENSION,
+      );
+      index_out = Some(state.directory.create_output(&index_name, state.context)?);
+      CodecUtil::write_index_header(
+        index_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("terms index output is missing"))?,
+        TERMS_INDEX_CODEC_NAME,
+        version,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
+      let meta_name = IndexFileNames::segment_file_name(
+        &segment_info.name,
+        &state.segment_suffix,
+        TERMS_META_EXTENSION,
+      );
+      meta_out = Some(state.directory.create_output(&meta_name, state.context)?);
+      CodecUtil::write_index_header(
+        meta_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("terms metadata output is missing"))?,
+        TERMS_META_CODEC_NAME,
+        version,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
 
-    postings_writer.init(&mut meta_out, state, segment_info)?;
+      postings_writer.init(
+        meta_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("terms metadata output is missing"))?,
+        state,
+        segment_info,
+      )
+    }));
+
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          &mut terms_out,
+          index_out.as_mut(),
+        ))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
+    }
 
     Ok(Self {
-      meta_out,
+      meta_out: meta_out
+        .expect("terms metadata output must be initialized on successful construction"),
       terms_out,
-      index_out,
+      index_out: index_out
+        .expect("terms index output must be initialized on successful construction"),
       max_doc,
       min_items_in_block,
       max_items_in_block,
@@ -437,7 +469,7 @@ where
     }
     self.closed = true;
 
-    let result = (|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       self.meta_out.write_vint(self.fields.len() as i32)?;
       for field_meta in &self.fields {
         field_meta.copy_to(&mut self.meta_out)?;
@@ -451,23 +483,42 @@ where
         .meta_out
         .write_long(self.terms_out.get_file_pointer()? as i64)?;
       CodecUtil::write_footer(&mut self.meta_out)
-    })();
+    }));
     match result {
-      Ok(()) => {
-        let close_result = IOUtils::close(
-          [&mut self.meta_out, &mut self.terms_out, &mut self.index_out],
-          Closeable::close,
-        );
-        IOUtils::use_or_suppress_result(close_result, self.postings_writer.close())
+      Ok(Ok(())) => {
+        let outputs_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          IOUtils::close(
+            [&mut self.meta_out, &mut self.terms_out, &mut self.index_out],
+            Closeable::close,
+          )
+        }));
+        let postings_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          self.postings_writer.close()
+        }));
+        match (outputs_result, postings_result) {
+          (Ok(outputs_result), Ok(postings_result)) => {
+            IOUtils::use_or_suppress_result(outputs_result, postings_result)
+          },
+          (Err(payload), _) | (_, Err(payload)) => std::panic::resume_unwind(payload),
+        }
       },
-      Err(err) => {
+      Ok(Err(error)) => {
         IOUtils::close_resources_while_handling_error((
           &mut self.meta_out,
           &mut self.terms_out,
           &mut self.index_out,
           &mut self.postings_writer,
         ))?;
-        Err(err)
+        Err(error)
+      },
+      Err(payload) => {
+        IOUtils::close_resources_while_handling_error((
+          &mut self.meta_out,
+          &mut self.terms_out,
+          &mut self.index_out,
+          &mut self.postings_writer,
+        ))?;
+        std::panic::resume_unwind(payload)
       },
     }
   }

@@ -137,26 +137,8 @@ where
       Lucene101PostingsFormat::DOC_EXTENSION,
     );
 
-    let mut meta_out = state.directory.create_output(&meta_file, state.context)?;
-    let mut doc_out = state.directory.create_output(&doc_file, state.context)?;
-    CodecUtil::write_index_header(
-      &mut meta_out,
-      Lucene101PostingsFormat::META_CODEC,
-      Lucene101PostingsFormat::VERSION_CURRENT,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
-    CodecUtil::write_index_header(
-      &mut doc_out,
-      Lucene101PostingsFormat::DOC_CODEC,
-      Lucene101PostingsFormat::VERSION_CURRENT,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
-
-    let for_delta_util = ForDeltaUtil::new();
-    let pfor_util = PForUtil::new();
-
+    let mut meta_out = None;
+    let mut doc_out = None;
     let mut pos_out: Option<O> = None;
     let mut pay_out: Option<O> = None;
 
@@ -166,57 +148,104 @@ where
     let mut offset_length_buffer = Vec::new();
     let mut payload_bytes = Vec::new();
 
-    if state.field_infos.has_prox() {
-      let pos_file = IndexFileNames::segment_file_name(
-        &segment_info.name,
-        &state.segment_suffix,
-        Lucene101PostingsFormat::POS_EXTENSION,
-      );
-      let mut pos_out_opt = state.directory.create_output(&pos_file, state.context)?;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<_> {
+      meta_out = Some(state.directory.create_output(&meta_file, state.context)?);
+      doc_out = Some(state.directory.create_output(&doc_file, state.context)?);
       CodecUtil::write_index_header(
-        &mut pos_out_opt,
-        Lucene101PostingsFormat::POS_CODEC,
+        meta_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("meta output is missing"))?,
+        Lucene101PostingsFormat::META_CODEC,
         Lucene101PostingsFormat::VERSION_CURRENT,
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
-      pos_out = Some(pos_out_opt);
-      pos_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+      CodecUtil::write_index_header(
+        doc_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("doc output is missing"))?,
+        Lucene101PostingsFormat::DOC_CODEC,
+        Lucene101PostingsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
 
-      if state.field_infos.has_payloads() {
-        payload_bytes = vec![0; 128];
-        payload_length_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
-      }
+      let for_delta_util = ForDeltaUtil::new();
+      let pfor_util = PForUtil::new();
 
-      if state.field_infos.has_offsets() {
-        offset_start_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
-        offset_length_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
-      }
-
-      if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
-        let pay_file = IndexFileNames::segment_file_name(
+      if state.field_infos.has_prox() {
+        pos_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+        let pos_file = IndexFileNames::segment_file_name(
           &segment_info.name,
           &state.segment_suffix,
-          Lucene101PostingsFormat::PAY_EXTENSION,
+          Lucene101PostingsFormat::POS_EXTENSION,
         );
-        let mut pay_out_opt = state.directory.create_output(&pay_file, state.context)?;
+        pos_out = Some(state.directory.create_output(&pos_file, state.context)?);
         CodecUtil::write_index_header(
-          &mut pay_out_opt,
-          Lucene101PostingsFormat::PAY_CODEC,
+          pos_out
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("positions output is missing"))?,
+          Lucene101PostingsFormat::POS_CODEC,
           Lucene101PostingsFormat::VERSION_CURRENT,
           segment_info.get_id(),
           &state.segment_suffix,
         )?;
-        pay_out = Some(pay_out_opt);
+
+        if state.field_infos.has_payloads() {
+          payload_bytes = vec![0; 128];
+          payload_length_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+        }
+
+        if state.field_infos.has_offsets() {
+          offset_start_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+          offset_length_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+        }
+
+        if state.field_infos.has_payloads() || state.field_infos.has_offsets() {
+          let pay_file = IndexFileNames::segment_file_name(
+            &segment_info.name,
+            &state.segment_suffix,
+            Lucene101PostingsFormat::PAY_EXTENSION,
+          );
+          pay_out = Some(state.directory.create_output(&pay_file, state.context)?);
+          CodecUtil::write_index_header(
+            pay_out
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))?,
+            Lucene101PostingsFormat::PAY_CODEC,
+            Lucene101PostingsFormat::VERSION_CURRENT,
+            segment_info.get_id(),
+            &state.segment_suffix,
+          )?;
+        }
       }
-    }
+
+      Ok((for_delta_util, pfor_util))
+    }));
+
+    let (for_delta_util, pfor_util) = match result {
+      Ok(Ok(utils)) => utils,
+      result => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          doc_out.as_mut(),
+          pos_out.as_mut(),
+          pay_out.as_mut(),
+        ))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(_)) => unreachable!(),
+        };
+      },
+    };
 
     let doc_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
     let freq_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
 
     Ok(Self {
-      meta_out,
-      doc_out,
+      meta_out: meta_out.expect("meta output must be initialized on successful construction"),
+      doc_out: doc_out.expect("doc output must be initialized on successful construction"),
       pos_out,
       pay_out,
       closed: false,
@@ -486,7 +515,7 @@ where
       return Ok(());
     }
 
-    let result = (|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::write_footer(&mut self.doc_out)?;
       if let Some(ref mut po) = self.pos_out {
         CodecUtil::write_footer(po)?;
@@ -513,24 +542,23 @@ where
       }
       CodecUtil::write_footer(&mut self.meta_out)?;
       Ok(())
-    })();
+    }));
     match result {
-      Ok(()) => {
-        let mut close_result =
-          IOUtils::close([&mut self.meta_out, &mut self.doc_out], Closeable::close);
+      Ok(Ok(())) => {
+        let mut outputs = vec![&mut self.meta_out, &mut self.doc_out];
         if let Some(ref mut pos_out) = self.pos_out {
-          close_result = IOUtils::use_or_suppress_result(close_result, pos_out.close());
+          outputs.push(pos_out);
         }
         if let Some(ref mut pay_out) = self.pay_out {
-          close_result = IOUtils::use_or_suppress_result(close_result, pay_out.close());
+          outputs.push(pay_out);
         }
-        close_result?;
+        IOUtils::close(outputs, Closeable::close)?;
         self.pos_out = None;
         self.pay_out = None;
         self.closed = true;
         Ok(())
       },
-      Err(err) => {
+      Ok(Err(error)) => {
         IOUtils::close_resources_while_handling_error((
           &mut self.meta_out,
           &mut self.doc_out,
@@ -540,7 +568,19 @@ where
         self.pos_out = None;
         self.pay_out = None;
         self.closed = true;
-        Err(err)
+        Err(error)
+      },
+      Err(payload) => {
+        IOUtils::close_resources_while_handling_error((
+          &mut self.meta_out,
+          &mut self.doc_out,
+          self.pos_out.as_mut(),
+          self.pay_out.as_mut(),
+        ))?;
+        self.pos_out = None;
+        self.pay_out = None;
+        self.closed = true;
+        std::panic::resume_unwind(payload)
       },
     }
   }

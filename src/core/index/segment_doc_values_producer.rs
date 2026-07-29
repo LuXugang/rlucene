@@ -60,7 +60,7 @@ where
 
     let mut base_producer = None;
 
-    let result: Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       for fi in all_infos {
         if *fi.get_doc_values_type() == DocValuesType::None {
           continue;
@@ -92,13 +92,29 @@ where
         }
       }
       Ok(())
-    })();
+    }));
 
-    if let Err(mut e) = result {
-      if let Err(dec_err) = seg_doc_values.dec_ref(&dv_gens) {
-        e.add_suppressed(dec_err);
-      }
-      return Err(e);
+    match result {
+      Ok(Ok(())) => {},
+      Ok(Err(mut error)) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          seg_doc_values.dec_ref(&dv_gens)
+        })) {
+          Ok(Ok(())) => {},
+          Ok(Err(dec_error)) => error.add_suppressed(dec_error),
+          Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
+            "panic while releasing doc values producers after initialization failure",
+            payload.as_ref(),
+          )),
+        }
+        return Err(error);
+      },
+      Err(payload) => {
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          seg_doc_values.dec_ref(&dv_gens)
+        }));
+        std::panic::resume_unwind(payload);
+      },
     }
 
     Ok(Self {

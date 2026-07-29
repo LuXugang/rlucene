@@ -89,39 +89,81 @@ where
 
     let mut version_meta = -1;
 
-    let mut meta = state.directory.open_checksum_input(&meta_file_name)?;
+    let mut meta = None;
+    let mut vector_index = None;
+    let mut footer_attempted = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      meta = Some(state.directory.open_checksum_input(&meta_file_name)?);
 
-    let result = (|| -> Result<()> {
-      version_meta = CodecUtil::check_index_header(
-        &mut meta,
-        META_CODEC_NAME,
-        VERSION_START,
-        VERSION_CURRENT,
-        segment_info.get_id(),
-        &state.segment_suffix,
-      )?;
-      read_fields(&mut meta, field_infos.as_ref(), &mut fields)
-    })();
-    let footer_result = match result {
-      Ok(()) => CodecUtil::check_footer(&mut meta).map(|_| ()),
-      Err(e) => Err(CodecUtil::check_footer_with_error(&mut meta, e)),
-    };
-    IOUtils::use_or_suppress_result(footer_result, meta.close())?;
+      let result = (|| -> Result<()> {
+        let meta = meta
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("HNSW metadata input is missing"))?;
+        version_meta = CodecUtil::check_index_header(
+          meta,
+          META_CODEC_NAME,
+          VERSION_START,
+          VERSION_CURRENT,
+          segment_info.get_id(),
+          &state.segment_suffix,
+        )?;
+        read_fields(meta, field_infos.as_ref(), &mut fields)
+      })();
+      let meta = meta
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("HNSW metadata input is missing"))?;
+      footer_attempted = true;
+      let footer_result = match result {
+        Ok(()) => CodecUtil::check_footer(meta).map(|_| ()),
+        Err(error) => Err(CodecUtil::check_footer_with_error(meta, error)),
+      };
+      IOUtils::use_or_suppress_result(footer_result, meta.close())?;
 
-    let vector_index = Self::open_data_input(
-      state,
-      version_meta,
-      VECTOR_INDEX_EXTENSION,
-      VECTOR_INDEX_CODEC_NAME,
-      &state.context.with_read_advice_self(ReadAdvice::Random)?,
-      segment_info,
-    )?;
+      vector_index = Some(Self::open_data_input(
+        state,
+        version_meta,
+        VECTOR_INDEX_EXTENSION,
+        VECTOR_INDEX_CODEC_NAME,
+        &state.context.with_read_advice_self(ReadAdvice::Random)?,
+        segment_info,
+      )?);
+      Ok(())
+    }));
+
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        if let Err(payload) = &result
+          && !footer_attempted
+          && let Some(meta) = meta.as_mut()
+        {
+          let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let error = LuceneError::tragedy_from_panic(
+              "panic while reading HNSW metadata",
+              payload.as_ref(),
+            );
+            let _ = CodecUtil::check_footer_with_error(meta, error);
+          }));
+        }
+        IOUtils::close_resources_while_handling_error((
+          meta.as_ref(),
+          &flat_vectors_reader,
+          vector_index.as_ref(),
+        ))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
+    }
 
     Ok(Self {
       flat_vectors_reader,
       field_infos,
       fields,
-      vector_index,
+      vector_index: vector_index
+        .expect("HNSW vector index must be initialized on successful construction"),
     })
   }
   fn open_data_input<D1, D2>(
@@ -141,7 +183,7 @@ where
 
     let mut input = state.directory.open_input(&file_name, context)?;
 
-    let result = (|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let version_vector_data = CodecUtil::check_index_header(
         &mut input,
         codec_name,
@@ -160,9 +202,18 @@ where
 
       CodecUtil::retrieve_checksum(&mut input)?;
       Ok(())
-    })();
-    result?;
-    Ok(input)
+    }));
+    match result {
+      Ok(Ok(())) => Ok(input),
+      result => {
+        IOUtils::close_resources_while_handling_error(&input)?;
+        match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        }
+      },
+    }
   }
 
   fn search<RS, KC, B, S>(

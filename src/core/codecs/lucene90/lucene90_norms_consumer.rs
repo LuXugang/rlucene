@@ -63,31 +63,68 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
   {
     let data_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, data_extension);
-    let mut data = state.directory.create_output(&data_name, state.context)?;
-    CodecUtil::write_index_header(
-      &mut data,
-      data_codec,
-      Lucene90NormsFormat::VERSION_CURRENT,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
+    let mut data = None;
+    let mut meta = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i32> {
+      data = Some(state.directory.create_output(&data_name, state.context)?);
+      CodecUtil::write_index_header(
+        data
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("data output is missing"))?,
+        data_codec,
+        Lucene90NormsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
 
-    let meta_name =
-      IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, meta_extension);
-    let mut meta = state.directory.create_output(&meta_name, state.context)?;
-    CodecUtil::write_index_header(
-      &mut meta,
-      meta_codec,
-      Lucene90NormsFormat::VERSION_CURRENT,
-      segment_info.get_id(),
-      &state.segment_suffix,
-    )?;
+      let meta_name = IndexFileNames::segment_file_name(
+        &segment_info.name,
+        &state.segment_suffix,
+        meta_extension,
+      );
+      meta = Some(state.directory.create_output(&meta_name, state.context)?);
+      CodecUtil::write_index_header(
+        meta
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("metadata output is missing"))?,
+        meta_codec,
+        Lucene90NormsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &state.segment_suffix,
+      )?;
 
-    let max_doc = segment_info.max_doc()?;
+      segment_info.max_doc()
+    }));
+
+    let max_doc = match result {
+      Ok(Ok(max_doc)) => max_doc,
+      result => {
+        let close_result =
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+            if let Some(meta) = meta.as_mut() {
+              meta.write_int(-1)?;
+              CodecUtil::write_footer(meta)?;
+            }
+            if let Some(data) = data.as_mut() {
+              CodecUtil::write_footer(data)?;
+            }
+            Ok(())
+          }));
+        IOUtils::close_resources_while_handling_error((data.as_mut(), meta.as_mut()))?;
+        if let Err(payload) = close_result {
+          std::panic::resume_unwind(payload);
+        }
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(_)) => unreachable!(),
+        };
+      },
+    };
 
     Ok(Self {
-      data,
-      meta,
+      data: data.expect("data output must be initialized on successful construction"),
+      meta: meta.expect("metadata output must be initialized on successful construction"),
       max_doc,
       closed: false,
     })
@@ -95,18 +132,20 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
   pub fn close(&mut self) -> Result<()> {
     if !self.closed {
       self.closed = true;
-      let result = (|| -> Result<()> {
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         self.meta.write_int(-1)?;
         CodecUtil::write_footer(&mut self.meta)?;
         CodecUtil::write_footer(&mut self.data)
-      })();
+      }));
       match result {
-        Ok(()) => {
-          IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?;
-        },
-        Err(err) => {
+        Ok(Ok(())) => IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?,
+        Ok(Err(error)) => {
           IOUtils::close_resources_while_handling_error((&mut self.data, &mut self.meta))?;
-          return Err(err);
+          return Err(error);
+        },
+        Err(payload) => {
+          IOUtils::close_resources_while_handling_error((&mut self.data, &mut self.meta))?;
+          std::panic::resume_unwind(payload);
         },
       }
     }

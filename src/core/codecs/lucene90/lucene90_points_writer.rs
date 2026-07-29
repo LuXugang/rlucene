@@ -86,54 +86,88 @@ where
       &write_state.segment_suffix,
       Lucene90PointsFormat::DATA_EXTENSION,
     );
-    let mut data_out = write_state
-      .directory
-      .create_output(&data_file, write_state.context)?;
-
-    CodecUtil::write_index_header(
-      &mut data_out,
-      Lucene90PointsFormat::DATA_CODEC_NAME,
-      Lucene90PointsFormat::VERSION_CURRENT,
-      segment_info.get_id(),
-      &write_state.segment_suffix,
-    )?;
-
-    let meta_file = IndexFileNames::segment_file_name(
-      &segment_info.name,
-      &write_state.segment_suffix,
-      Lucene90PointsFormat::META_EXTENSION,
+    let mut data_out = Some(
+      write_state
+        .directory
+        .create_output(&data_file, write_state.context)?,
     );
-    let mut meta_out = write_state
-      .directory
-      .create_output(&meta_file, write_state.context)?;
-    CodecUtil::write_index_header(
-      &mut meta_out,
-      Lucene90PointsFormat::META_CODEC_NAME,
-      Lucene90PointsFormat::VERSION_CURRENT,
-      segment_info.get_id(),
-      &write_state.segment_suffix,
-    )?;
+    let mut meta_out = None;
+    let mut index_out = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      CodecUtil::write_index_header(
+        data_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("points data output is missing"))?,
+        Lucene90PointsFormat::DATA_CODEC_NAME,
+        Lucene90PointsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &write_state.segment_suffix,
+      )?;
 
-    let index_file = IndexFileNames::segment_file_name(
-      &segment_info.name,
-      &write_state.segment_suffix,
-      Lucene90PointsFormat::INDEX_EXTENSION,
-    );
-    let mut index_out = write_state
-      .directory
-      .create_output(&index_file, write_state.context)?;
-    CodecUtil::write_index_header(
-      &mut index_out,
-      Lucene90PointsFormat::INDEX_CODEC_NAME,
-      Lucene90PointsFormat::VERSION_CURRENT,
-      segment_info.get_id(),
-      &write_state.segment_suffix,
-    )?;
+      let meta_file = IndexFileNames::segment_file_name(
+        &segment_info.name,
+        &write_state.segment_suffix,
+        Lucene90PointsFormat::META_EXTENSION,
+      );
+      meta_out = Some(
+        write_state
+          .directory
+          .create_output(&meta_file, write_state.context)?,
+      );
+      CodecUtil::write_index_header(
+        meta_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("points metadata output is missing"))?,
+        Lucene90PointsFormat::META_CODEC_NAME,
+        Lucene90PointsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &write_state.segment_suffix,
+      )?;
+
+      let index_file = IndexFileNames::segment_file_name(
+        &segment_info.name,
+        &write_state.segment_suffix,
+        Lucene90PointsFormat::INDEX_EXTENSION,
+      );
+      index_out = Some(
+        write_state
+          .directory
+          .create_output(&index_file, write_state.context)?,
+      );
+      CodecUtil::write_index_header(
+        index_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("points index output is missing"))?,
+        Lucene90PointsFormat::INDEX_CODEC_NAME,
+        Lucene90PointsFormat::VERSION_CURRENT,
+        segment_info.get_id(),
+        &write_state.segment_suffix,
+      )
+    }));
+
+    match result {
+      Ok(Ok(())) => {},
+      result => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          index_out.as_mut(),
+          data_out.as_mut(),
+        ))?;
+        return match result {
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Ok(())) => unreachable!(),
+        };
+      },
+    }
 
     Ok(Self {
-      data_out,
-      meta_out,
-      index_out,
+      data_out: data_out
+        .expect("points data output must be initialized on successful construction"),
+      meta_out: meta_out
+        .expect("points metadata output must be initialized on successful construction"),
+      index_out: index_out
+        .expect("points index output must be initialized on successful construction"),
       max_points_in_leaf_node,
       max_mb_sort_in_heap,
       finish: false,

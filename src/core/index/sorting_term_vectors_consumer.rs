@@ -241,7 +241,7 @@ where
       segment_info,
       &state.context.clone(),
     )?;
-    let result: Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       reader.check_integrity()?;
       let max_doc = segment_info.max_doc()?;
       for doc_id in 0..max_doc {
@@ -254,7 +254,7 @@ where
       }
       writer.finish(max_doc, state.directory)?;
       Ok(())
-    })();
+    }));
 
     let finally_result: Result<()> = (|| {
       let close_result = reader.close();
@@ -273,7 +273,10 @@ where
       Ok(())
     })();
     finally_result?;
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 
   fn init_term_vectors_writer<D1>(
@@ -305,7 +308,7 @@ where
       .values()
       .cloned()
       .collect();
-    IOUtils::delete_files(&self.tmp_directory, &file_names)?;
+    IOUtils::delete_files_ignoring_exceptions(&self.tmp_directory, &file_names);
     Ok(())
   }
 }
