@@ -23,6 +23,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
 /// Encodes/decodes terms, postings, and proximity data.
 pub trait PostingsFormat: HasIdentity {
   /// Returns this postings format's name.
@@ -54,7 +55,7 @@ pub trait PostingsFormat: HasIdentity {
     D2: Directory;
 
   /// Looks up a format by name.
-  fn for_name(name: &str) -> Result<Self>
+  fn for_name(name: &str) -> Result<Arc<Self>>
   where
     Self: Sized;
 }

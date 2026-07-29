@@ -23,7 +23,6 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::codec_reader::{CRDocValuesProducer, CodecReader};
 use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -33,9 +32,11 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
-use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap, MergeStateAccess};
 use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
@@ -61,34 +62,78 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait DocValuesConsumer: Closeable {
-  fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
-  where
-    D: DocValuesProducer;
-  fn add_binary_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
-  where
-    D: DocValuesProducer;
-  fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
-  where
-    D: DocValuesProducer;
-  fn add_sorted_numeric_field<D>(
+  type IndexOutput: crate::core::store::IndexOutput;
+
+  fn add_numeric_field<D1, D2, D>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
     field: &Arc<FieldInfo>,
     values_producer: &D,
   ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer;
-  fn add_sorted_set_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  fn add_binary_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer;
-  fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
+  fn add_sorted_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
-    D: Directory,
-    CR: CodecReader,
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer;
+  fn add_sorted_numeric_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer;
+  fn add_sorted_set_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer;
+  fn merge<D1, D2, MS>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    merge_state: &MS,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
   {
-    for producer in merge_state.doc_values_producers.iter().flatten() {
+    for producer in merge_state.doc_values_producers().iter().flatten() {
       producer.check_integrity()?;
     }
-    for merge_field_info in merge_state.merge_field_infos.clone().iter() {
+    for merge_field_info in merge_state.merge_field_infos().iter() {
       let dv_type = merge_field_info.get_doc_values_type();
 
       if *dv_type == DocValuesType::None {
@@ -97,19 +142,24 @@ pub trait DocValuesConsumer: Closeable {
 
       match *dv_type {
         DocValuesType::Numeric => {
-          self.merge_numeric_field(merge_field_info, merge_state)?;
+          self.merge_numeric_field(write_state, segment_info, merge_field_info, merge_state)?;
         },
         DocValuesType::Binary => {
-          self.merge_binary_field(merge_field_info, merge_state)?;
+          self.merge_binary_field(write_state, segment_info, merge_field_info, merge_state)?;
         },
         DocValuesType::Sorted => {
-          self.merge_sorted_field(merge_field_info, merge_state)?;
+          self.merge_sorted_field(write_state, segment_info, merge_field_info, merge_state)?;
         },
         DocValuesType::SortedSet => {
-          self.merge_sorted_set_field(merge_field_info, merge_state)?;
+          self.merge_sorted_set_field(write_state, segment_info, merge_field_info, merge_state)?;
         },
         DocValuesType::SortedNumeric => {
-          self.merge_sorted_numeric_field(merge_field_info, merge_state)?;
+          self.merge_sorted_numeric_field(
+            write_state,
+            segment_info,
+            merge_field_info,
+            merge_state,
+          )?;
         },
 
         _ => return Err(LuceneError::illegal_state(format!("type= {}", dv_type))),
@@ -119,69 +169,81 @@ pub trait DocValuesConsumer: Closeable {
     Ok(())
   }
 
-  fn merge_numeric_field<D, CR>(
+  fn merge_numeric_field<D1, D2, MS>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
     merge_field_info: &Arc<FieldInfo>,
-    merge_state: &MergeState<D, CR>,
+    merge_state: &MS,
   ) -> Result<()>
   where
-    D: Directory,
-    CR: CodecReader,
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge1 {
       merge_field_info: merge_field_info.clone(),
       merge_state,
     };
-    self.add_numeric_field(merge_field_info, &producer)?;
+    self.add_numeric_field(write_state, segment_info, merge_field_info, &producer)?;
     Ok(())
   }
-  fn merge_binary_field<D, CR>(
+  fn merge_binary_field<D1, D2, MS>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
     merge_field_info: &Arc<FieldInfo>,
-    merge_state: &MergeState<D, CR>,
+    merge_state: &MS,
   ) -> Result<()>
   where
-    D: Directory,
-    CR: CodecReader,
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge2 {
       merge_field_info: merge_field_info.clone(),
       merge_state,
     };
-    self.add_binary_field(merge_field_info, &producer)
+    self.add_binary_field(write_state, segment_info, merge_field_info, &producer)
   }
-  fn merge_sorted_numeric_field<D, CR>(
+  fn merge_sorted_numeric_field<D1, D2, MS>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
     merge_field_info: &Arc<FieldInfo>,
-    merge_state: &MergeState<D, CR>,
+    merge_state: &MS,
   ) -> Result<()>
   where
-    D: Directory,
-    CR: CodecReader,
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge3 {
       merge_field_info: merge_field_info.clone(),
       merge_state,
     };
-    self.add_sorted_numeric_field(merge_field_info, &producer)
+    self.add_sorted_numeric_field(write_state, segment_info, merge_field_info, &producer)
   }
-  fn merge_sorted_field<D, CR>(
+  fn merge_sorted_field<D1, D2, MS>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
     field_info: &Arc<FieldInfo>,
-    merge_state: &MergeState<D, CR>,
+    merge_state: &MS,
   ) -> Result<()>
   where
-    D: Directory,
-    CR: CodecReader,
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
   {
-    let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
+    let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers().len());
 
-    for i in 0..merge_state.doc_values_producers.len() {
+    for i in 0..merge_state.doc_values_producers().len() {
       let mut values = None;
 
-      if let Some(doc_values_producer) = &merge_state.doc_values_producers[i]
+      if let Some(doc_values_producer) = &merge_state.doc_values_producers()[i]
         && let Some(reader_field_info) =
-          merge_state.field_infos[i].field_info_by_name(&field_info.name)?
+          merge_state.field_infos()[i].field_info_by_name(&field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
         values = Some(SortedDocValuesEnum2::A(
@@ -200,7 +262,7 @@ pub trait DocValuesConsumer: Closeable {
     let mut weights: Vec<i64> = vec![0; num_readers];
 
     for (sub, dvs) in to_merge.iter_mut().enumerate() {
-      let live_docs_opt = merge_state.live_docs[sub].as_ref();
+      let live_docs_opt = merge_state.live_docs()[sub].as_ref();
 
       match live_docs_opt {
         None => {
@@ -240,25 +302,28 @@ pub trait DocValuesConsumer: Closeable {
       merge_state,
       map: Rc::new(ordinal_map),
     };
-    self.add_sorted_field(field_info, &producer)
+    self.add_sorted_field(write_state, segment_info, field_info, &producer)
   }
-  fn merge_sorted_set_field<D, CR>(
+  fn merge_sorted_set_field<D1, D2, MS>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
     merge_field_info: &Arc<FieldInfo>,
-    merge_state: &MergeState<D, CR>,
+    merge_state: &MS,
   ) -> Result<()>
   where
-    D: Directory,
-    CR: CodecReader,
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
   {
-    let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers.len());
+    let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers().len());
 
-    for i in 0..merge_state.doc_values_producers.len() {
+    for i in 0..merge_state.doc_values_producers().len() {
       let mut values = None;
 
-      if let Some(doc_values_producer) = &merge_state.doc_values_producers[i]
+      if let Some(doc_values_producer) = &merge_state.doc_values_producers()[i]
         && let Some(field_info) =
-          merge_state.field_infos[i].field_info_by_name(&merge_field_info.name)?
+          merge_state.field_infos()[i].field_info_by_name(&merge_field_info.name)?
         && *field_info.get_doc_values_type() == DocValuesType::SortedSet
       {
         values = Some(SortedSetDocValuesEnum2::A(
@@ -278,7 +343,7 @@ pub trait DocValuesConsumer: Closeable {
     let mut weights: Vec<i64> = vec![0; num_readers];
 
     for (sub, dv) in to_merge.iter_mut().enumerate() {
-      let live_docs_opt = merge_state.live_docs[sub].as_ref();
+      let live_docs_opt = merge_state.live_docs()[sub].as_ref();
 
       match live_docs_opt {
         None => {
@@ -321,7 +386,7 @@ pub trait DocValuesConsumer: Closeable {
       merge_state,
       map: Rc::new(ordinal_map),
     };
-    self.add_sorted_set_field(merge_field_info, &v)
+    self.add_sorted_set_field(write_state, segment_info, merge_field_info, &v)
   }
 }
 pub struct BitsFilteredTermsEnum {
@@ -456,30 +521,23 @@ where
     }
   }
 }
-pub(crate) struct EmptyDocValuesProducerMerge1<'a, D, CR>
+pub(crate) struct EmptyDocValuesProducerMerge1<'a, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   merge_field_info: Arc<FieldInfo>,
-  merge_state: &'a MergeState<'a, D, CR>,
+  merge_state: &'a MS,
 }
 
-impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge1<'_, D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-{
-}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge1<'_, MS> where MS: MergeStateAccess {}
 
-impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, D, CR>
+impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   type NumericDocValues = NumericDocValuesMerge<
-    <CRDocValuesProducer<CR> as DocValuesProducer>::NumericDocValues,
-    MergeStateDocMap<CR>,
+    <MS::DocValuesProducer as DocValuesProducer>::NumericDocValues,
+    MS::DocMap,
   >;
 
   fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -488,13 +546,15 @@ where
     }
 
     let mut subs = vec![];
-    debug_assert!(self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len());
-    for i in 0..self.merge_state.doc_values_producers.len() {
+    debug_assert!(
+      self.merge_state.doc_maps().len() == self.merge_state.doc_values_producers().len()
+    );
+    for i in 0..self.merge_state.doc_values_producers().len() {
       let mut values = None;
-      let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
+      let doc_values_producer_opt = &self.merge_state.doc_values_producers()[i];
       if let Some(doc_values_producer) = doc_values_producer_opt {
         let reader_field_info =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?;
+          self.merge_state.field_infos()[i].field_info_by_name(&self.merge_field_info.name)?;
         if let Some(reader_field_info) = &reader_field_info
           && *reader_field_info.get_doc_values_type() == DocValuesType::Numeric
         {
@@ -503,11 +563,11 @@ where
       }
 
       if let Some(values) = values {
-        let doc_map = self.merge_state.doc_maps[i].clone();
+        let doc_map = self.merge_state.doc_maps()[i].clone();
         subs.push(Sub::new(NumericDocValuesSub::new(doc_map, values)));
       }
     }
-    merge_numeric_values(subs, self.merge_state.needs_index_sort)
+    merge_numeric_values(subs, self.merge_state.needs_index_sort())
   }
 
   type BinaryDocValues = DummyBinaryDocValues;
@@ -624,32 +684,23 @@ where
     }
   }
 }
-pub(crate) struct EmptyDocValuesProducerMerge2<'a, D, CR>
+pub(crate) struct EmptyDocValuesProducerMerge2<'a, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   merge_field_info: Arc<FieldInfo>,
-  merge_state: &'a MergeState<'a, D, CR>,
+  merge_state: &'a MS,
 }
 
-impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge2<'_, D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-{
-}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge2<'_, MS> where MS: MergeStateAccess {}
 
-impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, D, CR>
+impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   type NumericDocValues = DummyNumericDocValues;
-  type BinaryDocValues = BinaryDocValuesMerge<
-    <CRDocValuesProducer<CR> as DocValuesProducer>::BinaryDocValues,
-    MergeStateDocMap<CR>,
-  >;
+  type BinaryDocValues =
+    BinaryDocValuesMerge<<MS::DocValuesProducer as DocValuesProducer>::BinaryDocValues, MS::DocMap>;
 
   fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     if !Arc::ptr_eq(field_info, &self.merge_field_info) {
@@ -658,15 +709,17 @@ where
 
     let mut subs = vec![];
     let mut cost = 0;
-    debug_assert!(self.merge_state.doc_maps.len() == self.merge_state.doc_values_producers.len());
+    debug_assert!(
+      self.merge_state.doc_maps().len() == self.merge_state.doc_values_producers().len()
+    );
 
-    for i in 0..self.merge_state.doc_values_producers.len() {
+    for i in 0..self.merge_state.doc_values_producers().len() {
       let mut values = None;
-      let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
+      let doc_values_producer_opt = &self.merge_state.doc_values_producers()[i];
 
       if let Some(doc_values_producer) = doc_values_producer_opt {
         let reader_field_info =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?;
+          self.merge_state.field_infos()[i].field_info_by_name(&self.merge_field_info.name)?;
         if let Some(reader_field_info) = &reader_field_info
           && *reader_field_info.get_doc_values_type() == DocValuesType::Binary
         {
@@ -676,11 +729,11 @@ where
 
       if let Some(values) = values {
         cost += values.cost()?;
-        let doc_map = self.merge_state.doc_maps[i].clone();
+        let doc_map = self.merge_state.doc_maps()[i].clone();
         subs.push(Sub::new(BinaryDocValuesSub::new(doc_map, values)));
       }
     }
-    let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
+    let doc_id_merger = of(subs, self.merge_state.needs_index_sort())?;
     let doc_value = BinaryDocValuesMerge {
       doc_id: -1,
       current: None,
@@ -815,29 +868,21 @@ where
 
   type NumericDocValues = DummyNumericDocValues;
 }
-pub(crate) struct EmptyDocValuesProducerMerge3<'a, D, CR>
+pub(crate) struct EmptyDocValuesProducerMerge3<'a, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   merge_field_info: Arc<FieldInfo>,
-  merge_state: &'a MergeState<'a, D, CR>,
+  merge_state: &'a MS,
 }
 
-impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge3<'_, D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-{
-}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge3<'_, MS> where MS: MergeStateAccess {}
 
-pub type MergeSortedNumeric<CR> =
-  <CRDocValuesProducer<CR> as DocValuesProducer>::SortedNumericDocValues;
-pub type MergeNumeric<CR> = <MergeSortedNumeric<CR> as SortedNumericDocValues>::NumericDocValues;
-impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, D, CR>
+pub type MergeSortedNumeric<P> = <P as DocValuesProducer>::SortedNumericDocValues;
+pub type MergeNumeric<P> = <MergeSortedNumeric<P> as SortedNumericDocValues>::NumericDocValues;
+impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge3<'_, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
@@ -845,16 +890,16 @@ where
   type SortedNumericDocValues = SortedNumericDocValuesEnum2<
     SingletonSortedNumericDocValues<
       NumericDocValuesMerge<
-        NumericDocValuesEnum2<MergeNumeric<CR>, EmptyNumeric>,
-        MergeStateDocMap<CR>,
+        NumericDocValuesEnum2<MergeNumeric<MS::DocValuesProducer>, EmptyNumeric>,
+        MS::DocMap,
       >,
     >,
     SortedNumericDocValuesMerge<
       SortedNumericDocValuesEnum2<
-        MergeSortedNumeric<CR>,
+        MergeSortedNumeric<MS::DocValuesProducer>,
         SingletonSortedNumericDocValues<EmptyNumeric>,
       >,
-      MergeStateDocMap<CR>,
+      MS::DocMap,
     >,
   >;
 
@@ -870,12 +915,12 @@ where
     let mut cost = 0;
     let mut all_singletons = true;
 
-    for i in 0..self.merge_state.doc_values_producers.len() {
+    for i in 0..self.merge_state.doc_values_producers().len() {
       let mut values = None;
-      let doc_values_producer_opt = &self.merge_state.doc_values_producers[i];
+      let doc_values_producer_opt = &self.merge_state.doc_values_producers()[i];
       if let Some(doc_values_producer) = doc_values_producer_opt {
         let reader_field_info =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?;
+          self.merge_state.field_infos()[i].field_info_by_name(&self.merge_field_info.name)?;
         if let Some(reader_field_info) = reader_field_info
           && *reader_field_info.get_doc_values_type() == DocValuesType::SortedNumeric
         {
@@ -898,7 +943,7 @@ where
         }
       }
       if let Some(values) = values {
-        let doc_map = self.merge_state.doc_maps[i].clone();
+        let doc_map = self.merge_state.doc_maps()[i].clone();
         subs.push(Sub::new(SortedNumericDocValuesSub::new(doc_map, values)));
       }
     }
@@ -915,12 +960,12 @@ where
           single_valued_values,
         )));
       }
-      let dv = merge_numeric_values(single_valued_subs, self.merge_state.needs_index_sort)?;
+      let dv = merge_numeric_values(single_valued_subs, self.merge_state.needs_index_sort())?;
       return Ok(SortedNumericDocValuesEnum2::A(
         DocValues::singleton_numeric(dv)?,
       ));
     }
-    let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
+    let doc_id_merger = of(subs, self.merge_state.needs_index_sort())?;
     Ok(SortedNumericDocValuesEnum2::B(
       SortedNumericDocValuesMerge {
         doc_id: -1,
@@ -996,36 +1041,29 @@ where
   }
 }
 
-pub(crate) struct EmptyDocValuesProducerMerge4<'a, D, CR>
+pub(crate) struct EmptyDocValuesProducerMerge4<'a, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   field_info: Arc<FieldInfo>,
-  merge_state: &'a MergeState<'a, D, CR>,
+  merge_state: &'a MS,
   map: Rc<OrdinalMap>,
 }
 
-impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge4<'_, D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-{
-}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge4<'_, MS> where MS: MergeStateAccess {}
 
-impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, D, CR>
+impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = SortedDocValuesMerge<
     SortedDocValuesEnum2<
-      <CRDocValuesProducer<CR> as DocValuesProducer>::SortedDocValues,
+      <MS::DocValuesProducer as DocValuesProducer>::SortedDocValues,
       EmptySorted,
     >,
-    MergeStateDocMap<CR>,
+    MS::DocMap,
   >;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
@@ -1034,14 +1072,14 @@ where
     }
 
     // We must make new iterators + DocIDMerger for each iterator:
-    let mut subs = Vec::with_capacity(self.merge_state.doc_values_producers.len());
+    let mut subs = Vec::with_capacity(self.merge_state.doc_values_producers().len());
 
-    for i in 0..self.merge_state.doc_values_producers.len() {
+    for i in 0..self.merge_state.doc_values_producers().len() {
       let mut values = None;
 
-      if let Some(doc_values_producer) = &self.merge_state.doc_values_producers[i]
+      if let Some(doc_values_producer) = &self.merge_state.doc_values_producers()[i]
         && let Some(reader_field_info) =
-          self.merge_state.field_infos[i].field_info_by_name(&self.field_info.name)?
+          self.merge_state.field_infos()[i].field_info_by_name(&self.field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
         values = Some(SortedDocValuesEnum2::A(
@@ -1052,7 +1090,7 @@ where
         values = Some(SortedDocValuesEnum2::B(DocValues::empty_sorted()));
       }
 
-      let doc_map = self.merge_state.doc_maps[i].clone();
+      let doc_map = self.merge_state.doc_maps()[i].clone();
       let map = self.map.get_global_ords(i).clone();
 
       subs.push(Sub::new(SortedDocValuesSub::new(
@@ -1062,7 +1100,7 @@ where
       )));
     }
 
-    merge_sorted_values(subs, self.merge_state.needs_index_sort, self.map.clone())
+    merge_sorted_values(subs, self.merge_state.needs_index_sort(), self.map.clone())
   }
 
   type SortedNumericDocValues = DummySortedNumericDocValues;
@@ -1474,31 +1512,23 @@ where
   where
     Self: 'a;
 }
-pub(crate) struct EmptyDocValuesProducerMerge5<'a, D, CR>
+pub(crate) struct EmptyDocValuesProducerMerge5<'a, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   merge_field_info: Arc<FieldInfo>,
-  merge_state: &'a MergeState<'a, D, CR>,
+  merge_state: &'a MS,
   map: Rc<OrdinalMap>,
 }
 
-impl<D, CR> CloseableRef for EmptyDocValuesProducerMerge5<'_, D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-{
-}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge5<'_, MS> where MS: MergeStateAccess {}
 
-pub type CRSortedSetDocValues<CR> =
-  <CRDocValuesProducer<CR> as DocValuesProducer>::SortedSetDocValues;
-pub type CRSSDVSortedDocValues<CR> =
-  <CRSortedSetDocValues<CR> as SortedSetDocValues>::SortedDocValues;
-impl<D, CR> DocValuesProducer for EmptyDocValuesProducerMerge5<'_, D, CR>
+pub type MergeSortedSetDocValues<P> = <P as DocValuesProducer>::SortedSetDocValues;
+pub type MergeSortedSetSortedDocValues<P> =
+  <MergeSortedSetDocValues<P> as SortedSetDocValues>::SortedDocValues;
+impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge5<'_, MS>
 where
-  D: Directory,
-  CR: CodecReader,
+  MS: MergeStateAccess,
 {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
@@ -1508,13 +1538,13 @@ where
   type SortedSetDocValues = SortedSetDocValuesEnum2<
     SingletonSortedSetDocValues<
       SortedDocValuesMerge<
-        SortedDocValuesEnum2<CRSSDVSortedDocValues<CR>, EmptySorted>,
-        MergeStateDocMap<CR>,
+        SortedDocValuesEnum2<MergeSortedSetSortedDocValues<MS::DocValuesProducer>, EmptySorted>,
+        MS::DocMap,
       >,
     >,
     SortedSetDocValuesMerge<
-      SortedSetDocValuesEnum2<CRSortedSetDocValues<CR>, EmptySortedSet>,
-      MergeStateDocMap<CR>,
+      SortedSetDocValuesEnum2<MergeSortedSetDocValues<MS::DocValuesProducer>, EmptySortedSet>,
+      MS::DocMap,
     >,
   >;
 
@@ -1525,17 +1555,17 @@ where
 
     // We must make new iterators + DocIDMerger for each iterator:
     let mut subs = Vec::new();
-    let mut to_merge = Vec::with_capacity(self.merge_state.doc_values_producers.len());
+    let mut to_merge = Vec::with_capacity(self.merge_state.doc_values_producers().len());
     let mut cost = 0;
     let mut all_singletons = true;
 
-    for i in 0..self.merge_state.doc_values_producers.len() {
+    for i in 0..self.merge_state.doc_values_producers().len() {
       let mut values = None;
       let mut values_for_merge = None;
 
-      if let Some(doc_values_producer) = &self.merge_state.doc_values_producers[i]
+      if let Some(doc_values_producer) = &self.merge_state.doc_values_producers()[i]
         && let Some(reader_field_info) =
-          self.merge_state.field_infos[i].field_info_by_name(&self.merge_field_info.name)?
+          self.merge_state.field_infos()[i].field_info_by_name(&self.merge_field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::SortedSet
       {
         values = Some(SortedSetDocValuesEnum2::A(
@@ -1560,7 +1590,7 @@ where
         all_singletons = false;
       }
 
-      let doc_map = self.merge_state.doc_maps[i].clone();
+      let doc_map = self.merge_state.doc_maps()[i].clone();
       let seg_map = self.map.get_global_ords(i).clone();
 
       subs.push(Sub::new(SortedSetDocValuesSub::new(
@@ -1585,14 +1615,14 @@ where
 
       let dv = merge_sorted_values(
         single_valued_subs,
-        self.merge_state.needs_index_sort,
+        self.merge_state.needs_index_sort(),
         self.map.clone(),
       )?;
       let v = DocValues::singleton_sorted(dv)?;
       return Ok(SortedSetDocValuesEnum2::A(v));
     }
 
-    let doc_id_merger = of(subs, self.merge_state.needs_index_sort)?;
+    let doc_id_merger = of(subs, self.merge_state.needs_index_sort())?;
     let v = SortedSetDocValuesMerge {
       doc_id: -1,
       current_sub: None,

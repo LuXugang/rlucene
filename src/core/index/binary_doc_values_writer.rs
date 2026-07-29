@@ -28,6 +28,7 @@ use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::doc_id_set::DocIdSet;
@@ -135,14 +136,16 @@ impl Display for BinaryDocValuesWriter {
 }
 
 impl DocValuesWriter for BinaryDocValuesWriter {
-  fn flush<D, DM, DC>(
+  fn flush<D1, D2, DM, DC>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
     sort_map: Option<&DM>,
     dv_consumer: &mut DC,
-    segment_info: &SegmentInfo<D>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D: Directory,
+    D1: Directory<IndexOutput = DC::IndexOutput>,
+    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -177,7 +180,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
       std::mem::take(&mut self.docs_with_field),
       sorted,
     )?;
-    dv_consumer.add_binary_field(&self.field_info, &producer)
+    dv_consumer.add_binary_field(write_state, segment_info, &self.field_info, &producer)
   }
 
   type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;

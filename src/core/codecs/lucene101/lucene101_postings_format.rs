@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
+use std::sync::{Arc, OnceLock};
 
 use crate::core::codecs::block_term_state::BlockTermState;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
@@ -374,9 +375,13 @@ impl PostingsFormat for Lucene101PostingsFormat {
     Ok(ret)
   }
 
-  fn for_name(name: &str) -> Result<Self> {
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    static FORMAT: OnceLock<Arc<Lucene101PostingsFormat>> = OnceLock::new();
+
     match name {
-      "Lucene101" => Ok(Self::new()),
+      "Lucene101" => Ok(Arc::clone(
+        FORMAT.get_or_init(|| Arc::new(Lucene101PostingsFormat::new())),
+      )),
       _ => Err(LuceneError::illegal_argument(format!(
         "Could not load postings format named \"{name}\""
       ))),

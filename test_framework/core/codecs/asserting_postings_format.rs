@@ -39,6 +39,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::test_framework::core::index::asserting_leaf_reader::AssertingTerms;
 use crate::test_framework::core::util::test_util::TestUtil;
+use std::sync::{Arc, OnceLock};
 
 /// Just like the default postings format but with additional asserts.
 pub struct AssertingPostingsFormat {
@@ -100,9 +101,13 @@ impl PostingsFormat for AssertingPostingsFormat {
     ))
   }
 
-  fn for_name(name: &str) -> Result<Self> {
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    static FORMAT: OnceLock<Arc<AssertingPostingsFormat>> = OnceLock::new();
+
     match name {
-      "Asserting" => Ok(Self::new()),
+      "Asserting" => Ok(Arc::clone(
+        FORMAT.get_or_init(|| Arc::new(AssertingPostingsFormat::new())),
+      )),
       _ => Err(LuceneError::illegal_argument(format!(
         "Could not load postings format named \"{name}\""
       ))),

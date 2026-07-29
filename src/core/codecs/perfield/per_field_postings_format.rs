@@ -511,10 +511,10 @@ where
           let producer = Arc::new(format.fields_producer(&state, segment_info)?);
           formats.insert(segment_suffix.clone(), producer);
         }
-        fields.insert(
-          field_name.clone(),
-          Arc::clone(formats.get(&segment_suffix).expect("format was just added")),
-        );
+        let producer = formats.get(&segment_suffix).ok_or_else(|| {
+          LuceneError::illegal_state(format!("missing postings producer for field: {field_name}"))
+        })?;
+        fields.insert(field_name.clone(), Arc::clone(producer));
       }
       Ok(())
     }));
@@ -696,7 +696,7 @@ where
     FieldsReader::new::<B::Format, D1, D2>(state, segment_info)
   }
 
-  fn for_name(name: &str) -> Result<Self> {
+  fn for_name(name: &str) -> Result<Arc<Self>> {
     Err(LuceneError::illegal_argument(format!(
       "Could not load postings format named \"{name}\""
     )))

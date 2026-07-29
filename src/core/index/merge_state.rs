@@ -83,7 +83,7 @@ where
   pub(crate) info_stream: Arc<InfoStreamEnum>,
 }
 
-/// Access to the portion of a [`MergeState`] used when merging postings.
+/// Access to the portion of a [`MergeState`] used by per-field codecs.
 ///
 /// Java's per-field codecs create a new `MergeState` whose field infos and
 /// fields producers are restricted to one format's fields. Rust represents
@@ -91,13 +91,23 @@ where
 /// producer type can remain statically dispatched.
 pub trait MergeStateAccess {
   type FieldsProducer: FieldsProducer;
+  type DocValuesProducer: DocValuesProducer;
+  type LiveDocs: Bits;
   type DocMap: DocMap;
 
   fn fields_producers(&self) -> &[Option<Self::FieldsProducer>];
 
+  fn doc_values_producers(&self) -> &[Option<Self::DocValuesProducer>];
+
+  fn doc_maps(&self) -> &[Rc<Self::DocMap>];
+
   fn merge_field_infos(&self) -> &Arc<FieldInfos>;
 
   fn field_infos(&self) -> &[Arc<FieldInfos>];
+
+  fn live_docs(&self) -> &[Option<Self::LiveDocs>];
+
+  fn needs_index_sort(&self) -> bool;
 
   fn max_docs(&self) -> &[i32];
 
@@ -110,10 +120,20 @@ where
   CR: CodecReader,
 {
   type FieldsProducer = CRFieldsProducer<CR>;
+  type DocValuesProducer = CRDocValuesProducer<CR>;
+  type LiveDocs = CRBits<CR>;
   type DocMap = MergeStateDocMap<CR>;
 
   fn fields_producers(&self) -> &[Option<Self::FieldsProducer>] {
     &self.fields_producers
+  }
+
+  fn doc_values_producers(&self) -> &[Option<Self::DocValuesProducer>] {
+    &self.doc_values_producers
+  }
+
+  fn doc_maps(&self) -> &[Rc<Self::DocMap>] {
+    &self.doc_maps
   }
 
   fn merge_field_infos(&self) -> &Arc<FieldInfos> {
@@ -122,6 +142,14 @@ where
 
   fn field_infos(&self) -> &[Arc<FieldInfos>] {
     &self.field_infos
+  }
+
+  fn live_docs(&self) -> &[Option<Self::LiveDocs>] {
+    &self.live_docs
+  }
+
+  fn needs_index_sort(&self) -> bool {
+    self.needs_index_sort
   }
 
   fn max_docs(&self) -> &[i32] {

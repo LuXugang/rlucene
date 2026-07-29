@@ -619,7 +619,7 @@ where
               },
             };
             // Since it’s only ever called once globally, we didn’t implement the DocValuesWriter trait for DocValuesWriterEnum.
-            writer.flush(sort_map, consumer, segment_info)?;
+            writer.flush(state, sort_map, consumer, segment_info)?;
           } else if let Some(field_info) = &per_field.field_info
             && field_info.get_doc_values_type() != &DocValuesType::None
           {

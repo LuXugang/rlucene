@@ -23,6 +23,7 @@ use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -33,6 +34,7 @@ use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
@@ -44,18 +46,20 @@ use crate::test_framework::core::index::asserting_leaf_reader::{
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::thread::ThreadId;
 
 /// Just like the default but with additional asserts.
 pub struct AssertingDocValuesFormat {
   in_: DefaultDocValuesFormat,
+  identity: Identity,
 }
 
 impl AssertingDocValuesFormat {
   pub fn new() -> Self {
     Self {
       in_: TestUtil::get_default_doc_values_format(),
+      identity: Identity::new(),
     }
   }
 }
@@ -66,7 +70,17 @@ impl Display for AssertingDocValuesFormat {
   }
 }
 
+impl HasIdentity for AssertingDocValuesFormat {
+  fn identity(&self) -> &Identity {
+    &self.identity
+  }
+}
+
 impl DocValuesFormat for AssertingDocValuesFormat {
+  fn get_name(&self) -> &str {
+    "Asserting"
+  }
+
   type DocValuesConsumer<T: IndexOutput> =
     AssertingDocValuesConsumer<<DefaultDocValuesFormat as DocValuesFormat>::DocValuesConsumer<T>>;
 
@@ -105,6 +119,21 @@ impl DocValuesFormat for AssertingDocValuesFormat {
       false,
     ))
   }
+
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    static FORMAT: OnceLock<Arc<AssertingDocValuesFormat>> = OnceLock::new();
+
+    match name {
+      "Asserting" => Ok(Arc::clone(
+        FORMAT.get_or_init(|| Arc::new(AssertingDocValuesFormat::new())),
+      )),
+      _ => Err(
+        crate::core::util::error::lucene_error::LuceneError::illegal_argument(format!(
+          "Could not load doc values format named \"{name}\""
+        )),
+      ),
+    }
+  }
 }
 
 pub struct AssertingDocValuesConsumer<DVC>
@@ -128,8 +157,18 @@ impl<DVC> DocValuesConsumer for AssertingDocValuesConsumer<DVC>
 where
   DVC: DocValuesConsumer,
 {
-  fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  type IndexOutput = DVC::IndexOutput;
+
+  fn add_numeric_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_numeric(field)?;
@@ -144,11 +183,21 @@ where
       last_doc_id = doc_id;
       values.long_value()?;
     }
-    self.in_.add_numeric_field(field, values_producer)
+    self
+      .in_
+      .add_numeric_field(write_state, segment_info, field, values_producer)
   }
 
-  fn add_binary_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  fn add_binary_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_binary(field)?;
@@ -163,11 +212,21 @@ where
       last_doc_id = doc_id;
       assert!(values.binary_value()?.is_valid()?);
     }
-    self.in_.add_binary_field(field, values_producer)
+    self
+      .in_
+      .add_binary_field(write_state, segment_info, field, values_producer)
   }
 
-  fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  fn add_sorted_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_sorted(field)?;
@@ -201,15 +260,21 @@ where
       seen_ords.set(ord as usize);
     }
     assert_eq!(seen_ords.cardinality(), value_count as usize);
-    self.in_.add_sorted_field(field, values_producer)
+    self
+      .in_
+      .add_sorted_field(write_state, segment_info, field, values_producer)
   }
 
-  fn add_sorted_numeric_field<D>(
+  fn add_sorted_numeric_field<D1, D2, D>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
     field: &Arc<FieldInfo>,
     values_producer: &D,
   ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_sorted_numeric(field)?;
@@ -230,11 +295,21 @@ where
         previous = next_value;
       }
     }
-    self.in_.add_sorted_numeric_field(field, values_producer)
+    self
+      .in_
+      .add_sorted_numeric_field(write_state, segment_info, field, values_producer)
   }
 
-  fn add_sorted_set_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  fn add_sorted_set_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_sorted_set(field)?;
@@ -273,7 +348,9 @@ where
       }
     }
     assert_eq!(seen_ords.cardinality(), value_count as usize);
-    self.in_.add_sorted_set_field(field, values_producer)
+    self
+      .in_
+      .add_sorted_set_field(write_state, segment_info, field, values_producer)
   }
 }
 

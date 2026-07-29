@@ -26,6 +26,7 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::DocsWithFieldSetDISI;
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_doc_values_writer::{
@@ -251,14 +252,16 @@ impl Display for SortedSetDocValuesWriter {
 }
 
 impl DocValuesWriter for SortedSetDocValuesWriter {
-  fn flush<D, DM, DC>(
+  fn flush<D1, D2, DM, DC>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
     sort_map: Option<&DM>,
     dv_consumer: &mut DC,
-    segment_info: &SegmentInfo<D>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D: Directory,
+    D1: Directory<IndexOutput = DC::IndexOutput>,
+    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -279,7 +282,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         sort_map,
       )?;
       let producer = DocValuesProducerImpl2::new(single_value_producer);
-      dv_consumer.add_sorted_set_field(&self.field_info, &producer)?;
+      dv_consumer.add_sorted_set_field(write_state, segment_info, &self.field_info, &producer)?;
       return Ok(());
     }
     let ord_counts = ord_counts.unwrap();
@@ -316,7 +319,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       std::mem::take(&mut self.docs_with_field),
       doc_ords,
     );
-    dv_consumer.add_sorted_set_field(&self.field_info, &producer)?;
+    dv_consumer.add_sorted_set_field(write_state, segment_info, &self.field_info, &producer)?;
     Ok(())
   }
 

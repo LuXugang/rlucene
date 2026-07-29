@@ -1,0 +1,726 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
+use crate::core::codecs::doc_values_format::DocValuesFormat;
+use crate::core::codecs::doc_values_producer::DocValuesProducer;
+use crate::core::codecs::perfield::per_field_merge_state::PerFieldMergeState;
+use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::index::field_info::FieldInfo;
+use crate::core::index::index_reader::Identity;
+use crate::core::index::merge_state::MergeStateAccess;
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_read_state::SegmentReadState;
+use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::store::directory::Directory;
+use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{HasIdentity, IOUtils};
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+
+/// Name of this [`DocValuesFormat`].
+pub const PER_FIELD_NAME: &str = "PerFieldDV40";
+
+/// [`FieldInfo`] attribute name used to store the format name for each field.
+pub const PER_FIELD_FORMAT_KEY: &str = "PerFieldDocValuesFormat.format";
+
+/// [`FieldInfo`] attribute name used to store the segment suffix name for each field.
+pub const PER_FIELD_SUFFIX_KEY: &str = "PerFieldDocValuesFormat.suffix";
+
+/// Static-dispatch access to the format selection needed by
+/// [`PerFieldDocValuesFormat`].
+pub trait PerFieldDocValuesFormatBase {
+  type Format: DocValuesFormat;
+
+  /// Returns the doc values format that should be used for writing new
+  /// segments of `field`.
+  ///
+  /// The field-to-format mapping is written to the index, so this method is
+  /// only invoked when writing, not when reading.
+  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&Self::Format>;
+}
+
+/// Enables per-field doc values support.
+///
+/// The selected doc values format's name is written into the index. In order
+/// for a field to be read, that name must resolve to the same implementation
+/// through [`DocValuesFormat::for_name`].
+///
+/// Files written by each doc values format have an additional suffix
+/// containing the format name. For example, in a per-field configuration, a
+/// file named `_1.dat` would instead look like `_1_Lucene40_0.dat`.
+///
+/// # Experimental
+pub struct PerFieldDocValuesFormat<B>
+where
+  B: PerFieldDocValuesFormatBase,
+{
+  base: Arc<B>,
+  identity: Identity,
+}
+
+impl<B> Clone for PerFieldDocValuesFormat<B>
+where
+  B: PerFieldDocValuesFormatBase,
+{
+  fn clone(&self) -> Self {
+    Self {
+      base: Arc::clone(&self.base),
+      identity: self.identity.clone(),
+    }
+  }
+}
+
+impl<B> PerFieldDocValuesFormat<B>
+where
+  B: PerFieldDocValuesFormatBase,
+{
+  /// Sole constructor.
+  pub fn new(base: B) -> Self {
+    Self {
+      base: Arc::new(base),
+      identity: Identity::new(),
+    }
+  }
+}
+
+impl<B> HasIdentity for PerFieldDocValuesFormat<B>
+where
+  B: PerFieldDocValuesFormatBase,
+{
+  fn identity(&self) -> &Identity {
+    &self.identity
+  }
+}
+
+impl<B> Display for PerFieldDocValuesFormat<B>
+where
+  B: PerFieldDocValuesFormatBase,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "DocValuesFormat(name={PER_FIELD_NAME})")
+  }
+}
+
+struct ConsumerAndSuffix<DVC>
+where
+  DVC: DocValuesConsumer,
+{
+  consumer: DVC,
+  suffix: i32,
+}
+
+impl<DVC> Closeable for ConsumerAndSuffix<DVC>
+where
+  DVC: DocValuesConsumer,
+{
+  fn close(&mut self) -> Result<()> {
+    self.consumer.close()
+  }
+}
+
+pub struct FieldsWriter<B, DVC>
+where
+  B: PerFieldDocValuesFormatBase,
+  DVC: DocValuesConsumer,
+{
+  base: Arc<B>,
+  formats: HashMap<Identity, ConsumerAndSuffix<DVC>>,
+  suffixes: HashMap<String, i32>,
+}
+
+impl<B, DVC> FieldsWriter<B, DVC>
+where
+  B: PerFieldDocValuesFormatBase,
+  DVC: DocValuesConsumer,
+{
+  fn new(base: Arc<B>) -> Self {
+    Self {
+      base,
+      formats: HashMap::new(),
+      suffixes: HashMap::new(),
+    }
+  }
+
+  fn get_instance<D1, D2>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+  ) -> Result<(Identity, &mut DVC)>
+  where
+    D1: Directory<IndexOutput = DVC::IndexOutput>,
+    D2: Directory,
+    B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
+  {
+    self.get_instance_with_ignore_current_format(write_state, segment_info, field, false)
+  }
+
+  /// Doc values consumer for the given field.
+  fn get_instance_with_ignore_current_format<D1, D2>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    ignore_current_format: bool,
+  ) -> Result<(Identity, &mut DVC)>
+  where
+    D1: Directory<IndexOutput = DVC::IndexOutput>,
+    D2: Directory,
+    B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
+  {
+    let base = Arc::clone(&self.base);
+    let mut loaded_format = None;
+    if field.get_doc_values_gen() != -1 {
+      let mut format_name = None;
+      if !ignore_current_format {
+        format_name = field.get_attribute(PER_FIELD_FORMAT_KEY);
+      }
+      // This means the field never existed in that segment, yet is applied updates.
+      if let Some(format_name) = format_name {
+        loaded_format = Some(B::Format::for_name(&format_name)?);
+      }
+    }
+    let format = match loaded_format.as_ref() {
+      Some(format) => format.as_ref(),
+      None => base.get_doc_values_format_for_field(&field.name)?,
+    };
+    let format_name = format.get_name().to_string();
+    let identity = format.identity().clone();
+
+    field.put_attribute(PER_FIELD_FORMAT_KEY.to_string(), format_name.clone());
+    let mut suffix = None;
+
+    if !self.formats.contains_key(&identity) {
+      // First time we are seeing this format; create a new instance.
+
+      if field.get_doc_values_gen() != -1 {
+        let mut suffix_attribute = None;
+        if !ignore_current_format {
+          suffix_attribute = field.get_attribute(PER_FIELD_SUFFIX_KEY);
+        }
+        // Even when dvGen is != -1, it can still be a new field that never
+        // existed in the segment and therefore doesn't have the recorded
+        // attributes yet.
+        if let Some(suffix_attribute) = suffix_attribute {
+          suffix = Some(suffix_attribute.parse::<i32>().map_err(|_| {
+            LuceneError::illegal_argument(format!(
+              "invalid attribute: {PER_FIELD_SUFFIX_KEY}={suffix_attribute} for field: {}",
+              field.name
+            ))
+          })?);
+        }
+      }
+
+      if suffix.is_none() {
+        // Bump the suffix.
+        suffix = Some(
+          *self
+            .suffixes
+            .entry(format_name.clone())
+            .and_modify(|suffix| *suffix += 1)
+            .or_insert(0),
+        );
+      }
+      let suffix = suffix.ok_or_else(|| {
+        LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
+      })?;
+      self.suffixes.insert(format_name.clone(), suffix);
+
+      let segment_suffix = get_full_segment_suffix(
+        &write_state.segment_suffix,
+        &get_suffix(&format_name, suffix),
+      );
+      let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+      let consumer = format.fields_consumer(&state, segment_info)?;
+      self
+        .formats
+        .insert(identity.clone(), ConsumerAndSuffix { consumer, suffix });
+    } else {
+      // We've already seen this format, so just grab its suffix.
+      if !self.suffixes.contains_key(&format_name) {
+        return Err(LuceneError::illegal_state(format!(
+          "no suffix for format name: {format_name}"
+        )));
+      }
+      suffix = Some(
+        self
+          .formats
+          .get(&identity)
+          .ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+              "missing doc values consumer for field: {}",
+              field.name
+            ))
+          })?
+          .suffix,
+      );
+    }
+
+    let suffix = suffix.ok_or_else(|| {
+      LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
+    })?;
+    field.put_attribute(PER_FIELD_SUFFIX_KEY.to_string(), suffix.to_string());
+    // TODO: we should only provide the "slice" of FIS
+    // that this DVF actually sees ...
+    let consumer = self.formats.get_mut(&identity).ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "missing doc values consumer for field: {}",
+        field.name
+      ))
+    })?;
+    Ok((identity, &mut consumer.consumer))
+  }
+}
+
+impl<B, DVC> DocValuesConsumer for FieldsWriter<B, DVC>
+where
+  B: PerFieldDocValuesFormatBase,
+  B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
+  DVC: DocValuesConsumer,
+{
+  type IndexOutput = DVC::IndexOutput;
+
+  fn add_numeric_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
+    consumer.add_numeric_field(write_state, segment_info, field, values_producer)
+  }
+
+  fn add_binary_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
+    consumer.add_binary_field(write_state, segment_info, field, values_producer)
+  }
+
+  fn add_sorted_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
+    consumer.add_sorted_field(write_state, segment_info, field, values_producer)
+  }
+
+  fn add_sorted_numeric_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
+    consumer.add_sorted_numeric_field(write_state, segment_info, field, values_producer)
+  }
+
+  fn add_sorted_set_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
+    consumer.add_sorted_set_field(write_state, segment_info, field, values_producer)
+  }
+
+  fn merge<D1, D2, MS>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    merge_state: &MS,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
+  {
+    let mut consumers_to_fields: HashMap<Identity, Vec<String>> = HashMap::new();
+
+    // Group each consumer by the fields it handles.
+    for field_info in merge_state.merge_field_infos().iter() {
+      if field_info.get_doc_values_type() == &DocValuesType::None {
+        continue;
+      }
+      // Merge should ignore current format for the fields being merged.
+      let (identity, _) = self.get_instance_with_ignore_current_format(
+        write_state,
+        segment_info,
+        field_info,
+        true,
+      )?;
+      consumers_to_fields
+        .entry(identity)
+        .or_default()
+        .push(field_info.name.clone());
+    }
+
+    // Delegate the merge to the appropriate consumer.
+    for (identity, fields) in consumers_to_fields {
+      let restricted = PerFieldMergeState::restrict_fields(merge_state, &fields)?;
+      let consumer = self
+        .formats
+        .get_mut(&identity)
+        .ok_or_else(|| LuceneError::illegal_state("missing doc values consumer for merge"))?;
+      consumer
+        .consumer
+        .merge(write_state, segment_info, &restricted)?;
+    }
+    Ok(())
+  }
+}
+
+impl<B, DVC> Closeable for FieldsWriter<B, DVC>
+where
+  B: PerFieldDocValuesFormatBase,
+  DVC: DocValuesConsumer,
+{
+  fn close(&mut self) -> Result<()> {
+    // Close all subs.
+    IOUtils::close(self.formats.values_mut(), Closeable::close)
+  }
+}
+
+fn get_suffix(format_name: &str, suffix: impl Display) -> String {
+  format!("{format_name}_{suffix}")
+}
+
+fn get_full_segment_suffix(outer_segment_suffix: &str, segment_suffix: &str) -> String {
+  if outer_segment_suffix.is_empty() {
+    segment_suffix.to_string()
+  } else {
+    format!("{outer_segment_suffix}_{segment_suffix}")
+  }
+}
+
+pub struct FieldsReader<DVP>
+where
+  DVP: DocValuesProducer,
+{
+  fields: HashMap<i32, Arc<DVP>>,
+  formats: HashMap<String, Arc<DVP>>,
+}
+
+impl<DVP> FieldsReader<DVP>
+where
+  DVP: DocValuesProducer,
+{
+  // Clone for merge.
+  fn from_other(other: &Self) -> Result<Self> {
+    let mut fields = HashMap::with_capacity(other.fields.len());
+    let mut formats = HashMap::with_capacity(other.formats.len());
+    let mut old_to_new = HashMap::with_capacity(other.formats.len());
+    // First clone all formats.
+    for (segment_suffix, format) in &other.formats {
+      let values = match format.as_ref().get_merge_instance()? {
+        Some(format) => Arc::new(format),
+        None => Arc::clone(format),
+      };
+      formats.insert(segment_suffix.clone(), Arc::clone(&values));
+      old_to_new.insert(Arc::as_ptr(format), values);
+    }
+
+    // Then rebuild fields.
+    for (field_number, format) in &other.fields {
+      let producer = old_to_new.get(&Arc::as_ptr(format)).ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing merge instance for field number: {field_number}"
+        ))
+      })?;
+      fields.insert(*field_number, Arc::clone(producer));
+    }
+
+    Ok(Self { fields, formats })
+  }
+
+  fn new<PF, D1, D2>(
+    read_state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self>
+  where
+    PF: DocValuesFormat<DocValuesProducer<D1::IndexInput> = DVP>,
+    D1: Directory,
+    D2: Directory,
+  {
+    let mut fields = HashMap::new();
+    let mut formats: HashMap<String, Arc<DVP>> = HashMap::new();
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      // Read field name -> format name.
+      for field_info in read_state.field_infos.iter() {
+        if field_info.get_doc_values_type() == &DocValuesType::None {
+          continue;
+        }
+        let field_name = &field_info.name;
+        let Some(format_name) = field_info.get_attribute(PER_FIELD_FORMAT_KEY) else {
+          // Null format name means the field is in field infos, but has no doc values.
+          continue;
+        };
+        let suffix = field_info
+          .get_attribute(PER_FIELD_SUFFIX_KEY)
+          .ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+              "missing attribute: {PER_FIELD_SUFFIX_KEY} for field: {field_name}"
+            ))
+          })?;
+        let segment_suffix = get_full_segment_suffix(
+          &read_state.segment_suffix,
+          &get_suffix(&format_name, suffix),
+        );
+        if !formats.contains_key(&segment_suffix) {
+          let format = PF::for_name(&format_name)?;
+          let state = SegmentReadState::copy_with_suffix(read_state, &segment_suffix);
+          let producer = Arc::new(format.fields_producer(&state, segment_info)?);
+          formats.insert(segment_suffix.clone(), producer);
+        }
+        let producer = formats.get(&segment_suffix).ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "missing doc values producer for field: {field_name}"
+          ))
+        })?;
+        fields.insert(field_info.number, Arc::clone(producer));
+      }
+      Ok(())
+    }));
+
+    match result {
+      Ok(Ok(())) => {},
+      Ok(Err(error)) => {
+        IOUtils::close_while_handling_error(formats.values(), |format| format.close())?;
+        return Err(error);
+      },
+      Err(error) => {
+        let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          IOUtils::close_while_handling_error(formats.values(), |format| format.close())
+        }));
+        match close_result {
+          Ok(Ok(())) => std::panic::resume_unwind(error),
+          Ok(Err(close_error)) => return Err(close_error),
+          Err(close_error) => std::panic::resume_unwind(close_error),
+        }
+      },
+    }
+
+    Ok(Self { fields, formats })
+  }
+}
+
+impl<DVP> Display for FieldsReader<DVP>
+where
+  DVP: DocValuesProducer,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "PerFieldDocValues(formats={})", self.formats.len())
+  }
+}
+
+impl<DVP> CloseableRef for FieldsReader<DVP>
+where
+  DVP: DocValuesProducer,
+{
+  fn close(&self) -> Result<()> {
+    IOUtils::close(self.formats.values(), |format| format.close())
+  }
+}
+
+impl<DVP> DocValuesProducer for FieldsReader<DVP>
+where
+  DVP: DocValuesProducer,
+{
+  type NumericDocValues = DVP::NumericDocValues;
+
+  fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    self
+      .fields
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field: {}",
+          field.name
+        ))
+      })?
+      .get_numeric(field)
+  }
+
+  type BinaryDocValues = DVP::BinaryDocValues;
+
+  fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    self
+      .fields
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field: {}",
+          field.name
+        ))
+      })?
+      .get_binary(field)
+  }
+
+  type SortedDocValues = DVP::SortedDocValues;
+
+  fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    self
+      .fields
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field: {}",
+          field.name
+        ))
+      })?
+      .get_sorted(field)
+  }
+
+  type SortedNumericDocValues = DVP::SortedNumericDocValues;
+
+  fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
+    self
+      .fields
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field: {}",
+          field.name
+        ))
+      })?
+      .get_sorted_numeric(field)
+  }
+
+  type SortedSetDocValues = DVP::SortedSetDocValues;
+
+  fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    self
+      .fields
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field: {}",
+          field.name
+        ))
+      })?
+      .get_sorted_set(field)
+  }
+
+  type DocValuesSkipper = DVP::DocValuesSkipper;
+
+  fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
+    match self.fields.get(&field.number) {
+      Some(producer) => producer.get_skipper(field),
+      None => Ok(None),
+    }
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    for format in self.formats.values() {
+      format.check_integrity()?;
+    }
+    Ok(())
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(Some(Self::from_other(self)?))
+  }
+}
+
+impl<B> DocValuesFormat for PerFieldDocValuesFormat<B>
+where
+  B: PerFieldDocValuesFormatBase,
+{
+  fn get_name(&self) -> &str {
+    PER_FIELD_NAME
+  }
+
+  type DocValuesConsumer<O: IndexOutput> =
+    FieldsWriter<B, <B::Format as DocValuesFormat>::DocValuesConsumer<O>>;
+
+  fn fields_consumer<D1, D2>(
+    &self,
+    _state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Ok(FieldsWriter::new(Arc::clone(&self.base)))
+  }
+
+  type DocValuesProducer<I: IndexInput> =
+    FieldsReader<<B::Format as DocValuesFormat>::DocValuesProducer<I>>;
+
+  fn fields_producer<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    FieldsReader::new::<B::Format, D1, D2>(state, segment_info)
+  }
+
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    Err(LuceneError::illegal_argument(format!(
+      "Could not load doc values format named \"{name}\""
+    )))
+  }
+}

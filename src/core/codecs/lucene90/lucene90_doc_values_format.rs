@@ -16,16 +16,18 @@
  */
 use std::fmt::{Display, Formatter};
 
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock, OnceLock};
 
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::lucene90_doc_values_consumer::Lucene90DocValuesConsumer;
 use crate::core::codecs::lucene90_doc_values_producer::Lucene90DocValuesProducer;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Lucene 9.0 DocValues format.
@@ -137,6 +139,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub struct Lucene90DocValuesFormat {
   skip_index_interval_size: i32,
   name: String,
+  identity: Identity,
 }
 impl Lucene90DocValuesFormat {
   pub const DATA_CODEC: &'static str = "Lucene90DocValuesData";
@@ -198,6 +201,7 @@ impl Lucene90DocValuesFormat {
     Ok(Self {
       skip_index_interval_size,
       name: "Lucene90".to_string(),
+      identity: Identity::new(),
     })
   }
 }
@@ -211,15 +215,21 @@ impl Default for Lucene90DocValuesFormat {
 
 impl Display for Lucene90DocValuesFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "DocValuesFormat(name= {} )",
-      self.skip_index_interval_size
-    )
+    write!(f, "DocValuesFormat(name={})", self.name)
+  }
+}
+
+impl HasIdentity for Lucene90DocValuesFormat {
+  fn identity(&self) -> &Identity {
+    &self.identity
   }
 }
 
 impl DocValuesFormat for Lucene90DocValuesFormat {
+  fn get_name(&self) -> &str {
+    &self.name
+  }
+
   type DocValuesConsumer<T: IndexOutput> = Lucene90DocValuesConsumer<T>;
 
   fn fields_consumer<D1, D2>(
@@ -261,6 +271,29 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
       Self::META_EXTENSION,
       segment_info,
     )
+  }
+
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    static FORMAT: OnceLock<Arc<Lucene90DocValuesFormat>> = OnceLock::new();
+
+    match name {
+      "Lucene90" => {
+        if let Some(format) = FORMAT.get() {
+          return Ok(Arc::clone(format));
+        }
+        let format = Arc::new(Self::new()?);
+        if FORMAT.set(Arc::clone(&format)).is_ok() {
+          Ok(format)
+        } else {
+          FORMAT.get().map(Arc::clone).ok_or_else(|| {
+            LuceneError::illegal_state("failed to initialize doc values format named \"Lucene90\"")
+          })
+        }
+      },
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Could not load doc values format named \"{name}\""
+      ))),
+    }
   }
 }
 /// Number of bytes to skip when skipping a level. It does not take into account

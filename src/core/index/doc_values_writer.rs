@@ -23,6 +23,7 @@ use crate::core::index::numeric_doc_values_writer::{
   BufferedNumericDocValues, NumericDocValuesWriter,
 };
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values_writer::{
@@ -46,14 +47,16 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 pub(crate) trait DocValuesWriter: Display {
-  fn flush<D, DM, DC>(
+  fn flush<D1, D2, DM, DC>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
     sort_map: Option<&DM>,
     dv_consumer: &mut DC,
-    segment_info: &SegmentInfo<D>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D: Directory,
+    D1: Directory<IndexOutput = DC::IndexOutput>,
+    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer;
 
@@ -81,25 +84,35 @@ impl Display for DocValuesWriterEnum {
   }
 }
 impl DocValuesWriter for DocValuesWriterEnum {
-  fn flush<D, DM, DC>(
+  fn flush<D1, D2, DM, DC>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
     sort_map: Option<&DM>,
     dv_consumer: &mut DC,
-    segment_info: &SegmentInfo<D>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D: Directory,
+    D1: Directory<IndexOutput = DC::IndexOutput>,
+    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
     match self {
-      DocValuesWriterEnum::Binary(writer) => writer.flush(sort_map, dv_consumer, segment_info),
-      DocValuesWriterEnum::Numeric(writer) => writer.flush(sort_map, dv_consumer, segment_info),
-      DocValuesWriterEnum::SortedNumeric(writer) => {
-        writer.flush(sort_map, dv_consumer, segment_info)
+      DocValuesWriterEnum::Binary(writer) => {
+        writer.flush(write_state, sort_map, dv_consumer, segment_info)
       },
-      DocValuesWriterEnum::Sorted(writer) => writer.flush(sort_map, dv_consumer, segment_info),
-      DocValuesWriterEnum::SortedSet(writer) => writer.flush(sort_map, dv_consumer, segment_info),
+      DocValuesWriterEnum::Numeric(writer) => {
+        writer.flush(write_state, sort_map, dv_consumer, segment_info)
+      },
+      DocValuesWriterEnum::SortedNumeric(writer) => {
+        writer.flush(write_state, sort_map, dv_consumer, segment_info)
+      },
+      DocValuesWriterEnum::Sorted(writer) => {
+        writer.flush(write_state, sort_map, dv_consumer, segment_info)
+      },
+      DocValuesWriterEnum::SortedSet(writer) => {
+        writer.flush(write_state, sort_map, dv_consumer, segment_info)
+      },
     }
   }
 

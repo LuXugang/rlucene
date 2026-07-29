@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::Display;
+use std::sync::Arc;
 
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
@@ -23,11 +24,15 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 
 /// Encodes/decodes per-document values.
-pub trait DocValuesFormat: Display {
-  type DocValuesConsumer<T: IndexOutput>: DocValuesConsumer;
+pub trait DocValuesFormat: Display + HasIdentity {
+  /// Returns this doc values format's name.
+  fn get_name(&self) -> &str;
+
+  type DocValuesConsumer<T: IndexOutput>: DocValuesConsumer<IndexOutput = T>;
   /// Returns a [`DocValuesConsumer`] to write docvalues to the index.
   fn fields_consumer<D1, D2>(
     &self,
@@ -56,4 +61,9 @@ pub trait DocValuesFormat: Display {
   where
     D1: Directory,
     D2: Directory;
+
+  /// Looks up a format by name.
+  fn for_name(name: &str) -> Result<Arc<Self>>
+  where
+    Self: Sized;
 }

@@ -31,6 +31,7 @@ use crate::core::index::numeric_doc_values_writer::{
   BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues, get_doc_values_producer,
 };
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
@@ -195,14 +196,16 @@ impl Display for SortedNumericDocValuesWriter {
 }
 
 impl DocValuesWriter for SortedNumericDocValuesWriter {
-  fn flush<D, DM, DC>(
+  fn flush<D1, D2, DM, DC>(
     &mut self,
+    write_state: &SegmentWriteState<D1>,
     sort_map: Option<&DM>,
     dv_consumer: &mut DC,
-    segment_info: &SegmentInfo<D>,
+    segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D: Directory,
+    D1: Directory<IndexOutput = DC::IndexOutput>,
+    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -230,7 +233,12 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         sort_map,
       )?;
       let producer = DocValuesProducerImpl1::new(single_value_producer)?;
-      dv_consumer.add_sorted_numeric_field(&self.field_info, &producer)?;
+      dv_consumer.add_sorted_numeric_field(
+        write_state,
+        segment_info,
+        &self.field_info,
+        &producer,
+      )?;
       return Ok(());
     }
 
@@ -257,7 +265,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
       sorted,
       value_counts,
     )?;
-    dv_consumer.add_sorted_numeric_field(&self.field_info, &producer)
+    dv_consumer.add_sorted_numeric_field(write_state, segment_info, &self.field_info, &producer)
   }
 
   type DocIdSetIterator = SortedNumericDocValuesEnum2<

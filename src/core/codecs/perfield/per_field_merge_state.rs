@@ -120,10 +120,20 @@ where
   MS: MergeStateAccess,
 {
   type FieldsProducer = FilterFieldsProducer<'a, MS::FieldsProducer>;
+  type DocValuesProducer = MS::DocValuesProducer;
+  type LiveDocs = MS::LiveDocs;
   type DocMap = MS::DocMap;
 
   fn fields_producers(&self) -> &[Option<Self::FieldsProducer>] {
     &self.fields_producers
+  }
+
+  fn doc_values_producers(&self) -> &[Option<Self::DocValuesProducer>] {
+    self.in_.doc_values_producers()
+  }
+
+  fn doc_maps(&self) -> &[std::rc::Rc<Self::DocMap>] {
+    self.in_.doc_maps()
   }
 
   fn merge_field_infos(&self) -> &Arc<FieldInfos> {
@@ -132,6 +142,14 @@ where
 
   fn field_infos(&self) -> &[Arc<FieldInfos>] {
     &self.field_infos
+  }
+
+  fn live_docs(&self) -> &[Option<Self::LiveDocs>] {
+    self.in_.live_docs()
+  }
+
+  fn needs_index_sort(&self) -> bool {
+    self.in_.needs_index_sort()
   }
 
   fn max_docs(&self) -> &[i32] {

@@ -158,7 +158,11 @@ where
       .doc_values_format()
       .fields_consumer(segment_write_state, self.merge_state.segment_info)?;
 
-    let merge_result = consumer.merge(&self.merge_state);
+    let merge_result = consumer.merge(
+      segment_write_state,
+      self.merge_state.segment_info,
+      &self.merge_state,
+    );
     let close_result = consumer.close();
     IOUtils::use_or_suppress_result(merge_result, close_result)
   }

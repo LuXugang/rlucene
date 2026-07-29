@@ -934,8 +934,18 @@ impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>
 where
   O: IndexOutput,
 {
-  fn add_numeric_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  type IndexOutput = O;
+
+  fn add_numeric_field<D1, D2, D>(
+    &mut self,
+    _write_state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -951,8 +961,16 @@ where
     Ok(())
   }
 
-  fn add_binary_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  fn add_binary_field<D1, D2, D>(
+    &mut self,
+    _write_state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1043,8 +1061,16 @@ where
     Ok(())
   }
 
-  fn add_sorted_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  fn add_sorted_field<D1, D2, D>(
+    &mut self,
+    _write_state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1053,12 +1079,16 @@ where
     Ok(())
   }
 
-  fn add_sorted_numeric_field<D>(
+  fn add_sorted_numeric_field<D1, D2, D>(
     &mut self,
+    _write_state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
     field: &Arc<FieldInfo>,
     values_producer: &D,
   ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1069,8 +1099,16 @@ where
     Ok(())
   }
 
-  fn add_sorted_set_field<D>(&mut self, field: &Arc<FieldInfo>, values_producer: &D) -> Result<()>
+  fn add_sorted_set_field<D1, D2, D>(
+    &mut self,
+    _write_state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
   where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;

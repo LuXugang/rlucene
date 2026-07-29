@@ -478,11 +478,11 @@ where
           if ty == DocValuesType::Binary {
             let v =
               DocValuesProducerBinary::new(update_supplier, field, reader, field_info.clone());
-            fields_consumer.add_binary_field(&field_info, &v)?
+            fields_consumer.add_binary_field(&state, &info.info, &field_info, &v)?
           } else {
             let v =
               DocValuesProducerNumeric::new(update_supplier, field, reader, field_info.clone());
-            fields_consumer.add_numeric_field(&field_info, &v)?;
+            fields_consumer.add_numeric_field(&state, &info.info, &field_info, &v)?;
           }
           Ok(())
         })();
