@@ -225,27 +225,46 @@ where
 
     let (for_delta_util, pfor_util) = match result {
       Ok(Ok(utils)) => utils,
-      result => {
+      Ok(Err(error)) => {
         IOUtils::close_resources_while_handling_error((
           meta_out.as_mut(),
           doc_out.as_mut(),
           pos_out.as_mut(),
           pay_out.as_mut(),
         ))?;
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => unreachable!(),
-        };
+        return Err(error);
+      },
+      Err(payload) => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          doc_out.as_mut(),
+          pos_out.as_mut(),
+          pay_out.as_mut(),
+        ))?;
+        std::panic::resume_unwind(payload);
       },
     };
 
     let doc_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
     let freq_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
+    let (meta_out, doc_out) = match (meta_out, doc_out) {
+      (Some(meta_out), Some(doc_out)) => (meta_out, doc_out),
+      (mut meta_out, mut doc_out) => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          doc_out.as_mut(),
+          pos_out.as_mut(),
+          pay_out.as_mut(),
+        ))?;
+        return Err(LuceneError::illegal_state(
+          "postings outputs are missing after successful construction",
+        ));
+      },
+    };
 
     Ok(Self {
-      meta_out: meta_out.expect("meta output must be initialized on successful construction"),
-      doc_out: doc_out.expect("doc output must be initialized on successful construction"),
+      meta_out,
+      doc_out,
       pos_out,
       pay_out,
       closed: false,

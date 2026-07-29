@@ -109,13 +109,13 @@ where
     }));
     match result {
       Ok(Ok(())) => {},
-      result => {
+      Ok(Err(error)) => {
         IOUtils::close_resources_while_handling_error(&handle)?;
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
-        };
+        return Err(error);
+      },
+      Err(payload) => {
+        IOUtils::close_resources_while_handling_error(&handle)?;
+        std::panic::resume_unwind(payload);
       },
     }
     let dir_fmt = directory.to_string();

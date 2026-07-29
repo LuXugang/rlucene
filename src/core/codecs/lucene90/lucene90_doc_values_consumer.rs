@@ -145,14 +145,25 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => unreachable!(),
+          Ok(Ok(_)) => Err(LuceneError::illegal_state(
+            "doc values construction entered failure handling after success",
+          )),
         };
+      },
+    };
+    let (data, meta) = match (data, meta) {
+      (Some(data), Some(meta)) => (data, meta),
+      (mut data, mut meta) => {
+        IOUtils::close_resources_while_handling_error((data.as_mut(), meta.as_mut()))?;
+        return Err(LuceneError::illegal_state(
+          "doc values outputs are missing after successful construction",
+        ));
       },
     };
 
     Ok(Lucene90DocValuesConsumer {
-      data: data.expect("data output must be initialized on successful construction"),
-      meta: meta.expect("metadata output must be initialized on successful construction"),
+      data,
+      meta,
       max_doc,
       skip_index_interval_size,
       closed: false,

@@ -153,17 +153,27 @@ where
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
+          Ok(Ok(())) => Err(LuceneError::illegal_state(
+            "HNSW construction entered failure handling after success",
+          )),
         };
       },
     }
+    let vector_index = match vector_index {
+      Some(vector_index) => vector_index,
+      None => {
+        IOUtils::close_resources_while_handling_error((meta.as_ref(), &flat_vectors_reader))?;
+        return Err(LuceneError::illegal_state(
+          "HNSW vector index is missing after successful construction",
+        ));
+      },
+    };
 
     Ok(Self {
       flat_vectors_reader,
       field_infos,
       fields,
-      vector_index: vector_index
-        .expect("HNSW vector index must be initialized on successful construction"),
+      vector_index,
     })
   }
   fn open_data_input<D1, D2>(
@@ -210,7 +220,9 @@ where
         match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
+          Ok(Ok(())) => Err(LuceneError::illegal_state(
+            "HNSW vector data validation entered failure handling after success",
+          )),
         }
       },
     }

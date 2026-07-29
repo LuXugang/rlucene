@@ -225,16 +225,30 @@ where
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
+          Ok(Ok(())) => Err(LuceneError::illegal_state(
+            "scalar quantized writer construction entered failure handling after success",
+          )),
         };
       },
     }
+    let (meta, quantized_vector_data) = match (meta, quantized_vector_data) {
+      (Some(meta), Some(quantized_vector_data)) => (meta, quantized_vector_data),
+      (mut meta, mut quantized_vector_data) => {
+        IOUtils::close_resources_while_handling_error((
+          meta.as_mut(),
+          quantized_vector_data.as_mut(),
+          &mut raw_vector_delegate,
+        ))?;
+        return Err(LuceneError::illegal_state(
+          "scalar quantized outputs are missing after successful construction",
+        ));
+      },
+    };
 
     Ok(Self {
       fields: Vec::new(),
-      meta: meta.expect("meta output must be initialized on successful construction"),
-      quantized_vector_data: quantized_vector_data
-        .expect("quantized vector data output must be initialized on successful construction"),
+      meta,
+      quantized_vector_data,
       confidence_interval,
       raw_vector_delegate,
       flat_vector_scorer,
@@ -472,7 +486,9 @@ where
         match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => unreachable!(),
+          Ok(Ok(_)) => Err(LuceneError::illegal_state(
+            "scalar quantized merge entered failure handling after success",
+          )),
         }
       },
     }

@@ -155,15 +155,29 @@ where
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
+          Ok(Ok(())) => Err(LuceneError::illegal_state(
+            "HNSW writer construction entered failure handling after success",
+          )),
         };
       },
     }
+    let (meta, vector_index) = match (meta, vector_index) {
+      (Some(meta), Some(vector_index)) => (meta, vector_index),
+      (mut meta, mut vector_index) => {
+        IOUtils::close_resources_while_handling_error((
+          meta.as_mut(),
+          vector_index.as_mut(),
+          &mut flat_vector_writer,
+        ))?;
+        return Err(LuceneError::illegal_state(
+          "HNSW writer outputs are missing after successful construction",
+        ));
+      },
+    };
 
     Ok(Self {
-      meta: meta.expect("meta output must be initialized on successful construction"),
-      vector_index: vector_index
-        .expect("vector index output must be initialized on successful construction"),
+      meta,
+      vector_index,
       m,
       beam_width,
       flat_vector_writer,

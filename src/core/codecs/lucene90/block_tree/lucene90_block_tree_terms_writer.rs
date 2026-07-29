@@ -335,26 +335,41 @@ where
 
     match result {
       Ok(Ok(())) => {},
-      result => {
+      Ok(Err(error)) => {
         IOUtils::close_resources_while_handling_error((
           meta_out.as_mut(),
           &mut terms_out,
           index_out.as_mut(),
         ))?;
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
-        };
+        return Err(error);
+      },
+      Err(payload) => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          &mut terms_out,
+          index_out.as_mut(),
+        ))?;
+        std::panic::resume_unwind(payload);
       },
     }
+    let (meta_out, index_out) = match (meta_out, index_out) {
+      (Some(meta_out), Some(index_out)) => (meta_out, index_out),
+      (mut meta_out, mut index_out) => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          &mut terms_out,
+          index_out.as_mut(),
+        ))?;
+        return Err(LuceneError::illegal_state(
+          "terms outputs are missing after successful construction",
+        ));
+      },
+    };
 
     Ok(Self {
-      meta_out: meta_out
-        .expect("terms metadata output must be initialized on successful construction"),
+      meta_out,
       terms_out,
-      index_out: index_out
-        .expect("terms index output must be initialized on successful construction"),
+      index_out,
       max_doc,
       min_items_in_block,
       max_items_in_block,

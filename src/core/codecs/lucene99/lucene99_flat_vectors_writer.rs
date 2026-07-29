@@ -136,15 +136,25 @@ where
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
+          Ok(Ok(())) => Err(LuceneError::illegal_state(
+            "flat vectors construction entered failure handling after success",
+          )),
         };
       },
     }
+    let (meta, vector_data) = match (meta, vector_data) {
+      (Some(meta), Some(vector_data)) => (meta, vector_data),
+      (mut meta, mut vector_data) => {
+        IOUtils::close_resources_while_handling_error((meta.as_mut(), vector_data.as_mut()))?;
+        return Err(LuceneError::illegal_state(
+          "flat vector outputs are missing after successful construction",
+        ));
+      },
+    };
 
     Ok(Self {
-      meta: meta.expect("meta output must be initialized on successful construction"),
-      vector_data: vector_data
-        .expect("vector data output must be initialized on successful construction"),
+      meta,
+      vector_data,
       fields: Vec::new(),
       finished: false,
       flat_vectors_scorer: scorer,

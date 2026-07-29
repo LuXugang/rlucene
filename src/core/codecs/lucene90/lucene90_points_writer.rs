@@ -156,18 +156,30 @@ where
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
+          Ok(Ok(())) => Err(LuceneError::illegal_state(
+            "points construction entered failure handling after success",
+          )),
         };
       },
     }
+    let (data_out, meta_out, index_out) = match (data_out, meta_out, index_out) {
+      (Some(data_out), Some(meta_out), Some(index_out)) => (data_out, meta_out, index_out),
+      (mut data_out, mut meta_out, mut index_out) => {
+        IOUtils::close_resources_while_handling_error((
+          meta_out.as_mut(),
+          index_out.as_mut(),
+          data_out.as_mut(),
+        ))?;
+        return Err(LuceneError::illegal_state(
+          "points outputs are missing after successful construction",
+        ));
+      },
+    };
 
     Ok(Self {
-      data_out: data_out
-        .expect("points data output must be initialized on successful construction"),
-      meta_out: meta_out
-        .expect("points metadata output must be initialized on successful construction"),
-      index_out: index_out
-        .expect("points index output must be initialized on successful construction"),
+      data_out,
+      meta_out,
+      index_out,
       max_points_in_leaf_node,
       max_mb_sort_in_heap,
       finish: false,

@@ -158,20 +158,37 @@ where
     }));
 
     match result {
-      Ok(Ok((segment, core_field_infos))) => Ok(SegmentCoreReaders {
-        ref_: AtomicI32::new(1),
-        fields,
-        norms_producer,
-        fields_reader_orig: fields_reader_orig
-          .expect("stored fields reader must be initialized on successful construction"),
-        term_vectors_reader_orig,
-        points_reader,
-        knn_vectors_reader,
-        cfs_reader,
-        segment,
-        core_field_infos,
-        cache_helper: SegmentCoreReadersCacheHelperImpl::new(),
-      }),
+      Ok(Ok((segment, core_field_infos))) => {
+        let fields_reader_orig = match fields_reader_orig.take() {
+          Some(fields_reader_orig) => fields_reader_orig,
+          None => {
+            IOUtils::close_refs_tuple((
+              fields.as_ref(),
+              term_vectors_reader_orig.as_ref(),
+              cfs_reader.as_ref(),
+              norms_producer.as_ref(),
+              points_reader.as_ref(),
+              knn_vectors_reader.as_ref(),
+            ))?;
+            return Err(LuceneError::illegal_state(
+              "stored fields reader is missing after successful construction",
+            ));
+          },
+        };
+        Ok(SegmentCoreReaders {
+          ref_: AtomicI32::new(1),
+          fields,
+          norms_producer,
+          fields_reader_orig,
+          term_vectors_reader_orig,
+          points_reader,
+          knn_vectors_reader,
+          cfs_reader,
+          segment,
+          core_field_infos,
+          cache_helper: SegmentCoreReadersCacheHelperImpl::new(),
+        })
+      },
       result => {
         IOUtils::close_refs_tuple((
           fields.as_ref(),
@@ -185,7 +202,9 @@ where
         match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => unreachable!(),
+          Ok(Ok(_)) => Err(LuceneError::illegal_state(
+            "segment core construction entered failure handling after success",
+          )),
         }
       },
     }

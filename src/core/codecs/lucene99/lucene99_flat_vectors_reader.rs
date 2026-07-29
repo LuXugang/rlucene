@@ -206,7 +206,9 @@ where
         match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
+          Ok(Ok(())) => Err(LuceneError::illegal_state(
+            "flat vector data validation entered failure handling after success",
+          )),
         }
       },
     }
