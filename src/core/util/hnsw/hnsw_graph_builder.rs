@@ -62,8 +62,21 @@ where
   hnsw_lock: Option<HnswLock>,
   info_stream: InfoStreamMT,
   frozen: bool,
-  sub: Option<HnswGraphBuilderBaseEnum<B>>,
+  hook: HnswGraphBuilderHook<B>,
 }
+
+#[derive(Default)]
+pub enum HnswGraphBuilderHook<B>
+where
+  B: Bits,
+{
+  #[default]
+  Default,
+  Initialized(InitializedHnswGraphBuilder<B>),
+}
+
+pub(crate) struct HnswGraphBuilderDefaults;
+
 impl<B, S> HnswGraphBuilder<B, S, FixedBitSet, HnswGraphSearcherBaseDefault>
 where
   S: RandomVectorScorerSupplier,
@@ -90,7 +103,7 @@ where
     beam_width: usize,
     random: u64,
     graph_size: i32,
-    sub: Option<HnswGraphBuilderBaseEnum<B>>,
+    hook: HnswGraphBuilderHook<B>,
   ) -> Result<Self> {
     Self::from_hnsw(
       scorer_supplier,
@@ -98,7 +111,7 @@ where
       beam_width,
       random,
       OnHeapHnswGraph::new(m, graph_size),
-      sub,
+      hook,
     )
   }
 
@@ -108,7 +121,7 @@ where
     beam_width: usize,
     random: u64,
     hnsw: OnHeapHnswGraph,
-    sub: Option<HnswGraphBuilderBaseEnum<B>>,
+    hook: HnswGraphBuilderHook<B>,
   ) -> Result<Self> {
     let size = hnsw.size();
     let searcher = HnswGraphSearcher::new(
@@ -124,7 +137,7 @@ where
       hnsw,
       None,
       searcher,
-      sub,
+      hook,
     )
   }
 }
@@ -159,7 +172,7 @@ where
     hnsw: OnHeapHnswGraph,
     hnsw_lock: Option<HnswLock>,
     graph_searcher: HnswGraphSearcher<BS, H>,
-    sub: Option<HnswGraphBuilderBaseEnum<B>>,
+    hook: HnswGraphBuilderHook<B>,
   ) -> Result<Self> {
     if m == 0 {
       return Err(LuceneError::illegal_argument(
@@ -186,7 +199,7 @@ where
       beam_candidates: GraphBuilderKnnCollector::new(beam_width)?,
       info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
       frozen: false,
-      sub,
+      hook,
     })
   }
   /// add vectors in range [minOrd, maxOrd)
@@ -583,140 +596,10 @@ where
   }
 
   fn add_graph_node(&mut self, node: usize) -> Result<()> {
-    /*
-    Note: this implementation is thread safe when graph size is fixed (e.g. when merging)
-    The process of adding a node is roughly:
-    1. Add the node to all level from top to the bottom, but do not connect it to any other node,
-       nor try to promote itself to an entry node before the connection is done. (Unless the graph is empty
-       and this is the first node, in that case we set the entry node and return)
-    2. Do the search from top to bottom, remember all the possible neighbours on each level the node
-       is on.
-    3. Add the neighbor to the node from bottom to top level, when adding the neighbour,
-       we always add all the outgoing links first before adding incoming link such that
-       when a search visits this node, it can always find a way out
-    4. If the node has level that is less or equal to graph level, then we're done here.
-       If the node has level larger than graph level, then we need to promote the node
-       as the entry node. If, while we add the node to the graph, the entry node has changed
-       (which means the graph level has changed as well), we need to reinsert the node
-       to the newly introduced levels (repeating step 2,3 for new levels) and again try to
-       promote the node to entry node.
-     */
-
-    if let Some(sub) = self.sub.as_mut()
-      && sub.do_add_graph_node(node)?
-    {
-      return Ok(());
-    }
-
-    if self.frozen {
-      return Err(LuceneError::illegal_state(
-        "Graph builder is already frozen",
-      ));
-    }
-
-    let scorer = self.scorer_supplier.scorer(node)?;
-    let node_level = Self::get_random_graph_level(self.ml, &mut self.random);
-
-    // first add nodes to all levels
-    for level in (0..=node_level).rev() {
-      self.hnsw.add_node(level, node)?;
-    }
-    // then promote itself as entry node if entry node is not set
-    if self.hnsw.try_set_new_entry_node(node, node_level) {
-      return Ok(());
-    }
-
-    // if the entry node is already set, then we have to do all connections first
-    // before we can promote ourselves as entry node
-    let mut lowest_unset_level = 0;
-    let mut cur_max_level;
-    loop {
-      let mut eps = {
-        cur_max_level = self.hnsw.num_levels()? - 1;
-        // NOTE: the entry node and max level may not be paired, but because we get the
-        // level first we ensure that the entry node we get later will
-        // always exist on the curMaxLevel
-        match self.hnsw.entry_node()? {
-          Some(v) => {
-            vec![v]
-          },
-          None => {
-            return Err(LuceneError::illegal_state(
-              "Entry node is not set when trying to add connections",
-            ));
-          },
-        }
-      };
-      let top = std::cmp::min(node_level, cur_max_level);
-      let mut scratch_per_level = vec![NeighborArray::default(); top - lowest_unset_level + 1];
-      let candidates = &mut self.entry_candidates;
-      for level in (node_level + 1..=cur_max_level).rev() {
-        candidates.clear();
-        self.graph_searcher.search_level_with_collector(
-          candidates,
-          &scorer,
-          level,
-          &eps,
-          &mut self.hnsw,
-          None::<&B>,
-        )?;
-        eps[0] = candidates.pop_node()?;
-      }
-
-      // for levels <= nodeLevel search with topk = beamWidth, and add connections
-      let candidates = &mut self.beam_candidates;
-      for i in (0..scratch_per_level.len()).rev() {
-        let level = i + lowest_unset_level;
-        candidates.clear();
-        self.graph_searcher.search_level_with_collector(
-          candidates,
-          &scorer,
-          level,
-          &eps,
-          &mut self.hnsw,
-          None::<&B>,
-        )?;
-        eps = candidates.pop_until_nearest_k_nodes()?;
-        let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), self.m + 1), false);
-        Self::pop_to_scratch(candidates, &mut scratch)?;
-        scratch_per_level[i] = scratch;
-      }
-
-      // then do connections from bottom up
-      let len = scratch_per_level.len();
-      for (i, scratch) in scratch_per_level.into_iter().enumerate() {
-        Self::add_diverse_neighbors(
-          &mut self.hnsw,
-          &self.scorer_supplier,
-          self.m,
-          self.hnsw_lock.as_ref(),
-          i + lowest_unset_level,
-          node,
-          &scratch,
-        )?;
-      }
-
-      lowest_unset_level += len;
-      debug_assert!(lowest_unset_level == (std::cmp::min(cur_max_level, node_level) + 1));
-      if lowest_unset_level > node_level {
-        return Ok(());
-      }
-
-      debug_assert!(lowest_unset_level == (cur_max_level + 1) && node_level > cur_max_level);
-      if self
-        .hnsw
-        .try_promote_new_entry_node(node, node_level, cur_max_level)
-      {
-        return Ok(());
-      }
-
-      if self.hnsw.num_levels()? == cur_max_level + 1 {
-        // This should never happen if all the calculations are correct
-        return Err(LuceneError::illegal_state(format!(
-          "Unable to promote node {node} at level {node_level} as entry. Graph level {cur_max_level} has not changed."
-        )));
-      }
-    }
+    let mut hook = std::mem::take(&mut self.hook);
+    let result = hook.add_graph_node(self, node);
+    self.hook = hook;
+    result
   }
 
   fn set_info_stream(&mut self, info_stream: InfoStreamMT) {
@@ -738,30 +621,179 @@ where
     Ok(self.get_graph_mut())
   }
 }
-pub trait HnswGraphBuilderBase {
-  fn do_add_graph_node(&mut self, node: usize) -> Result<bool>;
-}
-pub struct EmptyHnswGraphBuilderBase;
-impl HnswGraphBuilderBase for EmptyHnswGraphBuilderBase {
-  fn do_add_graph_node(&mut self, _node: usize) -> Result<bool> {
-    Ok(false)
+
+impl HnswGraphBuilderDefaults {
+  pub(crate) fn add_graph_node<B, S, BS, H>(
+    builder: &mut HnswGraphBuilder<B, S, BS, H>,
+    node: usize,
+  ) -> Result<()>
+  where
+    B: Bits,
+    S: RandomVectorScorerSupplier,
+    BS: BitSet,
+    H: HnswGraphSearcherBase,
+  {
+    /*
+    Note: this implementation is thread safe when graph size is fixed (e.g. when merging)
+    The process of adding a node is roughly:
+    1. Add the node to all level from top to the bottom, but do not connect it to any other node,
+       nor try to promote itself to an entry node before the connection is done. (Unless the graph is empty
+       and this is the first node, in that case we set the entry node and return)
+    2. Do the search from top to bottom, remember all the possible neighbours on each level the node
+       is on.
+    3. Add the neighbor to the node from bottom to top level, when adding the neighbour,
+       we always add all the outgoing links first before adding incoming link such that
+       when a search visits this node, it can always find a way out
+    4. If the node has level that is less or equal to graph level, then we're done here.
+       If the node has level larger than graph level, then we need to promote the node
+       as the entry node. If, while we add the node to the graph, the entry node has changed
+       (which means the graph level has changed as well), we need to reinsert the node
+       to the newly introduced levels (repeating step 2,3 for new levels) and again try to
+       promote the node to entry node.
+     */
+
+    if builder.frozen {
+      return Err(LuceneError::illegal_state(
+        "Graph builder is already frozen",
+      ));
+    }
+
+    let scorer = builder.scorer_supplier.scorer(node)?;
+    let node_level =
+      HnswGraphBuilder::<B, S, BS, H>::get_random_graph_level(builder.ml, &mut builder.random);
+
+    // first add nodes to all levels
+    for level in (0..=node_level).rev() {
+      builder.hnsw.add_node(level, node)?;
+    }
+    // then promote itself as entry node if entry node is not set
+    if builder.hnsw.try_set_new_entry_node(node, node_level) {
+      return Ok(());
+    }
+
+    // if the entry node is already set, then we have to do all connections first
+    // before we can promote ourselves as entry node
+    let mut lowest_unset_level = 0;
+    let mut cur_max_level;
+    loop {
+      let mut eps = {
+        cur_max_level = builder.hnsw.num_levels()? - 1;
+        // NOTE: the entry node and max level may not be paired, but because we get the
+        // level first we ensure that the entry node we get later will
+        // always exist on the curMaxLevel
+        match builder.hnsw.entry_node()? {
+          Some(v) => {
+            vec![v]
+          },
+          None => {
+            return Err(LuceneError::illegal_state(
+              "Entry node is not set when trying to add connections",
+            ));
+          },
+        }
+      };
+      let top = std::cmp::min(node_level, cur_max_level);
+      let mut scratch_per_level = vec![NeighborArray::default(); top - lowest_unset_level + 1];
+      let candidates = &mut builder.entry_candidates;
+      for level in (node_level + 1..=cur_max_level).rev() {
+        candidates.clear();
+        builder.graph_searcher.search_level_with_collector(
+          candidates,
+          &scorer,
+          level,
+          &eps,
+          &mut builder.hnsw,
+          None::<&B>,
+        )?;
+        eps[0] = candidates.pop_node()?;
+      }
+
+      // for levels <= nodeLevel search with topk = beamWidth, and add connections
+      let candidates = &mut builder.beam_candidates;
+      for i in (0..scratch_per_level.len()).rev() {
+        let level = i + lowest_unset_level;
+        candidates.clear();
+        builder.graph_searcher.search_level_with_collector(
+          candidates,
+          &scorer,
+          level,
+          &eps,
+          &mut builder.hnsw,
+          None::<&B>,
+        )?;
+        eps = candidates.pop_until_nearest_k_nodes()?;
+        let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), builder.m + 1), false);
+        HnswGraphBuilder::<B, S, BS, H>::pop_to_scratch(candidates, &mut scratch)?;
+        scratch_per_level[i] = scratch;
+      }
+
+      // then do connections from bottom up
+      let len = scratch_per_level.len();
+      for (i, scratch) in scratch_per_level.into_iter().enumerate() {
+        HnswGraphBuilder::<B, S, BS, H>::add_diverse_neighbors(
+          &mut builder.hnsw,
+          &builder.scorer_supplier,
+          builder.m,
+          builder.hnsw_lock.as_ref(),
+          i + lowest_unset_level,
+          node,
+          &scratch,
+        )?;
+      }
+
+      lowest_unset_level += len;
+      debug_assert!(lowest_unset_level == (std::cmp::min(cur_max_level, node_level) + 1));
+      if lowest_unset_level > node_level {
+        return Ok(());
+      }
+
+      debug_assert!(lowest_unset_level == (cur_max_level + 1) && node_level > cur_max_level);
+      if builder
+        .hnsw
+        .try_promote_new_entry_node(node, node_level, cur_max_level)
+      {
+        return Ok(());
+      }
+
+      if builder.hnsw.num_levels()? == cur_max_level + 1 {
+        // This should never happen if all the calculations are correct
+        return Err(LuceneError::illegal_state(format!(
+          "Unable to promote node {node} at level {node_level} as entry. Graph level {cur_max_level} has not changed."
+        )));
+      }
+    }
   }
 }
-pub enum HnswGraphBuilderBaseEnum<B>
+
+pub(crate) trait HnswGraphBuilderBase<B, S, BS, H>
 where
   B: Bits,
+  S: RandomVectorScorerSupplier,
+  BS: BitSet,
+  H: HnswGraphSearcherBase,
 {
-  Initialized(InitializedHnswGraphBuilder<B>),
-  Empty(EmptyHnswGraphBuilderBase),
+  fn add_graph_node(
+    &mut self,
+    builder: &mut HnswGraphBuilder<B, S, BS, H>,
+    node: usize,
+  ) -> Result<()>;
 }
-impl<B> HnswGraphBuilderBase for HnswGraphBuilderBaseEnum<B>
+
+impl<B, S, BS, H> HnswGraphBuilderBase<B, S, BS, H> for HnswGraphBuilderHook<B>
 where
   B: Bits,
+  S: RandomVectorScorerSupplier,
+  BS: BitSet,
+  H: HnswGraphSearcherBase,
 {
-  fn do_add_graph_node(&mut self, node: usize) -> Result<bool> {
+  fn add_graph_node(
+    &mut self,
+    builder: &mut HnswGraphBuilder<B, S, BS, H>,
+    node: usize,
+  ) -> Result<()> {
     match self {
-      HnswGraphBuilderBaseEnum::Initialized(builder) => builder.do_add_graph_node(node),
-      HnswGraphBuilderBaseEnum::Empty(builder) => builder.do_add_graph_node(node),
+      Self::Default => HnswGraphBuilderDefaults::add_graph_node(builder, node),
+      Self::Initialized(hook) => hook.add_graph_node(builder, node),
     }
   }
 }
@@ -870,7 +902,14 @@ pub fn create<S>(
 where
   S: RandomVectorScorerSupplier,
 {
-  HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, -1, None)
+  HnswGraphBuilder::from_graph_size(
+    scorer_supplier,
+    m,
+    beam_width,
+    random,
+    -1,
+    HnswGraphBuilderHook::Default,
+  )
 }
 
 /// Equivalent to `HnswGraphBuilder::create(scorerSupplier, M, beamWidth,
@@ -885,7 +924,14 @@ pub fn create_with_graph_size<S>(
 where
   S: RandomVectorScorerSupplier,
 {
-  HnswGraphBuilder::from_graph_size(scorer_supplier, m, beam_width, random, graph_size, None)
+  HnswGraphBuilder::from_graph_size(
+    scorer_supplier,
+    m,
+    beam_width,
+    random,
+    graph_size,
+    HnswGraphBuilderHook::Default,
+  )
 }
 pub type DefaultHnswGraphBuilder<S> =
   HnswGraphBuilder<MatchNoBits, S, FixedBitSet, HnswGraphSearcherBaseDefault>;

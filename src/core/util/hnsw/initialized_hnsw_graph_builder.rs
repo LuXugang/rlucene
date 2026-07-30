@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::{
-  HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderBaseEnum,
+  HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderDefaults, HnswGraphBuilderHook,
 };
-use crate::core::util::hnsw::hnsw_graph_searcher::HnswGraphSearcherBaseDefault;
+use crate::core::util::hnsw::hnsw_graph_searcher::{
+  HnswGraphSearcherBase, HnswGraphSearcherBaseDefault,
+};
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 /// This creates a graph builder that is initialized with the provided `HnswGraph`. This is useful for
@@ -45,18 +48,26 @@ where
   B: Bits,
   S: RandomVectorScorerSupplier,
 {
-  let sub = Some(HnswGraphBuilderBaseEnum::Initialized(
-    InitializedHnswGraphBuilder { initialized_nodes },
-  ));
-  let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw, sub)?;
+  let hook = HnswGraphBuilderHook::Initialized(InitializedHnswGraphBuilder { initialized_nodes });
+  let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw, hook)?;
   Ok(base)
 }
-impl<B> HnswGraphBuilderBase for InitializedHnswGraphBuilder<B>
+impl<B, S, BS, H> HnswGraphBuilderBase<B, S, BS, H> for InitializedHnswGraphBuilder<B>
 where
   B: Bits,
+  S: RandomVectorScorerSupplier,
+  BS: BitSet,
+  H: HnswGraphSearcherBase,
 {
-  fn do_add_graph_node(&mut self, node: usize) -> Result<bool> {
-    self.initialized_nodes.get(node)
+  fn add_graph_node(
+    &mut self,
+    builder: &mut HnswGraphBuilder<B, S, BS, H>,
+    node: usize,
+  ) -> Result<()> {
+    if self.initialized_nodes.get(node)? {
+      return Ok(());
+    }
+    HnswGraphBuilderDefaults::add_graph_node(builder, node)
   }
 }
 /// Create a new `HnswGraphBuilder` that is initialized with the provided `HnswGraph`.
