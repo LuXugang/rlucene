@@ -16,12 +16,11 @@
  */
 use crate::core::codecs::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
-use crate::core::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -29,7 +28,7 @@ use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
-use crate::core::util::bits::{Bits, BitsEnum2};
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use crate::core::util::{HasIdentity, IOUtils};
@@ -37,12 +36,52 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+pub(crate) type DocBits = Arc<FixedBit>;
+
+enum LiveDocsState {
+  // Read-only live docs.
+  ReadOnly(DocBits),
+  // Writable live docs.
+  Writable(FixedBitSet),
+}
+
+impl HasIdentity for LiveDocsState {
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::ReadOnly(bits) => bits.identity(),
+      Self::Writable(bits) => bits.identity(),
+    }
+  }
+}
+
+impl Bits for LiveDocsState {
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      Self::ReadOnly(bits) => bits.get(index),
+      Self::Writable(bits) => bits.get(index),
+    }
+  }
+
+  fn length(&self) -> usize {
+    match self {
+      Self::ReadOnly(bits) => bits.length(),
+      Self::Writable(bits) => bits.length(),
+    }
+  }
+
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    match self {
+      Self::ReadOnly(bits) => bits.copy_of(),
+      Self::Writable(bits) => bits.copy_of(),
+    }
+  }
+}
+
 /// This struct handles accounting and applies pending deletes for live segment readers.
 pub(crate) struct PendingDeletes {
   // SegmentInfo::id
   pub(crate) info_id: String,
-  live_docs: Option<DocBits>,
-  writeable_live_docs: bool,
+  live_docs: Option<LiveDocsState>,
   pub(crate) pending_delete_count: i32,
   pub(crate) live_docs_initialized: bool,
   pub(crate) max_doc: i32,
@@ -90,8 +129,7 @@ impl PendingDeletes {
   ) -> Self {
     PendingDeletes {
       info_id,
-      live_docs,
-      writeable_live_docs: false,
+      live_docs: live_docs.map(LiveDocsState::ReadOnly),
       pending_delete_count: 0,
       live_docs_initialized,
       max_doc,
@@ -103,23 +141,20 @@ impl PendingDeletes {
       self.live_docs_initialized,
       "can't delete if liveDocs are not initialized",
     );
-    if !self.writeable_live_docs {
-      self.writeable_live_docs = true;
-      self.live_docs = Some(match self.live_docs.take() {
-        Some(BitsEnum2::A(b)) => BitsEnum2::B(BitsEnum2::B(b.copy_of()?)),
-        Some(BitsEnum2::B(BitsEnum2::A(fb))) => BitsEnum2::B(BitsEnum2::B(fb.copy_of()?)),
-        Some(BitsEnum2::B(BitsEnum2::B(_))) => {
-          return Err(LuceneError::illegal_state("should not be here"));
-        },
-        None => {
-          let mut v = FixedBitSet::new(self.max_doc as usize);
-          v.set_with_range(0, self.max_doc as usize);
-          BitsEnum2::B(BitsEnum2::B(v))
-        },
-      });
+    let writable_live_docs = match self.live_docs.as_ref() {
+      Some(LiveDocsState::ReadOnly(bits)) => Some(bits.copy_of()?),
+      Some(LiveDocsState::Writable(_)) => None,
+      None => {
+        let mut bits = FixedBitSet::new(self.max_doc as usize);
+        bits.set_with_range(0, self.max_doc as usize);
+        Some(bits)
+      },
+    };
+    if let Some(writable_live_docs) = writable_live_docs {
+      self.live_docs = Some(LiveDocsState::Writable(writable_live_docs));
     }
     match self.live_docs.as_mut() {
-      Some(BitsEnum2::B(BitsEnum2::B(v))) => Ok(v),
+      Some(LiveDocsState::Writable(bits)) => Ok(bits),
       _ => Err(LuceneError::illegal_state(
         "live_docs should be FixedBitSet",
       )),
@@ -191,21 +226,13 @@ impl PendingDeletesBase for PendingDeletes {
 
   fn get_live_docs(&mut self) -> Option<DocBits> {
     // Prevent modifications to the returned live docs
-    self.writeable_live_docs = false;
-    self.live_docs.take().map(|bits| match bits {
-      BitsEnum2::A(b) => {
-        self.live_docs = Some(DocBits::A(b.clone()));
-        BitsEnum2::A(b)
-      },
-      BitsEnum2::B(BitsEnum2::A(fb)) => {
-        self.live_docs = Some(DocBits::B(BitsEnum2::A(fb.clone())));
-        BitsEnum2::B(BitsEnum2::A(fb))
-      },
-      BitsEnum2::B(BitsEnum2::B(fbs)) => {
-        let fix_bit = Arc::new(fbs.to_read_only_bits());
-        self.live_docs = Some(DocBits::B(BitsEnum2::A(fix_bit.clone())));
-        BitsEnum2::B(BitsEnum2::A(fix_bit))
-      },
+    self.live_docs.take().map(|live_docs| {
+      let bits = match live_docs {
+        LiveDocsState::ReadOnly(bits) => bits,
+        LiveDocsState::Writable(bits) => Arc::new(bits.to_read_only_bits()),
+      };
+      self.live_docs = Some(LiveDocsState::ReadOnly(bits.clone()));
+      bits
     })
   }
 
@@ -222,7 +249,7 @@ impl PendingDeletesBase for PendingDeletes {
     D: Directory,
   {
     if !self.live_docs_initialized {
-      debug_assert!(!self.writeable_live_docs);
+      debug_assert!(!matches!(&self.live_docs, Some(LiveDocsState::Writable(_))));
       if reader.has_deletions()? {
         // we only initialize this once either in the ctor or here
         // if we use the live docs from a reader it has to be in a situation where we don't
@@ -232,14 +259,14 @@ impl PendingDeletesBase for PendingDeletes {
           "pendingDeleteCount: {}",
           self.pending_delete_count
         );
-        self.live_docs = reader.get_live_docs()?;
+        self.live_docs = reader.get_live_docs()?.map(LiveDocsState::ReadOnly);
 
-        if let Some(BitsEnum2::A(bits)) = &self.live_docs {
+        if let Some(bits) = &self.live_docs {
           let max_doc = info.info.max_doc()?;
           let del_count = info.get_del_count();
           debug_assert!(
             self
-              .assert_check_live_docs(&**bits, max_doc, del_count)
+              .assert_check_live_docs(bits, max_doc, del_count)
               .unwrap_or(false)
           );
         }
@@ -328,6 +355,19 @@ impl PendingDeletesBase for PendingDeletes {
     Ok(self.get_del_count(info) == info.info.max_doc()?)
   }
 
+  fn num_deletes_to_merge<D>(
+    &mut self,
+    _info: &SegmentCommitInfo<D>,
+    _reader: Option<&DefaultLeafReader<D>>,
+    _field_infos: Option<FieldInfos>,
+    _on_new_reader: bool,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    Ok(())
+  }
+
   fn max_doc(&self) -> i32 {
     self.max_doc
   }
@@ -336,10 +376,6 @@ impl PendingDeletesBase for PendingDeletes {
     false
   }
 }
-pub(crate) type DocBits = BitsEnum2<
-  Arc<<Lucene90LiveDocsFormat as LiveDocsFormat>::Bits>,
-  BitsEnum2<Arc<FixedBit>, FixedBitSet>,
->;
 impl fmt::Display for PendingDeletes {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(
@@ -348,7 +384,7 @@ impl fmt::Display for PendingDeletes {
       std::any::type_name::<Self>(),
       self.info_id,
       self.pending_delete_count,
-      self.writeable_live_docs
+      matches!(&self.live_docs, Some(LiveDocsState::Writable(_)))
     )
   }
 }
@@ -391,16 +427,13 @@ pub(crate) trait PendingDeletesBase: Display {
 
   fn num_deletes_to_merge<D>(
     &mut self,
-    _info: &SegmentCommitInfo<D>,
-    _reader: Option<&DefaultLeafReader<D>>,
-    _field_infos: Option<FieldInfos>,
-    _on_new_reader: bool,
+    info: &SegmentCommitInfo<D>,
+    reader: Option<&DefaultLeafReader<D>>,
+    field_infos: Option<FieldInfos>,
+    on_new_reader: bool,
   ) -> Result<()>
   where
-    D: Directory,
-  {
-    Ok(())
-  }
+    D: Directory;
 
   /// Returns true if the given reader needs to be refreshed to see the latest deletes
   fn needs_refresh<D>(
@@ -411,12 +444,12 @@ pub(crate) trait PendingDeletesBase: Display {
   where
     D: Directory,
   {
-    let same_live_docs = match (reader.get_live_docs()?, self.get_live_docs()) {
+    let live_docs_changed = match (reader.get_live_docs()?, self.get_live_docs()) {
       (None, None) => false,
       (Some(reader_bits), Some(current_bits)) => reader_bits.identity() != current_bits.identity(),
       _ => true,
     };
-    Ok(same_live_docs || reader.num_deleted_docs()? != self.get_del_count(info))
+    Ok(live_docs_changed || reader.num_deleted_docs()? != self.get_del_count(info))
   }
   /// Returns the number of deleted docs in the segment.
   fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
@@ -622,51 +655,21 @@ impl PendingDeletesBase for PendingDeletesEnum {
     }
   }
 
-  fn needs_refresh<D>(
+  fn num_deletes_to_merge<D>(
     &mut self,
-    reader: &SegmentReader<D>,
     info: &SegmentCommitInfo<D>,
-  ) -> Result<bool>
+    reader: Option<&DefaultLeafReader<D>>,
+    field_infos: Option<FieldInfos>,
+    on_new_reader: bool,
+  ) -> Result<()>
   where
     D: Directory,
   {
     match self {
-      PendingDeletesEnum::PD(a) => a.needs_refresh(reader, info),
-      PendingDeletesEnum::Soft(b) => b.needs_refresh(reader, info),
-    }
-  }
-
-  fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
-  where
-    D: Directory,
-  {
-    match self {
-      PendingDeletesEnum::PD(a) => a.get_del_count(info),
-      PendingDeletesEnum::Soft(b) => b.get_del_count(info),
-    }
-  }
-
-  fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
-  where
-    D: Directory,
-  {
-    match self {
-      PendingDeletesEnum::PD(a) => a.num_docs(info),
-      PendingDeletesEnum::Soft(b) => b.num_docs(info),
-    }
-  }
-
-  fn verify_doc_counts<D>(
-    &mut self,
-    reader: &impl CodecReader,
-    info: &SegmentCommitInfo<D>,
-  ) -> Result<bool>
-  where
-    D: Directory,
-  {
-    match self {
-      PendingDeletesEnum::PD(a) => a.verify_doc_counts(reader, info),
-      PendingDeletesEnum::Soft(b) => b.verify_doc_counts(reader, info),
+      PendingDeletesEnum::PD(a) => a.num_deletes_to_merge(info, reader, field_infos, on_new_reader),
+      PendingDeletesEnum::Soft(b) => {
+        b.num_deletes_to_merge(info, reader, field_infos, on_new_reader)
+      },
     }
   }
 

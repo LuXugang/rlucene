@@ -32,7 +32,6 @@ use crate::core::index::leaf_reader::LeafReader;
 pub use crate::core::index::live_index_writer_config::LeafSorter;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
-use crate::core::index::pending_deletes::DocBits;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::{FindSegmentsFile, SegmentInfos};
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
@@ -366,10 +365,7 @@ where
                     &IOContext::read_once_io_context()?,
                   )?,
               );
-              (
-                Some(DocBits::A(live_docs.clone())),
-                Some(DocBits::A(live_docs)),
-              )
+              (Some(live_docs.clone()), Some(live_docs))
             } else {
               (None, None)
             };
@@ -414,10 +410,7 @@ where
                     &IOContext::read_once_io_context()?,
                   )?,
               );
-              (
-                Some(DocBits::A(live_docs.clone())),
-                Some(DocBits::A(live_docs)),
-              )
+              (Some(live_docs.clone()), Some(live_docs))
             } else {
               (None, None)
             };

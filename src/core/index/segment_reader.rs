@@ -50,7 +50,7 @@ use crate::core::index::term::Term;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::bits::{Bits, BitsEnum2};
+use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -133,7 +133,7 @@ where
           si,
           &IOContext::read_once_io_context()?,
         )?);
-        (Some(DocBits::A(ld.clone())), Some(DocBits::A(ld)))
+        (Some(ld.clone()), Some(ld))
       } else {
         debug_assert_eq!(si.get_del_count(), 0);
         (None, None)
@@ -264,21 +264,7 @@ where
       false => debug_assert!(
         match (hard_live_docs, live_docs) {
           (None, None) => true,
-          (Some(reader_bits), Some(current_bits)) => match (reader_bits, current_bits) {
-            (BitsEnum2::A(r_bits), BitsEnum2::A(c_bits)) => Arc::ptr_eq(r_bits, c_bits),
-            (BitsEnum2::B(r_bits), BitsEnum2::B(c_bits)) => match (r_bits, c_bits) {
-              (BitsEnum2::A(r_fixed), BitsEnum2::A(c_fixed)) => {
-                Arc::ptr_eq(r_fixed, c_fixed)
-              },
-              (BitsEnum2::B(_), BitsEnum2::B(_)) => {
-                return Err(LuceneError::illegal_state(
-                  "live docs should be FixedBitSet",
-                ));
-              },
-              _ => false,
-            },
-            _ => false,
-          },
+          (Some(reader_bits), Some(current_bits)) => Arc::ptr_eq(reader_bits, current_bits),
           _ => false,
         },
         "non-nrt case must have identical liveDocs"
@@ -362,16 +348,7 @@ where
   }
 
   pub fn get_hard_live_docs(&self) -> Result<Option<DocBits>> {
-    match &self.hard_live_docs {
-      Some(DocBits::A(a)) => Ok(Some(DocBits::A(Arc::clone(a)))),
-      Some(DocBits::B(b)) => match b {
-        BitsEnum2::A(a) => Ok(Some(DocBits::B(BitsEnum2::A(Arc::clone(a))))),
-        BitsEnum2::B(_) => Err(LuceneError::illegal_state(
-          "hard live docs should be FixedBitSet",
-        )),
-      },
-      None => Ok(None),
-    }
+    Ok(self.hard_live_docs.clone())
   }
 }
 pub enum DocValuesProducers<D>
@@ -681,16 +658,7 @@ where
   type Bits = DocBits;
 
   fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
-    match &self.live_docs {
-      Some(DocBits::A(a)) => Ok(Some(DocBits::A(Arc::clone(a)))),
-      Some(DocBits::B(b)) => match b {
-        BitsEnum2::A(a) => Ok(Some(DocBits::B(BitsEnum2::A(Arc::clone(a))))),
-        BitsEnum2::B(_) => Err(LuceneError::illegal_state(
-          "live docs should be FixedBitSet",
-        )),
-      },
-      None => Ok(None),
-    }
+    Ok(self.live_docs.clone())
   }
 
   type PointValues = <<Self as CodecReader>::PointsReader as PointsReader>::PointValuesType;
