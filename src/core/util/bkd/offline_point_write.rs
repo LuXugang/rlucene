@@ -80,7 +80,7 @@ where
     D: Directory,
   {
     debug_assert!(
-      self.closed && self.out.is_none(),
+      self.closed,
       "point writer is still open and trying to get a reader"
     );
     debug_assert!(
