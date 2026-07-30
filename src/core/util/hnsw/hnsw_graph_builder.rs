@@ -30,9 +30,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
-use crate::core::util::hnsw::hnsw_graph_searcher::{
-  HnswGraphSearcher, HnswGraphSearcherBase, HnswGraphSearcherBaseDefault,
-};
+use crate::core::util::hnsw::hnsw_graph_searcher::HnswGraphSearcher;
 use crate::core::util::hnsw::hnsw_lock::HnswLock;
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
 use crate::core::util::hnsw::initialized_hnsw_graph_builder::InitializedHnswGraphBuilder;
@@ -44,18 +42,17 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSu
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
-pub struct HnswGraphBuilder<B, S, BS, H>
+pub struct HnswGraphBuilder<B, S, BS>
 where
   S: RandomVectorScorerSupplier,
   BS: BitSet,
-  H: HnswGraphSearcherBase,
   B: Bits,
 {
   m: usize,
   ml: f64,
   random: SmallRng,
   scorer_supplier: S,
-  graph_searcher: HnswGraphSearcher<BS, H>,
+  graph_searcher: HnswGraphSearcher<BS>,
   entry_candidates: GraphBuilderKnnCollector,
   beam_candidates: GraphBuilderKnnCollector,
   hnsw: OnHeapHnswGraph,
@@ -77,7 +74,7 @@ where
 
 pub(crate) struct HnswGraphBuilderDefaults;
 
-impl<B, S> HnswGraphBuilder<B, S, FixedBitSet, HnswGraphSearcherBaseDefault>
+impl<B, S> HnswGraphBuilder<B, S, FixedBitSet>
 where
   S: RandomVectorScorerSupplier,
   B: Bits,
@@ -127,7 +124,6 @@ where
     let searcher = HnswGraphSearcher::new(
       NeighborQueue::new(beam_width, true)?,
       FixedBitSet::new(size),
-      HnswGraphSearcherBaseDefault,
     );
     Self::new(
       scorer_supplier,
@@ -141,11 +137,10 @@ where
     )
   }
 }
-impl<B, S, BS, H> HnswGraphBuilder<B, S, BS, H>
+impl<B, S, BS> HnswGraphBuilder<B, S, BS>
 where
   S: RandomVectorScorerSupplier,
   BS: BitSet,
-  H: HnswGraphSearcherBase,
   B: Bits,
 {
   /// Reads all the vectors from vector values, builds a graph connecting them
@@ -171,7 +166,7 @@ where
     seed: u64,
     hnsw: OnHeapHnswGraph,
     hnsw_lock: Option<HnswLock>,
-    graph_searcher: HnswGraphSearcher<BS, H>,
+    graph_searcher: HnswGraphSearcher<BS>,
     hook: HnswGraphBuilderHook<B>,
   ) -> Result<Self> {
     if m == 0 {
@@ -570,11 +565,10 @@ where
   }
 }
 
-impl<B, S, BS, H> HnswBuilder for HnswGraphBuilder<B, S, BS, H>
+impl<B, S, BS> HnswBuilder for HnswGraphBuilder<B, S, BS>
 where
   S: RandomVectorScorerSupplier,
   BS: BitSet,
-  H: HnswGraphSearcherBase,
   B: Bits,
 {
   fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph> {
@@ -623,15 +617,14 @@ where
 }
 
 impl HnswGraphBuilderDefaults {
-  pub(crate) fn add_graph_node<B, S, BS, H>(
-    builder: &mut HnswGraphBuilder<B, S, BS, H>,
+  pub(crate) fn add_graph_node<B, S, BS>(
+    builder: &mut HnswGraphBuilder<B, S, BS>,
     node: usize,
   ) -> Result<()>
   where
     B: Bits,
     S: RandomVectorScorerSupplier,
     BS: BitSet,
-    H: HnswGraphSearcherBase,
   {
     /*
     Note: this implementation is thread safe when graph size is fixed (e.g. when merging)
@@ -660,7 +653,7 @@ impl HnswGraphBuilderDefaults {
 
     let scorer = builder.scorer_supplier.scorer(node)?;
     let node_level =
-      HnswGraphBuilder::<B, S, BS, H>::get_random_graph_level(builder.ml, &mut builder.random);
+      HnswGraphBuilder::<B, S, BS>::get_random_graph_level(builder.ml, &mut builder.random);
 
     // first add nodes to all levels
     for level in (0..=node_level).rev() {
@@ -723,14 +716,14 @@ impl HnswGraphBuilderDefaults {
         )?;
         eps = candidates.pop_until_nearest_k_nodes()?;
         let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), builder.m + 1), false);
-        HnswGraphBuilder::<B, S, BS, H>::pop_to_scratch(candidates, &mut scratch)?;
+        HnswGraphBuilder::<B, S, BS>::pop_to_scratch(candidates, &mut scratch)?;
         scratch_per_level[i] = scratch;
       }
 
       // then do connections from bottom up
       let len = scratch_per_level.len();
       for (i, scratch) in scratch_per_level.into_iter().enumerate() {
-        HnswGraphBuilder::<B, S, BS, H>::add_diverse_neighbors(
+        HnswGraphBuilder::<B, S, BS>::add_diverse_neighbors(
           &mut builder.hnsw,
           &builder.scorer_supplier,
           builder.m,
@@ -765,30 +758,25 @@ impl HnswGraphBuilderDefaults {
   }
 }
 
-pub(crate) trait HnswGraphBuilderBase<B, S, BS, H>
+pub(crate) trait HnswGraphBuilderBase<B, S, BS>
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
   BS: BitSet,
-  H: HnswGraphSearcherBase,
 {
-  fn add_graph_node(
-    &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS, H>,
-    node: usize,
-  ) -> Result<()>;
+  fn add_graph_node(&mut self, builder: &mut HnswGraphBuilder<B, S, BS>, node: usize)
+  -> Result<()>;
 }
 
-impl<B, S, BS, H> HnswGraphBuilderBase<B, S, BS, H> for HnswGraphBuilderHook<B>
+impl<B, S, BS> HnswGraphBuilderBase<B, S, BS> for HnswGraphBuilderHook<B>
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
   BS: BitSet,
-  H: HnswGraphSearcherBase,
 {
   fn add_graph_node(
     &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS, H>,
+    builder: &mut HnswGraphBuilder<B, S, BS>,
     node: usize,
   ) -> Result<()> {
     match self {
@@ -933,5 +921,4 @@ where
     HnswGraphBuilderHook::Default,
   )
 }
-pub type DefaultHnswGraphBuilder<S> =
-  HnswGraphBuilder<MatchNoBits, S, FixedBitSet, HnswGraphSearcherBaseDefault>;
+pub type DefaultHnswGraphBuilder<S> = HnswGraphBuilder<MatchNoBits, S, FixedBitSet>;
