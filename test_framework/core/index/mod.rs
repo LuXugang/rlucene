@@ -62,6 +62,7 @@ pub mod test_index_writer_reader;
 pub mod test_pending_soft_deletes;
 pub mod test_segment_reader;
 pub(crate) mod test_segment_to_thread_mapping;
+pub(crate) mod test_stored_fields_consumer;
 pub mod test_terms_hash_per_field;
 pub mod test_tragic_index_writer_deadlock;
 pub mod threaded_indexing_and_searching_test_case;

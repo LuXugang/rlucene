@@ -87,9 +87,11 @@ use crate::core::index::sorted_set_doc_values_writer::{
 use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
 use crate::core::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
-use crate::core::index::stored_fields_consumer::StoredFieldsConsumer;
+use crate::core::index::stored_fields_consumer::{StoredFieldsConsumer, StoredFieldsConsumerHook};
 use crate::core::index::term::Term;
-use crate::core::index::term_vectors_consumer::{PerFieldMeta, TermVectorsConsumer};
+use crate::core::index::term_vectors_consumer::{
+  PerFieldMeta, TermVectorsConsumer, TermVectorsConsumerHook,
+};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::index::vector_values_consumer::VectorValuesConsumer;
@@ -209,24 +211,30 @@ where
     let codec = index_writer_config.get_codec().clone();
     let (stored_fields_consumer, term_vectors_writer) = if segment_info.get_index_sort().is_none() {
       (
-        StoredFieldsConsumer::new(codec.clone(), directory.clone(), None),
-        TermVectorsConsumer::new(codec.clone(), directory.clone(), None),
-      )
-    } else {
-      let stored_fields_consumer_sub =
-        SortingStoredFieldsConsumer::new(codec.clone(), directory.clone())?;
-      let term_vector_consumer_sub =
-        SortingTermVectorsConsumer::new(codec.clone(), directory.clone())?;
-      (
         StoredFieldsConsumer::new(
           codec.clone(),
           directory.clone(),
-          Some(stored_fields_consumer_sub),
+          StoredFieldsConsumerHook::default(),
         ),
         TermVectorsConsumer::new(
           codec.clone(),
           directory.clone(),
-          Some(term_vector_consumer_sub),
+          TermVectorsConsumerHook::default(),
+        ),
+      )
+    } else {
+      let stored_fields_consumer_sub = SortingStoredFieldsConsumer::new(directory.clone())?;
+      let term_vector_consumer_sub = SortingTermVectorsConsumer::new(directory.clone())?;
+      (
+        StoredFieldsConsumer::new(
+          codec.clone(),
+          directory.clone(),
+          StoredFieldsConsumerHook::Sorting(stored_fields_consumer_sub),
+        ),
+        TermVectorsConsumer::new(
+          codec.clone(),
+          directory.clone(),
+          TermVectorsConsumerHook::Sorting(term_vector_consumer_sub),
         ),
       )
     };
@@ -403,7 +411,7 @@ where
     self.stored_fields_consumer.finish(max_doc, segment_info)?;
     self
       .stored_fields_consumer
-      .flush(state, sort_map.as_ref(), segment_info, state.directory)?;
+      .flush(state, sort_map.as_ref(), segment_info)?;
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",

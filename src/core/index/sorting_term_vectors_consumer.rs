@@ -28,7 +28,9 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::sorting_stored_fields_consumer::NoCompression;
 use crate::core::index::term_vectors::TermVectors;
-use crate::core::index::term_vectors_consumer::TermVectorsConsumerBase;
+use crate::core::index::term_vectors_consumer::{
+  TermVectorsConsumerBase, TermVectorsConsumerDefaults,
+};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
@@ -51,14 +53,13 @@ where
 {
   pub(crate) writer: Option<DefaultTermVectorsWriter<TrackingTmpOutputDirectoryWrapper<D>>>,
   pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
-  codec: Codecs,
   tmp_term_vectors_format: Lucene90CompressingTermVectorsFormat,
 }
 impl<D> SortingTermVectorsConsumer<D>
 where
   D: Directory + Clone,
 {
-  pub(crate) fn new(codec: Codecs, dir: D) -> Result<Self> {
+  pub(crate) fn new(dir: D) -> Result<Self> {
     let tmp_term_vectors_format = Lucene90CompressingTermVectorsFormat::new(
       "TempTermVectors",
       "",
@@ -71,7 +72,6 @@ where
     Ok(Self {
       writer: None,
       tmp_directory,
-      codec,
       tmp_term_vectors_format,
     })
   }
@@ -219,6 +219,8 @@ where
 
   fn flush<DM, D1>(
     &mut self,
+    codec: &Codecs,
+    last_doc_id: &mut i32,
     state: &SegmentWriteState<Self::Directory>,
     sort_map: Option<&DM>,
     segment_info: &SegmentInfo<D1>,
@@ -227,6 +229,17 @@ where
     DM: DocMap,
     D1: Directory,
   {
+    if self.writer.is_none() {
+      return Ok(());
+    }
+
+    TermVectorsConsumerDefaults::flush(
+      &mut self.writer,
+      last_doc_id,
+      &self.tmp_directory,
+      segment_info,
+    )?;
+
     let mut reader = self.tmp_term_vectors_format.vectors_reader(
       &self.tmp_directory,
       segment_info,
@@ -236,7 +249,7 @@ where
     // Don't pull a merge instance, since merge instances optimize for
     // sequential access while term vectors will likely be accessed in random
     // order here.
-    let mut writer = self.codec.term_vectors_format().vectors_writer(
+    let mut writer = codec.term_vectors_format().vectors_writer(
       state.directory,
       segment_info,
       &state.context.clone(),
@@ -281,7 +294,9 @@ where
 
   fn init_term_vectors_writer<D1>(
     &mut self,
-    last_doc_id: i32,
+    _directory: &Self::Directory,
+    _codec: &Codecs,
+    last_doc_id: &mut i32,
     info: &SegmentInfo<D1>,
     bytes_used: i64,
   ) -> Result<()>
@@ -289,17 +304,21 @@ where
     D1: Directory,
   {
     if self.writer.is_none() {
-      let context = IOContext::with_flush(FlushInfo::new(last_doc_id, bytes_used))?;
+      let context = IOContext::with_flush(FlushInfo::new(*last_doc_id, bytes_used))?;
       self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(
         self.tmp_directory.clone(),
         info,
         &context,
       )?);
+      *last_doc_id = 0;
     }
     Ok(())
   }
 
   fn abort(&mut self) -> Result<()> {
+    let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      TermVectorsConsumerDefaults::abort(&mut self.writer)
+    }));
     let file_names: Vec<String> = self
       .tmp_directory
       .get_temporary_files()
@@ -309,6 +328,9 @@ where
       .cloned()
       .collect();
     IOUtils::delete_files_ignoring_exceptions(&self.tmp_directory, &file_names);
-    Ok(())
+    match abort_result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 }

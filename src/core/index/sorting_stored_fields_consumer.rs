@@ -32,7 +32,9 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::StoredFields;
-use crate::core::index::stored_fields_consumer::StoredFieldsConsumerBase;
+use crate::core::index::stored_fields_consumer::{
+  StoredFieldsConsumerBase, StoredFieldsConsumerDefaults,
+};
 use crate::core::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::directory::Directory;
@@ -50,14 +52,13 @@ where
 {
   pub(crate) writer: Option<DefaultStoredFieldsWriter<TrackingTmpOutputDirectoryWrapper<D>>>,
   pub(crate) tmp_directory: TrackingTmpOutputDirectoryWrapper<D>,
-  codec: Codecs,
   stored_fields_format: Lucene90CompressingStoredFieldsFormat,
 }
 impl<D> SortingStoredFieldsConsumer<D>
 where
   D: Directory + Clone,
 {
-  pub(crate) fn new(codec: Codecs, dir: D) -> Result<Self> {
+  pub(crate) fn new(dir: D) -> Result<Self> {
     let stored_fields_format = Lucene90CompressingStoredFieldsFormat::new(
       "TempStoredFields",
       CompressionModeEnum::Impl(NoCompression),
@@ -69,7 +70,6 @@ where
     Ok(Self {
       writer: None,
       tmp_directory,
-      codec,
       stored_fields_format,
     })
   }
@@ -81,7 +81,12 @@ where
 {
   type Directory = D;
 
-  fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+  fn init_stored_fields_writer<D1>(
+    &mut self,
+    _directory: &Self::Directory,
+    _codec: &Codecs,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
   where
     D1: Directory,
   {
@@ -96,8 +101,17 @@ where
     Ok(())
   }
 
+  fn start_document(&mut self, last_doc: &mut i32, doc_id: i32) -> Result<()> {
+    StoredFieldsConsumerDefaults::start_document(&mut self.writer, last_doc, doc_id)
+  }
+
+  fn finish_document(&mut self) -> Result<()> {
+    StoredFieldsConsumerDefaults::finish_document(&mut self.writer)
+  }
+
   fn flush<DM, D1>(
     &mut self,
+    codec: &Codecs,
     state: &SegmentWriteState<Self::Directory>,
     sort_map: Option<&DM>,
     info: &mut SegmentInfo<D1>,
@@ -106,6 +120,8 @@ where
     DM: DocMap,
     D1: Directory,
   {
+    StoredFieldsConsumerDefaults::flush(&mut self.writer, &self.tmp_directory, info)?;
+
     let mut reader = self.stored_fields_format.fields_reader(
       &self.tmp_directory,
       info,
@@ -115,8 +131,7 @@ where
     // Don't pull a merge instance, since merge instances optimize for
     // sequential access while we consume stored fields in random order here.
     let mut sort_writer =
-      self
-        .codec
+      codec
         .stored_fields_format()
         .fields_writer(state.directory, info, state.context)?;
 
@@ -167,6 +182,9 @@ where
   }
 
   fn abort(&mut self) -> Result<()> {
+    let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      StoredFieldsConsumerDefaults::abort(&mut self.writer)
+    }));
     let file_names: Vec<String> = self
       .tmp_directory
       .get_temporary_files()
@@ -176,7 +194,10 @@ where
       .cloned()
       .collect();
     IOUtils::delete_files_ignoring_exceptions(&self.tmp_directory, &file_names);
-    Ok(())
+    match abort_result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 }
 

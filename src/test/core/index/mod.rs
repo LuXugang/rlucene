@@ -96,6 +96,7 @@ mod test_segment_term_enum;
 mod test_segment_to_thread_mapping;
 mod test_snapshot_deletion_policy;
 mod test_soft_deletes_retention_merge_policy;
+mod test_stored_fields_consumer;
 mod test_term_doc_perf;
 mod test_term_vectors_reader;
 mod test_terms_enum2;

@@ -34,7 +34,6 @@ use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, IOUtils, TryIntoInt};
@@ -47,14 +46,25 @@ where
 {
   directory: D,
   codec: Codecs,
-  pub(crate) writer: Option<DefaultTermVectorsWriter<D>>,
   has_vectors: bool,
   num_vector_fields: i32,
   pub(crate) last_doc_id: i32,
   per_fields_idxs: Vec<PerFieldMeta>,
-  sub: Option<SortingTermVectorsConsumer<D>>,
+  hook: TermVectorsConsumerHook<D>,
   pub(crate) base: TermsHash,
 }
+
+pub(crate) enum TermVectorsConsumerHook<D>
+where
+  D: Directory,
+{
+  Default {
+    writer: Option<DefaultTermVectorsWriter<D>>,
+  },
+  Sorting(SortingTermVectorsConsumer<D>),
+}
+
+pub(crate) struct TermVectorsConsumerDefaults;
 
 /// Parameter `idx` is the index of the [`PerField`] where the [`TermVectorsConsumerPerField`] resides.
 /// [`PerField`] itself is located in the [`IndexingChain`](crate::core::index::indexing_chain::IndexingChain)'s `doc_fields` array.
@@ -90,7 +100,95 @@ impl Ord for PerFieldMeta {
 impl Default for TermVectorsConsumer<DummyDirectory> {
   fn default() -> Self {
     let directory = DummyDirectory;
-    TermVectorsConsumer::new(codec::get_default(), directory, None)
+    TermVectorsConsumer::new(
+      codec::get_default(),
+      directory,
+      TermVectorsConsumerHook::default(),
+    )
+  }
+}
+
+impl<D> Default for TermVectorsConsumerHook<D>
+where
+  D: Directory,
+{
+  fn default() -> Self {
+    Self::Default { writer: None }
+  }
+}
+
+impl<D> TermVectorsConsumerHook<D>
+where
+  D: Directory,
+{
+  fn fill(&mut self, last_doc_id: &mut i32, doc_id: i32) -> Result<()> {
+    match self {
+      Self::Default { writer } => TermVectorsConsumerDefaults::fill(writer, last_doc_id, doc_id),
+      Self::Sorting(hook) => {
+        TermVectorsConsumerDefaults::fill(&mut hook.writer, last_doc_id, doc_id)
+      },
+    }
+  }
+
+  fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
+    match self {
+      Self::Default { writer } => writer
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+        .start_document(num_vector_fields),
+      Self::Sorting(hook) => hook
+        .writer
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+        .start_document(num_vector_fields),
+    }
+  }
+
+  fn finish_document(&mut self) -> Result<()> {
+    match self {
+      Self::Default { writer } => writer
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+        .finish_document(),
+      Self::Sorting(hook) => hook
+        .writer
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+        .finish_document(),
+    }
+  }
+
+  fn write_per_field(
+    &mut self,
+    per_field: &mut TermVectorsConsumerPerField,
+    int_pool: &mut IntBlockPool,
+    byte_pool: &ByteBlockPool,
+  ) -> Result<()> {
+    match self {
+      Self::Default { writer } => {
+        let writer = writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+        per_field.write_to_writer(writer, int_pool, byte_pool)
+      },
+      Self::Sorting(hook) => {
+        let writer = hook
+          .writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
+        per_field.write_to_writer(writer, int_pool, byte_pool)
+      },
+    }
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::Default { writer } => writer.as_ref().map_or(Ok(0), Accountable::ram_bytes_used),
+      Self::Sorting(hook) => hook
+        .writer
+        .as_ref()
+        .map_or(Ok(0), Accountable::ram_bytes_used),
+    }
   }
 }
 
@@ -98,11 +196,7 @@ impl<D> TermVectorsConsumer<D>
 where
   D: Directory + Clone,
 {
-  pub(crate) fn new(
-    codec: Codecs,
-    directory: D,
-    sub: Option<SortingTermVectorsConsumer<D>>,
-  ) -> Self {
+  pub(crate) fn new(codec: Codecs, directory: D, hook: TermVectorsConsumerHook<D>) -> Self {
     let base = TermsHash::new(Arc::new(AtomicCounter::new()));
 
     let per_fields = vec![PerFieldMeta::default(); 1];
@@ -110,13 +204,12 @@ where
     TermVectorsConsumer {
       directory,
       codec,
-      writer: None,
       has_vectors: false,
       num_vector_fields: 0,
       last_doc_id: 0,
       per_fields_idxs: per_fields,
       base,
-      sub,
+      hook,
     }
   }
   fn reset_fields(&mut self) {
@@ -124,26 +217,7 @@ where
     self.num_vector_fields = 0;
   }
   fn fill(&mut self, doc_id: i32) -> Result<()> {
-    while self.last_doc_id < doc_id {
-      match self.sub {
-        Some(ref mut sub) => {
-          let writer = sub.writer.as_mut().ok_or_else(|| {
-            LuceneError::illegal_state("TermVectorsConsumer writer is not initialized")
-          })?;
-          writer.start_document(0)?;
-          writer.finish_document()?;
-        },
-        None => {
-          let writer = self.writer.as_mut().ok_or_else(|| {
-            LuceneError::illegal_state("TermVectorsConsumer writer is not initialized")
-          })?;
-          writer.start_document(0)?;
-          writer.finish_document()?;
-        },
-      }
-      self.last_doc_id += 1;
-    }
-    Ok(())
+    self.hook.fill(&mut self.last_doc_id, doc_id)
   }
 
   pub(crate) fn set_has_vectors(&mut self) {
@@ -173,20 +247,7 @@ where
     self.init_term_vectors_writer(info)?;
     self.fill(doc_id)?;
     // Append term vectors to the real outputs:
-    match self.sub {
-      Some(ref mut sub) => {
-        if let Some(writer) = sub.writer.as_mut() {
-          writer.start_document(self.num_vector_fields)?;
-        }
-      },
-      None => {
-        self
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
-          .start_document(self.num_vector_fields)?;
-      },
-    }
+    self.hook.start_document(self.num_vector_fields)?;
     let idxs = std::mem::take(&mut self.per_fields_idxs);
     for per_field_idx in idxs.into_iter().take(self.num_vector_fields as usize) {
       let v = &mut per_fields[per_field_idx.idx as usize];
@@ -202,22 +263,7 @@ where
       next_per_field.reset(byte_pool)
     }
 
-    match self.sub {
-      Some(ref mut sub) => {
-        sub
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
-          .finish_document()?;
-      },
-      None => {
-        self
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
-          .finish_document()?;
-      },
-    }
+    self.hook.finish_document()?;
     debug_assert_eq!(
       self.last_doc_id, doc_id,
       "last_doc_id = {}, doc_id = {}",
@@ -245,22 +291,7 @@ where
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
   ) -> Result<()> {
-    match self.sub {
-      Some(ref mut sub) => {
-        let writer = sub
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-        per_field.write_to_writer(writer, int_pool, byte_pool)
-      },
-      None => {
-        let writer = self
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-        per_field.write_to_writer(writer, int_pool, byte_pool)
-      },
-    }
+    self.hook.write_per_field(per_field, int_pool, byte_pool)
   }
   pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) -> Result<()> {
     let num_vector_fields = self.num_vector_fields as usize;
@@ -282,100 +313,26 @@ where
     DM: DocMap,
     D1: Directory,
   {
-    if self.writer.is_some() || self.sub.as_ref().is_some_and(|sub| sub.writer.is_some()) {
-      let num_docs = info.max_doc()?;
-      debug_assert!(num_docs > 0);
-      // At least one doc in this run had term vectors enabled
-      let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        self.fill(num_docs)?;
-        match self.sub {
-          Some(ref mut sub) => {
-            let writer = sub
-              .writer
-              .as_mut()
-              .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-            writer.finish(num_docs, &sub.tmp_directory)
-          },
-          None => {
-            let writer = self
-              .writer
-              .as_mut()
-              .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-            writer.finish(num_docs, state.directory)
-          },
-        }
-      }));
-      match self.sub {
-        Some(ref mut sub) => {
-          let writer = sub
-            .writer
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-          let close_result = writer.close();
-          close_result?;
-        },
-        None => {
-          let writer = self
-            .writer
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-          let close_result = writer.close();
-          close_result?;
-        },
-      }
-      match finish_result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
-
-      if let Some(ref mut sub) = self.sub {
-        sub.flush(state, sort_map, info)?;
-      }
-    }
-
-    Ok(())
+    self
+      .hook
+      .flush(&self.codec, &mut self.last_doc_id, state, sort_map, info)
   }
 
   fn init_term_vectors_writer<D1>(&mut self, info: &SegmentInfo<D1>) -> Result<()>
   where
     D1: Directory,
   {
-    match self.sub {
-      Some(ref mut sub) => {
-        if sub.writer.is_none() {
-          sub.init_term_vectors_writer(self.last_doc_id, info, self.base.bytes_used.get())?;
-          self.last_doc_id = 0;
-        }
-      },
-      None => {
-        if self.writer.is_none() {
-          let flush_info = FlushInfo::new(self.last_doc_id, self.base.bytes_used.get());
-          let context = IOContext::with_flush(flush_info)?;
-
-          self.writer = Option::from(self.codec.term_vectors_format().vectors_writer(
-            self.directory.clone(),
-            info,
-            &context,
-          )?);
-          self.last_doc_id = 0;
-        }
-      },
-    }
-    Ok(())
+    self.hook.init_term_vectors_writer(
+      &self.directory,
+      &self.codec,
+      &mut self.last_doc_id,
+      info,
+      self.base.bytes_used.get(),
+    )
   }
 
   pub(crate) fn abort(&mut self) -> Result<()> {
-    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match self.sub {
-      Some(ref mut sub) => IOUtils::close_resources_while_handling_error(sub.writer.as_mut()),
-      None => IOUtils::close_resources_while_handling_error(self.writer.as_mut()),
-    }));
-    if let Some(ref mut sub) = self.sub {
-      sub.abort()?;
-    }
-    match close_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    self.hook.abort()
   }
 }
 
@@ -384,16 +341,93 @@ where
   D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    match self.sub {
-      Some(ref sub) => sub
-        .writer
-        .as_ref()
-        .map_or(Ok(0), Accountable::ram_bytes_used),
-      None => self
-        .writer
-        .as_ref()
-        .map_or(Ok(0), Accountable::ram_bytes_used),
+    self.hook.ram_bytes_used()
+  }
+}
+
+impl TermVectorsConsumerDefaults {
+  pub(crate) fn fill<TW>(writer: &mut Option<TW>, last_doc_id: &mut i32, doc_id: i32) -> Result<()>
+  where
+    TW: TermVectorsWriter,
+  {
+    while *last_doc_id < doc_id {
+      let writer = writer.as_mut().ok_or_else(|| {
+        LuceneError::illegal_state("TermVectorsConsumer writer is not initialized")
+      })?;
+      writer.start_document(0)?;
+      writer.finish_document()?;
+      *last_doc_id += 1;
     }
+    Ok(())
+  }
+
+  pub(crate) fn flush<TW, WD, D1>(
+    writer: &mut Option<TW>,
+    last_doc_id: &mut i32,
+    directory: &WD,
+    info: &SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    TW: TermVectorsWriter,
+    WD: Directory,
+    D1: Directory,
+  {
+    if writer.is_some() {
+      let num_docs = info.max_doc()?;
+      debug_assert!(num_docs > 0);
+      // At least one doc in this run had term vectors enabled
+      let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        Self::fill(writer, last_doc_id, num_docs)?;
+        writer
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+          .finish(num_docs, directory)
+      }));
+      let close_result = writer
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
+        .close();
+      close_result?;
+      match finish_result {
+        Ok(result) => result?,
+        Err(payload) => std::panic::resume_unwind(payload),
+      }
+    }
+
+    Ok(())
+  }
+
+  pub(crate) fn init_term_vectors_writer<D, D1>(
+    writer: &mut Option<DefaultTermVectorsWriter<D>>,
+    directory: &D,
+    codec: &Codecs,
+    last_doc_id: &mut i32,
+    info: &SegmentInfo<D1>,
+    bytes_used: i64,
+  ) -> Result<()>
+  where
+    D: Directory + Clone,
+    D1: Directory,
+  {
+    if writer.is_none() {
+      let flush_info = FlushInfo::new(*last_doc_id, bytes_used);
+      let context = IOContext::with_flush(flush_info)?;
+
+      *writer = Some(codec.term_vectors_format().vectors_writer(
+        directory.clone(),
+        info,
+        &context,
+      )?);
+      *last_doc_id = 0;
+    }
+    Ok(())
+  }
+
+  pub(crate) fn abort<TW>(writer: &mut Option<TW>) -> Result<()>
+  where
+    TW: TermVectorsWriter,
+  {
+    IOUtils::close_resources_while_handling_error(writer.as_mut())
   }
 }
 
@@ -401,6 +435,8 @@ pub(crate) trait TermVectorsConsumerBase {
   type Directory: Directory;
   fn flush<DM, D1>(
     &mut self,
+    codec: &Codecs,
+    last_doc_id: &mut i32,
     state: &SegmentWriteState<Self::Directory>,
     sort_map: Option<&DM>,
     info: &SegmentInfo<D1>,
@@ -410,11 +446,73 @@ pub(crate) trait TermVectorsConsumerBase {
     D1: Directory;
   fn init_term_vectors_writer<D1>(
     &mut self,
-    last_doc_id: i32,
+    directory: &Self::Directory,
+    codec: &Codecs,
+    last_doc_id: &mut i32,
     info: &SegmentInfo<D1>,
     bytes_used: i64,
   ) -> Result<()>
   where
     D1: Directory;
   fn abort(&mut self) -> Result<()>;
+}
+
+impl<D> TermVectorsConsumerBase for TermVectorsConsumerHook<D>
+where
+  D: Directory + Clone,
+{
+  type Directory = D;
+
+  fn flush<DM, D1>(
+    &mut self,
+    codec: &Codecs,
+    last_doc_id: &mut i32,
+    state: &SegmentWriteState<Self::Directory>,
+    sort_map: Option<&DM>,
+    info: &SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    match self {
+      Self::Default { writer } => {
+        TermVectorsConsumerDefaults::flush(writer, last_doc_id, state.directory, info)
+      },
+      Self::Sorting(hook) => hook.flush(codec, last_doc_id, state, sort_map, info),
+    }
+  }
+
+  fn init_term_vectors_writer<D1>(
+    &mut self,
+    directory: &Self::Directory,
+    codec: &Codecs,
+    last_doc_id: &mut i32,
+    info: &SegmentInfo<D1>,
+    bytes_used: i64,
+  ) -> Result<()>
+  where
+    D1: Directory,
+  {
+    match self {
+      Self::Default { writer } => TermVectorsConsumerDefaults::init_term_vectors_writer(
+        writer,
+        directory,
+        codec,
+        last_doc_id,
+        info,
+        bytes_used,
+      ),
+      Self::Sorting(hook) => {
+        hook.init_term_vectors_writer(directory, codec, last_doc_id, info, bytes_used)
+      },
+    }
+  }
+
+  fn abort(&mut self) -> Result<()> {
+    match self {
+      Self::Default { writer } => TermVectorsConsumerDefaults::abort(writer),
+      Self::Sorting(hook) => hook.abort(),
+    }
+  }
 }

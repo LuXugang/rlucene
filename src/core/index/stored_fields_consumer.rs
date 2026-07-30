@@ -27,9 +27,10 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
+#[cfg(test)]
+use crate::test_framework::core::index::test_stored_fields_consumer::TestStoredFieldsConsumerHook;
 
 pub(crate) struct StoredFieldsConsumer<D>
 where
@@ -37,49 +38,85 @@ where
 {
   directory: D,
   codec: Codecs,
-  pub(crate) writer: Option<DefaultStoredFieldsWriter<D>>,
   last_doc: i32,
-  sub: Option<SortingStoredFieldsConsumer<D>>,
+  hook: StoredFieldsConsumerHook<D>,
 }
+
+pub(crate) enum StoredFieldsConsumerHook<D>
+where
+  D: Directory,
+{
+  Default {
+    writer: Option<DefaultStoredFieldsWriter<D>>,
+  },
+  Sorting(SortingStoredFieldsConsumer<D>),
+  #[cfg(test)]
+  TestStoredFieldsConsumer(TestStoredFieldsConsumerHook<D>),
+}
+
+pub(crate) struct StoredFieldsConsumerDefaults;
+
+impl<D> Default for StoredFieldsConsumerHook<D>
+where
+  D: Directory,
+{
+  fn default() -> Self {
+    Self::Default { writer: None }
+  }
+}
+
+impl<D> StoredFieldsConsumerHook<D>
+where
+  D: Directory,
+{
+  fn write_field(&mut self, info: &FieldInfo, value: &FieldDataEnum) -> Result<()> {
+    match self {
+      Self::Default { writer } => StoredFieldsConsumerDefaults::write_field(writer, info, value),
+      Self::Sorting(hook) => {
+        StoredFieldsConsumerDefaults::write_field(&mut hook.writer, info, value)
+      },
+      #[cfg(test)]
+      Self::TestStoredFieldsConsumer(hook) => {
+        StoredFieldsConsumerDefaults::write_field(&mut hook.writer, info, value)
+      },
+    }
+  }
+
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::Default { writer } => writer.as_ref().map_or(Ok(0), Accountable::ram_bytes_used),
+      Self::Sorting(hook) => hook
+        .writer
+        .as_ref()
+        .map_or(Ok(0), Accountable::ram_bytes_used),
+      #[cfg(test)]
+      Self::TestStoredFieldsConsumer(hook) => hook
+        .writer
+        .as_ref()
+        .map_or(Ok(0), Accountable::ram_bytes_used),
+    }
+  }
+}
+
 impl<D> StoredFieldsConsumer<D>
 where
   D: Directory + Clone,
 {
-  pub(crate) fn new(
-    codec: Codecs,
-    directory: D,
-    sub: Option<SortingStoredFieldsConsumer<D>>,
-  ) -> Self {
+  pub(crate) fn new(codec: Codecs, directory: D, hook: StoredFieldsConsumerHook<D>) -> Self {
     Self {
       directory,
       codec,
-      writer: None,
       last_doc: -1,
-      sub,
+      hook,
     }
   }
   fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
   where
     D1: Directory,
   {
-    match self.sub {
-      Some(ref mut sub) => {
-        if sub.writer.is_none() {
-          sub.init_stored_fields_writer(info)?;
-        }
-      },
-      None => {
-        if self.writer.is_none() {
-          let writer = self.codec.stored_fields_format().fields_writer(
-            self.directory.clone(),
-            info,
-            &IOContext::default_io_context()?,
-          )?;
-          self.writer = Some(writer);
-        }
-      },
-    }
-    Ok(())
+    self
+      .hook
+      .init_stored_fields_writer(&self.directory, &self.codec, info)
   }
 
   pub(crate) fn start_document<D1>(&mut self, doc_id: i32, info: &mut SegmentInfo<D1>) -> Result<()>
@@ -89,63 +126,107 @@ where
     debug_assert!(self.last_doc < doc_id);
     self.init_stored_fields_writer(info)?;
 
-    match self.sub {
-      Some(ref mut sub) => {
-        while self.last_doc + 1 < doc_id {
-          self.last_doc += 1;
-          if let Some(writer) = &mut sub.writer {
-            writer.start_document()?;
-            writer.finish_document()?;
-          }
-        }
-        self.last_doc += 1;
-        if let Some(writer) = &mut sub.writer {
-          writer.start_document()?;
-        }
-      },
-      None => {
-        while self.last_doc + 1 < doc_id {
-          self.last_doc += 1;
-          if let Some(writer) = &mut self.writer {
-            writer.start_document()?;
-            writer.finish_document()?;
-          }
-        }
-        self.last_doc += 1;
-        match self.writer {
-          None => return Err(LuceneError::illegal_state("writer must be initialized")),
-          Some(ref mut v) => v.start_document()?,
-        }
-      },
-    }
-    Ok(())
+    self.hook.start_document(&mut self.last_doc, doc_id)
   }
 
   pub(crate) fn write_field(&mut self, info: &FieldInfo, value: &FieldDataEnum) -> Result<()> {
-    match self.sub {
-      Some(ref mut sub) => {
-        let writer = sub
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("sub writer must be initialized"))?;
-        Self::do_write_field(writer, info, value)?;
-      },
-      None => {
-        let writer = self
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
-        Self::do_write_field(writer, info, value)?;
-      },
-    }
+    self.hook.write_field(info, value)
+  }
 
+  pub(crate) fn finish_document(&mut self) -> Result<()> {
+    self.hook.finish_document()
+  }
+
+  pub(crate) fn finish<D1>(&mut self, max_doc: i32, info: &mut SegmentInfo<D1>) -> Result<()>
+  where
+    D1: Directory,
+  {
+    while self.last_doc < max_doc - 1 {
+      self.start_document(self.last_doc + 1, info)?;
+      self.finish_document()?;
+    }
     Ok(())
   }
-  fn do_write_field(
-    writer: &mut impl StoredFieldsWriter,
+
+  pub(crate) fn flush<DM, D1>(
+    &mut self,
+    state: &SegmentWriteState<D>,
+    sort_map: Option<&DM>,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    self.hook.flush(&self.codec, state, sort_map, info)
+  }
+
+  pub(crate) fn abort(&mut self) -> Result<()> {
+    self.hook.abort()
+  }
+}
+
+impl<D> Accountable for StoredFieldsConsumer<D>
+where
+  D: Directory,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.hook.ram_bytes_used()
+  }
+}
+
+impl StoredFieldsConsumerDefaults {
+  pub(crate) fn init_stored_fields_writer<D, D1>(
+    writer: &mut Option<DefaultStoredFieldsWriter<D>>,
+    directory: &D,
+    codec: &Codecs,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    D: Directory + Clone,
+    D1: Directory,
+  {
+    if writer.is_none() {
+      *writer = Some(codec.stored_fields_format().fields_writer(
+        directory.clone(),
+        info,
+        &IOContext::default_io_context()?,
+      )?);
+    }
+    Ok(())
+  }
+
+  pub(crate) fn start_document<TW>(
+    writer: &mut Option<TW>,
+    last_doc: &mut i32,
+    doc_id: i32,
+  ) -> Result<()>
+  where
+    TW: StoredFieldsWriter,
+  {
+    let writer = writer
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
+    while *last_doc + 1 < doc_id {
+      *last_doc += 1;
+      writer.start_document()?;
+      writer.finish_document()?;
+    }
+    *last_doc += 1;
+    writer.start_document()
+  }
+
+  pub(crate) fn write_field<TW>(
+    writer: &mut Option<TW>,
     info: &FieldInfo,
     value: &FieldDataEnum,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    TW: StoredFieldsWriter,
+  {
+    let writer = writer
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
     match value {
       FieldDataEnum::Binary(bytes) => {
         writer.write_field_bytes(info, bytes)?;
@@ -167,126 +248,63 @@ where
     Ok(())
   }
 
-  pub(crate) fn finish_document(&mut self) -> Result<()> {
-    match self.sub {
-      Some(ref mut sub) => {
-        let writer = sub
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("sub writer must be initialized"))?;
-        writer.finish_document()?;
-      },
-      None => {
-        let writer = self
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
-        writer.finish_document()?;
-      },
-    }
-    Ok(())
-  }
-
-  pub(crate) fn finish<D1>(&mut self, max_doc: i32, info: &mut SegmentInfo<D1>) -> Result<()>
+  pub(crate) fn finish_document<TW>(writer: &mut Option<TW>) -> Result<()>
   where
-    D1: Directory,
+    TW: StoredFieldsWriter,
   {
-    while self.last_doc < max_doc - 1 {
-      self.start_document(self.last_doc + 1, info)?;
-      self.finish_document()?;
-    }
-    Ok(())
+    writer
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?
+      .finish_document()
   }
 
-  pub(crate) fn flush<DM, D1>(
-    &mut self,
-    state: &mut SegmentWriteState<D>,
-    sort_map: Option<&DM>,
+  pub(crate) fn flush<TW, WD, D1>(
+    writer: &mut Option<TW>,
+    directory: &WD,
     info: &mut SegmentInfo<D1>,
-    dir: &D,
   ) -> Result<()>
   where
-    DM: DocMap,
+    TW: StoredFieldsWriter,
+    WD: Directory,
     D1: Directory,
   {
-    match self.sub {
-      Some(ref mut sub) => {
-        let tmp_directory = &sub.tmp_directory;
-        let writer = sub
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("sub writer must be initialized"))?;
-        let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          writer.finish(info.max_doc()?, tmp_directory)
-        }));
-        let close_result = writer.close();
-        close_result?;
-        match finish_result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-        sub.flush(state, sort_map, info)?;
-      },
-      None => {
-        let writer = self
-          .writer
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
-        let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          writer.finish(info.max_doc()?, dir)
-        }));
-        let close_result = writer.close();
-        close_result?;
-        match finish_result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-      },
-    }
-    Ok(())
-  }
-
-  pub(crate) fn abort(&mut self) -> Result<()> {
-    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match self.sub {
-      Some(ref mut sub) => IOUtils::close_resources_while_handling_error(sub.writer.as_mut()),
-      None => IOUtils::close_resources_while_handling_error(self.writer.as_mut()),
+    let writer = writer
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("writer must be initialized"))?;
+    let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      writer.finish(info.max_doc()?, directory)
     }));
-    if let Some(ref mut sub) = self.sub {
-      sub.abort()?;
-    }
-    match close_result {
+    let close_result = writer.close();
+    close_result?;
+    match finish_result {
       Ok(result) => result,
       Err(payload) => std::panic::resume_unwind(payload),
     }
   }
-}
 
-impl<D> Accountable for StoredFieldsConsumer<D>
-where
-  D: Directory,
-  DefaultStoredFieldsWriter<D>: Accountable,
-{
-  fn ram_bytes_used(&self) -> Result<i64> {
-    match self.sub {
-      Some(ref sub) => sub
-        .writer
-        .as_ref()
-        .map_or(Ok(0), Accountable::ram_bytes_used),
-      None => self
-        .writer
-        .as_ref()
-        .map_or(Ok(0), Accountable::ram_bytes_used),
-    }
+  pub(crate) fn abort<TW>(writer: &mut Option<TW>) -> Result<()>
+  where
+    TW: StoredFieldsWriter,
+  {
+    IOUtils::close_resources_while_handling_error(writer.as_mut())
   }
 }
 
 pub(crate) trait StoredFieldsConsumerBase {
   type Directory: Directory;
-  fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
+  fn init_stored_fields_writer<D1>(
+    &mut self,
+    directory: &Self::Directory,
+    codec: &Codecs,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
   where
     D1: Directory;
+  fn start_document(&mut self, last_doc: &mut i32, doc_id: i32) -> Result<()>;
+  fn finish_document(&mut self) -> Result<()>;
   fn flush<DM, D1>(
     &mut self,
+    codec: &Codecs,
     state: &SegmentWriteState<Self::Directory>,
     sort_map: Option<&DM>,
     info: &mut SegmentInfo<D1>,
@@ -295,4 +313,84 @@ pub(crate) trait StoredFieldsConsumerBase {
     DM: DocMap,
     D1: Directory;
   fn abort(&mut self) -> Result<()>;
+}
+
+impl<D> StoredFieldsConsumerBase for StoredFieldsConsumerHook<D>
+where
+  D: Directory + Clone,
+{
+  type Directory = D;
+
+  fn init_stored_fields_writer<D1>(
+    &mut self,
+    directory: &Self::Directory,
+    codec: &Codecs,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+  {
+    match self {
+      Self::Default { writer } => {
+        StoredFieldsConsumerDefaults::init_stored_fields_writer(writer, directory, codec, info)
+      },
+      Self::Sorting(hook) => hook.init_stored_fields_writer(directory, codec, info),
+      #[cfg(test)]
+      Self::TestStoredFieldsConsumer(hook) => {
+        hook.init_stored_fields_writer(directory, codec, info)
+      },
+    }
+  }
+
+  fn start_document(&mut self, last_doc: &mut i32, doc_id: i32) -> Result<()> {
+    match self {
+      Self::Default { writer } => {
+        StoredFieldsConsumerDefaults::start_document(writer, last_doc, doc_id)
+      },
+      Self::Sorting(hook) => {
+        StoredFieldsConsumerDefaults::start_document(&mut hook.writer, last_doc, doc_id)
+      },
+      #[cfg(test)]
+      Self::TestStoredFieldsConsumer(hook) => hook.start_document(last_doc, doc_id),
+    }
+  }
+
+  fn finish_document(&mut self) -> Result<()> {
+    match self {
+      Self::Default { writer } => StoredFieldsConsumerDefaults::finish_document(writer),
+      Self::Sorting(hook) => StoredFieldsConsumerDefaults::finish_document(&mut hook.writer),
+      #[cfg(test)]
+      Self::TestStoredFieldsConsumer(hook) => hook.finish_document(),
+    }
+  }
+
+  fn flush<DM, D1>(
+    &mut self,
+    codec: &Codecs,
+    state: &SegmentWriteState<Self::Directory>,
+    sort_map: Option<&DM>,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()>
+  where
+    DM: DocMap,
+    D1: Directory,
+  {
+    match self {
+      Self::Default { writer } => {
+        StoredFieldsConsumerDefaults::flush(writer, state.directory, info)
+      },
+      Self::Sorting(hook) => hook.flush(codec, state, sort_map, info),
+      #[cfg(test)]
+      Self::TestStoredFieldsConsumer(hook) => hook.flush(codec, state, sort_map, info),
+    }
+  }
+
+  fn abort(&mut self) -> Result<()> {
+    match self {
+      Self::Default { writer } => StoredFieldsConsumerDefaults::abort(writer),
+      Self::Sorting(hook) => hook.abort(),
+      #[cfg(test)]
+      Self::TestStoredFieldsConsumer(hook) => hook.abort(),
+    }
+  }
 }
