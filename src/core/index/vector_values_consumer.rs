@@ -40,18 +40,22 @@ where
   codec: Codecs,
   info_stream: InfoStreamMT,
   dir: D,
+  field_infos: Arc<FieldInfos>,
+  context: IOContext,
 }
 impl<D> VectorValuesConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) fn new(codec: Codecs, dir: D, info_stream: InfoStreamMT) -> Self {
-    Self {
+  pub(crate) fn new(codec: Codecs, dir: D, info_stream: InfoStreamMT) -> Result<Self> {
+    Ok(Self {
       writer: None,
       codec,
       info_stream,
       dir,
-    }
+      field_infos: Arc::new(FieldInfos::default()),
+      context: IOContext::default_io_context()?,
+    })
   }
   fn init_knn_vectors_writer<D2>(&mut self, segment_info: &SegmentInfo<D2>) -> Result<()>
   where
@@ -59,10 +63,12 @@ where
   {
     if self.writer.is_none() {
       let fmt = self.codec.knn_vectors_format()?;
-      let context = IOContext::default_io_context()?;
-      let padding_fi = Arc::new(FieldInfos::default());
-      let initial_write_state =
-        SegmentWriteState::new(self.info_stream.clone(), &self.dir, padding_fi, &context);
+      let initial_write_state = SegmentWriteState::new(
+        self.info_stream.clone(),
+        &self.dir,
+        Arc::clone(&self.field_infos),
+        &self.context,
+      );
       self.writer = Some(fmt.fields_writer(&initial_write_state, segment_info)?);
     }
     Ok(())
@@ -76,11 +82,17 @@ where
     D2: Directory,
   {
     self.init_knn_vectors_writer(segment_info)?;
+    let write_state = SegmentWriteState::new(
+      self.info_stream.clone(),
+      &self.dir,
+      Arc::clone(&self.field_infos),
+      &self.context,
+    );
     let writer = self
       .writer
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-    writer.add_field(field_info)
+    writer.add_field(&write_state, segment_info, field_info)
   }
   pub(crate) fn flush<DM, D2>(
     &mut self,

@@ -27,12 +27,14 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
+use crate::core::store::index_output::IndexOutput;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use std::sync::Arc;
 
 /// Vectors' writer for a field that allows additional indexing logic to be implemented by the caller
-pub trait FlatVectorsWriter: KnnVectorsWriter {
+pub trait FlatVectorsWriter: KnnVectorsWriter<Self::IndexOutput> {
+  type IndexOutput: IndexOutput;
   type FlatVectorsScorer: FlatVectorsScorer;
   fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer;
   /// Add a new field for indexing
@@ -95,7 +97,7 @@ pub trait FlatVectorsWriter: KnnVectorsWriter {
   ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
     D1: Directory,
-    D2: Directory,
+    D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
   {
     Err(crate::core::util::error::lucene_error::LuceneError::unsupported_operation(""))

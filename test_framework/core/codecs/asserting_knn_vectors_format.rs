@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::DefaultKnnVectorsFormat;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::{DEFAULT_MAX_DIMENSIONS, KnnVectorsFormat};
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
@@ -34,25 +35,28 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::{Arc, OnceLock};
 
 /// Wraps the default `KnnVectorsFormat` and provides additional assertions.
 pub struct AssertingKnnVectorsFormat {
-  delegate: DefaultKnnVectorsFormat,
+  delegate: Lucene99HnswVectorsFormat,
+  identity: Identity,
 }
 
 impl AssertingKnnVectorsFormat {
   pub fn new() -> Result<Self> {
     Ok(Self {
       delegate: TestUtil::get_default_knn_vectors_format()?,
+      identity: Identity::new(),
     })
   }
 }
@@ -63,9 +67,19 @@ impl Display for AssertingKnnVectorsFormat {
   }
 }
 
+impl HasIdentity for AssertingKnnVectorsFormat {
+  fn identity(&self) -> &Identity {
+    &self.identity
+  }
+}
+
 impl KnnVectorsFormat for AssertingKnnVectorsFormat {
+  fn get_name(&self) -> &str {
+    "Asserting"
+  }
+
   type KnnVectorsWriter<T: IndexOutput> =
-    AssertingKnnVectorsWriter<<DefaultKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<T>>;
+    AssertingKnnVectorsWriter<<Lucene99HnswVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<T>>;
 
   fn fields_writer<D1, D2>(
     &self,
@@ -82,7 +96,7 @@ impl KnnVectorsFormat for AssertingKnnVectorsFormat {
   }
 
   type KnnVectorsReader<T: IndexInput> =
-    AssertingKnnVectorsReader<<DefaultKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<T>>;
+    AssertingKnnVectorsReader<<Lucene99HnswVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<T>>;
 
   fn fields_reader<D1, D2>(
     &self,
@@ -99,33 +113,62 @@ impl KnnVectorsFormat for AssertingKnnVectorsFormat {
     ))
   }
 
-  fn get_max_dimensions(&self, _field_name: &str) -> usize {
-    DEFAULT_MAX_DIMENSIONS
+  fn get_max_dimensions(&self, _field_name: &str) -> Result<usize> {
+    Ok(DEFAULT_MAX_DIMENSIONS)
+  }
+
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    static FORMAT: OnceLock<Arc<AssertingKnnVectorsFormat>> = OnceLock::new();
+
+    match name {
+      "Asserting" => {
+        if let Some(format) = FORMAT.get() {
+          return Ok(Arc::clone(format));
+        }
+        let format = Arc::new(Self::new()?);
+        if FORMAT.set(Arc::clone(&format)).is_ok() {
+          Ok(format)
+        } else {
+          FORMAT.get().map(Arc::clone).ok_or_else(|| {
+            LuceneError::illegal_state("failed to initialize vectors format named \"Asserting\"")
+          })
+        }
+      },
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Could not load vectors format named \"{name}\""
+      ))),
+    }
   }
 }
 
-pub struct AssertingKnnVectorsWriter<KVW>
-where
-  KVW: KnnVectorsWriter,
-{
+pub struct AssertingKnnVectorsWriter<KVW> {
   delegate: KVW,
 }
 
-impl<KVW> AssertingKnnVectorsWriter<KVW>
-where
-  KVW: KnnVectorsWriter,
-{
+impl<KVW> AssertingKnnVectorsWriter<KVW> {
   fn new(delegate: KVW) -> Self {
     Self { delegate }
   }
 }
 
-impl<KVW> KnnVectorsWriter for AssertingKnnVectorsWriter<KVW>
+impl<O, KVW> KnnVectorsWriter<O> for AssertingKnnVectorsWriter<KVW>
 where
-  KVW: KnnVectorsWriter,
+  O: IndexOutput,
+  KVW: KnnVectorsWriter<O>,
 {
-  fn add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
-    self.delegate.add_field(field_info)
+  fn add_field<D1, D2>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<usize>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    self
+      .delegate
+      .add_field(write_state, segment_info, field_info)
   }
 
   fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
@@ -143,7 +186,7 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
+    D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
     self
@@ -169,7 +212,7 @@ where
 
 impl<KVW> Closeable for AssertingKnnVectorsWriter<KVW>
 where
-  KVW: KnnVectorsWriter,
+  KVW: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     self.delegate.close()
@@ -178,7 +221,7 @@ where
 
 impl<KVW> Accountable for AssertingKnnVectorsWriter<KVW>
 where
-  KVW: KnnVectorsWriter,
+  KVW: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     self.delegate.ram_bytes_used()
@@ -351,7 +394,7 @@ where
 {
   type HnswGraph = KVR::HnswGraph;
 
-  fn is_hnsw_graph_provider(&self) -> bool {
+  fn is_hnsw_graph_provider(&self, _field: &str) -> bool {
     true
   }
 

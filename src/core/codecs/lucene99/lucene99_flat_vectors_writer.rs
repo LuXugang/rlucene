@@ -342,7 +342,7 @@ where
   }
 }
 
-impl<O, F> KnnVectorsWriter for Lucene99FlatVectorsWriter<O, F>
+impl<O, F> KnnVectorsWriter<O> for Lucene99FlatVectorsWriter<O, F>
 where
   O: IndexOutput,
   F: FlatVectorsScorer,
@@ -355,7 +355,7 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
+    D2: Directory<IndexOutput = O>,
     CR: CodecReader,
     Self: Sized,
   {
@@ -404,6 +404,7 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer + Clone,
 {
+  type IndexOutput = O;
   type FlatVectorsScorer = F;
 
   fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer {
@@ -472,7 +473,7 @@ where
   ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
     D1: Directory,
-    D2: Directory,
+    D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
   {
     let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;

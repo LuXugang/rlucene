@@ -29,6 +29,9 @@ use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101Postings
 use crate::core::codecs::perfield::per_field_doc_values_format::{
   PerFieldDocValuesFormat, PerFieldDocValuesFormatBase,
 };
+use crate::core::codecs::perfield::per_field_knn_vectors_format::{
+  PerFieldKnnVectorsFormat, PerFieldKnnVectorsFormatBase,
+};
 use crate::core::codecs::perfield::per_field_postings_format::{
   PerFieldPostingsFormat, PerFieldPostingsFormatBase,
 };
@@ -37,9 +40,12 @@ use std::fmt::{Display, Formatter};
 
 type DefaultPostingsFormat = Lucene101PostingsFormat;
 type DefaultDocValuesFormat = Lucene90DocValuesFormat;
+type DefaultKnnVectorsFormat = Lucene99HnswVectorsFormat;
 
 pub type Lucene101CodecPostingsFormat = PerFieldPostingsFormat<Lucene101CodecPostingsFormatBase>;
 pub type Lucene101CodecDocValuesFormat = PerFieldDocValuesFormat<Lucene101CodecDocValuesFormatBase>;
+pub type Lucene101CodecKnnVectorsFormat =
+  PerFieldKnnVectorsFormat<Lucene101CodecKnnVectorsFormatBase>;
 
 pub struct Lucene101CodecPostingsFormatBase {
   default_postings_format: DefaultPostingsFormat,
@@ -65,10 +71,23 @@ impl PerFieldDocValuesFormatBase for Lucene101CodecDocValuesFormatBase {
   }
 }
 
+pub struct Lucene101CodecKnnVectorsFormatBase {
+  default_knn_vectors_format: DefaultKnnVectorsFormat,
+}
+
+impl PerFieldKnnVectorsFormatBase for Lucene101CodecKnnVectorsFormatBase {
+  type Format = DefaultKnnVectorsFormat;
+
+  fn get_knn_vectors_format_for_field(&self, _field: &str) -> Result<&Self::Format> {
+    Ok(&self.default_knn_vectors_format)
+  }
+}
+
 #[derive(Clone)]
 pub struct Lucene101Codec {
   postings_format: Lucene101CodecPostingsFormat,
   doc_values_format: Lucene101CodecDocValuesFormat,
+  knn_vectors_format: Lucene101CodecKnnVectorsFormat,
 }
 
 impl Default for Lucene101Codec {
@@ -79,6 +98,10 @@ impl Default for Lucene101Codec {
       }),
       doc_values_format: PerFieldDocValuesFormat::new(Lucene101CodecDocValuesFormatBase {
         default_doc_values_format: DefaultDocValuesFormat::default(),
+      }),
+      knn_vectors_format: PerFieldKnnVectorsFormat::new(Lucene101CodecKnnVectorsFormatBase {
+        default_knn_vectors_format: DefaultKnnVectorsFormat::new()
+          .expect("default KNN vectors format parameters are valid"),
       }),
     }
   }
@@ -100,7 +123,7 @@ impl Codec for Lucene101Codec {
   type LiveDocsFormat = Lucene90LiveDocsFormat;
   type CompoundFormat = Lucene90CompoundFormat;
   type PointsFormat = Lucene90PointsFormat;
-  type KnnVectorsFormat = Lucene99HnswVectorsFormat;
+  type KnnVectorsFormat = Lucene101CodecKnnVectorsFormat;
 
   fn postings_format(&self) -> Self::PostingsFormat {
     self.postings_format.clone()
@@ -143,7 +166,7 @@ impl Codec for Lucene101Codec {
   }
 
   fn knn_vectors_format(&self) -> Result<Self::KnnVectorsFormat> {
-    Lucene99HnswVectorsFormat::new()
+    Ok(self.knn_vectors_format.clone())
   }
 
   fn get_name(&self) -> &str {
