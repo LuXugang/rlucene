@@ -159,8 +159,12 @@ where
   O: IndexOutput,
 {
   fn close(&mut self) -> Result<()> {
-    Self::sleep(self.close_delay_millis + self.get_delay(true));
-    self.out.close()
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      Self::sleep(self.close_delay_millis + self.get_delay(true));
+      Ok(())
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.out.close()));
+    crate::core::util::io_utils::IOUtils::finally_caught_result(result, close_result)
   }
 }
 

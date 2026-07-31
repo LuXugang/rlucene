@@ -104,15 +104,21 @@ where
           .dir
           .create_temp_output("tmp", "tmp", &IOContext::default_io_context()?)?;
       new_temp_name = tmp_out.get_name().to_string();
-      let mut input = match self
-        .dir
-        .open_input(&name, &IOContext::default_io_context()?)
-      {
-        Ok(input) => input,
-        Err(error) => return IOUtils::use_or_suppress_result(Err(error), tmp_out.close()),
+      let input_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        self
+          .dir
+          .open_input(&name, &IOContext::default_io_context()?)
+      }));
+      let mut input = match input_result {
+        Ok(Ok(input)) => input,
+        result => {
+          let close_result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tmp_out.close()));
+          return IOUtils::use_or_suppress_caught_result(result, close_result).map(|_| ());
+        },
       };
 
-      let body_result = (|| -> Result<()> {
+      let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         let input_length = input.length()?;
 
         if self.byte_to_corrupt >= input_length {
@@ -127,9 +133,15 @@ where
         tmp_out.write_byte(input.read_byte()? ^ 1)?;
         tmp_out.copy_bytes(&mut input, input_length - self.byte_to_corrupt - 1)?;
         Ok(())
-      })();
-      let body_result = IOUtils::use_or_suppress_result(body_result, input.close());
-      IOUtils::use_or_suppress_result(body_result, tmp_out.close())?;
+      }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        IOUtils::close(0..2, |operation| match operation {
+          0 => input.close(),
+          1 => tmp_out.close(),
+          _ => unreachable!(),
+        })
+      }));
+      IOUtils::use_or_suppress_caught_result(body_result, close_result)?;
     }
 
     // Delete original and copy corrupt version back:

@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
-use crate::core::util::{StringHelper, TryIntoInt};
+use crate::core::util::{IOUtils, StringHelper, TryIntoInt};
 
 pub(crate) struct FieldsIndexReader<I>
 where
@@ -81,15 +81,27 @@ where
       &context.with_read_advice_self(ReadAdvice::RandomPreload)?,
     )?;
 
-    CodecUtil::check_index_header(
-      &mut index_input,
-      &format!("{codec_name}Idx"),
-      fields_index_writer_const::VERSION_START,
-      fields_index_writer_const::VERSION_CURRENT,
-      id,
-      suffix,
-    )?;
-    CodecUtil::retrieve_checksum(&mut index_input)?;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      CodecUtil::check_index_header(
+        &mut index_input,
+        &format!("{codec_name}Idx"),
+        fields_index_writer_const::VERSION_START,
+        fields_index_writer_const::VERSION_CURRENT,
+        id,
+        suffix,
+      )?;
+      CodecUtil::retrieve_checksum(&mut index_input).map(|_| ())
+    }));
+    if !matches!(result, Ok(Ok(()))) {
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| index_input.close()));
+      IOUtils::finally_caught_result(result, close_result)?;
+      return Err(
+        crate::core::util::error::lucene_error::LuceneError::illegal_state(
+          "fields index reader initialization entered failure handling after success",
+        ),
+      );
+    }
 
     let docs_slice =
       index_input.random_access_slice(docs_start_pointer, docs_end_pointer - docs_start_pointer)?;

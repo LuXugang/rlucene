@@ -19,34 +19,52 @@ use std::io::{BufWriter, Write};
 use byteorder::WriteBytesExt;
 
 use crate::core::store::data_output::DataOutput;
-use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::{Closeable, CloseableWrite};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 /// A [`DataOutput`] wrapping a plain [`OutputStream`](Write).
-pub struct OutputStreamDataOutput<W: Write> {
-  pub os: BufWriter<W>,
+pub struct OutputStreamDataOutput<W: CloseableWrite> {
+  pub os: Option<BufWriter<W>>,
 }
-impl<W: Write> OutputStreamDataOutput<W> {
+impl<W: CloseableWrite> OutputStreamDataOutput<W> {
   pub fn new(os: W) -> OutputStreamDataOutput<W> {
     OutputStreamDataOutput {
-      os: BufWriter::new(os),
+      os: Some(BufWriter::new(os)),
     }
+  }
+
+  fn output_stream(&mut self) -> Result<&mut BufWriter<W>> {
+    self
+      .os
+      .as_mut()
+      .ok_or_else(|| LuceneError::already_closed("this DataOutput is closed"))
   }
 }
 
-impl<W: Write> Closeable for OutputStreamDataOutput<W> {
+impl<W: CloseableWrite> Closeable for OutputStreamDataOutput<W> {
   fn close(&mut self) -> Result<()> {
-    self.os.flush()?;
+    if let Some(mut output_stream) = self.os.take() {
+      let flush_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| output_stream.flush()));
+      let (output_stream, _) = output_stream.into_parts();
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| output_stream.close()));
+      IOUtils::use_or_suppress_caught_result(
+        flush_result.map(|result| result.map_err(Into::into)),
+        close_result,
+      )?;
+    }
     Ok(())
   }
 }
 
-impl<W: Write> DataOutput for OutputStreamDataOutput<W> {
+impl<W: CloseableWrite> DataOutput for OutputStreamDataOutput<W> {
   fn write_byte(&mut self, b: u8) -> Result<()> {
-    Ok(self.os.write_u8(b)?)
+    Ok(self.output_stream()?.write_u8(b)?)
   }
 
   fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
     let end = offset + length;
-    Ok(self.os.write_all(&b[offset..end])?)
+    Ok(self.output_stream()?.write_all(&b[offset..end])?)
   }
 }

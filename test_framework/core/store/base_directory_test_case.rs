@@ -1495,7 +1495,7 @@ pub trait BaseDirectoryTestCase {
     let temp_dir = Builder::new().prefix("testBytes").tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
-    let body_result = (|| -> Result<()> {
+    let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let output_context = new_io_context(random)?;
       let mut output = dir.create_output("bytes", &output_context)?;
       let num = if is_night_mode() {
@@ -1551,8 +1551,9 @@ pub trait BaseDirectoryTestCase {
       }
 
       input.close()
-    })();
-    IOUtils::use_or_suppress_result(body_result, dir.close())
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| dir.close()));
+    IOUtils::use_or_suppress_caught_result(body_result, close_result)
   }
   fn assert_bytes<R>(
     slice: &mut impl RandomAccessInput,
@@ -2252,38 +2253,44 @@ pub trait BaseDirectoryTestCase {
     // TODO IMPORTANT  当测试中的 DirEnum 为枚举后 可以判断是否为 MMapDirectory 来调用 set_preload
     let is_mmap_directory = self.configure_is_loaded_test(&mut dir);
 
-    let body_result = (|| -> Result<()> {
+    let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let total_length = start_offset + TestUtil::next_usize(random, 16384, 65536);
       let mut arr = vec![0u8; total_length];
       random.fill_bytes(&mut arr);
       let io_context = IOContext::default_io_context()?;
 
       let mut out = dir.create_output("temp.bin", &io_context)?;
-      let write_result = out.write_bytes_with_len(&arr, arr.len());
-      IOUtils::use_or_suppress_result(write_result, out.close())?;
+      let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        out.write_bytes_with_len(&arr, arr.len())
+      }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
+      IOUtils::use_or_suppress_caught_result(write_result, close_result)?;
 
       let orig = dir.open_input("temp.bin", &io_context)?;
-      let input_result = (|| -> Result<()> {
-        let input = if start_offset == 0 {
-          orig.try_clone()?
-        } else {
-          orig.slice("slice", start_offset, total_length - start_offset)?
-        };
-        let loaded = IndexInput::is_loaded(&input)?;
+      let input_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          let input = if start_offset == 0 {
+            orig.try_clone()?
+          } else {
+            orig.slice("slice", start_offset, total_length - start_offset)?
+          };
+          let loaded = IndexInput::is_loaded(&input)?;
 
-        if cfg!(windows) {
-          // On Windows, we temporarily don't care until this is fixed: #14050
-        } else if is_mmap_directory {
-          // direct IO wraps MMap but does not support isLoaded
-          assert!(loaded.is_some());
-          assert!(loaded.unwrap());
-        } else {
-          assert!(loaded.is_none());
-        }
-        Ok(())
-      })();
-      IOUtils::use_or_suppress_result(input_result, orig.close())
-    })();
-    IOUtils::use_or_suppress_result(body_result, dir.close())
+          if cfg!(windows) {
+            // On Windows, we temporarily don't care until this is fixed: #14050
+          } else if is_mmap_directory {
+            // direct IO wraps MMap but does not support isLoaded
+            assert!(loaded.is_some());
+            assert!(loaded.unwrap());
+          } else {
+            assert!(loaded.is_none());
+          }
+          Ok(())
+        }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| orig.close()));
+      IOUtils::use_or_suppress_caught_result(input_result, close_result)
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| dir.close()));
+    IOUtils::use_or_suppress_caught_result(body_result, close_result)
   }
 }

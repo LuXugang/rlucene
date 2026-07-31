@@ -20,7 +20,7 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::IndexedRandom;
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, LazyLock};
 
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
@@ -357,32 +357,22 @@ impl TestUtil {
       checker.set_thread_count(1)?;
     }
     let result = catch_unwind(AssertUnwindSafe(|| checker.check_index()));
-    let close_result = checker.close();
+    let close_result = catch_unwind(AssertUnwindSafe(|| checker.close()));
     drop(checker);
+    let result = IOUtils::use_or_suppress_caught_result(result, close_result);
     match result {
-      Ok(Ok(index_status)) if !index_status.clean => {
+      Ok(index_status) if !index_status.clean => {
         println!("CheckIndex failed");
         println!("{}", String::from_utf8_lossy(output));
-        IOUtils::use_or_suppress_result(
-          Err(LuceneError::illegal_state("CheckIndex failed")),
-          close_result,
-        )
+        Err(LuceneError::illegal_state("CheckIndex failed"))
       },
-      Ok(Ok(index_status)) => {
+      Ok(index_status) => {
         if cfg!(feature = "test_log_verbose") {
           println!("{}", String::from_utf8_lossy(output));
         }
-        IOUtils::use_or_suppress_result(Ok(index_status), close_result)
+        Ok(index_status)
       },
-      Ok(Err(error)) => IOUtils::use_or_suppress_result(Err(error), close_result),
-      Err(mut payload) => {
-        if let Err(close_error) = close_result
-          && let Some(error) = payload.downcast_mut::<LuceneError>()
-        {
-          error.add_suppressed(close_error);
-        }
-        resume_unwind(payload)
-      },
+      Err(error) => Err(error),
     }
   }
 

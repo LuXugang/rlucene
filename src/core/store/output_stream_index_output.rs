@@ -23,22 +23,23 @@ use crc32fast::Hasher;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableWrite};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 
 /// Implementation struct for buffered [`IndexOutput`] that writes to an
 /// [`OutputStream`](Write).
 pub struct OutputStreamIndexOutput<W>
 where
-  W: Write,
+  W: CloseableWrite,
 {
-  os: XBufferedOutputStream<W>,
+  os: Option<XBufferedOutputStream<W>>,
   bytes_written: usize,
   flushed_on_close: bool,
   name: String,
   resource_description: String,
 }
-impl<W: Write> OutputStreamIndexOutput<W>
+impl<W: CloseableWrite> OutputStreamIndexOutput<W>
 where
   W: Write,
 {
@@ -66,49 +67,56 @@ where
     }
     let os = XBufferedOutputStream::new(inner, buffer_size);
     Ok(Self {
-      os,
+      os: Some(os),
       bytes_written: 0,
       flushed_on_close: false,
       name: name.to_string(),
       resource_description: resource_description.to_string(),
     })
   }
+
+  fn output_stream(&mut self) -> Result<&mut XBufferedOutputStream<W>> {
+    self
+      .os
+      .as_mut()
+      .ok_or_else(|| LuceneError::already_closed("this IndexOutput is closed"))
+  }
 }
 
 impl<W: Write> DataOutput for OutputStreamIndexOutput<W>
 where
-  W: Write,
+  W: CloseableWrite,
 {
   fn write_byte(&mut self, b: u8) -> Result<()> {
     self.bytes_written += 1;
-    self.os.write_u8(b)
+    self.output_stream()?.write_u8(b)
   }
 
   fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
     let end = offset + length;
     self.bytes_written += length;
-    self.os.write_bytes(&b[offset..end])
+    self.output_stream()?.write_bytes(&b[offset..end])
   }
 
   fn write_int(&mut self, i: i32) -> Result<()> {
     self.bytes_written += 4;
-    self.os.write_i32(i)
+    self.output_stream()?.write_i32(i)
   }
 
   fn write_short(&mut self, i: i16) -> Result<()> {
     self.bytes_written += 2;
-    self.os.write_i16(i)
+    self.output_stream()?.write_i16(i)
   }
 
   fn write_long(&mut self, i: i64) -> Result<()> {
     self.bytes_written += 8;
-    self.os.write_i64(i)
+    self.output_stream()?.write_i64(i)
   }
 }
 
 impl<W: Write> Display for OutputStreamIndexOutput<W>
 where
-  W: Write,
+  W: CloseableWrite,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.resource_description)
@@ -117,12 +125,18 @@ where
 
 impl<W: Write> Closeable for OutputStreamIndexOutput<W>
 where
-  W: Write,
+  W: CloseableWrite,
 {
   fn close(&mut self) -> Result<()> {
-    if !self.flushed_on_close {
+    if let Some(mut output_stream) = self.os.take()
+      && !self.flushed_on_close
+    {
       self.flushed_on_close = true;
-      self.os.flush()?;
+      let flush_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| output_stream.flush()));
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| output_stream.close()));
+      IOUtils::use_or_suppress_caught_result(flush_result, close_result)?;
     }
     Ok(())
   }
@@ -130,15 +144,16 @@ where
 
 impl<W> IndexOutput for OutputStreamIndexOutput<W>
 where
-  W: Write + Send + Sync,
+  W: CloseableWrite + Send + Sync,
 {
   fn get_file_pointer(&self) -> Result<usize> {
     Ok(self.bytes_written)
   }
 
   fn get_checksum(&mut self) -> Result<u64> {
-    self.os.checksum = self.os.hasher.clone().finalize();
-    Ok(self.os.checksum as u64)
+    let output_stream = self.output_stream()?;
+    output_stream.checksum = output_stream.hasher.clone().finalize();
+    Ok(output_stream.checksum as u64)
   }
 
   fn get_name(&self) -> &str {
@@ -146,19 +161,24 @@ where
   }
 }
 
-pub struct XBufferedOutputStream<W: Write> {
+pub struct XBufferedOutputStream<W: CloseableWrite> {
   inner: BufWriter<W>,
   hasher: Hasher,
   checksum: u32,
 }
 
-impl<W: Write> XBufferedOutputStream<W> {
+impl<W: CloseableWrite> XBufferedOutputStream<W> {
   pub fn new(inner: W, buffer_size: i32) -> Self {
     Self {
       inner: BufWriter::with_capacity(buffer_size as usize, inner),
       hasher: Hasher::new(),
       checksum: 0,
     }
+  }
+
+  fn close(self) -> Result<()> {
+    let (inner, _) = self.inner.into_parts();
+    inner.close()
   }
 
   pub fn checksum(&self) -> u32 {

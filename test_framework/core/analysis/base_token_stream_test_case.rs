@@ -31,6 +31,7 @@ use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -1198,11 +1199,15 @@ where
   let field = "bogus";
   {
     let mut ts = a.token_stream(field, ReaderEnum::from(input))?;
-    let result = ts.increment_token();
-    ts.reset()?;
-    while ts.increment_token()? {}
-    ts.end()?;
-    ts.close()?;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ts.increment_token()));
+    let finally_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        ts.reset()?;
+        while ts.increment_token()? {}
+        ts.end()?;
+        ts.close()
+      }));
+    let result = IOUtils::finally_caught_result(result, finally_result);
     match result {
       Err(e) => {
         match e {
@@ -1225,15 +1230,21 @@ where
     while ts.increment_token()? {}
     ts.end()?;
   }
-  let result = a.token_stream(field, ReaderEnum::from(input));
+  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    let _ts = a.token_stream(field, ReaderEnum::from(input))?;
+    unreachable!("didn't get expected exception when close() not called")
+  }));
+  let finally_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    a.stored_value()
+      .reuse_strategy()
+      .get_reusable_components(field)?
+      .ok_or_else(|| LuceneError::illegal_state("reusable components are missing"))?
+      .get_token_stream()
+      .close()
+  }));
+  let result = IOUtils::finally_caught_result(result, finally_result);
   match result {
     Err(e) => {
-      a.stored_value()
-        .reuse_strategy()
-        .get_reusable_components(field)?
-        .map(|ts_ref| ts_ref.get_token_stream())
-        .unwrap()
-        .close()?;
       match e {
         LuceneError::IllegalState(_) => {
           // ok
@@ -1241,10 +1252,7 @@ where
         _ => unreachable!("didn't get expected exception"),
       }
     },
-    Ok(mut ts) => {
-      ts.close()?;
-      unreachable!("didn't get expected exception when close() not called")
-    },
+    Ok(()) => unreachable!("didn't get expected exception when close() not called"),
   }
   Ok(())
 }

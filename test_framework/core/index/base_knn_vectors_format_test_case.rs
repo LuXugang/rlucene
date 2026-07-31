@@ -84,7 +84,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use strum::EnumCount;
@@ -2516,18 +2516,8 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         w.add_document(doc)?;
         Ok(())
       }));
-      let close_result = w.close();
-      match writer_result {
-        Ok(writer_result) => IOUtils::use_or_suppress_result(writer_result, close_result)?,
-        Err(mut payload) => {
-          if let Err(close_error) = close_result
-            && let Some(error) = payload.downcast_mut::<LuceneError>()
-          {
-            error.add_suppressed(close_error);
-          }
-          resume_unwind(payload)
-        },
-      }
+      let close_result = catch_unwind(AssertUnwindSafe(|| w.close()));
+      IOUtils::use_or_suppress_caught_result(writer_result, close_result)?;
 
       let mut output = Vec::new();
       let status = TestUtil::check_index_with_options(
@@ -2553,18 +2543,8 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       assert!(String::from_utf8_lossy(&output).contains("test: vectors..."));
       Ok(())
     }));
-    let close_result = dir.as_ref().close();
-    match result {
-      Ok(result) => IOUtils::use_or_suppress_result(result, close_result),
-      Err(mut payload) => {
-        if let Err(close_error) = close_result
-          && let Some(error) = payload.downcast_mut::<LuceneError>()
-        {
-          error.add_suppressed(close_error);
-        }
-        resume_unwind(payload)
-      },
-    }
+    let close_result = catch_unwind(AssertUnwindSafe(|| dir.as_ref().close()));
+    IOUtils::use_or_suppress_caught_result(result, close_result)
   }
   fn test_similarity_function_identifiers(&self) -> Result<()> {
     assert_eq!(0, VectorSimilarityFunction::Euclidean as usize);

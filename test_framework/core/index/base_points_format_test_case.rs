@@ -230,7 +230,7 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
       dir.set_random_io_exception_rate(0.05);
       dir.set_random_io_exception_rate_on_open(0.05);
 
-      let result = {
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let dir = Arc::new(dir.clone());
         self.verify_with_expect_exceptions(
           random,
@@ -242,9 +242,10 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
           num_bytes_per_dim,
           true,
         )
-      };
+      }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| dir.close()));
 
-      match IOUtils::use_or_suppress_result(result, dir.close()) {
+      match IOUtils::use_or_suppress_caught_result(result, close_result) {
         Ok(()) => {},
         Err(e @ (LuceneError::AlreadyClosed(_) | LuceneError::IllegalState(_))) => {
           done = self.handle_possibly_fake_exception(e)?;

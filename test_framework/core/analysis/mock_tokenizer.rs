@@ -237,8 +237,8 @@ where
   R: Rng,
 {
   fn close(&mut self) -> Result<()> {
-    crate::core::util::close::Closeable::close(&mut self.tokenizer_base)?;
-    let result: Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      crate::core::util::close::Closeable::close(&mut self.tokenizer_base)?;
       if self.stream_state != State::End && self.stream_state != State::Close {
         self.fail(format!(
           "close() called in wrong state: {:?}",
@@ -246,9 +246,12 @@ where
         ))?;
       }
       Ok(())
-    })();
+    }));
     self.stream_state = State::Close;
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 }
 
@@ -353,14 +356,14 @@ where
   }
 
   fn end(&mut self) -> Result<()> {
-    self.tokenizer_base.end()?;
-    let final_offset = self.correct_offset(self.off);
-    self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .set_offset(final_offset, final_offset)?;
-    let result: Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      self.tokenizer_base.end()?;
+      let final_offset = self.correct_offset(self.off);
+      self
+        .tokenizer_base
+        .token_stream_base
+        .att
+        .set_offset(final_offset, final_offset)?;
       if self.stream_state != State::IncrementFalse {
         self.fail(format!(
           "end() called in wrong state={:?}!",
@@ -368,25 +371,31 @@ where
         ))?;
       }
       Ok(())
-    })();
+    }));
     self.stream_state = State::End;
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 
   fn reset(&mut self) -> Result<()> {
-    self.tokenizer_base.reset()?;
-    self.state = 0;
-    self.last_offset = 0;
-    self.off = 0;
-    self.buffered_code_point = -1;
-    let result: Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      self.tokenizer_base.reset()?;
+      self.state = 0;
+      self.last_offset = 0;
+      self.off = 0;
+      self.buffered_code_point = -1;
       if self.stream_state == State::Reset {
         self.fail("double reset()")?;
       }
       Ok(())
-    })();
+    }));
     self.stream_state = State::Reset;
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 
   fn get_attribute_source(&self) -> &Attributes {
@@ -402,7 +411,7 @@ where
   }
 
   fn set_reader_test_point(&mut self) -> Result<()> {
-    let result: Result<()> = (|| {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       if self.stream_state != State::Close {
         self.fail(format!(
           "set_reader() called in wrong state: {:?}",
@@ -410,9 +419,12 @@ where
         ))?;
       }
       Ok(())
-    })();
+    }));
     self.stream_state = State::SetReader;
-    result
+    match result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 }
 

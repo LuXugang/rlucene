@@ -408,15 +408,16 @@ where
             &name,
             &new_io_context(&mut *self.state.random_state.lock())?,
           )?;
-          let result = (|| -> Result<()> {
+          let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
             while upto < length {
               let limit = (length - upto).min(zeroes.len());
               out.write_bytes_range(&zeroes, 0, limit)?;
               upto += limit;
             }
             Ok(())
-          })();
-          IOUtils::use_or_suppress_result(result, out.close())?;
+          }));
+          let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
+          IOUtils::use_or_suppress_caught_result(result, close_result)?;
         },
 
         2 => {
@@ -432,23 +433,36 @@ where
               "mdw_corrupt",
               &new_io_context(&mut *self.state.random_state.lock())?,
             )?;
-            let mut ii = match base.get_delegate().open_input(
-              &name,
-              &new_io_context(&mut *self.state.random_state.lock())?,
-            ) {
-              Ok(ii) => ii,
-              Err(error) => {
-                return IOUtils::use_or_suppress_result(Err(error), temp_out.close());
+            let input_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              base.get_delegate().open_input(
+                &name,
+                &new_io_context(&mut *self.state.random_state.lock())?,
+              )
+            }));
+            let mut ii = match input_result {
+              Ok(Ok(ii)) => ii,
+              result => {
+                let close_result =
+                  std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| temp_out.close()));
+                return IOUtils::use_or_suppress_caught_result(result, close_result)
+                  .map(|_| temp_out.get_name().to_string());
               },
             };
             let temp_file_name = temp_out.get_name().to_string();
-            let result = (|| -> Result<String> {
-              let length = ii.length()? / 2;
-              temp_out.copy_bytes(&mut ii, length)?;
-              Ok(temp_file_name)
-            })();
-            let result = IOUtils::use_or_suppress_result(result, ii.close());
-            IOUtils::use_or_suppress_result(result, temp_out.close())
+            let result =
+              std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<String> {
+                let length = ii.length()? / 2;
+                temp_out.copy_bytes(&mut ii, length)?;
+                Ok(temp_file_name)
+              }));
+            let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              IOUtils::close(0..2, |operation| match operation {
+                0 => ii.close(),
+                1 => temp_out.close(),
+                _ => unreachable!(),
+              })
+            }));
+            IOUtils::use_or_suppress_caught_result(result, close_result)
           })()?;
 
           // Delete original and copy bytes back:
@@ -460,19 +474,33 @@ where
               &name,
               &new_io_context(&mut *self.state.random_state.lock())?,
             )?;
-            let mut ii = match base.get_delegate().open_input(
-              &temp_file_name,
-              &new_io_context(&mut *self.state.random_state.lock())?,
-            ) {
-              Ok(ii) => ii,
-              Err(error) => return IOUtils::use_or_suppress_result(Err(error), out.close()),
+            let input_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              base.get_delegate().open_input(
+                &temp_file_name,
+                &new_io_context(&mut *self.state.random_state.lock())?,
+              )
+            }));
+            let mut ii = match input_result {
+              Ok(Ok(ii)) => ii,
+              result => {
+                let close_result =
+                  std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
+                return IOUtils::use_or_suppress_caught_result(result, close_result).map(|_| ());
+              },
             };
-            let result = (|| -> Result<()> {
-              let length = ii.length()?;
-              out.copy_bytes(&mut ii, length)
-            })();
-            let result = IOUtils::use_or_suppress_result(result, ii.close());
-            IOUtils::use_or_suppress_result(result, out.close())
+            let result =
+              std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+                let length = ii.length()?;
+                out.copy_bytes(&mut ii, length)
+              }));
+            let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              IOUtils::close(0..2, |operation| match operation {
+                0 => ii.close(),
+                1 => out.close(),
+                _ => unreachable!(),
+              })
+            }));
+            IOUtils::use_or_suppress_caught_result(result, close_result)
           })()?;
           self.delete_file(&temp_file_name)?;
         },
@@ -492,45 +520,59 @@ where
               "mdw_corrupt",
               &new_io_context(&mut *self.state.random_state.lock())?,
             )?;
-            let mut ii = match base.get_delegate().open_input(
-              &name,
-              &new_io_context(&mut *self.state.random_state.lock())?,
-            ) {
-              Ok(ii) => ii,
-              Err(error) => {
-                return IOUtils::use_or_suppress_result(Err(error), temp_out.close());
+            let input_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              base.get_delegate().open_input(
+                &name,
+                &new_io_context(&mut *self.state.random_state.lock())?,
+              )
+            }));
+            let mut ii = match input_result {
+              Ok(Ok(ii)) => ii,
+              result => {
+                let close_result =
+                  std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| temp_out.close()));
+                return IOUtils::use_or_suppress_caught_result(result, close_result)
+                  .map(|_| temp_out.get_name().to_string());
               },
             };
             let temp_file_name = temp_out.get_name().to_string();
-            let result = (|| -> Result<String> {
-              let length = ii.length()?;
-              if length > 0 {
-                // Copy first part unchanged:
-                let byte_to_corrupt =
-                  (self.state.random_state.lock().random::<f64>() * length as f64) as usize;
-                if byte_to_corrupt > 0 {
-                  temp_out.copy_bytes(&mut ii, byte_to_corrupt)?;
+            let result =
+              std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<String> {
+                let length = ii.length()?;
+                if length > 0 {
+                  // Copy first part unchanged:
+                  let byte_to_corrupt =
+                    (self.state.random_state.lock().random::<f64>() * length as f64) as usize;
+                  if byte_to_corrupt > 0 {
+                    temp_out.copy_bytes(&mut ii, byte_to_corrupt)?;
+                  }
+
+                  // Randomly flip one bit from this byte:
+                  let mut b = ii.read_byte()?;
+                  let bit_to_flip = self.state.random_state.lock().random_range(0..8);
+                  b ^= 1 << bit_to_flip;
+                  temp_out.write_byte(b)?;
+
+                  action_text = format!(
+                    "flip bit {bit_to_flip} of byte {byte_to_corrupt} out of {length} bytes"
+                  );
+
+                  // Copy last part unchanged:
+                  let bytes_left = length - byte_to_corrupt - 1;
+                  if bytes_left > 0 {
+                    temp_out.copy_bytes(&mut ii, bytes_left)?;
+                  }
                 }
-
-                // Randomly flip one bit from this byte:
-                let mut b = ii.read_byte()?;
-                let bit_to_flip = self.state.random_state.lock().random_range(0..8);
-                b ^= 1 << bit_to_flip;
-                temp_out.write_byte(b)?;
-
-                action_text =
-                  format!("flip bit {bit_to_flip} of byte {byte_to_corrupt} out of {length} bytes");
-
-                // Copy last part unchanged:
-                let bytes_left = length - byte_to_corrupt - 1;
-                if bytes_left > 0 {
-                  temp_out.copy_bytes(&mut ii, bytes_left)?;
-                }
-              }
-              Ok(temp_file_name)
-            })();
-            let result = IOUtils::use_or_suppress_result(result, ii.close());
-            IOUtils::use_or_suppress_result(result, temp_out.close())
+                Ok(temp_file_name)
+              }));
+            let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              IOUtils::close(0..2, |operation| match operation {
+                0 => ii.close(),
+                1 => temp_out.close(),
+                _ => unreachable!(),
+              })
+            }));
+            IOUtils::use_or_suppress_caught_result(result, close_result)
           })()?;
 
           // Delete original and copy bytes back:
@@ -542,19 +584,33 @@ where
               &name,
               &new_io_context(&mut *self.state.random_state.lock())?,
             )?;
-            let mut ii = match base.get_delegate().open_input(
-              &temp_file_name,
-              &new_io_context(&mut *self.state.random_state.lock())?,
-            ) {
-              Ok(ii) => ii,
-              Err(error) => return IOUtils::use_or_suppress_result(Err(error), out.close()),
+            let input_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              base.get_delegate().open_input(
+                &temp_file_name,
+                &new_io_context(&mut *self.state.random_state.lock())?,
+              )
+            }));
+            let mut ii = match input_result {
+              Ok(Ok(ii)) => ii,
+              result => {
+                let close_result =
+                  std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
+                return IOUtils::use_or_suppress_caught_result(result, close_result).map(|_| ());
+              },
             };
-            let result = (|| -> Result<()> {
-              let length = ii.length()?;
-              out.copy_bytes(&mut ii, length)
-            })();
-            let result = IOUtils::use_or_suppress_result(result, ii.close());
-            IOUtils::use_or_suppress_result(result, out.close())
+            let result =
+              std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+                let length = ii.length()?;
+                out.copy_bytes(&mut ii, length)
+              }));
+            let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              IOUtils::close(0..2, |operation| match operation {
+                0 => ii.close(),
+                1 => out.close(),
+                _ => unreachable!(),
+              })
+            }));
+            IOUtils::use_or_suppress_caught_result(result, close_result)
           })()?;
 
           self.delete_file(&temp_file_name)?;
@@ -570,8 +626,11 @@ where
             &name,
             &new_io_context(&mut *self.state.random_state.lock())?,
           )?;
-          let result = out.get_file_pointer().map(|_| ()); // just fake access to prevent compiler warning
-          IOUtils::use_or_suppress_result(result, out.close())?;
+          let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            out.get_file_pointer().map(|_| ())
+          })); // just fake access to prevent compiler warning
+          let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
+          IOUtils::use_or_suppress_caught_result(result, close_result)?;
         },
 
         _ => {
@@ -880,7 +939,7 @@ where
       return self.state.base.lock().in_.close();
     }
 
-    let result = (|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       // files that we tried to delete, but couldn't because readers were open.
       // all that matters is that we tried! (they will eventually go away)
       //   still open when we tried to delete
@@ -971,10 +1030,19 @@ where
         }
       }
       Ok(())
-    })();
+    }));
 
-    let close_result = self.state.base.lock().in_.close();
-    IOUtils::use_or_suppress_result(result, close_result)
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.state.base.lock().in_.close()
+    }));
+    match result {
+      Ok(Ok(())) => match close_result {
+        Ok(result) => result,
+        Err(payload) => std::panic::resume_unwind(payload),
+      },
+      Ok(Err(error)) => Err(error),
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 }
 

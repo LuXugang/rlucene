@@ -28,7 +28,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::ToInt;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{Arc, END_LABEL, FST, InputType, read_metadata};
 use crate::core::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
@@ -38,6 +38,7 @@ use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
+use crate::core::util::io_utils::IOUtils;
 /// Helper struct to test FSTs.
 #[allow(clippy::type_complexity)]
 pub struct FSTTester<D, R, O, S>
@@ -215,12 +216,23 @@ where
           None
         },
         Some(metadata) => {
-          let mut input = self
-            .dir
-            .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
-          let fst = FST::from_on_heap_store(metadata, &mut input)?;
-          self.dir.delete_file("fstOffHeap.bin")?;
-          Some(FSTEnums::FST1(fst))
+          let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+            || -> Result<FSTEnums<O, D>> {
+              let mut input = self
+                .dir
+                .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
+              let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                FST::from_on_heap_store(metadata, &mut input).map(FSTEnums::FST1)
+              }));
+              let close_result =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()));
+              IOUtils::use_or_suppress_caught_result(body_result, close_result)
+            },
+          ));
+          let delete_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.dir.delete_file("fstOffHeap.bin")
+          }));
+          Some(IOUtils::finally_caught_result(result, delete_result)?)
         },
       }
     } else if fst_metadata_opt.is_some() {
@@ -229,16 +241,32 @@ where
         let ctx = new_io_context(&mut random)?;
         {
           let mut out = self.dir.create_output("fst.bin", &ctx)?;
-          if let Some(fst_ref) = &fst {
-            fst_ref.save_with_same_data_out(&mut out)?;
-          }
-          out.close()?;
+          let body_result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+              if let Some(fst_ref) = &fst {
+                fst_ref.save_with_same_data_out(&mut out)?;
+              }
+              Ok(())
+            }));
+          let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
+          IOUtils::use_or_suppress_caught_result(body_result, close_result)?;
         }
-        let mut input = self.dir.open_input("fst.bin", &ctx)?;
-        let metadata = read_metadata(&mut input, self.outputs.clone())?;
-        let fst = FST::from_on_heap_store(metadata, &mut input)?;
-        self.dir.delete_file("fst.bin")?;
-        Some(FSTEnums::FST1(fst))
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+          || -> Result<FSTEnums<O, D>> {
+            let mut input = self.dir.open_input("fst.bin", &ctx)?;
+            let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+              let metadata = read_metadata(&mut input, self.outputs.clone())?;
+              FST::from_on_heap_store(metadata, &mut input).map(FSTEnums::FST1)
+            }));
+            let close_result =
+              std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()));
+            IOUtils::use_or_suppress_caught_result(body_result, close_result)
+          },
+        ));
+        let delete_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          self.dir.delete_file("fst.bin")
+        }));
+        Some(IOUtils::finally_caught_result(result, delete_result)?)
       } else {
         Some(FSTEnums::FST2(fst.unwrap()))
       }

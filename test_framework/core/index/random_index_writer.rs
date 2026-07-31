@@ -119,23 +119,25 @@ where
       }
       let reader = directory_reader::open(dir.clone())?;
       let commit = reader.get_index_commit()?;
-      let result = IndexCommitWrapper::new(Some(commit), Some(&reader)).and_then(|index_commit| {
-        IndexWriter::with_index_commit_and_hook(
-          dir,
-          conf,
-          Some(IndexWriterHooksEnum::custom(TestPointsIndexWriterHooks)),
-          index_commit,
-        )
-      });
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        IndexCommitWrapper::new(Some(commit), Some(&reader)).and_then(|index_commit| {
+          IndexWriter::with_index_commit_and_hook(
+            dir,
+            conf,
+            Some(IndexWriterHooksEnum::custom(TestPointsIndexWriterHooks)),
+            index_commit,
+          )
+        })
+      }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reader.close()));
       match result {
-        Ok(writer) => {
-          reader.close()?;
-          Ok(writer)
+        Ok(Ok(writer)) => match close_result {
+          Ok(Ok(())) => Ok(writer),
+          Ok(Err(error)) => Err(error),
+          Err(payload) => std::panic::resume_unwind(payload),
         },
-        Err(error) => {
-          let _ = reader.close();
-          Err(error)
-        },
+        Ok(Err(error)) => Err(error),
+        Err(payload) => std::panic::resume_unwind(payload),
       }
     } else {
       IndexWriter::with_hooks(
@@ -691,28 +693,36 @@ where
   where
     R: Rng + ?Sized,
   {
-    let pre_close_result = (|| {
-      if !INDEX_WRITER_ACCESS.is_closed(&self.w) {
-        maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
-      }
-      // if someone isn't using getReader() API, we want to be sure to
-      // forceMerge since presumably they might open a reader on the dir.
-      if !self.get_reader_called.load(Ordering::SeqCst)
-        && r.random_range(0..8) == 2
-        && !INDEX_WRITER_ACCESS.is_closed(&self.w)
-      {
-        self.do_random_force_merge(r)?;
-        if !self.w.get_config().get_commit_on_close() {
-          // index may have changed, must commit the changes, or otherwise they are discarded by the
-          // call to close()
-          self.w.commit()?;
+    let pre_close_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        if !INDEX_WRITER_ACCESS.is_closed(&self.w) {
+          maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
         }
-      }
-      Ok(())
-    })();
+        // if someone isn't using getReader() API, we want to be sure to
+        // forceMerge since presumably they might open a reader on the dir.
+        if !self.get_reader_called.load(Ordering::SeqCst)
+          && r.random_range(0..8) == 2
+          && !INDEX_WRITER_ACCESS.is_closed(&self.w)
+        {
+          self.do_random_force_merge(r)?;
+          if !self.w.get_config().get_commit_on_close() {
+            // index may have changed, must commit the changes, or otherwise they are discarded by the
+            // call to close()
+            self.w.commit()?;
+          }
+        }
+        Ok(())
+      }));
 
-    let close_result = self.w.close();
-    pre_close_result.and(close_result)
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.w.close()));
+    match pre_close_result {
+      Ok(Ok(())) => match close_result {
+        Ok(result) => result,
+        Err(payload) => std::panic::resume_unwind(payload),
+      },
+      Ok(Err(error)) => Err(error),
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   }
 
   /// Forces a forceMerge.

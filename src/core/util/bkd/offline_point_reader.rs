@@ -25,6 +25,7 @@ use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 
 pub struct OfflinePointReader<I>
 where
@@ -122,7 +123,7 @@ where
       return Ok(());
     }
 
-    let result = (|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       if self.count_left == 0
         && let Some(check_sum_input) = self.check_sum_input.as_mut()
         && !self.checked
@@ -131,16 +132,17 @@ where
         CodecUtil::check_footer(check_sum_input)?;
       }
       Ok(())
-    })();
+    }));
 
-    if let Some(input) = self.input.take() {
-      input.close()?;
+    let close_result = if let Some(input) = self.input.take() {
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()))
     } else if let Some(check_sum_input) = self.check_sum_input.take() {
-      check_sum_input.close()?;
-    }
-
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| check_sum_input.close()))
+    } else {
+      Ok(Ok(()))
+    };
     self.closed = true;
-    result
+    IOUtils::finally_caught_result(result, close_result)
   }
 }
 impl<I> PointReader for OfflinePointReader<I>

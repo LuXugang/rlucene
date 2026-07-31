@@ -158,27 +158,26 @@ where
       Ok(())
     }));
 
-    let finally_result: Result<()> = (|| {
-      let close_result = reader.close();
-      let close_result = IOUtils::use_or_suppress_result(close_result, sort_writer.close());
-      close_result?;
+    let finally_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        IOUtils::close(0..2, |operation| match operation {
+          0 => reader.close(),
+          1 => sort_writer.close(),
+          _ => unreachable!(),
+        })?;
 
-      let file_names: Vec<String> = self
-        .tmp_directory
-        .get_temporary_files()
-        .lock()
-        .file_names
-        .values()
-        .cloned()
-        .collect();
-      IOUtils::delete_files(&self.tmp_directory, &file_names)?;
-      Ok(())
-    })();
-    finally_result?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+        let file_names: Vec<String> = self
+          .tmp_directory
+          .get_temporary_files()
+          .lock()
+          .file_names
+          .values()
+          .cloned()
+          .collect();
+        IOUtils::delete_files(&self.tmp_directory, &file_names)?;
+        Ok(())
+      }));
+    IOUtils::finally_caught_result(result, finally_result)
   }
 
   fn abort(&mut self) -> Result<()> {

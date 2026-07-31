@@ -366,13 +366,25 @@ impl RandomPostingsTester {
       let mut consumer = codec
         .postings_format()
         .fields_consumer(&write_state, &segment_info)?;
-      consumer.write(
-        &write_state,
-        &segment_info,
-        &mut seed_fields,
-        Some(&fake_norms),
-      )?;
-      consumer.close()?;
+      let write_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          consumer.write(
+            &write_state,
+            &segment_info,
+            &mut seed_fields,
+            Some(&fake_norms),
+          )
+        }));
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| consumer.close()));
+      match write_result {
+        Ok(Ok(())) => match close_result {
+          Ok(result) => result?,
+          Err(payload) => std::panic::resume_unwind(payload),
+        },
+        Ok(Err(error)) => return Err(error),
+        Err(payload) => std::panic::resume_unwind(payload),
+      }
     }
 
     let read_state = SegmentReadState::new(dir.as_ref(), Arc::clone(&new_field_infos), &io_context);

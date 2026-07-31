@@ -153,63 +153,79 @@ pub trait Analyzer: Closeable + Send + Sync {
   }
 
   fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
-    let mut str_reader = ReusableStringReader::new();
-    str_reader.set_value(text);
-    let mut reader =
-      self.init_reader_for_normalization(field_name, ReaderEnum::ReusedString(str_reader));
-
-    let filtered_result = (|| -> Result<String> {
-      let mut buf = ['\0'; 64];
-      let mut filtered = String::new();
-      loop {
-        let len = buf.len();
-        let read = reader.read_range(&mut buf, 0, len)?;
-        if read == -1 {
-          break;
-        }
-        for &ch in &buf[..read as usize] {
-          filtered.push(ch);
-        }
-      }
-      Ok(filtered)
-    })();
-    let filtered = IOUtils::use_or_suppress_result(filtered_result, reader.close())?;
-
-    let att = self.attribute_factory(field_name);
-    debug_assert!(text.len() <= i32::MAX as usize);
-    let mut ts = self.normalize_from_ts(
-      field_name,
-      StringTokenStream::new(att, &filtered, text.len() as i32).into(),
-    )?;
-
     let result = (|| -> Result<BytesRef<Vec<u8>>> {
-      ts.reset()?;
-      if !ts.increment_token()? {
-        return Err(LuceneError::illegal_state(format!(
-          "expected 1 token but got 0 for analyzer and input \"{}\"",
-          text
-        )));
-      }
-      let term_att = ts.get_attribute_source_mut();
-      let term = match term_att.get_bytes_ref()? {
-        Some(t) => BytesRef::deep_copy_of(&*t),
-        None => {
-          return Err(LuceneError::illegal_state(format!(
-            "CharTermAttribute is missing for analyzer and input \"{}\"",
-            text
-          )));
+      let mut str_reader = ReusableStringReader::new();
+      str_reader.set_value(text);
+      let mut reader =
+        self.init_reader_for_normalization(field_name, ReaderEnum::ReusedString(str_reader));
+
+      let filtered_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<String> {
+          let mut buf = ['\0'; 64];
+          let mut filtered = String::new();
+          loop {
+            let len = buf.len();
+            let read = reader.read_range(&mut buf, 0, len)?;
+            if read == -1 {
+              break;
+            }
+            for &ch in &buf[..read as usize] {
+              filtered.push(ch);
+            }
+          }
+          Ok(filtered)
+        }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reader.close()));
+      let filtered = IOUtils::use_or_suppress_caught_result(filtered_result, close_result)?;
+
+      let att = self.attribute_factory(field_name);
+      debug_assert!(text.len() <= i32::MAX as usize);
+      let mut ts = self.normalize_from_ts(
+        field_name,
+        StringTokenStream::new(att, &filtered, text.len() as i32).into(),
+      )?;
+
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+        || -> Result<BytesRef<Vec<u8>>> {
+          ts.reset()?;
+          if !ts.increment_token()? {
+            return Err(LuceneError::illegal_state(format!(
+              "expected 1 token but got 0 for analyzer and input \"{}\"",
+              text
+            )));
+          }
+          let term_att = ts.get_attribute_source_mut();
+          let term = match term_att.get_bytes_ref()? {
+            Some(t) => BytesRef::deep_copy_of(&*t),
+            None => {
+              return Err(LuceneError::illegal_state(format!(
+                "CharTermAttribute is missing for analyzer and input \"{}\"",
+                text
+              )));
+            },
+          };
+          if ts.increment_token()? {
+            return Err(LuceneError::illegal_state(format!(
+              "expected 1 token but got more for analyzer and input \"{}\"",
+              text
+            )));
+          }
+          ts.end()?;
+          Ok(term)
         },
-      };
-      if ts.increment_token()? {
-        return Err(LuceneError::illegal_state(format!(
-          "expected 1 token but got more for analyzer and input \"{}\"",
-          text
-        )));
-      }
-      ts.end()?;
-      Ok(term)
+      ));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| ts.close()));
+      IOUtils::use_or_suppress_caught_result(result, close_result)
     })();
-    IOUtils::use_or_suppress_result(result, ts.close())
+
+    match result {
+      Err(error) if error.is_io_error() => {
+        let mut wrapped = LuceneError::illegal_state("Normalization threw an unexpected exception");
+        wrapped.add_suppressed(error);
+        Err(wrapped)
+      },
+      result => result,
+    }
   }
 
   fn init_reader(&self, _filed_name: &str, reader: ReaderEnum) -> ReaderEnum {

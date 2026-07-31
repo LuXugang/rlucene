@@ -24,6 +24,7 @@ use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::core::util::bkd::point_writer::PointWriter;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 
 /// Writes points to disk in a fixed-width format.
 pub struct OfflinePointWriter<O>
@@ -35,6 +36,7 @@ where
   pub config: BKDConfig,
   pub count: usize,
   pub closed: bool,
+  close_attempted: bool,
   pub expected_count: usize,
 }
 
@@ -65,6 +67,7 @@ where
       config,
       count: 0,
       closed: false,
+      close_attempted: false,
       expected_count,
     })
   }
@@ -112,7 +115,9 @@ where
   O: IndexOutput,
 {
   fn drop(&mut self) {
-    let _ = self.close();
+    if !self.close_attempted {
+      let _ = self.close();
+    }
   }
 }
 
@@ -223,11 +228,18 @@ where
 {
   fn close(&mut self) -> Result<()> {
     if !self.closed {
-      if let Some(mut out) = self.out.take() {
-        let result = CodecUtil::write_footer(&mut out);
-        out.close()?;
-        self.closed = true;
-        return result;
+      self.close_attempted = true;
+      if let Some(out) = self.out.as_mut() {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          CodecUtil::write_footer(out)
+        }));
+        let close_result =
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+            out.close()?;
+            self.closed = true;
+            Ok(())
+          }));
+        return IOUtils::finally_caught_result(result, close_result);
       }
       self.closed = true;
     }

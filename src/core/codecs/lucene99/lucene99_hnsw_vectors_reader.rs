@@ -92,64 +92,97 @@ where
     let mut meta = None;
     let mut vector_index = None;
     let mut footer_attempted = false;
+    let mut meta_close_attempted = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       meta = Some(state.directory.open_checksum_input(&meta_file_name)?);
 
-      let result = (|| -> Result<()> {
+      let mut body_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          let read_result = (|| -> Result<()> {
+            let meta = meta
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("HNSW metadata input is missing"))?;
+            version_meta = CodecUtil::check_index_header(
+              meta,
+              META_CODEC_NAME,
+              VERSION_START,
+              VERSION_CURRENT,
+              segment_info.get_id(),
+              &state.segment_suffix,
+            )?;
+            read_fields(meta, field_infos.as_ref(), &mut fields)
+          })();
+          let meta = meta
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("HNSW metadata input is missing"))?;
+          footer_attempted = true;
+          match read_result {
+            Ok(()) => CodecUtil::check_footer(meta).map(|_| ())?,
+            Err(error) => return Err(CodecUtil::check_footer_with_error(meta, error)),
+          }
+
+          vector_index = Some(Self::open_data_input(
+            state,
+            version_meta,
+            VECTOR_INDEX_EXTENSION,
+            VECTOR_INDEX_CODEC_NAME,
+            &state.context.with_read_advice_self(ReadAdvice::Random)?,
+            segment_info,
+          )?);
+          Ok(())
+        }));
+      let footer_error = if let Err(payload) = &body_result
+        && !footer_attempted
+      {
+        footer_attempted = true;
         let meta = meta
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("HNSW metadata input is missing"))?;
-        version_meta = CodecUtil::check_index_header(
-          meta,
-          META_CODEC_NAME,
-          VERSION_START,
-          VERSION_CURRENT,
-          segment_info.get_id(),
-          &state.segment_suffix,
-        )?;
-        read_fields(meta, field_infos.as_ref(), &mut fields)
-      })();
+        let error =
+          LuceneError::tragedy_from_panic("panic while reading HNSW metadata", payload.as_ref());
+        Some(CodecUtil::check_footer_with_error(meta, error))
+      } else {
+        None
+      };
+      if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
+        body_result = Ok(Err(error));
+      }
       let meta = meta
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("HNSW metadata input is missing"))?;
-      footer_attempted = true;
-      let footer_result = match result {
-        Ok(()) => CodecUtil::check_footer(meta).map(|_| ()),
-        Err(error) => Err(CodecUtil::check_footer_with_error(meta, error)),
-      };
-      IOUtils::use_or_suppress_result(footer_result, meta.close())?;
-
-      vector_index = Some(Self::open_data_input(
-        state,
-        version_meta,
-        VECTOR_INDEX_EXTENSION,
-        VECTOR_INDEX_CODEC_NAME,
-        &state.context.with_read_advice_self(ReadAdvice::Random)?,
-        segment_info,
-      )?);
-      Ok(())
+      meta_close_attempted = true;
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| meta.close()));
+      IOUtils::use_or_suppress_caught_result(body_result, close_result)
     }));
 
     match result {
       Ok(Ok(())) => {},
-      result => {
-        if let Err(payload) = &result
+      mut result => {
+        let footer_error = if let Err(payload) = &result
           && !footer_attempted
           && let Some(meta) = meta.as_mut()
         {
-          let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let error = LuceneError::tragedy_from_panic(
-              "panic while reading HNSW metadata",
-              payload.as_ref(),
-            );
-            let _ = CodecUtil::check_footer_with_error(meta, error);
-          }));
+          let error =
+            LuceneError::tragedy_from_panic("panic while reading HNSW metadata", payload.as_ref());
+          Some(CodecUtil::check_footer_with_error(meta, error))
+        } else {
+          None
+        };
+        if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
+          result = Ok(Err(error));
         }
-        IOUtils::close_resources_while_handling_error((
-          meta.as_ref(),
-          &flat_vectors_reader,
-          vector_index.as_ref(),
-        ))?;
+        if meta_close_attempted {
+          IOUtils::close_resources_while_handling_error((
+            &flat_vectors_reader,
+            vector_index.as_ref(),
+          ))?;
+        } else {
+          IOUtils::close_resources_while_handling_error((
+            meta.as_ref(),
+            &flat_vectors_reader,
+            vector_index.as_ref(),
+          ))?;
+        }
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
@@ -162,7 +195,7 @@ where
     let vector_index = match vector_index {
       Some(vector_index) => vector_index,
       None => {
-        IOUtils::close_resources_while_handling_error((meta.as_ref(), &flat_vectors_reader))?;
+        IOUtils::close_resources_while_handling_error(&flat_vectors_reader)?;
         return Err(LuceneError::illegal_state(
           "HNSW vector index is missing after successful construction",
         ));

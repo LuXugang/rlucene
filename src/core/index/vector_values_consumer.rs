@@ -91,22 +91,19 @@ where
     D2: Directory,
     DM: DocMap,
   {
-    if let Some(mut writer) = self.writer.take() {
+    if let Some(writer) = self.writer.as_mut() {
       let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         writer.flush(segment_info.max_doc()?, sort_map)?;
         writer.finish()
       }));
-      writer.close()?;
-      match body_result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
+      IOUtils::finally_caught_result(body_result, close_result)?;
     }
     Ok(())
   }
   pub(crate) fn abort(&mut self) {
-    if let Some(mut writer) = self.writer.take() {
-      let _ = IOUtils::close_resources_while_handling_error(&mut writer);
+    if let Some(writer) = self.writer.as_mut() {
+      let _ = IOUtils::close_resources_while_handling_error(writer);
     }
   }
   pub(crate) fn get_accountable(&self) -> &Self {
