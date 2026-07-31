@@ -26,7 +26,6 @@ use crate::core::index::multi_fields::MultiFields;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
-use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -39,9 +38,6 @@ use std::rc::Rc;
 /// The caller retains ownership of the segment state and segment info. Implementations borrow them
 /// only for the duration of each [`Self::write`] or [`Self::merge`] call.
 pub trait FieldsConsumer: Closeable {
-  /// Output type retained by this consumer after it is bound to a write operation.
-  type IndexOutput: IndexOutput;
-
   /// Write all fields, terms and postings. This is the "pull" API, allowing you to iterate more than
   /// once over the postings, somewhat analogous to using a DOM API to traverse an XML tree.
   ///
@@ -64,7 +60,7 @@ pub trait FieldsConsumer: Closeable {
     norms: Option<&N>,
   ) -> Result<()>
   where
-    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D1: Directory,
     D2: Directory,
     F: Fields,
     N: NormsProducer;
@@ -86,7 +82,7 @@ pub trait FieldsConsumer: Closeable {
     norms: Option<&N>,
   ) -> Result<()>
   where
-    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D1: Directory,
     D2: Directory,
     N: NormsProducer,
     MS: MergeStateAccess,

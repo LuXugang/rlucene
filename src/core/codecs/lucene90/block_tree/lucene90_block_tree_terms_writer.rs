@@ -434,8 +434,6 @@ where
   O: IndexOutput,
   PW: PostingsWriterBase,
 {
-  type IndexOutput = O;
-
   fn write<D1, D2, F, N>(
     &mut self,
     _state: &SegmentWriteState<D1>,
@@ -444,7 +442,7 @@ where
     norms: Option<&N>,
   ) -> Result<()>
   where
-    D1: Directory<IndexOutput = O>,
+    D1: Directory,
     D2: Directory,
     F: Fields,
     PW: PostingsWriterBase,

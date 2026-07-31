@@ -188,22 +188,25 @@ fn get_full_segment_suffix(
   }
 }
 
-pub struct FieldsWriter<B, FC>
+pub struct FieldsWriter<B>
 where
   B: PerFieldPostingsFormatBase,
 {
   base: Arc<B>,
-  to_close: Vec<FC>,
+  /// First delegate close error; later close errors are suppressed into it.
+  /// It is returned by [`Closeable::close`] so one close failure does not prevent
+  /// the remaining formats from being written.
+  close_error: Option<LuceneError>,
 }
 
-impl<B, FC> FieldsWriter<B, FC>
+impl<B> FieldsWriter<B>
 where
   B: PerFieldPostingsFormatBase,
 {
   fn new(base: Arc<B>) -> Self {
     Self {
       base,
-      to_close: Vec::new(),
+      close_error: None,
     }
   }
 
@@ -291,14 +294,10 @@ where
   }
 }
 
-impl<B, FC> FieldsConsumer for FieldsWriter<B, FC>
+impl<B> FieldsConsumer for FieldsWriter<B>
 where
   B: PerFieldPostingsFormatBase,
-  B::Format: PostingsFormat<FieldsConsumer<FC::IndexOutput> = FC>,
-  FC: FieldsConsumer,
 {
-  type IndexOutput = FC::IndexOutput;
-
   fn write<D1, D2, F, N>(
     &mut self,
     write_state: &SegmentWriteState<D1>,
@@ -307,7 +306,7 @@ where
     norms: Option<&N>,
   ) -> Result<()>
   where
-    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D1: Directory,
     D2: Directory,
     F: Fields,
     N: NormsProducer,
@@ -322,39 +321,32 @@ where
     let groups = Self::build_fields_group_mapping(base.as_ref(), write_state, indexed_field_names)?;
 
     // Write postings.
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      for (format, group) in groups.into_values() {
-        let consumer = format.fields_consumer(&group.state, segment_info)?;
-        self.to_close.push(consumer);
+    for (format, group) in groups.into_values() {
+      // Exposes only the fields from this group.
+      let mut masked_fields = FilterFields::new(fields, &group.fields);
+      let mut consumer = format.fields_consumer(&group.state, segment_info)?;
+      let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        consumer.write(&group.state, segment_info, &mut masked_fields, norms)
+      }));
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| consumer.close()));
 
-        // Exposes only the fields from this group.
-        let mut masked_fields = FilterFields::new(fields, &group.fields);
-        self
-          .to_close
-          .last_mut()
-          .expect("consumer was just added")
-          .write(&group.state, segment_info, &mut masked_fields, norms)?;
+      match close_result {
+        Ok(Ok(())) => {},
+        Ok(Err(error)) => {
+          self.close_error = Some(IOUtils::use_or_suppress(self.close_error.take(), error));
+        },
+        Err(payload) => {
+          return IOUtils::use_or_suppress_caught_result(write_result, Err(payload));
+        },
       }
-      Ok(())
-    }));
 
-    match result {
-      Ok(Ok(())) => Ok(()),
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_error(self.to_close.iter_mut(), Closeable::close)?;
-        Err(error)
-      },
-      Err(error) => {
-        let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close_while_handling_error(self.to_close.iter_mut(), Closeable::close)
-        }));
-        match close_result {
-          Ok(Ok(())) => std::panic::resume_unwind(error),
-          Ok(Err(close_error)) => Err(close_error),
-          Err(close_error) => std::panic::resume_unwind(close_error),
-        }
-      },
+      match write_result {
+        Ok(result) => result?,
+        Err(payload) => std::panic::resume_unwind(payload),
+      }
     }
+    Ok(())
   }
 
   fn merge<D1, D2, N, MS>(
@@ -365,7 +357,7 @@ where
     norms: Option<&N>,
   ) -> Result<()>
   where
-    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D1: Directory,
     D2: Directory,
     N: NormsProducer,
     MS: MergeStateAccess,
@@ -386,48 +378,43 @@ where
     let groups = Self::build_fields_group_mapping(base.as_ref(), write_state, indexed_field_names)?;
 
     // Merge postings.
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      for (format, group) in groups.into_values() {
-        let consumer = format.fields_consumer(&group.state, segment_info)?;
-        self.to_close.push(consumer);
-
+    for (format, group) in groups.into_values() {
+      let mut consumer = format.fields_consumer(&group.state, segment_info)?;
+      let merge_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let restricted = PerFieldMergeState::restrict_fields(merge_state, &group.fields)?;
-        self
-          .to_close
-          .last_mut()
-          .expect("consumer was just added")
-          .merge(&group.state, segment_info, &restricted, norms)?;
-      }
-      Ok(())
-    }));
+        consumer.merge(&group.state, segment_info, &restricted, norms)
+      }));
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| consumer.close()));
 
-    match result {
-      Ok(Ok(())) => Ok(()),
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_error(self.to_close.iter_mut(), Closeable::close)?;
-        Err(error)
-      },
-      Err(error) => {
-        let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close_while_handling_error(self.to_close.iter_mut(), Closeable::close)
-        }));
-        match close_result {
-          Ok(Ok(())) => std::panic::resume_unwind(error),
-          Ok(Err(close_error)) => Err(close_error),
-          Err(close_error) => std::panic::resume_unwind(close_error),
-        }
-      },
+      match close_result {
+        Ok(Ok(())) => {},
+        Ok(Err(error)) => {
+          self.close_error = Some(IOUtils::use_or_suppress(self.close_error.take(), error));
+        },
+        Err(payload) => {
+          return IOUtils::use_or_suppress_caught_result(merge_result, Err(payload));
+        },
+      }
+
+      match merge_result {
+        Ok(result) => result?,
+        Err(payload) => std::panic::resume_unwind(payload),
+      }
     }
+    Ok(())
   }
 }
 
-impl<B, FC> Closeable for FieldsWriter<B, FC>
+impl<B> Closeable for FieldsWriter<B>
 where
   B: PerFieldPostingsFormatBase,
-  FC: Closeable,
 {
   fn close(&mut self) -> Result<()> {
-    IOUtils::close(self.to_close.iter_mut(), Closeable::close)
+    match self.close_error.take() {
+      Some(error) => Err(error),
+      None => Ok(()),
+    }
   }
 }
 
@@ -666,8 +653,7 @@ where
     PER_FIELD_NAME
   }
 
-  type FieldsConsumer<O: IndexOutput> =
-    FieldsWriter<B, <B::Format as PostingsFormat>::FieldsConsumer<O>>;
+  type FieldsConsumer<O: IndexOutput> = FieldsWriter<B>;
 
   fn fields_consumer<D1, D2>(
     &self,

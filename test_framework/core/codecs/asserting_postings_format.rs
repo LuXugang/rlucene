@@ -200,8 +200,6 @@ impl<FC> FieldsConsumer for AssertingFieldsConsumer<FC>
 where
   FC: FieldsConsumer,
 {
-  type IndexOutput = FC::IndexOutput;
-
   fn write<D1, D2, F, N>(
     &mut self,
     state: &SegmentWriteState<D1>,
@@ -210,7 +208,7 @@ where
     norms: Option<&N>,
   ) -> Result<()>
   where
-    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D1: Directory,
     D2: Directory,
     F: Fields,
     N: NormsProducer,

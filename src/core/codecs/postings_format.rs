@@ -29,7 +29,7 @@ pub trait PostingsFormat: HasIdentity {
   /// Returns this postings format's name.
   fn get_name(&self) -> &str;
 
-  type FieldsConsumer<O: IndexOutput>: FieldsConsumer<IndexOutput = O>;
+  type FieldsConsumer<O: IndexOutput>: FieldsConsumer;
   /// Creates a consumer for a new segment.
   fn fields_consumer<D1, D2>(
     &self,
