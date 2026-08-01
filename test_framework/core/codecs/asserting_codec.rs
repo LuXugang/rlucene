@@ -18,6 +18,10 @@ use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducerEnum2;
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
+use crate::core::codecs::knn_vectors_formats::KnnVectorsFormats;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum2;
+use crate::core::codecs::knn_vectors_writer::KnnVectorsWriterEnum2;
 use crate::core::codecs::perfield::per_field_doc_values_format::{
   PerFieldDocValuesFormat, PerFieldDocValuesFormatBase,
 };
@@ -43,6 +47,11 @@ use crate::test_framework::core::codecs::asserting_points_format::AssertingPoint
 use crate::test_framework::core::codecs::asserting_postings_format::AssertingPostingsFormat;
 use crate::test_framework::core::codecs::asserting_stored_fields_format::AssertingStoredFieldsFormat;
 use crate::test_framework::core::codecs::asserting_term_vectors_format::AssertingTermVectorsFormat;
+use crate::test_framework::core::codecs::perfield::test_per_field_knn_vectors_format::{
+  KnnVectorsFormatMaxDims32, MaxDimensionsPerFieldFormatAssertingCodec,
+  MergeUsesNewFormatAssertingCodec, TwoFieldsTwoFormatsAssertingCodec,
+  WriteRecordingKnnVectorsFormat,
+};
 use crate::test_framework::core::util::test_util::{
   DefaultCodec, DefaultDocValuesFormat, TestUtil,
 };
@@ -169,6 +178,155 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
   }
 }
 
+pub enum AssertingCodecKnnVectorsFormat {
+  Asserting(Arc<AssertingKnnVectorsFormat>),
+  Source(Arc<KnnVectorsFormats>),
+  WriteRecording(Arc<WriteRecordingKnnVectorsFormat>),
+  MaxDims32(Arc<KnnVectorsFormatMaxDims32>),
+}
+
+impl From<AssertingKnnVectorsFormat> for AssertingCodecKnnVectorsFormat {
+  fn from(format: AssertingKnnVectorsFormat) -> Self {
+    Self::Asserting(Arc::new(format))
+  }
+}
+
+impl From<KnnVectorsFormats> for AssertingCodecKnnVectorsFormat {
+  fn from(format: KnnVectorsFormats) -> Self {
+    Self::Source(Arc::new(format))
+  }
+}
+
+impl From<WriteRecordingKnnVectorsFormat> for AssertingCodecKnnVectorsFormat {
+  fn from(format: WriteRecordingKnnVectorsFormat) -> Self {
+    Self::WriteRecording(Arc::new(format))
+  }
+}
+
+impl From<KnnVectorsFormatMaxDims32> for AssertingCodecKnnVectorsFormat {
+  fn from(format: KnnVectorsFormatMaxDims32) -> Self {
+    Self::MaxDims32(Arc::new(format))
+  }
+}
+
+impl Display for AssertingCodecKnnVectorsFormat {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Asserting(format) => Display::fmt(format.as_ref(), f),
+      Self::Source(format) => Display::fmt(format.as_ref(), f),
+      Self::WriteRecording(format) => Display::fmt(format.as_ref(), f),
+      Self::MaxDims32(format) => Display::fmt(format.as_ref(), f),
+    }
+  }
+}
+
+impl HasIdentity for AssertingCodecKnnVectorsFormat {
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::Asserting(format) => format.identity(),
+      Self::Source(format) => format.identity(),
+      Self::WriteRecording(format) => format.identity(),
+      Self::MaxDims32(format) => format.identity(),
+    }
+  }
+}
+
+pub type AssertingCodecKnnVectorsWriter<O> = KnnVectorsWriterEnum2<
+  <AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>,
+  KnnVectorsWriterEnum2<
+    <KnnVectorsFormats as KnnVectorsFormat>::KnnVectorsWriter<O>,
+    <WriteRecordingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>,
+  >,
+>;
+
+pub type AssertingCodecKnnVectorsReader<I> = KnnVectorsReaderEnum2<
+  <AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>,
+  <KnnVectorsFormats as KnnVectorsFormat>::KnnVectorsReader<I>,
+>;
+
+impl KnnVectorsFormat for AssertingCodecKnnVectorsFormat {
+  fn get_name(&self) -> &str {
+    match self {
+      Self::Asserting(format) => format.get_name(),
+      Self::Source(format) => format.get_name(),
+      Self::WriteRecording(format) => format.get_name(),
+      Self::MaxDims32(format) => format.get_name(),
+    }
+  }
+
+  type KnnVectorsWriter<O: IndexOutput> = AssertingCodecKnnVectorsWriter<O>;
+
+  fn fields_writer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::Asserting(format) => format
+        .fields_writer(state, segment_info)
+        .map(KnnVectorsWriterEnum2::A),
+      Self::Source(format) => format
+        .fields_writer(state, segment_info)
+        .map(|writer| KnnVectorsWriterEnum2::B(KnnVectorsWriterEnum2::A(writer))),
+      Self::WriteRecording(format) => format
+        .fields_writer(state, segment_info)
+        .map(|writer| KnnVectorsWriterEnum2::B(KnnVectorsWriterEnum2::B(writer))),
+      Self::MaxDims32(format) => format
+        .fields_writer(state, segment_info)
+        .map(|writer| KnnVectorsWriterEnum2::B(KnnVectorsWriterEnum2::A(writer))),
+    }
+  }
+
+  type KnnVectorsReader<I: IndexInput> = AssertingCodecKnnVectorsReader<I>;
+
+  fn fields_reader<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::Asserting(format) => format
+        .fields_reader(state, segment_info)
+        .map(KnnVectorsReaderEnum2::A),
+      Self::Source(format) => format
+        .fields_reader(state, segment_info)
+        .map(KnnVectorsReaderEnum2::B),
+      Self::WriteRecording(format) => format
+        .fields_reader(state, segment_info)
+        .map(KnnVectorsReaderEnum2::B),
+      Self::MaxDims32(format) => format
+        .fields_reader(state, segment_info)
+        .map(KnnVectorsReaderEnum2::B),
+    }
+  }
+
+  fn get_max_dimensions(&self, field_name: &str) -> Result<usize> {
+    match self {
+      Self::Asserting(format) => format.get_max_dimensions(field_name),
+      Self::Source(format) => format.get_max_dimensions(field_name),
+      Self::WriteRecording(format) => format.get_max_dimensions(field_name),
+      Self::MaxDims32(format) => format.get_max_dimensions(field_name),
+    }
+  }
+
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    match name {
+      "Asserting" => {
+        AssertingKnnVectorsFormat::for_name(name).map(|format| Arc::new(Self::Asserting(format)))
+      },
+      _ => KnnVectorsFormats::for_name(name).map(|format| Arc::new(Self::Source(format))),
+    }
+  }
+}
+
 /// Static-dispatch access to the methods that Java subclasses override on
 /// [`AssertingCodec`].
 pub trait AssertingCodecBase {
@@ -176,13 +334,16 @@ pub trait AssertingCodecBase {
 
   fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingCodecDocValuesFormat>;
 
-  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&AssertingKnnVectorsFormat>;
+  fn get_knn_vectors_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingCodecKnnVectorsFormat>;
 }
 
 pub struct AssertingCodecDefaults {
   default_format: AssertingPostingsFormat,
   default_dv_format: AssertingCodecDocValuesFormat,
-  default_knn_vectors_format: AssertingKnnVectorsFormat,
+  default_knn_vectors_format: AssertingCodecKnnVectorsFormat,
 }
 
 impl Default for AssertingCodecDefaults {
@@ -191,7 +352,8 @@ impl Default for AssertingCodecDefaults {
       default_format: AssertingPostingsFormat::new(),
       default_dv_format: AssertingDocValuesFormat::new().into(),
       default_knn_vectors_format: AssertingKnnVectorsFormat::new()
-        .expect("default KNN vectors format parameters are valid"),
+        .expect("default KNN vectors format parameters are valid")
+        .into(),
     }
   }
 }
@@ -223,7 +385,7 @@ impl AssertingCodecDefaults {
   pub fn get_knn_vectors_format_for_field(
     &self,
     _field: &str,
-  ) -> Result<&AssertingKnnVectorsFormat> {
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
     Ok(&self.default_knn_vectors_format)
   }
 }
@@ -237,7 +399,10 @@ impl AssertingCodecBase for AssertingCodecDefaults {
     AssertingCodecDefaults::get_doc_values_format_for_field(self, field)
   }
 
-  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&AssertingKnnVectorsFormat> {
+  fn get_knn_vectors_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
     AssertingCodecDefaults::get_knn_vectors_format_for_field(self, field)
   }
 }
@@ -268,14 +433,52 @@ impl AssertingCodecBase for AlwaysDocValuesFormatAssertingCodec {
     Ok(&self.format)
   }
 
-  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&AssertingKnnVectorsFormat> {
+  fn get_knn_vectors_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
     self.defaults.get_knn_vectors_format_for_field(field)
+  }
+}
+
+pub(crate) struct AlwaysKnnVectorsFormatAssertingCodec {
+  defaults: AssertingCodecDefaults,
+  format: AssertingCodecKnnVectorsFormat,
+}
+
+impl AlwaysKnnVectorsFormatAssertingCodec {
+  fn new(format: AssertingCodecKnnVectorsFormat) -> Self {
+    Self {
+      defaults: AssertingCodecDefaults::default(),
+      format,
+    }
+  }
+}
+
+impl AssertingCodecBase for AlwaysKnnVectorsFormatAssertingCodec {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+    self.defaults.get_postings_format_for_field(field)
+  }
+
+  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingCodecDocValuesFormat> {
+    self.defaults.get_doc_values_format_for_field(field)
+  }
+
+  fn get_knn_vectors_format_for_field(
+    &self,
+    _field: &str,
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
+    Ok(&self.format)
   }
 }
 
 pub(crate) enum AssertingCodecHook {
   Default(AssertingCodecDefaults),
   AlwaysDocValuesFormat(AlwaysDocValuesFormatAssertingCodec),
+  AlwaysKnnVectorsFormat(AlwaysKnnVectorsFormatAssertingCodec),
+  TwoFieldsTwoFormats(TwoFieldsTwoFormatsAssertingCodec),
+  MergeUsesNewFormat(MergeUsesNewFormatAssertingCodec),
+  MaxDimensionsPerFieldFormat(MaxDimensionsPerFieldFormatAssertingCodec),
 }
 
 impl Default for AssertingCodecHook {
@@ -289,6 +492,10 @@ impl AssertingCodecBase for AssertingCodecHook {
     match self {
       Self::Default(defaults) => defaults.get_postings_format_for_field(field),
       Self::AlwaysDocValuesFormat(hook) => hook.get_postings_format_for_field(field),
+      Self::AlwaysKnnVectorsFormat(hook) => hook.get_postings_format_for_field(field),
+      Self::TwoFieldsTwoFormats(hook) => hook.get_postings_format_for_field(field),
+      Self::MergeUsesNewFormat(hook) => hook.get_postings_format_for_field(field),
+      Self::MaxDimensionsPerFieldFormat(hook) => hook.get_postings_format_for_field(field),
     }
   }
 
@@ -296,13 +503,24 @@ impl AssertingCodecBase for AssertingCodecHook {
     match self {
       Self::Default(defaults) => defaults.get_doc_values_format_for_field(field),
       Self::AlwaysDocValuesFormat(hook) => hook.get_doc_values_format_for_field(field),
+      Self::AlwaysKnnVectorsFormat(hook) => hook.get_doc_values_format_for_field(field),
+      Self::TwoFieldsTwoFormats(hook) => hook.get_doc_values_format_for_field(field),
+      Self::MergeUsesNewFormat(hook) => hook.get_doc_values_format_for_field(field),
+      Self::MaxDimensionsPerFieldFormat(hook) => hook.get_doc_values_format_for_field(field),
     }
   }
 
-  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&AssertingKnnVectorsFormat> {
+  fn get_knn_vectors_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
     match self {
       Self::Default(defaults) => defaults.get_knn_vectors_format_for_field(field),
       Self::AlwaysDocValuesFormat(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::AlwaysKnnVectorsFormat(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::TwoFieldsTwoFormats(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::MergeUsesNewFormat(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::MaxDimensionsPerFieldFormat(hook) => hook.get_knn_vectors_format_for_field(field),
     }
   }
 }
@@ -336,7 +554,7 @@ pub struct AssertingCodecKnnVectorsFormatBase {
 }
 
 impl PerFieldKnnVectorsFormatBase for AssertingCodecKnnVectorsFormatBase {
-  type Format = AssertingKnnVectorsFormat;
+  type Format = AssertingCodecKnnVectorsFormat;
 
   fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&Self::Format> {
     self.hook.get_knn_vectors_format_for_field(field)
@@ -366,6 +584,12 @@ impl AssertingCodec {
   pub(crate) fn with_doc_values_format(format: impl Into<AssertingCodecDocValuesFormat>) -> Self {
     Self::with_hook(AssertingCodecHook::AlwaysDocValuesFormat(
       AlwaysDocValuesFormatAssertingCodec::new(format.into()),
+    ))
+  }
+
+  pub(crate) fn with_knn_vectors_format(format: impl Into<KnnVectorsFormats>) -> Self {
+    Self::with_hook(AssertingCodecHook::AlwaysKnnVectorsFormat(
+      AlwaysKnnVectorsFormatAssertingCodec::new(format.into().into()),
     ))
   }
 
@@ -400,7 +624,7 @@ impl AssertingCodec {
   pub fn get_knn_vectors_format_for_field(
     &self,
     field: &str,
-  ) -> Result<&AssertingKnnVectorsFormat> {
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
     self.hook.get_knn_vectors_format_for_field(field)
   }
 }

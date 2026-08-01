@@ -39,6 +39,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::postings_enum::{
   ALL, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum, PostingsEnumEnum2,
 };
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -54,6 +55,7 @@ use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStrea
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::random_postings_tester::Option_;
 use crate::test_framework::core::index::random_postings_tester::RandomPostingsTester;
@@ -1683,11 +1685,47 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_mismatched_fields<R>(&self, _random: &mut R) -> Result<()>
+  fn test_mismatched_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO MismatchedCodecReader未实现
+    let dir1 = new_directory_shared(random)?;
+    let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random)?)?;
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("f", "a", No)?);
+    doc.add(StringField::from_string("g", "b", No)?);
+    w1.add_document(doc.clone())?;
+
+    let dir2 = new_directory_shared(random)?;
+    let mut iwc = new_index_writer_config(random)?;
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
+    let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+    w2.add_document(doc)?;
+    w2.commit()?;
+
+    let reader = directory_reader::open_from_writer(&w1)?;
+    w1.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    let mismatched = MismatchedCodecReader::new(leaf, random)?;
+    w2.add_indexes_from_codec_readers(vec![mismatched])?;
+    reader.close()?;
+    w2.force_merge(1)?;
+
+    let reader = directory_reader::open_from_writer(&w2)?;
+    w2.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    for (field, term) in [("f", "a"), ("g", "b")] {
+      let terms = leaf.terms(field)?.expect("terms should exist");
+      let mut terms_enum = terms.iterator()?;
+      let actual = terms_enum.next()?.expect("term should exist");
+      assert_eq!(&BytesRef::from_string(term), actual.as_ref());
+      assert_eq!(2, terms_enum.doc_freq()?);
+      assert!(terms_enum.next()?.is_none());
+    }
+
+    reader.close()?;
+    dir1.close()?;
+    dir2.close()?;
     Ok(())
   }
 }

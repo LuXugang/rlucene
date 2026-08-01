@@ -55,6 +55,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, get_only_leaf_reader, new_directory_shared, new_searcher_with_reader,
+  random_vector_format,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -937,11 +938,49 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_same_field_different_formats<R>(&self, _random: &mut R) -> Result<()>
+  fn test_same_field_different_formats<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT randomVectorFormat未实现
+    let directory = self.new_directory_for_test(random)?;
+    let format1 = random_vector_format(
+      random,
+      &crate::core::index::vector_encoding::VectorEncoding::FLOAT32(4),
+    )?;
+    let format2 = random_vector_format(
+      random,
+      &crate::core::index::vector_encoding::VectorEncoding::FLOAT32(4),
+    )?;
+
+    let mut config = IndexWriterConfig::new()?;
+    config.set_codec(TestUtil::always_knn_vectors_format(format1));
+    let writer = IndexWriter::new(directory.clone().into(), config)?;
+    let mut doc = Document::new();
+    doc.add(self.get_knn_vector_field("field1", vec![1.0, 1.0, 1.0])?);
+    writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(self.get_knn_vector_field("field1", vec![1.0, 2.0, 3.0])?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.close()?;
+
+    let mut config = IndexWriterConfig::new()?;
+    config.set_codec(TestUtil::always_knn_vectors_format(format2));
+    let writer = IndexWriter::new(directory.clone().into(), config)?;
+    let mut doc = Document::new();
+    doc.add(self.get_knn_vector_field("field1", vec![1.0, 1.0, 2.0])?);
+    writer.add_document(doc)?;
+    let mut doc = Document::new();
+    doc.add(self.get_knn_vector_field("field1", vec![4.0, 5.0, 6.0])?);
+    writer.add_document(doc)?;
+    writer.commit()?;
+    writer.close()?;
+
+    let reader = directory_reader::open(directory.into())?;
+    let searcher = new_searcher_with_reader(reader)?;
+    let query = self.get_knn_vector_query_no_filter("field1", vec![1.0, 2.0, 3.0], 10)?;
+    let hits = searcher.search(query, 4)?;
+    assert_eq!(4, hits.score_docs.len());
     Ok(())
   }
 

@@ -14,9 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::RngExt;
-
-fn main() {
-  let seed: u64 = rand::rng().random_range(0..u64::MAX);
-  println!("{seed}");
-}
+pub(crate) mod test_hnsw_bit_vectors_format;

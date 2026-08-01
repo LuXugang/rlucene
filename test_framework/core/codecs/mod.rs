@@ -23,3 +23,4 @@ pub mod asserting_points_format;
 pub mod asserting_postings_format;
 pub mod asserting_stored_fields_format;
 pub mod asserting_term_vectors_format;
+pub(crate) mod perfield;

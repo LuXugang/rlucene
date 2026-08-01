@@ -21,7 +21,11 @@ use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::{Arc, LazyLock};
 
+use crate::codec::bitvectors::hnsw_bit_vectors_format::HnswBitVectorsFormat;
 use crate::core::analysis::analyzer::AnalyzerEnum;
+use crate::core::codecs::knn_vectors_formats::KnnVectorsFormats;
+use crate::core::codecs::lucene99::lucene99_hnsw_scalar_quantized_vectors_format::Lucene99HnswScalarQuantizedVectorsFormat;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::index::concurrent_merge_scheduler::{
@@ -41,6 +45,7 @@ use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::simple_merged_segment_warmer::SimpleMergedSegmentWarmer;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::{BytesRef, CODEC_FILE_PATTERN, IndexFileNames};
 #[cfg(test)]
 use crate::core::search::index_searcher::IndexSearcherHook;
@@ -91,6 +96,23 @@ use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick search
 pub struct LuceneTestCase;
+
+pub fn random_vector_format<R>(
+  random: &mut R,
+  vector_encoding: &VectorEncoding,
+) -> Result<KnnVectorsFormats>
+where
+  R: Rng + ?Sized,
+{
+  let mut available_formats = vec![
+    Lucene99HnswVectorsFormat::new()?.into(),
+    Lucene99HnswScalarQuantizedVectorsFormat::new()?.into(),
+  ];
+  if matches!(vector_encoding, VectorEncoding::BYTE(_)) {
+    available_formats.push(HnswBitVectorsFormat::new()?.into());
+  }
+  Ok(available_formats.remove(random.random_range(0..available_formats.len())))
+}
 
 /// Describes the currently supported environment variables used to control
 /// Lucene tests.

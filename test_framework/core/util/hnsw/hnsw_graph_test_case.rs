@@ -18,15 +18,34 @@ use crate::core::codecs::hnsw::default_flat_vector_scorer::{
   ByteVectorScorer, DefaultFlatVectorScorer, FloatVectorScorer,
 };
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
+use crate::core::document::document::Document;
 use crate::core::document::field::Field;
+use crate::core::document::field::Store;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::stored_field::StoredField;
+use crate::core::document::string_field::StringField;
 use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::directory_reader;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::knn_vector_values::{
-  BitsImpl1, DenseDocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2, create_dense_iterator,
+  BitsImpl1, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
+  create_dense_iterator,
 };
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::stored_fields::StoredFields;
+use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -34,15 +53,20 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::query::Query;
+use crate::core::search::sort::Sort;
+use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::top_knn_collector::TopKnnCollector;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
+use crate::core::util::hnsw::hnsw_graph_builder::RAND_SEED;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -53,7 +77,10 @@ use crate::core::util::hnsw::{
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
 use crate::test_framework::core::util::hnsw::mock_vector_values::MockVectorValues;
-use crate::test_framework::core::util::lucene_test_case::at_least_usize;
+use crate::test_framework::core::util::lucene_test_case::{
+  at_least_usize, new_directory_shared, new_merge_policy, new_searcher_with_reader,
+};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -145,26 +172,278 @@ where
     B: ByteVectorValues,
     F: FloatVectorValues;
 
-  fn test_random_read_write_and_merge<R>(&self, _random: &mut R) -> Result<()>
+  // Tests writing segments of various sizes and merging to ensure there are no errors
+  // in the HNSW graph merging logic.
+  fn test_random_read_write_and_merge<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO Knn 合并未实现
-    Ok(())
+    let dim = random.random_range(1..=100);
+    let segment_sizes = [
+      random.random_range(1..=20),
+      random.random_range(30..=39),
+      random.random_range(20..=29),
+    ];
+    // Randomly delete vector documents.
+    let add_deletes = [
+      random.random_bool(0.5),
+      random.random_bool(0.5),
+      random.random_bool(0.5),
+    ];
+    // Randomly index other documents besides vector docs.
+    let is_sparse = [
+      random.random_bool(0.5),
+      random.random_bool(0.5),
+      random.random_bool(0.5),
+    ];
+    let num_vectors = segment_sizes.iter().sum();
+    let m = random.random_range(2..=5);
+    let beam_width = random.random_range(5..=14);
+    let vectors = self.vector_values(num_vectors, dim, random);
+
+    let dir = new_directory_shared(random)?;
+    let mut config = IndexWriterConfig::new()?;
+    config.set_codec(TestUtil::always_knn_vectors_format(
+      Lucene99HnswVectorsFormat::with_graph_para(m, beam_width)?,
+    ));
+    config.set_merge_policy(new_merge_policy::<DirEnum, _>(random)?);
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    for i in 0..segment_sizes.len() {
+      let size = segment_sizes[i];
+      for ord in 0..size {
+        if is_sparse[i] && random.random_bool(0.5) {
+          for _ in 0..random.random_range(1..=10) {
+            writer.add_document(Document::new())?;
+          }
+        }
+        let mut doc = Document::new();
+        doc.add(self.knn_vector_field(
+          "field",
+          self.vector_value(&vectors, ord)?,
+          self.similarity_function(),
+        )?);
+        doc.add(StringField::from_string(
+          "id",
+          vectors.ord_to_doc(ord)?.to_string(),
+          Store::No,
+        )?);
+        writer.add_document(doc)?;
+      }
+      writer.commit()?;
+      if add_deletes[i] && size > 1 {
+        let mut d = 0;
+        while d < size {
+          writer.delete_documents_with_terms(vec![Term::from_text("id", d.to_string())])?;
+          d += random.random_range(1..=5);
+        }
+        writer.commit()?;
+      }
+    }
+    writer.commit()?;
+    writer.force_merge(1)?;
+    writer.close()?;
+
+    let reader = directory_reader::open(dir.clone())?;
+    for context in (&reader).get_context()?.leaves()? {
+      let values = self.vector_values_from_reader(&context.reader(), "field", random)?;
+      assert_eq!(dim, values.dimension());
+    }
+    reader.close()?;
+    dir.close()
   }
   fn vector_value(&self, vectors: &TestsKnnVectorValues, ord: usize) -> Result<T>;
-  fn test_read_write<R>(&self, _random: &mut R) -> Result<()>
+
+  // Test writing out and reading in a graph gives the expected graph.
+  fn test_read_write<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    Ok(())
+    let dim = random.random_range(1..=100);
+    let n_doc = random.random_range(1..=100);
+    let m = random.random_range(2..=5);
+    let beam_width = random.random_range(5..=14);
+    let vectors = self.vector_values(n_doc, dim, random);
+    let v2 = vectors.copy_()?;
+    let v3 = vectors.copy_()?;
+    let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    // Rust's index writer uses this fixed seed instead of Java's mutable test-only randSeed.
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, m, beam_width, RAND_SEED)?;
+    builder.build(n_doc)?;
+    assert!(matches!(
+      builder.add_graph_node(0),
+      Err(LuceneError::IllegalState(_))
+    ));
+
+    let dir = new_directory_shared(random)?;
+    let mut config = IndexWriterConfig::new()?;
+    config.set_codec(TestUtil::always_knn_vectors_format(
+      Lucene99HnswVectorsFormat::with_graph_para(m, beam_width)?,
+    ));
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    let mut n_vec = 0;
+    let mut indexed_doc = 0;
+    let mut iterator = v2.iterator()?;
+    while iterator.next_doc()? != NO_MORE_DOCS {
+      while indexed_doc < iterator.doc_id() {
+        writer.add_document(Document::new())?;
+        indexed_doc += 1;
+      }
+      let mut doc = Document::new();
+      doc.add(self.knn_vector_field(
+        "field",
+        self.vector_value(&v2, iterator.index()? as usize)?,
+        self.similarity_function(),
+      )?);
+      doc.add(StoredField::from_i32("id", iterator.doc_id())?);
+      writer.add_document(doc)?;
+      n_vec += 1;
+      indexed_doc += 1;
+    }
+    writer.close()?;
+
+    let reader = directory_reader::open(dir.clone())?;
+    for context in (&reader).get_context()?.leaves()? {
+      let leaf = context.reader();
+      let values = self.vector_values_from_reader(&leaf, "field", random)?;
+      assert_eq!(dim, values.dimension());
+      assert_eq!(n_vec, values.size());
+      assert_eq!(indexed_doc, leaf.max_doc()?);
+      assert_eq!(indexed_doc, leaf.num_docs()?);
+      match (&v3, &values) {
+        (TestsKnnVectorValues::A(expected), TestsKnnVectorValues::A(actual)) => {
+          assert_byte_vectors_equal(expected, actual)?;
+        },
+        (TestsKnnVectorValues::B(expected), TestsKnnVectorValues::B(actual)) => {
+          assert_float_vectors_equal(expected, actual)?;
+        },
+        _ => unreachable!("vector encodings must match"),
+      }
+      let vector_reader = leaf
+        .get_vector_reader()?
+        .expect("vector reader should exist");
+      let mut graph_values = vector_reader.get_graph("field")?;
+      assert_graph_equal(builder.get_graph_mut(), &mut graph_values)?;
+    }
+    reader.close()?;
+    dir.close()
   }
 
-  fn test_sorted_and_unsorted_indices_return_same_results<R>(&self, _random: &mut R) -> Result<()>
+  // Test that sorted index returns the same search results as unsorted.
+  fn test_sorted_and_unsorted_indices_return_same_results<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    Ok(())
+    let dim = random.random_range(3..=12);
+    let n_doc = random.random_range(100..=299);
+    let vectors = self.vector_values(n_doc, dim, random);
+    let m = random.random_range(5..=14);
+    let beam_width = random.random_range(10..=19);
+    let similarity_function = VectorSimilarityFunction::random(random);
+
+    let mut config = IndexWriterConfig::new()?;
+    config.set_codec(TestUtil::always_knn_vectors_format(
+      Lucene99HnswVectorsFormat::with_graph_para(m, beam_width)?,
+    ));
+    let mut sorted_config = IndexWriterConfig::new()?;
+    sorted_config.set_codec(TestUtil::always_knn_vectors_format(
+      Lucene99HnswVectorsFormat::with_graph_para(m, beam_width)?,
+    ));
+    sorted_config.set_index_sort(Sort::with_fields(vec![SortField::new(
+      Some("sortkey"),
+      SortFieldType::Long,
+    )?])?)?;
+
+    let dir = new_directory_shared(random)?;
+    let sorted_dir = new_directory_shared(random)?;
+    let writer = IndexWriter::new(dir.clone(), config)?;
+    let sorted_writer = IndexWriter::new(sorted_dir.clone(), sorted_config)?;
+    let mut indexed_doc = 0;
+    for ord in 0..vectors.size() {
+      while indexed_doc < vectors.ord_to_doc(ord)? as i32 {
+        writer.add_document(Document::new())?;
+        indexed_doc += 1;
+      }
+      let vector = self.vector_value(&vectors, ord)?;
+      let id = vectors.ord_to_doc(ord)? as i32;
+      let sort_key = random.random::<i64>();
+      let mut doc = Document::new();
+      doc.add(self.knn_vector_field("vector", vector.clone(), similarity_function)?);
+      doc.add(StoredField::from_i32("id", id)?);
+      doc.add(NumericDocValuesField::new("sortkey", sort_key));
+      writer.add_document(doc)?;
+
+      let mut sorted_doc = Document::new();
+      sorted_doc.add(self.knn_vector_field("vector", vector, similarity_function)?);
+      sorted_doc.add(StoredField::from_i32("id", id)?);
+      sorted_doc.add(NumericDocValuesField::new("sortkey", sort_key));
+      sorted_writer.add_document(sorted_doc)?;
+      indexed_doc += 1;
+    }
+    writer.close()?;
+    sorted_writer.close()?;
+
+    let searcher = new_searcher_with_reader(directory_reader::open(dir.clone())?)?;
+    let sorted_searcher = new_searcher_with_reader(directory_reader::open(sorted_dir.clone())?)?;
+    'outer: for _ in 0..10 {
+      // Ask to explore a lot of candidates to ensure the same returned hits, as graphs of the two
+      // indices are organized differently.
+      let query_vector = self.random_vector(random, dim);
+      let search_size = 5;
+      let top_docs = searcher.search(
+        self.knn_query("vector", query_vector.clone(), 60)?,
+        search_size + 1,
+      )?;
+      let mut ids = Vec::with_capacity(search_size);
+      let mut docs = Vec::with_capacity(search_size);
+      let mut last_score = -1.0;
+      let mut stored_fields = searcher.stored_fields()?;
+      for (j, score_doc) in top_docs.score_docs.iter().enumerate() {
+        if score_doc.score == last_score {
+          // If we have a repeated score this test iteration is invalid.
+          continue 'outer;
+        }
+        last_score = score_doc.score;
+        if j < search_size {
+          ids.push(
+            stored_fields
+              .document(score_doc.doc)?
+              .get_field("id")
+              .expect("stored id")
+              .numeric_value()?
+              .expect("numeric stored id")
+              .to_i32()
+              .expect("i32 stored id"),
+          );
+          docs.push(score_doc.doc);
+        }
+      }
+
+      let sorted_top_docs =
+        sorted_searcher.search(self.knn_query("vector", query_vector, 60)?, search_size)?;
+      let mut sorted_ids = Vec::with_capacity(search_size);
+      let mut sorted_docs = Vec::with_capacity(search_size);
+      let mut sorted_stored_fields = sorted_searcher.stored_fields()?;
+      for score_doc in &sorted_top_docs.score_docs {
+        sorted_ids.push(
+          sorted_stored_fields
+            .document(score_doc.doc)?
+            .get_field("id")
+            .expect("stored id")
+            .numeric_value()?
+            .expect("numeric stored id")
+            .to_i32()
+            .expect("i32 stored id"),
+        );
+        sorted_docs.push(score_doc.doc);
+      }
+      assert_eq!(ids, sorted_ids);
+      // Doc IDs are not equal, as in the second sorted index docs are organized differently.
+      assert_ne!(docs, sorted_docs);
+    }
+    searcher.get_index_reader().close()?;
+    sorted_searcher.get_index_reader().close()?;
+    dir.close()?;
+    sorted_dir.close()
   }
 
   fn test_aknn_diverse<R>(&mut self, random: &mut R) -> Result<()>

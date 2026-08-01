@@ -49,6 +49,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
@@ -76,6 +77,7 @@ use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;
+use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
@@ -2796,11 +2798,83 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn test_mismatched_fields<R>(&self, _random: &mut R) -> Result<()>
+  fn test_mismatched_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO MismatchedCodecReader未实现
+    let dir1 = new_directory_shared(random)?;
+    let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random)?)?;
+    let mut doc = Document::new();
+    doc.add(KnnFloatVectorField::new("float", vec![1.0, 2.0])?);
+    doc.add(KnnByteVectorField::new("byte", vec![42])?);
+    w1.add_document(doc.clone())?;
+
+    let dir2 = new_directory_shared(random)?;
+    let mut iwc = new_index_writer_config(random)?;
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
+    let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+    w2.add_document(doc)?;
+    w2.commit()?;
+
+    let reader = directory_reader::open_from_writer(&w1)?;
+    w1.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    let mismatched = MismatchedCodecReader::new(leaf, random)?;
+    w2.add_indexes_from_codec_readers(vec![mismatched])?;
+    reader.close()?;
+    w2.force_merge(1)?;
+
+    let reader = directory_reader::open_from_writer(&w2)?;
+    w2.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+
+    let byte_vectors = leaf
+      .get_byte_vector_values("byte")?
+      .expect("byte vectors should exist");
+    let mut iterator = byte_vectors.iterator()?;
+    assert_eq!(0, iterator.next_doc()?);
+    assert_eq!(
+      &[42],
+      byte_vectors
+        .vector_value(iterator.index()? as usize)?
+        .as_ref()
+        .as_bytes()?
+    );
+    assert_eq!(1, iterator.next_doc()?);
+    assert_eq!(
+      &[42],
+      byte_vectors
+        .vector_value(iterator.index()? as usize)?
+        .as_ref()
+        .as_bytes()?
+    );
+    assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
+
+    let float_vectors = leaf
+      .get_float_vector_values("float")?
+      .expect("float vectors should exist");
+    let mut iterator = float_vectors.iterator()?;
+    assert_eq!(0, iterator.next_doc()?);
+    assert_eq!(
+      &[1.0, 2.0],
+      float_vectors
+        .vector_value(iterator.index()? as usize)?
+        .as_ref()
+        .as_floats()?
+    );
+    assert_eq!(1, iterator.next_doc()?);
+    assert_eq!(
+      &[1.0, 2.0],
+      float_vectors
+        .vector_value(iterator.index()? as usize)?
+        .as_ref()
+        .as_floats()?
+    );
+    assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
+
+    reader.close()?;
+    dir1.close()?;
+    dir2.close()?;
     Ok(())
   }
 }

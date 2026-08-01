@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
+use crate::core::index::BytesRef;
+use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::check_index::CheckIndex;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::index_reader::IndexReader;
@@ -27,22 +30,27 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::term::Term;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::DirectoryEnum;
 use crate::core::store::lock::LockEnum;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCase;
+use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, rarely,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_string_field, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -823,11 +831,121 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       next_level = random.random_range(0..skipper.num_levels());
     }
   }
-  fn test_mismatched_fields<R>(&self, _random: &mut R) -> Result<()>
+  fn test_mismatched_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO MismatchedCodecReader未实现
+    let dir1 = new_directory_shared(random)?;
+    let w1 = crate::core::index::index_writer::IndexWriter::new(
+      dir1.clone(),
+      crate::test_framework::core::util::lucene_test_case::new_index_writer_config(random)?,
+    )?;
+    let mut doc = Document::new();
+    doc.add(BinaryDocValuesField::new(
+      "binary",
+      new_bytes_ref_from_string(random, "lucene")?,
+    ));
+    doc.add(NumericDocValuesField::new("numeric", 0));
+    doc.add(SortedDocValuesField::indexed_field(
+      "sorted",
+      new_bytes_ref_from_string(random, "search")?,
+    ));
+    doc.add(SortedNumericDocValuesField::new("sorted_numeric", 1));
+    doc.add(SortedSetDocValuesField::indexed_field(
+      "sorted_set",
+      new_bytes_ref_from_string(random, "engine")?,
+    ));
+    w1.add_document(doc.clone())?;
+
+    let dir2 = new_directory_shared(random)?;
+    let mut iwc = new_index_writer_config(random)?;
+    iwc.set_merge_scheduler(SerialMergeScheduler::new());
+    let w2 = crate::core::index::index_writer::IndexWriter::new(dir2.clone(), iwc)?;
+    w2.add_document(doc)?;
+    w2.commit()?;
+
+    let reader = crate::core::index::directory_reader::open_from_writer(&w1)?;
+    w1.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    let mismatched = MismatchedCodecReader::new(leaf, random)?;
+    w2.add_indexes_from_codec_readers(vec![mismatched])?;
+    reader.close()?;
+    w2.force_merge(1)?;
+
+    let reader = crate::core::index::directory_reader::open_from_writer(&w2)?;
+    w2.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+
+    let mut binary = leaf
+      .get_binary_doc_values("binary")?
+      .expect("binary doc values should exist");
+    assert_eq!(0, binary.next_doc()?);
+    assert_eq!(
+      &BytesRef::from_string("lucene"),
+      binary.binary_value()?.as_ref()
+    );
+    assert_eq!(1, binary.next_doc()?);
+    assert_eq!(
+      &BytesRef::from_string("lucene"),
+      binary.binary_value()?.as_ref()
+    );
+    assert_eq!(NO_MORE_DOCS, binary.next_doc()?);
+
+    let mut numeric = leaf
+      .get_numeric_doc_values("numeric")?
+      .expect("numeric doc values should exist");
+    assert_eq!(0, numeric.next_doc()?);
+    assert_eq!(0, numeric.long_value()?);
+    assert_eq!(1, numeric.next_doc()?);
+    assert_eq!(0, numeric.long_value()?);
+    assert_eq!(NO_MORE_DOCS, numeric.next_doc()?);
+
+    let mut sorted = leaf
+      .get_sorted_doc_values("sorted")?
+      .expect("sorted doc values should exist");
+    assert_eq!(0, sorted.next_doc()?);
+    let ord = sorted.ord_value()?;
+    assert_eq!(
+      &BytesRef::from_string("search"),
+      sorted.lookup_ord(ord)?.as_ref()
+    );
+    assert_eq!(1, sorted.next_doc()?);
+    let ord = sorted.ord_value()?;
+    assert_eq!(
+      &BytesRef::from_string("search"),
+      sorted.lookup_ord(ord)?.as_ref()
+    );
+    assert_eq!(NO_MORE_DOCS, sorted.next_doc()?);
+
+    let mut sorted_numeric = leaf
+      .get_sorted_numeric_doc_values("sorted_numeric")?
+      .expect("sorted numeric doc values should exist");
+    assert_eq!(0, sorted_numeric.next_doc()?);
+    assert_eq!(1, sorted_numeric.next_value()?);
+    assert_eq!(1, sorted_numeric.next_doc()?);
+    assert_eq!(1, sorted_numeric.next_value()?);
+    assert_eq!(NO_MORE_DOCS, sorted_numeric.next_doc()?);
+
+    let mut sorted_set = leaf
+      .get_sorted_set_doc_values("sorted_set")?
+      .expect("sorted set doc values should exist");
+    assert_eq!(0, sorted_set.next_doc()?);
+    let ord = sorted_set.next_ord()?;
+    assert_eq!(
+      &BytesRef::from_string("engine"),
+      sorted_set.lookup_ord(ord)?.as_ref()
+    );
+    assert_eq!(1, sorted_set.next_doc()?);
+    let ord = sorted_set.next_ord()?;
+    assert_eq!(
+      &BytesRef::from_string("engine"),
+      sorted_set.lookup_ord(ord)?.as_ref()
+    );
+    assert_eq!(NO_MORE_DOCS, sorted_set.next_doc()?);
+
+    reader.close()?;
+    dir1.close()?;
+    dir2.close()?;
     Ok(())
   }
 }

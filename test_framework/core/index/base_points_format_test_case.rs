@@ -20,6 +20,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::int_point::IntPoint;
+use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -35,6 +36,7 @@ use crate::core::index::point_values::{
   IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointTreeEnum,
   PointValues, Relation,
 };
+use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -50,6 +52,7 @@ use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
@@ -1128,11 +1131,80 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
 
     Ok(())
   }
-  fn test_mismatched_fields<R>(&self, _random: &mut R) -> Result<()>
+  fn test_mismatched_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO MismatchedCodecReader未实现
+    struct MismatchedPointVisitor<'a> {
+      expected: &'a [u8],
+      expected_doc: i32,
+    }
+
+    impl IntersectVisitor for MismatchedPointVisitor<'_> {
+      fn visit(&mut self, _doc_id: i32) -> Result<()> {
+        Err(LuceneError::illegal_state(
+          "unexpected visit(doc_id) in test_mismatched_fields",
+        ))
+      }
+
+      fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+        assert_eq!(self.expected_doc, doc_id);
+        self.expected_doc += 1;
+        assert_eq!(self.expected, packed_value);
+        Ok(())
+      }
+
+      fn compare(&self, _min_packed: &[u8], _max_packed: &[u8]) -> Result<Relation> {
+        Ok(Relation::CellCrossesQuery)
+      }
+    }
+
+    let dir1 = new_directory_shared(random)?;
+    let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random)?)?;
+    let mut doc = Document::new();
+    doc.add(LongPoint::new("f", [1_i64])?);
+    doc.add(LongPoint::new("g", [42_i64, 43_i64])?);
+    w1.add_document(doc.clone())?;
+
+    let dir2 = new_directory_shared(random)?;
+    let mut iwc = new_index_writer_config(random)?;
+    iwc.set_merge_scheduler(MergeSchedulerEnum::from(SerialMergeScheduler::new()));
+    let w2 = IndexWriter::new(dir2.clone(), iwc)?;
+    w2.add_document(doc)?;
+    w2.commit()?;
+
+    let reader = directory_reader::open_from_writer(&w1)?;
+    w1.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    let mismatched = MismatchedCodecReader::new(leaf, random)?;
+    w2.add_indexes_from_codec_readers(vec![mismatched])?;
+    reader.close()?;
+    w2.force_merge(1)?;
+
+    let reader = directory_reader::open_from_writer(&w2)?;
+    w2.close()?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    assert_eq!(2, leaf.max_doc()?);
+
+    let f_points = leaf.get_point_values("f")?.expect("f points should exist");
+    assert_eq!(2, f_points.size()?);
+    let expected_f = LongPoint::pack([1_i64])?.bytes;
+    f_points.intersect(&mut MismatchedPointVisitor {
+      expected: &expected_f,
+      expected_doc: 0,
+    })?;
+
+    let g_points = leaf.get_point_values("g")?.expect("g points should exist");
+    assert_eq!(2, g_points.size()?);
+    let expected_g = LongPoint::pack([42_i64, 43_i64])?.bytes;
+    g_points.intersect(&mut MismatchedPointVisitor {
+      expected: &expected_g,
+      expected_doc: 0,
+    })?;
+
+    reader.close()?;
+    dir1.close()?;
+    dir2.close()?;
     Ok(())
   }
 }

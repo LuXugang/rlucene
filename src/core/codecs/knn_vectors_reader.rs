@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::DefaultKnnVectorsFormat;
+use crate::core::codecs::DefaultCodecKnnVectorsFormat;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::index::byte_vector_values::ByteVectorValues;
@@ -151,7 +151,7 @@ pub trait KnnVectorsReader: HnswGraphProvider + CloseableRef {
 }
 
 pub type DefaultKnnVectorsReader<T> =
-  <DefaultKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<T>;
+  <DefaultCodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<T>;
 
 #[macro_export]
 macro_rules! either_knn_vectors_reader {

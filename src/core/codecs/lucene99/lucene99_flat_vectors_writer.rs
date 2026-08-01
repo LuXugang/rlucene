@@ -347,6 +347,39 @@ where
   O: IndexOutput,
   F: FlatVectorsScorer,
 {
+  fn add_field<D1, D2>(
+    &mut self,
+    _write_state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<usize>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    let field_idx = self.fields.len();
+    self
+      .fields
+      .push(FlatFieldWriter::new(field_info, field_idx));
+    Ok(field_idx)
+  }
+
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    for field_idx in 0..self.fields.len() {
+      let vectors = self.fields[field_idx].get_vectors()?;
+      if let Some(sort_map) = sort_map {
+        self.write_sorting_field(field_idx, max_doc, sort_map, vectors.as_ref())?;
+      } else {
+        self.write_field(field_idx, max_doc, vectors.as_ref())?;
+      }
+      self.fields[field_idx].finish()?;
+    }
+    Ok(())
+  }
+
   fn merge_one_field<D1, D2, CR>(
     &mut self,
     field_info: &Arc<FieldInfo>,
@@ -395,6 +428,40 @@ where
 
     CodecUtil::write_footer(&mut self.vector_data)?;
 
+    Ok(())
+  }
+
+  fn add_value(
+    &mut self,
+    doc_id: i32,
+    vector_value: &VectorValueEnum,
+    field_vectors_writers_idx: usize,
+  ) -> Result<()> {
+    let field = self
+      .fields
+      .get_mut(field_vectors_writers_idx)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "Invalid field vectors writer index: {field_vectors_writers_idx}"
+        ))
+      })?;
+    if field.finished {
+      return Err(LuceneError::illegal_state(
+        "already finished, cannot add more values",
+      ));
+    }
+    if doc_id == field.last_doc_id {
+      return Err(LuceneError::illegal_argument(format!(
+        "VectorValuesField \"{}\" appears more than once in this document (only one value is allowed per field)",
+        field.field_info.name
+      )));
+    }
+    debug_assert!(doc_id > field.last_doc_id);
+
+    let copy = field.copy_value(vector_value)?;
+    field.docs_with_field.add(doc_id)?;
+    Arc::make_mut(&mut field.vectors).push(copy);
+    field.last_doc_id = doc_id;
     Ok(())
   }
 }
@@ -695,6 +762,7 @@ pub struct FlatFieldWriter {
   finished: bool,
   last_doc_id: i32,
   idx: usize,
+  vectors: Arc<Vec<VectorValueEnum>>,
 }
 impl FlatFieldWriter {
   pub fn new(field_info: Arc<FieldInfo>, idx: usize) -> Self {
@@ -706,13 +774,19 @@ impl FlatFieldWriter {
       finished: false,
       last_doc_id: -1,
       idx,
+      vectors: Arc::new(Vec::new()),
     }
   }
 }
 
 impl Accountable for FlatFieldWriter {
   fn ram_bytes_used(&self) -> Result<i64> {
-    self.docs_with_field.ram_bytes_used()
+    let mut size =
+      std::mem::size_of_val(self.vectors.as_ref()) as i64 + size_of_vec(self.vectors.as_ref());
+    for vector in self.vectors.iter() {
+      size = size.saturating_add(vector.ram_bytes_used()?);
+    }
+    Ok(size.saturating_add(self.docs_with_field.ram_bytes_used()?))
   }
 }
 
@@ -722,6 +796,10 @@ impl KnnFieldVectorsWriter for FlatFieldWriter {
   }
 }
 impl FlatFieldVectorsWriter for FlatFieldWriter {
+  fn get_vectors(&self) -> Result<Arc<Vec<VectorValueEnum>>> {
+    Ok(self.vectors.clone())
+  }
+
   fn get_docs_with_field_set(&self) -> &DocsWithFieldSet {
     &self.docs_with_field
   }

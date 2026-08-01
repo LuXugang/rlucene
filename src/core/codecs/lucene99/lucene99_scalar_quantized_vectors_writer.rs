@@ -529,12 +529,75 @@ where
   }
 }
 
-impl<O, R, F> KnnVectorsWriter<O> for Lucene99ScalarQuantizedVectorsWriter<O, R, F>
+impl<O, R, S> KnnVectorsWriter<O>
+  for Lucene99ScalarQuantizedVectorsWriter<O, R, Lucene99ScalarQuantizedVectorScorer<S>>
 where
   O: IndexOutput,
   R: FlatVectorsWriter<IndexOutput = O>,
-  F: FlatVectorsScorer,
+  S: FlatVectorsScorer + Clone,
 {
+  fn add_field<D1, D2>(
+    &mut self,
+    _write_state: &SegmentWriteState<D1>,
+    _segment_info: &SegmentInfo<D2>,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<usize>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    self.flat_add_field(field_info)
+  }
+
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    self.raw_vector_delegate.flush(max_doc, sort_map)?;
+
+    for field_idx in 0..self.fields.len() {
+      let field = &self.fields[field_idx];
+      let vectors = {
+        let flat_field_vectors_writers = self.raw_vector_delegate.get_fields_mut();
+        flat_field_vectors_writers
+          .get(field.flat_field_vectors_writer_idx)
+          .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?
+          .get_vectors()?
+      };
+      let scalar_quantizer = {
+        let flat_field_vectors_writers = self.raw_vector_delegate.get_fields_mut();
+        field.create_quantizer(flat_field_vectors_writers, vectors.as_ref())?
+      };
+      let flat_field_vectors_writers = self.raw_vector_delegate.get_fields_mut();
+      if let Some(sort_map) = sort_map {
+        Self::write_sorting_field(
+          &mut self.meta,
+          &mut self.quantized_vector_data,
+          field,
+          flat_field_vectors_writers,
+          max_doc,
+          sort_map,
+          vectors.as_ref(),
+          &scalar_quantizer,
+          self.version,
+        )?;
+      } else {
+        Self::write_field(
+          &mut self.meta,
+          &mut self.quantized_vector_data,
+          field,
+          flat_field_vectors_writers,
+          max_doc,
+          vectors.as_ref(),
+          &scalar_quantizer,
+          self.version,
+        )?;
+      }
+      self.fields[field_idx].finish(self.raw_vector_delegate.get_fields_mut())?;
+    }
+    Ok(())
+  }
+
   fn merge_one_field<D1, D2, CR>(
     &mut self,
     field_info: &Arc<FieldInfo>,
@@ -606,6 +669,17 @@ where
     CodecUtil::write_footer(&mut self.quantized_vector_data)?;
 
     Ok(())
+  }
+
+  fn add_value(
+    &mut self,
+    doc_id: i32,
+    vector_value: &VectorValueEnum,
+    field_vectors_writers_idx: usize,
+  ) -> Result<()> {
+    self
+      .raw_vector_delegate
+      .add_value(doc_id, vector_value, field_vectors_writers_idx)
   }
 }
 

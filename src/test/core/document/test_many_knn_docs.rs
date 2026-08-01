@@ -19,6 +19,9 @@ struct TestManyKnnDocs;
 
 #[cfg(feature = "monster")]
 mod monster {
+  use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
+    DEFAULT_BEAM_WIDTH, Lucene99HnswVectorsFormat,
+  };
   use crate::core::document::document::Document;
   use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
   use crate::core::index::directory_reader;
@@ -36,15 +39,18 @@ mod monster {
   use crate::test_framework::core::util::lucene_test_case::{
     create_temp_dir_with_prefix, new_searcher_with_reader,
   };
+  use crate::test_framework::core::util::test_util::TestUtil;
   use std::sync::Arc;
 
   #[test]
   #[ignore = "monster"]
   fn test_large_segment() -> Result<()> {
     let mut iwc = IndexWriterConfig::new()?;
-    // TODO: setCodec 未实现
     // ConfigurableMCodec(128) to make sure to use the ConfigurableMCodec instead
     // of a random one.
+    iwc.set_codec(TestUtil::always_knn_vectors_format(
+      Lucene99HnswVectorsFormat::with_graph_para(128, DEFAULT_BEAM_WIDTH)?,
+    ));
     iwc.set_ram_buffer_size_mb(64.0); // Use a 64MB buffer to create larger initial segments.
     let mut mp = TieredMergePolicy::new();
     mp.set_max_merge_at_once(256)?; // Avoid intermediate merges (waste of time with HNSW?).

@@ -303,4 +303,4 @@ pub type DefaultNormsFormat = <Lucene101Codec as Codec>::NormsFormat;
 pub type DefaultLiveDocsFormat = <Lucene101Codec as Codec>::LiveDocsFormat;
 pub type DefaultCompoundFormat = <Lucene101Codec as Codec>::CompoundFormat;
 pub type DefaultPointsFormat = <Lucene101Codec as Codec>::PointsFormat;
-pub type DefaultKnnVectorsFormat = <Lucene101Codec as Codec>::KnnVectorsFormat;
+pub type DefaultCodecKnnVectorsFormat = <Lucene101Codec as Codec>::KnnVectorsFormat;

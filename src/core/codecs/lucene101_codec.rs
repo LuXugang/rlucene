@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::Codec;
+use crate::core::codecs::knn_vectors_formats::KnnVectorsFormats;
 use crate::core::codecs::lucene90::lucene90_compound_format::Lucene90CompoundFormat;
 use crate::core::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::core::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
@@ -40,7 +41,6 @@ use std::fmt::{Display, Formatter};
 
 type DefaultPostingsFormat = Lucene101PostingsFormat;
 type DefaultDocValuesFormat = Lucene90DocValuesFormat;
-type DefaultKnnVectorsFormat = Lucene99HnswVectorsFormat;
 
 pub type Lucene101CodecPostingsFormat = PerFieldPostingsFormat<Lucene101CodecPostingsFormatBase>;
 pub type Lucene101CodecDocValuesFormat = PerFieldDocValuesFormat<Lucene101CodecDocValuesFormatBase>;
@@ -72,11 +72,11 @@ impl PerFieldDocValuesFormatBase for Lucene101CodecDocValuesFormatBase {
 }
 
 pub struct Lucene101CodecKnnVectorsFormatBase {
-  default_knn_vectors_format: DefaultKnnVectorsFormat,
+  default_knn_vectors_format: KnnVectorsFormats,
 }
 
 impl PerFieldKnnVectorsFormatBase for Lucene101CodecKnnVectorsFormatBase {
-  type Format = DefaultKnnVectorsFormat;
+  type Format = KnnVectorsFormats;
 
   fn get_knn_vectors_format_for_field(&self, _field: &str) -> Result<&Self::Format> {
     Ok(&self.default_knn_vectors_format)
@@ -100,8 +100,9 @@ impl Default for Lucene101Codec {
         default_doc_values_format: DefaultDocValuesFormat::default(),
       }),
       knn_vectors_format: PerFieldKnnVectorsFormat::new(Lucene101CodecKnnVectorsFormatBase {
-        default_knn_vectors_format: DefaultKnnVectorsFormat::new()
-          .expect("default KNN vectors format parameters are valid"),
+        default_knn_vectors_format: Lucene99HnswVectorsFormat::new()
+          .expect("default KNN vectors format parameters are valid")
+          .into(),
       }),
     }
   }

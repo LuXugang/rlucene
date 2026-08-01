@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::DefaultKnnVectorsFormat;
+use crate::core::codecs::DefaultCodecKnnVectorsFormat;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::index::segment_info::SegmentInfo;
@@ -73,4 +73,4 @@ pub trait KnnVectorsFormat: Display + HasIdentity {
 }
 
 pub type DefaultKnnVectorsWriter<T> =
-  <DefaultKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<T>;
+  <DefaultCodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<T>;

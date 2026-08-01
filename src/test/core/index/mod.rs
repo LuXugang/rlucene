@@ -66,6 +66,7 @@ mod test_index_writer_threads_to_segments;
 mod test_index_writer_with_threads;
 mod test_indexing_sequence_numbers;
 mod test_int_block_pool;
+mod test_knn_graph;
 mod test_lockable_concurrent_approximate_priority_queue;
 mod test_log_merge_policy;
 mod test_many_fields;

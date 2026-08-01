@@ -168,8 +168,6 @@ where
   B: ByteVectorValues,
 {
   vector_values: B,
-  vector_values1: <B as ByteVectorValues>::ByteVectorValues,
-  vector_values2: <B as ByteVectorValues>::ByteVectorValues,
 }
 
 impl<B> BitRandomVectorScorerSupplier<B>
@@ -177,17 +175,7 @@ where
   B: ByteVectorValues,
 {
   pub fn new(vector_values: B) -> Result<Self> {
-    let vector_values1 = vector_values
-      .byte_copy()?
-      .ok_or_else(|| LuceneError::illegal_state("ByteVectorValues copy must return a value"))?;
-    let vector_values2 = vector_values
-      .byte_copy()?
-      .ok_or_else(|| LuceneError::illegal_state("ByteVectorValues copy must return a value"))?;
-    Ok(Self {
-      vector_values,
-      vector_values1,
-      vector_values2,
-    })
+    Ok(Self { vector_values })
   }
 }
 
@@ -196,15 +184,15 @@ where
   B: ByteVectorValues + TryClone,
 {
   type Scorer<'a>
-    = BitRandomVectorScorer<&'a <B as ByteVectorValues>::ByteVectorValues>
+    = BitRandomVectorScorer<&'a B>
   where
     Self: 'a,
-    <B as ByteVectorValues>::ByteVectorValues: 'a;
+    B: 'a;
 
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
-    let query = self.vector_values1.vector_value(ord)?;
+    let query = self.vector_values.vector_value(ord)?;
     Ok(BitRandomVectorScorer::new(
-      &self.vector_values2,
+      &self.vector_values,
       query.as_bytes()?.to_vec(),
     ))
   }

@@ -521,7 +521,8 @@ where
   F: FloatVectorValues,
   DM: MergeDocMap,
 {
-  state: RefCell<Option<MergedFloat32VectorValuesState<F, DM>>>,
+  state: Rc<RefCell<MergedFloat32VectorValuesState<F, DM>>>,
+  iterator_created: Cell<bool>,
   size: usize,
   dimension: usize,
 }
@@ -546,12 +547,13 @@ where
     let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
     let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
     Ok(Self {
-      state: RefCell::new(Some(MergedFloat32VectorValuesState {
+      state: Rc::new(RefCell::new(MergedFloat32VectorValuesState {
         doc_id: -1,
         last_ord: -1,
         current: None,
         doc_id_merger,
       })),
+      iterator_created: Cell::new(false),
       size,
       dimension,
     })
@@ -597,12 +599,14 @@ where
   type DocIndexIterator = MergedFloat32VectorValuesIterator<F, DM>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    let state = self.state.borrow_mut().take().ok_or_else(|| {
-      LuceneError::illegal_state("iterator() can only be called once on MergedFloat32VectorValues")
-    })?;
+    if self.iterator_created.replace(true) {
+      return Err(LuceneError::illegal_state(
+        "iterator() can only be called once on MergedFloat32VectorValues",
+      ));
+    }
 
     Ok(MergedFloat32VectorValuesIterator {
-      state,
+      state: Rc::clone(&self.state),
       index: -1,
       size: self.size,
     })
@@ -614,9 +618,22 @@ where
   F: FloatVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, _ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
-    Err(LuceneError::unsupported_operation(
-      "should use iterator()'s vector_value()",
+  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+    let state = self.state.borrow();
+    let ord: i32 = ord.try_convert()?;
+    if ord != state.last_ord {
+      return Err(LuceneError::illegal_state(format!(
+        "only supports forward iteration with a single iterator: ord={ord}, lastOrd={}",
+        state.last_ord
+      )));
+    }
+    let current = state
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
+    let current_sub = &state.doc_id_merger.get_subs()[current].sub;
+    let index: usize = current_sub.index()?.try_convert()?;
+    Ok(Cow::Owned(
+      current_sub.values.vector_value(index)?.into_owned(),
     ))
   }
 
@@ -638,7 +655,7 @@ where
   F: FloatVectorValues,
   DM: MergeDocMap,
 {
-  state: MergedFloat32VectorValuesState<F, DM>,
+  state: Rc<RefCell<MergedFloat32VectorValuesState<F, DM>>>,
   index: i32,
   size: usize,
 }
@@ -649,20 +666,21 @@ where
   DM: MergeDocMap,
 {
   fn doc_id(&self) -> i32 {
-    self.state.doc_id
+    self.state.borrow().doc_id
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.state.current = self.state.doc_id_merger.next()?;
-    match self.state.current {
+    let mut state = self.state.borrow_mut();
+    state.current = state.doc_id_merger.next()?;
+    match state.current {
       Some(current) => {
-        self.state.doc_id = self.state.doc_id_merger.get_subs()[current].mapped_doc_id;
-        self.state.last_ord += 1;
+        state.doc_id = state.doc_id_merger.get_subs()[current].mapped_doc_id;
+        state.last_ord += 1;
         self.index += 1;
-        Ok(self.state.doc_id)
+        Ok(state.doc_id)
       },
       None => {
-        self.state.doc_id = NO_MORE_DOCS;
+        state.doc_id = NO_MORE_DOCS;
         self.index = NO_MORE_DOCS;
         Ok(NO_MORE_DOCS)
       },
@@ -693,21 +711,23 @@ where
   DM: MergeDocMap,
 {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    let state = self.state.borrow();
     let ord: i32 = ord.try_convert()?;
-    if ord != self.state.last_ord {
+    if ord != state.last_ord {
       return Err(LuceneError::illegal_state(format!(
         "only supports forward iteration with a single iterator: ord={ord}, lastOrd={}",
-        self.state.last_ord
+        state.last_ord
       )));
     }
 
-    let current = self
-      .state
+    let current = state
       .current
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
-    let current_sub = &self.state.doc_id_merger.get_subs()[current].sub;
+    let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    current_sub.values.vector_value(index)
+    Ok(Cow::Owned(
+      current_sub.values.vector_value(index)?.into_owned(),
+    ))
   }
 }
 
@@ -717,7 +737,7 @@ where
   DM: MergeDocMap,
 {
   doc_id: i32,
-  last_ord: Cell<i32>,
+  last_ord: i32,
   current: Option<usize>,
   doc_id_merger: DocIDMergerEnum<ByteVectorValuesSub<B, DM>>,
 }
@@ -727,7 +747,8 @@ where
   B: ByteVectorValues,
   DM: MergeDocMap,
 {
-  state: RefCell<Option<MergedByteVectorValuesState<B, DM>>>,
+  state: Rc<RefCell<MergedByteVectorValuesState<B, DM>>>,
+  iterator_created: Cell<bool>,
   size: usize,
   dimension: usize,
 }
@@ -752,12 +773,13 @@ where
     let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
     let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
     Ok(Self {
-      state: RefCell::new(Some(MergedByteVectorValuesState {
+      state: Rc::new(RefCell::new(MergedByteVectorValuesState {
         doc_id: -1,
-        last_ord: Cell::new(-1),
+        last_ord: -1,
         current: None,
         doc_id_merger,
       })),
+      iterator_created: Cell::new(false),
       size,
       dimension,
     })
@@ -803,12 +825,14 @@ where
   type DocIndexIterator = MergedByteVectorValuesIterator<B, DM>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    let state = self.state.borrow_mut().take().ok_or_else(|| {
-      LuceneError::illegal_state("iterator() can only be called once on MergedByteVectorValues")
-    })?;
+    if self.iterator_created.replace(true) {
+      return Err(LuceneError::illegal_state(
+        "iterator() can only be called once on MergedByteVectorValues",
+      ));
+    }
 
     Ok(MergedByteVectorValuesIterator {
-      state,
+      state: Rc::clone(&self.state),
       index: -1,
       size: self.size,
     })
@@ -820,9 +844,22 @@ where
   B: ByteVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Err(LuceneError::unsupported_operation(
-      "should use iterator()'s vector_value()",
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    let state = self.state.borrow();
+    let ord: i32 = ord.try_convert()?;
+    if ord != state.last_ord {
+      return Err(LuceneError::illegal_state(format!(
+        "only supports forward iteration with a single iterator: ord={ord}, lastOrd={}",
+        state.last_ord
+      )));
+    }
+    let current = state
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
+    let current_sub = &state.doc_id_merger.get_subs()[current].sub;
+    let index: usize = current_sub.index()?.try_convert()?;
+    Ok(Cow::Owned(
+      current_sub.values.vector_value(index)?.into_owned(),
     ))
   }
 
@@ -844,7 +881,7 @@ where
   B: ByteVectorValues,
   DM: MergeDocMap,
 {
-  state: MergedByteVectorValuesState<B, DM>,
+  state: Rc<RefCell<MergedByteVectorValuesState<B, DM>>>,
   index: i32,
   size: usize,
 }
@@ -855,19 +892,21 @@ where
   DM: MergeDocMap,
 {
   fn doc_id(&self) -> i32 {
-    self.state.doc_id
+    self.state.borrow().doc_id
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.state.current = self.state.doc_id_merger.next()?;
-    match self.state.current {
+    let mut state = self.state.borrow_mut();
+    state.current = state.doc_id_merger.next()?;
+    match state.current {
       Some(current) => {
-        self.state.doc_id = self.state.doc_id_merger.get_subs()[current].mapped_doc_id;
+        state.doc_id = state.doc_id_merger.get_subs()[current].mapped_doc_id;
+        state.last_ord += 1;
         self.index += 1;
-        Ok(self.state.doc_id)
+        Ok(state.doc_id)
       },
       None => {
-        self.state.doc_id = NO_MORE_DOCS;
+        state.doc_id = NO_MORE_DOCS;
         self.index = NO_MORE_DOCS;
         Ok(NO_MORE_DOCS)
       },
@@ -899,22 +938,23 @@ where
   DM: MergeDocMap,
 {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    let state = self.state.borrow();
     let ord: i32 = ord.try_convert()?;
-    let last_ord = self.state.last_ord.get();
-    if ord != last_ord + 1 {
+    if ord != state.last_ord {
       return Err(LuceneError::illegal_state(format!(
-        "only supports forward iteration: ord={ord}, lastOrd={last_ord}"
+        "only supports forward iteration with a single iterator: ord={ord}, lastOrd={}",
+        state.last_ord
       )));
     }
-    self.state.last_ord.set(ord);
 
-    let current = self
-      .state
+    let current = state
       .current
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
-    let current_sub = &self.state.doc_id_merger.get_subs()[current].sub;
+    let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    current_sub.values.vector_value(index)
+    Ok(Cow::Owned(
+      current_sub.values.vector_value(index)?.into_owned(),
+    ))
   }
 }
 

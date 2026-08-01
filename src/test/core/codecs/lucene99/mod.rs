@@ -17,6 +17,7 @@
 
 mod test_lucene99_hnsw_quantized_vectors_format;
 mod test_lucene99_hnsw_vectors_format;
+mod test_lucene99_scalar_quantized_vector_scorer;
 mod test_lucene99_scalar_quantized_vectors_format;
 mod test_lucene99_scalar_quantized_vectors_writer;
 mod test_lucene99_segment_info_format;
