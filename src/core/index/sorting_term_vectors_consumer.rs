@@ -233,12 +233,7 @@ where
       return Ok(());
     }
 
-    TermVectorsConsumerDefaults::flush(
-      &mut self.writer,
-      last_doc_id,
-      &self.tmp_directory,
-      segment_info,
-    )?;
+    TermVectorsConsumerDefaults::flush(&mut self.writer, last_doc_id, segment_info)?;
 
     let mut reader = self.tmp_term_vectors_format.vectors_reader(
       &self.tmp_directory,
@@ -265,7 +260,7 @@ where
         let vectors = reader.get(read_id)?;
         Self::write_term_vectors(&mut writer, vectors.as_ref(), &state.field_infos)?;
       }
-      writer.finish(max_doc, state.directory)?;
+      writer.finish(max_doc)?;
       Ok(())
     }));
 

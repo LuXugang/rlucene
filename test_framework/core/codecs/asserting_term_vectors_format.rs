@@ -25,7 +25,7 @@ use crate::core::index::fields::Fields;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, IOContext, IndexInput};
+use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -318,10 +318,7 @@ where
     Ok(())
   }
 
-  fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn finish(&mut self, num_docs: i32) -> Result<()> {
     assert_eq!(self.doc_count, num_docs);
     assert!(
       self.doc_status
@@ -333,40 +330,7 @@ where
     );
     assert!(self.field_status != Status::Started);
     assert!(self.term_status != Status::Started);
-    self.in_.finish(num_docs, dir)
-  }
-
-  fn finish_add_prox(&mut self, num_prox: usize) -> Result<()> {
-    assert!(self.doc_status == Status::Started);
-    assert!(self.field_status == Status::Started);
-    assert!(self.term_status == Status::Started);
-    let num_prox_i32 = i32::try_from(num_prox).expect("position count must fit in an i32");
-    assert_eq!(self.position_count, num_prox_i32);
-    self.in_.finish_add_prox(num_prox)?;
-    self.position_count -= num_prox_i32;
-    Ok(())
-  }
-
-  fn add_positions(&mut self, num_prox: usize, positions: &mut impl DataInput) -> Result<()> {
-    assert!(self.doc_status == Status::Started);
-    assert!(self.field_status == Status::Started);
-    assert!(self.term_status == Status::Started);
-    assert_eq!(
-      self.position_count,
-      i32::try_from(num_prox).expect("position count must fit in an i32")
-    );
-    self.in_.add_positions(num_prox, positions)
-  }
-
-  fn add_offsets(&mut self, num_prox: usize, offsets: &mut impl DataInput) -> Result<()> {
-    assert!(self.doc_status == Status::Started);
-    assert!(self.field_status == Status::Started);
-    assert!(self.term_status == Status::Started);
-    assert_eq!(
-      self.position_count,
-      i32::try_from(num_prox).expect("position count must fit in an i32")
-    );
-    self.in_.add_offsets(num_prox, offsets)
+    self.in_.finish(num_docs)
   }
 }
 

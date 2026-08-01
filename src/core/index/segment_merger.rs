@@ -298,7 +298,7 @@ where
       .vectors_writer(self.directory, self.merge_state.segment_info, self.context)?;
 
     let merge_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      term_vectors_writer.merge(&mut self.merge_state, &self.directory)
+      term_vectors_writer.merge(&mut self.merge_state)
     }));
     let close_result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| term_vectors_writer.close()));

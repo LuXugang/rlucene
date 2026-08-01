@@ -361,15 +361,13 @@ impl TermVectorsConsumerDefaults {
     Ok(())
   }
 
-  pub(crate) fn flush<TW, WD, D1>(
+  pub(crate) fn flush<TW, D1>(
     writer: &mut Option<TW>,
     last_doc_id: &mut i32,
-    directory: &WD,
     info: &SegmentInfo<D1>,
   ) -> Result<()>
   where
     TW: TermVectorsWriter,
-    WD: Directory,
     D1: Directory,
   {
     if writer.is_some() {
@@ -381,7 +379,7 @@ impl TermVectorsConsumerDefaults {
         writer
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
-          .finish(num_docs, directory)
+          .finish(num_docs)
       }));
       let close_result = writer
         .as_mut()
@@ -476,9 +474,7 @@ where
     D1: Directory,
   {
     match self {
-      Self::Default { writer } => {
-        TermVectorsConsumerDefaults::flush(writer, last_doc_id, state.directory, info)
-      },
+      Self::Default { writer } => TermVectorsConsumerDefaults::flush(writer, last_doc_id, info),
       Self::Sorting(hook) => hook.flush(codec, last_doc_id, state, sort_map, info),
     }
   }

@@ -114,14 +114,26 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     payload: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<()>;
 
-  fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
-  where
-    D: Directory;
-  fn finish_add_prox(&mut self, num_prox: usize) -> Result<()>;
-  fn add_positions(&mut self, num_prox: usize, positions: &mut impl DataInput) -> Result<()>;
-  fn add_offsets(&mut self, num_prox: usize, offsets: &mut impl DataInput) -> Result<()>;
+  /// Called before [`Closeable::close`], passing in the number of documents
+  /// that were written. Note that this is intentionally redundant (equivalent
+  /// to the number of calls to [`Self::start_document`]), but a codec should
+  /// check that this is the case to detect the JRE bug described in
+  /// LUCENE-1282.
+  fn finish(&mut self, num_docs: i32) -> Result<()>;
 
-  fn default_add_prox(
+  /// Called by `IndexWriter` when writing new segments.
+  ///
+  /// This is an expert API that allows the codec to consume positions and
+  /// offsets directly from the indexer.
+  ///
+  /// The default implementation calls [`Self::add_position`], but
+  /// implementations can override this if they want to efficiently write all
+  /// the positions, then all the offsets, for example.
+  ///
+  /// NOTE: This API is extremely expert and subject to change or removal!!!
+  // TODO: we should probably nuke this and make a more efficient 4.x format
+  // PreFlex-RW could then be slow and buffer (it's only used in tests...)
+  fn add_prox(
     &mut self,
     num_prox: usize,
     mut positions: Option<&mut impl DataInput>,
@@ -175,10 +187,9 @@ pub trait TermVectorsWriter: Accountable + Closeable {
   /// [`Self::add_position`], and [`Self::finish`], returning the number of
   /// documents that were written. Implementations can override this method for
   /// more sophisticated merging (bulk-byte copying, etc).
-  fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
+  fn merge<D, CR>(&mut self, merge_state: &mut MergeState<D, CR>) -> Result<i32>
   where
     D: Directory,
-    D1: Directory,
     CR: CodecReader,
     Self: Sized,
   {
@@ -209,7 +220,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
       self.add_all_doc_vectors(vectors.as_ref(), &merge_state_meta)?;
       doc_count += 1;
     }
-    self.finish(doc_count, dir)?;
+    self.finish(doc_count)?;
     Ok(doc_count)
   }
 
@@ -440,46 +451,33 @@ where
     }
   }
 
-  fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
+  fn finish(&mut self, num_docs: i32) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish(num_docs),
+      Self::B(inner) => inner.finish(num_docs),
+    }
+  }
+
+  fn add_prox(
+    &mut self,
+    num_prox: usize,
+    positions: Option<&mut impl DataInput>,
+    offsets: Option<&mut impl DataInput>,
+  ) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.add_prox(num_prox, positions, offsets),
+      Self::B(inner) => inner.add_prox(num_prox, positions, offsets),
+    }
+  }
+
+  fn merge<D, CR>(&mut self, merge_state: &mut MergeState<D, CR>) -> Result<i32>
   where
     D: Directory,
-  {
-    match self {
-      Self::A(inner) => inner.finish(num_docs, dir),
-      Self::B(inner) => inner.finish(num_docs, dir),
-    }
-  }
-
-  fn finish_add_prox(&mut self, num_prox: usize) -> Result<()> {
-    match self {
-      Self::A(inner) => inner.finish_add_prox(num_prox),
-      Self::B(inner) => inner.finish_add_prox(num_prox),
-    }
-  }
-
-  fn add_positions(&mut self, num_prox: usize, positions: &mut impl DataInput) -> Result<()> {
-    match self {
-      Self::A(inner) => inner.add_positions(num_prox, positions),
-      Self::B(inner) => inner.add_positions(num_prox, positions),
-    }
-  }
-
-  fn add_offsets(&mut self, num_prox: usize, offsets: &mut impl DataInput) -> Result<()> {
-    match self {
-      Self::A(inner) => inner.add_offsets(num_prox, offsets),
-      Self::B(inner) => inner.add_offsets(num_prox, offsets),
-    }
-  }
-
-  fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
-  where
-    D: Directory,
-    D1: Directory,
     CR: CodecReader,
   {
     match self {
-      Self::A(inner) => inner.merge(merge_state, dir),
-      Self::B(inner) => inner.merge(merge_state, dir),
+      Self::A(inner) => inner.merge(merge_state),
+      Self::B(inner) => inner.merge(merge_state),
     }
   }
 }

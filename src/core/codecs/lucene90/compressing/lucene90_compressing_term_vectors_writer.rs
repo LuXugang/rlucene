@@ -1112,10 +1112,7 @@ where
     Ok(())
   }
 
-  fn finish<D1>(&mut self, num_docs: i32, _dir: &D1) -> Result<()>
-  where
-    D1: Directory,
-  {
+  fn finish(&mut self, num_docs: i32) -> Result<()> {
     if !self.pending_docs.is_empty() {
       self.flush(true)?;
     }
@@ -1143,16 +1140,12 @@ where
     Ok(())
   }
 
-  fn finish_add_prox(&mut self, num_prox: usize) -> Result<()> {
-    self.pending_docs[self.cur_doc]
-      .fields
-      .get_mut(self.cur_field)
-      .unwrap()
-      .total_positions += num_prox;
-    Ok(())
-  }
-
-  fn add_positions(&mut self, num_prox: usize, positions: &mut impl DataInput) -> Result<()> {
+  fn add_prox(
+    &mut self,
+    num_prox: usize,
+    positions: Option<&mut impl DataInput>,
+    offsets: Option<&mut impl DataInput>,
+  ) -> Result<()> {
     let cur_field = match self.pending_docs[self.cur_doc]
       .fields
       .get_mut(self.cur_field)
@@ -1166,7 +1159,11 @@ where
       },
     };
 
+    debug_assert_eq!(cur_field.has_positions, positions.is_some());
+    debug_assert_eq!(cur_field.has_offsets, offsets.is_some());
+
     if cur_field.has_positions {
+      let positions = positions.ok_or_else(|| LuceneError::illegal_state("Positions is None"))?;
       let pos_start = cur_field.pos_start + cur_field.total_positions;
       let len = pos_start + num_prox;
       if len > self.positions_buf.len() {
@@ -1205,23 +1202,9 @@ where
         }
       }
     }
-    Ok(())
-  }
 
-  fn add_offsets(&mut self, num_prox: usize, offsets: &mut impl DataInput) -> Result<()> {
-    let cur_field = match self.pending_docs[self.cur_doc]
-      .fields
-      .get_mut(self.cur_field)
-    {
-      Some(cur_field) => cur_field,
-      None => {
-        return Err(LuceneError::illegal_state(format!(
-          "No field found at index {} for current doc {}",
-          self.cur_field, self.cur_doc
-        )));
-      },
-    };
     if cur_field.has_offsets {
+      let offsets = offsets.ok_or_else(|| LuceneError::illegal_state("Offsets is None"))?;
       let off_start = cur_field.off_start + cur_field.total_positions;
       let len = off_start + num_prox;
       if self.start_offsets_buf.len() < len {
@@ -1235,19 +1218,18 @@ where
         let start_offset = last_offset + offsets.read_vint()?;
         let end_offset = start_offset + offsets.read_vint()?;
         last_offset = end_offset;
-        debug_assert!(start_offset >= 0);
-        debug_assert!((end_offset - start_offset) >= 0);
         self.start_offsets_buf[off_start + i] = start_offset;
         self.lengths_buf[off_start + i] = end_offset - start_offset;
       }
     }
+
+    cur_field.total_positions += num_prox;
     Ok(())
   }
 
-  fn merge<MD, D1, CR>(&mut self, merge_state: &mut MergeState<MD, CR>, dir: &D1) -> Result<i32>
+  fn merge<MD, CR>(&mut self, merge_state: &mut MergeState<MD, CR>) -> Result<i32>
   where
     MD: Directory,
-    D1: Directory,
     CR: CodecReader,
   {
     let num_readers = merge_state.term_vectors_readers.len();
@@ -1321,7 +1303,7 @@ where
         sub_opt = doc_id_merger.next()?;
       }
     }
-    self.finish(doc_count, dir)?;
+    self.finish(doc_count)?;
     Ok(doc_count)
   }
 }
