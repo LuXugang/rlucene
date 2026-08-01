@@ -14,13 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod asserting;
-pub(crate) mod compressing;
-pub(crate) mod hnsw;
-pub(crate) mod lucene101;
-pub(crate) mod lucene90;
-pub(crate) mod lucene94;
-pub(crate) mod lucene99;
-pub(crate) mod test_codec_util;
-
-mod test_competitive_impact_accumulator;
+mod test_asserting_doc_values_format;
+mod test_asserting_norms_format;
+mod test_asserting_points_format;
+mod test_asserting_postings_format;
+mod test_asserting_stored_fields_format;
+mod test_asserting_term_vectors_format;

@@ -33,7 +33,13 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
+#[cfg(not(test))]
+use parking_lot::RwLock;
+#[cfg(test)]
+use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
+#[cfg(not(test))]
+use std::sync::LazyLock;
 
 pub trait Codec: Display {
   type PostingsFormat: PostingsFormat;
@@ -94,6 +100,16 @@ impl Default for Codecs {
   fn default() -> Self {
     Self::Lucene101(Lucene101Codec::default())
   }
+}
+
+#[cfg(not(test))]
+static DEFAULT_CODEC: LazyLock<RwLock<Codecs>> = LazyLock::new(|| RwLock::new(Codecs::default()));
+
+// Rust tests run concurrently in the same process, so their defaults must not interfere with one
+// another. This preserves the per-test effect of Java's Codec.setDefault/getDefault lifecycle.
+#[cfg(test)]
+thread_local! {
+  static DEFAULT_CODEC: RefCell<Codecs> = RefCell::new(Codecs::default());
 }
 
 impl From<Lucene101Codec> for Codecs {
@@ -235,10 +251,31 @@ impl Codec for Codecs {
 
 /// Returns the current default codec.
 ///
-/// This mirrors Java Lucene's `Codec.getDefault` entry point. The production
-/// default remains `Lucene101`.
+/// This mirrors Java Lucene's `Codec.getDefault` entry point. The initial default is `Lucene101`.
 pub fn get_default() -> Codecs {
-  Codecs::default()
+  #[cfg(not(test))]
+  {
+    DEFAULT_CODEC.read().clone()
+  }
+  #[cfg(test)]
+  {
+    DEFAULT_CODEC.with(|codec| codec.borrow().clone())
+  }
+}
+
+/// Sets the default codec used by newly created index writer configurations.
+///
+/// This mirrors Java Lucene's `Codec.setDefault` entry point.
+pub fn set_default(codec: impl Into<Codecs>) {
+  let codec = codec.into();
+  #[cfg(not(test))]
+  {
+    *DEFAULT_CODEC.write() = codec;
+  }
+  #[cfg(test)]
+  {
+    DEFAULT_CODEC.with(|default_codec| *default_codec.borrow_mut() = codec);
+  }
 }
 
 /// Looks up a codec by name.

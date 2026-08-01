@@ -21,6 +21,7 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
+use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -29,12 +30,15 @@ use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::stored_field_visitor::StoredFieldVisitor;
+use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::Mutex;
 
 pub(crate) enum MergeReaderWrapperTermVectors<TVR> {
   Empty,
@@ -100,6 +104,73 @@ where
   }
 }
 
+/// Adapts Java `MergeReaderWrapper`'s shared `StoredFieldsReader` reference to Rust's owned
+/// [`IndexReader::StoredFields`] return type.
+///
+/// Java returns the same merge instance from `storedFields()`. Returning the concrete reader from
+/// Rust would require cloning it, but stored-fields merge instances must not be cloned. The `Arc`
+/// keeps every returned handle attached to the same reader, while the `Mutex` provides the mutable
+/// access required by [`StoredFields`].
+pub(crate) struct MergeReaderWrapperStoredFields<SFR>
+where
+  SFR: StoredFieldsReader,
+{
+  in_: Arc<Mutex<SFR>>,
+}
+
+impl<SFR> MergeReaderWrapperStoredFields<SFR>
+where
+  SFR: StoredFieldsReader,
+{
+  fn new(in_: SFR) -> Self {
+    Self {
+      in_: Arc::new(Mutex::new(in_)),
+    }
+  }
+}
+
+impl<SFR> Clone for MergeReaderWrapperStoredFields<SFR>
+where
+  SFR: StoredFieldsReader,
+{
+  fn clone(&self) -> Self {
+    Self {
+      in_: self.in_.clone(),
+    }
+  }
+}
+
+impl<SFR> RawStoredFieldsReader for MergeReaderWrapperStoredFields<SFR>
+where
+  SFR: StoredFieldsReader,
+{
+  type IndexInput = SFR::IndexInput;
+}
+
+impl<SFR> StoredFields for MergeReaderWrapperStoredFields<SFR>
+where
+  SFR: StoredFieldsReader,
+{
+  fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+    self.in_.lock().prefetch(doc_id)
+  }
+
+  fn document_with_visitor<W>(
+    &mut self,
+    doc_id: i32,
+    visitor: &mut impl StoredFieldVisitor,
+    writer: Option<&mut W>,
+  ) -> Result<()>
+  where
+    W: StoredFieldsWriter,
+  {
+    self
+      .in_
+      .lock()
+      .document_with_visitor(doc_id, visitor, writer)
+  }
+}
+
 /// This is a hack to make index sorting fast, with a [`LeafReader`] that always returns merge
 /// instances when you ask for the codec readers.
 pub(crate) struct MergeReaderWrapper<CR>
@@ -110,7 +181,7 @@ where
   fields: Option<CR::FieldsProducer>,
   norms: Option<CR::NormsProducer>,
   doc_values: Option<CR::DocValuesProducer>,
-  store: Option<CR::StoredFieldsReader>,
+  store: Option<MergeReaderWrapperStoredFields<CR::StoredFieldsReader>>,
   vectors: Option<CR::TermVectorsReader>,
   index_base: IndexReaderBase,
 }
@@ -147,7 +218,9 @@ where
     let store = match in_.get_fields_reader()? {
       Some(store) => {
         let merge_instance = store.get_merge_instance()?;
-        Some(merge_instance.unwrap_or(store))
+        Some(MergeReaderWrapperStoredFields::new(
+          merge_instance.unwrap_or(store),
+        ))
       },
       None => None,
     };
@@ -420,15 +493,15 @@ where
     self.in_.max_doc()
   }
 
-  type StoredFields = CR::StoredFieldsReader;
+  type StoredFields = MergeReaderWrapperStoredFields<CR::StoredFieldsReader>;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
     self.ensure_open()?;
     self
       .store
       .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("stored fields reader is None"))?
-      .try_clone()
+      .cloned()
+      .ok_or_else(|| LuceneError::illegal_state("stored fields reader is None"))
   }
 
   fn do_close(&self) -> Result<()> {

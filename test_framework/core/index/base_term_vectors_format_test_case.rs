@@ -65,8 +65,15 @@ use rand::seq::SliceRandom;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::thread;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReadPastLastPositionException {
+  IllegalState,
+  Assertion,
+}
 
 pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   fn valid_options(&self) -> Vec<Options> {
@@ -86,6 +93,10 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
   {
     let options = self.valid_options();
     options[random.random_range(0..options.len())]
+  }
+
+  fn get_read_past_last_position_exception_class(&self) -> ReadPastLastPositionException {
+    ReadPastLastPositionException::IllegalState
   }
 
   fn test_rare_vectors<R>(&self, random: &mut R) -> Result<()>
@@ -115,7 +126,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         let doc_id = random.random_range(0..num_docs);
         let fields = term_vectors.get(doc_id)?;
         if doc_id == doc_with_vectors_id {
-          assert_random_document_equals(random, &doc, fields.expect("term vectors should exist"))?;
+          assert_random_document_equals(
+            random,
+            &doc,
+            fields.expect("term vectors should exist"),
+            self.get_read_past_last_position_exception_class(),
+          )?;
         } else {
           assert!(fields.is_none());
         }
@@ -123,7 +139,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let fields = term_vectors
         .get(doc_with_vectors_id)?
         .expect("term vectors should exist");
-      assert_random_document_equals(random, &doc, fields)?;
+      assert_random_document_equals(
+        random,
+        &doc,
+        fields,
+        self.get_read_past_last_position_exception_class(),
+      )?;
       writer.close(random)?;
     }
     Ok(())
@@ -147,7 +168,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let reader = writer.get_reader(_random)?;
       let mut term_vectors = reader.term_vectors()?;
       let fields = term_vectors.get(0)?.expect("term vectors should exist");
-      assert_random_document_equals(_random, &doc, fields)?;
+      assert_random_document_equals(
+        _random,
+        &doc,
+        fields,
+        self.get_read_past_last_position_exception_class(),
+      )?;
       reader.close()?;
       writer.close(_random)?;
     }
@@ -173,7 +199,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let reader = writer.get_reader(_random)?;
       let mut term_vectors = reader.term_vectors()?;
       let fields = term_vectors.get(0)?.expect("term vectors should exist");
-      assert_random_document_equals(_random, &doc, fields)?;
+      assert_random_document_equals(
+        _random,
+        &doc,
+        fields,
+        self.get_read_past_last_position_exception_class(),
+      )?;
       reader.close()?;
       writer.close(_random)?;
     }
@@ -206,11 +237,21 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         let fields1 = term_vectors
           .get(doc1_id)?
           .expect("term vectors should exist");
-        assert_random_document_equals(_random, &doc1, fields1)?;
+        assert_random_document_equals(
+          _random,
+          &doc1,
+          fields1,
+          self.get_read_past_last_position_exception_class(),
+        )?;
         let fields2 = term_vectors
           .get(doc2_id)?
           .expect("term vectors should exist");
-        assert_random_document_equals(_random, &doc2, fields2)?;
+        assert_random_document_equals(
+          _random,
+          &doc2,
+          fields2,
+          self.get_read_past_last_position_exception_class(),
+        )?;
         reader.close()?;
         writer.close(_random)?;
       }
@@ -243,7 +284,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
       let fields = term_vectors
         .get(doc_id)?
         .expect("term vectors should exist");
-      assert_random_document_equals(_random, doc, fields)?;
+      assert_random_document_equals(
+        _random,
+        doc,
+        fields,
+        self.get_read_past_last_position_exception_class(),
+      )?;
     }
     reader.close()?;
     writer.close(_random)?;
@@ -298,6 +344,7 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
             random,
             docs.get(id).expect("live doc id must exist"),
             fields,
+            self.get_read_past_last_position_exception_class(),
           )?;
         }
         reader.close()?;
@@ -428,11 +475,17 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
         let fields = term_vectors
           .get(doc_id)?
           .expect("term vectors should exist");
-        assert_random_document_equals(random, doc, fields)?;
+        assert_random_document_equals(
+          random,
+          doc,
+          fields,
+          self.get_read_past_last_position_exception_class(),
+        )?;
       }
       drop(term_vectors);
 
       let thread_seeds = [random.random(), random.random()];
+      let read_past_last_position_exception = self.get_read_past_last_position_exception_class();
       thread::scope(|scope| -> Result<()> {
         let mut threads = Vec::with_capacity(thread_seeds.len());
         for seed in thread_seeds {
@@ -448,7 +501,12 @@ pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
               let fields = term_vectors
                 .get(doc_id)?
                 .expect("term vectors should exist");
-              assert_random_document_equals(&mut thread_random, &docs[idx], fields)?;
+              assert_random_document_equals(
+                &mut thread_random,
+                &docs[idx],
+                fields,
+                read_past_last_position_exception,
+              )?;
               i += 1;
             }
             Ok(())
@@ -2091,6 +2149,7 @@ fn assert_random_token_stream_equals<R, T>(
   tk: &RandomTokenStream,
   ft: &FieldType,
   terms: T,
+  read_past_last_position_exception: ReadPastLastPositionException,
 ) -> Result<()>
 where
   R: Rng + ?Sized,
@@ -2200,10 +2259,15 @@ where
           }));
         }
       }
-      assert!(matches!(
-        docs_and_positions_enum.next_position(),
-        Err(LuceneError::IllegalState(_))
-      ));
+      match read_past_last_position_exception {
+        ReadPastLastPositionException::IllegalState => assert!(matches!(
+          docs_and_positions_enum.next_position(),
+          Err(LuceneError::IllegalState(_))
+        )),
+        ReadPastLastPositionException::Assertion => assert!(
+          catch_unwind(AssertUnwindSafe(|| docs_and_positions_enum.next_position())).is_err()
+        ),
+      }
       assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
     }
   }
@@ -2221,6 +2285,7 @@ fn assert_random_document_equals<R, F>(
   random: &mut R,
   doc: &RandomDocument,
   fields: F,
+  read_past_last_position_exception: ReadPastLastPositionException,
 ) -> Result<()>
 where
   R: Rng + ?Sized,
@@ -2239,7 +2304,13 @@ where
     let terms = fields
       .terms(&doc.field_names[i])?
       .expect("term vectors should exist for random document field");
-    assert_random_token_stream_equals(random, &doc.token_streams[i], &doc.field_types[i], terms)?;
+    assert_random_token_stream_equals(
+      random,
+      &doc.token_streams[i],
+      &doc.field_types[i],
+      terms,
+      read_past_last_position_exception,
+    )?;
   }
   Ok(())
 }

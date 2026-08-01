@@ -19,6 +19,16 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 
+pub struct DefaultCodecGuard {
+  saved_codec: Codecs,
+}
+
+impl Drop for DefaultCodecGuard {
+  fn drop(&mut self) {
+    codec::set_default(self.saved_codec.clone());
+  }
+}
+
 /// Base test support for a norms format. NOTE: This test focuses on the norms implementation,
 /// nothing else. The [stretch] goal is for this test to be so thorough in testing a new NormsFormat
 /// that if this test passes, then all Lucene tests should also pass. Ie, if there is some bug in a
@@ -44,5 +54,15 @@ pub trait BaseIndexFileFormatTestCase {
   }
   fn get_codec(&self) -> Result<Codecs> {
     Ok(codec::get_default())
+  }
+
+  fn set_up(&self) -> Result<DefaultCodecGuard> {
+    let saved_codec = codec::get_default();
+    codec::set_default(self.get_codec()?);
+    Ok(DefaultCodecGuard { saved_codec })
+  }
+
+  fn tear_down(&self, codec_guard: DefaultCodecGuard) {
+    drop(codec_guard);
   }
 }
