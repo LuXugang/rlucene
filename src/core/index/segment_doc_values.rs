@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::codecs::Codec;
+use crate::core::codecs::CodecDocValuesProducer;
 use crate::core::codecs::compound_directory::CompoundDirectoryEnum;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
-use crate::core::codecs::doc_values_producer::DefaultDocValuesProducer;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -43,7 +43,7 @@ pub(crate) struct Inner<D>
 where
   D: Directory,
 {
-  gen_dv_producers: HashMap<i64, RefCount<Arc<DefaultDocValuesProducer<D::IndexInput>>>>,
+  gen_dv_producers: HashMap<i64, RefCount<Arc<CodecDocValuesProducer<D::IndexInput>>>>,
 }
 
 impl<D> SegmentDocValues<D>
@@ -63,7 +63,7 @@ where
     dir: Option<&D1>,
     gen_: i64,
     infos: Arc<FieldInfos>,
-  ) -> Result<RefCount<Arc<DefaultDocValuesProducer<D1::IndexInput>>>>
+  ) -> Result<RefCount<Arc<CodecDocValuesProducer<D1::IndexInput>>>>
   where
     D1: Directory<IndexInput = D::IndexInput, IndexOutput = D::IndexOutput, Lock = D::Lock>,
   {
@@ -97,7 +97,7 @@ where
     si: &SegmentCommitInfo<D>,
     dir: Option<&D1>,
     infos: Arc<FieldInfos>,
-  ) -> Result<Arc<DefaultDocValuesProducer<D1::IndexInput>>>
+  ) -> Result<Arc<CodecDocValuesProducer<D1::IndexInput>>>
   where
     D1: Directory<IndexInput = D::IndexInput, IndexOutput = D::IndexOutput, Lock = D::Lock>,
   {

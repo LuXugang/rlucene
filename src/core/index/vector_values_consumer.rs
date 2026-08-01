@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_vectors_format::{DefaultKnnVectorsWriter, KnnVectorsFormat};
+use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
-use crate::core::codecs::{Codec, Codecs};
+use crate::core::codecs::{Codec, CodecKnnVectorsWriter, Codecs};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -36,7 +36,7 @@ pub(crate) struct VectorValuesConsumer<D>
 where
   D: Directory,
 {
-  pub(crate) writer: Option<DefaultKnnVectorsWriter<D::IndexOutput>>,
+  pub(crate) writer: Option<CodecKnnVectorsWriter<D::IndexOutput>>,
   codec: Codecs,
   info_stream: InfoStreamMT,
   dir: D,

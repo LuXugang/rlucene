@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 use crate::core::codecs::compound_directory::CompoundDirectory;
-use crate::core::codecs::doc_values_producer::{
-  DefaultBinary, DefaultDocValuesProducer, DefaultNumeric, DefaultSkipper, DefaultSorted,
-  DefaultSortedNumeric, DefaultSortedSet, DocValuesProducer,
-};
+use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
-use crate::core::codecs::norms_producer::{DefaultNormProducer, NormsProducer};
-use crate::core::codecs::points_reader::{DefaultPointsReader, PointsReader};
+use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::points_reader::PointsReader;
 
-use crate::core::codecs::Codec;
-use crate::core::codecs::fields_producer::DefaultFieldsProducer;
-use crate::core::codecs::knn_vectors_reader::{DefaultKnnVectorsReader, KnnVectorsReader};
-use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
-use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
+use crate::core::codecs::{
+  Codec, CodecBinaryDocValues, CodecDocValuesProducer, CodecDocValuesSkipper, CodecFieldsProducer,
+  CodecKnnVectorsReader, CodecNormsProducer, CodecNumericDocValues, CodecPointsReader,
+  CodecSortedDocValues, CodecSortedNumericDocValues, CodecSortedSetDocValues,
+  CodecStoredFieldsReader, CodecTermVectorsReader,
+};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -356,7 +355,7 @@ where
   D: Directory,
 {
   A(SegmentDocValuesProducer<D>),
-  B(Arc<DefaultDocValuesProducer<D::IndexInput>>),
+  B(Arc<CodecDocValuesProducer<D::IndexInput>>),
 }
 
 impl<D> CloseableRef for DocValuesProducers<D>
@@ -375,7 +374,7 @@ impl<D> DocValuesProducer for DocValuesProducers<D>
 where
   D: Directory,
 {
-  type NumericDocValues = DefaultNumeric<D::IndexInput>;
+  type NumericDocValues = CodecNumericDocValues<D::IndexInput>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     match self {
@@ -384,7 +383,7 @@ where
     }
   }
 
-  type BinaryDocValues = DefaultBinary<D::IndexInput>;
+  type BinaryDocValues = CodecBinaryDocValues<D::IndexInput>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     match self {
@@ -393,7 +392,7 @@ where
     }
   }
 
-  type SortedDocValues = DefaultSorted<D::IndexInput>;
+  type SortedDocValues = CodecSortedDocValues<D::IndexInput>;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
     match self {
@@ -402,7 +401,7 @@ where
     }
   }
 
-  type SortedNumericDocValues = DefaultSortedNumeric<D::IndexInput>;
+  type SortedNumericDocValues = CodecSortedNumericDocValues<D::IndexInput>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
     match self {
@@ -411,7 +410,7 @@ where
     }
   }
 
-  type SortedSetDocValues = DefaultSortedSet<D::IndexInput>;
+  type SortedSetDocValues = CodecSortedSetDocValues<D::IndexInput>;
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     match self {
@@ -420,7 +419,7 @@ where
     }
   }
 
-  type DocValuesSkipper = DefaultSkipper<D::IndexInput>;
+  type DocValuesSkipper = CodecDocValuesSkipper<D::IndexInput>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
     match self {
@@ -683,13 +682,13 @@ impl<D> CodecReader for SegmentReader<D>
 where
   D: Directory,
 {
-  type StoredFieldsReader = DefaultStoredFieldsReader<D::IndexInput>;
-  type TermVectorsReader = DefaultTermVectorsReader<D::IndexInput>;
-  type NormsProducer = Arc<DefaultNormProducer<D::IndexInput>>;
+  type StoredFieldsReader = CodecStoredFieldsReader<D::IndexInput>;
+  type TermVectorsReader = CodecTermVectorsReader<D::IndexInput>;
+  type NormsProducer = Arc<CodecNormsProducer<D::IndexInput>>;
   type DocValuesProducer = Arc<DocValuesProducers<D>>;
-  type FieldsProducer = Arc<DefaultFieldsProducer<D::IndexInput>>;
-  type PointsReader = Arc<DefaultPointsReader<D::IndexInput>>;
-  type KnnVectorsReader = Arc<DefaultKnnVectorsReader<D::IndexInput>>;
+  type FieldsProducer = Arc<CodecFieldsProducer<D::IndexInput>>;
+  type PointsReader = Arc<CodecPointsReader<D::IndexInput>>;
+  type KnnVectorsReader = Arc<CodecKnnVectorsReader<D::IndexInput>>;
 
   fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
     self.ensure_open()?;

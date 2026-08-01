@@ -382,7 +382,7 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
               &id,
               &IOContext::default_io_context()?,
             )?;
-            si.set_codec(codec.clone())?;
+            si.set_codec(codec.clone().into())?;
             let sci = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
             let sr = SegmentReader::new(&sci, LATEST.major, &IOContext::default_io_context()?)?;
             thread0_count += LeafReader::doc_freq(&sr, &Term::from_text("field", "threadID0"))?;

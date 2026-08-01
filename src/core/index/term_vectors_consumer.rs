@@ -17,8 +17,8 @@
 #[cfg(test)]
 use crate::core::codecs::codec;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
-use crate::core::codecs::term_vectors_writer::{DefaultTermVectorsWriter, TermVectorsWriter};
-use crate::core::codecs::{Codec, Codecs};
+use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
+use crate::core::codecs::{Codec, CodecTermVectorsWriter, Codecs};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::indexing_chain::PerField;
 use crate::core::index::segment_info::SegmentInfo;
@@ -59,7 +59,7 @@ where
   D: Directory,
 {
   Default {
-    writer: Option<DefaultTermVectorsWriter<D>>,
+    writer: Option<CodecTermVectorsWriter<D>>,
   },
   Sorting(SortingTermVectorsConsumer<D>),
 }
@@ -396,7 +396,7 @@ impl TermVectorsConsumerDefaults {
   }
 
   pub(crate) fn init_term_vectors_writer<D, D1>(
-    writer: &mut Option<DefaultTermVectorsWriter<D>>,
+    writer: &mut Option<CodecTermVectorsWriter<D>>,
     directory: &D,
     codec: &Codecs,
     last_doc_id: &mut i32,

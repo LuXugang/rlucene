@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
+use crate::core::codecs::{Codec, CodecLiveDocsBits};
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values_field_updates::{DocValuesFieldIteratorEnum, MergedIterator};
 use crate::core::index::field_info::FieldInfo;
@@ -29,14 +29,16 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::bits::Bits;
+#[cfg(test)]
+use crate::core::util::bits::BitsEnum2;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fixed_bit_set::{FixedBit, FixedBitSet};
+use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::{HasIdentity, IOUtils};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-pub(crate) type DocBits = Arc<FixedBit>;
+pub(crate) type DocBits = Arc<CodecLiveDocsBits>;
 
 enum LiveDocsState {
   // Read-only live docs.
@@ -229,7 +231,16 @@ impl PendingDeletesBase for PendingDeletes {
     self.live_docs.take().map(|live_docs| {
       let bits = match live_docs {
         LiveDocsState::ReadOnly(bits) => bits,
-        LiveDocsState::Writable(bits) => Arc::new(bits.to_read_only_bits()),
+        LiveDocsState::Writable(bits) => {
+          #[cfg(not(test))]
+          {
+            Arc::new(bits.to_read_only_bits())
+          }
+          #[cfg(test)]
+          {
+            Arc::new(BitsEnum2::A(bits.to_read_only_bits()))
+          }
+        },
       };
       self.live_docs = Some(LiveDocsState::ReadOnly(bits.clone()));
       bits

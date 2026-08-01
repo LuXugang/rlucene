@@ -122,8 +122,8 @@ where
   /// Set the [`Codec`](crate::core::codecs::Codec).
   ///
   /// Only takes effect when `IndexWriter` is first created.
-  pub fn set_codec(&mut self, codec: Codecs) -> &mut Self {
-    self.base.codec = codec;
+  pub fn set_codec(&mut self, codec: impl Into<Codecs>) -> &mut Self {
+    self.base.codec = codec.into();
     self
   }
 

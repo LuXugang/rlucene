@@ -20,6 +20,7 @@ use crate::core::codecs::Codec;
 #[cfg(test)]
 use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
+use crate::core::codecs::doc_values_producer::DocValuesProducer;
 #[cfg(test)]
 use crate::core::codecs::doc_values_producer::DocValuesProducerEnum2;
 #[cfg(test)]
@@ -43,6 +44,7 @@ use crate::core::codecs::lucene101_codec::{
 #[cfg(test)]
 use crate::core::codecs::norms_consumer::NormsConsumerEnum2;
 use crate::core::codecs::norms_format::NormsFormat;
+use crate::core::codecs::norms_producer::NormsProducer;
 #[cfg(test)]
 use crate::core::codecs::norms_producer::NormsProducerEnum2;
 use crate::core::codecs::points_format::PointsFormat;
@@ -268,6 +270,19 @@ pub type CodecDocValuesProducer<I> = DocValuesProducerEnum2<
   <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
   <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
 >;
+
+pub type CodecNumericDocValues<I> =
+  <CodecDocValuesProducer<I> as DocValuesProducer>::NumericDocValues;
+pub type CodecBinaryDocValues<I> =
+  <CodecDocValuesProducer<I> as DocValuesProducer>::BinaryDocValues;
+pub type CodecSortedDocValues<I> =
+  <CodecDocValuesProducer<I> as DocValuesProducer>::SortedDocValues;
+pub type CodecSortedNumericDocValues<I> =
+  <CodecDocValuesProducer<I> as DocValuesProducer>::SortedNumericDocValues;
+pub type CodecSortedSetDocValues<I> =
+  <CodecDocValuesProducer<I> as DocValuesProducer>::SortedSetDocValues;
+pub type CodecDocValuesSkipper<I> =
+  <CodecDocValuesProducer<I> as DocValuesProducer>::DocValuesSkipper;
 
 impl Display for CodecDocValuesFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -552,6 +567,8 @@ pub type CodecNormsProducer<I> = NormsProducerEnum2<
   <Lucene90NormsFormat as NormsFormat>::NormsProducer<I>,
   <AssertingNormsFormat as NormsFormat>::NormsProducer<I>,
 >;
+
+pub type CodecNormNumericDocValues<I> = <CodecNormsProducer<I> as NormsProducer>::NumericDocValues;
 
 impl NormsFormat for CodecNormsFormat {
   type NormsConsumer<O: IndexOutput> = CodecNormsConsumer<O>;

@@ -16,16 +16,17 @@
  */
 use crate::core::codecs::compound_directory::CompoundDirectoryEnum;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
-use crate::core::codecs::fields_producer::DefaultFieldsProducer;
 use crate::core::codecs::norms_format::NormsFormat;
-use crate::core::codecs::norms_producer::DefaultNormProducer;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 
-use crate::core::codecs::{Codec, CompoundFormat, DefaultCompoundReader};
+use crate::core::codecs::{
+  Codec, CodecFieldsProducer, CodecKnnVectorsReader, CodecNormsProducer, CodecPointsReader,
+  CodecStoredFieldsReader, CodecTermVectorsReader, CompoundFormat, DefaultCompoundReader,
+};
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -35,10 +36,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
-use crate::core::codecs::knn_vectors_reader::DefaultKnnVectorsReader;
-use crate::core::codecs::points_reader::DefaultPointsReader;
-use crate::core::codecs::stored_fields_reader::DefaultStoredFieldsReader;
-use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
 use crate::core::index::index_reader::{CacheHelper, CacheKey, ClosedListener, ClosedListenerList};
 use parking_lot::Mutex;
 use std::sync::Arc;
@@ -50,12 +47,12 @@ where
   D: Directory,
 {
   pub(crate) ref_: AtomicI32,
-  pub(crate) fields: Option<Arc<DefaultFieldsProducer<D::IndexInput>>>,
-  pub(crate) norms_producer: Option<Arc<DefaultNormProducer<D::IndexInput>>>,
-  pub(crate) fields_reader_orig: DefaultStoredFieldsReader<D::IndexInput>,
-  pub(crate) term_vectors_reader_orig: Option<DefaultTermVectorsReader<D::IndexInput>>,
-  pub(crate) points_reader: Option<Arc<DefaultPointsReader<D::IndexInput>>>,
-  pub(crate) knn_vectors_reader: Option<Arc<DefaultKnnVectorsReader<D::IndexInput>>>,
+  pub(crate) fields: Option<Arc<CodecFieldsProducer<D::IndexInput>>>,
+  pub(crate) norms_producer: Option<Arc<CodecNormsProducer<D::IndexInput>>>,
+  pub(crate) fields_reader_orig: CodecStoredFieldsReader<D::IndexInput>,
+  pub(crate) term_vectors_reader_orig: Option<CodecTermVectorsReader<D::IndexInput>>,
+  pub(crate) points_reader: Option<Arc<CodecPointsReader<D::IndexInput>>>,
+  pub(crate) knn_vectors_reader: Option<Arc<CodecKnnVectorsReader<D::IndexInput>>>,
   pub(crate) cfs_reader: Option<DefaultCompoundReader<D>>,
   pub(crate) segment: String,
   /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.

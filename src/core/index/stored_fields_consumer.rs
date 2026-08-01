@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
-use crate::core::codecs::stored_fields_writer::{DefaultStoredFieldsWriter, StoredFieldsWriter};
-use crate::core::codecs::{Codec, Codecs};
+use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
+use crate::core::codecs::{Codec, CodecStoredFieldsWriter, Codecs};
 use crate::core::document::field::FieldDataEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
@@ -47,7 +47,7 @@ where
   D: Directory,
 {
   Default {
-    writer: Option<DefaultStoredFieldsWriter<D>>,
+    writer: Option<CodecStoredFieldsWriter<D>>,
   },
   Sorting(SortingStoredFieldsConsumer<D>),
   #[cfg(test)]
@@ -177,7 +177,7 @@ where
 
 impl StoredFieldsConsumerDefaults {
   pub(crate) fn init_stored_fields_writer<D, D1>(
-    writer: &mut Option<DefaultStoredFieldsWriter<D>>,
+    writer: &mut Option<CodecStoredFieldsWriter<D>>,
     directory: &D,
     codec: &Codecs,
     info: &mut SegmentInfo<D1>,

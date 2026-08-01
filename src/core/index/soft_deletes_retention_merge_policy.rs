@@ -40,6 +40,8 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::store::directory::Directory;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
+#[cfg(test)]
+use crate::core::util::bits::BitsEnum2;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::io_utils::IOUtils;
@@ -594,7 +596,16 @@ fn new_reader_with_live_docs<D>(
 where
   D: Directory,
 {
-  let live_docs = live_docs.map(|bits| Arc::new(bits.to_read_only_bits()));
+  let live_docs = live_docs.map(|bits| {
+    #[cfg(not(test))]
+    {
+      Arc::new(bits.to_read_only_bits())
+    }
+    #[cfg(test)]
+    {
+      Arc::new(BitsEnum2::A(bits.to_read_only_bits()))
+    }
+  });
   Ok(Arc::new(SegmentReader::new_from_reader(
     reader.get_segment_info(),
     reader.as_ref(),

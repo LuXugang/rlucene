@@ -109,7 +109,7 @@ fn test_fixed_postings() -> Result<()> {
     10000,
     false,
     false,
-    Some(codec.clone()),
+    Some(codec.clone().into()),
     HashMap::new(),
     StringHelper::random_id(),
     HashMap::new(),

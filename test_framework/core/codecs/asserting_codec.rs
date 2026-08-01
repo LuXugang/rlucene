@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::Codec;
-use crate::core::codecs::doc_values_format::DocValuesFormat;
-use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::perfield::per_field_doc_values_format::{
   PerFieldDocValuesFormat, PerFieldDocValuesFormatBase,
 };
@@ -26,7 +24,6 @@ use crate::core::codecs::perfield::per_field_knn_vectors_format::{
 use crate::core::codecs::perfield::per_field_postings_format::{
   PerFieldPostingsFormat, PerFieldPostingsFormatBase,
 };
-use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::codecs::asserting_doc_values_format::AssertingDocValuesFormat;
 use crate::test_framework::core::codecs::asserting_knn_vectors_format::AssertingKnnVectorsFormat;
@@ -53,15 +50,11 @@ pub(crate) fn assert_thread(object: &str, creation_thread: ThreadId) {
 /// Static-dispatch access to the methods that Java subclasses override on
 /// [`AssertingCodec`].
 pub trait AssertingCodecBase {
-  type PostingsFormat: PostingsFormat;
-  type DocValuesFormat: DocValuesFormat;
-  type KnnVectorsFormat: KnnVectorsFormat;
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat>;
 
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&Self::PostingsFormat>;
+  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingDocValuesFormat>;
 
-  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&Self::DocValuesFormat>;
-
-  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&Self::KnnVectorsFormat>;
+  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&AssertingKnnVectorsFormat>;
 }
 
 pub struct AssertingCodecDefaults {
@@ -111,71 +104,79 @@ impl AssertingCodecDefaults {
 }
 
 impl AssertingCodecBase for AssertingCodecDefaults {
-  type PostingsFormat = AssertingPostingsFormat;
-  type DocValuesFormat = AssertingDocValuesFormat;
-  type KnnVectorsFormat = AssertingKnnVectorsFormat;
-
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&Self::PostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
     AssertingCodecDefaults::get_postings_format_for_field(self, field)
   }
 
-  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&Self::DocValuesFormat> {
+  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingDocValuesFormat> {
     AssertingCodecDefaults::get_doc_values_format_for_field(self, field)
   }
 
-  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&Self::KnnVectorsFormat> {
+  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&AssertingKnnVectorsFormat> {
     AssertingCodecDefaults::get_knn_vectors_format_for_field(self, field)
   }
 }
 
-pub struct AssertingCodecPostingsFormatBase<B>
-where
-  B: AssertingCodecBase,
-{
-  hook: Arc<B>,
+pub(crate) enum AssertingCodecHook {
+  Default(AssertingCodecDefaults),
 }
 
-impl<B> PerFieldPostingsFormatBase for AssertingCodecPostingsFormatBase<B>
-where
-  B: AssertingCodecBase,
-{
-  type Format = B::PostingsFormat;
+impl Default for AssertingCodecHook {
+  fn default() -> Self {
+    Self::Default(AssertingCodecDefaults::default())
+  }
+}
+
+impl AssertingCodecBase for AssertingCodecHook {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+    match self {
+      Self::Default(defaults) => defaults.get_postings_format_for_field(field),
+    }
+  }
+
+  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingDocValuesFormat> {
+    match self {
+      Self::Default(defaults) => defaults.get_doc_values_format_for_field(field),
+    }
+  }
+
+  fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&AssertingKnnVectorsFormat> {
+    match self {
+      Self::Default(defaults) => defaults.get_knn_vectors_format_for_field(field),
+    }
+  }
+}
+
+pub struct AssertingCodecPostingsFormatBase {
+  hook: Arc<AssertingCodecHook>,
+}
+
+impl PerFieldPostingsFormatBase for AssertingCodecPostingsFormatBase {
+  type Format = AssertingPostingsFormat;
 
   fn get_postings_format_for_field(&self, field: &str) -> Result<&Self::Format> {
     self.hook.get_postings_format_for_field(field)
   }
 }
 
-pub struct AssertingCodecDocValuesFormatBase<B>
-where
-  B: AssertingCodecBase,
-{
-  hook: Arc<B>,
+pub struct AssertingCodecDocValuesFormatBase {
+  hook: Arc<AssertingCodecHook>,
 }
 
-impl<B> PerFieldDocValuesFormatBase for AssertingCodecDocValuesFormatBase<B>
-where
-  B: AssertingCodecBase,
-{
-  type Format = B::DocValuesFormat;
+impl PerFieldDocValuesFormatBase for AssertingCodecDocValuesFormatBase {
+  type Format = AssertingDocValuesFormat;
 
   fn get_doc_values_format_for_field(&self, field: &str) -> Result<&Self::Format> {
     self.hook.get_doc_values_format_for_field(field)
   }
 }
 
-pub struct AssertingCodecKnnVectorsFormatBase<B>
-where
-  B: AssertingCodecBase,
-{
-  hook: Arc<B>,
+pub struct AssertingCodecKnnVectorsFormatBase {
+  hook: Arc<AssertingCodecHook>,
 }
 
-impl<B> PerFieldKnnVectorsFormatBase for AssertingCodecKnnVectorsFormatBase<B>
-where
-  B: AssertingCodecBase,
-{
-  type Format = B::KnnVectorsFormat;
+impl PerFieldKnnVectorsFormatBase for AssertingCodecKnnVectorsFormatBase {
+  type Format = AssertingKnnVectorsFormat;
 
   fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&Self::Format> {
     self.hook.get_knn_vectors_format_for_field(field)
@@ -183,34 +184,26 @@ where
 }
 
 /// Acts like the default codec but with additional asserts.
-pub struct AssertingCodec<B = AssertingCodecDefaults>
-where
-  B: AssertingCodecBase,
-{
+pub struct AssertingCodec {
   delegate: DefaultCodec,
-  postings: PerFieldPostingsFormat<AssertingCodecPostingsFormatBase<B>>,
-  doc_values: PerFieldDocValuesFormat<AssertingCodecDocValuesFormatBase<B>>,
-  knn_vectors_format: PerFieldKnnVectorsFormat<AssertingCodecKnnVectorsFormatBase<B>>,
-  hook: Arc<B>,
+  postings: PerFieldPostingsFormat<AssertingCodecPostingsFormatBase>,
+  doc_values: PerFieldDocValuesFormat<AssertingCodecDocValuesFormatBase>,
+  knn_vectors_format: PerFieldKnnVectorsFormat<AssertingCodecKnnVectorsFormatBase>,
+  hook: Arc<AssertingCodecHook>,
 }
 
-impl Default for AssertingCodec<AssertingCodecDefaults> {
+impl Default for AssertingCodec {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl AssertingCodec<AssertingCodecDefaults> {
+impl AssertingCodec {
   pub fn new() -> Self {
-    Self::with_hook(AssertingCodecDefaults::default())
+    Self::with_hook(AssertingCodecHook::default())
   }
-}
 
-impl<B> AssertingCodec<B>
-where
-  B: AssertingCodecBase,
-{
-  pub(crate) fn with_hook(hook: B) -> Self {
+  pub(crate) fn with_hook(hook: AssertingCodecHook) -> Self {
     let hook = Arc::new(hook);
     Self {
       delegate: TestUtil::get_default_codec(),
@@ -227,23 +220,23 @@ where
     }
   }
 
-  pub fn get_postings_format_for_field(&self, field: &str) -> Result<&B::PostingsFormat> {
+  pub fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
     self.hook.get_postings_format_for_field(field)
   }
 
-  pub fn get_doc_values_format_for_field(&self, field: &str) -> Result<&B::DocValuesFormat> {
+  pub fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingDocValuesFormat> {
     self.hook.get_doc_values_format_for_field(field)
   }
 
-  pub fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&B::KnnVectorsFormat> {
+  pub fn get_knn_vectors_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingKnnVectorsFormat> {
     self.hook.get_knn_vectors_format_for_field(field)
   }
 }
 
-impl<B> Clone for AssertingCodec<B>
-where
-  B: AssertingCodecBase,
-{
+impl Clone for AssertingCodec {
   fn clone(&self) -> Self {
     Self {
       delegate: self.delegate.clone(),
@@ -255,12 +248,9 @@ where
   }
 }
 
-impl<B> Codec for AssertingCodec<B>
-where
-  B: AssertingCodecBase,
-{
-  type PostingsFormat = PerFieldPostingsFormat<AssertingCodecPostingsFormatBase<B>>;
-  type DocValuesFormat = PerFieldDocValuesFormat<AssertingCodecDocValuesFormatBase<B>>;
+impl Codec for AssertingCodec {
+  type PostingsFormat = PerFieldPostingsFormat<AssertingCodecPostingsFormatBase>;
+  type DocValuesFormat = PerFieldDocValuesFormat<AssertingCodecDocValuesFormatBase>;
   type StoredFieldsFormat = AssertingStoredFieldsFormat;
   type TermVectorsFormat = AssertingTermVectorsFormat;
   type FieldInfosFormat = <DefaultCodec as Codec>::FieldInfosFormat;
@@ -269,7 +259,7 @@ where
   type LiveDocsFormat = AssertingLiveDocsFormat;
   type CompoundFormat = <DefaultCodec as Codec>::CompoundFormat;
   type PointsFormat = AssertingPointsFormat;
-  type KnnVectorsFormat = PerFieldKnnVectorsFormat<AssertingCodecKnnVectorsFormatBase<B>>;
+  type KnnVectorsFormat = PerFieldKnnVectorsFormat<AssertingCodecKnnVectorsFormatBase>;
 
   fn postings_format(&self) -> Self::PostingsFormat {
     self.postings.clone()
@@ -320,10 +310,7 @@ where
   }
 }
 
-impl<B> Display for AssertingCodec<B>
-where
-  B: AssertingCodecBase,
-{
+impl Display for AssertingCodec {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "Asserting({})", self.delegate)
   }

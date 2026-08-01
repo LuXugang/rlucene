@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::Codecs;
-use crate::core::codecs::stored_fields_writer::DefaultStoredFieldsWriter;
+use crate::core::codecs::{CodecStoredFieldsWriter, Codecs};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -34,7 +33,7 @@ pub(crate) struct TestStoredFieldsConsumerHook<D>
 where
   D: Directory,
 {
-  pub(crate) writer: Option<DefaultStoredFieldsWriter<D>>,
+  pub(crate) writer: Option<CodecStoredFieldsWriter<D>>,
   start_doc_counter: Arc<AtomicI32>,
   finish_doc_counter: Arc<AtomicI32>,
 }

@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_producer::{
-  DefaultBinary, DefaultDocValuesProducer, DefaultNumeric, DefaultSkipper, DefaultSorted,
-  DefaultSortedNumeric, DefaultSortedSet, DocValuesProducer,
+use crate::core::codecs::doc_values_producer::DocValuesProducer;
+use crate::core::codecs::{
+  CodecBinaryDocValues, CodecDocValuesProducer, CodecDocValuesSkipper, CodecNumericDocValues,
+  CodecSortedDocValues, CodecSortedNumericDocValues, CodecSortedSetDocValues,
 };
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
@@ -36,8 +37,8 @@ pub struct SegmentDocValuesProducer<D>
 where
   D: Directory,
 {
-  pub(crate) dv_producers_by_field: HashMap<i32, Arc<DefaultDocValuesProducer<D::IndexInput>>>,
-  pub(crate) dv_producers: HashSet<IdentityArc<DefaultDocValuesProducer<D::IndexInput>>>,
+  pub(crate) dv_producers_by_field: HashMap<i32, Arc<CodecDocValuesProducer<D::IndexInput>>>,
+  pub(crate) dv_producers: HashSet<IdentityArc<CodecDocValuesProducer<D::IndexInput>>>,
   pub(crate) dv_gens: Vec<i64>,
 }
 impl<D> SegmentDocValuesProducer<D>
@@ -55,6 +56,8 @@ where
     D1: Directory<IndexInput = D::IndexInput, IndexOutput = D::IndexOutput, Lock = D::Lock>,
   {
     let mut dv_producers_by_field = HashMap::new();
+    // Hashing and equality use the Arc allocation identity, not mutable producer state.
+    #[allow(clippy::mutable_key_type)]
     let mut dv_producers = HashSet::new();
     let mut dv_gens = Vec::new();
 
@@ -138,7 +141,7 @@ impl<D> DocValuesProducer for SegmentDocValuesProducer<D>
 where
   D: Directory,
 {
-  type NumericDocValues = DefaultNumeric<D::IndexInput>;
+  type NumericDocValues = CodecNumericDocValues<D::IndexInput>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -146,7 +149,7 @@ where
     dv_producer.as_ref().unwrap().get_numeric(field)
   }
 
-  type BinaryDocValues = DefaultBinary<D::IndexInput>;
+  type BinaryDocValues = CodecBinaryDocValues<D::IndexInput>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -154,7 +157,7 @@ where
     dv_producer.as_ref().unwrap().get_binary(field)
   }
 
-  type SortedDocValues = DefaultSorted<D::IndexInput>;
+  type SortedDocValues = CodecSortedDocValues<D::IndexInput>;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
     let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -162,7 +165,7 @@ where
     dv_producer.as_ref().unwrap().get_sorted(field)
   }
 
-  type SortedNumericDocValues = DefaultSortedNumeric<D::IndexInput>;
+  type SortedNumericDocValues = CodecSortedNumericDocValues<D::IndexInput>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
     let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -170,7 +173,7 @@ where
     dv_producer.as_ref().unwrap().get_sorted_numeric(field)
   }
 
-  type SortedSetDocValues = DefaultSortedSet<D::IndexInput>;
+  type SortedSetDocValues = CodecSortedSetDocValues<D::IndexInput>;
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     let dv_producer = self.dv_producers_by_field.get(&field.number);
@@ -178,7 +181,7 @@ where
     dv_producer.as_ref().unwrap().get_sorted_set(field)
   }
 
-  type DocValuesSkipper = DefaultSkipper<D::IndexInput>;
+  type DocValuesSkipper = CodecDocValuesSkipper<D::IndexInput>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
     let dv_producer = self.dv_producers_by_field.get(&field.number);

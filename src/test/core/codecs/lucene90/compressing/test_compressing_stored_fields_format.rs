@@ -43,7 +43,7 @@ impl BaseIndexFileFormatTestCase for TestCompressingStoredFieldsFormat {
 
   fn get_codec(&self) -> Result<Codecs> {
     // TODO IMPORTANT setCodec 未实现
-    Ok(TestUtil::get_default_codec())
+    Ok(TestUtil::get_default_codec().into())
   }
 }
 
