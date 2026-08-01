@@ -165,6 +165,7 @@ where
     }
   }
 
+  #[allow(clippy::type_complexity)]
   fn get_instance<D1, D2>(
     &mut self,
     write_state: &SegmentWriteState<D1>,
