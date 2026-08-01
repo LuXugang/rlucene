@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::DefaultDocValuesFormat;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
@@ -40,11 +39,12 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::long_bit_set::LongBitSet;
+use crate::test_framework::core::codecs::asserting_codec::assert_thread;
 use crate::test_framework::core::index::asserting_leaf_reader::{
   AssertingBinaryDocValues, AssertingDocValuesSkipper, AssertingNumericDocValues,
   AssertingSortedDocValues, AssertingSortedNumericDocValues, AssertingSortedSetDocValues,
 };
-use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::{DefaultDocValuesFormat, TestUtil};
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, OnceLock};
 use std::thread::ThreadId;
@@ -416,12 +416,7 @@ where
       field.number
     );
     if self.merging {
-      assert_eq!(
-        self.creation_thread,
-        std::thread::current().id(),
-        "DocValuesProducer are only supposed to be consumed in the thread in which they have been \
-         acquired."
-      );
+      assert_thread("DocValuesProducer", self.creation_thread);
     }
     assert_eq!(field.get_doc_values_type(), &DocValuesType::Numeric);
     Ok(AssertingNumericDocValues::new(
@@ -442,12 +437,7 @@ where
       field.number
     );
     if self.merging {
-      assert_eq!(
-        self.creation_thread,
-        std::thread::current().id(),
-        "DocValuesProducer are only supposed to be consumed in the thread in which they have been \
-         acquired."
-      );
+      assert_thread("DocValuesProducer", self.creation_thread);
     }
     assert_eq!(field.get_doc_values_type(), &DocValuesType::Binary);
     Ok(AssertingBinaryDocValues::new(
@@ -468,12 +458,7 @@ where
       field.number
     );
     if self.merging {
-      assert_eq!(
-        self.creation_thread,
-        std::thread::current().id(),
-        "DocValuesProducer are only supposed to be consumed in the thread in which they have been \
-         acquired."
-      );
+      assert_thread("DocValuesProducer", self.creation_thread);
     }
     assert_eq!(field.get_doc_values_type(), &DocValuesType::Sorted);
     AssertingSortedDocValues::new(self.in_.get_sorted(field)?, self.max_doc)
@@ -491,12 +476,7 @@ where
       field.number
     );
     if self.merging {
-      assert_eq!(
-        self.creation_thread,
-        std::thread::current().id(),
-        "DocValuesProducer are only supposed to be consumed in the thread in which they have been \
-         acquired."
-      );
+      assert_thread("DocValuesProducer", self.creation_thread);
     }
     assert_eq!(field.get_doc_values_type(), &DocValuesType::SortedNumeric);
     AssertingSortedNumericDocValues::create(self.in_.get_sorted_numeric(field)?, self.max_doc)
@@ -514,12 +494,7 @@ where
       field.number
     );
     if self.merging {
-      assert_eq!(
-        self.creation_thread,
-        std::thread::current().id(),
-        "DocValuesProducer are only supposed to be consumed in the thread in which they have been \
-         acquired."
-      );
+      assert_thread("DocValuesProducer", self.creation_thread);
     }
     assert_eq!(field.get_doc_values_type(), &DocValuesType::SortedSet);
     AssertingSortedSetDocValues::create(self.in_.get_sorted_set(field)?, self.max_doc)

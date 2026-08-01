@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
-use crate::core::codecs::{Codec, DefaultStoredFieldsFormat};
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -30,7 +30,8 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
-use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::codecs::asserting_codec::assert_thread;
+use crate::test_framework::core::util::test_util::{DefaultStoredFieldsFormat, TestUtil};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::ThreadId;
@@ -149,12 +150,7 @@ where
   where
     W: StoredFieldsWriter,
   {
-    assert_eq!(
-      self.creation_thread,
-      std::thread::current().id(),
-      "StoredFieldsReader are only supposed to be consumed in the thread in which they have been \
-       acquired."
-    );
+    assert_thread("StoredFieldsReader", self.creation_thread);
     assert!(doc_id >= 0 && doc_id < self.max_doc);
     self.in_.document_with_visitor(doc_id, visitor, writer)
   }

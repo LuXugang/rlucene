@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::DefaultPostingsFormat;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
@@ -38,7 +37,7 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::test_framework::core::index::asserting_leaf_reader::AssertingTerms;
-use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::{DefaultPostingsFormat, TestUtil};
 use std::sync::{Arc, OnceLock};
 
 /// Just like the default postings format but with additional asserts.

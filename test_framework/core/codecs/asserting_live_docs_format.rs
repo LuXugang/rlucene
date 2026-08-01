@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
-use crate::core::codecs::{Codec, DefaultLiveDocsFormat};
 use crate::core::index::index_reader::Identity;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::IOContext;
@@ -23,7 +23,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::{DefaultLiveDocsFormat, TestUtil};
 use std::collections::HashSet;
 
 /// Just like the default live docs format but with additional asserts.

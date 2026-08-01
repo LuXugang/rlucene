@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codec;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
-use crate::core::codecs::{Codec, DefaultTermVectorsFormat};
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -31,7 +31,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::asserting_leaf_reader::AssertingFields;
-use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_util::{DefaultTermVectorsFormat, TestUtil};
 use std::sync::Arc;
 
 /// Just like the default vectors format but with additional asserts.

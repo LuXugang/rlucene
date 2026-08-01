@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+pub mod asserting_codec;
 pub mod asserting_doc_values_format;
 pub mod asserting_knn_vectors_format;
 pub mod asserting_live_docs_format;

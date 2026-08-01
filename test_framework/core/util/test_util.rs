@@ -23,8 +23,11 @@ use rand::prelude::IndexedRandom;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, LazyLock};
 
+use crate::core::codecs::Codec;
+use crate::core::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
-use crate::core::codecs::{Codec, Codecs, DefaultDocValuesFormat, DefaultPostingsFormat};
+use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
+use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::index::CODEC_FILE_PATTERN;
 use crate::core::index::check_index::{CheckIndex, Status};
 use crate::core::index::composite_reader::CompositeReader;
@@ -58,6 +61,16 @@ use crate::core::util::io_utils::IOUtils;
 use std::io::Sink;
 
 pub struct TestUtil;
+
+/// The concrete codec returned by [`TestUtil::get_default_codec`].
+pub type DefaultCodec = Lucene101Codec;
+pub type DefaultPostingsFormat = Lucene101PostingsFormat;
+pub type DefaultDocValuesFormat = Lucene90DocValuesFormat;
+pub type DefaultStoredFieldsFormat = <DefaultCodec as Codec>::StoredFieldsFormat;
+pub type DefaultTermVectorsFormat = <DefaultCodec as Codec>::TermVectorsFormat;
+pub type DefaultNormsFormat = <DefaultCodec as Codec>::NormsFormat;
+pub type DefaultLiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
+pub type DefaultPointsFormat = <DefaultCodec as Codec>::PointsFormat;
 
 /// Static dispatch for the two Java `IndexReader` shapes accepted by `TestUtil.checkReader`.
 pub trait CheckReaderContextKind<I>
@@ -131,18 +144,18 @@ const BLOCK_ENDS: &[u32] = &[
 
 impl TestUtil {
   /// Returns the actual default codec for this version of Lucene.
-  pub fn get_default_codec() -> Codecs {
-    Codecs::default()
+  pub fn get_default_codec() -> DefaultCodec {
+    DefaultCodec::default()
   }
 
   /// Returns the actual default postings format for this version of Lucene.
   pub fn get_default_postings_format() -> DefaultPostingsFormat {
-    Self::get_default_codec().postings_format()
+    DefaultPostingsFormat::new()
   }
 
   /// Returns the actual default doc values format for this version of Lucene.
   pub fn get_default_doc_values_format() -> DefaultDocValuesFormat {
-    Self::get_default_codec().doc_values_format()
+    DefaultDocValuesFormat::default()
   }
 
   /// Returns the actual default vector format for this version of Lucene.
