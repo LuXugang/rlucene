@@ -122,6 +122,84 @@ pub trait PointsWriter: Closeable {
 }
 pub type PointsWriterType<O> = Lucene90PointsWriter<O>;
 
+pub enum PointsWriterEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Closeable for PointsWriterEnum2<A, B>
+where
+  A: PointsWriter,
+  B: PointsWriter,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+    }
+  }
+}
+
+impl<A, B> PointsWriter for PointsWriterEnum2<A, B>
+where
+  A: PointsWriter,
+  B: PointsWriter,
+{
+  fn write_field<PR, D1, D2>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    values: &mut PR,
+    dir: &D1,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<()>
+  where
+    PR: PointsReader,
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::A(inner) => inner.write_field(field_info, values, dir, segment_info),
+      Self::B(inner) => inner.write_field(field_info, values, dir, segment_info),
+    }
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish(),
+      Self::B(inner) => inner.finish(),
+    }
+  }
+
+  fn merge_one_field<D1, D2, CR>(
+    &mut self,
+    merge_state: &MergeState<D1, CR>,
+    field_info: &Arc<FieldInfo>,
+    dir: &D2,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge_one_field(merge_state, field_info, dir),
+      Self::B(inner) => inner.merge_one_field(merge_state, field_info, dir),
+    }
+  }
+
+  fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge(merge_state, dir),
+      Self::B(inner) => inner.merge(merge_state, dir),
+    }
+  }
+}
+
 struct PointsReaderImpl<P, DM>
 where
   P: PointValues,

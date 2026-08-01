@@ -188,6 +188,133 @@ where
   }
 }
 
+pub enum KnnVectorsWriterEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Closeable for KnnVectorsWriterEnum2<A, B>
+where
+  A: Closeable,
+  B: Closeable,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+    }
+  }
+}
+
+impl<A, B> Accountable for KnnVectorsWriterEnum2<A, B>
+where
+  A: Accountable,
+  B: Accountable,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.ram_bytes_used(),
+      Self::B(inner) => inner.ram_bytes_used(),
+    }
+  }
+}
+
+impl<O, A, B> KnnVectorsWriter<O> for KnnVectorsWriterEnum2<A, B>
+where
+  O: IndexOutput,
+  A: KnnVectorsWriter<O>,
+  B: KnnVectorsWriter<O>,
+{
+  fn add_field<D1, D2>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<usize>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    match self {
+      Self::A(inner) => inner.add_field(write_state, segment_info, field_info),
+      Self::B(inner) => inner.add_field(write_state, segment_info, field_info),
+    }
+  }
+
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    match self {
+      Self::A(inner) => inner.flush(max_doc, sort_map),
+      Self::B(inner) => inner.flush(max_doc, sort_map),
+    }
+  }
+
+  fn merge_one_field<D1, D2, CR>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory<IndexOutput = O>,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge_one_field(field_info, merge_state, segment_write_state),
+      Self::B(inner) => inner.merge_one_field(field_info, merge_state, segment_write_state),
+    }
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish(),
+      Self::B(inner) => inner.finish(),
+    }
+  }
+
+  fn merge<D1, D2, CR>(
+    &mut self,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<i32>
+  where
+    D1: Directory,
+    D2: Directory<IndexOutput = O>,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge(merge_state, segment_write_state),
+      Self::B(inner) => inner.merge(merge_state, segment_write_state),
+    }
+  }
+
+  fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.finish_merge(merge_state),
+      Self::B(inner) => inner.finish_merge(merge_state),
+    }
+  }
+
+  fn add_value(
+    &mut self,
+    doc_id: i32,
+    vector_value: &VectorValueEnum,
+    field_vectors_writers_idx: usize,
+  ) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.add_value(doc_id, vector_value, field_vectors_writers_idx),
+      Self::B(inner) => inner.add_value(doc_id, vector_value, field_vectors_writers_idx),
+    }
+  }
+}
+
 /// Given old doc ids and an id mapping, maps old ordinal to new ordinal. Note: this method return
 /// nothing and output are written to parameters
 ///

@@ -107,6 +107,67 @@ pub trait NormsConsumer: Closeable {
   }
 }
 
+pub enum NormsConsumerEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Closeable for NormsConsumerEnum2<A, B>
+where
+  A: NormsConsumer,
+  B: NormsConsumer,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+    }
+  }
+}
+
+impl<A, B> NormsConsumer for NormsConsumerEnum2<A, B>
+where
+  A: NormsConsumer,
+  B: NormsConsumer,
+{
+  fn add_norms_field(
+    &mut self,
+    field: &Arc<FieldInfo>,
+    norms_producer: &mut impl NormsProducer,
+  ) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.add_norms_field(field, norms_producer),
+      Self::B(inner) => inner.add_norms_field(field, norms_producer),
+    }
+  }
+
+  fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge(merge_state),
+      Self::B(inner) => inner.merge(merge_state),
+    }
+  }
+
+  fn merge_norms_field<D, CR>(
+    &mut self,
+    merge_field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<D, CR>,
+  ) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge_norms_field(merge_field_info, merge_state),
+      Self::B(inner) => inner.merge_norms_field(merge_field_info, merge_state),
+    }
+  }
+}
+
 struct NormsProducerMerge<'a, D, CR>
 where
   D: Directory,

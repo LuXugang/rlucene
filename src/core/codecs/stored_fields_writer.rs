@@ -367,3 +367,130 @@ impl StoredFieldVisitor for MergeVisitor {
     Ok(Status::Yes)
   }
 }
+
+pub enum StoredFieldsWriterEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Closeable for StoredFieldsWriterEnum2<A, B>
+where
+  A: StoredFieldsWriter,
+  B: StoredFieldsWriter,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+    }
+  }
+}
+
+impl<A, B> Accountable for StoredFieldsWriterEnum2<A, B>
+where
+  A: StoredFieldsWriter,
+  B: StoredFieldsWriter,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.ram_bytes_used(),
+      Self::B(inner) => inner.ram_bytes_used(),
+    }
+  }
+}
+
+impl<A, B> StoredFieldsWriter for StoredFieldsWriterEnum2<A, B>
+where
+  A: StoredFieldsWriter,
+  B: StoredFieldsWriter,
+{
+  fn start_document(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.start_document(),
+      Self::B(inner) => inner.start_document(),
+    }
+  }
+
+  fn finish_document(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish_document(),
+      Self::B(inner) => inner.finish_document(),
+    }
+  }
+
+  fn write_field_i32(&mut self, field_info: &FieldInfo, value: i32) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.write_field_i32(field_info, value),
+      Self::B(inner) => inner.write_field_i32(field_info, value),
+    }
+  }
+
+  fn write_field_i64(&mut self, field_info: &FieldInfo, value: i64) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.write_field_i64(field_info, value),
+      Self::B(inner) => inner.write_field_i64(field_info, value),
+    }
+  }
+
+  fn write_field_f32(&mut self, field_info: &FieldInfo, value: f32) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.write_field_f32(field_info, value),
+      Self::B(inner) => inner.write_field_f32(field_info, value),
+    }
+  }
+
+  fn write_field_f64(&mut self, field_info: &FieldInfo, value: f64) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.write_field_f64(field_info, value),
+      Self::B(inner) => inner.write_field_f64(field_info, value),
+    }
+  }
+
+  fn write_field_with_input(
+    &mut self,
+    field_info: &FieldInfo,
+    input: &mut impl DataInput,
+    length: i32,
+  ) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.write_field_with_input(field_info, input, length),
+      Self::B(inner) => inner.write_field_with_input(field_info, input, length),
+    }
+  }
+
+  fn write_field_bytes(&mut self, field_info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.write_field_bytes(field_info, value),
+      Self::B(inner) => inner.write_field_bytes(field_info, value),
+    }
+  }
+
+  fn write_field_str(&mut self, field_info: &FieldInfo, value: &str) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.write_field_str(field_info, value),
+      Self::B(inner) => inner.write_field_str(field_info, value),
+    }
+  }
+
+  fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::A(inner) => inner.finish(num_docs, dir),
+      Self::B(inner) => inner.finish(num_docs, dir),
+    }
+  }
+
+  fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
+  where
+    D: Directory,
+    D1: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge(merge_state, dir),
+      Self::B(inner) => inner.merge(merge_state, dir),
+    }
+  }
+}

@@ -1636,3 +1636,144 @@ where
 
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
+
+pub enum DocValuesConsumerEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Closeable for DocValuesConsumerEnum2<A, B>
+where
+  A: DocValuesConsumer,
+  B: DocValuesConsumer<IndexOutput = A::IndexOutput>,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+    }
+  }
+}
+
+impl<A, B> DocValuesConsumer for DocValuesConsumerEnum2<A, B>
+where
+  A: DocValuesConsumer,
+  B: DocValuesConsumer<IndexOutput = A::IndexOutput>,
+{
+  type IndexOutput = A::IndexOutput;
+
+  fn add_numeric_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    match self {
+      Self::A(inner) => inner.add_numeric_field(write_state, segment_info, field, values_producer),
+      Self::B(inner) => inner.add_numeric_field(write_state, segment_info, field, values_producer),
+    }
+  }
+
+  fn add_binary_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    match self {
+      Self::A(inner) => inner.add_binary_field(write_state, segment_info, field, values_producer),
+      Self::B(inner) => inner.add_binary_field(write_state, segment_info, field, values_producer),
+    }
+  }
+
+  fn add_sorted_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    match self {
+      Self::A(inner) => inner.add_sorted_field(write_state, segment_info, field, values_producer),
+      Self::B(inner) => inner.add_sorted_field(write_state, segment_info, field, values_producer),
+    }
+  }
+
+  fn add_sorted_numeric_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    match self {
+      Self::A(inner) => {
+        inner.add_sorted_numeric_field(write_state, segment_info, field, values_producer)
+      },
+      Self::B(inner) => {
+        inner.add_sorted_numeric_field(write_state, segment_info, field, values_producer)
+      },
+    }
+  }
+
+  fn add_sorted_set_field<D1, D2, D>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field: &Arc<FieldInfo>,
+    values_producer: &D,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    D: DocValuesProducer,
+  {
+    match self {
+      Self::A(inner) => {
+        inner.add_sorted_set_field(write_state, segment_info, field, values_producer)
+      },
+      Self::B(inner) => {
+        inner.add_sorted_set_field(write_state, segment_info, field, values_producer)
+      },
+    }
+  }
+
+  fn merge<D1, D2, MS>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    merge_state: &MS,
+  ) -> Result<()>
+  where
+    D1: Directory<IndexOutput = Self::IndexOutput>,
+    D2: Directory,
+    MS: MergeStateAccess,
+  {
+    match self {
+      Self::A(inner) => inner.merge(write_state, segment_info, merge_state),
+      Self::B(inner) => inner.merge(write_state, segment_info, merge_state),
+    }
+  }
+}

@@ -341,3 +341,145 @@ pub trait TermVectorsWriter: Accountable + Closeable {
 
 pub type DefaultTermVectorsWriter<D> =
   <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>;
+
+pub enum TermVectorsWriterEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Closeable for TermVectorsWriterEnum2<A, B>
+where
+  A: TermVectorsWriter,
+  B: TermVectorsWriter,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+    }
+  }
+}
+
+impl<A, B> Accountable for TermVectorsWriterEnum2<A, B>
+where
+  A: TermVectorsWriter,
+  B: TermVectorsWriter,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.ram_bytes_used(),
+      Self::B(inner) => inner.ram_bytes_used(),
+    }
+  }
+}
+
+impl<A, B> TermVectorsWriter for TermVectorsWriterEnum2<A, B>
+where
+  A: TermVectorsWriter,
+  B: TermVectorsWriter,
+{
+  fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.start_document(num_vector_fields),
+      Self::B(inner) => inner.start_document(num_vector_fields),
+    }
+  }
+
+  fn finish_document(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish_document(),
+      Self::B(inner) => inner.finish_document(),
+    }
+  }
+
+  fn start_field(
+    &mut self,
+    field_info: &FieldInfo,
+    num_terms: usize,
+    positions: bool,
+    offsets: bool,
+    payloads: bool,
+  ) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.start_field(field_info, num_terms, positions, offsets, payloads),
+      Self::B(inner) => inner.start_field(field_info, num_terms, positions, offsets, payloads),
+    }
+  }
+
+  fn finish_field(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish_field(),
+      Self::B(inner) => inner.finish_field(),
+    }
+  }
+
+  fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.start_term(term, freq),
+      Self::B(inner) => inner.start_term(term, freq),
+    }
+  }
+
+  fn finish_term(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish_term(),
+      Self::B(inner) => inner.finish_term(),
+    }
+  }
+
+  fn add_position(
+    &mut self,
+    position: i32,
+    start_offset: i32,
+    end_offset: i32,
+    payload: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.add_position(position, start_offset, end_offset, payload),
+      Self::B(inner) => inner.add_position(position, start_offset, end_offset, payload),
+    }
+  }
+
+  fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::A(inner) => inner.finish(num_docs, dir),
+      Self::B(inner) => inner.finish(num_docs, dir),
+    }
+  }
+
+  fn finish_add_prox(&mut self, num_prox: usize) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.finish_add_prox(num_prox),
+      Self::B(inner) => inner.finish_add_prox(num_prox),
+    }
+  }
+
+  fn add_positions(&mut self, num_prox: usize, positions: &mut impl DataInput) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.add_positions(num_prox, positions),
+      Self::B(inner) => inner.add_positions(num_prox, positions),
+    }
+  }
+
+  fn add_offsets(&mut self, num_prox: usize, offsets: &mut impl DataInput) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.add_offsets(num_prox, offsets),
+      Self::B(inner) => inner.add_offsets(num_prox, offsets),
+    }
+  }
+
+  fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
+  where
+    D: Directory,
+    D1: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::A(inner) => inner.merge(merge_state, dir),
+      Self::B(inner) => inner.merge(merge_state, dir),
+    }
+  }
+}

@@ -117,3 +117,65 @@ pub trait FieldsConsumer: Closeable {
 }
 pub type FieldsConsumerEnum<O> =
   Lucene90BlockTreeTermsWriter<O, PushPostingsWriterBase<Lucene101PostingsWriter<O>>>;
+
+pub enum FieldsConsumerEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Closeable for FieldsConsumerEnum2<A, B>
+where
+  A: FieldsConsumer,
+  B: FieldsConsumer,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+    }
+  }
+}
+
+impl<A, B> FieldsConsumer for FieldsConsumerEnum2<A, B>
+where
+  A: FieldsConsumer,
+  B: FieldsConsumer,
+{
+  fn write<D1, D2, F, N>(
+    &mut self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    fields: &mut F,
+    norms: Option<&N>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    F: Fields,
+    N: NormsProducer,
+  {
+    match self {
+      Self::A(inner) => inner.write(state, segment_info, fields, norms),
+      Self::B(inner) => inner.write(state, segment_info, fields, norms),
+    }
+  }
+
+  fn merge<D1, D2, N, MS>(
+    &mut self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    merge_state: &MS,
+    norms: Option<&N>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    N: NormsProducer,
+    MS: MergeStateAccess,
+  {
+    match self {
+      Self::A(inner) => inner.merge(state, segment_info, merge_state, norms),
+      Self::B(inner) => inner.merge(state, segment_info, merge_state, norms),
+    }
+  }
+}

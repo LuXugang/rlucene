@@ -16,6 +16,7 @@
  */
 pub mod block_term_state;
 pub mod codec;
+pub mod codec_formats;
 pub mod codec_util;
 pub mod competitive_impact_accumulator;
 pub mod compound_directory;
@@ -65,6 +66,7 @@ pub mod term_vectors_reader;
 pub mod term_vectors_writer;
 
 pub use codec::*;
+pub use codec_formats::*;
 pub use codec_util::*;
 pub use compound_format::*;
 pub use lucene90::*;
