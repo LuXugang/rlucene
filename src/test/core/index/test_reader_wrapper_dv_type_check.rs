@@ -42,7 +42,9 @@ fn test_no_dv_field_on_segment() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let mut cfg = IndexWriterConfig::with_analyzer(analyzer)?;
-  cfg.set_codec(TestUtil::get_default_codec());
+  cfg.set_codec(TestUtil::always_doc_values_format(
+    TestUtil::get_default_doc_values_format(),
+  ));
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), cfg);
 
   let mut sdv_exist = false;

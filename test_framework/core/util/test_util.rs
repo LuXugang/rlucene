@@ -58,6 +58,9 @@ use crate::core::util::access::SharedAccessVec;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
+use crate::test_framework::core::codecs::asserting_codec::{
+  AssertingCodec, AssertingCodecDocValuesFormat,
+};
 use std::io::Sink;
 
 pub struct TestUtil;
@@ -143,6 +146,14 @@ const BLOCK_ENDS: &[u32] = &[
 ];
 
 impl TestUtil {
+  /// Return a Codec that can read any of the default codecs and formats, but always writes in the
+  /// specified format.
+  pub fn always_doc_values_format(
+    format: impl Into<AssertingCodecDocValuesFormat>,
+  ) -> AssertingCodec {
+    AssertingCodec::with_doc_values_format(format)
+  }
+
   /// Returns the actual default codec for this version of Lucene.
   pub fn get_default_codec() -> DefaultCodec {
     DefaultCodec::default()

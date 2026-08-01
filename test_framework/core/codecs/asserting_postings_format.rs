@@ -222,7 +222,10 @@ where
     let mut last_field: Option<String> = None;
     let mut fields_iterator = fields.iterator()?;
 
-    while let Some(field) = fields_iterator.next()? {
+    while fields_iterator.has_next()? {
+      let field = fields_iterator
+        .next()?
+        .expect("Fields.iterator.has_next returned true");
       let field_info = state
         .field_infos
         .field_info_by_name(field)?

@@ -59,6 +59,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher_with_reader,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
 const FIELD_NAME: &str = "point";
@@ -728,7 +729,8 @@ pub trait BaseGeoPointTestCase {
       iwc.set_max_buffered_docs((lats.len() / 100) as i32);
     }
     let dir = if lats.len() > 100_000 {
-      // TODO IMPORTANT setCodec未实现
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(
         random,
         create_temp_dir_with_prefix(std::any::type_name::<Self>())?,
@@ -811,7 +813,8 @@ pub trait BaseGeoPointTestCase {
       iwc.set_max_buffered_docs((lats.len() / 100) as i32);
     }
     let dir = if lats.len() > 100_000 {
-      // TODO IMPORTANT setCodec未实现
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(
         random,
         create_temp_dir_with_prefix(std::any::type_name::<Self>())?,
@@ -901,7 +904,8 @@ pub trait BaseGeoPointTestCase {
       iwc.set_max_buffered_docs((lats.len() / 100) as i32);
     }
     let dir = if lats.len() > 100_000 {
-      // TODO IMPORTANT setCodec未实现
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(
         random,
         create_temp_dir_with_prefix(std::any::type_name::<Self>())?,
@@ -978,7 +982,8 @@ pub trait BaseGeoPointTestCase {
       iwc.set_max_buffered_docs((lats.len() / 100) as i32);
     }
     let dir = if lats.len() > 100_000 {
-      // TODO IMPORTANT setCodec未实现
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(
         random,
         create_temp_dir_with_prefix(std::any::type_name::<Self>())?,

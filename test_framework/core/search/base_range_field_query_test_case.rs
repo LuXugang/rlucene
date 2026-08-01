@@ -219,7 +219,8 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
       iwc.set_max_buffered_docs((ranges.len() / 100) as i32);
     }
     let dir = if ranges.len() > 50000 {
-      // TODO IMPORTANT setCodec未实现
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(
         random,
         create_temp_dir_with_prefix(std::any::type_name::<Self>())?,

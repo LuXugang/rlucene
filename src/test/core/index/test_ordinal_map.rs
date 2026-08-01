@@ -34,6 +34,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 
 #[allow(dead_code)] // for quick search
@@ -47,6 +48,9 @@ fn test_ram_bytes_used() -> Result<()> {
 
   let mock = MockAnalyzer::new(&mut random);
   let mut cfg = IndexWriterConfig::with_analyzer(mock)?;
+  cfg.set_codec(TestUtil::always_doc_values_format(
+    TestUtil::get_default_doc_values_format(),
+  ));
   cfg.set_merge_policy(NoMergePolicy::default());
 
   let iw = IndexWriter::new(dir.clone(), cfg)?;
@@ -118,9 +122,7 @@ fn test_ram_bytes_used() -> Result<()> {
 
 /// Tests the case where one segment contains all of the global ords.
 /// In this case, we apply a small optimization and hardcode the first segment indices and global ord deltas as all zeroes.
-// TODO IMPORTANT: Restore `#[test]` once custom codec configuration can force the default
-// DocValuesFormat for every field, like Java's `TestUtil.alwaysDocValuesFormat`.
-#[allow(dead_code)]
+#[test]
 fn test_one_segment_with_all_values() -> Result<()> {
   let mut random = random();
 
@@ -128,6 +130,9 @@ fn test_one_segment_with_all_values() -> Result<()> {
 
   let mock = MockAnalyzer::new(&mut random);
   let mut cfg = IndexWriterConfig::with_analyzer(mock)?;
+  cfg.set_codec(TestUtil::always_doc_values_format(
+    TestUtil::get_default_doc_values_format(),
+  ));
   cfg.set_merge_policy(NoMergePolicy::default());
 
   let iw = IndexWriter::new(dir.clone(), cfg)?;

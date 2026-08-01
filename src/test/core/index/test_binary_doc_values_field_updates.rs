@@ -53,6 +53,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
+use crate::test_framework::core::codecs::asserting_doc_values_format::AssertingDocValuesFormat;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_binary_doc_values_updates::{get_value, to_bytes};
 use crate::test_framework::core::util::DefaultCRReader;
@@ -640,7 +641,10 @@ fn test_different_dv_format_per_field() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  conf.set_codec(TestUtil::always_doc_values_format(
+    TestUtil::get_default_doc_values_format(),
+  ));
 
   let writer = IndexWriter::new(dir.clone(), conf)?;
 
@@ -1551,8 +1555,55 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
 
 #[test]
 fn test_change_codec() -> Result<()> {
-  // TODO set_codec 未实现
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  conf.set_merge_policy(NoMergePolicy::default()); // disable merges to simplify test assertions.
+  conf.set_codec(TestUtil::always_doc_values_format(
+    TestUtil::get_default_doc_values_format(),
+  ));
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "d0", Store::No)?);
+  doc.add(BinaryDocValuesField::new("f1", to_bytes(&mut random, 5)?));
+  doc.add(BinaryDocValuesField::new("f2", to_bytes(&mut random, 13)?));
+  writer.add_document(doc)?;
+  writer.close()?;
+
+  // change format
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  conf.set_merge_policy(NoMergePolicy::default()); // disable merges to simplify test assertions.
+  conf.set_codec(TestUtil::always_doc_values_format(
+    AssertingDocValuesFormat::new(),
+  ));
+  let writer = IndexWriter::new(dir.clone(), conf)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "d1", Store::No)?);
+  doc.add(BinaryDocValuesField::new("f1", to_bytes(&mut random, 17)?));
+  doc.add(BinaryDocValuesField::new("f2", to_bytes(&mut random, 2)?));
+  writer.add_document(doc)?;
+  writer.update_binary_doc_value(
+    Term::from_text("id", "d0"),
+    "f1",
+    to_bytes(&mut random, 12)?,
+  )?;
+  writer.close()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  let mut f1 = MultiDocValues::get_binary_values(&reader, "f1")?.unwrap();
+  let mut f2 = MultiDocValues::get_binary_values(&reader, "f2")?.unwrap();
+  assert_eq!(0, f1.next_doc()?);
+  assert_eq!(0, f2.next_doc()?);
+  assert_eq!(12, get_value(&mut f1)?);
+  assert_eq!(13, get_value(&mut f2)?);
+  assert_eq!(1, f1.next_doc()?);
+  assert_eq!(1, f2.next_doc()?);
+  assert_eq!(17, get_value(&mut f1)?);
+  assert_eq!(2, get_value(&mut f2)?);
+  reader.close()?;
+  dir.close()
 }
 
 #[test]

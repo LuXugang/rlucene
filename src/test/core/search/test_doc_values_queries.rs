@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::long_point::LongPoint;
@@ -44,6 +45,7 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
+use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -56,6 +58,16 @@ use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestDocValuesQueries;
+
+fn get_codec<R>(random: &mut R) -> Result<AssertingCodec>
+where
+  R: rand::Rng + ?Sized,
+{
+  // small interval size to test with many intervals
+  Ok(TestUtil::always_doc_values_format(
+    Lucene90DocValuesFormat::with_skip_index_interval_size(random.random_range(4..16))?,
+  ))
+}
 
 #[test]
 fn test_duel_point_range_sorted_numeric_range_query() -> Result<()> {
@@ -92,6 +104,7 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mut config = IndexWriterConfig::new()?;
+  config.set_codec(get_codec(&mut random)?);
   let reverse = random.random_bool(0.5);
   config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
     Some("dv"),
@@ -150,6 +163,7 @@ fn do_test_duel_point_range_numeric_range_query(
       RandomIndexWriter::new(&mut random, dir.clone())?
     } else {
       let mut config = IndexWriterConfig::new()?;
+      config.set_codec(get_codec(&mut random)?);
       let reverse = random.random_bool(0.5);
       config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
         Some("dv"),
@@ -239,6 +253,7 @@ fn do_test_duel_point_range_sorted_range_query(
       RandomIndexWriter::new(&mut random, dir.clone())?
     } else {
       let mut config = IndexWriterConfig::new()?;
+      config.set_codec(get_codec(&mut random)?);
       let reverse = random.random_bool(0.5);
       config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
         Some("dv"),
@@ -411,6 +426,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mut config = IndexWriterConfig::new()?;
+  config.set_codec(get_codec(&mut random)?);
   let reverse = random.random_bool(0.5);
   config.set_index_sort(Sort::with_fields(vec![SortField::with_reverse(
     Some("dv"),

@@ -721,7 +721,8 @@ pub trait BaseXYPointTestCase {
     }
 
     let dir = if xs.len() > 100_000 {
-      // TODO IMPORTANT: set default codec once set_codec is supported
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       let _dir_name = std::any::type_name::<Self>();
       new_fs_directory(random, create_temp_dir()?)?
     } else {
@@ -789,7 +790,8 @@ pub trait BaseXYPointTestCase {
     }
 
     let dir = if xs.len() > 100_000 {
-      // TODO IMPORTANT: set default codec once set_codec is supported
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(random, create_temp_dir()?)?
     } else {
       new_directory_shared(random)?
@@ -868,7 +870,8 @@ pub trait BaseXYPointTestCase {
     }
 
     let dir = if xs.len() > 100_000 {
-      // TODO IMPORTANT: set default codec once set_codec is supported
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(random, create_temp_dir()?)?
     } else {
       new_directory_shared(random)?
@@ -934,7 +937,8 @@ pub trait BaseXYPointTestCase {
     }
 
     let dir = if xs.len() > 100_000 {
-      // TODO IMPORTANT: set default codec once set_codec is supported
+      // Avoid slow codecs like SimpleText
+      iwc.set_codec(TestUtil::get_default_codec());
       new_fs_directory(random, create_temp_dir()?)?
     } else {
       new_directory_shared(random)?
