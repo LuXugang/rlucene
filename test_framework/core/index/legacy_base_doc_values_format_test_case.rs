@@ -58,13 +58,15 @@ use crate::core::store::lock::LockEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
   new_bytes_ref_empty, new_bytes_ref_from_bytes, new_bytes_ref_from_string, new_directory_shared,
   new_fs_directory, new_index_writer_config_with_analyzer, new_log_merge_policy,
-  new_searcher_with_reader, new_string_field, new_text_field, rarely,
+  new_searcher_with_reader, new_string_field, new_text_field, rarely, usually,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::{IndexedRandom, SliceRandom};
@@ -74,13 +76,54 @@ use std::io::Sink;
 use std::sync::{Arc, Barrier};
 use std::thread;
 
-pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
+pub struct LegacyBaseDocValuesFormatTestCaseDefaults;
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for LegacyBaseDocValuesFormatTestCaseDefaults
+where
+  T: LegacyBaseDocValuesFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    todo!()
+    if usually(random) {
+      document.add(NumericDocValuesField::new(
+        "ndv",
+        random.random_range(0..1 << 12),
+      ));
+      let value = TestUtil::random_simple_string(random);
+      document.add(BinaryDocValuesField::new(
+        "bdv",
+        new_bytes_ref_from_string(random, &value)?,
+      ));
+      let value = TestUtil::random_simple_string_range(random, 0, 2);
+      document.add(SortedDocValuesField::new(
+        "sdv",
+        new_bytes_ref_from_string(random, &value)?,
+      ));
+    }
+    let num_values = random.random_range(0..5);
+    for _ in 0..num_values {
+      let value = TestUtil::random_simple_string_range(random, 0, 2);
+      document.add(SortedSetDocValuesField::new(
+        "ssdv",
+        new_bytes_ref_from_string(random, &value)?,
+      ));
+    }
+    let num_values = random.random_range(0..5);
+    for _ in 0..num_values {
+      document.add(SortedNumericDocValuesField::new(
+        "sndv",
+        TestUtil::next_long(random, i64::MIN, i64::MAX),
+      ));
+    }
+    Ok(())
   }
+}
+
+pub trait LegacyBaseDocValuesFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = LegacyBaseDocValuesFormatTestCaseDefaults>
+{
   fn test_one_number<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -135,7 +178,6 @@ pub trait LegacyBaseDocValuesFormatTestCase: BaseIndexFileFormatTestCase {
     }
     Ok(())
   }
-
   fn test_one_float<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

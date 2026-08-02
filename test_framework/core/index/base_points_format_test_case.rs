@@ -51,7 +51,9 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -66,7 +68,34 @@ use rand::RngExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BasePointsFormatTestCaseDefaults;
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BasePointsFormatTestCaseDefaults
+where
+  T: BasePointsFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let num_values = random.random_range(0..3);
+    for _ in 0..num_values {
+      document.add(IntPoint::new("f", vec![random.random()])?);
+    }
+    Ok(())
+  }
+
+  fn merge_is_stable(_test_case: &T) -> bool {
+    // Suppress this test from the base trait: merges for BKD trees are not stable because the tree
+    // created by merge will have a different structure than the tree created by adding points
+    // separately.
+    false
+  }
+}
+
+pub trait BasePointsFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BasePointsFormatTestCaseDefaults>
+{
   fn test_basic<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1054,9 +1083,6 @@ pub trait BasePointsFormatTestCase: BaseIndexFileFormatTestCase {
     Ok(())
   }
 
-  fn merge_is_stable(&self) -> bool {
-    false
-  }
   fn test_merge_missing<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

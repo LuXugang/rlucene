@@ -75,7 +75,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VectorUtil;
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;
 use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -91,7 +93,55 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use strum::EnumCount;
 
-pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BaseKnnVectorsFormatTestCaseState {
+  vector_encoding: VectorEncoding,
+  similarity_function: VectorSimilarityFunction,
+}
+
+impl BaseKnnVectorsFormatTestCaseState {
+  pub fn new<R>(random: &mut R) -> Self
+  where
+    R: Rng + ?Sized,
+  {
+    Self {
+      vector_encoding: VectorEncoding::random(random),
+      similarity_function: VectorSimilarityFunction::random(random),
+    }
+  }
+}
+
+pub struct BaseKnnVectorsFormatTestCaseDefaults;
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BaseKnnVectorsFormatTestCaseDefaults
+where
+  T: BaseKnnVectorsFormatTestCase,
+{
+  fn add_random_fields<R>(test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let state = test_case.base_knn_vectors_format_test_case_state();
+    match state.vector_encoding {
+      VectorEncoding::BYTE(_) => document.add(KnnByteVectorField::with_similarity_function(
+        "v2",
+        T::random_vector8(random, 30)?,
+        state.similarity_function,
+      )?),
+      VectorEncoding::FLOAT32(_) => document.add(KnnFloatVectorField::with_similarity_function(
+        "v2",
+        T::random_normalized_vector(random, 30)?,
+        state.similarity_function,
+      )?),
+    }
+    Ok(())
+  }
+}
+
+pub trait BaseKnnVectorsFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BaseKnnVectorsFormatTestCaseDefaults>
+{
+  fn base_knn_vectors_format_test_case_state(&self) -> &BaseKnnVectorsFormatTestCaseState;
+
   fn get_vectors_max_dimensions(&self, field_name: &str) -> Result<usize> {
     self
       .get_codec()?

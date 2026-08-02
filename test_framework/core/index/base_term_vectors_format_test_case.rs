@@ -52,7 +52,9 @@ use crate::core::util::iterator::IteratorExt;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test_framework::core::analysis::token;
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::index::term_vectors::RandomTokenStreamAttr;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -75,7 +77,34 @@ pub enum ReadPastLastPositionException {
   Assertion,
 }
 
-pub trait BaseTermVectorsFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BaseTermVectorsFormatTestCaseDefaults;
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BaseTermVectorsFormatTestCaseDefaults
+where
+  T: BaseTermVectorsFormatTestCase,
+{
+  fn add_random_fields<R>(test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    for options in test_case.valid_options() {
+      let field_type = field_type(options)?;
+      let num_fields = random.random_range(0..5);
+      for _ in 0..num_fields {
+        document.add(Field::from_string(
+          format!("f_{options}"),
+          TestUtil::random_simple_string_range(random, 0, 2),
+          field_type.clone(),
+        )?);
+      }
+    }
+    Ok(())
+  }
+}
+
+pub trait BaseTermVectorsFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BaseTermVectorsFormatTestCaseDefaults>
+{
   fn valid_options(&self) -> Vec<Options> {
     vec![
       Options::None,
@@ -1954,6 +1983,19 @@ pub enum Options {
   PositionsAndOffsets,
   PositionsAndPayloads,
   PositionsOffsetsPayloads,
+}
+
+impl std::fmt::Display for Options {
+  fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    formatter.write_str(match self {
+      Self::None => "NONE",
+      Self::Positions => "POSITIONS",
+      Self::Offsets => "OFFSETS",
+      Self::PositionsAndOffsets => "POSITIONS_AND_OFFSETS",
+      Self::PositionsAndPayloads => "POSITIONS_AND_PAYLOADS",
+      Self::PositionsOffsetsPayloads => "POSITIONS_AND_OFFSETS_AND_PAYLOADS",
+    })
+  }
 }
 
 impl Options {

@@ -48,7 +48,9 @@ use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByte
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test_framework::core::index::base_knn_vectors_format_test_case::BaseKnnVectorsFormatTestCase;
+use crate::test_framework::core::index::base_knn_vectors_format_test_case::{
+  BaseKnnVectorsFormatTestCase, BaseKnnVectorsFormatTestCaseState,
+};
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
   random,
@@ -62,6 +64,7 @@ struct TestLucene99HnswQuantizedVectorsFormat {
   format: KnnVectorsFormats,
   confidence_interval: Option<f32>,
   bits: i32,
+  base_knn_vectors_format_test_case_state: BaseKnnVectorsFormatTestCaseState,
 }
 
 impl TestLucene99HnswQuantizedVectorsFormat {
@@ -69,6 +72,7 @@ impl TestLucene99HnswQuantizedVectorsFormat {
   where
     R: Rng + ?Sized,
   {
+    let base_knn_vectors_format_test_case_state = BaseKnnVectorsFormatTestCaseState::new(random);
     let bits = if random.random_bool(0.5) { 4 } else { 7 };
     let mut confidence_interval = random
       .random_bool(0.5)
@@ -80,6 +84,7 @@ impl TestLucene99HnswQuantizedVectorsFormat {
       format: Self::get_knn_format(random, bits, confidence_interval)?.into(),
       confidence_interval,
       bits,
+      base_knn_vectors_format_test_case_state,
     })
   }
 
@@ -707,19 +712,18 @@ mod base_knn_vectors_format_test_case_tests {
 }
 
 impl BaseIndexFileFormatTestCase for TestLucene99HnswQuantizedVectorsFormat {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    Ok(())
-  }
+  type Defaults = crate::test_framework::core::index::base_knn_vectors_format_test_case::BaseKnnVectorsFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
     Ok(TestUtil::always_knn_vectors_format(self.format.clone()).into())
   }
 }
 
-impl BaseKnnVectorsFormatTestCase for TestLucene99HnswQuantizedVectorsFormat {}
+impl BaseKnnVectorsFormatTestCase for TestLucene99HnswQuantizedVectorsFormat {
+  fn base_knn_vectors_format_test_case_state(&self) -> &BaseKnnVectorsFormatTestCaseState {
+    &self.base_knn_vectors_format_test_case_state
+  }
+}
 
 fn run_case<F>(f: F) -> Result<()>
 where
@@ -731,4 +735,30 @@ where
   let result = f(&case, &mut random);
   case.tear_down(codec_guard);
   result
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
+  }
 }

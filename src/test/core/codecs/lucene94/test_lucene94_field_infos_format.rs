@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::codecs::lucene94::lucene94_field_infos_format::SIMILARITY_FUNCTIONS;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCase;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene94FieldInfosFormat;
@@ -40,11 +42,10 @@ fn test_vector_similarity_funcs() {
 }
 
 impl BaseIndexFileFormatTestCase for TestLucene94FieldInfosFormat {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
+  type Defaults = crate::test_framework::core::index::base_field_info_format_test_case::BaseFieldInfoFormatTestCaseDefaults;
+
+  fn get_codec(&self) -> Result<Codecs> {
+    Ok(TestUtil::get_default_codec().into())
   }
 }
 
@@ -92,4 +93,30 @@ fn test_exception_on_close_input() -> Result<()> {
 #[test]
 fn test_random() -> Result<()> {
   run_case(|test, random| test.test_random(random))
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
+  }
 }

@@ -42,8 +42,8 @@ fn test_sparse_live_docs() -> Result<()> {
 #[cfg(feature = "monster")]
 #[test]
 #[ignore = "monster"]
-fn test_over_flow_live_docs() -> Result<()> {
+fn test_overflow() -> Result<()> {
   let mut random = random();
   let test = TestLucene90LiveDocsFormat;
-  test.test_over_flow(&mut random)
+  test.test_overflow(&mut random)
 }

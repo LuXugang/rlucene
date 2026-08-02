@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::core::codecs::lucene101::lucene101_postings_reader::{
   MutableImpactList, read_impacts, read_vint15, read_vlong15,
@@ -31,6 +32,7 @@ use crate::test_framework::core::index::base_index_file_format_test_case::BaseIn
 use crate::test_framework::core::index::base_postings_format_test_case::BasePostingsFormatTestCase;
 use crate::test_framework::core::index::random_postings_tester::RandomPostingsTester;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
@@ -48,11 +50,10 @@ static POSTINGS_TESTER: LazyLock<Mutex<RandomPostingsTester>> = LazyLock::new(||
 });
 
 impl BaseIndexFileFormatTestCase for TestLucene101PostingsFormat {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
+  type Defaults = crate::test_framework::core::index::base_postings_format_test_case::BasePostingsFormatTestCaseDefaults;
+
+  fn get_codec(&self) -> Result<Codecs> {
+    Ok(TestUtil::get_default_codec().into())
   }
 }
 impl BasePostingsFormatTestCase for TestLucene101PostingsFormat {
@@ -279,5 +280,31 @@ mod base_postings_format_test_case_tests {
   #[test]
   fn test_mismatched_fields() -> Result<()> {
     run_case(|case, random| case.test_mismatched_fields(random))
+  }
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
   }
 }

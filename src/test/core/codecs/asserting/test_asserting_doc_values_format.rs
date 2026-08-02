@@ -39,12 +39,7 @@ impl TestAssertingDocValuesFormat {
 }
 
 impl BaseIndexFileFormatTestCase for TestAssertingDocValuesFormat {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
-  }
+  type Defaults = crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
     Ok(self.codec.clone().into())
@@ -183,6 +178,11 @@ mod base_doc_values_format_test_case_tests {
   #[ignore = "nightly"]
   fn test_sorted_set_doc_values_with_skipper_big() -> Result<()> {
     run_case(|case, random| case.test_sorted_set_doc_values_with_skipper_big(random))
+  }
+
+  #[test]
+  fn test_mismatched_fields() -> Result<()> {
+    run_case(|case, random| case.test_mismatched_fields(random))
   }
 }
 
@@ -733,5 +733,31 @@ mod legacy_base_doc_values_format_test_case_tests {
   #[ignore = "nightly"]
   fn test_high_ords_sorted_set_dv() -> Result<()> {
     run_case(|case, random| case.test_high_ords_sorted_set_dv(random))
+  }
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
   }
 }

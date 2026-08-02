@@ -14,10 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_norms_format_test_case::BaseNormsFormatTestCase;
 use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
 
@@ -26,11 +28,10 @@ use rand::prelude::StdRng;
 pub struct TestLucene90NormsFormatMergeInstance;
 
 impl BaseIndexFileFormatTestCase for TestLucene90NormsFormatMergeInstance {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
+  type Defaults = crate::test_framework::core::index::base_norms_format_test_case::BaseNormsFormatTestCaseDefaults;
+
+  fn get_codec(&self) -> Result<Codecs> {
+    Ok(TestUtil::get_default_codec().into())
   }
 
   fn should_test_merge_instance(&self) -> bool {
@@ -172,6 +173,11 @@ mod base_norms_format_test_case_test {
   }
 
   #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, _random| BaseNormsFormatTestCase::test_merge_stability(case))
+  }
+
+  #[test]
   fn test_undead_norms() -> Result<()> {
     run_case(|case, random| case.test_undead_norms(random))
   }
@@ -189,5 +195,26 @@ mod base_norms_format_test_case_test {
   #[test]
   fn test_independant_sparse_iterators() -> Result<()> {
     run_case(|case, random| case.test_independant_sparse_iterators(random))
+  }
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
   }
 }

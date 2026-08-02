@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
@@ -28,6 +29,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_field, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
 use std::collections::HashMap;
@@ -123,11 +125,11 @@ mod base_term_vectors_format_test_case_tests {
 }
 
 impl BaseIndexFileFormatTestCase for TestCompressingTermVectorsFormat {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
+  type Defaults = crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCaseDefaults;
+
+  fn get_codec(&self) -> Result<Codecs> {
+    // TODO IMPORTANT: CompressingCodec has not been migrated yet.
+    Ok(TestUtil::get_default_codec().into())
   }
 }
 
@@ -176,4 +178,30 @@ fn test_no_ords() -> Result<()> {
 fn test_chunk_cleanup() -> Result<()> {
   // TODO IMPORTANT 可配置参数的 CompressingCodec 尚未迁移。
   Ok(())
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
+  }
 }

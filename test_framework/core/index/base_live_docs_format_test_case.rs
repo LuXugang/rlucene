@@ -67,11 +67,11 @@ pub trait BaseLiveDocsFormatTestCase {
     self.test_serialization(random, max_doc, 1, true)?;
     Ok(())
   }
-  fn test_over_flow<R>(&self, random: &mut R) -> Result<()>
+  fn test_overflow<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    self.test_serialization(random, MAX_DOCS, MAX_DOCS - 7, true)?;
+    self.test_serialization(random, MAX_DOCS, MAX_DOCS - 7, false)?;
     Ok(())
   }
 

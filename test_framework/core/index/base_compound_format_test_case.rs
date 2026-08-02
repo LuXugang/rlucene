@@ -24,10 +24,12 @@ use std::sync::Arc;
 use rand::Rng;
 use rand::RngExt;
 
+use crate::core::codecs::compound_directory::CompoundDirectory;
 use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, codec};
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::segment_info::SegmentInfo;
@@ -36,13 +38,25 @@ use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext};
 use crate::core::store::{IO_CONTEXT_DEFAULT, IndexInput};
+use crate::core::util::bit_set::BitSet;
+use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone as OtherClone;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{LATEST, StringHelper};
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults, FileTrackingDirectoryWrapper,
+  ReadBytesDirectoryWrapper,
+};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::test_util::TestUtil;
 
-pub trait BaseCompoundFormatTestCase {
+pub struct BaseCompoundFormatTestCaseDefaults;
+
+pub trait BaseCompoundFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BaseCompoundFormatTestCaseDefaults>
+{
   fn test_empty<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -673,6 +687,12 @@ pub trait BaseCompoundFormatTestCase {
     assert!(matches!(result, Err(LuceneError::Eof(_))));
     Ok(())
   }
+
+  fn test_merge_stability(&self) -> Result<()> {
+    // Test does not work with CFS.
+    Ok(())
+  }
+
   fn test_resource_name_inside_compound_file<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -779,11 +799,74 @@ pub trait BaseCompoundFormatTestCase {
       },
     }
   }
-  fn test_check_integrity<R>(&self, _random: &mut R) -> Result<()>
+  fn test_check_integrity<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODD: waiting for FileTrackingDirectoryWrapper implement
+    let dir = new_directory_shared(random)?;
+    let read_tracking_dir = Arc::new(ReadBytesDirectoryWrapper::new(dir.clone()));
+    let sub_file = "_123.xyz";
+    let mut si = new_segment_info(random, read_tracking_dir.clone(), "_123")?;
+    let mut os = dir.create_output(sub_file, &new_io_context(random)?)?;
+    let body_result = (|| {
+      CodecUtil::write_index_header(&mut os, "Foo", 0, si.get_id(), "suffix")?;
+      for i in 0..1024 {
+        os.write_byte(i as u8)?;
+      }
+      CodecUtil::write_be_int(&mut os, CodecUtil::FOOTER_MAGIC)?;
+      CodecUtil::write_be_int(&mut os, 0)?;
+      let checksum = os.get_checksum()?;
+      assert!(checksum <= i64::MAX as u64);
+      CodecUtil::write_be_long(&mut os, checksum as i64)
+    })();
+    IOUtils::use_or_suppress_result(body_result, os.close())?;
+
+    si.set_files(HashSet::from([sub_file.to_string()]))?;
+
+    let write_tracking_dir = FileTrackingDirectoryWrapper::new(dir.clone());
+    si.get_codec()?
+      .compound_format()
+      .write(&write_tracking_dir, &si, &IO_CONTEXT_DEFAULT)?;
+    let created_files = write_tracking_dir.get_files();
+
+    let compound_dir = si
+      .get_codec()?
+      .compound_format()
+      .get_compound_reader(read_tracking_dir.as_ref(), &si)?;
+    compound_dir.check_integrity()?;
+    let read_bytes = read_tracking_dir.get_read_bytes();
+    assert_eq!(
+      created_files,
+      read_bytes.keys().cloned().collect::<HashSet<_>>()
+    );
+    for (file, read) in read_bytes {
+      let mut unread_bytes = read.clone();
+      unread_bytes.flip_range(0, unread_bytes.length());
+      let next = unread_bytes.next_set_bit(0);
+      assert_eq!(
+        crate::core::search::doc_id_set_iterator::NO_MORE_DOCS as usize,
+        next,
+        "Byte at offset {next} of {file} was not read"
+      );
+    }
+    compound_dir.close()?;
+    dir.close()?;
+    Ok(())
+  }
+}
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BaseCompoundFormatTestCaseDefaults
+where
+  T: BaseCompoundFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    document.add(StoredField::from_string(
+      "foobar",
+      TestUtil::random_simple_string(random),
+    )?);
     Ok(())
   }
 }

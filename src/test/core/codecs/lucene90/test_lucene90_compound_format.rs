@@ -19,14 +19,17 @@ use rand::Rng;
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 
-use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, Lucene90CompoundFormat};
+use crate::core::codecs::{Codec, CodecUtil, Codecs, CompoundFormat, Lucene90CompoundFormat};
 use crate::core::index::IndexFileNames;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::base_compound_format_test_case::{
-  BaseCompoundFormatTestCase, create_random_file, new_segment_info,
+  BaseCompoundFormatTestCase, BaseCompoundFormatTestCaseDefaults, create_random_file,
+  new_segment_info,
 };
+use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90CompoundFormat;
 
@@ -131,6 +134,11 @@ mod base_compound_format_test_case_tests {
   }
 
   #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, _random| case.test_merge_stability())
+  }
+
+  #[test]
   fn test_resource_name_inside_compound_file() -> Result<()> {
     run_case(|case, random| case.test_resource_name_inside_compound_file(random))
   }
@@ -154,6 +162,14 @@ mod base_compound_format_test_case_tests {
 fn test_file_length_ordering() -> Result<()> {
   run_case(|case, random| case.test_file_length_ordering(random))
 }
+impl BaseIndexFileFormatTestCase for TestLucene90CompoundFormat {
+  type Defaults = BaseCompoundFormatTestCaseDefaults;
+
+  fn get_codec(&self) -> Result<Codecs> {
+    Ok(TestUtil::get_default_codec().into())
+  }
+}
+
 impl BaseCompoundFormatTestCase for TestLucene90CompoundFormat {}
 
 fn run_case<F>(f: F) -> Result<()>
@@ -236,5 +252,26 @@ impl TestLucene90CompoundFormat {
     }
 
     Ok(())
+  }
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
   }
 }

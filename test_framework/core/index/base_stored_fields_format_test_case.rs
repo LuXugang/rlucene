@@ -55,7 +55,9 @@ use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::number::Number;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -74,7 +76,30 @@ use std::thread;
 
 /// Base test support for [`StoredFieldsFormat`] implementations. To test a new format, register a
 /// [`Codec`] that uses it, implement this trait, and implement [`Self::get_codec`].
-pub trait BaseStoredFieldsFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BaseStoredFieldsFormatTestCaseDefaults;
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BaseStoredFieldsFormatTestCaseDefaults
+where
+  T: BaseStoredFieldsFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let num_values = random.random_range(0..3);
+    for _ in 0..num_values {
+      document.add(StoredField::from_string(
+        "f",
+        TestUtil::random_simple_string_range(random, 0, 100),
+      )?);
+    }
+    Ok(())
+  }
+}
+
+pub trait BaseStoredFieldsFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BaseStoredFieldsFormatTestCaseDefaults>
+{
   fn test_random_stored_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

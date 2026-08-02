@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
@@ -69,11 +70,10 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90DocValuesFormat;
 impl BaseIndexFileFormatTestCase for TestLucene90DocValuesFormat {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
+  type Defaults = crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCaseDefaults;
+
+  fn get_codec(&self) -> Result<Codecs> {
+    Ok(TestUtil::get_default_codec().into())
   }
 }
 impl LegacyBaseDocValuesFormatTestCase for TestLucene90DocValuesFormat {}
@@ -1962,5 +1962,31 @@ impl LongSupplier for BlocksOfVariousBPV {
     }
     *i += 1;
     self.min + self.mul * rng.random_range(0..std::cmp::max(*max_delta, 1)) as i64
+  }
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
   }
 }

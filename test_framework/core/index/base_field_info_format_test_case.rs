@@ -29,7 +29,9 @@ use strum::EnumCount;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::{Codec, codec};
+use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::stored_field::StoredField;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
@@ -45,7 +47,9 @@ use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{LATEST, StringHelper, TryIntoInt};
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper,
 };
@@ -54,7 +58,11 @@ use crate::test_framework::core::util::index_package_access::{
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 
-pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BaseFieldInfoFormatTestCaseDefaults;
+
+pub trait BaseFieldInfoFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BaseFieldInfoFormatTestCaseDefaults>
+{
   fn support_doc_values_skip_index(&self) -> bool {
     true
   }
@@ -591,6 +599,22 @@ pub trait BaseFieldInfoFormatTestCase: BaseIndexFileFormatTestCase {
       false,
       false,
     )
+  }
+}
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BaseFieldInfoFormatTestCaseDefaults
+where
+  T: BaseFieldInfoFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    document.add(StoredField::from_string(
+      "foobar",
+      TestUtil::random_simple_string(random),
+    )?);
+    Ok(())
   }
 }
 struct FailOnCreateOutput {

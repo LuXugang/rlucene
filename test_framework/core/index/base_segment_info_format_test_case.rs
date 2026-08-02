@@ -28,6 +28,8 @@ use rand::RngExt;
 
 use crate::core::codecs::Codec;
 use crate::core::codecs::segment_info_format::SegmentInfoFormat;
+use crate::core::document::document::Document;
+use crate::core::document::stored_field::StoredField;
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_writer::MAX_DOCS;
 
@@ -42,13 +44,19 @@ use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, Version};
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 
-pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BaseSegmentInfoFormatTestCaseDefaults;
+
+pub trait BaseSegmentInfoFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BaseSegmentInfoFormatTestCaseDefaults>
+{
   /// Test files map
   fn test_files<R>(&self, random: &mut R) -> Result<()>
   where
@@ -858,6 +866,22 @@ pub trait BaseSegmentInfoFormatTestCase: BaseIndexFileFormatTestCase {
   /// Whether this format records min versions.  */
   fn supports_min_version(&self) -> bool {
     true
+  }
+}
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BaseSegmentInfoFormatTestCaseDefaults
+where
+  T: BaseSegmentInfoFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    document.add(StoredField::from_string(
+      "foobar",
+      TestUtil::random_simple_string(random),
+    )?);
+    Ok(())
   }
 }
 struct FailOnCreateOutput {

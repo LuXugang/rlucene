@@ -41,7 +41,9 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, new_directory, new_index_writer_config_with_analyzer,
@@ -54,7 +56,11 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::thread;
 
-pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BaseNormsFormatTestCaseDefaults;
+
+pub trait BaseNormsFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BaseNormsFormatTestCaseDefaults>
+{
   fn codec_supports_sparsity(&self) -> bool {
     true
   }
@@ -475,7 +481,8 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
       norms.push(longs(random));
     }
 
-    let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
+    let dir = new_directory(random)?;
+    let dir = Arc::new(self.apply_created_version_major(random, dir)?);
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
@@ -552,11 +559,21 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
     }
     Ok(())
   }
+
+  fn test_merge_stability(&self) -> Result<()> {
+    // TODO IMPORTANT: can we improve this base test to just have implementations declare the extensions to
+    // check, rather than a blacklist to exclude? We need to index data to get norms, but we do not
+    // care about testing the postings formats that actually do that. The MockRandom postings
+    // format randomizes content on the fly, so this test is skipped in Java.
+    Ok(())
+  }
+
   fn test_undead_norms<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
+    let dir = new_directory(random)?;
+    let dir = Arc::new(self.apply_created_version_major(random, dir)?);
     let writer = RandomIndexWriter::new(random, dir.clone())?;
     let num_docs = at_least(random, 500);
     let mut to_delete = Vec::new();
@@ -629,7 +646,8 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
       norms.push(random.random::<i64>());
     }
 
-    let dir = Arc::new(self.apply_created_version_major(new_directory(random)?)?);
+    let dir = new_directory(random)?;
+    let dir = Arc::new(self.apply_created_version_major(random, dir)?);
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(NoMergePolicy::default());
@@ -783,6 +801,24 @@ pub trait BaseNormsFormatTestCase: BaseIndexFileFormatTestCase {
 
     reader.close()?;
     writer.close(random)?;
+    Ok(())
+  }
+}
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BaseNormsFormatTestCaseDefaults
+where
+  T: BaseNormsFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // TODO IMPORTANT: improve
+    document.add(TextField::from_string(
+      "foobar",
+      TestUtil::random_simple_string(random),
+      Store::No,
+    )?);
     Ok(())
   }
 }

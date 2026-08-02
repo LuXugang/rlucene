@@ -54,7 +54,9 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::analysis::token;
-use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+use crate::test_framework::core::index::base_index_file_format_test_case::{
+  BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
+};
 use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::random_postings_tester::Option_;
@@ -72,7 +74,11 @@ use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use strum::IntoEnumIterator;
 
-pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
+pub struct BasePostingsFormatTestCaseDefaults;
+
+pub trait BasePostingsFormatTestCase:
+  BaseIndexFileFormatTestCase<Defaults = BasePostingsFormatTestCaseDefaults>
+{
   fn create_postings<R>(&self, random: &mut R) -> &Mutex<RandomPostingsTester>
   where
     R: Rng + ?Sized;
@@ -1726,6 +1732,34 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
     reader.close()?;
     dir1.close()?;
     dir2.close()?;
+    Ok(())
+  }
+}
+
+impl<T> BaseIndexFileFormatTestCaseDefaults<T> for BasePostingsFormatTestCaseDefaults
+where
+  T: BasePostingsFormatTestCase,
+{
+  fn add_random_fields<R>(_test_case: &T, random: &mut R, document: &mut Document) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    for options in IndexOptions::values() {
+      if options == IndexOptions::None {
+        continue;
+      }
+      let mut field_type = FieldType::new();
+      field_type.set_index_options(options)?;
+      field_type.freeze();
+      let num_fields = random.random_range(0..5);
+      for _ in 0..num_fields {
+        document.add(Field::from_string(
+          format!("f_{options}"),
+          TestUtil::random_simple_string_range(random, 0, 2),
+          field_type.clone(),
+        )?);
+      }
+    }
     Ok(())
   }
 }

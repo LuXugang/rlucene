@@ -14,18 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
   Lucene99HnswVectorsFormat, MAXIMUM_BEAM_WIDTH, MAXIMUM_MAX_CONN,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
-use crate::test_framework::core::index::base_knn_vectors_format_test_case::BaseKnnVectorsFormatTestCase;
+use crate::test_framework::core::index::base_knn_vectors_format_test_case::{
+  BaseKnnVectorsFormatTestCase, BaseKnnVectorsFormatTestCaseState,
+};
 use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
 
 #[allow(dead_code)] // for quick search
-pub struct TestLucene99HnswVectorsFormat;
+pub struct TestLucene99HnswVectorsFormat {
+  base_knn_vectors_format_test_case_state: BaseKnnVectorsFormatTestCaseState,
+}
 
 #[test]
 fn test_to_string() -> Result<()> {
@@ -296,15 +302,18 @@ mod base_knn_vectors_format_test_case_test {
 }
 
 impl BaseIndexFileFormatTestCase for TestLucene99HnswVectorsFormat {
-  fn add_random_fields<R>(_random: &mut R) -> crate::core::util::error::lucene_error::Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
+  type Defaults = crate::test_framework::core::index::base_knn_vectors_format_test_case::BaseKnnVectorsFormatTestCaseDefaults;
+
+  fn get_codec(&self) -> Result<Codecs> {
+    Ok(TestUtil::get_default_codec().into())
   }
 }
 
-impl BaseKnnVectorsFormatTestCase for TestLucene99HnswVectorsFormat {}
+impl BaseKnnVectorsFormatTestCase for TestLucene99HnswVectorsFormat {
+  fn base_knn_vectors_format_test_case_state(&self) -> &BaseKnnVectorsFormatTestCaseState {
+    &self.base_knn_vectors_format_test_case_state
+  }
+}
 impl TestLucene99HnswVectorsFormatTests for TestLucene99HnswVectorsFormat {}
 
 fn run_case<F>(f: F) -> crate::core::util::error::lucene_error::Result<()>
@@ -315,8 +324,36 @@ where
   ) -> crate::core::util::error::lucene_error::Result<()>,
 {
   let mut random = random();
-  let case = TestLucene99HnswVectorsFormat;
+  let case = TestLucene99HnswVectorsFormat {
+    base_knn_vectors_format_test_case_state: BaseKnnVectorsFormatTestCaseState::new(&mut random),
+  };
   f(&case, &mut random)
 }
 
 trait TestLucene99HnswVectorsFormatTests: BaseKnnVectorsFormatTestCase {}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
+  }
+}

@@ -38,12 +38,7 @@ impl TestAssertingStoredFieldsFormat {
 }
 
 impl BaseIndexFileFormatTestCase for TestAssertingStoredFieldsFormat {
-  fn add_random_fields<R>(_random: &mut R) -> Result<()>
-  where
-    R: Rng + ?Sized,
-  {
-    todo!()
-  }
+  type Defaults = crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
     Ok(self.codec.clone().into())
@@ -132,7 +127,43 @@ mod base_stored_fields_format_test_case_tests {
   }
 
   #[test]
+  fn test_mismatched_fields() -> Result<()> {
+    run_case(|case, random| case.test_mismatched_fields(random))
+  }
+
+  #[test]
+  fn test_random_stored_fields_with_index_sort() -> Result<()> {
+    run_case(|case, random| case.test_random_stored_fields_with_index_sort(random))
+  }
+
+  #[test]
   fn test_line_file_docs() -> Result<()> {
     run_case(|case, random| case.test_line_file_docs(random))
+  }
+}
+
+mod base_index_file_format_test_case_test {
+  use super::run_case;
+  use crate::core::util::error::lucene_error::Result;
+  use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
+
+  #[test]
+  fn test_merge_stability() -> Result<()> {
+    run_case(|case, random| case.test_merge_stability(random))
+  }
+
+  #[test]
+  fn test_multi_close() -> Result<()> {
+    run_case(|case, random| case.test_multi_close(random))
+  }
+
+  #[test]
+  fn test_random_exceptions() -> Result<()> {
+    run_case(|case, random| case.test_random_exceptions(random))
+  }
+
+  #[test]
+  fn test_check_integrity_reads_all_bytes() -> Result<()> {
+    run_case(|case, random| case.test_check_integrity_reads_all_bytes(random))
   }
 }
