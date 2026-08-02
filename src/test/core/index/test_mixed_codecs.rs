@@ -52,7 +52,7 @@ fn test() -> Result<()> {
       let mock = MockAnalyzer::new(&mut random);
       let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
       if random.random_bool(0.5) {
-        // TODO set_codec 未实现
+        // TODO IMPORTANT SimpleText codec 尚未迁移。
       }
       if let Some(writer) = w.take() {
         writer.close(&mut random)?;

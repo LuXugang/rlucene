@@ -42,7 +42,6 @@ impl BaseIndexFileFormatTestCase for TestCompressingStoredFieldsFormat {
   }
 
   fn get_codec(&self) -> Result<Codecs> {
-    // TODO IMPORTANT setCodec 未实现
     Ok(TestUtil::get_default_codec().into())
   }
 }
@@ -328,7 +327,7 @@ mod compression_numeric_encoding_tests {
   }
   #[test]
   fn test_chunk_cleanup() -> Result<()> {
-    // TODO IMPORTANT setCodec 未实现
+    // TODO IMPORTANT 可配置参数的 CompressingCodec 尚未迁移。
     Ok(())
   }
 }

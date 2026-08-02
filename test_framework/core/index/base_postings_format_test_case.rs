@@ -568,7 +568,7 @@ pub trait BasePostingsFormatTestCase: BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT setCodec未实现
+    // TODO IMPORTANT Java 的自定义 FilterCodec 和 PostingsFormat 包装尚未迁移。
     Ok(())
   }
 

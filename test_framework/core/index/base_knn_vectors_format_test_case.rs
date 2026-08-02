@@ -1072,7 +1072,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
 
     {
       let iwc = new_index_writer_config(random)?;
-      // TODO set_codec 未实现
+      // TODO IMPORTANT SimpleText codec 尚未迁移。
       // iwc.set_codec(Codec::for_name("SimpleText")?);
       let w = IndexWriter::new(dir, iwc)?;
       let mut doc = Document::new();
@@ -1094,7 +1094,7 @@ pub trait BaseKnnVectorsFormatTestCase: BaseIndexFileFormatTestCase {
     R: Rng + ?Sized,
   {
     let iwc = new_index_writer_config(random)?;
-    // TODO set_codec 未实现
+    // TODO IMPORTANT SimpleText codec 尚未迁移。
     // iwc.set_codec(Codec::for_name("SimpleText")?);
 
     let dir = new_directory_shared(random)?;

@@ -58,7 +58,7 @@ fn test_rolling_updates() -> Result<()> {
 
   let mut docs = LineFileDocs::new(&mut doc_random)?;
 
-  // TODO set_codec未实现 DirectPostingsFormat未实现
+  // TODO IMPORTANT DirectPostingsFormat 和 TestUtil::always_postings_format 尚未迁移。
   // if random.random_bool(0.5) {
   //   Codec::set_default(TestUtil::always_postings_format(DirectPostingsFormat::new()));
   // }

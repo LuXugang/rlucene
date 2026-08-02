@@ -174,6 +174,6 @@ fn test_no_ords() -> Result<()> {
 }
 #[test]
 fn test_chunk_cleanup() -> Result<()> {
-  // TODO IMPORTANT setCodec未实现
+  // TODO IMPORTANT 可配置参数的 CompressingCodec 尚未迁移。
   Ok(())
 }

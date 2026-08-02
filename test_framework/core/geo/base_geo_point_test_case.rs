@@ -1297,7 +1297,7 @@ pub trait BaseGeoPointTestCase {
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let points_in_leaf = 2 + random.random_range(0..4);
     let _ = points_in_leaf;
-    // TODO: setCodec未实现
+    // TODO IMPORTANT Java 的自定义 FilterCodec 和 PointsFormat 覆写尚未迁移。
     let writer = RandomIndexWriter::with_config(random, dir, iwc);
 
     for _ in 0..num_docs {

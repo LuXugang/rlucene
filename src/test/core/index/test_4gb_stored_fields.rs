@@ -66,7 +66,7 @@ fn test() -> Result<()> {
     .set_merge_policy(merge_policy)
     .set_open_mode(OpenMode::Create);
 
-  // TODO set_codec 未实现
+  // TODO IMPORTANT CompressingCodec::reasonable_instance 尚未迁移。
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let value_length = random.random_range((1 << 13)..=(1 << 20));

@@ -1745,7 +1745,7 @@ fn test_existing_deletes() -> Result<()> {
 
 #[test]
 fn test_simple_case_custom_codec() -> Result<()> {
-  // TODO IMPORTANT setCodec未实现
+  // TODO IMPORTANT CustomPerFieldCodec 和 DirectPostingsFormat 尚未迁移。
   Ok(())
 }
 #[test]
@@ -1821,7 +1821,7 @@ fn test_non_cfs_leftovers() -> Result<()> {
 
 #[test]
 fn test_add_index_missing_codec() -> Result<()> {
-  // TODO IMPORTANT setCodec未实现
+  // TODO IMPORTANT UnRegisteredCodec、DirectPostingsFormat 和 always_postings_format 尚未迁移。
   Ok(())
 }
 

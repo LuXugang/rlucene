@@ -299,6 +299,6 @@ fn test_background_force_merge() -> Result<()> {
 }
 #[test]
 fn test_merge_per_field() -> Result<()> {
-  // TODO set_codec 未实现
+  // TODO IMPORTANT Java 的阻塞 per-field codec 和 intra-merge executor 语义尚未迁移。
   Ok(())
 }

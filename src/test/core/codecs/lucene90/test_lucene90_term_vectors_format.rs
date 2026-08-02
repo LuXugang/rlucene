@@ -26,7 +26,7 @@ pub struct TestLucene90TermVectorsFormat;
 
 #[test]
 fn test_skip_redundant_prefetches() -> Result<()> {
-  // TODO: IndexWriterConfig::set_codec and DummyCompressingCodec are not implemented, so this
+  // TODO IMPORTANT DummyCompressingCodec 尚未迁移，因此该
   // test cannot yet force two documents per term-vector chunk as the Java test requires.
   Ok(())
 }
