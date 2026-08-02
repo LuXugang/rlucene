@@ -64,6 +64,7 @@ where
 }
 
 impl BaseStoredFieldsFormatTestCase for TestLucene90StoredFieldsFormat {}
+impl TestLucene90StoredFieldsFormatTests for TestLucene90StoredFieldsFormat {}
 
 mod base_stored_fields_format_test_case_test {
   use crate::core::util::error::lucene_error::Result;
@@ -151,7 +152,9 @@ mod base_stored_fields_format_test_case_test {
 fn test_skip_redundant_prefetches() -> Result<()> {
   run_case(|case, random| case.test_skip_redundant_prefetches(random))
 }
-impl TestLucene90StoredFieldsFormat {
+pub(super) trait TestLucene90StoredFieldsFormatTests:
+  BaseStoredFieldsFormatTestCase
+{
   fn test_skip_redundant_prefetches<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

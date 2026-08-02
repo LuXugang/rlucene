@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 use crate::core::codecs::{Codecs, codec};
+use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::directory_reader::DirectoryReader;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::index::directory_reader_enum::DirectoryReaderEnum;
 use rand::Rng;
 
 pub struct DefaultCodecGuard {
@@ -38,8 +41,16 @@ pub trait BaseIndexFileFormatTestCase {
   where
     R: Rng + ?Sized;
 
-  fn maybe_wrap_with_merging_reader<D>(&self, reader: D) -> Result<D> {
-    Ok(reader)
+  fn should_test_merge_instance(&self) -> bool {
+    false
+  }
+
+  fn maybe_wrap_with_merging_reader<D>(&self, reader: D) -> Result<DirectoryReaderEnum<D>>
+  where
+    D: DirectoryReader<DirectoryReader = D>,
+    D::LeafReader: CodecReader + Clone,
+  {
+    DirectoryReaderEnum::new(reader, self.should_test_merge_instance())
   }
 
   /// Set the created version of the given [`Directory`] and return it.

@@ -925,7 +925,9 @@ mod legacy_base_doc_values_format_test_case_tests {
   }
 }
 
-trait TestLucene90DocValuesFormatTests: BaseCompressingDocValuesFormatTestCase {
+pub(super) trait TestLucene90DocValuesFormatTests:
+  BaseCompressingDocValuesFormatTestCase
+{
   fn test_sorted_set_variable_length_big_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

@@ -18,10 +18,13 @@ pub(crate) mod block_tree;
 pub(crate) mod compressing;
 mod test_indexed_disi;
 pub(crate) mod test_lucene90_doc_values_format;
+mod test_lucene90_doc_values_format_merge_instance;
 
 mod lucene90_live_docs_format;
 mod test_lucene90_compound_format;
 pub mod test_lucene90_norms_format;
+mod test_lucene90_norms_format_merge_instance;
 mod test_lucene90_points_format;
 pub mod test_lucene90_stored_fields_format;
+mod test_lucene90_stored_fields_format_merge_instance;
 mod test_lucene90_term_vectors_format;
