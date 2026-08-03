@@ -206,7 +206,7 @@ fn vector_scoring_test(bits: i32, compress: bool) -> Result<()> {
       let vector_reader = leaf
         .get_vector_reader()?
         .expect("vector reader should exist");
-      let fields_reader = match vector_reader.as_ref() {
+      let fields_reader = match vector_reader.as_ref().as_inner() {
         KnnVectorsReaderEnum2::B(fields_reader) => fields_reader,
         _ => panic!("reader is not the Asserting codec's per-field KNN reader"),
       };

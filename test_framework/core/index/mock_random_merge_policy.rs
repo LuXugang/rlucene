@@ -22,7 +22,7 @@ use parking_lot::Mutex;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
 
-use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::{
@@ -32,17 +32,14 @@ use crate::core::index::merge_policy::{
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
-use crate::core::index::slow_codec_reader_wrapper::{
-  CodecReaderImpl as SlowCodecReader, SlowCodecReaderWrapper,
-};
+use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet, of};
 use crate::core::util::error::lucene_error::Result;
-use crate::test_framework::core::index::merge_reader_wrapper::MergeReaderWrapper;
-use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
+pub(crate) use crate::test_framework::core::index::mock_random_wrapped_reader::MockRandomWrappedReader;
 use crate::test_framework::core::util::test_util::TestUtil;
 
 /// Merge policy that makes random decisions for testing.
@@ -247,11 +244,6 @@ where
   }
 }
 
-pub(crate) type MockRandomWrappedReader<CR> = CodecReaderEnum2<
-  CR,
-  CodecReaderEnum2<SlowCodecReader<Arc<MergeReaderWrapper<CR>>>, MismatchedCodecReader<CR>>,
->;
-
 pub(crate) struct MockRandomOneMerge {
   r: Mutex<StdRng>,
 }
@@ -263,9 +255,12 @@ impl MockRandomOneMerge {
     }
   }
 
-  pub(crate) fn wrap_for_merge<CR>(&self, reader: CR) -> Result<MockRandomWrappedReader<CR>>
+  pub(crate) fn wrap_for_merge<D>(
+    &self,
+    reader: DefaultLeafReader<D>,
+  ) -> Result<MockRandomWrappedReader<D>>
   where
-    CR: CodecReader + Clone,
+    D: Directory,
   {
     // Wrap it (e.g. prevent bulk merge etc).
     // TODO IMPORTANT: cut this over to FilterCodecReader api, we can explicitly
@@ -274,20 +269,16 @@ impl MockRandomOneMerge {
     let thing_to_do = random.random_range(0..7);
     if thing_to_do == 0 {
       // Simple no-op FilterReader.
-      Ok(CodecReaderEnum2::B(CodecReaderEnum2::A(
-        SlowCodecReaderWrapper::wrap_leaf_reader(Arc::new(MergeReaderWrapper::new(reader)?)),
-      )))
+      MockRandomWrappedReader::slow(reader)
     } else if thing_to_do == 1 {
       // Renumber fields.
       // NOTE: currently this only "blocks" bulk merges just by
       // being a FilterReader. But it might find bugs elsewhere,
       // and maybe the situation can be improved in the future.
-      Ok(CodecReaderEnum2::B(CodecReaderEnum2::B(
-        MismatchedCodecReader::new(reader, &mut *random)?,
-      )))
+      MockRandomWrappedReader::mismatched(reader, &mut *random)
     } else {
       // Otherwise, reader is unchanged.
-      Ok(CodecReaderEnum2::A(reader))
+      Ok(MockRandomWrappedReader::unchanged(reader))
     }
   }
 

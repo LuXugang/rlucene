@@ -29,7 +29,7 @@ use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
 use crate::core::codecs::fields_producer::FieldsProducerEnum2;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 #[cfg(test)]
-use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum2;
+use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
 #[cfg(test)]
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriterEnum2;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
@@ -65,6 +65,8 @@ use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum2;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriterEnum2;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::Identity;
+#[cfg(test)]
+use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -76,6 +78,10 @@ use crate::core::util::bits::Bits;
 #[cfg(test)]
 use crate::core::util::bits::BitsEnum2;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use crate::core::{
+  index::byte_vector_values::ByteVectorValues, index::float_vector_values::FloatVectorValues,
+};
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
 use std::collections::HashSet;
@@ -785,10 +791,342 @@ pub type CodecKnnVectorsWriter<O> = KnnVectorsWriterEnum2<
 pub type CodecKnnVectorsReader<I> =
   <Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>;
 #[cfg(test)]
-pub type CodecKnnVectorsReader<I> = KnnVectorsReaderEnum2<
+type CodecKnnVectorsReaderInner<I> = KnnVectorsReaderEnum2<
   <Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>,
   <AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>,
 >;
+
+#[cfg(test)]
+type CodecFloatVectorValuesInner<I> =
+  <CodecKnnVectorsReaderInner<I> as KnnVectorsReader>::FloatVectorValues;
+
+#[cfg(test)]
+pub struct CodecFloatVectorValues<I>(CodecFloatVectorValuesInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I> KnnVectorValues for CodecFloatVectorValues<I>
+where
+  I: IndexInput,
+{
+  fn dimension(&self) -> usize {
+    self.0.dimension()
+  }
+
+  fn size(&self) -> usize {
+    self.0.size()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    self.0.ord_to_doc(ord)
+  }
+
+  type KnnVectorValues = <CodecFloatVectorValuesInner<I> as KnnVectorValues>::KnnVectorValues;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    self.0.copy()
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    self.0.get_vector_byte_length()
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    KnnVectorValues::get_encoding(&self.0)
+  }
+
+  type Bits<'a, B>
+    = <CodecFloatVectorValuesInner<I> as KnnVectorValues>::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    self.0.get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = <CodecFloatVectorValuesInner<I> as KnnVectorValues>::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    self.0.iterator()
+  }
+}
+
+#[cfg(test)]
+impl<I> FloatVectorValues for CodecFloatVectorValues<I>
+where
+  I: IndexInput,
+{
+  fn vector_value(
+    &self,
+    ord: usize,
+  ) -> Result<std::borrow::Cow<'_, crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>>
+  {
+    self.0.vector_value(ord)
+  }
+
+  type FloatVectorValues = <CodecFloatVectorValuesInner<I> as FloatVectorValues>::FloatVectorValues;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    self.0.float_copy()
+  }
+
+  type VectorScorer = <CodecFloatVectorValuesInner<I> as FloatVectorValues>::VectorScorer;
+
+  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    self.0.scorer(target)
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    FloatVectorValues::get_encoding(&self.0)
+  }
+
+  fn get_vectors_mut(
+    &mut self,
+  ) -> Result<&mut Vec<crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
+    self.0.get_vectors_mut()
+  }
+
+  fn get_vectors(
+    &self,
+  ) -> Result<&[crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
+    self.0.get_vectors()
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    self.0.get_vectors_capacity()
+  }
+}
+
+#[cfg(test)]
+type CodecByteVectorValuesInner<I> =
+  <CodecKnnVectorsReaderInner<I> as KnnVectorsReader>::ByteVectorValues;
+
+#[cfg(test)]
+pub struct CodecByteVectorValues<I>(CodecByteVectorValuesInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I> KnnVectorValues for CodecByteVectorValues<I>
+where
+  I: IndexInput,
+{
+  fn dimension(&self) -> usize {
+    self.0.dimension()
+  }
+
+  fn size(&self) -> usize {
+    self.0.size()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    self.0.ord_to_doc(ord)
+  }
+
+  type KnnVectorValues = <CodecByteVectorValuesInner<I> as KnnVectorValues>::KnnVectorValues;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    self.0.copy()
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    self.0.get_vector_byte_length()
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    KnnVectorValues::get_encoding(&self.0)
+  }
+
+  type Bits<'a, B>
+    = <CodecByteVectorValuesInner<I> as KnnVectorValues>::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    self.0.get_accept_ords(accept_docs)
+  }
+
+  type DocIndexIterator = <CodecByteVectorValuesInner<I> as KnnVectorValues>::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    self.0.iterator()
+  }
+}
+
+#[cfg(test)]
+impl<I> ByteVectorValues for CodecByteVectorValues<I>
+where
+  I: IndexInput,
+{
+  fn vector_value(
+    &self,
+    ord: usize,
+  ) -> Result<std::borrow::Cow<'_, crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>>
+  {
+    self.0.vector_value(ord)
+  }
+
+  type ByteVectorValues = <CodecByteVectorValuesInner<I> as ByteVectorValues>::ByteVectorValues;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    self.0.byte_copy()
+  }
+
+  type VectorScorer = <CodecByteVectorValuesInner<I> as ByteVectorValues>::VectorScorer;
+
+  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    self.0.scorer(target)
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    ByteVectorValues::get_encoding(&self.0)
+  }
+
+  fn get_vectors_mut(
+    &mut self,
+  ) -> Result<&mut Vec<crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
+    self.0.get_vectors_mut()
+  }
+
+  fn get_vectors(
+    &self,
+  ) -> Result<&[crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
+    self.0.get_vectors()
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    self.0.get_vectors_capacity()
+  }
+}
+
+#[cfg(test)]
+pub struct CodecKnnVectorsReader<I>(CodecKnnVectorsReaderInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I> CodecKnnVectorsReader<I>
+where
+  I: IndexInput,
+{
+  pub(crate) fn as_inner(&self) -> &CodecKnnVectorsReaderInner<I> {
+    &self.0
+  }
+}
+
+#[cfg(test)]
+impl<I> crate::core::util::close::CloseableRef for CodecKnnVectorsReader<I>
+where
+  I: IndexInput,
+{
+  fn close(&self) -> Result<()> {
+    self.0.close()
+  }
+}
+
+#[cfg(test)]
+impl<I> crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider
+  for CodecKnnVectorsReader<I>
+where
+  I: IndexInput,
+{
+  type HnswGraph = <CodecKnnVectorsReaderInner<I> as crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider>::HnswGraph;
+
+  fn is_hnsw_graph_provider(&self, field: &str) -> bool {
+    self.0.is_hnsw_graph_provider(field)
+  }
+
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
+    self.0.get_graph(field)
+  }
+}
+
+#[cfg(test)]
+impl<I> KnnVectorsReader for CodecKnnVectorsReader<I>
+where
+  I: IndexInput,
+{
+  fn check_integrity(&self) -> Result<()> {
+    self.0.check_integrity()
+  }
+
+  type FloatVectorValues = CodecFloatVectorValues<I>;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    self
+      .0
+      .get_float_vector_values(field)
+      .map(CodecFloatVectorValues)
+  }
+
+  type ByteVectorValues = CodecByteVectorValues<I>;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    self
+      .0
+      .get_byte_vector_values(field)
+      .map(CodecByteVectorValues)
+  }
+
+  fn get_quantization_state(
+    &self,
+    field: &str,
+  ) -> Result<Option<crate::core::util::quantization::scalar_quantizer::ScalarQuantizer>> {
+    self.0.get_quantization_state(field)
+  }
+
+  fn is_flat_vectors_reader(&self, field: &str) -> bool {
+    self.0.is_flat_vectors_reader(field)
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: crate::core::search::knn_collector::KnnCollector,
+  {
+    self.0.search_f32(field, target, knn_collector, accept_docs)
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: crate::core::search::knn_collector::KnnCollector,
+  {
+    self.0.search_u8(field, target, knn_collector, accept_docs)
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    self
+      .0
+      .get_merge_instance()
+      .map(|reader| reader.map(CodecKnnVectorsReader))
+  }
+
+  fn finish_merge(&self) -> Result<()> {
+    self.0.finish_merge()
+  }
+}
 
 impl Display for CodecKnnVectorsFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -871,13 +1209,13 @@ impl KnnVectorsFormat for CodecKnnVectorsFormat {
         {
           format
             .fields_reader(state, segment_info)
-            .map(KnnVectorsReaderEnum2::A)
+            .map(|reader| CodecKnnVectorsReader(KnnVectorsReaderEnum2::A(reader)))
         }
       },
       #[cfg(test)]
       Self::Asserting(format) => format
         .fields_reader(state, segment_info)
-        .map(KnnVectorsReaderEnum2::B),
+        .map(|reader| CodecKnnVectorsReader(KnnVectorsReaderEnum2::B(reader))),
     }
   }
 

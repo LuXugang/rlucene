@@ -83,6 +83,120 @@ pub enum Throttling {
   Never,
 }
 
+type MockDirectoryIndexOutputInner<D> =
+  IndexOutputEnum2<MockIndexOutputWrapper<D>, ThrottledIndexOutput<MockIndexOutputWrapper<D>>>;
+
+pub struct MockDirectoryIndexOutput<D>(MockDirectoryIndexOutputInner<D>)
+where
+  D: Directory;
+
+impl<D> DataOutput for MockDirectoryIndexOutput<D>
+where
+  D: Directory,
+{
+  fn write_byte(&mut self, b: u8) -> Result<()> {
+    self.0.write_byte(b)
+  }
+
+  fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
+    self.0.write_bytes_with_len(b, len)
+  }
+
+  fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
+    self.0.write_bytes_range(b, offset, length)
+  }
+
+  fn write_int(&mut self, i: i32) -> Result<()> {
+    self.0.write_int(i)
+  }
+
+  fn write_short(&mut self, i: i16) -> Result<()> {
+    self.0.write_short(i)
+  }
+
+  fn write_vint(&mut self, i: i32) -> Result<()> {
+    self.0.write_vint(i)
+  }
+
+  fn write_zint(&mut self, i: i32) -> Result<()> {
+    self.0.write_zint(i)
+  }
+
+  fn write_long(&mut self, i: i64) -> Result<()> {
+    self.0.write_long(i)
+  }
+
+  fn write_vlong(&mut self, i: i64) -> Result<()> {
+    self.0.write_vlong(i)
+  }
+
+  fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
+    self.0.write_signed_vlong(i)
+  }
+
+  fn write_zlong(&mut self, i: i64) -> Result<()> {
+    self.0.write_zlong(i)
+  }
+
+  fn write_string(&mut self, s: &str) -> Result<()> {
+    self.0.write_string(s)
+  }
+
+  fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
+  where
+    I: DataInput + ?Sized,
+  {
+    self.0.copy_bytes(input, num_bytes)
+  }
+
+  fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
+    self.0.write_map_of_strings(map)
+  }
+
+  fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
+    self.0.write_set_of_strings(set)
+  }
+}
+
+impl<D> Display for MockDirectoryIndexOutput<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    self.0.fmt(f)
+  }
+}
+
+impl<D> Closeable for MockDirectoryIndexOutput<D>
+where
+  D: Directory,
+{
+  fn close(&mut self) -> Result<()> {
+    self.0.close()
+  }
+}
+
+impl<D> IndexOutput for MockDirectoryIndexOutput<D>
+where
+  D: Directory,
+{
+  fn get_file_pointer(&self) -> Result<usize> {
+    self.0.get_file_pointer()
+  }
+
+  fn get_checksum(&mut self) -> Result<u64> {
+    self.0.get_checksum()
+  }
+
+  fn get_name(&self) -> &str {
+    self.0.get_name()
+  }
+
+  fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
+    self.0.align_file_pointer(alignment_bytes)
+  }
+}
+
 #[derive(Debug)]
 pub(crate) struct FakeIOException;
 
@@ -799,8 +913,7 @@ where
     &self,
     name: &str,
     output: MockIndexOutputWrapper<D>,
-  ) -> IndexOutputEnum2<MockIndexOutputWrapper<D>, ThrottledIndexOutput<MockIndexOutputWrapper<D>>>
-  {
+  ) -> MockDirectoryIndexOutput<D> {
     // throttling REALLY slows down tests, so don't do it very often for
     // SOMETIMES.
     let should_throttle = match *self.state.throttling.lock() {
@@ -812,9 +925,11 @@ where
       if cfg!(feature = "test_log_verbose") {
         eprintln!("MockDirectoryWrapper: throttling indexOutput ({name})");
       }
-      IndexOutputEnum2::B(self.state.throttled_output.lock().new_from_delegate(output))
+      MockDirectoryIndexOutput(IndexOutputEnum2::B(
+        self.state.throttled_output.lock().new_from_delegate(output),
+      ))
     } else {
-      IndexOutputEnum2::A(output)
+      MockDirectoryIndexOutput(IndexOutputEnum2::A(output))
     }
   }
 
@@ -1172,8 +1287,7 @@ where
     Ok(())
   }
 
-  type IndexOutput =
-    IndexOutputEnum2<MockIndexOutputWrapper<D>, ThrottledIndexOutput<MockIndexOutputWrapper<D>>>;
+  type IndexOutput = MockDirectoryIndexOutput<D>;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
     self.maybe_throw_deterministic_exception()?;

@@ -1704,10 +1704,7 @@ where
           #[cfg(not(test))]
           let wrapped_reader = merge.wrap_for_merge(reader.clone())?;
           #[cfg(test)]
-          let is_wrapped = match &wrapped_reader {
-            CodecReaderEnum2::A(reader2) => !Arc::ptr_eq(reader, reader2),
-            CodecReaderEnum2::B(_) => true,
-          };
+          let is_wrapped = wrapped_reader.is_wrapped();
           #[cfg(not(test))]
           let is_wrapped = !Arc::ptr_eq(reader, &wrapped_reader);
           self.validate_merge_reader(&wrapped_reader)?;
@@ -1730,9 +1727,6 @@ where
                 let hard_delete_count: i32 = hard_delete_counter.get().try_convert()?;
                 // Wrap the wrapped reader again if we have excluded some hard-deleted docs.
                 if hard_delete_count > 0 {
-                  #[cfg(test)]
-                  let hard_live_docs = BitsEnum2::A(hard_live_docs.clone());
-                  #[cfg(not(test))]
                   let hard_live_docs = hard_live_docs.clone();
                   let live_docs = match wrapped_live_docs {
                     Some(wrapped_live_docs) => LiveDocsBits::Mixed(BitsImpl {
@@ -8432,8 +8426,6 @@ use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bits::Bits;
-#[cfg(test)]
-use crate::core::util::bits::BitsEnum2;
 use crate::core::util::constants::Constants;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};

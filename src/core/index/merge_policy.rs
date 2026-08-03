@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
-#[cfg(test)]
-use crate::core::index::codec_reader::CodecReaderEnum2;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_writer::{Inner, PointInTimeOneMerge};
@@ -2345,15 +2343,19 @@ where
   pub(crate) fn wrap_for_merge_for_test(
     &self,
     reader: DefaultLeafReader<D>,
-  ) -> Result<MockRandomWrappedReader<DefaultLeafReader<D>>> {
+  ) -> Result<MockRandomWrappedReader<D>> {
     match &self.hook {
       OneMergeHook::MockRandom(hook) => hook.wrap_for_merge(reader),
-      _ => Ok(
-        CodecReaderEnum2::A(<OneMergeHook<D, DefaultLeafReader<D>> as OneMergeBase<
+      _ => {
+        let wrapped = <OneMergeHook<D, DefaultLeafReader<D>> as OneMergeBase<
           D,
           DefaultLeafReader<D>,
-        >>::wrap_for_merge(&self.hook, reader)?),
-      ),
+        >>::wrap_for_merge(&self.hook, reader.clone())?;
+        let is_wrapped = !Arc::ptr_eq(&reader, &wrapped);
+        Ok(MockRandomWrappedReader::unchanged_with_status(
+          wrapped, is_wrapped,
+        ))
+      },
     }
   }
 
