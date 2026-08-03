@@ -33,9 +33,10 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
-use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryRef, QueryWeight};
 use crate::core::search::query_cache::QueryCacheEnum;
 use crate::core::search::query_caching_policy::{QueryCachingPolicyArc, QueryCachingPolicyEnum};
+use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -52,6 +53,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::Weight;
+use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
@@ -2066,8 +2068,12 @@ impl IndexSearcherDefaults {
       }
       query_id = query.identity().clone();
     }
-    // query.visit(self.get_num_clauses_check_visitor());
+    query.visit(&mut Self::get_num_clauses_check_visitor())?;
     Ok(query)
+  }
+
+  fn get_num_clauses_check_visitor() -> NumClausesCheckVisitor {
+    NumClausesCheckVisitor { num_clauses: 0 }
   }
 
   pub(crate) fn create_weight<IRC, T>(
@@ -2130,5 +2136,57 @@ impl IndexSearcherDefaults {
     )?;
 
     Ok(Some(stats))
+  }
+}
+
+struct NumClausesCheckVisitor {
+  num_clauses: usize,
+}
+
+impl QueryVisitor for NumClausesCheckVisitor {
+  type SubVisitor<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+
+  fn consume_terms(&mut self, _query: QueryRef<'_>, _terms: &[Term]) -> Result<()> {
+    if self.num_clauses > get_max_clause_count() {
+      return Err(new_nested());
+    }
+    self.num_clauses += 1;
+    Ok(())
+  }
+
+  fn consume_terms_matching<A>(
+    &mut self,
+    _query: QueryRef<'_>,
+    _field: &str,
+    _automaton: A,
+  ) -> Result<()>
+  where
+    A: Fn() -> Result<Option<ByteRunAutomaton>>,
+  {
+    if self.num_clauses > get_max_clause_count() {
+      return Err(new_nested());
+    }
+    self.num_clauses += 1;
+    Ok(())
+  }
+
+  fn visit_leaf(&mut self, _query: QueryRef<'_>) -> Result<()> {
+    if self.num_clauses > get_max_clause_count() {
+      return Err(new_nested());
+    }
+    self.num_clauses += 1;
+    Ok(())
+  }
+
+  fn get_sub_visitor<'a>(
+    &'a mut self,
+    _occur: crate::core::search::boolean_clause::Occur,
+    _parent: QueryRef<'_>,
+  ) -> Self::SubVisitor<'a> {
+    // Return this instance even for MUST_NOT and not an empty QueryVisitor.
+    self
   }
 }

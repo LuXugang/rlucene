@@ -220,11 +220,16 @@ impl QueryBase for SynonymQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    if !visitor.accept_field(&self.field) {
+      return Ok(());
+    }
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Should, query);
+    visitor.consume_terms(query, &self.get_terms())
   }
 }
 

@@ -95,10 +95,8 @@ fn test_large_terms_nested_first() -> Result<()> {
 
   let query = builder.build();
 
-  let _err = searcher.rewrite(query);
-  // TODO: Restore the TooManyNestedClauses assertion after QueryVisitor and query visit methods
-  // are implemented.
-  // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  let err = searcher.rewrite(query);
+  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
 
   Ok(())
 }
@@ -129,10 +127,8 @@ fn test_large_terms_nested_last() -> Result<()> {
 
   let query = builder.build();
 
-  let _err = searcher.rewrite(query);
-  // TODO: Restore the TooManyNestedClauses assertion after QueryVisitor and query visit methods
-  // are implemented.
-  // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  let err = searcher.rewrite(query);
+  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
 
   Ok(())
 }
@@ -152,17 +148,15 @@ fn test_large_disjunction_max_query() -> Result<()> {
 
   let dmq = DisjunctionMaxQuery::new(clauses, 0.5f32)?;
 
-  let _err = searcher.rewrite(dmq);
-  // TODO: Restore the TooManyNestedClauses assertion after QueryVisitor and query visit methods
-  // are implemented.
-  // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  let err = searcher.rewrite(dmq);
+  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
 
   Ok(())
 }
 
 #[test]
 fn test_multi_exact_with_repeats() -> Result<()> {
-  let _searcher = IndexSearcher::new((MultiReader::empty()?).get_context()?)?;
+  let searcher = IndexSearcher::new((MultiReader::empty()?).get_context()?)?;
 
   let mut qb = MultiPhraseQuery::builder();
 
@@ -176,10 +170,8 @@ fn test_multi_exact_with_repeats() -> Result<()> {
     )?;
   }
 
-  let _query = qb.build();
-
-  // TODO: Restore this Java test after QueryVisitor and MultiPhraseQuery::visit are implemented.
-  // let err = searcher.rewrite(query);
-  // assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  let query = qb.build();
+  let err = searcher.rewrite(query);
+  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
   Ok(())
 }

@@ -80,11 +80,12 @@ impl QueryBase for LatLonPointQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    self.visit(visitor)
+    let query = self.into();
+    SpatialQuery::visit(self, visitor, query)
   }
 }
 

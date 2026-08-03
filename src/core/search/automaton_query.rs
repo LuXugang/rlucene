@@ -22,7 +22,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
   ConstantScoreBlendedRewrite, MultiTermQuery, MultiTermQuerySet, RewriteMethod, RewriteMethodEnum,
 };
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase, QueryRef, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
@@ -113,6 +113,16 @@ impl AutomatonQuery {
   pub fn get_compiled(&self) -> &CompiledAutomaton {
     &self.compiled
   }
+
+  pub(crate) fn visit_with_query<QV>(&self, visitor: &mut QV, query: QueryRef<'_>) -> Result<()>
+  where
+    QV: QueryVisitor,
+  {
+    if visitor.accept_field(self.term.field()) {
+      self.compiled.visit(visitor, query, self.term.field())?;
+    }
+    Ok(())
+  }
 }
 
 impl QueryBase for AutomatonQuery {
@@ -154,11 +164,11 @@ impl QueryBase for AutomatonQuery {
     rewrite_method.rewrite(searcher, self)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    self.visit_with_query(visitor, self.into())
   }
 }
 

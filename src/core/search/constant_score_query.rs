@@ -17,6 +17,7 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -152,11 +153,13 @@ impl QueryBase for ConstantScoreQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Filter, query);
+    self.query.visit(&mut visitor)
   }
 }
 

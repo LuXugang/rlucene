@@ -45,8 +45,11 @@ use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::multi_term_query::DOC_VALUES_REWRITE;
-use crate::core::search::query::{IntoQuery, Query, QueryBase};
+use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryRef};
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::query_visitor::{
+  DefaultQueryVisitor, EMPTY_VISITOR, EmptyQueryVisitor, QueryVisitor,
+};
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort::Sort;
@@ -55,6 +58,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
+use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -1131,7 +1136,90 @@ fn test_is_considered_costly_by_query_cache() -> Result<()> {
 
 #[test]
 fn test_visitor() -> Result<()> {
-  // TODO: Restore this Java test after QueryVisitor and TermInSetQuery::visit are implemented.
+  struct SingletonVisitor;
+
+  impl QueryVisitor for SingletonVisitor {
+    type SubVisitor<'a>
+      = DefaultQueryVisitor<'a, Self>
+    where
+      Self: 'a;
+
+    fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+      assert_eq!(1, terms.len());
+      assert_eq!(Term::from_text("field", "term1"), terms[0]);
+      Ok(())
+    }
+
+    fn consume_terms_matching<A>(
+      &mut self,
+      _query: QueryRef<'_>,
+      _field: &str,
+      _automaton: A,
+    ) -> Result<()>
+    where
+      A: Fn() -> Result<Option<ByteRunAutomaton>>,
+    {
+      panic!("Singleton TermInSetQuery should not try to build ByteRunAutomaton")
+    }
+
+    fn get_sub_visitor<'a>(
+      &'a mut self,
+      occur: Occur,
+      parent: QueryRef<'_>,
+    ) -> Self::SubVisitor<'a> {
+      self.default_get_sub_visitor(occur, parent)
+    }
+  }
+
+  struct MultipleTermsVisitor<'a> {
+    terms: &'a [BytesRef<Vec<u8>>],
+  }
+
+  impl QueryVisitor for MultipleTermsVisitor<'_> {
+    type SubVisitor<'a>
+      = DefaultQueryVisitor<'a, Self>
+    where
+      Self: 'a;
+
+    fn consume_terms(&mut self, _query: QueryRef<'_>, _terms: &[Term]) -> Result<()> {
+      panic!("TermInSetQuery with multiple terms should build automaton")
+    }
+
+    fn consume_terms_matching<A>(
+      &mut self,
+      _query: QueryRef<'_>,
+      _field: &str,
+      automaton: A,
+    ) -> Result<()>
+    where
+      A: Fn() -> Result<Option<ByteRunAutomaton>>,
+    {
+      let mut automaton = automaton()?.expect("TermInSetQuery must supply an automaton");
+      let test: BytesRef<Vec<u8>> = BytesRef::from_string("nonmatching");
+      assert!(!automaton.run(&test.bytes, test.offset, test.length)?);
+      for term in self.terms {
+        assert!(automaton.run(&term.bytes, term.offset, term.length)?);
+      }
+      Ok(())
+    }
+
+    fn get_sub_visitor<'a>(
+      &'a mut self,
+      occur: Occur,
+      parent: QueryRef<'_>,
+    ) -> Self::SubVisitor<'a> {
+      self.default_get_sub_visitor(occur, parent)
+    }
+  }
+
+  let singleton = TermInSetQuery::new("field", vec![BytesRef::from_string("term1")])?;
+  singleton.visit(&mut SingletonVisitor)?;
+
+  let terms: Vec<_> = (0..100)
+    .map(|i| BytesRef::from_string(&format!("term{i}")))
+    .collect();
+  let query = TermInSetQuery::new("field", terms.clone())?;
+  query.visit(&mut MultipleTermsVisitor { terms: &terms })?;
   Ok(())
 }
 

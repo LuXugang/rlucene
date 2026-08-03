@@ -170,11 +170,14 @@ impl QueryBase for TermQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    if visitor.accept_field(self.term.field()) {
+      visitor.consume_terms(self.into(), std::slice::from_ref(self.term.as_ref()))?;
+    }
+    Ok(())
   }
 }
 #[derive(Clone)]

@@ -31,6 +31,7 @@ use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTerm
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::automaton_query::AutomatonQuery;
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -151,11 +152,16 @@ impl QueryBase for MultiTermQueryDocValuesWrapper {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    if visitor.accept_field(self.get_field()) {
+      dispatch_multi_term_query!(&self.query, |query| {
+        let _ = visitor.get_sub_visitor(Occur::Filter, query.into());
+      });
+    }
+    Ok(())
   }
 }
 

@@ -25,12 +25,15 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
   RewritingWeight, RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
 };
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::multi_term_query::{MultiTermQuerySet, dispatch_multi_term_query};
+use crate::core::search::multi_term_query::{
+  MultiTermQuery, MultiTermQuerySet, dispatch_multi_term_query,
+};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -110,11 +113,17 @@ impl QueryBase for MultiTermQueryConstantScoreWrapper {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let field = dispatch_multi_term_query!(&self.q, |query| query.get_field());
+    if visitor.accept_field(field) {
+      let query = self.into();
+      let mut visitor = visitor.get_sub_visitor(Occur::Filter, query);
+      self.q.visit(&mut visitor)?;
+    }
+    Ok(())
   }
 }
 impl Hash for MultiTermQueryConstantScoreWrapper {

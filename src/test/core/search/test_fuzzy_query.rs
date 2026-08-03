@@ -26,8 +26,14 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::multi_term_query::TopTermsBoostOnlyBooleanQueryRewrite;
+use crate::core::search::query::{QueryBase, QueryRef};
+use crate::core::search::query_visitor::{
+  DefaultQueryVisitor, EMPTY_VISITOR, EmptyQueryVisitor, QueryVisitor,
+};
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::store::directory::DirEnum;
+use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
+use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -1176,6 +1182,62 @@ fn to_ints_ref(s: &str) -> Vec<i32> {
 }
 #[test]
 fn test_visitor() -> Result<()> {
-  // TODO: Restore this Java test after QueryVisitor and FuzzyQuery::visit are implemented.
+  struct Visitor<'a> {
+    visited: &'a mut bool,
+  }
+
+  impl QueryVisitor for Visitor<'_> {
+    type SubVisitor<'a>
+      = DefaultQueryVisitor<'a, Self>
+    where
+      Self: 'a;
+
+    fn consume_terms_matching<A>(
+      &mut self,
+      _query: QueryRef<'_>,
+      _field: &str,
+      automaton: A,
+    ) -> Result<()>
+    where
+      A: Fn() -> Result<Option<ByteRunAutomaton>>,
+    {
+      *self.visited = true;
+      let mut automaton = automaton()?.expect("FuzzyQuery must supply an automaton");
+      assert_matches(&mut automaton, "blob")?;
+      assert_matches(&mut automaton, "bolb")?;
+      assert_matches(&mut automaton, "blobby")?;
+      assert_no_matches(&mut automaton, "bolbby")?;
+      Ok(())
+    }
+
+    fn get_sub_visitor<'a>(
+      &'a mut self,
+      occur: Occur,
+      parent: QueryRef<'_>,
+    ) -> Self::SubVisitor<'a> {
+      self.default_get_sub_visitor(occur, parent)
+    }
+  }
+
+  let query = FuzzyQuery::with_max_edits(Term::from_text("field", "blob"), 2)?;
+  let mut visited = false;
+  query.visit(&mut Visitor {
+    visited: &mut visited,
+  })?;
+  assert!(visited);
+  Ok(())
+}
+
+fn assert_matches(automaton: &mut ByteRunAutomaton, text: &str) -> Result<()> {
+  let bytes: crate::core::index::BytesRef<Vec<u8>> =
+    crate::core::index::BytesRef::from_string(text);
+  assert!(automaton.run(&bytes.bytes, bytes.offset, bytes.length)?);
+  Ok(())
+}
+
+fn assert_no_matches(automaton: &mut ByteRunAutomaton, text: &str) -> Result<()> {
+  let bytes: crate::core::index::BytesRef<Vec<u8>> =
+    crate::core::index::BytesRef::from_string(text);
+  assert!(!automaton.run(&bytes.bytes, bytes.offset, bytes.length)?);
   Ok(())
 }

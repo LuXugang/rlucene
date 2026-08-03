@@ -90,7 +90,7 @@ impl QueryBase for DummyQuery {
     dummy_unreachable!()
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {

@@ -125,11 +125,11 @@ impl QueryBase for RandomApproximationQuery {
     }
   }
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    self.query.visit(visitor);
+    self.query.visit(visitor)
   }
 }
 

@@ -33,7 +33,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-  Query, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryRef, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -142,11 +142,14 @@ where
     Ok(Box::new(spatial_weight))
   }
 
-  pub(crate) fn visit<QV>(&self, _visitor: &QV)
+  pub(crate) fn visit<QV>(&self, visitor: &mut QV, query: QueryRef<'_>) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    if visitor.accept_field(&self.field) {
+      visitor.visit_leaf(query)?;
+    }
+    Ok(())
   }
 }
 

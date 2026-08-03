@@ -187,11 +187,18 @@ impl QueryBase for DisjunctionMaxQuery {
     }
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Should, query);
+    for (disjunct, count) in &self.disjuncts {
+      for _ in 0..*count {
+        disjunct.visit(&mut visitor)?;
+      }
+    }
+    Ok(())
   }
 }
 impl PartialEq for DisjunctionMaxQuery {

@@ -915,11 +915,28 @@ impl QueryBase for BooleanQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    let mut sub_visitor = visitor.get_sub_visitor(Occur::Must, query);
+    for occur in [Occur::Must, Occur::Filter, Occur::Should, Occur::MustNot] {
+      let clause_indices = self.clause_sets.get(&occur).map_or(&[][..], Vec::as_slice);
+      if !clause_indices.is_empty() {
+        if occur == Occur::Must {
+          for index in clause_indices {
+            self.clauses[*index].query.visit(&mut sub_visitor)?;
+          }
+        } else {
+          let mut visitor = sub_visitor.get_sub_visitor(occur, query);
+          for index in clause_indices {
+            self.clauses[*index].query.visit(&mut visitor)?;
+          }
+        }
+      }
+    }
+    Ok(())
   }
 }
 

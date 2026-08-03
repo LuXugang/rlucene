@@ -18,12 +18,16 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::impacts_enum::ImpactsEnumEnum4;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
+use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, TermsIntersect, TermsPosting, TermsTE};
 use crate::core::index::terms_enum::{EmptyTermsEnumTermsWrapper, SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::search::query::QueryRef;
+use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::util::StringHelper;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::attribute_source::AttributeSourceEnum4;
+use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
@@ -84,6 +88,38 @@ impl CompiledAutomaton {
   /// true`.
   pub fn from_automaton(automaton: Automaton) -> Result<Self> {
     Self::with_binary(automaton, false, true, false)
+  }
+
+  pub fn visit<QV>(&self, visitor: &mut QV, parent: QueryRef<'_>, field: &str) -> Result<()>
+  where
+    QV: QueryVisitor,
+  {
+    if visitor.accept_field(field) {
+      match self.type_ {
+        AutomatonType::Normal => {
+          visitor.consume_terms_matching(parent, field, || Ok(self.run_automaton.clone()))?;
+        },
+        AutomatonType::None => {},
+        AutomatonType::All => {
+          visitor.consume_terms_matching(parent, field, || {
+            Ok(Some(ByteRunAutomaton::new(Automata::make_any_string()?)?))
+          })?;
+        },
+        AutomatonType::Single => {
+          visitor.consume_terms(
+            parent,
+            &[Term::new(
+              field,
+              self
+                .term
+                .clone()
+                .ok_or_else(|| LuceneError::illegal_state("missing singleton term"))?,
+            )],
+          )?;
+        },
+      }
+    }
+    Ok(())
   }
   /// Returns sink state, if present, else -1.
   fn find_sink_state(automaton: &Automaton) -> i32 {

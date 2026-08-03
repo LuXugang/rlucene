@@ -622,11 +622,11 @@ impl QueryBase for DocAndScoreQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    visitor.visit_leaf(self.into())
   }
 }
 impl Eq for DocAndScoreQuery {}

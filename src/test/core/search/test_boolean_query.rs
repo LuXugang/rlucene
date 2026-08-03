@@ -51,7 +51,8 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::multi_term_query::SCORING_BOOLEAN_REWRITE;
 use crate::core::search::phrase_query::PhraseQuery;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::{Query, QueryBase, QueryRef};
+use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
@@ -1726,8 +1727,61 @@ fn test_to_string() -> Result<()> {
 }
 #[test]
 fn test_query_visitor() -> Result<()> {
-  // TODO: Restore this Java test after QueryVisitor and Query/BooleanQuery/TermQuery::visit are
-  // implemented. QueryVisitor is currently an empty marker trait.
+  struct Visitor {
+    expected: Option<Term>,
+    a: Term,
+    b: Term,
+    c: Term,
+    d: Term,
+  }
+
+  impl QueryVisitor for Visitor {
+    type SubVisitor<'a>
+      = &'a mut Self
+    where
+      Self: 'a;
+
+    fn get_sub_visitor<'a>(
+      &'a mut self,
+      occur: Occur,
+      _parent: QueryRef<'_>,
+    ) -> Self::SubVisitor<'a> {
+      self.expected = Some(
+        match occur {
+          Occur::Should => &self.a,
+          Occur::Must => &self.b,
+          Occur::Filter => &self.c,
+          Occur::MustNot => &self.d,
+        }
+        .clone(),
+      );
+      self
+    }
+
+    fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+      assert_eq!(self.expected.as_ref(), terms.first());
+      Ok(())
+    }
+  }
+
+  let a = Term::from_text("f", "a");
+  let b = Term::from_text("f", "b");
+  let c = Term::from_text("f", "c");
+  let d = Term::from_text("f", "d");
+  let mut builder = Builder::new();
+  builder.add(TermQuery::new(a.clone()), Occur::Should)?;
+  builder.add(TermQuery::new(b.clone()), Occur::Must)?;
+  builder.add(TermQuery::new(c.clone()), Occur::Filter)?;
+  builder.add(TermQuery::new(d.clone()), Occur::MustNot)?;
+  let query = builder.build();
+
+  query.visit(&mut Visitor {
+    expected: None,
+    a,
+    b,
+    c,
+    d,
+  })?;
   Ok(())
 }
 #[test]

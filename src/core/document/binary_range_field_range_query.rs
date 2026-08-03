@@ -154,10 +154,15 @@ impl QueryBase for BinaryRangeFieldRangeQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    let query = self.into();
+    if visitor.accept_field(self.sub.field()) {
+      visitor.visit_leaf(query)?;
+    }
+    Ok(())
   }
 }
 

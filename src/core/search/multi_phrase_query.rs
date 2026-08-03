@@ -286,11 +286,20 @@ impl QueryBase for MultiPhraseQuery {
     }
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    if !visitor.accept_field(&self.field) {
+      return Ok(());
+    }
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Must, query);
+    for terms in self.term_arrays.iter() {
+      let mut sub_visitor = visitor.get_sub_visitor(Occur::Should, query);
+      sub_visitor.consume_terms(query, terms)?;
+    }
+    Ok(())
   }
 }
 

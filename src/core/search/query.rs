@@ -38,10 +38,12 @@ use crate::core::search::index_searcher::IndexSearcher;
 
 use crate::core::document::lat_lon_point_query::LatLonPointQuery;
 use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
+use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::blended_term_query::BlendedTermQuery;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::byte_vector_similarity_query::ByteVectorSimilarityQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
+use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::index_sort_sorted_numeric_doc_values_range_query::IndexSortSortedNumericDocValuesRangeQuery;
 use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
@@ -57,13 +59,18 @@ use crate::core::search::n_gram_phrase_query::NGramPhraseQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_in_set_query::PointInSetQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
+use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::synonym_query::SynonymQuery;
+use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::weight::Weight;
+use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -74,6 +81,10 @@ use crate::test_framework::core::search::asserting_query::AssertingQuery;
 use crate::test_framework::core::search::base_vector_similarity_query_test_case::CountingQuery;
 #[cfg(test)]
 use crate::test_framework::core::search::block_score_query_wrapper::BlockScoreQueryWrapper;
+#[cfg(test)]
+use crate::test_framework::core::search::multi_term::{
+  BoostCheckingQuery, DumbPrefixQuery, DumbRegexpQuery,
+};
 #[cfg(test)]
 use crate::test_framework::core::search::query::AssertNeedsScores;
 #[cfg(test)]
@@ -311,7 +322,7 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
     IRC: IndexReaderContext,
     Self: Sized;
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor;
 }
@@ -388,6 +399,144 @@ pub enum Query {
   #[cfg(test)]
   WANDScorer(WANDScorerQuery),
 }
+
+macro_rules! define_query_ref {
+  ($($variant:ident => $query:ty),* $(,)?) => {
+    /// A borrowed query value used by [`QueryVisitor`].
+    #[derive(Clone, Copy, Debug)]
+    pub enum QueryRef<'a> {
+      $($variant(&'a $query),)*
+      #[cfg(test)]
+      Asserting(&'a AssertingQuery),
+      #[cfg(test)]
+      AssertNeedsScores(&'a AssertNeedsScores),
+      #[cfg(test)]
+      BitSet(&'a BitSetQuery),
+      #[cfg(test)]
+      BlockScoreQueryWrapper(&'a BlockScoreQueryWrapper),
+      #[cfg(test)]
+      BoostChecking(&'a BoostCheckingQuery),
+      #[cfg(test)]
+      BrokenExplainTerm(&'a BrokenExplainTermQuery),
+      #[cfg(test)]
+      Counting(&'a CountingQuery),
+      #[cfg(test)]
+      CrazyMustUseBulkScorer(&'a CrazyMustUseBulkScorerQuery),
+      #[cfg(test)]
+      DumbPrefix(&'a DumbPrefixQuery),
+      #[cfg(test)]
+      DumbRegexp(&'a DumbRegexpQuery),
+      #[cfg(test)]
+      Dummy1(&'a DummyQuery1),
+      #[cfg(test)]
+      TestLRU(&'a TestLRUQuery),
+      #[cfg(test)]
+      DVCache(&'a DVCacheQuery),
+      #[cfg(test)]
+      MaxScoreWrapper(&'a MaxScoreWrapperQuery),
+      #[cfg(test)]
+      Random(&'a RandomQuery),
+      #[cfg(test)]
+      RandomApproximation(&'a RandomApproximationQuery),
+      #[cfg(test)]
+      TestRewrite(&'a TestRewriteQuery),
+      #[cfg(test)]
+      WANDScorer(&'a WANDScorerQuery),
+    }
+
+    $(
+      impl<'a> From<&'a $query> for QueryRef<'a> {
+        fn from(query: &'a $query) -> Self {
+          Self::$variant(query)
+        }
+      }
+    )*
+  };
+}
+
+define_query_ref!(
+  BinaryRangeFieldRange => BinaryRangeFieldRangeQuery,
+  BlendedTerm => BlendedTermQuery,
+  Boolean => BooleanQuery,
+  Boost => BoostQuery,
+  ByteVectorSimilarity => ByteVectorSimilarityQuery,
+  ConstantScore => ConstantScoreQuery,
+  DisjunctionMax => DisjunctionMaxQuery,
+  DocAndScore => DocAndScoreQuery,
+  Dummy => DummyQuery,
+  FieldExists => FieldExistsQuery,
+  FloatVectorSimilarity => FloatVectorSimilarityQuery,
+  IndexOrDocValues => IndexOrDocValuesQuery,
+  IndexSortSortedNumericDocValuesRange => IndexSortSortedNumericDocValuesRangeQuery,
+  KnnByteVector => KnnByteVectorQuery,
+  KnnFloatVector => KnnFloatVectorQuery,
+  LatLonDocValues => LatLonDocValuesQuery,
+  LatLonDocValuesBox => LatLonDocValuesBoxQuery,
+  LatLonPoint => LatLonPointQuery,
+  LatLonPointDistance => LatLonPointDistanceQuery,
+  LatLonPointDistanceFeature => LatLonPointDistanceFeatureQuery,
+  MatchAllDocs => MatchAllDocsQuery,
+  MatchNoDocs => MatchNoDocsQuery,
+  MultiPhrase => MultiPhraseQuery,
+  MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
+  MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
+  MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
+  NGramPhrase => NGramPhraseQuery,
+  Phrase => PhraseQuery,
+  PointInSet => PointInSetQuery,
+  PointRange => PointRangeQuery,
+  RangeField => RangeFieldQuery,
+  SortedNumericDocValuesRange => SortedNumericDocValuesRangeQuery,
+  SortedNumericDocValuesSet => SortedNumericDocValuesSetQuery,
+  SortedSetDocValuesRange => SortedSetDocValuesRangeQuery,
+  Synonym => SynonymQuery,
+  Term => TermQuery,
+  XYDocValuesPointInGeometry => XYDocValuesPointInGeometryQuery,
+  XYPointInGeometry => XYPointInGeometryQuery,
+  Automaton => AutomatonQuery,
+  Fuzzy => FuzzyQuery,
+  Prefix => PrefixQuery,
+  Regexp => RegexpQuery,
+  TermInSet => TermInSetQuery,
+  TermRange => TermRangeQuery,
+  Wildcard => WildcardQuery,
+);
+
+#[cfg(test)]
+macro_rules! impl_test_query_ref_from {
+  ($($variant:ident => $query:ty),* $(,)?) => {
+    $(
+      impl<'a> From<&'a $query> for QueryRef<'a> {
+        fn from(query: &'a $query) -> Self {
+          Self::$variant(query)
+        }
+      }
+    )*
+  };
+}
+
+#[cfg(test)]
+impl_test_query_ref_from!(
+  Asserting => AssertingQuery,
+  AssertNeedsScores => AssertNeedsScores,
+  BitSet => BitSetQuery,
+  BlockScoreQueryWrapper => BlockScoreQueryWrapper,
+  BoostChecking => BoostCheckingQuery,
+  BrokenExplainTerm => BrokenExplainTermQuery,
+  Counting => CountingQuery,
+  CrazyMustUseBulkScorer => CrazyMustUseBulkScorerQuery,
+  DumbPrefix => DumbPrefixQuery,
+  DumbRegexp => DumbRegexpQuery,
+  Dummy1 => DummyQuery1,
+  TestLRU => TestLRUQuery,
+  DVCache => DVCacheQuery,
+  MaxScoreWrapper => MaxScoreWrapperQuery,
+  Random => RandomQuery,
+  RandomApproximation => RandomApproximationQuery,
+  TestRewrite => TestRewriteQuery,
+  WANDScorer => WANDScorerQuery,
+);
+
 macro_rules! query_variant_name {
     (
         $self:expr;
@@ -512,11 +661,11 @@ impl QueryBase for Query {
     dispatch_query!(self, |q| q.rewrite(searcher))
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    dispatch_query!(self, |query| QueryBase::visit(query, visitor))
   }
 }
 
@@ -579,7 +728,7 @@ where
     )))
   }
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {

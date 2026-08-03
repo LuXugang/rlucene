@@ -475,7 +475,7 @@ impl QueryBase for MultiTermQuerySet {
     dispatch_multi_term_query!(self, |q| q.rewrite(searcher))
   }
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {

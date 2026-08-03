@@ -132,11 +132,11 @@ impl QueryBase for AssertingQuery {
     }
   }
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    self.in_.visit(visitor);
+    self.in_.visit(visitor)
   }
 }
 

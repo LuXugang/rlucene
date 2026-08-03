@@ -17,6 +17,7 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
@@ -141,11 +142,13 @@ impl QueryBase for NGramPhraseQuery {
     Ok(builder.build()?.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Must, query);
+    self.phrase_query.visit(&mut visitor)
   }
 }
 

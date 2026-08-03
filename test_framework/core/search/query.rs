@@ -154,11 +154,11 @@ impl QueryBase for BrokenExplainTermQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    self.term_query.visit(visitor);
+    self.term_query.visit(visitor)
   }
 }
 
@@ -323,10 +323,11 @@ impl QueryBase for TestRewriteQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -421,10 +422,11 @@ impl QueryBase for CrazyMustUseBulkScorerQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -640,11 +642,11 @@ impl QueryBase for AssertNeedsScores {
     }
   }
 
-  fn visit<QV>(&self, visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    self.query.visit(visitor);
+    self.query.visit(visitor)
   }
 }
 
@@ -782,10 +784,11 @@ impl QueryBase for BitSetQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -1001,10 +1004,11 @@ impl QueryBase for RandomQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -1158,11 +1162,11 @@ impl QueryBase for DummyQuery1 {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    Ok(())
   }
 }
 
@@ -1384,10 +1388,11 @@ impl QueryBase for TestLRUQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -1606,10 +1611,11 @@ impl QueryBase for DVCacheQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -1906,10 +1912,11 @@ impl QueryBase for MaxScoreWrapperQuery {
     Ok(MaxScoreWrapperQuery::new(rewritten, self.max_range, self.max_score).into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -2107,10 +2114,11 @@ impl QueryBase for WANDScorerQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 

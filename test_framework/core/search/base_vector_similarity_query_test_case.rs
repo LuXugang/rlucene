@@ -939,10 +939,11 @@ impl QueryBase for CountingQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    visitor.visit_leaf(self.into())
   }
 }
 

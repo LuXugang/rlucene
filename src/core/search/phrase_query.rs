@@ -27,6 +27,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::{TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
@@ -311,11 +312,19 @@ impl QueryBase for PhraseQuery {
     }
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let Some(field) = self.field.as_deref() else {
+      return Ok(());
+    };
+    if !visitor.accept_field(field) {
+      return Ok(());
+    }
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Must, query);
+    visitor.consume_terms(query, &self.terms)
   }
 }
 

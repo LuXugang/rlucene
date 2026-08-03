@@ -98,11 +98,11 @@ impl QueryBase for PrefixQuery {
     rewrite_method.rewrite(searcher, self)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    self.base.visit_with_query(visitor, self.into())
   }
 }
 

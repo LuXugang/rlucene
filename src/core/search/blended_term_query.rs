@@ -200,11 +200,22 @@ impl QueryBase for BlendedTermQuery {
     self.rewrite_method.rewrite(term_queries)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let terms: Vec<_> = self
+      .terms
+      .iter()
+      .filter(|term| visitor.accept_field(term.field()))
+      .cloned()
+      .collect();
+    if !terms.is_empty() {
+      let query = self.into();
+      let mut visitor = visitor.get_sub_visitor(Occur::Should, query);
+      visitor.consume_terms(query, &terms)?;
+    }
+    Ok(())
   }
 }
 struct InPlaceMergeSorterImpl<'a> {

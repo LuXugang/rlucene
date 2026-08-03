@@ -238,11 +238,15 @@ impl QueryBase for PointRangeQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    if visitor.accept_field(&self.field) {
+      visitor.visit_leaf(query)?;
+    }
+    Ok(())
   }
 }
 

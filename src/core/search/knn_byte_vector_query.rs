@@ -165,11 +165,15 @@ impl QueryBase for KnnByteVectorQuery {
     AbstractKnnVectorQuery::rewrite(self, searcher)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    if visitor.accept_field(&self.base.field) {
+      visitor.visit_leaf(query)?;
+    }
+    Ok(())
   }
 }
 impl AbstractKnnVectorQuery for KnnByteVectorQuery {

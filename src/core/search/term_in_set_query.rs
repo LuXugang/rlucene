@@ -35,6 +35,8 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::automation::automata::Automata;
+use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
@@ -180,10 +182,37 @@ impl QueryBase for TermInSetQuery {
     rewrite_method.rewrite(searcher, self)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    if !visitor.accept_field(&self.field) {
+      return Ok(());
+    }
+    let query = self.into();
+    if self.term_data.size() == 1
+      && let Some(term) = self.term_data.iterator()?.next()?
+    {
+      visitor.consume_terms(query, &[Term::new(self.field.clone(), term.into_owned())])?;
+    }
+    if self.term_data.size() > 1 {
+      visitor.consume_terms_matching(query, &self.field, || {
+        Ok(Some(self.as_byte_run_automaton()?))
+      })?;
+    }
+    Ok(())
+  }
+}
+
+impl TermInSetQuery {
+  // TODO: This is pretty heavy-weight. If we have TermInSetQuery directly extend AutomatonQuery
+  // we won't have to do this (see GH#12176).
+  fn as_byte_run_automaton(&self) -> Result<ByteRunAutomaton> {
+    let mut iterator = self.term_data.iterator()?;
+    ByteRunAutomaton::with_bool(
+      Automata::make_binary_string_union_from_iter(&mut iterator)?,
+      true,
+    )
   }
 }
 

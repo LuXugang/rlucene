@@ -182,11 +182,15 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     )
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    if visitor.accept_field(&self.field) {
+      visitor.visit_leaf(self.into())?;
+      self.fallback_query.visit(visitor)?;
+    }
+    Ok(())
   }
 }
 

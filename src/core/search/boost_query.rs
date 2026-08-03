@@ -24,6 +24,7 @@ use crate::core::index::index_reader::Identity;
 ///
 /// More complex boosts can be applied by using `FunctionScoreQuery` in the
 use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight};
@@ -135,11 +136,13 @@ impl QueryBase for BoostQuery {
     Ok(self.into())
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Must, query);
+    self.query.visit(&mut visitor)
   }
 }
 

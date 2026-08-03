@@ -17,6 +17,7 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -158,11 +159,14 @@ impl QueryBase for IndexOrDocValuesQuery {
     }
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    let query = self.into();
+    let mut visitor = visitor.get_sub_visitor(Occur::Must, query);
+    self.index_query.visit(&mut visitor)?;
+    self.dv_query.visit(&mut visitor)
   }
 }
 impl PartialEq for IndexOrDocValuesQuery {

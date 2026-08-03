@@ -270,11 +270,16 @@ impl QueryBase for FuzzyQuery {
     rewrite_method.rewrite(searcher, self)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
-    todo!()
+    if visitor.accept_field(self.term.field()) {
+      visitor.consume_terms_matching(self.into(), self.term.field(), || {
+        Ok(self.get_automata()?.run_automaton)
+      })?;
+    }
+    Ok(())
   }
 }
 

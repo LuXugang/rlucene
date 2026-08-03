@@ -84,10 +84,11 @@ impl QueryBase for BoostCheckingQuery {
     self.rewrite_method.clone().rewrite(searcher, self)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -220,10 +221,11 @@ impl QueryBase for DumbPrefixQuery {
     ConstantScoreBlendedRewrite.rewrite(searcher, self)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
@@ -369,10 +371,11 @@ impl QueryBase for DumbRegexpQuery {
     ConstantScoreBlendedRewrite.rewrite(searcher, self)
   }
 
-  fn visit<QV>(&self, _visitor: &QV)
+  fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
   {
+    Ok(())
   }
 }
 
