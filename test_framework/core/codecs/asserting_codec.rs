@@ -47,6 +47,10 @@ use crate::test_framework::core::codecs::asserting_points_format::AssertingPoint
 use crate::test_framework::core::codecs::asserting_postings_format::AssertingPostingsFormat;
 use crate::test_framework::core::codecs::asserting_stored_fields_format::AssertingStoredFieldsFormat;
 use crate::test_framework::core::codecs::asserting_term_vectors_format::AssertingTermVectorsFormat;
+use crate::test_framework::core::codecs::perfield::test_per_field_doc_values_format::{
+  DocValuesMergeWithIndexedFieldsAssertingCodec, MergeCalledOnTwoFormatsAssertingCodec,
+  MergeRecordingDocValueFormatWrapper, TwoFieldsTwoFormatsDocValuesAssertingCodec,
+};
 use crate::test_framework::core::codecs::perfield::test_per_field_knn_vectors_format::{
   KnnVectorsFormatMaxDims32, MaxDimensionsPerFieldFormatAssertingCodec,
   MergeUsesNewFormatAssertingCodec, TwoFieldsTwoFormatsAssertingCodec,
@@ -71,6 +75,7 @@ pub(crate) fn assert_thread(object: &str, creation_thread: ThreadId) {
 pub enum AssertingCodecDocValuesFormat {
   Default(Arc<DefaultDocValuesFormat>),
   Asserting(Arc<AssertingDocValuesFormat>),
+  MergeRecording(Arc<MergeRecordingDocValueFormatWrapper>),
 }
 
 impl From<DefaultDocValuesFormat> for AssertingCodecDocValuesFormat {
@@ -85,11 +90,18 @@ impl From<AssertingDocValuesFormat> for AssertingCodecDocValuesFormat {
   }
 }
 
+impl From<MergeRecordingDocValueFormatWrapper> for AssertingCodecDocValuesFormat {
+  fn from(format: MergeRecordingDocValueFormatWrapper) -> Self {
+    Self::MergeRecording(Arc::new(format))
+  }
+}
+
 impl Display for AssertingCodecDocValuesFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::Default(format) => Display::fmt(format, f),
       Self::Asserting(format) => Display::fmt(format, f),
+      Self::MergeRecording(format) => Display::fmt(format, f),
     }
   }
 }
@@ -99,18 +111,25 @@ impl HasIdentity for AssertingCodecDocValuesFormat {
     match self {
       Self::Default(format) => format.identity(),
       Self::Asserting(format) => format.identity(),
+      Self::MergeRecording(format) => format.identity(),
     }
   }
 }
 
 pub type AssertingCodecDocValuesConsumer<O> = DocValuesConsumerEnum2<
-  <DefaultDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
-  <AssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+  DocValuesConsumerEnum2<
+    <DefaultDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+    <AssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+  >,
+  <MergeRecordingDocValueFormatWrapper as DocValuesFormat>::DocValuesConsumer<O>,
 >;
 
 pub type AssertingCodecDocValuesProducer<I> = DocValuesProducerEnum2<
-  <DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
-  <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
+  DocValuesProducerEnum2<
+    <DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
+    <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
+  >,
+  <MergeRecordingDocValueFormatWrapper as DocValuesFormat>::DocValuesProducer<I>,
 >;
 
 impl DocValuesFormat for AssertingCodecDocValuesFormat {
@@ -118,6 +137,7 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
     match self {
       Self::Default(format) => format.get_name(),
       Self::Asserting(format) => format.get_name(),
+      Self::MergeRecording(format) => format.get_name(),
     }
   }
 
@@ -135,8 +155,11 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
     match self {
       Self::Default(format) => format
         .fields_consumer(state, segment_info)
-        .map(DocValuesConsumerEnum2::A),
+        .map(|consumer| DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::A(consumer))),
       Self::Asserting(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::B(consumer))),
+      Self::MergeRecording(format) => format
         .fields_consumer(state, segment_info)
         .map(DocValuesConsumerEnum2::B),
     }
@@ -156,8 +179,11 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
     match self {
       Self::Default(format) => format
         .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::A),
+        .map(|producer| DocValuesProducerEnum2::A(DocValuesProducerEnum2::A(producer))),
       Self::Asserting(format) => format
+        .fields_producer(state, segment_info)
+        .map(|producer| DocValuesProducerEnum2::A(DocValuesProducerEnum2::B(producer))),
+      Self::MergeRecording(format) => format
         .fields_producer(state, segment_info)
         .map(DocValuesProducerEnum2::B),
     }
@@ -479,6 +505,9 @@ pub(crate) enum AssertingCodecHook {
   TwoFieldsTwoFormats(TwoFieldsTwoFormatsAssertingCodec),
   MergeUsesNewFormat(MergeUsesNewFormatAssertingCodec),
   MaxDimensionsPerFieldFormat(MaxDimensionsPerFieldFormatAssertingCodec),
+  TwoFieldsTwoFormatsDocValues(TwoFieldsTwoFormatsDocValuesAssertingCodec),
+  MergeCalledOnTwoFormats(MergeCalledOnTwoFormatsAssertingCodec),
+  DocValuesMergeWithIndexedFields(DocValuesMergeWithIndexedFieldsAssertingCodec),
 }
 
 impl Default for AssertingCodecHook {
@@ -496,6 +525,9 @@ impl AssertingCodecBase for AssertingCodecHook {
       Self::TwoFieldsTwoFormats(hook) => hook.get_postings_format_for_field(field),
       Self::MergeUsesNewFormat(hook) => hook.get_postings_format_for_field(field),
       Self::MaxDimensionsPerFieldFormat(hook) => hook.get_postings_format_for_field(field),
+      Self::TwoFieldsTwoFormatsDocValues(hook) => hook.get_postings_format_for_field(field),
+      Self::MergeCalledOnTwoFormats(hook) => hook.get_postings_format_for_field(field),
+      Self::DocValuesMergeWithIndexedFields(hook) => hook.get_postings_format_for_field(field),
     }
   }
 
@@ -507,6 +539,9 @@ impl AssertingCodecBase for AssertingCodecHook {
       Self::TwoFieldsTwoFormats(hook) => hook.get_doc_values_format_for_field(field),
       Self::MergeUsesNewFormat(hook) => hook.get_doc_values_format_for_field(field),
       Self::MaxDimensionsPerFieldFormat(hook) => hook.get_doc_values_format_for_field(field),
+      Self::TwoFieldsTwoFormatsDocValues(hook) => hook.get_doc_values_format_for_field(field),
+      Self::MergeCalledOnTwoFormats(hook) => hook.get_doc_values_format_for_field(field),
+      Self::DocValuesMergeWithIndexedFields(hook) => hook.get_doc_values_format_for_field(field),
     }
   }
 
@@ -521,6 +556,9 @@ impl AssertingCodecBase for AssertingCodecHook {
       Self::TwoFieldsTwoFormats(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::MergeUsesNewFormat(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::MaxDimensionsPerFieldFormat(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::TwoFieldsTwoFormatsDocValues(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::MergeCalledOnTwoFormats(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::DocValuesMergeWithIndexedFields(hook) => hook.get_knn_vectors_format_for_field(field),
     }
   }
 }

@@ -17,12 +17,15 @@
 use std::borrow::Cow;
 
 use crate::core::index::BytesRef;
+use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
+use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
-use crate::core::index::terms_enum::TermsEnum;
-use crate::core::index::terms_enum::TermsEnumEnum2;
+use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum, TermsEnumEnum2, TermsEnumEnum4};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::ToInt;
+use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// A per-document `byte[]` with presorted values. This is fundamentally an
@@ -104,8 +107,39 @@ pub trait SortedDocValues: DocValuesIterator {
     Ok(SortedDocValuesTermsEnum::new(self))
   }
 
-  // TODO:
-  // intersect not implement
+  /// Returns a [`TermsEnum`] over the values, filtered by a
+  /// [`CompiledAutomaton`]. The enum supports [`TermsEnum::ord`].
+  #[allow(clippy::type_complexity)]
+  fn intersect(
+    &mut self,
+    automaton: &CompiledAutomaton,
+  ) -> Result<
+    TermsEnumEnum4<
+      EmptyTermsEnum,
+      Self::TermsEnum<'_>,
+      FilteredTermsEnum<Self::TermsEnum<'_>, SingleTermsEnum>,
+      FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>,
+    >,
+  >
+  where
+    Self: Sized,
+  {
+    let terms_enum = self.terms_enum()?;
+    match automaton.type_ {
+      AutomatonType::None => Ok(TermsEnumEnum4::A(EmptyTermsEnum)),
+      AutomatonType::All => Ok(TermsEnumEnum4::B(terms_enum)),
+      AutomatonType::Single => Ok(TermsEnumEnum4::C(SingleTermsEnum::new(
+        terms_enum,
+        automaton
+          .term
+          .clone()
+          .ok_or_else(|| LuceneError::illegal_state("term must exist for AutomatonType::Single"))?,
+      ))),
+      AutomatonType::Normal => Ok(TermsEnumEnum4::D(AutomatonTermsEnum::new(
+        terms_enum, automaton,
+      )?)),
+    }
+  }
 }
 
 macro_rules! either_sorted_docvalues {

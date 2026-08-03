@@ -55,7 +55,11 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{Directory, DirectoryEnum};
 use crate::core::store::lock::LockEnum;
+use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
+use crate::core::util::automation::operations::Operations;
+use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_index_file_format_test_case::{
@@ -1429,7 +1433,28 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(2, terms_enum.ord()?);
 
-    // TODO IMPORTANT SortedDocValues::intersect 未实现
+    // NORMAL automaton
+    let automaton = Operations::determinize(
+      &RegExp::from_string(".*l.*")?.to_automaton()?,
+      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+    )?
+    .into_owned();
+    let mut terms_enum = dv.intersect(&CompiledAutomaton::from_automaton(automaton)?)?;
+    assert_eq!("hello", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    assert_eq!("world", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(2, terms_enum.ord()?);
+    assert!(terms_enum.next()?.is_none());
+
+    // SINGLE automaton
+    let automaton = RegExp::from_string("hello")?.to_automaton()?;
+    let mut terms_enum = dv.intersect(&CompiledAutomaton::from_automaton(automaton)?)?;
+    assert_eq!("hello", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    assert!(terms_enum.next()?.is_none());
+
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -3142,7 +3167,28 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(2, terms_enum.ord()?);
 
-    // TODO IMPORTANT SortedDocValues::intersect 未实现
+    // NORMAL automaton
+    let automaton = Operations::determinize(
+      &RegExp::from_string(".*l.*")?.to_automaton()?,
+      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+    )?
+    .into_owned();
+    let mut terms_enum = dv.intersect(&CompiledAutomaton::from_automaton(automaton)?)?;
+    assert_eq!("hello", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    assert_eq!("world", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(2, terms_enum.ord()?);
+    assert!(terms_enum.next()?.is_none());
+
+    // SINGLE automaton
+    let automaton = RegExp::from_string("hello")?.to_automaton()?;
+    let mut terms_enum = dv.intersect(&CompiledAutomaton::from_automaton(automaton)?)?;
+    assert_eq!("hello", terms_enum.next()?.unwrap().utf8_to_string()?);
+    assert_eq!(1, terms_enum.ord()?);
+    assert!(terms_enum.next()?.is_none());
+
+    reader.close()?;
+    directory.close()?;
     Ok(())
   }
 
