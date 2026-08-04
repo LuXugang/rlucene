@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::document::binary_point::BinaryPoint;
 use crate::core::document::document::Document;
 use crate::core::document::double_point::DoublePoint;
@@ -682,7 +683,7 @@ where
   if mbd != -1 && mbd < (values.len() / 100) as i32 {
     iwc.set_max_buffered_docs((values.len() / 100) as i32);
   }
-  iwc.set_codec(TestUtil::get_default_codec());
+  iwc.set_codec(get_codec());
   // TODO: Use the Java test framework's virus-checking directory variants after the equivalent
   // FSDirectory and in-memory wrappers are implemented.
   let dir = if values.len() > 100000 {
@@ -924,6 +925,7 @@ where
   if mbd != -1 && mbd < (doc_values.len() / 100) as i32 {
     iwc.set_max_buffered_docs((doc_values.len() / 100) as i32);
   }
+  iwc.set_codec(get_codec());
   let dir = if doc_values.len() > 100000 {
     new_fs_directory(
       random,
@@ -1114,7 +1116,8 @@ fn test_min_max_long() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1173,7 +1176,8 @@ fn test_basic_sorted_set() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1280,7 +1284,8 @@ fn test_long_min_max_numeric() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1330,7 +1335,8 @@ fn test_long_min_max_sorted_set() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1381,7 +1387,8 @@ fn test_sorted_set_no_ords_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1417,7 +1424,8 @@ fn test_numeric_no_values_match() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1448,7 +1456,8 @@ fn test_no_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   w.add_document(&mut random, Document::new())?;
@@ -1470,7 +1479,8 @@ fn test_wrong_num_dims() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   {
@@ -1504,11 +1514,51 @@ fn test_wrong_num_dims() -> Result<()> {
 }
 
 #[test]
+fn test_wrong_num_bytes() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
+  let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+
+  {
+    let mut doc = Document::new();
+    doc.add(LongPoint::new("value", [i64::MIN])?);
+    w.add_document(&mut random, doc)?;
+  }
+
+  let r = w.get_reader(&mut random)?;
+
+  // no wrapping, else the exc might happen in executor thread:
+  let searcher = index_searcher::from_reader(r)?;
+
+  let point = [vec![0u8; 10]];
+
+  let err = searcher.count(BinaryPoint::new_range_query_multi_dim(
+    "value",
+    point.as_ref(),
+    point.as_ref(),
+  )?);
+
+  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  if let Err(LuceneError::IllegalArgument(msg)) = err {
+    assert_eq!(
+      "field=\"value\" was indexed with bytesPerDim=8 but this query has bytesPerDim=10",
+      msg.to_string()
+    );
+  }
+  w.close(&mut random)?;
+  Ok(())
+}
+
+#[test]
 fn test_all_point_docs_were_deleted_and_then_merged_again() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -1549,12 +1599,18 @@ fn test_all_point_docs_were_deleted_and_then_merged_again() -> Result<()> {
   w.close()?;
   Ok(())
 }
+
+fn get_codec() -> Codecs {
+  TestUtil::get_default_codec().into()
+}
+
 #[test]
 fn test_exact_points() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   {
@@ -1713,7 +1769,8 @@ fn test_random_point_in_set_query() -> Result<()> {
     new_directory_shared(&mut random)?
   };
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc_values = vec![0i32; num_docs];
@@ -1837,7 +1894,8 @@ fn new_multi_dim_int_set_query(field: &str, num_dims: usize, values_in: &[i32]) 
 fn test_basic_multi_dim_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -1871,7 +1929,8 @@ fn test_basic_multi_dim_point_in_set_query() -> Result<()> {
 fn test_basic_multi_value_multi_dim_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -1919,7 +1978,8 @@ fn test_basic_multi_value_multi_dim_point_in_set_query() -> Result<()> {
 fn test_many_equal_values_multi_dim_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut zero_count = 0;
@@ -1966,7 +2026,8 @@ fn test_invalid_multi_dim_point_in_set_query() -> Result<()> {
 fn test_basic_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -2174,7 +2235,8 @@ fn test_point_int_set_boxed() -> Result<()> {
 fn test_basic_multi_valued_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -2320,7 +2382,8 @@ fn test_basic_multi_valued_point_in_set_query() -> Result<()> {
 fn test_empty_point_in_set_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
@@ -2362,7 +2425,8 @@ fn test_empty_point_in_set_query() -> Result<()> {
 fn test_point_in_set_query_many_equal_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut zero_count = 0;
@@ -2495,7 +2559,8 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let cardinality: i32 = random.random_range(2..20);
@@ -2627,6 +2692,141 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
   w.close()?;
   Ok(())
 }
+
+#[test]
+fn test_point_in_set_query_many_equal_values_with_big_gap() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(get_codec());
+  let w = IndexWriter::new(dir.clone(), iwc)?;
+
+  let mut zero_count = 0;
+  for _ in 0..10_000 {
+    let x: i32 = 200 * random.random_range(0..2);
+    if x == 0 {
+      zero_count += 1;
+    }
+    let mut doc = Document::new();
+    doc.add(IntPoint::new("int", [x])?);
+    doc.add(LongPoint::new("long", [x as i64])?);
+    doc.add(FloatPoint::new("float", [x as f32])?);
+    doc.add(DoublePoint::new("double", [x as f64])?);
+    doc.add(BinaryPoint::new("bytes", [vec![x as u8]])?);
+    w.add_document(doc)?;
+  }
+
+  let r = directory_reader::open_from_writer(&w)?;
+  let searcher = new_searcher_with_wrap(&mut random, r, false)?;
+  assert_eq!(
+    zero_count,
+    searcher.count(IntPoint::new_set_query("int", [0])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(IntPoint::new_set_query("int", [0, -7])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(IntPoint::new_set_query("int", [7, 0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(IntPoint::new_set_query("int", [200])?)?
+  );
+  assert_eq!(0, searcher.count(IntPoint::new_set_query("int", [2])?)?);
+
+  assert_eq!(
+    zero_count,
+    searcher.count(LongPoint::new_set_query("long", [0i64])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(LongPoint::new_set_query("long", [0i64, -7])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(LongPoint::new_set_query("long", [7i64, 0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(LongPoint::new_set_query("long", [200i64])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(LongPoint::new_set_query("long", [2i64])?)?
+  );
+
+  assert_eq!(
+    zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [0.0f32])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [0.0f32, -7.0])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [7.0f32, 0.0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(FloatPoint::new_set_query("float", [200.0f32])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(FloatPoint::new_set_query("float", [2.0f32])?)?
+  );
+
+  assert_eq!(
+    zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [0.0f64])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [0.0f64, -7.0])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [7.0f64, 0.0])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(DoublePoint::new_set_query("double", [200.0f64])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(DoublePoint::new_set_query("double", [2.0f64])?)?
+  );
+
+  assert_eq!(
+    zero_count,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0]])?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(BinaryPoint::new_set_query(
+      "bytes",
+      [vec![0], vec![(-7i8) as u8]]
+    )?)?
+  );
+  assert_eq!(
+    zero_count,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![7], vec![0]])?)?
+  );
+  assert_eq!(
+    10_000 - zero_count,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![200]])?)?
+  );
+  assert_eq!(
+    0,
+    searcher.count(BinaryPoint::new_set_query("bytes", [vec![2]])?)?
+  );
+
+  w.close()?;
+  Ok(())
+}
+
 #[test]
 fn test_invalid_point_in_set_query() -> Result<()> {
   let err = PointInSetQuery::new(
