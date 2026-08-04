@@ -17,11 +17,9 @@
 use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::search::dummy::dummy_matches::DummyMatches;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::Query;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -63,23 +61,12 @@ impl<IRC> Weight<IRC> for DummyWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = DummyMatches;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    _context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    dummy_unreachable!()
-  }
-
-  fn default_matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<MatchWithNoTerms>> {
+    _searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     dummy_unreachable!()
   }
 

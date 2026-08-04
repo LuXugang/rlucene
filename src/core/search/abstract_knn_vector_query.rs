@@ -35,7 +35,6 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
@@ -683,17 +682,6 @@ impl<IRC> Weight<IRC> for DocAndScoreQueryWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,

@@ -19,14 +19,16 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer};
+use crate::core::search::query::{
+  Query, QueryWeight, QueryWeightMatches, QueryWeightSs, QueryWeightSsBulkScorer,
+};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::asserting_bulk_scorer::AssertingBulkScorer;
+use crate::test_framework::core::search::asserting_matches::AssertingMatches;
 use crate::test_framework::core::search::asserting_scorer::AssertingScorer;
 use crate::test_framework::core::util::lucene_test_case::{random_from_seed, usually};
 use rand::RngExt;
@@ -67,15 +69,18 @@ impl<IRC> Weight<IRC> for AssertingWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.in_.matches(context, doc, searcher)
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+    Ok(
+      self
+        .in_
+        .matches(context, doc, searcher)?
+        .map(|matches| QueryWeightMatches::Matches(Box::new(AssertingMatches::new(matches)))),
+    )
   }
 
   fn explain(

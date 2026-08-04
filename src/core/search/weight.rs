@@ -27,10 +27,9 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches::Matches;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
-  Query, QueryWeight, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryWeight, QueryWeightMatches, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -63,29 +62,23 @@ pub trait Weight<IRC>: SegmentCacheable<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches: Matches;
-  /// Returns [`Matches`] for a specific document, or `None` if the document
-  /// does not match the parent query.
+  /// Returns [`Matches`](crate::core::search::matches::Matches) for a specific document, or `None`
+  /// if the document does not match the parent query.
   ///
   /// A query match that contains no position information (for example, a
   /// Point or DocValues query) will return
   /// `MatchesUtils::MATCH_WITH_NO_TERMS`.
   ///
   /// # Parameters
-  /// - `context`: the reader's context to create the [`Matches`] for
+  /// - `context`: the reader's context to create the
+  ///   [`Matches`](crate::core::search::matches::Matches) for
   /// - `doc`: the document's id relative to the given context's reader
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>>;
-  fn default_matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<MatchWithNoTerms>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightMatches<'a>>> {
     let scorer_supplier = self.scorer_supplier(context, searcher)?;
     let mut scorer_supplier = match scorer_supplier {
       None => return Ok(None),
@@ -100,7 +93,7 @@ where
     } else if scorer.iterator_mut().advance(doc)? != doc {
       return Ok(None);
     }
-    Ok(Some(MatchWithNoTerms))
+    Ok(Some(QueryWeightMatches::MatchWithNoTerms(MatchWithNoTerms)))
   }
 
   /// An explanation of the score computation for the named document.
@@ -259,24 +252,13 @@ where
   IRC: IndexReaderContext,
   T: Weight<IRC> + ?Sized,
 {
-  type Matches = T::Matches;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightMatches<'a>>> {
     (**self).matches(context, doc, searcher)
-  }
-
-  fn default_matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<MatchWithNoTerms>> {
-    (**self).default_matches(context, doc, searcher)
   }
 
   fn explain(

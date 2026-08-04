@@ -32,7 +32,6 @@ use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
@@ -204,17 +203,6 @@ impl<IRC> Weight<IRC> for SortedSetDocValuesRangeQueryWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,

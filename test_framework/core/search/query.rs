@@ -32,7 +32,6 @@ use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, NO_MOR
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
   IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
   QueryWeightSsScorer,
@@ -201,15 +200,14 @@ impl<IRC> Weight<IRC> for BrokenExplainWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
   type ScorerSupplier = QueryWeightSs<IRC>;
 
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     self.in_.matches(context, doc, searcher)
   }
 
@@ -455,14 +453,12 @@ impl<IRC> Weight<IRC> for CrazyMustUseBulkScorerWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    _context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    _searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     Ok(None)
   }
 
@@ -689,15 +685,14 @@ impl<IRC> Weight<IRC> for AssertNeedsScoresWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
   type ScorerSupplier = QueryWeightSs<IRC>;
 
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     self.inner_weight.matches(context, doc, searcher)
   }
 
@@ -841,17 +836,6 @@ impl<IRC> Weight<IRC> for BitSetQueryWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
@@ -1043,17 +1027,6 @@ impl<IRC> Weight<IRC> for RandomQueryWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
@@ -1200,17 +1173,6 @@ impl<IRC> Weight<IRC> for DummyQueryWeight1
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
@@ -1435,17 +1397,6 @@ impl<IRC> Weight<IRC> for TestLRUWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
@@ -1645,17 +1596,6 @@ impl<IRC> Weight<IRC> for DVCacheWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
@@ -1955,14 +1895,12 @@ impl<IRC> Weight<IRC> for MaxScoreWrapperQueryWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     self.weight.matches(context, doc, searcher)
   }
 
@@ -2157,14 +2095,12 @@ impl<IRC> Weight<IRC> for WANDScorerQueryWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    _context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    _searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     unreachable!("")
   }
 

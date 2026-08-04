@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::Query;
+use crate::core::search::query::{Query, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 /// An iterator over match positions (and optionally offsets) for a single document and field.
@@ -55,16 +55,13 @@ pub trait MatchesIterator {
   /// Should only be called after [`MatchesIterator::next`] has returned `true`.
   fn end_offset(&self) -> Result<i32>;
 
-  type MatchesIterRef<'a>: MatchesIterator
-  where
-    Self: 'a;
   /// Returns a [`MatchesIterator`] that iterates over the positions and offsets
   /// of individual terms within the current match.
   ///
   /// Returns `None` if there are no submatches (i.e. the current iterator is at the leaf level).
   ///
   /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-  fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>>;
+  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>>;
 
   /// Returns the [`Query`] causing the current match.
   ///
@@ -74,10 +71,42 @@ pub trait MatchesIterator {
   /// Should only be called after [`MatchesIterator::next`] has returned `true`.
   fn get_query(&self) -> Arc<Query>;
 }
+
+impl<T> MatchesIterator for Box<T>
+where
+  T: MatchesIterator + ?Sized,
+{
+  fn next(&mut self) -> Result<bool> {
+    (**self).next()
+  }
+
+  fn start_position(&self) -> Result<i32> {
+    (**self).start_position()
+  }
+
+  fn end_position(&self) -> i32 {
+    (**self).end_position()
+  }
+
+  fn start_offset(&self) -> Result<i32> {
+    (**self).start_offset()
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    (**self).end_offset()
+  }
+
+  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+    (**self).get_sub_matches()
+  }
+
+  fn get_query(&self) -> Arc<Query> {
+    (**self).get_query()
+  }
+}
 macro_rules! either_matches_iterator {
     (
         $vis:vis $name:ident
-        => { sub: $sub_mi:ident }
         { $( $Variant:ident : $T:ident ),+ $(,)? }
     ) => {
         $vis enum $name<$( $T ),+> {
@@ -113,20 +142,10 @@ macro_rules! either_matches_iterator {
                 match self { $( Self::$Variant(inner) => inner.end_offset(), )+ }
             }
 
-            type MatchesIterRef<'a> =
-                $sub_mi<$( <$T as MatchesIterator>::MatchesIterRef<'a> ),+>
-            where
-                Self: 'a;
-
             #[inline]
-            fn get_sub_matches(&mut self) -> Result<Option<Self::MatchesIterRef<'_>>> {
+            fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
                 match self {
-                    $(
-                        Self::$Variant(inner) => {
-                            let opt = inner.get_sub_matches()?;
-                            Ok(opt.map($sub_mi::$Variant))
-                        }
-                    ),+
+                    $( Self::$Variant(inner) => inner.get_sub_matches(), )+
                 }
             }
 
@@ -139,26 +158,21 @@ macro_rules! either_matches_iterator {
 }
 either_matches_iterator!(
     pub MatchesIteratorEnum2
-    => { sub: MatchesIteratorEnum2 }
     { A: A, B: B }
 );
 either_matches_iterator!(
     pub MatchesIteratorEnum3
-    => { sub: MatchesIteratorEnum3 }
     { A: A, B: B,C:C }
 );
 either_matches_iterator!(
     pub MatchesIteratorEnum4
-    => { sub: MatchesIteratorEnum4 }
     { A: A, B: B,C:C,D:D }
 );
 either_matches_iterator!(
     pub MatchesIteratorEnum5
-    => { sub: MatchesIteratorEnum5 }
     { A: A, B: B,C:C,D:D,E:E }
 );
 either_matches_iterator!(
     pub MatchesIteratorEnum6
-    => { sub: MatchesIteratorEnum6 }
     { A: A, B: B,C:C,D:D,E:E,F:F }
 );

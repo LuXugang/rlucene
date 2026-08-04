@@ -27,7 +27,6 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryWeightSsScorer};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -162,17 +161,6 @@ impl SegmentCacheable<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight 
 }
 
 impl Weight<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, _doc, _searcher)
-  }
-
   fn explain(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,

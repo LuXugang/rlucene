@@ -26,7 +26,7 @@ use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::matches_utils::from_sub_matches;
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
@@ -307,15 +307,19 @@ impl<IRC> Weight<IRC> for DisjunctionMaxWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    todo!()
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+    let mut matches = Vec::new();
+    for weight in &self.weights {
+      if let Some(weight_matches) = weight.matches(context, doc, searcher)? {
+        matches.push(weight_matches);
+      }
+    }
+    Ok(from_sub_matches(matches))
   }
 
   fn explain(

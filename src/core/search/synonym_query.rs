@@ -41,13 +41,14 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
+use crate::core::search::disjunction_matches_iterator::from_terms;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::impacts_disi::ImpactsDISI;
 use crate::core::search::index_searcher;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::matches_utils::for_field;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
@@ -337,15 +338,31 @@ impl<IRC> Weight<IRC> for SynonymWeight
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    todo!()
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    _searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+    let query = if let Query::Synonym(query) = self.parent_query.as_ref() {
+      query
+    } else {
+      return Err(LuceneError::illegal_state(""));
+    };
+    if context.reader().terms(query.get_field())?.is_none() {
+      return Ok(None);
+    }
+    let field = query.get_field().to_string();
+    let terms = query.get_terms();
+    for_field(field.clone(), move || {
+      from_terms(
+        context,
+        doc,
+        self.parent_query.clone(),
+        &field,
+        terms.clone(),
+      )
+    })
   }
 
   fn explain(

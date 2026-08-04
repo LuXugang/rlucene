@@ -22,7 +22,7 @@ use crate::core::index::leaf_reader::{
 };
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::postings_enum::{FREQS, NONE};
+use crate::core::index::postings_enum::{FREQS, NONE, OFFSETS};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::{PrepareState, TermStateEnum, TermStates, build};
@@ -34,7 +34,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::matches_utils::for_field;
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
@@ -46,6 +46,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
   SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
 };
+use crate::core::search::term_matches_iterator::TermMatchesIterator;
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
@@ -333,15 +334,30 @@ impl<IRC> Weight<IRC> for TermWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    todo!()
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    _searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+    let parent_query = if let Query::Term(query) = self.parent_query.as_ref() {
+      query
+    } else {
+      return Err(LuceneError::illegal_state(""));
+    };
+    for_field(parent_query.term.field.clone(), move || {
+      let Some(mut terms_enum) = self.get_terms_enum(context)? else {
+        return Ok(None);
+      };
+      let mut postings = terms_enum.postings_with_flags(None, OFFSETS as i32)?;
+      if postings.advance(doc)? != doc {
+        return Ok(None);
+      }
+      Ok(Some(Box::new(TermMatchesIterator::new(
+        postings,
+        self.parent_query.clone(),
+      )?)))
+    })
   }
 
   fn explain(

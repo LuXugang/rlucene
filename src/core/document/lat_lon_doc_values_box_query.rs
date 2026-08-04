@@ -26,7 +26,6 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -200,17 +199,6 @@ impl<IRC> Weight<IRC> for LatLonDocValuesBoxQueryWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,

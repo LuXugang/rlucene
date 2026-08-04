@@ -21,7 +21,6 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
   IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
   QueryWeightSsScorer,
@@ -225,14 +224,12 @@ impl<IRC> Weight<IRC> for IndexOrDocValuesQueryWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     self.dv_weight.matches(context, doc, searcher)
   }
 

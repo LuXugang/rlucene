@@ -31,7 +31,6 @@ use crate::core::search::doc_id_set_iterator::{
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
@@ -1077,14 +1076,12 @@ where
   P: Predicate<TopParentMeta> + Send + Sync + 'static,
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     self.in_.matches(context, doc, searcher)
   }
 

@@ -21,7 +21,6 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
@@ -172,14 +171,12 @@ where
   LR: IndexReaderContext + 'static,
   IRCLeafReader<LR>: 'static,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<LR>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<LR>>,
     doc: i32,
-    searcher: &IndexSearcher<LR>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<LR>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     self.in_.matches(context, doc, searcher)
   }
 

@@ -50,6 +50,8 @@ use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+use crate::core::search::matches::Matches;
+use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::multi_term_query::MultiTermQuerySet;
@@ -110,9 +112,34 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub type QueryWeight<IRC> = Box<
-  dyn Weight<IRC, Matches = MatchWithNoTerms, ScorerSupplier = QueryWeightSs<IRC>> + Send + Sync,
->;
+pub type QueryWeight<IRC> = Box<dyn Weight<IRC, ScorerSupplier = QueryWeightSs<IRC>> + Send + Sync>;
+pub enum QueryWeightMatches<'a> {
+  MatchWithNoTerms(MatchWithNoTerms),
+  Matches(Box<dyn Matches + 'a>),
+}
+impl Matches for QueryWeightMatches<'_> {
+  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+    match self {
+      QueryWeightMatches::MatchWithNoTerms(matches) => matches.get_matches(field),
+      QueryWeightMatches::Matches(matches) => matches.get_matches(field),
+    }
+  }
+
+  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
+    match self {
+      QueryWeightMatches::MatchWithNoTerms(matches) => matches.get_sub_matches(),
+      QueryWeightMatches::Matches(matches) => matches.get_sub_matches(),
+    }
+  }
+
+  fn field(&self) -> &[String] {
+    match self {
+      QueryWeightMatches::MatchWithNoTerms(matches) => matches.field(),
+      QueryWeightMatches::Matches(matches) => matches.field(),
+    }
+  }
+}
+pub type QueryWeightMatchesIterator<'a> = Box<dyn MatchesIterator + 'a>;
 pub type QueryWeightSs<IRC> =
   Box<dyn ScorerSupplier<IRC, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>>;
 pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;

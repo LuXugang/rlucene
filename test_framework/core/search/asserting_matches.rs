@@ -14,40 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::QueryWeightMatchesIterator;
+use crate::core::search::matches::Matches;
+use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::search::asserting_matches_iterator::AssertingMatchesIterator;
 
-/// Reports the positions and optionally offsets of all matching terms
-/// in a query for a single document.
-///
-/// To obtain a [`MatchesIterator`] for a particular field, call
-/// [`Matches::get_matches`]. Note that you can call this method multiple
-/// times to retrieve new iterators, but it is not thread-safe.
-pub trait Matches {
-  /// Returns a [`MatchesIterator`] over the matches for a single field,
-  /// or `None` if there are no matches in that field.
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>>;
-
-  /// Returns a collection of [`Matches`] that make up this instance;
-  /// if it is not a composite, then this returns an empty list.
-  fn get_sub_matches(&self) -> Vec<&dyn Matches>;
-
-  fn field(&self) -> &[String];
+/// An implementation of [`Matches`] with additional consistency checks.
+pub struct AssertingMatches<'a> {
+  in_: QueryWeightMatches<'a>,
 }
 
-impl<T> Matches for Box<T>
-where
-  T: Matches + ?Sized,
-{
+impl<'a> AssertingMatches<'a> {
+  pub fn new(in_: QueryWeightMatches<'a>) -> Self {
+    Self { in_ }
+  }
+}
+
+impl Matches for AssertingMatches<'_> {
   fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
-    (**self).get_matches(field)
+    Ok(self.in_.get_matches(field)?.map(|matches| {
+      Box::new(AssertingMatchesIterator::new(matches)) as QueryWeightMatchesIterator
+    }))
   }
 
   fn get_sub_matches(&self) -> Vec<&dyn Matches> {
-    (**self).get_sub_matches()
+    vec![&self.in_]
   }
 
   fn field(&self) -> &[String] {
-    (**self).field()
+    self.in_.field()
   }
 }

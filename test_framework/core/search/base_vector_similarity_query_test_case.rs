@@ -34,7 +34,6 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -974,15 +973,14 @@ impl<IRC> Weight<IRC> for CountingWeight<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Matches = MatchWithNoTerms;
   type ScorerSupplier = QueryWeightSs<IRC>;
 
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
     self.delegate_weight.matches(context, doc, searcher)
   }
 

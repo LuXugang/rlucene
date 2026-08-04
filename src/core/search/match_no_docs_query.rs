@@ -19,7 +19,6 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -146,17 +145,6 @@ impl<IRC> Weight<IRC> for MatchNoDocsWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    Ok(None)
-  }
-
   fn explain(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,

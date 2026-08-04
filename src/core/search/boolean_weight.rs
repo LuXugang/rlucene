@@ -25,7 +25,7 @@ use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::matches_utils::from_sub_matches;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -161,15 +161,35 @@ impl<IRC> Weight<IRC> for BooleanWeight<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    todo!()
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+    let mut matches = Vec::new();
+    let mut should_match_count = 0;
+    for weighted_clause in &self.weighted_clauses {
+      let clause = &weighted_clause.clause;
+      let clause_matches = weighted_clause.weight.matches(context, doc, searcher)?;
+      if clause.is_prohibited() {
+        if clause_matches.is_some() {
+          return Ok(None);
+        }
+      } else if clause.is_required() {
+        let Some(clause_matches) = clause_matches else {
+          return Ok(None);
+        };
+        matches.push(clause_matches);
+      } else if let Some(clause_matches) = clause_matches {
+        matches.push(clause_matches);
+        should_match_count += 1;
+      }
+    }
+    if should_match_count < self.query.get_minimum_number_should_match() {
+      return Ok(None);
+    }
+    Ok(from_sub_matches(matches))
   }
 
   fn explain(

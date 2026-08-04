@@ -35,12 +35,13 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
+use crate::core::search::disjunction_matches_iterator::from_terms_enum;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::fuzzy_query::FuzzyQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::matches_utils::MatchWithNoTerms;
+use crate::core::search::matches_utils::for_field;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, RewriteMethod, dispatch_multi_term_query,
 };
@@ -216,15 +217,24 @@ impl<IRC> Weight<IRC> for MultiTermQueryDocValuesWeight
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    todo!()
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    _searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+    let field = dispatch_multi_term_query!(&self.query, |query| query.get_field().to_string());
+    for_field(field.clone(), move || {
+      let values = DocValues::get_sorted_set(context.reader(), &field)?;
+      let terms_enum = get_terms_enum(&self.query, values)?;
+      from_terms_enum(
+        context,
+        doc,
+        Arc::new(self.query.clone().into()),
+        &field,
+        terms_enum,
+      )
+    })
   }
 
   fn explain(

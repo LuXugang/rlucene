@@ -36,7 +36,6 @@ use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{
   IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
@@ -241,17 +240,6 @@ impl<IRC> Weight<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
   IRC: IndexReaderContext,
 {
-  type Matches = MatchWithNoTerms;
-
-  fn matches(
-    &self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    doc: i32,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::Matches>> {
-    self.default_matches(context, doc, searcher)
-  }
-
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,

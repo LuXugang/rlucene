@@ -14,72 +14,71 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::query::{Query, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-/// A [`MatchesIterator`] over a single term's postings list
-pub(crate) struct TermMatchesIterator<PE>
-where
-  PE: PostingsEnum,
-{
-  upto: i32,
-  pos: i32,
-  pe: PE,
-  query: Arc<Query>,
+pub(crate) struct AssertingMatchesIterator<'a> {
+  in_: QueryWeightMatchesIterator<'a>,
+  state: State,
 }
-impl<PE> TermMatchesIterator<PE>
-where
-  PE: PostingsEnum,
-{
-  /// Create a new [`TermMatchesIterator`] for the given term and postings list.
-  pub fn new(mut pe: PE, query: Arc<Query>) -> Result<Self> {
-    Ok(TermMatchesIterator {
-      upto: pe.freq()?,
-      pos: 0,
-      pe,
-      query,
-    })
+
+#[derive(Debug, PartialEq)]
+enum State {
+  Unpositioned,
+  Iterating,
+  Exhausted,
+}
+
+impl<'a> AssertingMatchesIterator<'a> {
+  pub(crate) fn new(in_: QueryWeightMatchesIterator<'a>) -> Self {
+    Self {
+      in_,
+      state: State::Unpositioned,
+    }
   }
 }
-impl<PE> MatchesIterator for TermMatchesIterator<PE>
-where
-  PE: PostingsEnum,
-{
+
+impl MatchesIterator for AssertingMatchesIterator<'_> {
   fn next(&mut self) -> Result<bool> {
-    let prev = self.upto;
-    self.upto -= 1;
-    if prev > 0 {
-      self.pos = self.pe.next_position()?;
-      Ok(true)
+    debug_assert_ne!(self.state, State::Exhausted);
+    let more = self.in_.next()?;
+    self.state = if more {
+      State::Iterating
     } else {
-      Ok(false)
-    }
+      State::Exhausted
+    };
+    Ok(more)
   }
 
   fn start_position(&self) -> Result<i32> {
-    Ok(self.pos)
+    debug_assert_eq!(self.state, State::Iterating);
+    self.in_.start_position()
   }
 
   fn end_position(&self) -> i32 {
-    self.pos
+    debug_assert_eq!(self.state, State::Iterating);
+    self.in_.end_position()
   }
 
   fn start_offset(&self) -> Result<i32> {
-    self.pe.start_offset()
+    debug_assert_eq!(self.state, State::Iterating);
+    self.in_.start_offset()
   }
 
   fn end_offset(&self) -> Result<i32> {
-    self.pe.end_offset()
+    debug_assert_eq!(self.state, State::Iterating);
+    self.in_.end_offset()
   }
 
   fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
-    Ok(None)
+    debug_assert_eq!(self.state, State::Iterating);
+    self.in_.get_sub_matches()
   }
 
   fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+    debug_assert_eq!(self.state, State::Iterating);
+    self.in_.get_query()
   }
 }

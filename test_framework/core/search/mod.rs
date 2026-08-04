@@ -18,6 +18,8 @@ pub mod asserting_bulk_scorer;
 pub(crate) mod asserting_collector;
 pub(crate) mod asserting_index_searcher;
 pub mod asserting_leaf_collector;
+pub mod asserting_matches;
+pub(crate) mod asserting_matches_iterator;
 pub mod asserting_query;
 pub mod asserting_scorable;
 pub mod asserting_scorer;
