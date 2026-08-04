@@ -36,9 +36,8 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::codecs::asserting_codec::{
   AssertingCodecBase, AssertingCodecDefaults, AssertingCodecDocValuesFormat,
-  AssertingCodecKnnVectorsFormat,
+  AssertingCodecKnnVectorsFormat, AssertingCodecPostingsFormat,
 };
-use crate::test_framework::core::codecs::asserting_postings_format::AssertingPostingsFormat;
 use parking_lot::Mutex;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -306,7 +305,7 @@ impl TwoFieldsTwoFormatsAssertingCodec {
 }
 
 impl AssertingCodecBase for TwoFieldsTwoFormatsAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 
@@ -346,7 +345,7 @@ impl MergeUsesNewFormatAssertingCodec {
 }
 
 impl AssertingCodecBase for MergeUsesNewFormatAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 
@@ -386,7 +385,7 @@ impl MaxDimensionsPerFieldFormatAssertingCodec {
 }
 
 impl AssertingCodecBase for MaxDimensionsPerFieldFormatAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 

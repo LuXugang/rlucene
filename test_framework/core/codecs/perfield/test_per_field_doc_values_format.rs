@@ -30,9 +30,8 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::codecs::asserting_codec::{
   AssertingCodecBase, AssertingCodecDefaults, AssertingCodecDocValuesFormat,
-  AssertingCodecKnnVectorsFormat,
+  AssertingCodecKnnVectorsFormat, AssertingCodecPostingsFormat,
 };
-use crate::test_framework::core::codecs::asserting_postings_format::AssertingPostingsFormat;
 use crate::test_framework::core::util::test_util::DefaultDocValuesFormat;
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex};
@@ -282,7 +281,7 @@ impl TwoFieldsTwoFormatsDocValuesAssertingCodec {
 }
 
 impl AssertingCodecBase for TwoFieldsTwoFormatsDocValuesAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 
@@ -322,7 +321,7 @@ impl MergeCalledOnTwoFormatsAssertingCodec {
 }
 
 impl AssertingCodecBase for MergeCalledOnTwoFormatsAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 
@@ -357,7 +356,7 @@ impl DocValuesMergeWithIndexedFieldsAssertingCodec {
 }
 
 impl AssertingCodecBase for DocValuesMergeWithIndexedFieldsAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 

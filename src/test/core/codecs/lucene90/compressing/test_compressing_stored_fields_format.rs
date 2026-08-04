@@ -131,9 +131,23 @@ mod compression_numeric_encoding_tests {
   use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer::{
     DAY, HOUR, SECOND, write_tlong, write_zdouble, write_zfloat,
   };
+  use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum2;
+  use crate::core::document::document::Document;
+  use crate::core::document::stored_field::StoredField;
+  use crate::core::index::codec_reader::CodecReader;
+  use crate::core::index::composite_reader::CompositeReader;
+  use crate::core::index::directory_reader;
+  use crate::core::index::index_reader::IndexReader;
+  use crate::core::index::index_writer::IndexWriter;
+  use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+  use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
   use crate::core::util::error::lucene_error::Result;
-  use crate::test_framework::core::util::lucene_test_case::random;
+  use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+  use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
+  use crate::test_framework::core::util::lucene_test_case::{
+    new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
+  };
   use rand::RngExt;
 
   #[test]
@@ -322,7 +336,70 @@ mod compression_numeric_encoding_tests {
   }
   #[test]
   fn test_chunk_cleanup() -> Result<()> {
-    // TODO IMPORTANT 可配置参数的 CompressingCodec 尚未迁移。
+    let mut random = random();
+    let dir = new_directory_shared(&mut random)?;
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    iwc.set_merge_policy(NoMergePolicy::default());
+
+    // We have to enforce certain things like maxDocsPerChunk to cause dirty chunks to be created
+    // by this test.
+    iwc.set_codec(CompressingCodec::random_instance_with_parameters(
+      &mut random,
+      4 * 1024,
+      4,
+      false,
+      8,
+    )?);
+    let iw = IndexWriter::new(dir, iwc)?;
+    let mut ir = directory_reader::open_from_writer(&iw)?;
+    for _ in 0..5 {
+      let mut doc = Document::new();
+      doc.add(StoredField::from_string("text", "not very long at all")?);
+      iw.add_document(doc)?;
+      // Force flush.
+      let ir2 = directory_reader::open_if_changed(&ir)?.expect("reader should change");
+      ir.close()?;
+      ir = ir2;
+      // Examine dirty counts.
+      for leaf in ir.get_sequential_sub_readers() {
+        let reader = leaf
+          .get_fields_reader()?
+          .expect("stored fields reader should exist");
+        let StoredFieldsReaderEnum2::A(reader) = reader else {
+          panic!("compressing codec should use Lucene90 stored fields");
+        };
+        assert!(reader.get_num_dirty_docs()? > 0);
+        assert!(reader.get_num_dirty_docs()? < 100); // Can't be gte the number of docs per chunk.
+        assert_eq!(1, reader.get_num_dirty_chunks()?);
+      }
+    }
+    iw.get_config_mut()
+      .set_merge_policy(new_log_merge_policy(&mut random)?);
+    iw.force_merge(1)?;
+    // Add a single doc and merge again.
+    let mut doc = Document::new();
+    doc.add(StoredField::from_string("text", "not very long at all")?);
+    iw.add_document(doc)?;
+    iw.force_merge(1)?;
+    let ir2 = directory_reader::open_if_changed(&ir)?.expect("reader should change");
+    ir.close()?;
+    ir = ir2;
+    let leaf = ir
+      .get_sequential_sub_readers()
+      .first()
+      .expect("reader should have one leaf");
+    assert_eq!(1, ir.get_sequential_sub_readers().len());
+    let reader = leaf
+      .get_fields_reader()?
+      .expect("stored fields reader should exist");
+    let StoredFieldsReaderEnum2::A(reader) = reader else {
+      panic!("compressing codec should use Lucene90 stored fields");
+    };
+    // At most 2: the 5 chunks from 5 doc segment will be collapsed into a single chunk.
+    assert!(reader.get_num_dirty_chunks()? <= 2);
+    ir.close()?;
+    iw.close()?;
     Ok(())
   }
 }

@@ -29,6 +29,7 @@ use std::fmt;
 use std::sync::Arc;
 
 /// A [`TermVectorsFormat`] that compresses chunks of documents together in order to improve the compression ratio.
+#[derive(Clone)]
 pub struct Lucene90CompressingTermVectorsFormat {
   format_name: String,
   segment_suffix: String,

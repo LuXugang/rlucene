@@ -14,15 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod asserting_codec;
-pub mod asserting_doc_values_format;
-pub mod asserting_knn_vectors_format;
-pub mod asserting_live_docs_format;
-pub mod asserting_norms_format;
-pub mod asserting_points_format;
-pub mod asserting_postings_format;
-pub mod asserting_stored_fields_format;
-pub mod asserting_term_vectors_format;
-pub mod compressing;
-pub mod cranky;
-pub(crate) mod perfield;
+pub(crate) mod test_direct_postings_format;

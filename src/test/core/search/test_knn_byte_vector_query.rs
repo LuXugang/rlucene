@@ -262,12 +262,7 @@ impl BaseKnnVectorQueryTestCase for TestKnnByteVectorQuery {
     k: usize,
     query_filter: Option<Query>,
   ) -> Result<Self::KnnVectorQuery> {
-    // TODO: Add the Java ThrowingKnnVectorQuery after KnnByteVectorQuery has a static hook for
-    // overriding exact_search in tests.
-    let _ = (field, query, k, query_filter);
-    Err(LuceneError::need_implemented(
-      "ThrowingKnnVectorQuery is not implemented",
-    ))
+    KnnByteVectorQuery::throwing_with_filter(field, float_to_bytes(query), k, query_filter)
   }
 
   fn get_knn_vector_query_no_filter(

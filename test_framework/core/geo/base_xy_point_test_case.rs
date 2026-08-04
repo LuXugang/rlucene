@@ -51,6 +51,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::geo::ShapeTestUtil;
+use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -1183,6 +1184,8 @@ pub trait BaseXYPointTestCase {
     let mut iwc = new_index_writer_config(random)?;
     // Else seeds may not reproduce:
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
+    let points_in_leaf = 2 + random.random_range(0..4);
+    iwc.set_codec(RandomDistanceCodec::new(points_in_leaf));
 
     let writer = RandomIndexWriter::with_config(random, dir, iwc);
 

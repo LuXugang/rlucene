@@ -38,7 +38,15 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
 #[cfg(test)]
+use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
+#[cfg(test)]
+use crate::test_framework::core::codecs::compressing::dummy::dummy_compressing_codec::DummyCompressingCodec;
+#[cfg(test)]
 use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
+#[cfg(test)]
+use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
+#[cfg(test)]
+use crate::test_framework::core::index::test_add_indexes::UnRegisteredCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
 #[cfg(not(test))]
@@ -105,6 +113,12 @@ pub enum Codecs {
   #[cfg(test)]
   AssertingNeedsIndexSort(AssertingNeedsIndexSortCodec),
   #[cfg(test)]
+  RandomDistance(RandomDistanceCodec),
+  #[cfg(test)]
+  Compressing(CompressingCodec),
+  #[cfg(test)]
+  UnRegistered(UnRegisteredCodec),
+  #[cfg(test)]
   CrankyLucene101(CrankyCodec<Lucene101Codec>),
   #[cfg(test)]
   CrankyAsserting(CrankyCodec<AssertingCodec>),
@@ -147,6 +161,34 @@ impl From<AssertingNeedsIndexSortCodec> for Codecs {
 }
 
 #[cfg(test)]
+impl From<RandomDistanceCodec> for Codecs {
+  fn from(codec: RandomDistanceCodec) -> Self {
+    Self::RandomDistance(codec)
+  }
+}
+
+#[cfg(test)]
+impl From<CompressingCodec> for Codecs {
+  fn from(codec: CompressingCodec) -> Self {
+    Self::Compressing(codec)
+  }
+}
+
+#[cfg(test)]
+impl From<DummyCompressingCodec> for Codecs {
+  fn from(codec: DummyCompressingCodec) -> Self {
+    Self::Compressing(codec.into())
+  }
+}
+
+#[cfg(test)]
+impl From<UnRegisteredCodec> for Codecs {
+  fn from(codec: UnRegisteredCodec) -> Self {
+    Self::UnRegistered(codec)
+  }
+}
+
+#[cfg(test)]
 impl From<CrankyCodec<Lucene101Codec>> for Codecs {
   fn from(codec: CrankyCodec<Lucene101Codec>) -> Self {
     Self::CrankyLucene101(codec)
@@ -168,6 +210,12 @@ impl Display for Codecs {
       Self::Asserting(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::AssertingNeedsIndexSort(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::RandomDistance(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::Compressing(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => Display::fmt(codec, f),
       #[cfg(test)]
@@ -208,6 +256,12 @@ impl Codec for Codecs {
         CodecPostingsFormat::Lucene101(codec.postings_format())
       },
       #[cfg(test)]
+      Self::RandomDistance(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecPostingsFormat::CrankyLucene101(codec.postings_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecPostingsFormat::CrankyAsserting(codec.postings_format()),
@@ -223,6 +277,12 @@ impl Codec for Codecs {
       Self::AssertingNeedsIndexSort(codec) => {
         CodecDocValuesFormat::Lucene101(codec.doc_values_format())
       },
+      #[cfg(test)]
+      Self::RandomDistance(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecDocValuesFormat::CrankyLucene101(codec.doc_values_format())
@@ -244,6 +304,16 @@ impl Codec for Codecs {
         CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format())
       },
       #[cfg(test)]
+      Self::RandomDistance(codec) => {
+        CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format())
+      },
+      #[cfg(test)]
+      Self::Compressing(codec) => {
+        CodecStoredFieldsFormat::Compressing(codec.stored_fields_format())
+      },
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecStoredFieldsFormat::CrankyLucene101(codec.stored_fields_format())
       },
@@ -263,6 +333,12 @@ impl Codec for Codecs {
       Self::AssertingNeedsIndexSort(codec) => {
         CodecTermVectorsFormat::Lucene90(codec.term_vectors_format())
       },
+      #[cfg(test)]
+      Self::RandomDistance(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecTermVectorsFormat::Compressing(codec.term_vectors_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecTermVectorsFormat::CrankyLucene101(codec.term_vectors_format())
@@ -293,6 +369,12 @@ impl Codec for Codecs {
         CodecFieldInfosFormat::Lucene101(codec.field_infos_format())
       },
       #[cfg(test)]
+      Self::RandomDistance(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecFieldInfosFormat::Cranky(codec.field_infos_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecFieldInfosFormat::Cranky(codec.field_infos_format()),
@@ -318,6 +400,12 @@ impl Codec for Codecs {
         CodecSegmentInfoFormat::Lucene101(codec.segment_info_format())
       },
       #[cfg(test)]
+      Self::RandomDistance(codec) => CodecSegmentInfoFormat::Lucene101(codec.segment_info_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecSegmentInfoFormat::Lucene101(codec.segment_info_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecSegmentInfoFormat::Lucene101(codec.segment_info_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecSegmentInfoFormat::Cranky(codec.segment_info_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecSegmentInfoFormat::Cranky(codec.segment_info_format()),
@@ -331,6 +419,12 @@ impl Codec for Codecs {
       Self::Asserting(codec) => CodecNormsFormat::Asserting(codec.norms_format()),
       #[cfg(test)]
       Self::AssertingNeedsIndexSort(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
+      #[cfg(test)]
+      Self::RandomDistance(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecNormsFormat::CrankyLucene101(codec.norms_format()),
       #[cfg(test)]
@@ -347,6 +441,12 @@ impl Codec for Codecs {
       Self::AssertingNeedsIndexSort(codec) => {
         CodecLiveDocsFormat::Lucene90(codec.live_docs_format())
       },
+      #[cfg(test)]
+      Self::RandomDistance(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecLiveDocsFormat::CrankyLucene101(codec.live_docs_format())
@@ -377,6 +477,12 @@ impl Codec for Codecs {
         CodecCompoundFormat::Lucene101(codec.compound_format())
       },
       #[cfg(test)]
+      Self::RandomDistance(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecCompoundFormat::Cranky(codec.compound_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecCompoundFormat::Cranky(codec.compound_format()),
@@ -392,6 +498,12 @@ impl Codec for Codecs {
       Self::AssertingNeedsIndexSort(codec) => {
         CodecPointsFormat::AssertingNeedsIndexSort(codec.points_format())
       },
+      #[cfg(test)]
+      Self::RandomDistance(codec) => CodecPointsFormat::RandomDistance(codec.points_format()),
+      #[cfg(test)]
+      Self::Compressing(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecPointsFormat::CrankyLucene101(codec.points_format()),
       #[cfg(test)]
@@ -413,6 +525,18 @@ impl Codec for Codecs {
         .knn_vectors_format()
         .map(CodecKnnVectorsFormat::Lucene101),
       #[cfg(test)]
+      Self::RandomDistance(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
+      #[cfg(test)]
+      Self::Compressing(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => codec
         .knn_vectors_format()
         .map(CodecKnnVectorsFormat::Lucene101),
@@ -430,6 +554,12 @@ impl Codec for Codecs {
       Self::Asserting(codec) => codec.get_name(),
       #[cfg(test)]
       Self::AssertingNeedsIndexSort(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::RandomDistance(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::Compressing(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::UnRegistered(codec) => codec.get_name(),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => codec.get_name(),
       #[cfg(test)]
@@ -475,6 +605,15 @@ pub fn for_name(name: &str) -> Result<Codecs> {
     "Lucene101" => Ok(Codecs::default()),
     #[cfg(test)]
     "Asserting" => Ok(Codecs::Asserting(AssertingCodec::new())),
+    #[cfg(test)]
+    "FastCompressingStoredFieldsData"
+    | "FastDecompressionCompressingStoredFieldsData"
+    | "HighCompressionCompressingStoredFieldsData"
+    | "DummyCompressingStoredFieldsData"
+    | "DeflateWithPresetCompressingStoredFieldsData"
+    | "LZ4WithPresetCompressingStoredFieldsData" => {
+      CompressingCodec::for_name(name).map(Codecs::Compressing)
+    },
     _ => Err(LuceneError::illegal_argument(format!(
       "Could not load codec named \"{}\"",
       name

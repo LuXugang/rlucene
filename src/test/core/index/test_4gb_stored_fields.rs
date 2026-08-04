@@ -30,6 +30,7 @@ use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
 use crate::test_framework::core::store::mock_directory_wrapper::{
   MockDirectoryWrapper, Throttling,
 };
@@ -66,7 +67,9 @@ fn test() -> Result<()> {
     .set_merge_policy(merge_policy)
     .set_open_mode(OpenMode::Create);
 
-  // TODO IMPORTANT CompressingCodec::reasonable_instance 尚未迁移。
+  if random.random_bool(0.5) {
+    iwc.set_codec(CompressingCodec::reasonable_instance(&mut random)?);
+  }
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let value_length = random.random_range((1 << 13)..=(1 << 20));

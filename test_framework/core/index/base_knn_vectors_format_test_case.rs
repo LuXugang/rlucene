@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::Codec;
+use crate::core::codecs::codec_formats::CodecKnnVectorsFormat;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
@@ -75,6 +76,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VectorUtil;
+use crate::test_framework::core::codecs::asserting_codec::AssertingCodecKnnVectorsFormat;
 use crate::test_framework::core::index::base_index_file_format_test_case::{
   BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
 };
@@ -379,6 +381,17 @@ pub trait BaseKnnVectorsFormatTestCase:
     let ex = Arc::new(AtomicBool::new(false));
     let merge_scheduler = TestMergeScheduler::new(ex.clone());
     let mut iwc = new_index_writer_config(random)?;
+    let codec = self.get_codec()?;
+    let format: AssertingCodecKnnVectorsFormat = match codec.knn_vectors_format()? {
+      CodecKnnVectorsFormat::Lucene101(format) => format
+        .get_knn_vectors_format_for_field("field")?
+        .clone()
+        .into(),
+      CodecKnnVectorsFormat::Asserting(format) => {
+        format.get_knn_vectors_format_for_field("field")?.clone()
+      },
+    };
+    iwc.set_codec(TestUtil::always_knn_vectors_format(format));
     iwc.set_merge_scheduler(MergeSchedulerEnum::KnnMergeScheduler(merge_scheduler));
     let mp = iwc.get_merge_policy().clone();
     iwc.set_merge_policy(MergePolicyEnum::Force(ForceMergePolicy::new(mp)));
@@ -418,6 +431,17 @@ pub trait BaseKnnVectorsFormatTestCase:
     let ex = Arc::new(AtomicBool::new(false));
     let merge_scheduler = TestMergeScheduler::new(ex.clone());
     let mut iwc = new_index_writer_config(random)?;
+    let codec = self.get_codec()?;
+    let format: AssertingCodecKnnVectorsFormat = match codec.knn_vectors_format()? {
+      CodecKnnVectorsFormat::Lucene101(format) => format
+        .get_knn_vectors_format_for_field("field")?
+        .clone()
+        .into(),
+      CodecKnnVectorsFormat::Asserting(format) => {
+        format.get_knn_vectors_format_for_field("field")?.clone()
+      },
+    };
+    iwc.set_codec(TestUtil::always_knn_vectors_format(format));
     iwc.set_merge_scheduler(MergeSchedulerEnum::KnnMergeScheduler(merge_scheduler));
     let mp = iwc.get_merge_policy().clone();
     iwc.set_merge_policy(MergePolicyEnum::Force(ForceMergePolicy::new(mp)));

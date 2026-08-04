@@ -31,6 +31,7 @@ use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::lucene_test_case::{new_index_writer_config, random};
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::sync::Arc;
 
@@ -65,6 +66,7 @@ where
   R: Rng + ?Sized,
 {
   let mut conf = new_index_writer_config(random)?;
+  conf.set_codec(TestUtil::get_default_codec());
   conf.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
   conf.set_ram_buffer_size_mb(DEFAULT_RAM_BUFFER_SIZE_MB);
   conf.set_use_compound_file(false);

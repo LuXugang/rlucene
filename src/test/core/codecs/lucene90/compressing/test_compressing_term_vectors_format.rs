@@ -15,19 +15,30 @@
  * limitations under the License.
  */
 use crate::core::codecs::Codecs;
+use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum2;
 use crate::core::document::document::Document;
+use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  get_only_leaf_reader, new_directory_shared, new_field, random,
+  get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config_with_analyzer,
+  new_log_merge_policy, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -154,7 +165,7 @@ fn test_no_ords() -> Result<()> {
   iw.add_document(&mut random, doc)?;
 
   let ir = get_only_leaf_reader(&iw.get_reader(&mut random)?)?;
-  let mut term_vectors = ir.term_vectors()?;
+  let mut term_vectors = CodecReader::term_vectors(&ir)?;
   let terms = term_vectors.get_field_terms(0, "foo")?;
   assert!(terms.is_some());
 
@@ -176,7 +187,73 @@ fn test_no_ords() -> Result<()> {
 }
 #[test]
 fn test_chunk_cleanup() -> Result<()> {
-  // TODO IMPORTANT 可配置参数的 CompressingCodec 尚未迁移。
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  iwc.set_merge_policy(NoMergePolicy::default());
+
+  // We have to enforce certain things like maxDocsPerChunk to cause dirty chunks to be created by
+  // this test.
+  iwc.set_codec(CompressingCodec::random_instance_with_parameters(
+    &mut random,
+    4 * 1024,
+    4,
+    false,
+    8,
+  )?);
+  let iw = IndexWriter::new(dir, iwc)?;
+  let mut ir = directory_reader::open_from_writer(&iw)?;
+  for _ in 0..5 {
+    let mut doc = Document::new();
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+    ft.set_store_term_vectors(true)?;
+    doc.add(Field::new("text", "not very long at all", ft));
+    iw.add_document(doc)?;
+    // Force flush.
+    let ir2 = directory_reader::open_if_changed(&ir)?.expect("reader should change");
+    ir.close()?;
+    ir = ir2;
+    // Examine dirty counts.
+    for leaf in ir.get_sequential_sub_readers() {
+      let reader = leaf
+        .get_term_vectors_reader()?
+        .expect("term vectors reader should exist");
+      let TermVectorsReaderEnum2::A(reader) = reader else {
+        panic!("compressing codec should use Lucene90 term vectors");
+      };
+      assert!(reader.get_num_dirty_docs()? > 0);
+      assert_eq!(1, reader.get_num_dirty_chunks()?);
+    }
+  }
+  iw.get_config_mut()
+    .set_merge_policy(new_log_merge_policy(&mut random)?);
+  iw.force_merge(1)?;
+  // Add one more doc and merge again.
+  let mut doc = Document::new();
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+  ft.set_store_term_vectors(true)?;
+  doc.add(Field::new("text", "not very long at all", ft));
+  iw.add_document(doc)?;
+  iw.force_merge(1)?;
+  let ir2 = directory_reader::open_if_changed(&ir)?.expect("reader should change");
+  ir.close()?;
+  ir = ir2;
+  let leaf = ir
+    .get_sequential_sub_readers()
+    .first()
+    .expect("reader should have one leaf");
+  assert_eq!(1, ir.get_sequential_sub_readers().len());
+  let reader = leaf
+    .get_term_vectors_reader()?
+    .expect("term vectors reader should exist");
+  let TermVectorsReaderEnum2::A(reader) = reader else {
+    panic!("compressing codec should use Lucene90 term vectors");
+  };
+  // At most 2: the 5 chunks from 5 doc segment will be collapsed into a single chunk.
+  assert!(reader.get_num_dirty_chunks()? <= 2);
+  ir.close()?;
+  iw.close()?;
   Ok(())
 }
 

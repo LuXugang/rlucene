@@ -33,6 +33,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_text_field, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashMap;
 
 #[allow(dead_code)] // for quick search
@@ -108,7 +109,10 @@ fn test_term_ord() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  iwc.set_codec(TestUtil::always_postings_format(
+    TestUtil::get_default_postings_format(),
+  ));
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 

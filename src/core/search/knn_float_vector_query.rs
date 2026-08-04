@@ -21,8 +21,9 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::leaf_reader::{LRFloatVectorValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::abstract_knn_vector_query::{
-  AbstractKnnVectorQuery, AbstractKnnVectorQueryBase, NO_RESULTS,
+  AbstractKnnVectorQuery, AbstractKnnVectorQueryBase, AbstractKnnVectorQueryDefaults, NO_RESULTS,
 };
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
@@ -34,6 +35,8 @@ use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
+use crate::core::util::bit_set::BitSet;
+use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VectorUtil;
@@ -51,7 +54,15 @@ use std::hash::{Hash, Hasher};
 pub struct KnnFloatVectorQuery {
   base: AbstractKnnVectorQueryBase,
   target: Vec<f32>,
+  hook: KnnFloatVectorQueryHook,
   id: Identity,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+enum KnnFloatVectorQueryHook {
+  Default,
+  #[cfg(test)]
+  Throwing,
 }
 
 impl KnnFloatVectorQuery {
@@ -96,8 +107,24 @@ impl KnnFloatVectorQuery {
     Ok(Self {
       base: AbstractKnnVectorQueryBase::new(field, k, filter)?,
       target,
+      hook: KnnFloatVectorQueryHook::Default,
       id: Identity::new(),
     })
+  }
+
+  #[cfg(test)]
+  pub(crate) fn throwing_with_filter<T>(
+    field: T,
+    target: Vec<f32>,
+    k: usize,
+    filter: Option<Query>,
+  ) -> Result<Self>
+  where
+    T: Into<String>,
+  {
+    let mut query = Self::with_filter(field, target, k, filter)?;
+    query.hook = KnnFloatVectorQueryHook::Throwing;
+    Ok(query)
   }
 
   /// Returns the target query vector of the search. Each vector element is a float.
@@ -108,7 +135,7 @@ impl KnnFloatVectorQuery {
 
 impl PartialEq for KnnFloatVectorQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.target == other.target && self.base == other.base
+    self.target == other.target && self.base == other.base && self.hook == other.hook
   }
 }
 
@@ -120,6 +147,7 @@ impl Hash for KnnFloatVectorQuery {
     H: Hasher,
   {
     self.base.hash(state);
+    self.hook.hash(state);
     for &v in &self.target {
       let bits = if v == 0.0 {
         0.0f32.to_bits()
@@ -267,6 +295,28 @@ impl AbstractKnnVectorQuery for KnnFloatVectorQuery {
       },
     };
     vector_values.scorer(self.target.clone())
+  }
+
+  fn exact_search<LR, T, Q>(
+    &self,
+    context: &LeafReaderContext<LR>,
+    accept_iterator: BitSetIterator<T>,
+    query_timeout: Option<&Q>,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    LR: LeafReader,
+    T: BitSet,
+    Q: QueryTimeout,
+  {
+    match self.hook {
+      KnnFloatVectorQueryHook::Default => {
+        AbstractKnnVectorQueryDefaults::exact_search(self, context, accept_iterator, query_timeout)
+      },
+      #[cfg(test)]
+      KnnFloatVectorQueryHook::Throwing => Err(LuceneError::unsupported_operation(
+        "exact search is not supported",
+      )),
+    }
   }
 }
 

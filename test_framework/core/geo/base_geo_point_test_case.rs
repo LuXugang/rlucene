@@ -52,6 +52,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sloppy_math::SloppyMath;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
+use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -1296,8 +1297,7 @@ pub trait BaseGeoPointTestCase {
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let points_in_leaf = 2 + random.random_range(0..4);
-    let _ = points_in_leaf;
-    // TODO IMPORTANT Java 的自定义 FilterCodec 和 PointsFormat 覆写尚未迁移。
+    iwc.set_codec(RandomDistanceCodec::new(points_in_leaf));
     let writer = RandomIndexWriter::with_config(random, dir, iwc);
 
     for _ in 0..num_docs {

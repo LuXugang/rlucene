@@ -38,6 +38,7 @@ use std::sync::Arc;
 /// For optimal performance, you should use a
 /// [`MergePolicy`](crate::core::index::merge_policy::MergePolicy) that returns
 /// segments that have the biggest byte size first.
+#[derive(Clone)]
 pub struct Lucene90CompressingStoredFieldsFormat {
   format_name: String,
   segment_suffix: String,

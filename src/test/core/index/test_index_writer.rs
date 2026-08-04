@@ -1704,7 +1704,8 @@ fn test_wicked_long_term() -> Result<()> {
   let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_tokenized(false)?;
 
-  let iwc = new_index_writer_config(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
+  iwc.set_codec(TestUtil::get_default_codec());
   let w2 = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
   let mut doc = Document::new();

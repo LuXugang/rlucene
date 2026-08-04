@@ -106,6 +106,15 @@ where
       identity: Identity::new(),
     }
   }
+
+  /// Returns the numeric vector format that should be used for writing new
+  /// segments of `field`.
+  ///
+  /// The field-to-format mapping is written to the index, so this method is
+  /// only invoked when writing, not when reading.
+  pub fn get_knn_vectors_format_for_field(&self, field: &str) -> Result<&B::Format> {
+    self.base.get_knn_vectors_format_for_field(field)
+  }
 }
 
 impl<B> HasIdentity for PerFieldKnnVectorsFormat<B>

@@ -31,6 +31,7 @@ use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test_framework::core::codecs::compressing::dummy::dummy_compressing_codec::DummyCompressingCodec;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -163,17 +164,16 @@ pub(super) trait TestLucene90StoredFieldsFormatTests:
     let counter = Arc::new(AtomicUsize::new(0));
     let dir = Arc::new(CountingPrefetchDirectory::new(orig_dir, counter.clone()));
 
-    // TODO IMPORTANT DummyCompressingCodec未实现
     let mut iwc = IndexWriterConfig::new()?;
-    iwc.set_use_compound_file(false);
+    iwc.set_codec(DummyCompressingCodec::new(1 << 10, 2, false, 16)?);
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    // Make docs large enough so Lucene90's default stored-fields writer flushes
-    // every 2 docs, which matches the original Java test's dummy codec setup.
-    let content = TestUtil::random_simple_string_range(random, 45_000, 45_000);
     for _ in 0..100 {
       let mut doc = Document::new();
-      doc.add(StoredField::from_string("content", content.clone())?);
+      doc.add(StoredField::from_string(
+        "content",
+        TestUtil::random_simple_string(random),
+      )?);
       writer.add_document(doc)?;
     }
     writer.force_merge(1)?;

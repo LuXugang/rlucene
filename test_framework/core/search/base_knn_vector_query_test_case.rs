@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::fields::Fields;
 use crate::core::document::int_point::IntPoint;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::base_composite_reader::{
   BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
@@ -47,6 +48,7 @@ use crate::core::search::abstract_knn_vector_query::AbstractKnnVectorQuery;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;
@@ -58,6 +60,8 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
+use crate::core::search::sort::Sort;
+use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::time_limiting_knn_collector_manager::TimeLimitingKnnCollectorManager;
 use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
@@ -679,11 +683,138 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(())
   }
 
-  fn test_random_with_filter<R>(&self, _random: &mut R) -> Result<()>
+  fn test_random_with_filter<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
+    Self::Directory: 'static,
   {
-    // TODO get_throwing_knn_vector_query 未实现
+    let num_docs = 1000usize;
+    let dimension = at_least_usize(random, 5);
+    let num_iters = at_least_usize(random, 10);
+    let directory = self.new_directory_for_test(random)?;
+    // Always use the default kNN format to have predictable behavior around when it hits
+    // visitedLimit. This is fine since the test targets AbstractKnnVectorQuery logic, not the kNN
+    // format implementation.
+    let mut iwc = IndexWriterConfig::new()?;
+    iwc.set_codec(TestUtil::get_default_codec());
+    let writer = RandomIndexWriter::with_config(random, Arc::new(directory.clone()), iwc);
+    for i in 0..num_docs {
+      let mut doc = Document::new();
+      doc.add(self.get_knn_vector_field("field", self.random_vector(random, dimension))?);
+      doc.add(NumericDocValuesField::new("tag", i as i64));
+      doc.add(IntPoint::new("tag", [i as i32])?);
+      writer.add_document(random, doc)?;
+    }
+    writer.force_merge(random, 1)?;
+    writer.close(random)?;
+
+    let reader = directory_reader::open(Arc::new(directory.clone()))?;
+    let searcher = new_searcher_with_reader(reader)?;
+    for _ in 0..num_iters {
+      let lower = random.random_range(0..500);
+
+      // Test a filter with cost less than k and check we use exact search.
+      let filter1: Query = IntPoint::new_range_query("tag", lower, lower + 8)?.into();
+      let results = searcher.search(
+        self.get_knn_vector_query(
+          "field",
+          self.random_vector(random, dimension),
+          10,
+          Some(filter1.clone()),
+        )?,
+        num_docs,
+      )?;
+      assert_eq!(9, results.total_hits.value());
+      assert_eq!(results.total_hits.value(), results.score_docs.len());
+      match searcher.search(
+        self.get_throwing_knn_vector_query(
+          "field",
+          self.random_vector(random, dimension),
+          10,
+          Some(filter1),
+        )?,
+        num_docs,
+      ) {
+        Err(LuceneError::UnsupportedOperation(_)) => {},
+        Err(error) => return Err(error),
+        Ok(_) => panic!("exact search should not be supported"),
+      }
+
+      // Test a restrictive filter and check we use exact search.
+      let filter2: Query = IntPoint::new_range_query("tag", lower, lower + 6)?.into();
+      let results = searcher.search(
+        self.get_knn_vector_query(
+          "field",
+          self.random_vector(random, dimension),
+          5,
+          Some(filter2.clone()),
+        )?,
+        num_docs,
+      )?;
+      assert_eq!(5, results.total_hits.value());
+      assert_eq!(results.total_hits.value(), results.score_docs.len());
+      match searcher.search(
+        self.get_throwing_knn_vector_query(
+          "field",
+          self.random_vector(random, dimension),
+          5,
+          Some(filter2),
+        )?,
+        num_docs,
+      ) {
+        Err(LuceneError::UnsupportedOperation(_)) => {},
+        Err(error) => return Err(error),
+        Ok(_) => panic!("exact search should not be supported"),
+      }
+
+      // Test an unrestrictive filter and check we use approximate search.
+      let filter3: Query = IntPoint::new_range_query("tag", lower, num_docs as i32)?.into();
+      let sort = Sort::with_fields(vec![SortField::new(Some("tag"), SortFieldType::Int)?])?;
+      let results = searcher.search_with_sort(
+        self.get_throwing_knn_vector_query(
+          "field",
+          self.random_vector(random, dimension),
+          5,
+          Some(filter3),
+        )?,
+        num_docs,
+        sort,
+      )?;
+      assert_eq!(5, results.base.total_hits.value());
+      assert_eq!(
+        results.base.total_hits.value(),
+        results.base.score_docs.len()
+      );
+      for score_doc in &results.base.score_docs {
+        let TopFieldScoreDoc::Field(field_doc) = score_doc else {
+          panic!("sorted search should return field docs");
+        };
+        assert_eq!(1, field_doc.fields.len());
+        let tag = *field_doc.fields[0]
+          .as_i32()
+          .expect("tag sort value should be an i32");
+        assert!(lower <= tag && tag <= num_docs as i32);
+      }
+
+      // Test a filter that exhausts visitedLimit in upper levels, and switches to exact search.
+      let filter4: Query = IntPoint::new_range_query("tag", lower, lower + 2)?.into();
+      match searcher.search(
+        self.get_throwing_knn_vector_query(
+          "field",
+          self.random_vector(random, dimension),
+          1,
+          Some(filter4),
+        )?,
+        num_docs,
+      ) {
+        Err(LuceneError::UnsupportedOperation(_)) => {},
+        Err(error) => return Err(error),
+        Ok(_) => panic!("exact search should not be supported"),
+      }
+    }
+
+    searcher.get_index_reader().close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -695,7 +826,9 @@ pub trait BaseKnnVectorQueryTestCase {
     let dimension = at_least_usize(random, 5);
     let size = 5usize;
     let directory = self.new_directory_for_test(random)?;
-    let writer = IndexWriter::new(directory.clone().into(), IndexWriterConfig::new()?)?;
+    let mut iwc = IndexWriterConfig::new()?;
+    iwc.set_codec(TestUtil::get_default_codec());
+    let writer = IndexWriter::new(directory.clone().into(), iwc)?;
     let vector = self.random_vector(random, dimension);
 
     for i in 0..num_docs {

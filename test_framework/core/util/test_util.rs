@@ -24,7 +24,6 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, LazyLock};
 
 use crate::core::codecs::Codec;
-use crate::core::codecs::knn_vectors_formats::KnnVectorsFormats;
 use crate::core::codecs::lucene90_doc_values_format::Lucene90DocValuesFormat;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
@@ -60,7 +59,8 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::codecs::asserting_codec::{
-  AssertingCodec, AssertingCodecDocValuesFormat,
+  AssertingCodec, AssertingCodecDocValuesFormat, AssertingCodecKnnVectorsFormat,
+  AssertingCodecPostingsFormat,
 };
 use std::io::Sink;
 
@@ -149,6 +149,12 @@ const BLOCK_ENDS: &[u32] = &[
 impl TestUtil {
   /// Return a Codec that can read any of the default codecs and formats, but always writes in the
   /// specified format.
+  pub fn always_postings_format(format: impl Into<AssertingCodecPostingsFormat>) -> AssertingCodec {
+    AssertingCodec::with_postings_format(format)
+  }
+
+  /// Return a Codec that can read any of the default codecs and formats, but always writes in the
+  /// specified format.
   pub fn always_doc_values_format(
     format: impl Into<AssertingCodecDocValuesFormat>,
   ) -> AssertingCodec {
@@ -157,7 +163,9 @@ impl TestUtil {
 
   /// Return a Codec that can read any of the default codecs and formats, but always writes in the
   /// specified format.
-  pub fn always_knn_vectors_format(format: impl Into<KnnVectorsFormats>) -> AssertingCodec {
+  pub fn always_knn_vectors_format(
+    format: impl Into<AssertingCodecKnnVectorsFormat>,
+  ) -> AssertingCodec {
     AssertingCodec::with_knn_vectors_format(format)
   }
 

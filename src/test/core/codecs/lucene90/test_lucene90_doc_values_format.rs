@@ -1616,6 +1616,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
+    config.set_codec(self.get_codec()?);
     config.set_use_compound_file(false);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
 
@@ -1676,6 +1677,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     let directory = new_directory_shared(random)?;
     let analyzer = MockAnalyzer::new(random);
     let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
+    config.set_codec(self.get_codec()?);
     config.set_use_compound_file(false);
     let writer = RandomIndexWriter::with_config(random, directory.clone(), config);
 

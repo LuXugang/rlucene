@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codec::memory::direct_postings_format::DirectPostingsFormat;
+use crate::core::codecs::Codec;
+use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_writer::Inner;
@@ -30,6 +33,11 @@ use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::codecs::asserting_codec::{
+  AssertingCodecBase, AssertingCodecDefaults, AssertingCodecDocValuesFormat,
+  AssertingCodecKnnVectorsFormat, AssertingCodecPostingsFormat,
+};
+use crate::test_framework::core::util::test_util::{DefaultCodec, TestUtil};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
@@ -38,6 +46,126 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestAddIndexes;
+
+pub(crate) struct CustomPerFieldAssertingCodec {
+  defaults: AssertingCodecDefaults,
+  direct_format: AssertingCodecPostingsFormat,
+  default_format: AssertingCodecPostingsFormat,
+}
+
+impl CustomPerFieldAssertingCodec {
+  pub(crate) fn new() -> Result<Self> {
+    Ok(Self {
+      defaults: AssertingCodecDefaults::default(),
+      direct_format: AssertingCodecPostingsFormat::Direct(DirectPostingsFormat::for_name(
+        "Direct",
+      )?),
+      default_format: TestUtil::get_default_postings_format().into(),
+    })
+  }
+}
+
+impl AssertingCodecBase for CustomPerFieldAssertingCodec {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
+    if field == "id" {
+      Ok(&self.direct_format)
+    } else {
+      Ok(&self.default_format)
+    }
+  }
+
+  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingCodecDocValuesFormat> {
+    self.defaults.get_doc_values_format_for_field(field)
+  }
+
+  fn get_knn_vectors_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
+    self.defaults.get_knn_vectors_format_for_field(field)
+  }
+}
+
+#[derive(Clone)]
+pub struct UnRegisteredCodec {
+  delegate: DefaultCodec,
+}
+
+impl UnRegisteredCodec {
+  pub fn new() -> Self {
+    Self {
+      delegate: TestUtil::get_default_codec(),
+    }
+  }
+}
+
+impl Display for UnRegisteredCodec {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "NotRegistered({})", self.delegate)
+  }
+}
+
+impl Codec for UnRegisteredCodec {
+  type PostingsFormat = <DefaultCodec as Codec>::PostingsFormat;
+  type DocValuesFormat = <DefaultCodec as Codec>::DocValuesFormat;
+  type StoredFieldsFormat = <DefaultCodec as Codec>::StoredFieldsFormat;
+  type TermVectorsFormat = <DefaultCodec as Codec>::TermVectorsFormat;
+  type FieldInfosFormat = <DefaultCodec as Codec>::FieldInfosFormat;
+  type SegmentInfoFormat = <DefaultCodec as Codec>::SegmentInfoFormat;
+  type NormsFormat = <DefaultCodec as Codec>::NormsFormat;
+  type LiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
+  type CompoundFormat = <DefaultCodec as Codec>::CompoundFormat;
+  type PointsFormat = <DefaultCodec as Codec>::PointsFormat;
+  type KnnVectorsFormat = <DefaultCodec as Codec>::KnnVectorsFormat;
+
+  fn postings_format(&self) -> Self::PostingsFormat {
+    self.delegate.postings_format()
+  }
+
+  fn doc_values_format(&self) -> Self::DocValuesFormat {
+    self.delegate.doc_values_format()
+  }
+
+  fn stored_fields_format(&self) -> Self::StoredFieldsFormat {
+    self.delegate.stored_fields_format()
+  }
+
+  fn term_vectors_format(&self) -> Self::TermVectorsFormat {
+    self.delegate.term_vectors_format()
+  }
+
+  fn field_infos_format(&self) -> Self::FieldInfosFormat {
+    self.delegate.field_infos_format()
+  }
+
+  fn segment_info_format(&self) -> Self::SegmentInfoFormat {
+    self.delegate.segment_info_format()
+  }
+
+  fn norms_format(&self) -> Self::NormsFormat {
+    self.delegate.norms_format()
+  }
+
+  fn live_docs_format(&self) -> Self::LiveDocsFormat {
+    self.delegate.live_docs_format()
+  }
+
+  fn compound_format(&self) -> Self::CompoundFormat {
+    self.delegate.compound_format()
+  }
+
+  fn points_format(&self) -> Self::PointsFormat {
+    self.delegate.points_format()
+  }
+
+  fn knn_vectors_format(&self) -> Result<Self::KnnVectorsFormat> {
+    self.delegate.knn_vectors_format()
+  }
+
+  fn get_name(&self) -> &str {
+    "NotRegistered"
+  }
+}
 
 #[derive(Clone, Default)]
 pub struct ConcurrentAddIndexesMergePolicy {

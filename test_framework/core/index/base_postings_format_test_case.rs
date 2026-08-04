@@ -264,7 +264,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
     let mut field_types = HashMap::new();
@@ -293,7 +293,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
     let mut field_types = HashMap::new();
@@ -316,7 +316,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
     let mut field_types = HashMap::new();
@@ -347,7 +347,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     let iw = RandomIndexWriter::with_config(random, dir, iwc);
     let mut doc = Document::new();
     let mut field_types = HashMap::new();
@@ -380,7 +380,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     iwc.base.merge_policy = new_log_merge_policy(random)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
     let doc = Document::new();
@@ -418,7 +418,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     iwc.base.merge_policy = new_tiered_merge_policy(random)?.into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -465,7 +465,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     iwc.base.merge_policy = new_tiered_merge_policy(random)?.into();
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -533,7 +533,7 @@ pub trait BasePostingsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
-    iwc.base.codec = self.get_codec()?;
+    iwc.set_codec(self.get_codec()?);
     iwc.base.merge_policy = new_log_merge_policy(random)?;
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 

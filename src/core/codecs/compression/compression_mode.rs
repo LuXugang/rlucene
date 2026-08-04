@@ -38,6 +38,10 @@ use crate::core::util::compress::lz4::{
   FastCompressionHashTable, HashTableEnum, HighCompressionHashTable, LZ4,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use crate::test_framework::core::codecs::compressing::dummy::dummy_compressing_codec::{
+  DummyCompressionMode, DummyCompressor, DummyDecompressor,
+};
 
 /// A compression mode. Tells how much effort should be spent on compression and
 /// decompression of stored fields.
@@ -156,6 +160,8 @@ pub enum CompressionModeEnum {
   Deflate(DeflateCompressionMode),
   LZ4Dict(LZ4WithPresetDictCompressionMode),
   Impl(NoCompression),
+  #[cfg(test)]
+  Dummy(DummyCompressionMode),
 }
 
 impl Display for CompressionModeEnum {
@@ -166,6 +172,8 @@ impl Display for CompressionModeEnum {
       CompressionModeEnum::Deflate(mode) => write!(f, "{mode}"),
       CompressionModeEnum::LZ4Dict(mode) => write!(f, "{mode}"),
       CompressionModeEnum::Impl(mode) => write!(f, "{mode}"),
+      #[cfg(test)]
+      CompressionModeEnum::Dummy(mode) => write!(f, "{mode}"),
     }
   }
 }
@@ -178,6 +186,8 @@ impl CompressionModeBase for CompressionModeEnum {
       CompressionModeEnum::Deflate(mode) => mode.new_compressor(),
       CompressionModeEnum::LZ4Dict(mode) => mode.new_compressor(),
       CompressionModeEnum::Impl(mode) => mode.new_compressor(),
+      #[cfg(test)]
+      CompressionModeEnum::Dummy(mode) => mode.new_compressor(),
     }
   }
 
@@ -188,6 +198,8 @@ impl CompressionModeBase for CompressionModeEnum {
       CompressionModeEnum::Deflate(mode) => mode.new_decompressor(),
       CompressionModeEnum::LZ4Dict(mode) => mode.new_decompressor(),
       CompressionModeEnum::Impl(mode) => mode.new_decompressor(),
+      #[cfg(test)]
+      CompressionModeEnum::Dummy(mode) => mode.new_decompressor(),
     }
   }
 }
@@ -199,19 +211,23 @@ impl Clone for CompressionModeEnum {
       CompressionModeEnum::Deflate(mode) => CompressionModeEnum::Deflate(mode.clone()),
       CompressionModeEnum::LZ4Dict(mode) => CompressionModeEnum::LZ4Dict(mode.clone()),
       CompressionModeEnum::Impl(mode) => CompressionModeEnum::Impl(mode.clone()),
+      #[cfg(test)]
+      CompressionModeEnum::Dummy(mode) => CompressionModeEnum::Dummy(*mode),
     }
   }
 }
 impl PartialEq for CompressionModeEnum {
   fn eq(&self, other: &Self) -> bool {
-    matches!(
-      (self, other),
+    match (self, other) {
       (Self::Fast(_), Self::Fast(_))
-        | (Self::High(_), Self::High(_))
-        | (Self::Deflate(_), Self::Deflate(_))
-        | (Self::LZ4Dict(_), Self::LZ4Dict(_))
-        | (Self::Impl(_), Self::Impl(_))
-    )
+      | (Self::High(_), Self::High(_))
+      | (Self::Deflate(_), Self::Deflate(_))
+      | (Self::LZ4Dict(_), Self::LZ4Dict(_))
+      | (Self::Impl(_), Self::Impl(_)) => true,
+      #[cfg(test)]
+      (Self::Dummy(_), Self::Dummy(_)) => true,
+      _ => false,
+    }
   }
 }
 
@@ -258,6 +274,8 @@ pub enum DecompressorEnum {
   Deflate(DeflateDecompressor),
   LZ4Dict(LZ4WithPresetDictDecompressor),
   Impl1(DecompressorImpl),
+  #[cfg(test)]
+  Dummy(DummyDecompressor),
 }
 
 impl Clone for DecompressorEnum {
@@ -267,6 +285,8 @@ impl Clone for DecompressorEnum {
       DecompressorEnum::Deflate(decompressor) => DecompressorEnum::Deflate(decompressor.clone()),
       DecompressorEnum::LZ4Dict(decompressor) => DecompressorEnum::LZ4Dict(decompressor.clone()),
       DecompressorEnum::Impl1(decompressor) => DecompressorEnum::Impl1(decompressor.clone()),
+      #[cfg(test)]
+      DecompressorEnum::Dummy(decompressor) => DecompressorEnum::Dummy(*decompressor),
     }
   }
 }
@@ -291,6 +311,10 @@ impl Decompressor for DecompressorEnum {
         decompressor.decompress(input, original_length, offset, length, bytes)
       },
       DecompressorEnum::Impl1(decompressor) => {
+        decompressor.decompress(input, original_length, offset, length, bytes)
+      },
+      #[cfg(test)]
+      DecompressorEnum::Dummy(decompressor) => {
         decompressor.decompress(input, original_length, offset, length, bytes)
       },
     }
@@ -449,6 +473,8 @@ pub enum CompressorEnum {
   Deflate(DeflateCompressor),
   LZ4Dict(LZ4WithPresetDictCompressor),
   Impl1(CompressorImpl),
+  #[cfg(test)]
+  Dummy(DummyCompressor),
 }
 
 impl Closeable for CompressorEnum {
@@ -459,6 +485,8 @@ impl Closeable for CompressorEnum {
       CompressorEnum::Deflate(compressor) => compressor.close(),
       CompressorEnum::LZ4Dict(compressor) => compressor.close(),
       CompressorEnum::Impl1(compressor) => compressor.close(),
+      #[cfg(test)]
+      CompressorEnum::Dummy(compressor) => compressor.close(),
     }
   }
 }
@@ -475,6 +503,8 @@ impl Compressor for CompressorEnum {
       CompressorEnum::Deflate(compressor) => compressor.compress(buffers_input, out),
       CompressorEnum::LZ4Dict(compressor) => compressor.compress(buffers_input, out),
       CompressorEnum::Impl1(compressor) => compressor.compress(buffers_input, out),
+      #[cfg(test)]
+      CompressorEnum::Dummy(compressor) => compressor.compress(buffers_input, out),
     }
   }
 }

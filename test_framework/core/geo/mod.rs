@@ -18,6 +18,7 @@ pub mod base_geo_point_test_case;
 pub mod base_xy_point_test_case;
 pub mod earth_debugger;
 pub mod geo_test_util;
+pub(crate) mod random_distance_codec;
 mod shape_test_util;
 
 pub(crate) use shape_test_util::ShapeTestUtil;

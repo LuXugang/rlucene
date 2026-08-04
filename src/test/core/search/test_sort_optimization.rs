@@ -80,6 +80,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_log_merge_policy, new_searcher_with_reader, new_searcher_with_threads,
   new_searcher_with_wrap_assert, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::prelude::SliceRandom;
 use rand::random_bool;
@@ -95,7 +96,8 @@ fn test_long_sort_optimization() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = IndexWriterConfig::new()?;
+  let mut config = IndexWriterConfig::new()?;
+  config.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   // let num_docs = at_least(&mut random, 10_000);
@@ -271,7 +273,8 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = IndexWriterConfig::new()?;
+  let mut config = IndexWriterConfig::new()?;
+  config.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let num_docs = at_least(&mut random, 10_000);
@@ -409,7 +412,8 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let config = IndexWriterConfig::new()?;
+  let mut config = IndexWriterConfig::new()?;
+  config.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let num_docs = at_least(&mut random, 10_000);
@@ -494,7 +498,8 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
 fn test_sort_optimization_equal_values() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let config = IndexWriterConfig::new()?;
+  let mut config = IndexWriterConfig::new()?;
+  config.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let num_docs = if is_night_mode() {
@@ -662,7 +667,8 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
 
   for i in 0..num_indices {
     let dir = new_directory_shared(&mut random)?;
-    let config = IndexWriterConfig::new()?;
+    let mut config = IndexWriterConfig::new()?;
+    config.set_codec(TestUtil::get_default_codec());
     let writer = IndexWriter::new(dir.clone(), config)?;
     for doc_id in 0..num_docs_in_index {
       let mut doc = Document::new();

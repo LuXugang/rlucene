@@ -37,6 +37,10 @@ use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReader
 #[cfg(test)]
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriterEnum2;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
+#[cfg(test)]
+use crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
+#[cfg(test)]
+use crate::core::codecs::lucene90::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::core::codecs::lucene90_live_docs_format::Lucene90LiveDocsFormat;
 use crate::core::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::core::codecs::lucene90_points_format::Lucene90PointsFormat;
@@ -105,6 +109,8 @@ use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
 #[cfg(test)]
 use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 #[cfg(test)]
+use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
+#[cfg(test)]
 use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -128,6 +134,8 @@ type AssertingPointsFormat = <AssertingCodec as Codec>::PointsFormat;
 type AssertingKnnVectorsFormat = <AssertingCodec as Codec>::KnnVectorsFormat;
 #[cfg(test)]
 type AssertingNeedsIndexSortPointsFormat = <AssertingNeedsIndexSortCodec as Codec>::PointsFormat;
+#[cfg(test)]
+type RandomDistancePointsFormat = <RandomDistanceCodec as Codec>::PointsFormat;
 #[cfg(test)]
 type CrankyLucene101Codec = CrankyCodec<Lucene101Codec>;
 #[cfg(test)]
@@ -184,6 +192,8 @@ pub enum CodecDocValuesFormat {
 pub enum CodecStoredFieldsFormat {
   Lucene90(Lucene90StoredFieldsFormat),
   #[cfg(test)]
+  Compressing(Lucene90CompressingStoredFieldsFormat),
+  #[cfg(test)]
   Asserting(AssertingStoredFieldsFormat),
   #[cfg(test)]
   CrankyLucene101(CrankyLucene101StoredFieldsFormat),
@@ -193,6 +203,8 @@ pub enum CodecStoredFieldsFormat {
 
 pub enum CodecTermVectorsFormat {
   Lucene90(Lucene90TermVectorsFormat),
+  #[cfg(test)]
+  Compressing(Lucene90CompressingTermVectorsFormat),
   #[cfg(test)]
   Asserting(AssertingTermVectorsFormat),
   #[cfg(test)]
@@ -227,6 +239,8 @@ pub enum CodecPointsFormat {
   Asserting(AssertingPointsFormat),
   #[cfg(test)]
   AssertingNeedsIndexSort(AssertingNeedsIndexSortPointsFormat),
+  #[cfg(test)]
+  RandomDistance(RandomDistancePointsFormat),
   #[cfg(test)]
   CrankyLucene101(CrankyLucene101PointsFormat),
   #[cfg(test)]
@@ -710,6 +724,10 @@ impl StoredFieldsFormat for CodecStoredFieldsFormat {
         }
       },
       #[cfg(test)]
+      Self::Compressing(format) => format
+        .fields_reader(directory, segment_info, field_infos, context)
+        .map(StoredFieldsReaderEnum2::A),
+      #[cfg(test)]
       Self::Asserting(format) => format
         .fields_reader(directory, segment_info, field_infos, context)
         .map(StoredFieldsReaderEnum2::B),
@@ -749,6 +767,10 @@ impl StoredFieldsFormat for CodecStoredFieldsFormat {
             .map(|writer| StoredFieldsWriterEnum2::A(StoredFieldsWriterEnum2::A(writer)))
         }
       },
+      #[cfg(test)]
+      Self::Compressing(format) => format
+        .fields_writer(directory, segment_info, context)
+        .map(|writer| StoredFieldsWriterEnum2::A(StoredFieldsWriterEnum2::A(writer))),
       #[cfg(test)]
       Self::Asserting(format) => format
         .fields_writer(directory, segment_info, context)
@@ -817,6 +839,10 @@ impl TermVectorsFormat for CodecTermVectorsFormat {
         }
       },
       #[cfg(test)]
+      Self::Compressing(format) => format
+        .vectors_reader(directory, segment_info, field_infos, context)
+        .map(TermVectorsReaderEnum2::A),
+      #[cfg(test)]
       Self::Asserting(format) => format
         .vectors_reader(directory, segment_info, field_infos, context)
         .map(TermVectorsReaderEnum2::B),
@@ -856,6 +882,10 @@ impl TermVectorsFormat for CodecTermVectorsFormat {
             .map(|writer| TermVectorsWriterEnum2::A(TermVectorsWriterEnum2::A(writer)))
         }
       },
+      #[cfg(test)]
+      Self::Compressing(format) => format
+        .vectors_writer(directory, segment_info, context)
+        .map(|writer| TermVectorsWriterEnum2::A(TermVectorsWriterEnum2::A(writer))),
       #[cfg(test)]
       Self::Asserting(format) => format
         .vectors_writer(directory, segment_info, context)
@@ -1201,6 +1231,10 @@ impl PointsFormat for CodecPointsFormat {
         .fields_writer(state, info)
         .map(CodecPointsWriter::AssertingNeedsIndexSort),
       #[cfg(test)]
+      Self::RandomDistance(format) => format
+        .fields_writer(state, info)
+        .map(CodecPointsWriter::Lucene90),
+      #[cfg(test)]
       Self::CrankyLucene101(format) => format
         .fields_writer(state, info)
         .map(CodecPointsWriter::CrankyLucene101),
@@ -1241,6 +1275,10 @@ impl PointsFormat for CodecPointsFormat {
         .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::B(reader))),
       #[cfg(test)]
       Self::AssertingNeedsIndexSort(format) => format
+        .fields_reader(state, info)
+        .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::A(reader))),
+      #[cfg(test)]
+      Self::RandomDistance(format) => format
         .fields_reader(state, info)
         .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::A(reader))),
       #[cfg(test)]

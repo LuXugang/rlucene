@@ -14,14 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codec::bitvectors::hnsw_bit_vectors_format::HnswBitVectorsFormat;
+use crate::codec::memory::direct_postings_format::DirectPostingsFormat;
 use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducerEnum2;
+use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
+use crate::core::codecs::fields_producer::FieldsProducerEnum2;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_formats::KnnVectorsFormats;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum2;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriterEnum2;
+use crate::core::codecs::lucene99::lucene99_hnsw_scalar_quantized_vectors_format::Lucene99HnswScalarQuantizedVectorsFormat;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
+use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_format::Lucene99ScalarQuantizedVectorsFormat;
 use crate::core::codecs::perfield::per_field_doc_values_format::{
   PerFieldDocValuesFormat, PerFieldDocValuesFormatBase,
 };
@@ -31,6 +38,7 @@ use crate::core::codecs::perfield::per_field_knn_vectors_format::{
 use crate::core::codecs::perfield::per_field_postings_format::{
   PerFieldPostingsFormat, PerFieldPostingsFormatBase,
 };
+use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -56,8 +64,9 @@ use crate::test_framework::core::codecs::perfield::test_per_field_knn_vectors_fo
   MergeUsesNewFormatAssertingCodec, TwoFieldsTwoFormatsAssertingCodec,
   WriteRecordingKnnVectorsFormat,
 };
+use crate::test_framework::core::index::test_add_indexes::CustomPerFieldAssertingCodec;
 use crate::test_framework::core::util::test_util::{
-  DefaultCodec, DefaultDocValuesFormat, TestUtil,
+  DefaultCodec, DefaultDocValuesFormat, DefaultPostingsFormat, TestUtil,
 };
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -70,6 +79,135 @@ pub(crate) fn assert_thread(object: &str, creation_thread: ThreadId) {
     "{object} are only supposed to be consumed in the thread in which they have been acquired. \
      But was acquired in {creation_thread:?} and consumed in {current_thread:?}."
   );
+}
+
+pub enum AssertingCodecPostingsFormat {
+  Default(Arc<DefaultPostingsFormat>),
+  Asserting(Arc<AssertingPostingsFormat>),
+  Direct(Arc<DirectPostingsFormat>),
+}
+
+impl From<DefaultPostingsFormat> for AssertingCodecPostingsFormat {
+  fn from(format: DefaultPostingsFormat) -> Self {
+    Self::Default(Arc::new(format))
+  }
+}
+
+impl From<AssertingPostingsFormat> for AssertingCodecPostingsFormat {
+  fn from(format: AssertingPostingsFormat) -> Self {
+    Self::Asserting(Arc::new(format))
+  }
+}
+
+impl From<DirectPostingsFormat> for AssertingCodecPostingsFormat {
+  fn from(format: DirectPostingsFormat) -> Self {
+    Self::Direct(Arc::new(format))
+  }
+}
+
+impl Display for AssertingCodecPostingsFormat {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "PostingsFormat(name={})", self.get_name())
+  }
+}
+
+impl HasIdentity for AssertingCodecPostingsFormat {
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::Default(format) => format.identity(),
+      Self::Asserting(format) => format.identity(),
+      Self::Direct(format) => format.identity(),
+    }
+  }
+}
+
+pub type AssertingCodecFieldsConsumer<O> = FieldsConsumerEnum2<
+  FieldsConsumerEnum2<
+    <DefaultPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+    <AssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+  >,
+  <DirectPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+>;
+
+pub type AssertingCodecFieldsProducer<I> = FieldsProducerEnum2<
+  FieldsProducerEnum2<
+    <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>,
+    <AssertingPostingsFormat as PostingsFormat>::FieldsProducer<I>,
+  >,
+  <DirectPostingsFormat as PostingsFormat>::FieldsProducer<I>,
+>;
+
+impl PostingsFormat for AssertingCodecPostingsFormat {
+  fn get_name(&self) -> &str {
+    match self {
+      Self::Default(format) => format.get_name(),
+      Self::Asserting(format) => format.get_name(),
+      Self::Direct(format) => format.get_name(),
+    }
+  }
+
+  type FieldsConsumer<O: IndexOutput> = AssertingCodecFieldsConsumer<O>;
+
+  fn fields_consumer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::Default(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(consumer))),
+      Self::Asserting(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(consumer))),
+      Self::Direct(format) => format
+        .fields_consumer(state, segment_info)
+        .map(FieldsConsumerEnum2::B),
+    }
+  }
+
+  type FieldsProducer<I: IndexInput> = AssertingCodecFieldsProducer<I>;
+
+  fn fields_producer<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsProducer<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::Default(format) => format
+        .fields_producer(state, segment_info)
+        .map(|producer| FieldsProducerEnum2::A(FieldsProducerEnum2::A(producer))),
+      Self::Asserting(format) => format
+        .fields_producer(state, segment_info)
+        .map(|producer| FieldsProducerEnum2::A(FieldsProducerEnum2::B(producer))),
+      Self::Direct(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::B),
+    }
+  }
+
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    match name {
+      "Lucene101" => {
+        DefaultPostingsFormat::for_name(name).map(|format| Arc::new(Self::Default(format)))
+      },
+      "Asserting" => {
+        AssertingPostingsFormat::for_name(name).map(|format| Arc::new(Self::Asserting(format)))
+      },
+      "Direct" => DirectPostingsFormat::for_name(name).map(|format| Arc::new(Self::Direct(format))),
+      _ => Err(LuceneError::illegal_argument(format!(
+        "Could not load postings format named \"{name}\""
+      ))),
+    }
+  }
 }
 
 pub enum AssertingCodecDocValuesFormat {
@@ -204,6 +342,7 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
   }
 }
 
+#[derive(Clone)]
 pub enum AssertingCodecKnnVectorsFormat {
   Asserting(Arc<AssertingKnnVectorsFormat>),
   Source(Arc<KnnVectorsFormats>),
@@ -220,6 +359,30 @@ impl From<AssertingKnnVectorsFormat> for AssertingCodecKnnVectorsFormat {
 impl From<KnnVectorsFormats> for AssertingCodecKnnVectorsFormat {
   fn from(format: KnnVectorsFormats) -> Self {
     Self::Source(Arc::new(format))
+  }
+}
+
+impl From<Lucene99HnswVectorsFormat> for AssertingCodecKnnVectorsFormat {
+  fn from(format: Lucene99HnswVectorsFormat) -> Self {
+    KnnVectorsFormats::from(format).into()
+  }
+}
+
+impl From<Lucene99ScalarQuantizedVectorsFormat> for AssertingCodecKnnVectorsFormat {
+  fn from(format: Lucene99ScalarQuantizedVectorsFormat) -> Self {
+    KnnVectorsFormats::from(format).into()
+  }
+}
+
+impl From<Lucene99HnswScalarQuantizedVectorsFormat> for AssertingCodecKnnVectorsFormat {
+  fn from(format: Lucene99HnswScalarQuantizedVectorsFormat) -> Self {
+    KnnVectorsFormats::from(format).into()
+  }
+}
+
+impl From<HnswBitVectorsFormat> for AssertingCodecKnnVectorsFormat {
+  fn from(format: HnswBitVectorsFormat) -> Self {
+    KnnVectorsFormats::from(format).into()
   }
 }
 
@@ -356,7 +519,7 @@ impl KnnVectorsFormat for AssertingCodecKnnVectorsFormat {
 /// Static-dispatch access to the methods that Java subclasses override on
 /// [`AssertingCodec`].
 pub trait AssertingCodecBase {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat>;
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat>;
 
   fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingCodecDocValuesFormat>;
 
@@ -367,7 +530,7 @@ pub trait AssertingCodecBase {
 }
 
 pub struct AssertingCodecDefaults {
-  default_format: AssertingPostingsFormat,
+  default_format: AssertingCodecPostingsFormat,
   default_dv_format: AssertingCodecDocValuesFormat,
   default_knn_vectors_format: AssertingCodecKnnVectorsFormat,
 }
@@ -375,7 +538,7 @@ pub struct AssertingCodecDefaults {
 impl Default for AssertingCodecDefaults {
   fn default() -> Self {
     Self {
-      default_format: AssertingPostingsFormat::new(),
+      default_format: AssertingPostingsFormat::new().into(),
       default_dv_format: AssertingDocValuesFormat::new().into(),
       default_knn_vectors_format: AssertingKnnVectorsFormat::new()
         .expect("default KNN vectors format parameters are valid")
@@ -389,7 +552,10 @@ impl AssertingCodecDefaults {
   /// of `field`.
   ///
   /// The default implementation always returns `Asserting`.
-  pub fn get_postings_format_for_field(&self, _field: &str) -> Result<&AssertingPostingsFormat> {
+  pub fn get_postings_format_for_field(
+    &self,
+    _field: &str,
+  ) -> Result<&AssertingCodecPostingsFormat> {
     Ok(&self.default_format)
   }
 
@@ -417,7 +583,7 @@ impl AssertingCodecDefaults {
 }
 
 impl AssertingCodecBase for AssertingCodecDefaults {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     AssertingCodecDefaults::get_postings_format_for_field(self, field)
   }
 
@@ -430,6 +596,37 @@ impl AssertingCodecBase for AssertingCodecDefaults {
     field: &str,
   ) -> Result<&AssertingCodecKnnVectorsFormat> {
     AssertingCodecDefaults::get_knn_vectors_format_for_field(self, field)
+  }
+}
+
+pub(crate) struct AlwaysPostingsFormatAssertingCodec {
+  defaults: AssertingCodecDefaults,
+  format: AssertingCodecPostingsFormat,
+}
+
+impl AlwaysPostingsFormatAssertingCodec {
+  fn new(format: AssertingCodecPostingsFormat) -> Self {
+    Self {
+      defaults: AssertingCodecDefaults::default(),
+      format,
+    }
+  }
+}
+
+impl AssertingCodecBase for AlwaysPostingsFormatAssertingCodec {
+  fn get_postings_format_for_field(&self, _field: &str) -> Result<&AssertingCodecPostingsFormat> {
+    Ok(&self.format)
+  }
+
+  fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingCodecDocValuesFormat> {
+    self.defaults.get_doc_values_format_for_field(field)
+  }
+
+  fn get_knn_vectors_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingCodecKnnVectorsFormat> {
+    self.defaults.get_knn_vectors_format_for_field(field)
   }
 }
 
@@ -448,7 +645,7 @@ impl AlwaysDocValuesFormatAssertingCodec {
 }
 
 impl AssertingCodecBase for AlwaysDocValuesFormatAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 
@@ -482,7 +679,7 @@ impl AlwaysKnnVectorsFormatAssertingCodec {
 }
 
 impl AssertingCodecBase for AlwaysKnnVectorsFormatAssertingCodec {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     self.defaults.get_postings_format_for_field(field)
   }
 
@@ -500,8 +697,10 @@ impl AssertingCodecBase for AlwaysKnnVectorsFormatAssertingCodec {
 
 pub(crate) enum AssertingCodecHook {
   Default(AssertingCodecDefaults),
+  AlwaysPostingsFormat(AlwaysPostingsFormatAssertingCodec),
   AlwaysDocValuesFormat(AlwaysDocValuesFormatAssertingCodec),
   AlwaysKnnVectorsFormat(AlwaysKnnVectorsFormatAssertingCodec),
+  CustomPerField(CustomPerFieldAssertingCodec),
   TwoFieldsTwoFormats(TwoFieldsTwoFormatsAssertingCodec),
   MergeUsesNewFormat(MergeUsesNewFormatAssertingCodec),
   MaxDimensionsPerFieldFormat(MaxDimensionsPerFieldFormatAssertingCodec),
@@ -517,11 +716,13 @@ impl Default for AssertingCodecHook {
 }
 
 impl AssertingCodecBase for AssertingCodecHook {
-  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat> {
     match self {
       Self::Default(defaults) => defaults.get_postings_format_for_field(field),
+      Self::AlwaysPostingsFormat(hook) => hook.get_postings_format_for_field(field),
       Self::AlwaysDocValuesFormat(hook) => hook.get_postings_format_for_field(field),
       Self::AlwaysKnnVectorsFormat(hook) => hook.get_postings_format_for_field(field),
+      Self::CustomPerField(hook) => hook.get_postings_format_for_field(field),
       Self::TwoFieldsTwoFormats(hook) => hook.get_postings_format_for_field(field),
       Self::MergeUsesNewFormat(hook) => hook.get_postings_format_for_field(field),
       Self::MaxDimensionsPerFieldFormat(hook) => hook.get_postings_format_for_field(field),
@@ -534,8 +735,10 @@ impl AssertingCodecBase for AssertingCodecHook {
   fn get_doc_values_format_for_field(&self, field: &str) -> Result<&AssertingCodecDocValuesFormat> {
     match self {
       Self::Default(defaults) => defaults.get_doc_values_format_for_field(field),
+      Self::AlwaysPostingsFormat(hook) => hook.get_doc_values_format_for_field(field),
       Self::AlwaysDocValuesFormat(hook) => hook.get_doc_values_format_for_field(field),
       Self::AlwaysKnnVectorsFormat(hook) => hook.get_doc_values_format_for_field(field),
+      Self::CustomPerField(hook) => hook.get_doc_values_format_for_field(field),
       Self::TwoFieldsTwoFormats(hook) => hook.get_doc_values_format_for_field(field),
       Self::MergeUsesNewFormat(hook) => hook.get_doc_values_format_for_field(field),
       Self::MaxDimensionsPerFieldFormat(hook) => hook.get_doc_values_format_for_field(field),
@@ -551,8 +754,10 @@ impl AssertingCodecBase for AssertingCodecHook {
   ) -> Result<&AssertingCodecKnnVectorsFormat> {
     match self {
       Self::Default(defaults) => defaults.get_knn_vectors_format_for_field(field),
+      Self::AlwaysPostingsFormat(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::AlwaysDocValuesFormat(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::AlwaysKnnVectorsFormat(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::CustomPerField(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::TwoFieldsTwoFormats(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::MergeUsesNewFormat(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::MaxDimensionsPerFieldFormat(hook) => hook.get_knn_vectors_format_for_field(field),
@@ -568,7 +773,7 @@ pub struct AssertingCodecPostingsFormatBase {
 }
 
 impl PerFieldPostingsFormatBase for AssertingCodecPostingsFormatBase {
-  type Format = AssertingPostingsFormat;
+  type Format = AssertingCodecPostingsFormat;
 
   fn get_postings_format_for_field(&self, field: &str) -> Result<&Self::Format> {
     self.hook.get_postings_format_for_field(field)
@@ -619,15 +824,21 @@ impl AssertingCodec {
     Self::with_hook(AssertingCodecHook::default())
   }
 
+  pub(crate) fn with_postings_format(format: impl Into<AssertingCodecPostingsFormat>) -> Self {
+    Self::with_hook(AssertingCodecHook::AlwaysPostingsFormat(
+      AlwaysPostingsFormatAssertingCodec::new(format.into()),
+    ))
+  }
+
   pub(crate) fn with_doc_values_format(format: impl Into<AssertingCodecDocValuesFormat>) -> Self {
     Self::with_hook(AssertingCodecHook::AlwaysDocValuesFormat(
       AlwaysDocValuesFormatAssertingCodec::new(format.into()),
     ))
   }
 
-  pub(crate) fn with_knn_vectors_format(format: impl Into<KnnVectorsFormats>) -> Self {
+  pub(crate) fn with_knn_vectors_format(format: impl Into<AssertingCodecKnnVectorsFormat>) -> Self {
     Self::with_hook(AssertingCodecHook::AlwaysKnnVectorsFormat(
-      AlwaysKnnVectorsFormatAssertingCodec::new(format.into().into()),
+      AlwaysKnnVectorsFormatAssertingCodec::new(format.into()),
     ))
   }
 
@@ -648,7 +859,10 @@ impl AssertingCodec {
     }
   }
 
-  pub fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingPostingsFormat> {
+  pub fn get_postings_format_for_field(
+    &self,
+    field: &str,
+  ) -> Result<&AssertingCodecPostingsFormat> {
     self.hook.get_postings_format_for_field(field)
   }
 

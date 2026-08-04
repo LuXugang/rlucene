@@ -1062,6 +1062,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  iwc.set_codec(TestUtil::get_default_codec());
   iwc.set_merge_policy(NoMergePolicy::default());
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();

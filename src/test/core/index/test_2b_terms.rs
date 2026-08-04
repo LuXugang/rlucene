@@ -156,6 +156,7 @@ fn test_2b_terms() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  iwc.set_codec(TestUtil::get_default_codec());
   let mut merge_policy = new_log_merge_policy_with_merge_factor_cfs(&mut random, false, 10)?;
   if let MergePolicyEnum::LogBytesSize(policy) = &mut merge_policy {
     // 1 petabyte:

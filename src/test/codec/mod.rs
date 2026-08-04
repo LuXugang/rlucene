@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub(crate) mod bitvectors;
+pub(crate) mod memory;

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::Codecs;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldBase, Store};
@@ -61,6 +62,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::number::Number;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::codecs::compressing::dummy::dummy_compressing_codec::DummyCompressingCodec;
 use crate::test_framework::core::index::base_index_file_format_test_case::{
   BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
 };
@@ -604,9 +606,13 @@ pub trait BaseStoredFieldsFormatTestCase:
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 2, 30));
-    // TODO: set codec to a different implementation here so we can exercise
-    // merging stored fields across codecs once codec switching is wired up.
-    let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
+    // Get another codec, other than the default: so we are merging segments across different
+    // codecs. Rust Lucene does not support SimpleText, so use the non-compressing dummy codec.
+    // TODO IMPORTANT SimpleTextCodec未实现
+    let default_codec = iwc.get_codec().clone();
+    let other_codec: Codecs = DummyCompressingCodec::new(1 << 14, 128, false, 10)?.into();
+    let mut using_other_codec = false;
+    let mut writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
 
     let doc_count = at_least(random, 200);
     let mut data: Vec<Vec<Vec<u8>>> = vec![Vec::new(); doc_count as usize];
@@ -656,6 +662,20 @@ pub trait BaseStoredFieldsFormatTestCase:
         )?);
       }
       writer.add_document(random, doc)?;
+      // TODO IMPORTANT SimpleTextCodec未实现
+      if random.random_bool(0.5) && i % (data.len() / 10) == 0 {
+        writer.close(random)?;
+        let analyzer = MockAnalyzer::new(random);
+        let mut iwc_new = new_index_writer_config_with_analyzer(random, analyzer)?;
+        // Test merging against a non-compressing codec.
+        using_other_codec = !using_other_codec;
+        if using_other_codec {
+          iwc_new.set_codec(other_codec.clone());
+        } else {
+          iwc_new.set_codec(default_codec.clone());
+        }
+        writer = RandomIndexWriter::with_config(random, directory.clone(), iwc_new);
+      }
     }
 
     for _ in 0..10 {

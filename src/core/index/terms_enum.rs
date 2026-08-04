@@ -659,13 +659,7 @@ macro_rules! define_terms_enum_enum {
                         Self::$V(t) => match reuse {
                             Some($postings_enum::$V(v)) => Ok($postings_enum::$V(t.postings(Some(v))?)),
                             None => Ok($postings_enum::$V(t.postings(None)?)),
-                            _ => Err(LuceneError::illegal_state(concat!(
-                                stringify!($enum_name),
-                                " expected reuse variant ",
-                                stringify!($postings_enum),
-                                "::",
-                                stringify!($V)
-                            ))),
+                            _ => Ok($postings_enum::$V(t.postings(None)?)),
                         },
                     )+
                 }
@@ -681,13 +675,7 @@ macro_rules! define_terms_enum_enum {
                         Self::$V(t) => match reuse {
                             Some($postings_enum::$V(v)) => Ok($postings_enum::$V(t.postings_with_flags(Some(v), flags)?)),
                             None => Ok($postings_enum::$V(t.postings_with_flags(None, flags)?)),
-                            _ => Err(LuceneError::illegal_state(concat!(
-                                stringify!($enum_name),
-                                " expected reuse variant ",
-                                stringify!($postings_enum),
-                                "::",
-                                stringify!($V)
-                            ))),
+                            _ => Ok($postings_enum::$V(t.postings_with_flags(None, flags)?)),
                         },
                     )+
                 }

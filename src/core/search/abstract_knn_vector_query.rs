@@ -61,6 +61,103 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 pub static NO_RESULTS: LazyLock<TopDocs<ScoreDoc>> = LazyLock::new(|| EMPTY_TOP_DOCS.clone());
+
+pub struct AbstractKnnVectorQueryDefaults;
+
+impl AbstractKnnVectorQueryDefaults {
+  pub fn exact_search<Q, LR, T, QT>(
+    query: &Q,
+    context: &LeafReaderContext<LR>,
+    accept_iterator: BitSetIterator<T>,
+    query_timeout: Option<&QT>,
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    Q: AbstractKnnVectorQuery + ?Sized,
+    LR: LeafReader,
+    T: BitSet,
+    QT: QueryTimeout,
+  {
+    let field_infos = context.reader().get_field_infos()?;
+    let fi = match field_infos.field_info_by_name(&query.base().field)? {
+      Some(fi) => fi,
+      None => {
+        // The field does not exist or does not index vectors
+        return Ok(NO_RESULTS.clone());
+      },
+    };
+    if fi.get_vector_dimension() == 0 {
+      return Ok(NO_RESULTS.clone());
+    }
+
+    let vector_scorer = match query.create_vector_scorer(context, fi.as_ref())? {
+      Some(vector_scorer) => vector_scorer,
+      None => {
+        return Ok(NO_RESULTS.clone());
+      },
+    };
+
+    let cost = accept_iterator.cost()? as usize;
+    let queue_size = query.base().k.min(cost);
+    let mut queue = hit_queue::new(queue_size, true)?;
+    let mut relation = EqualTo;
+    let mut top_doc = queue
+      .top_mut()
+      .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
+
+    let vector_iterator = VectorScorerDisi::new(vector_scorer);
+    let mut conjunction = ConjunctionDISI::from_disi(vec![
+      ConjunctionDISIEnum::VectorScorer(vector_iterator),
+      ConjunctionDISIEnum::Bit(accept_iterator),
+    ])?;
+
+    loop {
+      let doc = conjunction.next_doc()?;
+      if doc == NO_MORE_DOCS {
+        break;
+      }
+
+      if query_timeout.is_some_and(|qt| qt.should_exit()) {
+        relation = GreaterThanOrEqualTo;
+        break;
+      }
+      debug_assert!(conjunction.all_disi[0].doc_id() == doc);
+      let vector_scorer = match &conjunction.all_disi[0] {
+        ConjunctionDISIEnum::VectorScorer(vs) => vs,
+        _ => {
+          return Err(LuceneError::illegal_state(
+            "expected vector scorer to be first in conjunction",
+          ));
+        },
+      };
+      let score = vector_scorer.score()?;
+      if score > top_doc.score {
+        top_doc.score = score;
+        top_doc.doc = doc;
+        top_doc = queue.update_top()?;
+      }
+    }
+
+    while queue.size() > 0
+      && queue
+        .top()
+        .ok_or_else(|| LuceneError::illegal_state("top is None"))?
+        .score
+        < 0.0
+    {
+      queue.pop()?;
+    }
+
+    let mut top_score_docs = vec![ScoreDoc::default(); queue.size()];
+    for i in (0..top_score_docs.len()).rev() {
+      top_score_docs[i] = queue
+        .pop()?
+        .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
+    }
+
+    let total_hits = TotalHits::new(cost, relation);
+    Ok(TopDocs::new(total_hits, top_score_docs))
+  }
+}
 /// Uses `KnnVectorsReader::search` to perform nearest neighbour search.
 ///
 /// This query also allows for performing a kNN search subject to a filter. In this case, it first
@@ -261,85 +358,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
     T: BitSet,
     Q: QueryTimeout,
   {
-    let field_infos = context.reader().get_field_infos()?;
-    let fi = match field_infos.field_info_by_name(&self.base().field)? {
-      Some(fi) => fi,
-      None => {
-        // The field does not exist or does not index vectors
-        return Ok(NO_RESULTS.clone());
-      },
-    };
-    if fi.get_vector_dimension() == 0 {
-      return Ok(NO_RESULTS.clone());
-    }
-
-    let vector_scorer = match self.create_vector_scorer(context, fi.as_ref())? {
-      Some(vector_scorer) => vector_scorer,
-      None => {
-        return Ok(NO_RESULTS.clone());
-      },
-    };
-
-    let cost = accept_iterator.cost()? as usize;
-    let queue_size = self.base().k.min(cost);
-    let mut queue = hit_queue::new(queue_size, true)?;
-    let mut relation = EqualTo;
-    let mut top_doc = queue
-      .top_mut()
-      .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
-
-    let vector_iterator = VectorScorerDisi::new(vector_scorer);
-    let mut conjunction = ConjunctionDISI::from_disi(vec![
-      ConjunctionDISIEnum::VectorScorer(vector_iterator),
-      ConjunctionDISIEnum::Bit(accept_iterator),
-    ])?;
-
-    loop {
-      let doc = conjunction.next_doc()?;
-      if doc == NO_MORE_DOCS {
-        break;
-      }
-
-      if query_timeout.is_some_and(|qt| qt.should_exit()) {
-        relation = GreaterThanOrEqualTo;
-        break;
-      }
-      debug_assert!(conjunction.all_disi[0].doc_id() == doc);
-      let vector_scorer = match &conjunction.all_disi[0] {
-        ConjunctionDISIEnum::VectorScorer(vs) => vs,
-        _ => {
-          return Err(LuceneError::illegal_state(
-            "expected vector scorer to be first in conjunction",
-          ));
-        },
-      };
-      let score = vector_scorer.score()?;
-      if score > top_doc.score {
-        top_doc.score = score;
-        top_doc.doc = doc;
-        top_doc = queue.update_top()?;
-      }
-    }
-
-    while queue.size() > 0
-      && queue
-        .top()
-        .ok_or_else(|| LuceneError::illegal_state("top is None"))?
-        .score
-        < 0.0
-    {
-      queue.pop()?;
-    }
-
-    let mut top_score_docs = vec![ScoreDoc::default(); queue.size()];
-    for i in (0..top_score_docs.len()).rev() {
-      top_score_docs[i] = queue
-        .pop()?
-        .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
-    }
-
-    let total_hits = TotalHits::new(cost, relation);
-    Ok(TopDocs::new(total_hits, top_score_docs))
+    AbstractKnnVectorQueryDefaults::exact_search(self, context, accept_iterator, query_timeout)
   }
 }
 #[derive(Debug, Clone)]

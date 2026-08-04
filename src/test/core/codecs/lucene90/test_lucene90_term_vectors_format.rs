@@ -15,22 +15,300 @@
  * limitations under the License.
  */
 use crate::core::codecs::Codecs;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::document::document::Document;
+use crate::core::document::field::Field;
+use crate::core::document::field_type::FieldType;
+use crate::core::index::directory_reader;
+use crate::core::index::index_reader::{Identity, IndexReader};
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::term_vectors::TermVectors;
+use crate::core::store::directory::Directory;
+use crate::core::store::random_access_input::RandomAccessInputWrapper;
+use crate::core::store::{DataInput, IOContext, IndexInput};
+use crate::core::util::HasIdentity;
+use crate::core::util::clone::TryClone;
+use crate::core::util::close::CloseableRef;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test_framework::core::codecs::compressing::dummy::dummy_compressing_codec::DummyCompressingCodec;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
-use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::{new_directory, random};
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
+use std::collections::HashSet;
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90TermVectorsFormat;
 
 #[test]
 fn test_skip_redundant_prefetches() -> Result<()> {
-  // TODO IMPORTANT DummyCompressingCodec 尚未迁移，因此该
-  // test cannot yet force two documents per term-vector chunk as the Java test requires.
+  let mut random = random();
+  // Use the "dummy" codec, which has the same base format as Lucene90TermVectorsFormat but allows
+  // configuring the number of docs per chunk.
+  let codec = DummyCompressingCodec::new(1 << 10, 2, false, 16)?;
+  let orig_dir = new_directory(&mut random)?;
+  let counter = Arc::new(AtomicUsize::new(0));
+  let dir = Arc::new(CountingPrefetchDirectory::new(orig_dir, counter.clone()));
+  let mut iwc = IndexWriterConfig::new()?;
+  iwc.set_codec(codec);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+  ft.set_store_term_vectors(true)?;
+  for i in 0..100 {
+    let mut doc = Document::new();
+    doc.add(Field::new("content", i.to_string(), ft.clone()));
+    writer.add_document(doc)?;
+  }
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  let reader = directory_reader::open(dir)?;
+  let mut term_vectors = reader.term_vectors()?;
+  counter.store(0, Ordering::SeqCst);
+  assert_eq!(0, counter.load(Ordering::SeqCst));
+  term_vectors.prefetch(0)?;
+  assert_eq!(1, counter.load(Ordering::SeqCst));
+  term_vectors.prefetch(1)?;
+  // This format has 2 docs per block, so the second prefetch is skipped.
+  assert_eq!(1, counter.load(Ordering::SeqCst));
+  term_vectors.prefetch(15)?;
+  assert_eq!(2, counter.load(Ordering::SeqCst));
+  term_vectors.prefetch(14)?;
+  // 14 is in the same block as 15, so the prefetch was skipped.
+  assert_eq!(2, counter.load(Ordering::SeqCst));
+  // Already prefetched in the past, so skipped again.
+  term_vectors.prefetch(1)?;
+  assert_eq!(2, counter.load(Ordering::SeqCst));
+  reader.close()?;
   Ok(())
+}
+
+pub struct CountingPrefetchDirectory<D>
+where
+  D: Directory,
+{
+  in_: D,
+  count: Arc<AtomicUsize>,
+  id: Identity,
+}
+
+impl<D> CountingPrefetchDirectory<D>
+where
+  D: Directory,
+{
+  pub fn new(in_: D, count: Arc<AtomicUsize>) -> Self {
+    Self {
+      in_,
+      count,
+      id: Identity::new(),
+    }
+  }
+}
+
+impl<D> Display for CountingPrefetchDirectory<D>
+where
+  D: Directory,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl<D> CloseableRef for CountingPrefetchDirectory<D>
+where
+  D: Directory,
+{
+  fn close(&self) -> Result<()> {
+    self.in_.close()
+  }
+}
+
+impl<D> HasIdentity for CountingPrefetchDirectory<D>
+where
+  D: Directory,
+{
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
+}
+
+impl<D> Directory for CountingPrefetchDirectory<D>
+where
+  D: Directory,
+{
+  fn list_all(&self) -> Result<Vec<String>> {
+    self.in_.list_all()
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    self.in_.delete_file(name)
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    self.in_.file_length(name)
+  }
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    self.in_.create_output(name, context)
+  }
+
+  type IndexOutput = D::IndexOutput;
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    self.in_.create_temp_output(prefix, suffix, context)
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    self.in_.sync(names)
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    self.in_.sync_metadata()
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    self.in_.rename(source, dest)
+  }
+
+  type IndexInput = CountingPrefetchIndexInput<D::IndexInput>;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    let input = self.in_.open_input(name, context)?;
+    Ok(CountingPrefetchIndexInput::new(self.count.clone(), input))
+  }
+
+  type Lock = D::Lock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    self.in_.obtain_lock(name)
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    self.in_.get_pending_deletions()
+  }
+}
+
+pub struct CountingPrefetchIndexInput<I>
+where
+  I: IndexInput,
+{
+  count: Arc<AtomicUsize>,
+  in_: I,
+}
+
+impl<I> CountingPrefetchIndexInput<I>
+where
+  I: IndexInput,
+{
+  pub fn new(count: Arc<AtomicUsize>, in_: I) -> Self {
+    Self { count, in_ }
+  }
+}
+
+impl<I> CloseableRef for CountingPrefetchIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn close(&self) -> Result<()> {
+    self.in_.close()
+  }
+}
+
+impl<I> DataInput for CountingPrefetchIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn read_byte(&mut self) -> Result<u8> {
+    self.in_.read_byte()
+  }
+
+  fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    self.in_.read_bytes(b, offset, len)
+  }
+
+  fn read_group_vint(&mut self, _dst: &mut [i32], _offset: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
+    IndexInput::skip_bytes(&mut self.in_, num_bytes)
+  }
+}
+
+impl<I> Display for CountingPrefetchIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", std::any::type_name::<Self>())
+  }
+}
+
+impl<I> TryClone for CountingPrefetchIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn try_clone(&self) -> Result<Self>
+  where
+    Self: Sized,
+  {
+    Ok(Self::new(self.count.clone(), self.in_.try_clone()?))
+  }
+}
+
+impl<I> IndexInput for CountingPrefetchIndexInput<I>
+where
+  I: IndexInput<IndexInput = I>,
+{
+  type IndexInput = CountingPrefetchIndexInput<I>;
+
+  fn get_file_pointer(&self) -> Result<usize> {
+    self.in_.get_file_pointer()
+  }
+
+  fn seek(&mut self, pos: usize) -> Result<()> {
+    self.in_.seek(pos)
+  }
+
+  fn length(&self) -> Result<usize> {
+    self.in_.length()
+  }
+
+  fn slice(
+    &self,
+    slice_description: &str,
+    offset: usize,
+    length: usize,
+  ) -> Result<Self::IndexInput> {
+    let slice = self.in_.slice(slice_description, offset, length)?;
+    Ok(Self::new(self.count.clone(), slice))
+  }
+
+  type RandomAccessSlice = RandomAccessInputWrapper<CountingPrefetchIndexInput<I>>;
+
+  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+    Ok(RandomAccessInputWrapper::new(self.slice(
+      "randomaccess",
+      offset,
+      length,
+    )?))
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    self.in_.prefetch(pos, len)?;
+    self.count.fetch_add(1, Ordering::SeqCst);
+    Ok(())
+  }
 }
 
 fn run_case<F>(f: F) -> Result<()>

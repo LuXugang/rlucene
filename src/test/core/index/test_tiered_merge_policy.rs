@@ -1109,6 +1109,7 @@ fn test_unbalanced_merge_selection() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  iwc.set_codec(TestUtil::get_default_codec());
 
   let tmp = match iwc.get_merge_policy_mut() {
     MergePolicyEnum::Tiered(t) => t,

@@ -33,6 +33,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
   new_text_field, random,
 };
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -78,7 +79,10 @@ fn test_prev_term_at_end() -> Result<()> {
   let mut field_types = HashMap::new();
 
   let mock = MockAnalyzer::new(&mut random);
-  let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
+  iwc.set_codec(TestUtil::always_postings_format(
+    TestUtil::get_default_postings_format(),
+  ));
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   add_doc(&mut random, &writer, "aaa bbb", &mut field_types)?;
   writer.close()?;

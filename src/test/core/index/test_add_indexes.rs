@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codec::memory::direct_postings_format::DirectPostingsFormat;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
@@ -23,6 +24,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
+use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{
@@ -57,10 +59,12 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::codecs::asserting_codec::{AssertingCodec, AssertingCodecHook};
 use crate::test_framework::core::index::all_deleted_filter_reader::AllDeletedFilterReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_add_indexes::{
-  ConcurrentAddIndexesMergePolicy, CountingSerialMergeScheduler, PartialMergeScheduler,
+  ConcurrentAddIndexesMergePolicy, CountingSerialMergeScheduler, CustomPerFieldAssertingCodec,
+  PartialMergeScheduler, UnRegisteredCodec,
 };
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -1745,8 +1749,67 @@ fn test_existing_deletes() -> Result<()> {
 
 #[test]
 fn test_simple_case_custom_codec() -> Result<()> {
-  // TODO IMPORTANT CustomPerFieldCodec 和 DirectPostingsFormat 尚未迁移。
-  Ok(())
+  // Main directory.
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  // Two auxiliary directories.
+  let aux = new_directory_shared(&mut random)?;
+  let aux2 = new_directory_shared(&mut random)?;
+  let codec = AssertingCodec::with_hook(AssertingCodecHook::CustomPerField(
+    CustomPerFieldAssertingCodec::new()?,
+  ));
+  let mut field_types = HashMap::new();
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  conf.set_open_mode(OpenMode::Create);
+  conf.set_codec(codec.clone());
+  let writer = new_writer(dir.clone(), conf)?;
+  // Add 100 documents.
+  add_docs_with_id(&mut random, &writer, 100, 0, &mut field_types)?;
+  assert_eq!(100, writer.get_doc_stats()?.max_doc);
+  writer.commit()?;
+  writer.close()?;
+  TestUtil::check_index(&mut random, dir.clone())?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  conf.set_open_mode(OpenMode::Create);
+  conf.set_codec(codec.clone());
+  conf.set_max_buffered_docs(10);
+  conf.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, false)?);
+  let writer = new_writer(aux.clone(), conf)?;
+  // Add 40 documents in separate files.
+  add_docs(&mut random, &writer, 40, &mut field_types)?;
+  assert_eq!(40, writer.get_doc_stats()?.max_doc);
+  writer.commit()?;
+  writer.close()?;
+
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  conf.set_open_mode(OpenMode::Create);
+  conf.set_codec(codec.clone());
+  let writer = new_writer(aux2.clone(), conf)?;
+  // Add 40 documents in compound files.
+  add_docs2(&mut random, &writer, 50, &mut field_types)?;
+  assert_eq!(50, writer.get_doc_stats()?.max_doc);
+  writer.commit()?;
+  writer.close()?;
+
+  // Test doc count before segments are merged.
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  conf.set_open_mode(OpenMode::Append);
+  conf.set_codec(codec);
+  let writer = new_writer(dir.clone(), conf)?;
+  assert_eq!(100, writer.get_doc_stats()?.max_doc);
+  writer.add_indexes_from_directory(&[aux.clone(), aux2.clone()])?;
+  assert_eq!(190, writer.get_doc_stats()?.max_doc);
+  writer.close()?;
+
+  dir.close()?;
+  aux.close()?;
+  aux2.close()
 }
 #[test]
 fn test_non_cfs_leftovers() -> Result<()> {
@@ -1821,8 +1884,59 @@ fn test_non_cfs_leftovers() -> Result<()> {
 
 #[test]
 fn test_add_index_missing_codec() -> Result<()> {
-  // TODO IMPORTANT UnRegisteredCodec、DirectPostingsFormat 和 always_postings_format 尚未迁移。
-  Ok(())
+  let mut random = random();
+  let mut field_types = HashMap::new();
+  let to_add: Arc<AddIndexesDirectory> = Arc::new(MockDirectoryWrapper::new(
+    &mut random,
+    Arc::new(ByteBuffersDirectory::new()),
+  ));
+  // Disable checkIndex, else we get an exception because
+  // of the unregistered codec:
+  to_add.set_check_index_on_close(false);
+  {
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    conf.set_codec(UnRegisteredCodec::new());
+    let writer = IndexWriter::new(to_add.clone(), conf)?;
+    let mut doc = Document::new();
+    let mut custom_type = FieldType::default();
+    custom_type.set_index_options(IndexOptions::DocsAndFreqsAndPositions)?;
+    doc.add(new_field(
+      &mut random,
+      "foo",
+      "bar",
+      &custom_type,
+      &mut field_types,
+    )?);
+    writer.add_document(doc)?;
+    writer.close()?;
+  }
+
+  {
+    let dir: Arc<AddIndexesDirectory> = Arc::new(MockDirectoryWrapper::new(
+      &mut random,
+      Arc::new(ByteBuffersDirectory::new()),
+    ));
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+    conf.set_codec(TestUtil::always_postings_format(DirectPostingsFormat::new()));
+    let writer = IndexWriter::new(dir.clone(), conf)?;
+    assert!(matches!(
+      writer.add_indexes_from_directory(std::slice::from_ref(&to_add)),
+      Err(LuceneError::IllegalArgument(_))
+    ));
+    writer.close()?;
+    let open = directory_reader::open(dir.clone())?;
+    assert_eq!(0, open.num_docs()?);
+    open.close()?;
+    dir.close()?;
+  }
+
+  assert!(matches!(
+    directory_reader::open(to_add.clone()),
+    Err(LuceneError::IllegalArgument(_))
+  ));
+  to_add.close()
 }
 
 #[test]
