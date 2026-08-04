@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::QueryWeightMatchesIterator;
+use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 
 /// Reports the positions and optionally offsets of all matching terms
@@ -30,7 +30,7 @@ pub trait Matches {
 
   /// Returns a collection of [`Matches`] that make up this instance;
   /// if it is not a composite, then this returns an empty list.
-  fn get_sub_matches(&self) -> Vec<&dyn Matches>;
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>>;
 
   fn field(&self) -> &[String];
 }
@@ -43,7 +43,7 @@ where
     (**self).get_matches(field)
   }
 
-  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
     (**self).get_sub_matches()
   }
 

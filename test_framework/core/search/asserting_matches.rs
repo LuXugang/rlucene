@@ -37,7 +37,7 @@ impl Matches for AssertingMatches<'_> {
     }))
   }
 
-  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
     vec![&self.in_]
   }
 

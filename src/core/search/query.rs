@@ -58,6 +58,7 @@ use crate::core::search::multi_term_query::MultiTermQuerySet;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::n_gram_phrase_query::NGramPhraseQuery;
+use crate::core::search::named_matches::{NamedMatches, NamedQuery};
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_in_set_query::PointInSetQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
@@ -115,19 +116,22 @@ use std::sync::Arc;
 pub type QueryWeight<IRC> = Box<dyn Weight<IRC, ScorerSupplier = QueryWeightSs<IRC>> + Send + Sync>;
 pub enum QueryWeightMatches<'a> {
   MatchWithNoTerms(MatchWithNoTerms),
+  NamedMatches(Box<NamedMatches<'a>>),
   Matches(Box<dyn Matches + 'a>),
 }
 impl Matches for QueryWeightMatches<'_> {
   fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
     match self {
       QueryWeightMatches::MatchWithNoTerms(matches) => matches.get_matches(field),
+      QueryWeightMatches::NamedMatches(matches) => matches.get_matches(field),
       QueryWeightMatches::Matches(matches) => matches.get_matches(field),
     }
   }
 
-  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
     match self {
       QueryWeightMatches::MatchWithNoTerms(matches) => matches.get_sub_matches(),
+      QueryWeightMatches::NamedMatches(matches) => matches.get_sub_matches(),
       QueryWeightMatches::Matches(matches) => matches.get_sub_matches(),
     }
   }
@@ -135,6 +139,7 @@ impl Matches for QueryWeightMatches<'_> {
   fn field(&self) -> &[String] {
     match self {
       QueryWeightMatches::MatchWithNoTerms(matches) => matches.field(),
+      QueryWeightMatches::NamedMatches(matches) => matches.field(),
       QueryWeightMatches::Matches(matches) => matches.field(),
     }
   }
@@ -180,6 +185,7 @@ macro_rules! dispatch_query {
       Query::LatLonPointDistanceFeature($inner) => $body,
       Query::MatchAllDocs($inner) => $body,
       Query::MatchNoDocs($inner) => $body,
+      Query::Named($inner) => $body,
       Query::MultiPhrase($inner) => $body,
       Query::MultiTermQuery($inner) => $body,
       Query::MultiTermQueryDocValuesWrapper($inner) => $body,
@@ -254,6 +260,7 @@ impl_from_for_enum!(
     LatLonPointQuery=> LatLonPoint,
     MatchAllDocsQuery => MatchAllDocs,
     MatchNoDocsQuery => MatchNoDocs,
+    NamedQuery => Named,
     MultiTermQuerySet => MultiTermQuery,
     MultiPhraseQuery=> MultiPhrase,
     MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
@@ -378,6 +385,7 @@ pub enum Query {
   LatLonPointDistanceFeature(LatLonPointDistanceFeatureQuery),
   MatchAllDocs(MatchAllDocsQuery),
   MatchNoDocs(MatchNoDocsQuery),
+  Named(NamedQuery),
   MultiPhrase(MultiPhraseQuery),
   MultiTermQuery(MultiTermQuerySet),
   MultiTermQueryDocValuesWrapper(MultiTermQueryDocValuesWrapper),
@@ -504,6 +512,7 @@ define_query_ref!(
   LatLonPointDistanceFeature => LatLonPointDistanceFeatureQuery,
   MatchAllDocs => MatchAllDocsQuery,
   MatchNoDocs => MatchNoDocsQuery,
+  Named => NamedQuery,
   MultiPhrase => MultiPhraseQuery,
   MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
   MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
@@ -608,6 +617,7 @@ impl Query {
             LatLonPointDistanceFeature,
             MatchAllDocs,
             MatchNoDocs,
+            Named,
             MultiPhrase,
             MultiTermQuery,
             MultiTermQueryDocValuesWrapper,

@@ -49,6 +49,7 @@ pub(crate) mod matches_utils;
 pub(crate) mod max_score_accumulator;
 pub(crate) mod max_score_cache;
 pub mod multi_leaf_field_comparator;
+pub mod named_matches;
 pub mod positive_scores_only_collector;
 pub mod pruning;
 pub mod query;

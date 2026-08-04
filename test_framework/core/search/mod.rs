@@ -35,6 +35,7 @@ pub mod bulk_scorer_wrapper_scorer;
 pub mod check_hits;
 pub mod dummy_total_hit_count_collector;
 pub mod fixed_bit_set_collector;
+pub mod matches_test_base;
 pub mod multi_term;
 pub mod point;
 pub mod query;

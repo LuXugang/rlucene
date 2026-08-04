@@ -31,7 +31,7 @@ impl Matches for MatchWithNoTerms {
     Ok(None)
   }
 
-  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
     Vec::new()
   }
 
@@ -69,12 +69,8 @@ impl Matches for CombinedMatch<'_> {
     from_sub_iterators(sub_iterators)
   }
 
-  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
-    self
-      .sub
-      .iter()
-      .map(|matches| matches as &dyn Matches)
-      .collect()
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
+    self.sub.iter().collect()
   }
 
   fn field(&self) -> &[String] {
@@ -134,7 +130,7 @@ where
     }
   }
 
-  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
     Vec::new()
   }
 

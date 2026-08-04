@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::matches::Matches;
-use crate::core::search::query::QueryWeightMatchesIterator;
+use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyMatches;
@@ -25,7 +25,7 @@ impl Matches for DummyMatches {
     dummy_unreachable!()
   }
 
-  fn get_sub_matches(&self) -> Vec<&dyn Matches> {
+  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
     dummy_unreachable!()
   }
 

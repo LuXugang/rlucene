@@ -82,6 +82,7 @@ mod test_lat_lon_point_queries;
 mod test_long_range_field_queries;
 mod test_match_all_docs_query;
 mod test_match_no_docs_query;
+mod test_matches_iterator;
 pub mod test_max_clause_limit;
 pub mod test_multi_collector;
 pub mod test_multi_collector_manager;

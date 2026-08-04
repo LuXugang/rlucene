@@ -86,8 +86,7 @@ impl QueryUtils {
       // TODO IMPORTANT
     }
     Self::check_explanations(&q, s)?;
-    // TODO IMPORTANT matches未实现
-    // CheckHits::check_matches(q, s)?;
+    CheckHits::check_matches(q, s)?;
     Ok(())
   }
 
