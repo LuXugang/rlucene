@@ -56,6 +56,7 @@ mod test_index_writer;
 mod test_index_writer_commit;
 mod test_index_writer_config;
 mod test_index_writer_exceptions;
+mod test_index_writer_exceptions2;
 mod test_index_writer_force_merge;
 pub mod test_index_writer_merge_policy;
 mod test_index_writer_on_disk_full;

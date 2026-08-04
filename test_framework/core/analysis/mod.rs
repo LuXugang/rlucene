@@ -18,6 +18,7 @@ pub mod base_token_stream_test_case;
 pub mod canned_binary_token_stream;
 pub mod canned_token_stream;
 pub mod char_filter;
+pub mod cranky_token_filter;
 pub mod mock_analyzer;
 pub mod mock_char_filter;
 pub mod mock_fixed_length_payload_filter;

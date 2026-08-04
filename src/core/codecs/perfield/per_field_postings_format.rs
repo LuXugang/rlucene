@@ -313,7 +313,10 @@ where
   {
     let mut field_names = fields.iterator()?;
     let mut indexed_field_names = Vec::new();
-    while let Some(field) = field_names.next()? {
+    while field_names.has_next()? {
+      let field = field_names
+        .next()?
+        .expect("Fields.iterator().has_next returned true");
       indexed_field_names.push(field.clone());
     }
     drop(field_names);

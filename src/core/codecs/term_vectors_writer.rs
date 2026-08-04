@@ -136,50 +136,10 @@ pub trait TermVectorsWriter: Accountable + Closeable {
   fn add_prox(
     &mut self,
     num_prox: usize,
-    mut positions: Option<&mut impl DataInput>,
-    mut offsets: Option<&mut impl DataInput>,
+    positions: Option<&mut impl DataInput>,
+    offsets: Option<&mut impl DataInput>,
   ) -> Result<()> {
-    let mut position = 0;
-    let mut last_offset = 0;
-    let mut payload: Option<BytesRefBuilder<Vec<u8>>> = None;
-
-    for _ in 0..num_prox {
-      let this_payload = if let Some(pos_input) = positions.as_mut() {
-        let code = pos_input.read_vint()?;
-        position += (code as u32 >> 1) as i32;
-
-        if code & 1 != 0 {
-          let payload_len = pos_input.read_vint()? as usize;
-
-          if payload.is_none() {
-            payload = Some(BytesRefBuilder::new());
-          }
-          let builder = payload.as_mut().unwrap();
-          builder.grow_no_copy(payload_len)?;
-          pos_input.read_bytes(&mut builder.bytes_ref.bytes, 0, payload_len)?;
-          builder.set_length(payload_len);
-          Some(builder.get_bytes_ref())
-        } else {
-          None
-        }
-      } else {
-        position = -1;
-        None
-      };
-
-      let (start_offset, end_offset) = if let Some(off_input) = offsets.as_mut() {
-        let start = last_offset + off_input.read_vint()?;
-        let end = start + off_input.read_vint()?;
-        last_offset = end;
-        (start, end)
-      } else {
-        (-1, -1)
-      };
-
-      self.add_position(position, start_offset, end_offset, this_payload)?;
-    }
-
-    Ok(())
+    TermVectorsWriterDefaults::add_prox(self, num_prox, positions, offsets)
   }
   /// Merges in the term vectors from the readers in `merge_state`. The default
   /// implementation skips over deleted documents, and uses
@@ -193,35 +153,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     CR: CodecReader,
     Self: Sized,
   {
-    let mut subs = Vec::with_capacity(merge_state.term_vectors_readers.len());
-    for i in 0..merge_state.term_vectors_readers.len() {
-      if let Some(reader) = &merge_state.term_vectors_readers[i] {
-        reader.check_integrity()?;
-      }
-      subs.push(Sub::new(TermVectorsMergeSub::new(
-        merge_state.doc_maps[i].clone(),
-        i,
-        merge_state.max_docs[i],
-      )));
-    }
-
-    let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
-    let merge_state_meta = merge_state.get_meta();
-    let mut doc_count = 0;
-    while let Some(sub_index) = doc_id_merger.next()? {
-      let sub = &doc_id_merger.get_subs()[sub_index].sub;
-
-      // NOTE: it's very important to first assign to vectors then pass it to
-      // termVectorsWriter.addAllDocVectors; see LUCENE-1282
-      let vectors = match merge_state.term_vectors_readers[sub.reader_index].as_mut() {
-        Some(reader) => reader.get(sub.doc_id)?,
-        None => None,
-      };
-      self.add_all_doc_vectors(vectors.as_ref(), &merge_state_meta)?;
-      doc_count += 1;
-    }
-    self.finish(doc_count)?;
-    Ok(doc_count)
+    TermVectorsWriterDefaults::merge(self, merge_state)
   }
 
   /// Safe (but, slowish) default method to write every vector field in the document.
@@ -347,6 +279,99 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     self.finish_document()?;
 
     Ok(())
+  }
+}
+
+pub struct TermVectorsWriterDefaults;
+
+impl TermVectorsWriterDefaults {
+  pub fn add_prox<W>(
+    writer: &mut W,
+    num_prox: usize,
+    mut positions: Option<&mut impl DataInput>,
+    mut offsets: Option<&mut impl DataInput>,
+  ) -> Result<()>
+  where
+    W: TermVectorsWriter + ?Sized,
+  {
+    let mut position = 0;
+    let mut last_offset = 0;
+    let mut payload: Option<BytesRefBuilder<Vec<u8>>> = None;
+
+    for _ in 0..num_prox {
+      let this_payload = if let Some(pos_input) = positions.as_mut() {
+        let code = pos_input.read_vint()?;
+        position += (code as u32 >> 1) as i32;
+
+        if code & 1 != 0 {
+          let payload_len = pos_input.read_vint()? as usize;
+
+          if payload.is_none() {
+            payload = Some(BytesRefBuilder::new());
+          }
+          let builder = payload.as_mut().unwrap();
+          builder.grow_no_copy(payload_len)?;
+          pos_input.read_bytes(&mut builder.bytes_ref.bytes, 0, payload_len)?;
+          builder.set_length(payload_len);
+          Some(builder.get_bytes_ref())
+        } else {
+          None
+        }
+      } else {
+        position = -1;
+        None
+      };
+
+      let (start_offset, end_offset) = if let Some(off_input) = offsets.as_mut() {
+        let start = last_offset + off_input.read_vint()?;
+        let end = start + off_input.read_vint()?;
+        last_offset = end;
+        (start, end)
+      } else {
+        (-1, -1)
+      };
+
+      writer.add_position(position, start_offset, end_offset, this_payload)?;
+    }
+
+    Ok(())
+  }
+
+  pub fn merge<W, D, CR>(writer: &mut W, merge_state: &mut MergeState<D, CR>) -> Result<i32>
+  where
+    W: TermVectorsWriter,
+    D: Directory,
+    CR: CodecReader,
+  {
+    let mut subs = Vec::with_capacity(merge_state.term_vectors_readers.len());
+    for i in 0..merge_state.term_vectors_readers.len() {
+      if let Some(reader) = &merge_state.term_vectors_readers[i] {
+        reader.check_integrity()?;
+      }
+      subs.push(Sub::new(TermVectorsMergeSub::new(
+        merge_state.doc_maps[i].clone(),
+        i,
+        merge_state.max_docs[i],
+      )));
+    }
+
+    let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
+    let merge_state_meta = merge_state.get_meta();
+    let mut doc_count = 0;
+    while let Some(sub_index) = doc_id_merger.next()? {
+      let sub = &doc_id_merger.get_subs()[sub_index].sub;
+
+      // NOTE: it's very important to first assign to vectors then pass it to
+      // termVectorsWriter.addAllDocVectors; see LUCENE-1282
+      let vectors = match merge_state.term_vectors_readers[sub.reader_index].as_mut() {
+        Some(reader) => reader.get(sub.doc_id)?,
+        None => None,
+      };
+      writer.add_all_doc_vectors(vectors.as_ref(), &merge_state_meta)?;
+      doc_count += 1;
+    }
+    writer.finish(doc_count)?;
+    Ok(doc_count)
   }
 }
 

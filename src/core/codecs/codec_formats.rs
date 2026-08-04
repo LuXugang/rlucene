@@ -18,11 +18,15 @@
 #[cfg(test)]
 use crate::core::codecs::Codec;
 #[cfg(test)]
+use crate::core::codecs::compound_format::CompoundFormat;
+#[cfg(test)]
 use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 #[cfg(test)]
 use crate::core::codecs::doc_values_producer::DocValuesProducerEnum2;
+#[cfg(test)]
+use crate::core::codecs::field_infos_format::FieldInfosFormat;
 #[cfg(test)]
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
 #[cfg(test)]
@@ -38,6 +42,8 @@ use crate::core::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::core::codecs::lucene90_points_format::Lucene90PointsFormat;
 use crate::core::codecs::lucene90_stored_fields_format::Lucene90StoredFieldsFormat;
 use crate::core::codecs::lucene90_term_vectors_format::Lucene90TermVectorsFormat;
+#[cfg(test)]
+use crate::core::codecs::lucene101_codec::Lucene101Codec;
 use crate::core::codecs::lucene101_codec::{
   Lucene101CodecDocValuesFormat, Lucene101CodecKnnVectorsFormat, Lucene101CodecPostingsFormat,
 };
@@ -53,6 +59,8 @@ use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 #[cfg(test)]
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::codecs::postings_format::PostingsFormat;
+#[cfg(test)]
+use crate::core::codecs::segment_info_format::SegmentInfoFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 #[cfg(test)]
 use crate::core::codecs::stored_fields_reader::StoredFieldsReaderEnum2;
@@ -80,6 +88,8 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
+#[cfg(test)]
+use crate::core::util::StringHelper;
 use crate::core::util::bits::Bits;
 #[cfg(test)]
 use crate::core::util::bits::BitsEnum2;
@@ -92,6 +102,8 @@ use crate::core::{
 };
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
+#[cfg(test)]
+use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
 use std::collections::HashSet;
@@ -116,41 +128,97 @@ type AssertingPointsFormat = <AssertingCodec as Codec>::PointsFormat;
 type AssertingKnnVectorsFormat = <AssertingCodec as Codec>::KnnVectorsFormat;
 #[cfg(test)]
 type AssertingNeedsIndexSortPointsFormat = <AssertingNeedsIndexSortCodec as Codec>::PointsFormat;
+#[cfg(test)]
+type CrankyLucene101Codec = CrankyCodec<Lucene101Codec>;
+#[cfg(test)]
+type CrankyAssertingCodec = CrankyCodec<AssertingCodec>;
+#[cfg(test)]
+type CrankyLucene101PostingsFormat = <CrankyLucene101Codec as Codec>::PostingsFormat;
+#[cfg(test)]
+type CrankyAssertingPostingsFormat = <CrankyAssertingCodec as Codec>::PostingsFormat;
+#[cfg(test)]
+type CrankyLucene101DocValuesFormat = <CrankyLucene101Codec as Codec>::DocValuesFormat;
+#[cfg(test)]
+type CrankyAssertingDocValuesFormat = <CrankyAssertingCodec as Codec>::DocValuesFormat;
+#[cfg(test)]
+type CrankyLucene101StoredFieldsFormat = <CrankyLucene101Codec as Codec>::StoredFieldsFormat;
+#[cfg(test)]
+type CrankyAssertingStoredFieldsFormat = <CrankyAssertingCodec as Codec>::StoredFieldsFormat;
+#[cfg(test)]
+type CrankyLucene101TermVectorsFormat = <CrankyLucene101Codec as Codec>::TermVectorsFormat;
+#[cfg(test)]
+type CrankyAssertingTermVectorsFormat = <CrankyAssertingCodec as Codec>::TermVectorsFormat;
+#[cfg(test)]
+type CrankyLucene101NormsFormat = <CrankyLucene101Codec as Codec>::NormsFormat;
+#[cfg(test)]
+type CrankyAssertingNormsFormat = <CrankyAssertingCodec as Codec>::NormsFormat;
+#[cfg(test)]
+type CrankyLucene101LiveDocsFormat = <CrankyLucene101Codec as Codec>::LiveDocsFormat;
+#[cfg(test)]
+type CrankyAssertingLiveDocsFormat = <CrankyAssertingCodec as Codec>::LiveDocsFormat;
+#[cfg(test)]
+type CrankyLucene101PointsFormat = <CrankyLucene101Codec as Codec>::PointsFormat;
+#[cfg(test)]
+type CrankyAssertingPointsFormat = <CrankyAssertingCodec as Codec>::PointsFormat;
 
 pub enum CodecPostingsFormat {
   Lucene101(Lucene101CodecPostingsFormat),
   #[cfg(test)]
   Asserting(AssertingPostingsFormat),
+  #[cfg(test)]
+  CrankyLucene101(CrankyLucene101PostingsFormat),
+  #[cfg(test)]
+  CrankyAsserting(CrankyAssertingPostingsFormat),
 }
 
 pub enum CodecDocValuesFormat {
   Lucene101(Lucene101CodecDocValuesFormat),
   #[cfg(test)]
   Asserting(AssertingDocValuesFormat),
+  #[cfg(test)]
+  CrankyLucene101(CrankyLucene101DocValuesFormat),
+  #[cfg(test)]
+  CrankyAsserting(CrankyAssertingDocValuesFormat),
 }
 
 pub enum CodecStoredFieldsFormat {
   Lucene90(Lucene90StoredFieldsFormat),
   #[cfg(test)]
   Asserting(AssertingStoredFieldsFormat),
+  #[cfg(test)]
+  CrankyLucene101(CrankyLucene101StoredFieldsFormat),
+  #[cfg(test)]
+  CrankyAsserting(CrankyAssertingStoredFieldsFormat),
 }
 
 pub enum CodecTermVectorsFormat {
   Lucene90(Lucene90TermVectorsFormat),
   #[cfg(test)]
   Asserting(AssertingTermVectorsFormat),
+  #[cfg(test)]
+  CrankyLucene101(CrankyLucene101TermVectorsFormat),
+  #[cfg(test)]
+  CrankyAsserting(CrankyAssertingTermVectorsFormat),
 }
 
 pub enum CodecNormsFormat {
   Lucene90(Lucene90NormsFormat),
   #[cfg(test)]
   Asserting(AssertingNormsFormat),
+  #[cfg(test)]
+  CrankyLucene101(CrankyLucene101NormsFormat),
+  #[cfg(test)]
+  CrankyAsserting(CrankyAssertingNormsFormat),
 }
 
 pub enum CodecLiveDocsFormat {
   Lucene90(Lucene90LiveDocsFormat),
   #[cfg(test)]
   Asserting(AssertingLiveDocsFormat),
+  #[cfg(test)]
+  CrankyLucene101(CrankyLucene101LiveDocsFormat),
+  #[cfg(test)]
+  CrankyAsserting(CrankyAssertingLiveDocsFormat),
 }
 
 pub enum CodecPointsFormat {
@@ -159,6 +227,10 @@ pub enum CodecPointsFormat {
   Asserting(AssertingPointsFormat),
   #[cfg(test)]
   AssertingNeedsIndexSort(AssertingNeedsIndexSortPointsFormat),
+  #[cfg(test)]
+  CrankyLucene101(CrankyLucene101PointsFormat),
+  #[cfg(test)]
+  CrankyAsserting(CrankyAssertingPointsFormat),
 }
 
 pub enum CodecKnnVectorsFormat {
@@ -167,13 +239,139 @@ pub enum CodecKnnVectorsFormat {
   Asserting(AssertingKnnVectorsFormat),
 }
 
+#[cfg(test)]
+pub enum CodecFieldInfosFormat {
+  Lucene101(<Lucene101Codec as Codec>::FieldInfosFormat),
+  Cranky(<CrankyLucene101Codec as Codec>::FieldInfosFormat),
+}
+
+#[cfg(test)]
+impl FieldInfosFormat for CodecFieldInfosFormat {
+  fn read<D>(
+    &self,
+    directory: &impl Directory,
+    segment_info: &SegmentInfo<D>,
+    segment_suffix: &str,
+    io_context: &IOContext,
+  ) -> Result<FieldInfos>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => format.read(directory, segment_info, segment_suffix, io_context),
+      Self::Cranky(format) => format.read(directory, segment_info, segment_suffix, io_context),
+    }
+  }
+
+  fn write<D>(
+    &self,
+    directory: &impl Directory,
+    segment_info: &SegmentInfo<D>,
+    segment_suffix: &str,
+    infos: &FieldInfos,
+    io_context: &IOContext,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => {
+        format.write(directory, segment_info, segment_suffix, infos, io_context)
+      },
+      Self::Cranky(format) => {
+        format.write(directory, segment_info, segment_suffix, infos, io_context)
+      },
+    }
+  }
+}
+
+#[cfg(test)]
+pub enum CodecSegmentInfoFormat {
+  Lucene101(<Lucene101Codec as Codec>::SegmentInfoFormat),
+  Cranky(<CrankyLucene101Codec as Codec>::SegmentInfoFormat),
+}
+
+#[cfg(test)]
+impl SegmentInfoFormat for CodecSegmentInfoFormat {
+  fn read<D>(
+    &self,
+    directory: Arc<D>,
+    segment_name: &str,
+    segment_id: &[u8; StringHelper::ID_LENGTH],
+    context: &IOContext,
+  ) -> Result<SegmentInfo<D>>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => format.read(directory, segment_name, segment_id, context),
+      Self::Cranky(format) => format.read(directory, segment_name, segment_id, context),
+    }
+  }
+
+  fn write<D>(
+    &self,
+    directory: &impl Directory,
+    info: &mut SegmentInfo<D>,
+    context: &IOContext,
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => format.write(directory, info, context),
+      Self::Cranky(format) => format.write(directory, info, context),
+    }
+  }
+}
+
+#[cfg(test)]
+pub enum CodecCompoundFormat {
+  Lucene101(<Lucene101Codec as Codec>::CompoundFormat),
+  Cranky(<CrankyLucene101Codec as Codec>::CompoundFormat),
+}
+
+#[cfg(test)]
+impl CompoundFormat for CodecCompoundFormat {
+  type Directory<D>
+    = <<Lucene101Codec as Codec>::CompoundFormat as CompoundFormat>::Directory<D>
+  where
+    D: Directory;
+
+  fn get_compound_reader<D>(&self, dir: &D, si: &SegmentInfo<D>) -> Result<Self::Directory<D>>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => format.get_compound_reader(dir, si),
+      Self::Cranky(format) => format.get_compound_reader(dir, si),
+    }
+  }
+
+  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
+  where
+    D: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => format.write(dir, si, context),
+      Self::Cranky(format) => format.write(dir, si, context),
+    }
+  }
+}
+
 #[cfg(not(test))]
 pub type CodecFieldsConsumer<O> =
   <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>;
 #[cfg(test)]
 pub type CodecFieldsConsumer<O> = FieldsConsumerEnum2<
-  <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
-  <AssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+  FieldsConsumerEnum2<
+    <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+    <AssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+  >,
+  FieldsConsumerEnum2<
+    <CrankyLucene101PostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+    <CrankyAssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+  >,
 >;
 
 #[cfg(not(test))]
@@ -191,6 +389,10 @@ impl HasIdentity for CodecPostingsFormat {
       Self::Lucene101(format) => format.identity(),
       #[cfg(test)]
       Self::Asserting(format) => format.identity(),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format.identity(),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format.identity(),
     }
   }
 }
@@ -201,6 +403,10 @@ impl PostingsFormat for CodecPostingsFormat {
       Self::Lucene101(format) => format.get_name(),
       #[cfg(test)]
       Self::Asserting(format) => format.get_name(),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format.get_name(),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format.get_name(),
     }
   }
 
@@ -225,13 +431,21 @@ impl PostingsFormat for CodecPostingsFormat {
         {
           format
             .fields_consumer(state, segment_info)
-            .map(FieldsConsumerEnum2::A)
+            .map(|consumer| FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(consumer)))
         }
       },
       #[cfg(test)]
       Self::Asserting(format) => format
         .fields_consumer(state, segment_info)
-        .map(FieldsConsumerEnum2::B),
+        .map(|consumer| FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(consumer))),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| FieldsConsumerEnum2::B(FieldsConsumerEnum2::A(consumer))),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| FieldsConsumerEnum2::B(FieldsConsumerEnum2::B(consumer))),
     }
   }
 
@@ -263,6 +477,14 @@ impl PostingsFormat for CodecPostingsFormat {
       Self::Asserting(format) => format
         .fields_producer(state, segment_info)
         .map(FieldsProducerEnum2::B),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::A),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::B),
     }
   }
 
@@ -278,8 +500,14 @@ pub type CodecDocValuesConsumer<O> =
   <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>;
 #[cfg(test)]
 pub type CodecDocValuesConsumer<O> = DocValuesConsumerEnum2<
-  <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
-  <AssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+  DocValuesConsumerEnum2<
+    <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+    <AssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+  >,
+  DocValuesConsumerEnum2<
+    <CrankyLucene101DocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+    <CrankyAssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+  >,
 >;
 
 #[cfg(not(test))]
@@ -310,6 +538,10 @@ impl Display for CodecDocValuesFormat {
       Self::Lucene101(format) => Display::fmt(format, f),
       #[cfg(test)]
       Self::Asserting(format) => Display::fmt(format, f),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => Display::fmt(format, f),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => Display::fmt(format, f),
     }
   }
 }
@@ -320,6 +552,10 @@ impl HasIdentity for CodecDocValuesFormat {
       Self::Lucene101(format) => format.identity(),
       #[cfg(test)]
       Self::Asserting(format) => format.identity(),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format.identity(),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format.identity(),
     }
   }
 }
@@ -330,6 +566,10 @@ impl DocValuesFormat for CodecDocValuesFormat {
       Self::Lucene101(format) => format.get_name(),
       #[cfg(test)]
       Self::Asserting(format) => format.get_name(),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format.get_name(),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format.get_name(),
     }
   }
 
@@ -354,13 +594,21 @@ impl DocValuesFormat for CodecDocValuesFormat {
         {
           format
             .fields_consumer(state, segment_info)
-            .map(DocValuesConsumerEnum2::A)
+            .map(|consumer| DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::A(consumer)))
         }
       },
       #[cfg(test)]
       Self::Asserting(format) => format
         .fields_consumer(state, segment_info)
-        .map(DocValuesConsumerEnum2::B),
+        .map(|consumer| DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::B(consumer))),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| DocValuesConsumerEnum2::B(DocValuesConsumerEnum2::A(consumer))),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| DocValuesConsumerEnum2::B(DocValuesConsumerEnum2::B(consumer))),
     }
   }
 
@@ -392,6 +640,14 @@ impl DocValuesFormat for CodecDocValuesFormat {
       Self::Asserting(format) => format
         .fields_producer(state, segment_info)
         .map(DocValuesProducerEnum2::B),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_producer(state, segment_info)
+        .map(DocValuesProducerEnum2::A),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_producer(state, segment_info)
+        .map(DocValuesProducerEnum2::B),
     }
   }
 
@@ -416,8 +672,14 @@ pub type CodecStoredFieldsWriter<D> =
   <Lucene90StoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>;
 #[cfg(test)]
 pub type CodecStoredFieldsWriter<D> = StoredFieldsWriterEnum2<
-  <Lucene90StoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>,
-  <AssertingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>,
+  StoredFieldsWriterEnum2<
+    <Lucene90StoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>,
+    <AssertingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>,
+  >,
+  StoredFieldsWriterEnum2<
+    <CrankyLucene101StoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>,
+    <CrankyAssertingStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>,
+  >,
 >;
 
 impl StoredFieldsFormat for CodecStoredFieldsFormat {
@@ -451,6 +713,14 @@ impl StoredFieldsFormat for CodecStoredFieldsFormat {
       Self::Asserting(format) => format
         .fields_reader(directory, segment_info, field_infos, context)
         .map(StoredFieldsReaderEnum2::B),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_reader(directory, segment_info, field_infos, context)
+        .map(StoredFieldsReaderEnum2::A),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_reader(directory, segment_info, field_infos, context)
+        .map(StoredFieldsReaderEnum2::B),
     }
   }
 
@@ -476,13 +746,21 @@ impl StoredFieldsFormat for CodecStoredFieldsFormat {
         {
           format
             .fields_writer(directory, segment_info, context)
-            .map(StoredFieldsWriterEnum2::A)
+            .map(|writer| StoredFieldsWriterEnum2::A(StoredFieldsWriterEnum2::A(writer)))
         }
       },
       #[cfg(test)]
       Self::Asserting(format) => format
         .fields_writer(directory, segment_info, context)
-        .map(StoredFieldsWriterEnum2::B),
+        .map(|writer| StoredFieldsWriterEnum2::A(StoredFieldsWriterEnum2::B(writer))),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_writer(directory, segment_info, context)
+        .map(|writer| StoredFieldsWriterEnum2::B(StoredFieldsWriterEnum2::A(writer))),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_writer(directory, segment_info, context)
+        .map(|writer| StoredFieldsWriterEnum2::B(StoredFieldsWriterEnum2::B(writer))),
     }
   }
 }
@@ -501,8 +779,14 @@ pub type CodecTermVectorsWriter<D> =
   <Lucene90TermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>;
 #[cfg(test)]
 pub type CodecTermVectorsWriter<D> = TermVectorsWriterEnum2<
-  <Lucene90TermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>,
-  <AssertingTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>,
+  TermVectorsWriterEnum2<
+    <Lucene90TermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>,
+    <AssertingTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>,
+  >,
+  TermVectorsWriterEnum2<
+    <CrankyLucene101TermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>,
+    <CrankyAssertingTermVectorsFormat as TermVectorsFormat>::TermVectorsWriter<D>,
+  >,
 >;
 
 impl TermVectorsFormat for CodecTermVectorsFormat {
@@ -536,6 +820,14 @@ impl TermVectorsFormat for CodecTermVectorsFormat {
       Self::Asserting(format) => format
         .vectors_reader(directory, segment_info, field_infos, context)
         .map(TermVectorsReaderEnum2::B),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .vectors_reader(directory, segment_info, field_infos, context)
+        .map(TermVectorsReaderEnum2::A),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .vectors_reader(directory, segment_info, field_infos, context)
+        .map(TermVectorsReaderEnum2::B),
     }
   }
 
@@ -561,13 +853,21 @@ impl TermVectorsFormat for CodecTermVectorsFormat {
         {
           format
             .vectors_writer(directory, segment_info, context)
-            .map(TermVectorsWriterEnum2::A)
+            .map(|writer| TermVectorsWriterEnum2::A(TermVectorsWriterEnum2::A(writer)))
         }
       },
       #[cfg(test)]
       Self::Asserting(format) => format
         .vectors_writer(directory, segment_info, context)
-        .map(TermVectorsWriterEnum2::B),
+        .map(|writer| TermVectorsWriterEnum2::A(TermVectorsWriterEnum2::B(writer))),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .vectors_writer(directory, segment_info, context)
+        .map(|writer| TermVectorsWriterEnum2::B(TermVectorsWriterEnum2::A(writer))),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .vectors_writer(directory, segment_info, context)
+        .map(|writer| TermVectorsWriterEnum2::B(TermVectorsWriterEnum2::B(writer))),
     }
   }
 }
@@ -576,8 +876,14 @@ impl TermVectorsFormat for CodecTermVectorsFormat {
 pub type CodecNormsConsumer<O> = <Lucene90NormsFormat as NormsFormat>::NormsConsumer<O>;
 #[cfg(test)]
 pub type CodecNormsConsumer<O> = NormsConsumerEnum2<
-  <Lucene90NormsFormat as NormsFormat>::NormsConsumer<O>,
-  <AssertingNormsFormat as NormsFormat>::NormsConsumer<O>,
+  NormsConsumerEnum2<
+    <Lucene90NormsFormat as NormsFormat>::NormsConsumer<O>,
+    <AssertingNormsFormat as NormsFormat>::NormsConsumer<O>,
+  >,
+  NormsConsumerEnum2<
+    <CrankyLucene101NormsFormat as NormsFormat>::NormsConsumer<O>,
+    <CrankyAssertingNormsFormat as NormsFormat>::NormsConsumer<O>,
+  >,
 >;
 
 #[cfg(not(test))]
@@ -612,13 +918,21 @@ impl NormsFormat for CodecNormsFormat {
         {
           format
             .norms_consumer(state, segment_info)
-            .map(NormsConsumerEnum2::A)
+            .map(|consumer| NormsConsumerEnum2::A(NormsConsumerEnum2::A(consumer)))
         }
       },
       #[cfg(test)]
       Self::Asserting(format) => format
         .norms_consumer(state, segment_info)
-        .map(NormsConsumerEnum2::B),
+        .map(|consumer| NormsConsumerEnum2::A(NormsConsumerEnum2::B(consumer))),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .norms_consumer(state, segment_info)
+        .map(|consumer| NormsConsumerEnum2::B(NormsConsumerEnum2::A(consumer))),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .norms_consumer(state, segment_info)
+        .map(|consumer| NormsConsumerEnum2::B(NormsConsumerEnum2::B(consumer))),
     }
   }
 
@@ -648,6 +962,14 @@ impl NormsFormat for CodecNormsFormat {
       },
       #[cfg(test)]
       Self::Asserting(format) => format
+        .norms_producer(state, segment_info)
+        .map(NormsProducerEnum2::B),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .norms_producer(state, segment_info)
+        .map(NormsProducerEnum2::A),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
         .norms_producer(state, segment_info)
         .map(NormsProducerEnum2::B),
     }
@@ -687,6 +1009,10 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
       },
       #[cfg(test)]
       Self::Asserting(format) => format.read_live_docs(dir, info, context).map(BitsEnum2::B),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format.read_live_docs(dir, info, context).map(BitsEnum2::A),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format.read_live_docs(dir, info, context).map(BitsEnum2::B),
     }
   }
 
@@ -705,6 +1031,14 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
       Self::Lucene90(format) => format.write_live_docs(bits, dir, info, new_del_count, context),
       #[cfg(test)]
       Self::Asserting(format) => format.write_live_docs(bits, dir, info, new_del_count, context),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => {
+        format.write_live_docs(bits, dir, info, new_del_count, context)
+      },
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => {
+        format.write_live_docs(bits, dir, info, new_del_count, context)
+      },
     }
   }
 
@@ -716,6 +1050,10 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
       Self::Lucene90(format) => format.files(info, files),
       #[cfg(test)]
       Self::Asserting(format) => format.files(info, files),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format.files(info, files),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format.files(info, files),
     }
   }
 }
@@ -727,6 +1065,8 @@ pub enum CodecPointsWriter<O: IndexOutput> {
   Lucene90(<Lucene90PointsFormat as PointsFormat>::PointsWriter<O>),
   Asserting(<AssertingPointsFormat as PointsFormat>::PointsWriter<O>),
   AssertingNeedsIndexSort(<AssertingNeedsIndexSortPointsFormat as PointsFormat>::PointsWriter<O>),
+  CrankyLucene101(<CrankyLucene101PointsFormat as PointsFormat>::PointsWriter<O>),
+  CrankyAsserting(<CrankyAssertingPointsFormat as PointsFormat>::PointsWriter<O>),
 }
 
 #[cfg(test)]
@@ -736,6 +1076,8 @@ impl<O: IndexOutput> Closeable for CodecPointsWriter<O> {
       Self::Lucene90(inner) => inner.close(),
       Self::Asserting(inner) => inner.close(),
       Self::AssertingNeedsIndexSort(inner) => inner.close(),
+      Self::CrankyLucene101(inner) => inner.close(),
+      Self::CrankyAsserting(inner) => inner.close(),
     }
   }
 }
@@ -760,6 +1102,8 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
       Self::AssertingNeedsIndexSort(inner) => {
         inner.write_field(field_info, values, dir, segment_info)
       },
+      Self::CrankyLucene101(inner) => inner.write_field(field_info, values, dir, segment_info),
+      Self::CrankyAsserting(inner) => inner.write_field(field_info, values, dir, segment_info),
     }
   }
 
@@ -768,6 +1112,8 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
       Self::Lucene90(inner) => inner.finish(),
       Self::Asserting(inner) => inner.finish(),
       Self::AssertingNeedsIndexSort(inner) => inner.finish(),
+      Self::CrankyLucene101(inner) => inner.finish(),
+      Self::CrankyAsserting(inner) => inner.finish(),
     }
   }
 
@@ -786,6 +1132,8 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
       Self::Lucene90(inner) => inner.merge_one_field(merge_state, field_info, dir),
       Self::Asserting(inner) => inner.merge_one_field(merge_state, field_info, dir),
       Self::AssertingNeedsIndexSort(inner) => inner.merge_one_field(merge_state, field_info, dir),
+      Self::CrankyLucene101(inner) => inner.merge_one_field(merge_state, field_info, dir),
+      Self::CrankyAsserting(inner) => inner.merge_one_field(merge_state, field_info, dir),
     }
   }
 
@@ -799,6 +1147,8 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
       Self::Lucene90(inner) => inner.merge(merge_state, dir),
       Self::Asserting(inner) => inner.merge(merge_state, dir),
       Self::AssertingNeedsIndexSort(inner) => inner.merge(merge_state, dir),
+      Self::CrankyLucene101(inner) => inner.merge(merge_state, dir),
+      Self::CrankyAsserting(inner) => inner.merge(merge_state, dir),
     }
   }
 }
@@ -807,8 +1157,14 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
 pub type CodecPointsReader<I> = <Lucene90PointsFormat as PointsFormat>::PointsReader<I>;
 #[cfg(test)]
 pub type CodecPointsReader<I> = PointsReaderEnum2<
-  <Lucene90PointsFormat as PointsFormat>::PointsReader<I>,
-  <AssertingPointsFormat as PointsFormat>::PointsReader<I>,
+  PointsReaderEnum2<
+    <Lucene90PointsFormat as PointsFormat>::PointsReader<I>,
+    <AssertingPointsFormat as PointsFormat>::PointsReader<I>,
+  >,
+  PointsReaderEnum2<
+    <CrankyLucene101PointsFormat as PointsFormat>::PointsReader<I>,
+    <CrankyAssertingPointsFormat as PointsFormat>::PointsReader<I>,
+  >,
 >;
 
 impl PointsFormat for CodecPointsFormat {
@@ -844,6 +1200,14 @@ impl PointsFormat for CodecPointsFormat {
       Self::AssertingNeedsIndexSort(format) => format
         .fields_writer(state, info)
         .map(CodecPointsWriter::AssertingNeedsIndexSort),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_writer(state, info)
+        .map(CodecPointsWriter::CrankyLucene101),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_writer(state, info)
+        .map(CodecPointsWriter::CrankyAsserting),
     }
   }
 
@@ -866,15 +1230,27 @@ impl PointsFormat for CodecPointsFormat {
         }
         #[cfg(test)]
         {
-          format.fields_reader(state, info).map(PointsReaderEnum2::A)
+          format
+            .fields_reader(state, info)
+            .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::A(reader)))
         }
       },
       #[cfg(test)]
-      Self::Asserting(format) => format.fields_reader(state, info).map(PointsReaderEnum2::B),
+      Self::Asserting(format) => format
+        .fields_reader(state, info)
+        .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::B(reader))),
       #[cfg(test)]
-      Self::AssertingNeedsIndexSort(format) => {
-        format.fields_reader(state, info).map(PointsReaderEnum2::A)
-      },
+      Self::AssertingNeedsIndexSort(format) => format
+        .fields_reader(state, info)
+        .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::A(reader))),
+      #[cfg(test)]
+      Self::CrankyLucene101(format) => format
+        .fields_reader(state, info)
+        .map(|reader| PointsReaderEnum2::B(PointsReaderEnum2::A(reader))),
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => format
+        .fields_reader(state, info)
+        .map(|reader| PointsReaderEnum2::B(PointsReaderEnum2::B(reader))),
     }
   }
 }

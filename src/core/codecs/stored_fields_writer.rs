@@ -110,6 +110,24 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
     CR: CodecReader,
     Self: Sized,
   {
+    StoredFieldsWriterDefaults::merge(self, merge_state, dir)
+  }
+}
+
+pub struct StoredFieldsWriterDefaults;
+
+impl StoredFieldsWriterDefaults {
+  pub fn merge<W, D, D1, CR>(
+    writer: &mut W,
+    merge_state: &mut MergeState<D, CR>,
+    dir: &D1,
+  ) -> Result<i32>
+  where
+    W: StoredFieldsWriter,
+    D: Directory,
+    D1: Directory,
+    CR: CodecReader,
+  {
     let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
 
     for i in 0..merge_state.stored_fields_readers.len() {
@@ -141,7 +159,7 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
       let sub = &mut doc_id_merger.get_subs_mut()[sub_idx];
       debug_assert_eq!(sub.mapped_doc_id, doc_count);
 
-      self.start_document()?;
+      writer.start_document()?;
       let reader = match merge_state.stored_fields_readers[sub.sub.reader_index] {
         Some(ref mut r) => r,
         _ => {
@@ -150,12 +168,12 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
           ));
         },
       };
-      reader.document_with_visitor(sub.sub.doc_id, &mut sub.sub.visitor, Some(self))?;
-      self.finish_document()?;
+      reader.document_with_visitor(sub.sub.doc_id, &mut sub.sub.visitor, Some(&mut *writer))?;
+      writer.finish_document()?;
       doc_count += 1;
     }
 
-    self.finish(doc_count, dir)?;
+    writer.finish(doc_count, dir)?;
     Ok(doc_count)
   }
 }
