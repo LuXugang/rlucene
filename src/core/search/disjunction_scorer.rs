@@ -349,9 +349,10 @@ where
   }
   pub(crate) fn get_sub_matches(&mut self) -> Result<Option<usize>> {
     // iteration order does not matter
-    // TODO IMPORTANT Due to borrow checker, we have to collect first, could we avoid it?
-    let v: Vec<usize> = self.unverified_matches.iter_ref().cloned().collect();
-    for i in v {
+    for heap_index in 1..=self.unverified_matches.size() {
+      let i = *self.unverified_matches.get_heap_array()[heap_index]
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))?;
       let w = &mut self.unverified_matches.compare.approximation.all_scores[i];
 
       if w.matches()? {
