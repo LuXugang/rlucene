@@ -1803,7 +1803,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
     let mut last_field: Option<String> = None;
     let mut fields_iterator = fields.iterator()?;
-    while let Some(field) = fields_iterator.next()? {
+    while fields_iterator.has_next()? {
+      let field = fields_iterator
+        .next()?
+        .ok_or_else(|| LuceneError::illegal_state("Fields.iterator().has_next returned true"))?;
       // MultiFieldsEnum relies upon this order...
       if last_field
         .as_ref()
@@ -4431,7 +4434,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           }
 
           let mut fields_iterator = tfv.iterator()?;
-          while let Some(field) = fields_iterator.next()? {
+          while fields_iterator.has_next()? {
+            let field = fields_iterator.next()?.ok_or_else(|| {
+              LuceneError::illegal_state("Fields.iterator().has_next returned true")
+            })?;
             if do_stats {
               status.tot_vectors += 1;
             }

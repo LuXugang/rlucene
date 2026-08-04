@@ -210,13 +210,14 @@ where
     }
   }
 
-  fn build_fields_group_mapping<'a, 'b, D1>(
+  fn build_fields_group_mapping<'a, 'b, 'c, D1, I>(
     base: &'b B,
     write_state: &SegmentWriteState<'a, D1>,
-    indexed_field_names: impl IntoIterator<Item = String>,
+    indexed_field_names: &mut I,
   ) -> Result<FieldsGroupMapping<'a, 'b, B::Format, D1>>
   where
     D1: Directory,
+    I: IteratorExt<Item = &'c String>,
   {
     // Maps a PostingsFormat instance to the suffix it should use.
     let mut format_to_group_builders: HashMap<
@@ -228,15 +229,18 @@ where
     let mut suffixes: HashMap<String, i32> = HashMap::new();
 
     // Assign field -> PostingsFormat.
-    for field in indexed_field_names {
+    while indexed_field_names.has_next()? {
+      let field = indexed_field_names
+        .next()?
+        .ok_or_else(|| LuceneError::illegal_state("indexedFieldNames.has_next returned true"))?;
       let field_info = write_state
         .field_infos
-        .field_info_by_name(&field)?
+        .field_info_by_name(field)?
         .ok_or_else(|| {
           LuceneError::illegal_state(format!("missing FieldInfo for field {field}"))
         })?;
       // TODO: This should check current format from the field attribute?
-      let format = base.get_postings_format_for_field(&field)?;
+      let format = base.get_postings_format_for_field(field)?;
       let format_name = format.get_name();
       let identity = format.identity().clone();
 
@@ -261,7 +265,7 @@ where
             .and_modify(|suffix| *suffix += 1)
             .or_insert(0);
           let segment_suffix = get_full_segment_suffix(
-            &field,
+            field,
             &write_state.segment_suffix,
             &get_suffix(format_name, *suffix),
           )?;
@@ -277,7 +281,7 @@ where
         },
       };
 
-      group_builder.add_field(field);
+      group_builder.add_field(field.clone());
       field_info.put_attribute(PER_FIELD_FORMAT_KEY.to_string(), format_name.to_string());
       field_info.put_attribute(
         PER_FIELD_SUFFIX_KEY.to_string(),
@@ -311,17 +315,11 @@ where
     F: Fields,
     N: NormsProducer,
   {
-    let mut field_names = fields.iterator()?;
-    let mut indexed_field_names = Vec::new();
-    while field_names.has_next()? {
-      let field = field_names
-        .next()?
-        .expect("Fields.iterator().has_next returned true");
-      indexed_field_names.push(field.clone());
-    }
-    drop(field_names);
     let base = Arc::clone(&self.base);
-    let groups = Self::build_fields_group_mapping(base.as_ref(), write_state, indexed_field_names)?;
+    let groups = {
+      let mut indexed_field_names = fields.iterator()?;
+      Self::build_fields_group_mapping(base.as_ref(), write_state, &mut indexed_field_names)
+    }?;
 
     // Write postings.
     for (format, group) in groups.into_values() {
@@ -369,16 +367,10 @@ where
     for fields_producer in merge_state.fields_producers().iter().flatten() {
       iterators.push(fields_producer.iterator()?);
     }
-    let mut fields = MergedIterator::new(iterators)?;
-    let mut indexed_field_names = Vec::new();
-    while fields.has_next()? {
-      let field = fields
-        .next()?
-        .expect("MergedIterator.has_next returned true");
-      indexed_field_names.push(field.clone());
-    }
+    let mut indexed_field_names = MergedIterator::new(iterators)?;
     let base = Arc::clone(&self.base);
-    let groups = Self::build_fields_group_mapping(base.as_ref(), write_state, indexed_field_names)?;
+    let groups =
+      Self::build_fields_group_mapping(base.as_ref(), write_state, &mut indexed_field_names)?;
 
     // Merge postings.
     for (format, group) in groups.into_values() {

@@ -2337,7 +2337,10 @@ where
   let fields1 = doc.field_names.iter().collect::<HashSet<_>>();
   let mut fields2 = HashSet::new();
   let mut field_iter = fields.iterator()?;
-  while let Some(field) = field_iter.next()? {
+  while field_iter.has_next()? {
+    let field = field_iter
+      .next()?
+      .ok_or_else(|| LuceneError::illegal_state("Fields.iterator().has_next returned true"))?;
     fields2.insert(field);
   }
   assert_eq!(fields1, fields2);

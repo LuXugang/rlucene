@@ -635,7 +635,10 @@ where
   let mut fields_enum1 = d1.iterator()?;
   let mut d_enum1 = None;
   let mut d_enum2 = None;
-  while let Some(field1) = fields_enum1.next()? {
+  while fields_enum1.has_next()? {
+    let field1 = fields_enum1
+      .next()?
+      .ok_or_else(|| LuceneError::illegal_state("Fields.iterator().has_next returned true"))?;
     let field2 = fields_enum2.next()?.expect("field missing in d2");
     assert_eq!(field1, field2);
 
