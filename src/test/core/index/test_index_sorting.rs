@@ -24,6 +24,7 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::{FieldTokenStreamEnum, Fields};
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
+use crate::core::document::int_point::IntPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
@@ -86,6 +87,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
+use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, create_temp_dir, get_only_leaf_reader, new_bytes_ref_from_string,
   new_directory_shared, new_fs_directory, new_index_writer_config,
@@ -104,28 +106,224 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 pub struct TestIndexSorting;
 
+fn assert_needs_index_sort_merge<DC, RC>(
+  random: &mut StdRng,
+  sort_field: SortFieldEnum,
+  mut default_value_consumer: DC,
+  mut random_value_consumer: RC,
+) -> Result<()>
+where
+  DC: FnMut(&mut StdRng, &mut Document) -> Result<()>,
+  RC: FnMut(&mut StdRng, &mut Document) -> Result<()>,
+{
+  let dir = new_directory_shared(random)?;
+  let analyzer = MockAnalyzer::new(random);
+  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  let codec = AssertingNeedsIndexSortCodec::new();
+  iwc.set_codec(codec.clone());
+  let index_sort = Sort::with_fields(vec![
+    sort_field,
+    SortField::new(Some("id"), SortFieldType::Int)?.into(),
+  ])?;
+  iwc.set_index_sort(index_sort)?;
+  let mut policy = new_log_merge_policy(random)?;
+  // make sure that merge factor is always > 2 and target search concurrency is no more than 1 to
+  // avoid creating merges that are accidentally sorted
+  match policy {
+    MergePolicyEnum::LogBytesSize(ref mut policy) => {
+      policy.set_target_search_concurrency(1)?;
+      if policy.get_merge_factor() <= 2 {
+        policy.set_merge_factor(3)?;
+      }
+    },
+    MergePolicyEnum::LogDoc(ref mut policy) => {
+      policy.set_target_search_concurrency(1)?;
+      if policy.get_merge_factor() <= 2 {
+        policy.set_merge_factor(3)?;
+      }
+    },
+    _ => unreachable!("expected LogByteSizeMergePolicy or LogDocMergePolicy"),
+  }
+  iwc.set_merge_policy(policy);
+
+  // add already sorted documents
+  codec.num_calls.store(0, Ordering::Relaxed);
+  codec.needs_index_sort.store(false, Ordering::Relaxed);
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let with_values = random.random_bool(0.5);
+  for i in 100..200 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+    doc.add(NumericDocValuesField::new("id", i as i64));
+    doc.add(IntPoint::new("point", [random.random::<i32>()])?);
+    if with_values {
+      default_value_consumer(random, &mut doc)?;
+    }
+    writer.add_document(doc)?;
+    if i % 10 == 0 {
+      writer.commit()?;
+    }
+  }
+  let mut _deleted_docs = HashSet::new();
+  let num = random.random_range(0..20);
+  for _ in 0..num {
+    let next_doc = random.random_range(0..100);
+    writer.delete_documents_with_terms(vec![Term::from_text("id", next_doc.to_string())])?;
+    _deleted_docs.insert(next_doc);
+  }
+  writer.commit()?;
+  writer.wait_for_merges()?;
+  writer.force_merge(1)?;
+  assert!(codec.num_calls.load(Ordering::Relaxed) > 0);
+
+  // merge sort is needed
+  writer.delete_all()?;
+  codec.num_calls.store(0, Ordering::Relaxed);
+  codec.needs_index_sort.store(true, Ordering::Relaxed);
+  for i in (0..=10).rev() {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+    doc.add(NumericDocValuesField::new("id", i as i64));
+    doc.add(IntPoint::new("point", [random.random::<i32>()])?);
+    if with_values {
+      default_value_consumer(random, &mut doc)?;
+    }
+    writer.add_document(doc)?;
+    writer.commit()?;
+  }
+  writer.commit()?;
+  writer.wait_for_merges()?;
+  writer.force_merge(1)?;
+  assert!(codec.num_calls.load(Ordering::Relaxed) > 0);
+
+  // segment sort is needed
+  codec.needs_index_sort.store(true, Ordering::Relaxed);
+  codec.num_calls.store(0, Ordering::Relaxed);
+  for i in 201..300 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+    doc.add(NumericDocValuesField::new("id", i as i64));
+    doc.add(IntPoint::new("point", [random.random::<i32>()])?);
+    random_value_consumer(random, &mut doc)?;
+    writer.add_document(doc)?;
+    if i % 10 == 0 {
+      writer.commit()?;
+    }
+  }
+  writer.commit()?;
+  writer.wait_for_merges()?;
+  writer.force_merge(1)?;
+  assert!(codec.num_calls.load(Ordering::Relaxed) > 0);
+
+  writer.close()?;
+  dir.close()?;
+  Ok(())
+}
+
 #[test]
 fn test_numeric_already_sorted() -> Result<()> {
-  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook.
-  Ok(())
+  let mut random = random();
+  assert_needs_index_sort_merge(
+    &mut random,
+    SortField::new(Some("foo"), SortFieldType::Int)?.into(),
+    |_random, doc| {
+      doc.add(NumericDocValuesField::new("foo", 0));
+      Ok(())
+    },
+    |random, doc| {
+      doc.add(NumericDocValuesField::new(
+        "foo",
+        random.random::<i32>() as i64,
+      ));
+      Ok(())
+    },
+  )
 }
 
 #[test]
 fn test_string_already_sorted() -> Result<()> {
-  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook.
-  Ok(())
+  let mut random = random();
+  assert_needs_index_sort_merge(
+    &mut random,
+    SortField::new(Some("foo"), SortFieldType::String)?.into(),
+    |_random, doc| {
+      doc.add(SortedDocValuesField::new(
+        "foo",
+        BytesRef::from_string("default"),
+      ));
+      Ok(())
+    },
+    |random, doc| {
+      doc.add(SortedDocValuesField::new(
+        "foo",
+        TestUtil::random_binary_term(random),
+      ));
+      Ok(())
+    },
+  )
 }
 
 #[test]
 fn test_multi_valued_numeric_already_sorted() -> Result<()> {
-  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook.
-  Ok(())
+  let mut random = random();
+  assert_needs_index_sort_merge(
+    &mut random,
+    SortedNumericSortField::new("foo", SortFieldType::Int)?.into(),
+    |random, doc| {
+      doc.add(SortedNumericDocValuesField::new("foo", i32::MIN as i64));
+      let num = random.random_range(0..5);
+      for _ in 0..num {
+        doc.add(SortedNumericDocValuesField::new(
+          "foo",
+          random.random::<i32>() as i64,
+        ));
+      }
+      Ok(())
+    },
+    |random, doc| {
+      let num = random.random_range(0..5);
+      for _ in 0..num {
+        doc.add(SortedNumericDocValuesField::new(
+          "foo",
+          random.random::<i32>() as i64,
+        ));
+      }
+      Ok(())
+    },
+  )
 }
 
 #[test]
 fn test_multi_valued_string_already_sorted() -> Result<()> {
-  // TODO: AssertingNeedsIndexSortCodec requires a custom PointsFormat merge hook.
-  Ok(())
+  let mut random = random();
+  assert_needs_index_sort_merge(
+    &mut random,
+    SortedSetSortField::new("foo", false)?.into(),
+    |random, doc| {
+      doc.add(SortedSetDocValuesField::new(
+        "foo",
+        BytesRef::from_string(""),
+      ));
+      let num = random.random_range(0..5);
+      for _ in 0..num {
+        doc.add(SortedSetDocValuesField::new(
+          "foo",
+          TestUtil::random_binary_term(random),
+        ));
+      }
+      Ok(())
+    },
+    |random, doc| {
+      let num = random.random_range(0..5);
+      for _ in 0..num {
+        doc.add(SortedSetDocValuesField::new(
+          "foo",
+          TestUtil::random_binary_term(random),
+        ));
+      }
+      Ok(())
+    },
+  )
 }
 
 #[test]
@@ -4070,6 +4268,8 @@ fn test_index_sort_with_blocks() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  let codec = AssertingNeedsIndexSortCodec::new();
+  iwc.set_codec(codec.clone());
 
   let parent_field = "parent";
   let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
@@ -4092,6 +4292,9 @@ fn test_index_sort_with_blocks() -> Result<()> {
   }
   iwc.set_merge_policy(policy);
 
+  // add already sorted documents
+  codec.num_calls.store(0, Ordering::Relaxed);
+  codec.needs_index_sort.store(false, Ordering::Relaxed);
   {
     let writer = IndexWriter::new(dir.clone(), iwc)?;
     let num_docs = random.random_range(50..100);
@@ -4185,6 +4388,8 @@ fn test_mix_random_documents_with_blocks() -> Result<()> {
 
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  let codec = AssertingNeedsIndexSortCodec::new();
+  iwc.set_codec(codec);
   let parent_field = "parent";
   let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
   iwc.set_index_sort(index_sort)?;

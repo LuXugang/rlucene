@@ -59,6 +59,7 @@ pub mod test_check_index;
 pub mod test_concurrent_merge_scheduler;
 pub mod test_flush_by_ram_or_counts_policy;
 pub mod test_index_file_deleter;
+pub mod test_index_sorting;
 pub mod test_index_writer;
 pub mod test_index_writer_merge_policy;
 pub mod test_index_writer_merging;

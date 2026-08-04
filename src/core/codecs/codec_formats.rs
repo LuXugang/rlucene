@@ -49,9 +49,9 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::norms_producer::NormsProducerEnum2;
 use crate::core::codecs::points_format::PointsFormat;
 #[cfg(test)]
-use crate::core::codecs::points_reader::PointsReaderEnum2;
+use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 #[cfg(test)]
-use crate::core::codecs::points_writer::PointsWriterEnum2;
+use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 #[cfg(test)]
@@ -63,10 +63,16 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_reader::TermVectorsReaderEnum2;
 #[cfg(test)]
 use crate::core::codecs::term_vectors_writer::TermVectorsWriterEnum2;
+#[cfg(test)]
+use crate::core::index::codec_reader::CodecReader;
+#[cfg(test)]
+use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::Identity;
 #[cfg(test)]
 use crate::core::index::knn_vector_values::KnnVectorValues;
+#[cfg(test)]
+use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -77,6 +83,8 @@ use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 #[cfg(test)]
 use crate::core::util::bits::BitsEnum2;
+#[cfg(test)]
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::core::{
@@ -84,6 +92,8 @@ use crate::core::{
 };
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -104,6 +114,8 @@ type AssertingLiveDocsFormat = <AssertingCodec as Codec>::LiveDocsFormat;
 type AssertingPointsFormat = <AssertingCodec as Codec>::PointsFormat;
 #[cfg(test)]
 type AssertingKnnVectorsFormat = <AssertingCodec as Codec>::KnnVectorsFormat;
+#[cfg(test)]
+type AssertingNeedsIndexSortPointsFormat = <AssertingNeedsIndexSortCodec as Codec>::PointsFormat;
 
 pub enum CodecPostingsFormat {
   Lucene101(Lucene101CodecPostingsFormat),
@@ -145,6 +157,8 @@ pub enum CodecPointsFormat {
   Lucene90(Lucene90PointsFormat),
   #[cfg(test)]
   Asserting(AssertingPointsFormat),
+  #[cfg(test)]
+  AssertingNeedsIndexSort(AssertingNeedsIndexSortPointsFormat),
 }
 
 pub enum CodecKnnVectorsFormat {
@@ -709,10 +723,85 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
 #[cfg(not(test))]
 pub type CodecPointsWriter<O> = <Lucene90PointsFormat as PointsFormat>::PointsWriter<O>;
 #[cfg(test)]
-pub type CodecPointsWriter<O> = PointsWriterEnum2<
-  <Lucene90PointsFormat as PointsFormat>::PointsWriter<O>,
-  <AssertingPointsFormat as PointsFormat>::PointsWriter<O>,
->;
+pub enum CodecPointsWriter<O: IndexOutput> {
+  Lucene90(<Lucene90PointsFormat as PointsFormat>::PointsWriter<O>),
+  Asserting(<AssertingPointsFormat as PointsFormat>::PointsWriter<O>),
+  AssertingNeedsIndexSort(<AssertingNeedsIndexSortPointsFormat as PointsFormat>::PointsWriter<O>),
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> Closeable for CodecPointsWriter<O> {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::Lucene90(inner) => inner.close(),
+      Self::Asserting(inner) => inner.close(),
+      Self::AssertingNeedsIndexSort(inner) => inner.close(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
+  fn write_field<PR, D1, D2>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    values: &mut PR,
+    dir: &D1,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<()>
+  where
+    PR: PointsReader,
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::Lucene90(inner) => inner.write_field(field_info, values, dir, segment_info),
+      Self::Asserting(inner) => inner.write_field(field_info, values, dir, segment_info),
+      Self::AssertingNeedsIndexSort(inner) => {
+        inner.write_field(field_info, values, dir, segment_info)
+      },
+    }
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    match self {
+      Self::Lucene90(inner) => inner.finish(),
+      Self::Asserting(inner) => inner.finish(),
+      Self::AssertingNeedsIndexSort(inner) => inner.finish(),
+    }
+  }
+
+  fn merge_one_field<D1, D2, CR>(
+    &mut self,
+    merge_state: &MergeState<D1, CR>,
+    field_info: &Arc<FieldInfo>,
+    dir: &D2,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene90(inner) => inner.merge_one_field(merge_state, field_info, dir),
+      Self::Asserting(inner) => inner.merge_one_field(merge_state, field_info, dir),
+      Self::AssertingNeedsIndexSort(inner) => inner.merge_one_field(merge_state, field_info, dir),
+    }
+  }
+
+  fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene90(inner) => inner.merge(merge_state, dir),
+      Self::Asserting(inner) => inner.merge(merge_state, dir),
+      Self::AssertingNeedsIndexSort(inner) => inner.merge(merge_state, dir),
+    }
+  }
+}
 
 #[cfg(not(test))]
 pub type CodecPointsReader<I> = <Lucene90PointsFormat as PointsFormat>::PointsReader<I>;
@@ -742,11 +831,19 @@ impl PointsFormat for CodecPointsFormat {
         }
         #[cfg(test)]
         {
-          format.fields_writer(state, info).map(PointsWriterEnum2::A)
+          format
+            .fields_writer(state, info)
+            .map(CodecPointsWriter::Lucene90)
         }
       },
       #[cfg(test)]
-      Self::Asserting(format) => format.fields_writer(state, info).map(PointsWriterEnum2::B),
+      Self::Asserting(format) => format
+        .fields_writer(state, info)
+        .map(CodecPointsWriter::Asserting),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(format) => format
+        .fields_writer(state, info)
+        .map(CodecPointsWriter::AssertingNeedsIndexSort),
     }
   }
 
@@ -774,6 +871,10 @@ impl PointsFormat for CodecPointsFormat {
       },
       #[cfg(test)]
       Self::Asserting(format) => format.fields_reader(state, info).map(PointsReaderEnum2::B),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(format) => {
+        format.fields_reader(state, info).map(PointsReaderEnum2::A)
+      },
     }
   }
 }

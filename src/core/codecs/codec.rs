@@ -33,6 +33,8 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
 #[cfg(not(test))]
 use parking_lot::RwLock;
 #[cfg(test)]
@@ -94,6 +96,8 @@ pub enum Codecs {
   Lucene101(Lucene101Codec),
   #[cfg(test)]
   Asserting(AssertingCodec),
+  #[cfg(test)]
+  AssertingNeedsIndexSort(AssertingNeedsIndexSortCodec),
 }
 
 impl Default for Codecs {
@@ -125,12 +129,21 @@ impl From<AssertingCodec> for Codecs {
   }
 }
 
+#[cfg(test)]
+impl From<AssertingNeedsIndexSortCodec> for Codecs {
+  fn from(codec: AssertingNeedsIndexSortCodec) -> Self {
+    Self::AssertingNeedsIndexSort(codec)
+  }
+}
+
 impl Display for Codecs {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::Lucene101(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::Asserting(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => Display::fmt(codec, f),
     }
   }
 }
@@ -153,6 +166,10 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecPostingsFormat::Asserting(codec.postings_format()),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => {
+        CodecPostingsFormat::Lucene101(codec.postings_format())
+      },
     }
   }
 
@@ -161,6 +178,10 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecDocValuesFormat::Asserting(codec.doc_values_format()),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => {
+        CodecDocValuesFormat::Lucene101(codec.doc_values_format())
+      },
     }
   }
 
@@ -169,6 +190,10 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecStoredFieldsFormat::Asserting(codec.stored_fields_format()),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => {
+        CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format())
+      },
     }
   }
 
@@ -177,6 +202,10 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecTermVectorsFormat::Asserting(codec.term_vectors_format()),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => {
+        CodecTermVectorsFormat::Lucene90(codec.term_vectors_format())
+      },
     }
   }
 
@@ -185,6 +214,8 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => codec.field_infos_format(),
       #[cfg(test)]
       Self::Asserting(codec) => codec.field_infos_format(),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => codec.field_infos_format(),
     }
   }
 
@@ -193,6 +224,8 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => codec.segment_info_format(),
       #[cfg(test)]
       Self::Asserting(codec) => codec.segment_info_format(),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => codec.segment_info_format(),
     }
   }
 
@@ -201,6 +234,8 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecNormsFormat::Asserting(codec.norms_format()),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
     }
   }
 
@@ -209,6 +244,10 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecLiveDocsFormat::Asserting(codec.live_docs_format()),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => {
+        CodecLiveDocsFormat::Lucene90(codec.live_docs_format())
+      },
     }
   }
 
@@ -217,6 +256,8 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => codec.compound_format(),
       #[cfg(test)]
       Self::Asserting(codec) => codec.compound_format(),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => codec.compound_format(),
     }
   }
 
@@ -225,6 +266,10 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecPointsFormat::Asserting(codec.points_format()),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => {
+        CodecPointsFormat::AssertingNeedsIndexSort(codec.points_format())
+      },
     }
   }
 
@@ -237,6 +282,10 @@ impl Codec for Codecs {
       Self::Asserting(codec) => codec
         .knn_vectors_format()
         .map(CodecKnnVectorsFormat::Asserting),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
     }
   }
 
@@ -245,6 +294,8 @@ impl Codec for Codecs {
       Self::Lucene101(codec) => codec.get_name(),
       #[cfg(test)]
       Self::Asserting(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::AssertingNeedsIndexSort(codec) => codec.get_name(),
     }
   }
 }
