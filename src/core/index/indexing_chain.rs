@@ -1496,7 +1496,6 @@ pub(crate) struct PerField {
   pub(crate) next: i32,
   pub(crate) norms: Option<NormValuesWriter>,
   // reuse
-  // TODO IMPORTANT  如果同一个域既有 StringValue 跟 Binary是不是应该同时保留BinaryTokenStream, StringTokenStream是的复用最大化
   pub(crate) token_stream: Option<ReusedIndexingTokenStream>,
   pub(crate) first: bool,
   pub(crate) idx_in_doc_field: i32,

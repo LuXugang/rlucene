@@ -151,7 +151,6 @@ where
   last_commit_change_count: AtomicI64,
   pending_seq_no: AtomicI64,
   pending_commit_change_count: AtomicI64,
-  // TODO IMPORTANT 必须要用Mutext封装吗
   pub(crate) global_field_number_map: FieldNumbersLock,
   pub(crate) doc_writer: DocumentsWriter<D, FlushNotificationsImpl>,
   event_queue: Arc<EventQueue>,
@@ -5553,8 +5552,7 @@ where
       )));
     }
 
-    // TODO IMPORTANT Current Rust implementation, `is_external` is always false
-    let is_external = false;
+    let mut is_external = false;
 
     for info_id in &merge.stat.segments {
       if inner.merging_segments.contains(info_id) {
@@ -5562,6 +5560,14 @@ where
       }
       if !inner.segment_infos.contains(info_id) {
         return Ok(false);
+      }
+
+      let info = inner
+        .segment_infos
+        .index_of_live(info_id)
+        .ok_or_else(|| LuceneError::illegal_state(format!("segment {info_id} is not live")))?;
+      if !info.info.dir.is_same_identity(&self.directory_orig) {
+        is_external = true;
       }
 
       if inner.segments_to_merge.contains_key(info_id) {

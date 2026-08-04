@@ -21,6 +21,7 @@ pub mod char_filter;
 pub mod mock_analyzer;
 pub mod mock_char_filter;
 pub mod mock_fixed_length_payload_filter;
+pub mod mock_lower_case_filter;
 pub mod mock_payload_analyzer;
 pub mod mock_token_filter;
 pub mod mock_tokenizer;

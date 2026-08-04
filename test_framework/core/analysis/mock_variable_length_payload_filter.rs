@@ -20,7 +20,9 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::index::bytes_ref::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::Result;
+use parking_lot::Mutex;
 use rand::{Rng, RngExt};
+use std::sync::Arc;
 
 const MAX_LENGTH: usize = 129;
 
@@ -30,7 +32,7 @@ where
   TS: TokenStream,
   R: Rng,
 {
-  random: R,
+  random: Arc<Mutex<R>>,
   bytes: Vec<u8>,
   token_filter_base: TokenFilterBase<TS>,
 }
@@ -40,7 +42,7 @@ where
   TS: TokenStream,
   R: Rng,
 {
-  pub fn new(input: TS, random: R) -> Self {
+  pub fn new(random: Arc<Mutex<R>>, input: TS) -> Self {
     Self {
       random,
       bytes: vec![0; MAX_LENGTH],
@@ -66,8 +68,10 @@ where
 {
   fn increment_token(&mut self) -> Result<bool> {
     if self.token_filter_base.input.increment_token()? {
-      self.random.fill_bytes(&mut self.bytes);
-      let length = self.random.random_range(0..MAX_LENGTH);
+      let mut random = self.random.lock();
+      random.fill_bytes(&mut self.bytes);
+      let length = random.random_range(0..MAX_LENGTH);
+      drop(random);
       let payload = BytesRef::from_slice(self.bytes.clone(), 0, length);
       self.get_attribute_source_mut().set_payload(Some(payload))?;
       Ok(true)

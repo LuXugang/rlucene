@@ -86,7 +86,6 @@ impl<T: IndexInput> crate::core::util::close::CloseableRef for BufferedChecksumI
   }
 }
 
-// TODO IMPORTANT: readInt/Long not implement
 impl<T> DataInput for BufferedChecksumIndexInput<T>
 where
   T: IndexInput,
@@ -100,6 +99,30 @@ where
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.main.read_bytes(b, offset, len)?;
     self.digest.update_bytes(b, offset, len);
+    Ok(())
+  }
+
+  fn read_short(&mut self) -> Result<i16> {
+    let value = self.main.read_short()?;
+    self.digest.update_short(value);
+    Ok(value)
+  }
+
+  fn read_int(&mut self) -> Result<i32> {
+    let value = self.main.read_int()?;
+    self.digest.update_int(value);
+    Ok(value)
+  }
+
+  fn read_long(&mut self) -> Result<i64> {
+    let value = self.main.read_long()?;
+    self.digest.update_long(value);
+    Ok(value)
+  }
+
+  fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+    self.main.read_longs(dst, offset, len)?;
+    self.digest.update_longs(dst, offset, len);
     Ok(())
   }
 

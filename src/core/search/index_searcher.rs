@@ -507,10 +507,17 @@ where
     }
 
     let capped_num_hits = std::cmp::min(num_hits, limit);
-    // TODO IMPORTANT
-    // let rewritten_sort = sort.rewrite(self)?;
-    let manager =
-      TopFieldCollectorManager::with_after(sort, capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
+    let sort = sort.into();
+    let rewritten_sort = match sort.rewrite(self)? {
+      Some(rewritten_sort) => Arc::new(rewritten_sort),
+      None => sort,
+    };
+    let manager = TopFieldCollectorManager::with_after(
+      rewritten_sort,
+      capped_num_hits,
+      after,
+      TOTAL_HITS_THRESHOLD,
+    )?;
     let query = query.into_query();
     let mut top_field_docs = self.search_with_collector_manager(query.clone(), &manager)?;
 

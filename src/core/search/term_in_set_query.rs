@@ -107,8 +107,9 @@ impl TermInSetQuery {
   }
 
   fn pack_terms(field: &str, mut terms: Vec<BytesRef<Vec<u8>>>) -> Result<PrefixCodedTermsArc> {
-    // TODO IMPORTANT 这里需要判断是否已经有序
-    terms.sort();
+    if !terms.is_sorted() {
+      terms.sort();
+    }
     let mut builder = PrefixCodedTermsBuilder::new();
     let mut previous: Option<BytesRef<Vec<u8>>> = None;
     for term in terms {

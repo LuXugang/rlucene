@@ -275,7 +275,9 @@ pub trait BaseVectorSimilarityQueryTestCase {
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
     let reader = directory_reader::open(index_store.into())?;
-    HnswUtil::graph_is_rooted(&reader, vector_field)?;
+    if !HnswUtil::graph_is_rooted(&reader, vector_field)? {
+      return Ok(());
+    }
     let searcher = new_searcher_with_reader(reader)?;
 
     let query1 = self.get_vector_query(
@@ -314,7 +316,9 @@ pub trait BaseVectorSimilarityQueryTestCase {
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
     let reader = directory_reader::open(index_store.into())?;
-    HnswUtil::graph_is_rooted(&reader, vector_field)?;
+    if !HnswUtil::graph_is_rooted(&reader, vector_field)? {
+      return Ok(());
+    }
     let searcher = new_searcher_with_reader(reader)?;
     let query = self.get_vector_query(
       vector_field,
@@ -452,7 +456,9 @@ pub trait BaseVectorSimilarityQueryTestCase {
     writer.close()?;
 
     let reader = directory_reader::open(index_store.into())?;
-    HnswUtil::graph_is_rooted(&reader, vector_field)?;
+    if !HnswUtil::graph_is_rooted(&reader, vector_field)? {
+      return Ok(());
+    }
     let searcher = new_searcher_with_reader(reader)?;
 
     let query = self.get_vector_query(

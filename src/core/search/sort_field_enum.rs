@@ -140,6 +140,16 @@ impl SortFiledBase for SortFieldEnum {
       .set_missing_value(missing_value))
   }
 
+  fn rewrite<IRC>(
+    &self,
+    searcher: &crate::core::search::index_searcher::IndexSearcher<IRC>,
+  ) -> Result<Option<SortFieldEnum>>
+  where
+    IRC: crate::core::index::index_reader_context::IndexReaderContext,
+  {
+    dispatch_sort_field!(self, |sort_field| sort_field.rewrite(searcher))
+  }
+
   fn needs_scores(&self) -> bool {
     dispatch_sort_field!(self, |sort_field| sort_field.needs_scores())
   }

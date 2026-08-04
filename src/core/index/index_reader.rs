@@ -371,7 +371,6 @@ impl IndexReaderBase {
 
   fn register_parent_reader(&self, reader: &Self) {
     let reader = Arc::downgrade(&reader.state);
-    // TODO IMPORTANT 检查正确性
     let mut parent_readers = self.state.parent_readers.lock();
     parent_readers.retain(|parent| parent.strong_count() > 0);
     if !parent_readers.iter().any(|parent| parent.ptr_eq(&reader)) {

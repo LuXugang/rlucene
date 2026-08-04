@@ -14,7 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_reader::IndexReader;
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::index_reader::{
+  IndexReader, IndexReaderContextKind, IndexReaderContextType,
+};
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -298,11 +303,29 @@ impl HnswUtil {
   ///
   /// This method evaluates connectivity starting from a single node,
   /// effectively checking whether the graph is a "rooted graph".
-  pub fn graph_is_rooted<IR>(_reader: &IR, _vector_field: &str) -> Result<bool>
+  pub fn graph_is_rooted<IR>(reader: IR, vector_field: &str) -> Result<bool>
   where
     IR: IndexReader,
+    IR::ContextKind: IndexReaderContextKind<IR>,
+    IRCLeafReader<IndexReaderContextType<IR>>: CodecReader,
+    <IRCLeafReader<IndexReaderContextType<IR>> as CodecReader>::KnnVectorsReader: HnswGraphProvider,
   {
-    // TODO IMPORTANT
+    let context = reader.get_context()?;
+    for leaf in context.leaves()? {
+      let vector_reader = leaf
+        .reader()
+        .get_vector_reader()?
+        .ok_or_else(|| LuceneError::illegal_state("vector reader is missing"))?;
+      if !vector_reader.is_hnsw_graph_provider(vector_field) {
+        return Err(LuceneError::illegal_state(format!(
+          "vector reader for field {vector_field} does not provide an HNSW graph"
+        )));
+      }
+      let mut graph = vector_reader.get_graph(vector_field)?;
+      if !Self::is_rooted(&mut graph)? {
+        return Ok(false);
+      }
+    }
     Ok(true)
   }
 }

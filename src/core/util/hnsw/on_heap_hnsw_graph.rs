@@ -198,14 +198,17 @@ impl OnHeapHnswGraph {
     }
   }
   fn generate_level_to_nodes(&mut self) -> Result<()> {
-    if self.last_freeze_size == self.size() {
+    let size = self.size();
+    if self.last_freeze_size == size {
       return Ok(());
     }
 
     let max_levels = self.num_levels()?;
-    let mut level_to_nodes = vec![None; max_levels];
-    for slot in level_to_nodes.iter_mut().skip(1) {
-      *slot = Some(Vec::new());
+    self.level_to_nodes.clear();
+    self.level_to_nodes.reserve(max_levels);
+    for level in 0..max_levels {
+      let nodes = if level == 0 { None } else { Some(Vec::new()) };
+      self.level_to_nodes.push(Arc::new(nodes));
     }
 
     let mut non_null_node = 0;
@@ -214,24 +217,17 @@ impl OnHeapHnswGraph {
         continue;
       }
       non_null_node += 1;
-      for (_, maybe_vec) in level_to_nodes
-        .iter_mut()
-        .enumerate()
-        .take(levels.len())
-        .skip(1)
-      {
-        if let Some(vec) = maybe_vec {
+      for maybe_vec in self.level_to_nodes.iter_mut().take(levels.len()).skip(1) {
+        if let Some(vec) = Arc::get_mut(maybe_vec).and_then(Option::as_mut) {
           vec.push(node);
         }
       }
-      if non_null_node == self.size() {
+      if non_null_node == size {
         break;
       }
     }
-    // TODO IMPORTANT 这里可以避免再次收集吗
-    self.level_to_nodes = level_to_nodes.into_iter().map(Arc::new).collect();
 
-    self.last_freeze_size = self.size();
+    self.last_freeze_size = size;
     Ok(())
   }
 }

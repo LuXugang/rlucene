@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::sort_field::{SortField, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -100,6 +102,30 @@ impl Sort {
   }
   pub fn take_sort(&mut self) -> Vec<SortFieldEnum> {
     std::mem::take(&mut self.fields)
+  }
+
+  /// Rewrites the sort fields in this sort, returning a new sort if any field
+  /// changes during rewriting.
+  pub fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Self>>
+  where
+    IRC: IndexReaderContext,
+  {
+    let mut changed = false;
+    let mut rewritten_fields = Vec::with_capacity(self.fields.len());
+    for field in &self.fields {
+      if let Some(rewritten_field) = field.rewrite(searcher)? {
+        rewritten_fields.push(rewritten_field);
+        changed = true;
+      } else {
+        rewritten_fields.push(field.clone());
+      }
+    }
+
+    if changed {
+      Ok(Some(Self::with_fields(rewritten_fields)?))
+    } else {
+      Ok(None)
+    }
   }
 }
 

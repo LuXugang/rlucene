@@ -14,61 +14,52 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::analysis::character_utils::CharacterUtils;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_filter::{TokenFilter, TokenFilterBase};
 use crate::core::analysis::token_stream::TokenStream;
-use crate::core::index::bytes_ref::BytesRef;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
-use parking_lot::Mutex;
-use rand::Rng;
-use std::sync::Arc;
 
-/// TokenFilter that adds random fixed-length payloads.
-pub struct MockFixedLengthPayloadFilter<TS, R>
+/// A lowercasing [`TokenFilter`].
+pub struct MockLowerCaseFilter<TS>
 where
   TS: TokenStream,
-  R: Rng,
 {
-  random: Arc<Mutex<R>>,
-  bytes: Vec<u8>,
   token_filter_base: TokenFilterBase<TS>,
 }
 
-impl<TS, R> MockFixedLengthPayloadFilter<TS, R>
+impl<TS> MockLowerCaseFilter<TS>
 where
   TS: TokenStream,
-  R: Rng,
 {
-  pub fn new(random: Arc<Mutex<R>>, input: TS, length: usize) -> Self {
+  /// Sole constructor.
+  pub fn new(input: TS) -> Self {
     Self {
-      random,
-      bytes: vec![0; length],
       token_filter_base: TokenFilterBase::new(input),
     }
   }
 }
 
-impl<TS, R> crate::core::util::close::Closeable for MockFixedLengthPayloadFilter<TS, R>
+impl<TS> Closeable for MockLowerCaseFilter<TS>
 where
   TS: TokenStream,
-  R: Rng,
 {
   fn close(&mut self) -> Result<()> {
-    crate::core::util::close::Closeable::close(&mut self.token_filter_base)
+    self.token_filter_base.close()
   }
 }
 
-impl<TS, R> TokenStream for MockFixedLengthPayloadFilter<TS, R>
+impl<TS> TokenStream for MockLowerCaseFilter<TS>
 where
   TS: TokenStream,
-  R: Rng,
 {
   fn increment_token(&mut self) -> Result<bool> {
     if self.token_filter_base.input.increment_token()? {
-      self.random.lock().fill_bytes(&mut self.bytes);
-      let payload = BytesRef::from_bytes(self.bytes.clone());
-      self.get_attribute_source_mut().set_payload(Some(payload))?;
+      let attr = self.get_attribute_source_mut();
+      let length = attr.length()?;
+      CharacterUtils::convert_to_lower_case(attr.buffer_mut()?, 0, length);
       Ok(true)
     } else {
       Ok(false)
@@ -100,9 +91,4 @@ where
   }
 }
 
-impl<TS, R> TokenFilter for MockFixedLengthPayloadFilter<TS, R>
-where
-  TS: TokenStream,
-  R: Rng,
-{
-}
+impl<TS> TokenFilter for MockLowerCaseFilter<TS> where TS: TokenStream {}

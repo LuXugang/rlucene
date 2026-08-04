@@ -415,7 +415,6 @@ impl Debug for FieldTokenStreamEnum {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       FieldTokenStreamEnum::Dummy(dummy) => dummy.fmt(f),
-      // TODO IMPORTANT
       FieldTokenStreamEnum::Custom(_) => write!(f, "CustomTokenStream"),
     }
   }

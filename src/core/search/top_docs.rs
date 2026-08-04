@@ -311,7 +311,6 @@ where
       unset_shard_index |= hit.shard_index() == -1;
 
       if hit_upto >= start {
-        // TODO IMPORTANT here has a Clone , should not be a bottleneck right?
         hits[hit_upto - start] = hit.clone();
       }
 

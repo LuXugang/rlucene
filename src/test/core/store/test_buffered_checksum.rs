@@ -135,7 +135,7 @@ fn update_by_shorts<R: Rng + ?Sized>(
   let mut ix = shift_array(checksum, input, rng);
   while ix + BitUtil::SHORT_BYTES <= input.len() {
     let value = BitUtil::get_i16_le(input, ix);
-    checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::SHORT_BYTES);
+    checksum.update_short(value);
     ix += BitUtil::SHORT_BYTES;
   }
   checksum.update_bytes(input, ix, input.len() - ix);
@@ -151,7 +151,7 @@ fn update_by_ints<R: Rng + ?Sized>(
   let mut ix = shift_array(checksum, input, rng);
   while ix + BitUtil::INT_BYTES <= input.len() {
     let value = BitUtil::get_i32_le(input, ix);
-    checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::INT_BYTES);
+    checksum.update_int(value);
     ix += BitUtil::INT_BYTES;
   }
   checksum.update_bytes(input, ix, input.len() - ix);
@@ -167,7 +167,7 @@ fn update_by_longs<R: Rng + ?Sized>(
   let mut ix = shift_array(checksum, input, rng);
   while ix + BitUtil::LONG_BYTES <= input.len() {
     let value = BitUtil::get_i64_le(input, ix);
-    checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
+    checksum.update_long(value);
     ix += BitUtil::LONG_BYTES;
   }
   checksum.update_bytes(input, ix, input.len() - ix);
@@ -193,10 +193,10 @@ fn update_by_chunk_of_longs<R: Rng + ?Sized>(
   let ix = rng.random_range(0..input.len() / 4);
   let remaining = (input.len() - ix) % BitUtil::LONG_BYTES;
   let long_end = input.len() - remaining;
-  let long_input: Vec<u64> = input[ix..long_end]
+  let long_input: Vec<i64> = input[ix..long_end]
     .chunks_exact(BitUtil::LONG_BYTES)
     .map(|chunk| {
-      u64::from_le_bytes([
+      i64::from_le_bytes([
         chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
       ])
     })
@@ -204,15 +204,13 @@ fn update_by_chunk_of_longs<R: Rng + ?Sized>(
 
   checksum.update_bytes(input, 0, ix);
   for value in &long_input {
-    checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
+    checksum.update_long(*value);
   }
   checksum.update_bytes(input, long_end, remaining);
   check_checksum_value_and_reset(expected, checksum);
 
   checksum.update_bytes(input, 0, ix);
-  for value in &long_input {
-    checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
-  }
+  checksum.update_longs(&long_input, 0, long_input.len());
   checksum.update_bytes(input, long_end, remaining);
   check_checksum_value_and_reset(expected, checksum);
 
@@ -220,33 +218,23 @@ fn update_by_chunk_of_longs<R: Rng + ?Sized>(
   for _ in 0..iterations {
     let len0 = rng.random_range(0..long_input.len() / 2);
     checksum.update_bytes(input, 0, ix);
-    for value in &long_input[..len0] {
-      checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
-    }
-    for value in &long_input[len0..] {
-      checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
-    }
+    checksum.update_longs(&long_input, 0, len0);
+    checksum.update_longs(&long_input, len0, long_input.len() - len0);
     checksum.update_bytes(input, long_end, remaining);
     check_checksum_value_and_reset(expected, checksum);
 
     checksum.update_bytes(input, 0, ix);
-    for value in &long_input[..len0] {
-      checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
-    }
+    checksum.update_longs(&long_input, 0, len0);
     let len1 = rng.random_range(0..long_input.len() / 4);
     for value in &long_input[len0..len0 + len1] {
-      checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
+      checksum.update_long(*value);
     }
-    for value in &long_input[len0 + len1..] {
-      checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
-    }
+    checksum.update_longs(&long_input, len0 + len1, long_input.len() - len0 - len1);
     checksum.update_bytes(input, long_end, remaining);
     check_checksum_value_and_reset(expected, checksum);
 
     checksum.update_bytes(input, 0, ix);
-    for value in &long_input[..len0] {
-      checksum.update_bytes(&value.to_le_bytes(), 0, BitUtil::LONG_BYTES);
-    }
+    checksum.update_longs(&long_input, 0, len0);
     checksum.update_bytes(
       input,
       ix + len0 * BitUtil::LONG_BYTES,

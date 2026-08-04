@@ -1529,12 +1529,11 @@ where
           &mut self.scratch_bytes_ref1,
           &mut self.scratch_bytes_ref2,
         )?;
-        // TODO IMPORTANT do we need clone/copy here?
-        let mut comparator = self.scratch_bytes_ref1.clone();
-        let mut collector = self.scratch_bytes_ref2.clone();
-        reader.get_value(from, &mut comparator)?;
+        let mut comparator = &mut self.scratch_bytes_ref1;
+        let mut collector = &mut self.scratch_bytes_ref2;
+        reader.get_value(from, comparator)?;
         for i in from + 1..to {
-          reader.get_value(i, &mut collector)?;
+          reader.get_value(i, collector)?;
           for dim in 0..self.config.num_dims {
             let start = dim * self.config.bytes_per_dim;
             if !self.equals_predicate.test(
@@ -1880,11 +1879,7 @@ where
 
       self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
 
-      let mut packed_values = PackedValuesImpl3 {
-        heap_source,
-        bytes: vec![],
-        from,
-      };
+      let mut packed_values = PackedValuesImpl3 { heap_source, from };
       debug_assert!(values_in_order_and_bounds(
         self.config.clone(),
         count,
@@ -2835,7 +2830,6 @@ where
   O: IndexOutput,
 {
   heap_source: &'a mut PointWriterEnum<O>,
-  bytes: Vec<u8>,
   from: usize,
 }
 impl<O> PackedValues for PackedValuesImpl3<'_, O>
@@ -2844,15 +2838,11 @@ where
 {
   fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)> {
     match self.heap_source {
-      PointWriterEnum::Heap(heap_source) => {
-        let (v, offset, length) = heap_source
+      PointWriterEnum::Heap(heap_source) => Ok(
+        heap_source
           .get_packed_value_slice(self.from + i)?
-          .packed_value();
-        // TODO IMPORTANT could we avoid copy here
-        ArrayUtil::grow_no_copy(&mut self.bytes, length)?;
-        self.bytes.copy_from(&v[offset..(offset + length)], 0);
-        Ok((self.bytes.as_slice(), 0, length))
-      },
+          .packed_value(),
+      ),
       _ => Err(LuceneError::illegal_argument("heap_source should be Heap")),
     }
   }

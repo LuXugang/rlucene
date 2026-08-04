@@ -885,7 +885,11 @@ impl Analyzer for CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
   fn create_components(&self, _field_name: &str) -> Result<TokenStreamComponents> {
     let tokenizer =
       MockTokenizer::with_default_max_token_length(self.next_random(), WHITESPACE.clone(), true);
-    let filter = MockFixedLengthPayloadFilter::new(tokenizer, self.next_random(), self.length);
+    let filter = MockFixedLengthPayloadFilter::new(
+      Arc::new(parking_lot::Mutex::new(self.next_random())),
+      tokenizer,
+      self.length,
+    );
     Ok(TokenStreamComponents::new(
       Box::new(filter) as Box<dyn TokenStream + Send + Sync>,
       None,

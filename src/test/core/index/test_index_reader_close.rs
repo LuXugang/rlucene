@@ -30,6 +30,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test_framework::core::index::asserting_leaf_reader::AssertingLeafReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config, random, rarely,
@@ -124,8 +125,7 @@ fn test_core_listener_on_wrapper_with_different_cache_key() -> Result<()> {
   w.close(&mut random)?;
 
   let reader = directory_reader::open(w.w.get_directory())?;
-  // TODO IMPORTANT: Wrap this leaf with AssertingLeafReader once it has been migrated.
-  let leaf_reader = get_only_leaf_reader(&reader)?;
+  let leaf_reader = AssertingLeafReader::new(get_only_leaf_reader(&reader)?)?;
 
   let num_listeners = TestUtil::next_int(&mut random, 1, 10);
   let mut listeners = Vec::new();

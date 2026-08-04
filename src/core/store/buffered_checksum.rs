@@ -49,6 +49,27 @@ impl<T: Checksum> BufferedChecksum<T> {
       self.upto = 0;
     }
   }
+
+  pub(crate) fn update_short(&mut self, value: i16) {
+    let bytes = value.to_le_bytes();
+    self.update_bytes(&bytes, 0, bytes.len());
+  }
+
+  pub(crate) fn update_int(&mut self, value: i32) {
+    let bytes = value.to_le_bytes();
+    self.update_bytes(&bytes, 0, bytes.len());
+  }
+
+  pub(crate) fn update_long(&mut self, value: i64) {
+    let bytes = value.to_le_bytes();
+    self.update_bytes(&bytes, 0, bytes.len());
+  }
+
+  pub(crate) fn update_longs(&mut self, values: &[i64], offset: usize, len: usize) {
+    for value in &values[offset..offset + len] {
+      self.update_long(*value);
+    }
+  }
 }
 impl<T: Checksum> Checksum for BufferedChecksum<T> {
   fn update(&mut self, b: u8) {

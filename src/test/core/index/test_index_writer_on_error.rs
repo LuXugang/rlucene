@@ -89,8 +89,10 @@ impl Analyzer for OnErrorAnalyzer {
     tokenizer.set_enable_checks(false); // we are going to make it angry
     // emit some payloads
     if field_name.contains("payloads") {
-      let stream =
-        MockVariableLengthPayloadFilter::new(tokenizer, random_from_seed(self.analyzer_seed));
+      let stream = MockVariableLengthPayloadFilter::new(
+        Arc::new(Mutex::new(random_from_seed(self.analyzer_seed))),
+        tokenizer,
+      );
       Ok(TokenStreamComponents::new(
         Box::new(stream) as Box<dyn TokenStream + Send + Sync>,
         None,

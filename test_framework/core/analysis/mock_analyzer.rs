@@ -19,10 +19,12 @@ use crate::core::analysis::analyzer::{
   Analyzer, AnalyzerStoredValue, DEFAULT_OFFSET_GAP, TokenStreamComponents,
 };
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{NormalizeTokenStream, TokenStream};
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::analysis::mock_fixed_length_payload_filter::MockFixedLengthPayloadFilter;
+use crate::test_framework::core::analysis::mock_lower_case_filter::MockLowerCaseFilter;
 pub(crate) use crate::test_framework::core::analysis::mock_token_filter::MockTokenFilter;
 #[allow(unused_imports)]
 pub(crate) use crate::test_framework::core::analysis::mock_token_filter::{
@@ -32,9 +34,13 @@ pub(crate) use crate::test_framework::core::analysis::mock_token_filter::{
 pub(crate) use crate::test_framework::core::analysis::mock_tokenizer::{
   DEFAULT_MAX_TOKEN_LENGTH, MockTokenizer, SIMPLE, WHITESPACE,
 };
+use crate::test_framework::core::analysis::mock_variable_length_payload_filter::MockVariableLengthPayloadFilter;
+use crate::test_framework::core::util::lucene_test_case::rarely;
+use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
-use std::sync::Mutex;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Analyzer for testing
 ///
@@ -55,7 +61,9 @@ pub struct MockAnalyzer {
   filter: CharacterRunAutomaton,
   position_increment_gap: i32,
   offset_gap: Option<i32>,
-  random: Mutex<StdRng>,
+  random: Arc<Mutex<StdRng>>,
+  tokenizer_random: Mutex<StdRng>,
+  previous_mappings: Mutex<HashMap<String, i32>>,
   enable_checks: bool,
   max_token_length: i32,
   stored_value: AnalyzerStoredValue,
@@ -96,21 +104,72 @@ impl MockAnalyzer {
   where
     R: Rng + ?Sized,
   {
+    let analyzer_seed = random.random();
+    let mut tokenizer_seed_source = StdRng::seed_from_u64(analyzer_seed);
+    let tokenizer_seed = tokenizer_seed_source.random();
     MockAnalyzer {
       run_automaton,
       lower_case,
       filter,
       position_increment_gap: 0,
       offset_gap: None,
-      random: Mutex::new(StdRng::seed_from_u64(random.random())),
+      random: Arc::new(Mutex::new(StdRng::seed_from_u64(analyzer_seed))),
+      tokenizer_random: Mutex::new(StdRng::seed_from_u64(tokenizer_seed)),
+      previous_mappings: Mutex::new(HashMap::new()),
       enable_checks: true,
       max_token_length: DEFAULT_MAX_TOKEN_LENGTH,
       stored_value: AnalyzerStoredValue::per_field(),
     }
   }
 
-  fn next_random(&self) -> StdRng {
-    StdRng::seed_from_u64(self.random.lock().expect("random mutex poisoned").random())
+  fn next_tokenizer_random(&self) -> StdRng {
+    StdRng::seed_from_u64(self.tokenizer_random.lock().random())
+  }
+
+  fn maybe_payload<TS>(&self, stream: TS, field_name: &str) -> Box<dyn TokenStream + Send + Sync>
+  where
+    TS: TokenStream + Send + Sync + 'static,
+  {
+    let mut previous_mappings = self.previous_mappings.lock();
+    let val = match previous_mappings.get(field_name) {
+      Some(val) => *val,
+      None => {
+        let mut val = -1; // no payloads
+        let mut random = self.random.lock();
+        if rarely(&mut *random) {
+          val = match random.random_range(0..3) {
+            0 => -1,                         // no payloads
+            1 => i32::MAX,                   // variable length payload
+            2 => random.random_range(0..12), // fixed length payload
+            _ => unreachable!(),
+          };
+        }
+        if cfg!(feature = "test_log_verbose") {
+          if val == i32::MAX {
+            println!("MockAnalyzer: field={field_name} gets variable length payloads");
+          } else if val != -1 {
+            println!("MockAnalyzer: field={field_name} gets fixed length={val} payloads");
+          }
+        }
+        previous_mappings.insert(field_name.to_string(), val); // save it so we are consistent for this field
+        val
+      },
+    };
+
+    if val == -1 {
+      Box::new(stream)
+    } else if val == i32::MAX {
+      Box::new(MockVariableLengthPayloadFilter::new(
+        self.random.clone(),
+        stream,
+      ))
+    } else {
+      Box::new(MockFixedLengthPayloadFilter::new(
+        self.random.clone(),
+        stream,
+        val as usize,
+      ))
+    }
   }
 
   pub fn set_position_increment_gap(&mut self, position_increment_gap: i32) {
@@ -138,7 +197,7 @@ impl MockAnalyzer {
 impl Analyzer for MockAnalyzer {
   fn create_components(&self, field: &str) -> Result<TokenStreamComponents> {
     let mut tokenizer = MockTokenizer::with_automaton(
-      self.next_random(),
+      self.next_tokenizer_random(),
       self.run_automaton.clone(),
       self.lower_case,
       self.max_token_length,
@@ -146,12 +205,22 @@ impl Analyzer for MockAnalyzer {
     tokenizer.set_enable_checks(self.enable_checks);
     let filt = MockTokenFilter::new(tokenizer, self.filter.clone());
     let v = MockFilterWrap::new(filt);
-    let _ = field;
-    // TODO IMPORTANT maybePayload未实现
     Ok(TokenStreamComponents::new(
-      Box::new(v) as Box<dyn TokenStream + Send + Sync>,
+      self.maybe_payload(v, field),
       None,
     ))
+  }
+
+  fn normalize_from_ts(
+    &self,
+    _field_name: &str,
+    in_: NormalizeTokenStream,
+  ) -> Result<NormalizeTokenStream> {
+    if self.lower_case {
+      Ok((Box::new(MockLowerCaseFilter::new(in_)) as Box<dyn TokenStream + Send + Sync>).into())
+    } else {
+      Ok(in_)
+    }
   }
 
   fn stored_value(&self) -> &AnalyzerStoredValue {

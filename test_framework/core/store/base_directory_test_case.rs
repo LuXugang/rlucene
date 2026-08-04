@@ -2250,7 +2250,6 @@ pub trait BaseDirectoryTestCase {
   {
     let temp_dir = Builder::new().prefix("testIsLoaded").tempdir()?;
     let mut dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
-    // TODO IMPORTANT  当测试中的 DirEnum 为枚举后 可以判断是否为 MMapDirectory 来调用 set_preload
     let is_mmap_directory = self.configure_is_loaded_test(&mut dir);
 
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {

@@ -20,17 +20,16 @@ use crate::core::store::NativeFSLockFactory;
 use crate::core::store::lock_factory::LockFactory;
 use crate::core::util::error::lucene_error::Result;
 
-/// Base struct for file-system-based locking implementation.
-/// This struct is explicitly checking that
-/// the passed [`Directory`](crate::core::store::directory::Directory)
-/// is an `FSDirectory`.
+/// Base trait for file-system-based locking implementations.
+///
+/// The Rust `LockFactory` API receives a filesystem path directly, so it does
+/// not need Java's runtime `Directory`-to-`FSDirectory` type check.
 pub trait FSLockFactory: LockFactory {
   /// Returns the default locking implementation for this platform.
   ///
   /// This method always returns
   /// [`native_fs_lock_factory`](NativeFSLockFactory).
   fn obtain_lock(&self, directory: &Path, lock_name: &str) -> Result<Self::Lock> {
-    // TODO IMPORTANT 这里没有判断是否为FSDirectory
     self.obtain_fs_lock(directory, lock_name)
   }
 

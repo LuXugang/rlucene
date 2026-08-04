@@ -171,7 +171,6 @@ impl Field {
       ));
     }
     let ts = token_stream.into();
-    // TODO IMPORTANT 这里应该 debug 是否具备分词必要的 Attribute
     Ok(Field {
       indexable_field_type,
       name: name.into(),

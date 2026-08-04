@@ -320,20 +320,23 @@ where {
       if !sorted_numeric_values.is_single_valued() {
         return self.fallback_query_weight.count(context, searcher);
       }
-      let numeric_values = DocValues::unwrap_singleton_numeric(&mut sorted_numeric_values)?;
+      let mut numeric_values = Some(DocValues::unwrap_singleton_numeric(
+        &mut sorted_numeric_values,
+      )?);
 
       let point_values = reader.get_point_values(&self.query.field)?;
 
       if let Some(ref points) = point_values
         && points.get_doc_count()? == reader.max_doc()?
       {
-        let (opt_itc, _delegate_opt) = get_doc_id_set_iterator_or_null_from_bkd(
+        let (opt_itc, remaining_numeric_values) = get_doc_id_set_iterator_or_null_from_bkd(
           context,
-          numeric_values,
+          numeric_values.take().unwrap(),
           self.query.lower_value,
           self.query.upper_value,
           &self.query.field,
         )?;
+        numeric_values = remaining_numeric_values;
 
         if let Some(itc) = opt_itc
           && itc.count != -1
@@ -367,17 +370,11 @@ where {
               None => false,
             };
 
-            if all_docs_have_values
+            if (all_docs_have_values
               || (missing_long_value < self.query.lower_value
-                || missing_long_value > self.query.upper_value)
+                || missing_long_value > self.query.upper_value))
+              && let Some(numeric_values) = numeric_values
             {
-              // TODO IMPORTANT numeric_values sometimes called twice we should optimism it
-              let mut sorted_numeric_values =
-                DocValues::get_sorted_numeric(reader, &self.query.field)?;
-              if !sorted_numeric_values.is_single_valued() {
-                return Err(LuceneError::illegal_argument(""));
-              }
-              let numeric_values = DocValues::unwrap_singleton_numeric(&mut sorted_numeric_values)?;
               let itc = get_doc_id_set_iterator(
                 sort_field,
                 context,
