@@ -75,6 +75,7 @@ mod test_index_searcher;
 mod test_inet_address_range_queries;
 mod test_int_range_field_queries;
 mod test_knn_byte_vector_query;
+mod test_knn_byte_vector_query_mmap;
 mod test_knn_float_vector_query;
 mod test_lat_lon_doc_values_queries;
 mod test_lat_lon_point_queries;

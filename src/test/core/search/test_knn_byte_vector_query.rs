@@ -25,31 +25,55 @@ use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::query::Query;
 use crate::core::search::query::QueryBase;
 use crate::core::search::term_query::TermQuery;
-use crate::core::store::directory::DirEnum;
+use crate::core::store::directory::{DirEnum, DirectoryEnum2, MockDirWrapper};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
-use crate::test_framework::core::util::lucene_test_case::{new_searcher_with_reader, random};
+use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::util::lucene_test_case::{
+  DirectoryImpl, new_directory_impl, new_searcher_with_reader, random,
+};
 use crate::test_framework::core::util::test_vector_util::random_vector_bytes_dim;
 use rand::rngs::StdRng;
 use rand::{Rng, RngExt};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
-pub(crate) struct TestKnnByteVectorQuery;
+pub(crate) struct TestKnnByteVectorQuery {
+  hook: TestKnnByteVectorQueryHook,
+}
+
+enum TestKnnByteVectorQueryHook {
+  Default,
+  MMap,
+}
+
+impl TestKnnByteVectorQuery {
+  fn new() -> Self {
+    Self {
+      hook: TestKnnByteVectorQueryHook::Default,
+    }
+  }
+
+  pub(crate) fn new_mmap() -> Self {
+    Self {
+      hook: TestKnnByteVectorQueryHook::MMap,
+    }
+  }
+}
+
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestKnnByteVectorQuery, &mut StdRng) -> Result<()>,
 {
-  let case = TestKnnByteVectorQuery;
+  let case = TestKnnByteVectorQuery::new();
   let mut random = random();
   f(&case, &mut random)
 }
 
 mod base_knn_vector_query_test_case_tests {
-
+  use super::run_case;
   use crate::core::util::error::lucene_error::Result;
-  use crate::test::core::search::test_knn_byte_vector_query::run_case;
   use crate::test_framework::core::search::base_knn_vector_query_test_case::BaseKnnVectorQueryTestCase;
 
   #[test]
@@ -118,13 +142,11 @@ mod base_knn_vector_query_test_case_tests {
   }
 
   #[test]
-
   fn test_score_euclidean() -> Result<()> {
     run_case(|case, random| case.test_score_euclidean(random))
   }
 
   #[test]
-
   fn test_score_cosine() -> Result<()> {
     run_case(|case, random| case.test_score_cosine(random))
   }
@@ -178,10 +200,12 @@ mod base_knn_vector_query_test_case_tests {
   fn test_merge_away_all_values() -> Result<()> {
     run_case(|case, random| case.test_merge_away_all_values(random))
   }
+
   #[test]
   fn test_no_live_docs_reader() -> Result<()> {
     run_case(|case, random| case.test_no_live_docs_reader(random))
   }
+
   #[test]
   fn test_bot_set_query() -> Result<()> {
     run_case(|case, random| case.test_bot_set_query(random))
@@ -196,11 +220,28 @@ mod base_knn_vector_query_test_case_tests {
   fn test_timeout() -> Result<()> {
     run_case(|case, random| case.test_timeout(random))
   }
+
   #[test]
   fn test_same_field_different_formats() -> Result<()> {
     run_case(|case, random| case.test_same_field_different_formats(random))
   }
 }
+
+#[test]
+fn test_to_string() -> Result<()> {
+  run_case(|case, random| case.test_to_string(random))
+}
+
+#[test]
+fn test_get_target() -> Result<()> {
+  run_case(|case, _random| case.test_get_target())
+}
+
+#[test]
+fn test_vector_encoding_mismatch() -> Result<()> {
+  run_case(|case, random| case.test_vector_encoding_mismatch(random))
+}
+
 impl BaseKnnVectorQueryTestCase for TestKnnByteVectorQuery {
   type KnnVectorQuery = KnnByteVectorQuery;
 
@@ -272,14 +313,23 @@ impl BaseKnnVectorQueryTestCase for TestKnnByteVectorQuery {
   where
     R: Rng + ?Sized,
   {
-    self.default_new_directory_for_test(random)
+    match self.hook {
+      TestKnnByteVectorQueryHook::Default => self.default_new_directory_for_test(random),
+      TestKnnByteVectorQueryHook::MMap => {
+        let directory = new_directory_impl(random, DirectoryImpl::MMapDirectory)?;
+        let mock = MockDirectoryWrapper::new(random, DirectoryEnum2::A(directory));
+        Ok(Arc::new(DirEnum::B(MockDirWrapper::from_inner(mock))))
+      },
+    }
   }
 }
 
-#[test]
-fn test_to_string() -> Result<()> {
-  run_case(|case, random| {
-    let index_store = case.get_index_store(
+impl TestKnnByteVectorQuery {
+  pub(crate) fn test_to_string<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
       random,
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
@@ -287,40 +337,39 @@ fn test_to_string() -> Result<()> {
     let reader = directory_reader::open(index_store)?;
     let searcher = new_searcher_with_reader(reader)?;
 
-    let query = case.get_knn_vector_query_no_filter("field", vec![0.0, 1.0], 10)?;
+    let query = self.get_knn_vector_query_no_filter("field", vec![0.0, 1.0], 10)?;
     assert_eq!(
       "KnnByteVectorQuery:field[0,...][10]",
       query.to_string("ignored")?
     );
 
     let rewritten = searcher.rewrite(query.clone())?;
-    case.assert_doc_score_query_to_string(&rewritten)?;
+    self.assert_doc_score_query_to_string(&rewritten)?;
 
     // test with filter
     let filter: Query = TermQuery::new(Term::from_text("id", "text")).into();
-    let query = case.get_knn_vector_query("field", vec![0.0, 1.0], 10, Some(filter))?;
+    let query = self.get_knn_vector_query("field", vec![0.0, 1.0], 10, Some(filter))?;
     assert_eq!(
       "KnnByteVectorQuery:field[0,...][10][id:text]",
       query.to_string("ignored")?
     );
     Ok(())
-  })
-}
+  }
 
-#[test]
-fn test_get_target() -> Result<()> {
-  let query_vector_bytes = float_to_bytes(vec![0.0, 1.0]);
-  let query = KnnByteVectorQuery::new("f1", query_vector_bytes.clone(), 10)?;
-  let copy = query.get_target_copy();
-  assert_eq!(query_vector_bytes, copy);
-  assert_ne!(query_vector_bytes.as_ptr(), copy.as_ptr());
-  Ok(())
-}
+  pub(crate) fn test_get_target(&self) -> Result<()> {
+    let query_vector_bytes = float_to_bytes(vec![0.0, 1.0]);
+    let query = KnnByteVectorQuery::new("f1", query_vector_bytes.clone(), 10)?;
+    let copy = query.get_target_copy();
+    assert_eq!(query_vector_bytes, copy);
+    assert_ne!(query_vector_bytes.as_ptr(), copy.as_ptr());
+    Ok(())
+  }
 
-#[test]
-fn test_vector_encoding_mismatch() -> Result<()> {
-  run_case(|case, random| {
-    let index_store = case.get_index_store(
+  pub(crate) fn test_vector_encoding_mismatch<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
       random,
       "field",
       &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
@@ -337,7 +386,7 @@ fn test_vector_encoding_mismatch() -> Result<()> {
       Err(LuceneError::IllegalState(_)) => Ok(()),
       _ => unreachable!(""),
     }
-  })
+  }
 }
 
 fn float_to_bytes(query: Vec<f32>) -> Vec<u8> {
