@@ -32,9 +32,16 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::base_similarity_test_case::BaseSimilarityTestCase;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use rand::Rng;
+use std::sync::LazyLock;
 
 #[allow(dead_code)]
 struct TestRawTFSimilarity;
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestRawTFSimilarity")
+});
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
@@ -84,25 +91,22 @@ where
 }
 #[test]
 fn test_one() -> Result<()> {
-  let mut random = random();
-  let index_searcher = set_up(&mut random)?;
-  impl_test(&index_searcher, "one", 1.0)?;
+  let index_searcher = &*CONTEXT;
+  impl_test(index_searcher, "one", 1.0)?;
   Ok(())
 }
 
 #[test]
 fn test_two() -> Result<()> {
-  let mut random = random();
-  let index_searcher = set_up(&mut random)?;
-  impl_test(&index_searcher, "two", 2.0)?;
+  let index_searcher = &*CONTEXT;
+  impl_test(index_searcher, "two", 2.0)?;
   Ok(())
 }
 
 #[test]
 fn test_three() -> Result<()> {
-  let mut random = random();
-  let index_searcher = set_up(&mut random)?;
-  impl_test(&index_searcher, "three", 3.0)?;
+  let index_searcher = &*CONTEXT;
+  impl_test(index_searcher, "three", 3.0)?;
   Ok(())
 }
 
@@ -118,8 +122,7 @@ fn impl_test(index_searcher: &DefaultIndexSearchCR, text: &str, expected_score: 
 }
 #[test]
 fn test_boost_query() -> Result<()> {
-  let mut random = random();
-  let index_searcher = set_up(&mut random)?;
+  let index_searcher = &*CONTEXT;
 
   let query = TermQuery::new(Term::from_text("test", "three"));
   let boost = 14.0f32;

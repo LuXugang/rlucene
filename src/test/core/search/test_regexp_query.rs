@@ -36,10 +36,17 @@ use crate::test_framework::core::util::lucene_test_case::{
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 struct TestRegexpQuery;
 const FN: &str = "field";
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestRegexpQuery")
+});
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
@@ -97,70 +104,65 @@ where
 }
 #[test]
 fn test_regex1() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
-  assert_eq!(1, regex_query_nr_hits(&searcher, "q.[aeiou]c.*")?);
+  let searcher = &*CONTEXT;
+  assert_eq!(1, regex_query_nr_hits(searcher, "q.[aeiou]c.*")?);
   Ok(())
 }
 #[test]
 fn test_regex2() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
-  assert_eq!(0, regex_query_nr_hits(&searcher, ".[aeiou]c.*")?);
+  let searcher = &*CONTEXT;
+  assert_eq!(0, regex_query_nr_hits(searcher, ".[aeiou]c.*")?);
   Ok(())
 }
 
 #[test]
 fn test_regex3() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
-  assert_eq!(0, regex_query_nr_hits(&searcher, "q.[aeiou]c")?);
+  let searcher = &*CONTEXT;
+  assert_eq!(0, regex_query_nr_hits(searcher, "q.[aeiou]c")?);
   Ok(())
 }
 
 #[test]
 fn test_numeric_range() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
-  assert_eq!(1, regex_query_nr_hits(&searcher, "<420000-600000>")?);
-  assert_eq!(0, regex_query_nr_hits(&searcher, "<493433-600000>")?);
+  let searcher = &*CONTEXT;
+  assert_eq!(1, regex_query_nr_hits(searcher, "<420000-600000>")?);
+  assert_eq!(0, regex_query_nr_hits(searcher, "<493433-600000>")?);
   Ok(())
 }
 #[test]
 fn test_character_classes() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
-  assert_eq!(0, regex_query_nr_hits(&searcher, "\\d")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\d*")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\d{6}")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "[a\\d]{6}")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\d{2,7}")?);
-  assert_eq!(0, regex_query_nr_hits(&searcher, "\\d{4}")?);
-  assert_eq!(0, regex_query_nr_hits(&searcher, "\\dog")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "493\\d32")?);
+  assert_eq!(0, regex_query_nr_hits(searcher, "\\d")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\d*")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\d{6}")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "[a\\d]{6}")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\d{2,7}")?);
+  assert_eq!(0, regex_query_nr_hits(searcher, "\\d{4}")?);
+  assert_eq!(0, regex_query_nr_hits(searcher, "\\dog")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "493\\d32")?);
 
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\wox")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "493\\w32")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\?\\?\\?")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\?\\W\\?")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\?\\S\\?")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\wox")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "493\\w32")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\?\\?\\?")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\?\\W\\?")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\?\\S\\?")?);
 
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\[foo\\]")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\[\\w{3}\\]")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\[foo\\]")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\[\\w{3}\\]")?);
 
-  assert_eq!(0, regex_query_nr_hits(&searcher, "\\s.*")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\S*ck")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "[\\d\\.]{3,10}")?);
+  assert_eq!(0, regex_query_nr_hits(searcher, "\\s.*")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\S*ck")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "[\\d\\.]{3,10}")?);
   assert_eq!(
     1,
-    regex_query_nr_hits(&searcher, "\\d{1,3}(\\.(\\d{1,2}))+")?
+    regex_query_nr_hits(searcher, "\\d{1,3}(\\.(\\d{1,2}))+")?
   );
 
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\\\")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "\\\\.*")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\\\")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "\\\\.*")?);
 
-  let err = regex_query_nr_hits(&searcher, "\\p").unwrap_err();
+  let err = regex_query_nr_hits(searcher, "\\p").unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert!(msg.to_string().contains("invalid character class"));
@@ -173,29 +175,27 @@ fn test_character_classes() -> Result<()> {
 #[test]
 fn test_case_insensitive() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
-  assert_eq!(0, regex_query_nr_hits(&searcher, "Quick")?);
+  assert_eq!(0, regex_query_nr_hits(searcher, "Quick")?);
   assert_eq!(
     1,
-    case_insensitive_regex_query_nr_hits(&mut random, &searcher, "Quick")?
+    case_insensitive_regex_query_nr_hits(&mut random, searcher, "Quick")?
   );
   Ok(())
 }
 
 #[test]
 fn test_regex_negated_character_class() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
-  assert_eq!(1, regex_query_nr_hits(&searcher, "[^a-z]")?);
-  assert_eq!(1, regex_query_nr_hits(&searcher, "[^03ad]")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "[^a-z]")?);
+  assert_eq!(1, regex_query_nr_hits(searcher, "[^03ad]")?);
   Ok(())
 }
 #[test]
 fn test_custom_provider() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let query = RegexpQuery::with_provider(
     new_term("<quickBrown>"),
@@ -228,9 +228,8 @@ impl AutomatonProvider for MyProvider {
 /// append more characters.
 #[test]
 fn test_backtracking() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
-  assert_eq!(1, regex_query_nr_hits(&searcher, "4934[314]")?);
+  let searcher = &*CONTEXT;
+  assert_eq!(1, regex_query_nr_hits(searcher, "4934[314]")?);
   Ok(())
 }
 

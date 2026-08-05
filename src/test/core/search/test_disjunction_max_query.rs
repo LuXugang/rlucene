@@ -57,10 +57,17 @@ pub use crate::test_framework::core::search::similarity::{TestSimilarity, new_te
 use crate::test_framework::core::util::DefaultIndexSearchLR;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 #[allow(dead_code)] //for quick search
 struct TestDisjunctionMaxQuery;
 const SCORE_COMP_THRESH: f32 = 0.0000f32;
+
+static CONTEXT: LazyLock<DefaultIndexSearchLR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestDisjunctionMaxQuery")
+});
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
 where
   R: Rng + ?Sized,
@@ -214,13 +221,13 @@ where
 #[test]
 fn test_skip_to_firsttime_miss() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
   let dq = DisjunctionMaxQuery::new(
     vec![tq("id", "d1").into(), tq("dek", "DOES_NOT_EXIST").into()],
     0.0,
   )?;
 
-  QueryUtils::check_from_searcher(&mut random, dq.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, dq.clone(), s)?;
 
   let leaves = s.get_top_reader_context().leaves()?;
   let ctx = &leaves[0];
@@ -228,7 +235,7 @@ fn test_skip_to_firsttime_miss() -> Result<()> {
   let rewritten = s.rewrite(dq)?;
   let weight = s.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
 
-  let mut scorer = weight.scorer(ctx, &s)?.unwrap();
+  let mut scorer = weight.scorer(ctx, s)?.unwrap();
 
   let skip_ok = scorer.iterator_mut().advance(3)? != NO_MORE_DOCS;
 
@@ -247,7 +254,7 @@ fn test_skip_to_firsttime_miss() -> Result<()> {
 #[test]
 fn test_skip_to_firsttime_hit() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let dq = DisjunctionMaxQuery::new(
     vec![
@@ -257,7 +264,7 @@ fn test_skip_to_firsttime_hit() -> Result<()> {
     0.0,
   )?;
 
-  QueryUtils::check_from_searcher(&mut random, dq.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, dq.clone(), s)?;
 
   let leaves = s.get_top_reader_context().leaves()?;
   let ctx = &leaves[0];
@@ -265,7 +272,7 @@ fn test_skip_to_firsttime_hit() -> Result<()> {
   let rewritten = s.rewrite(dq)?;
   let weight = s.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
 
-  let mut ds = weight.scorer(ctx, &s)?.unwrap();
+  let mut ds = weight.scorer(ctx, s)?.unwrap();
 
   let hit = ds.iterator_mut().advance(3)? != NO_MORE_DOCS;
   assert!(hit, "firsttime skipTo found no match");
@@ -283,14 +290,14 @@ fn test_skip_to_firsttime_hit() -> Result<()> {
 #[test]
 fn test_simple_equal_scores1() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let q = DisjunctionMaxQuery::new(
     vec![tq("hed", "albino").into(), tq("hed", "elephant").into()],
     0.0,
   )?;
 
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -308,14 +315,14 @@ fn test_simple_equal_scores1() -> Result<()> {
 #[test]
 fn test_simple_equal_scores2() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let q = DisjunctionMaxQuery::new(
     vec![tq("dek", "albino").into(), tq("dek", "elephant").into()],
     0.0,
   )?;
 
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -335,7 +342,7 @@ fn test_simple_equal_scores2() -> Result<()> {
 #[test]
 fn test_simple_equal_scores3() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let q = DisjunctionMaxQuery::new(
     vec![
@@ -347,7 +354,7 @@ fn test_simple_equal_scores3() -> Result<()> {
     0.0,
   )?;
 
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -367,14 +374,14 @@ fn test_simple_equal_scores3() -> Result<()> {
 #[test]
 fn test_simple_tiebreaker() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let q = DisjunctionMaxQuery::new(
     vec![tq("dek", "albino").into(), tq("dek", "elephant").into()],
     0.01,
   )?;
 
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -406,7 +413,7 @@ fn test_simple_tiebreaker() -> Result<()> {
 #[test]
 fn test_boolean_required_equal_scores() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut builder = Builder::new();
 
@@ -416,7 +423,7 @@ fn test_boolean_required_equal_scores() -> Result<()> {
       0.0,
     )?;
     builder.add(q1.clone(), Occur::Must)?;
-    QueryUtils::check_from_searcher(&mut random, q1.clone(), &s)?;
+    QueryUtils::check_from_searcher(&mut random, q1.clone(), s)?;
   }
 
   {
@@ -425,11 +432,11 @@ fn test_boolean_required_equal_scores() -> Result<()> {
       0.0,
     )?;
     builder.add(q2.clone(), Occur::Must)?;
-    QueryUtils::check_from_searcher(&mut random, q2.clone(), &s)?;
+    QueryUtils::check_from_searcher(&mut random, q2.clone(), s)?;
   }
 
   let q = builder.build();
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -450,7 +457,7 @@ fn test_boolean_required_equal_scores() -> Result<()> {
 #[test]
 fn test_boolean_optional_no_tiebreaker() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut builder = Builder::new();
 
@@ -471,7 +478,7 @@ fn test_boolean_optional_no_tiebreaker() -> Result<()> {
   }
 
   let q = builder.build();
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -504,7 +511,7 @@ fn test_boolean_optional_no_tiebreaker() -> Result<()> {
 #[test]
 fn test_boolean_optional_with_tiebreaker() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut builder = Builder::new();
 
@@ -525,7 +532,7 @@ fn test_boolean_optional_with_tiebreaker() -> Result<()> {
   }
 
   let q = builder.build();
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -600,7 +607,7 @@ fn test_boolean_optional_with_tiebreaker() -> Result<()> {
 #[test]
 fn test_boolean_optional_with_tiebreaker_and_boost() -> Result<()> {
   let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let mut builder = Builder::new();
 
@@ -627,7 +634,7 @@ fn test_boolean_optional_with_tiebreaker_and_boost() -> Result<()> {
   }
 
   let q = builder.build();
-  QueryUtils::check_from_searcher(&mut random, q.clone(), &s)?;
+  QueryUtils::check_from_searcher(&mut random, q.clone(), s)?;
 
   let h = s.search(q.clone(), 1000)?.score_docs;
 
@@ -693,8 +700,7 @@ fn test_boolean_optional_with_tiebreaker_and_boost() -> Result<()> {
 
 #[test]
 fn test_rewrite_boolean() -> Result<()> {
-  let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let sub1: Query = tq("hed", "albino").into();
   let sub2: Query = tq("hed", "elephant").into();
@@ -715,8 +721,7 @@ fn test_rewrite_boolean() -> Result<()> {
 
 #[test]
 fn test_rewrite_empty() -> Result<()> {
-  let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let q = DisjunctionMaxQuery::new(vec![], 0.0)?;
   let rewritten = s.rewrite(q)?;
@@ -779,8 +784,7 @@ fn test_random_top_docs() -> Result<()> {
 }
 #[test]
 fn test_explain_match() -> Result<()> {
-  let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let sub1: Query = tq("hed", "elephant").into();
   let sub2: Query = tq("dek", "elephant").into();
@@ -793,7 +797,7 @@ fn test_explain_match() -> Result<()> {
   let leaves = s.get_top_reader_context().leaves()?;
   let ctx = &leaves[0];
 
-  let explanation = weight.explain(ctx, 1, &s)?;
+  let explanation = weight.explain(ctx, 1, s)?;
 
   assert_eq!("max of:", explanation.get_description());
   assert_eq!(2, explanation.get_details().len());
@@ -802,8 +806,7 @@ fn test_explain_match() -> Result<()> {
 }
 #[test]
 fn test_explain_no_match() -> Result<()> {
-  let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let sub1: Query = tq("abc", "elephant").into();
   let sub2: Query = tq("def", "elephant").into();
@@ -816,7 +819,7 @@ fn test_explain_no_match() -> Result<()> {
   let leaves = s.get_top_reader_context().leaves()?;
   let ctx = &leaves[0];
 
-  let explanation = weight.explain(ctx, 1, &s)?;
+  let explanation = weight.explain(ctx, 1, s)?;
 
   assert_eq!("No matching clause", explanation.get_description());
   assert_eq!(2, explanation.get_details().len());
@@ -826,8 +829,7 @@ fn test_explain_no_match() -> Result<()> {
 
 #[test]
 fn test_explain_match_one_non_matching_subquery_not_included_in_explanation() -> Result<()> {
-  let mut random = random();
-  let s = set_up(&mut random)?;
+  let s = &*CONTEXT;
 
   let sub1: Query = tq("hed", "elephant").into();
   let sub2: Query = tq("def", "elephant").into();
@@ -840,7 +842,7 @@ fn test_explain_match_one_non_matching_subquery_not_included_in_explanation() ->
   let leaves = s.get_top_reader_context().leaves()?;
   let ctx = &leaves[0];
 
-  let explanation = weight.explain(ctx, 1, &s)?;
+  let explanation = weight.explain(ctx, 1, s)?;
 
   assert_eq!("max of:", explanation.get_description());
   assert_eq!(1, explanation.get_details().len());

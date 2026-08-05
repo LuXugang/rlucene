@@ -58,7 +58,7 @@ use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)]
 struct TestTermScorer;
@@ -66,6 +66,12 @@ struct TestTermScorer;
 const FIELD: &str = "field";
 
 const VALUES: &[&str] = &["all", "dogs dogs", "like", "playing", "fetch", "all"];
+
+static CONTEXT: LazyLock<DefaultIndexSearchLR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestTermScorer")
+});
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
 where
   R: Rng + ?Sized,
@@ -104,8 +110,7 @@ where
 
 #[test]
 fn test() -> Result<()> {
-  let mut random = random();
-  let index_searcher = set_up(&mut random)?;
+  let index_searcher = &*CONTEXT;
 
   let all_term = Term::from_text(FIELD, "all");
   let term_query = TermQuery::new(all_term);
@@ -113,7 +118,7 @@ fn test() -> Result<()> {
   let weight = index_searcher.create_weight(term_query, ScoreMode::Complete, 1.0)?;
   let top_reader_context = index_searcher.get_top_reader_context();
   let mut ts = weight
-    .bulk_scorer(top_reader_context, &index_searcher)?
+    .bulk_scorer(top_reader_context, index_searcher)?
     .unwrap();
 
   let mut collector = SimpleCollectorImpl::new();
@@ -135,8 +140,7 @@ fn test() -> Result<()> {
 }
 #[test]
 fn test_next() -> Result<()> {
-  let mut random = random();
-  let index_searcher = set_up(&mut random)?;
+  let index_searcher = &*CONTEXT;
 
   let all_term = Term::from_text(FIELD, "all");
   let term_query = TermQuery::new(all_term);
@@ -144,7 +148,7 @@ fn test_next() -> Result<()> {
   let weight = index_searcher.create_weight(term_query, ScoreMode::Complete, 1.0)?;
   let top_reader_context = index_searcher.get_top_reader_context();
 
-  let mut ts = weight.scorer(top_reader_context, &index_searcher)?.unwrap();
+  let mut ts = weight.scorer(top_reader_context, index_searcher)?.unwrap();
   assert_ne!(
     ts.iterator_mut().next_doc()?,
     NO_MORE_DOCS,
@@ -166,8 +170,7 @@ fn test_next() -> Result<()> {
 
 #[test]
 fn test_advance() -> Result<()> {
-  let mut random = random();
-  let index_searcher = set_up(&mut random)?;
+  let index_searcher = &*CONTEXT;
 
   let all_term = Term::from_text(FIELD, "all");
   let term_query = TermQuery::new(all_term);
@@ -175,7 +178,7 @@ fn test_advance() -> Result<()> {
   let weight = index_searcher.create_weight(term_query, ScoreMode::Complete, 1.0)?;
   let top_reader_context = index_searcher.get_top_reader_context();
 
-  let mut ts = weight.scorer(top_reader_context, &index_searcher)?.unwrap();
+  let mut ts = weight.scorer(top_reader_context, index_searcher)?.unwrap();
   assert_ne!(ts.iterator_mut().advance(3)?, NO_MORE_DOCS, "Didn't skip");
   assert_eq!(5, ts.doc_id()?, "doc should be number 5");
 
@@ -201,8 +204,7 @@ impl Display for TestHit {
 }
 #[test]
 fn test_does_not_load_norms() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let all_term = Term::from_text(FIELD, "all");
   let term_query = TermQuery::new(all_term);

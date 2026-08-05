@@ -71,6 +71,12 @@ static QUERYS: LazyLock<(TermQuery, TermQuery, TermQuery, TermQuery)> = LazyLock
   let c2 = TermQuery::new(Term::from_text(FIELD_C, "optimize"));
   (t1, t2, c1, c2)
 });
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestBooleanOr")
+});
+
 fn search<R>(random: &mut R, searcher: &DefaultIndexSearchCR, q: impl Into<Query>) -> Result<usize>
 where
   R: Rng + ?Sized,
@@ -83,26 +89,26 @@ where
 #[test]
 fn test_elements() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
-  assert_eq!(1, search(&mut random, &searcher, QUERYS.0.clone())?);
-  assert_eq!(1, search(&mut random, &searcher, QUERYS.1.clone())?);
-  assert_eq!(1, search(&mut random, &searcher, QUERYS.2.clone())?);
-  assert_eq!(1, search(&mut random, &searcher, QUERYS.3.clone())?);
+  assert_eq!(1, search(&mut random, searcher, QUERYS.0.clone())?);
+  assert_eq!(1, search(&mut random, searcher, QUERYS.1.clone())?);
+  assert_eq!(1, search(&mut random, searcher, QUERYS.2.clone())?);
+  assert_eq!(1, search(&mut random, searcher, QUERYS.3.clone())?);
 
   Ok(())
 }
 #[test]
 fn test_flat() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut q = Builder::new();
   q.add(QUERYS.0.clone(), Occur::Should)?;
   q.add(QUERYS.1.clone(), Occur::Should)?;
   q.add(QUERYS.2.clone(), Occur::Should)?;
   q.add(QUERYS.3.clone(), Occur::Should)?;
-  assert_eq!(1, search(&mut random, &searcher, q.build())?);
+  assert_eq!(1, search(&mut random, searcher, q.build())?);
 
   Ok(())
 }
@@ -110,7 +116,7 @@ fn test_flat() -> Result<()> {
 #[test]
 fn test_parenthesis_must() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut q3 = Builder::new();
   q3.add(QUERYS.0.clone(), Occur::Should)?;
@@ -123,7 +129,7 @@ fn test_parenthesis_must() -> Result<()> {
   let mut q2 = Builder::new();
   q2.add(q3.build(), Occur::Should)?;
   q2.add(q4.build(), Occur::Should)?;
-  assert_eq!(1, search(&mut random, &searcher, q2.build())?);
+  assert_eq!(1, search(&mut random, searcher, q2.build())?);
 
   Ok(())
 }
@@ -131,7 +137,7 @@ fn test_parenthesis_must() -> Result<()> {
 #[test]
 fn test_parenthesis_must2() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut q3 = Builder::new();
   q3.add(QUERYS.0.clone(), Occur::Should)?;
@@ -144,14 +150,14 @@ fn test_parenthesis_must2() -> Result<()> {
   let mut q2 = Builder::new();
   q2.add(q3.build(), Occur::Should)?;
   q2.add(q4.build(), Occur::Must)?;
-  assert_eq!(1, search(&mut random, &searcher, q2.build())?);
+  assert_eq!(1, search(&mut random, searcher, q2.build())?);
 
   Ok(())
 }
 #[test]
 fn test_parenthesis_should() -> Result<()> {
   let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   let mut q3 = Builder::new();
   q3.add(QUERYS.0.clone(), Occur::Should)?;
@@ -164,7 +170,7 @@ fn test_parenthesis_should() -> Result<()> {
   let mut q2 = Builder::new();
   q2.add(q3.build(), Occur::Should)?;
   q2.add(q4.build(), Occur::Should)?;
-  assert_eq!(1, search(&mut random, &searcher, q2.build())?);
+  assert_eq!(1, search(&mut random, searcher, q2.build())?);
 
   Ok(())
 }
