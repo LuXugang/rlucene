@@ -43,3 +43,4 @@ mod test_rate_limiter;
 mod test_serialized_io_counting_directory;
 mod test_simple_fs_lock_factory;
 mod test_sleeping_lock_wrapper;
+mod test_stress_lock_factories;

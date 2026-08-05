@@ -805,10 +805,17 @@ pub trait BaseDirectoryTestCase {
     Ok(())
   }
 
-  fn test_detect_close(&self) -> Result<()> {
-    //in Rust, it is not necessary to explicitly call close.
-    // Resources are automatically closed when they go out of scope,
-    // and the drop method is invoked.
+  /// Make sure directory throws `AlreadyClosed` if you try to create an output after closing.
+  fn test_detect_close<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let temp_dir = Builder::new().prefix("testDetectClose").tempdir()?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
+    CloseableRef::close(&dir)?;
+
+    let result = dir.create_output("test", &new_io_context(random)?);
+    assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
     Ok(())
   }
   fn test_thread_safety_in_list_all<R>(&self, random: &mut R) -> Result<()>
@@ -1705,19 +1712,43 @@ pub trait BaseDirectoryTestCase {
     );
     Ok(())
   }
-  /// This test ensures that double-closing an `IndexOutput` does not cause
-  /// any issues. Rust Lucene automatically closes resources when they go
-  /// out of scope, so this test is not applicable.
-  fn test_double_close_output<R>(&self, _random: &mut R) -> Result<()>
+  fn test_double_close_output<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    Ok(())
+    let temp_dir = Builder::new().tempdir()?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
+    let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let mut out = dir.create_output("foobar", &new_io_context(random)?)?;
+      out.write_string("testing")?;
+      Closeable::close(&mut out)?;
+      Closeable::close(&mut out)?; // close again
+      Ok(())
+    }));
+    let close_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| CloseableRef::close(&dir)));
+    IOUtils::use_or_suppress_caught_result(body_result, close_result)
   }
-  /// Rust Lucene automatically closes resources when they go out of scope, so
-  /// this test is not applicable.
-  fn test_double_close_input(&self) -> Result<()> {
-    Ok(())
+
+  fn test_double_close_input<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let temp_dir = Builder::new().tempdir()?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
+    let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let mut out = dir.create_output("foobar", &new_io_context(random)?)?;
+      out.write_string("testing")?;
+      Closeable::close(&mut out)?;
+      let mut input = dir.open_input("foobar", &new_io_context(random)?)?;
+      assert_eq!("testing", input.read_string()?);
+      CloseableRef::close(&input)?;
+      CloseableRef::close(&input)?; // close again
+      Ok(())
+    }));
+    let close_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| CloseableRef::close(&dir)));
+    IOUtils::use_or_suppress_caught_result(body_result, close_result)
   }
   /// This test ensures that `create_temp_output` generates unique files and
   /// writes/reads data correctly.

@@ -318,6 +318,7 @@ where
     Ok(length as usize)
   }
   fn create_output(&self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
+    self.ensure_open()?;
     let mut pending_deletes = self.pending_deletes.lock();
     Self::maybe_delete_pending_files(
       &self.directory,

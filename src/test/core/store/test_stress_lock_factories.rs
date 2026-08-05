@@ -17,19 +17,14 @@
 use crate::core::util::error::lucene_error::Result;
 
 #[allow(dead_code)] // for quick search
-struct TestFilterIndexOutput;
+struct TestStressLockFactories;
 
 #[test]
-fn test_randomized_writes() -> Result<()> {
+fn test_native_fs_lock_factory() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
-fn test_overrides() -> Result<()> {
-  test_not_required_in_rust_lucene!();
-}
-
-#[test]
-fn test_unwrap() -> Result<()> {
+fn test_simple_fs_lock_factory() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

@@ -479,6 +479,11 @@ mod base_directory_test_case_tests {
   }
 
   #[test]
+  fn test_detect_close() -> Result<()> {
+    run_case(|case, random| case.test_detect_close(random))
+  }
+
+  #[test]
   fn test_thread_safety_in_list_all() -> Result<()> {
     run_case(|case, random| case.test_thread_safety_in_list_all(random))
   }
@@ -561,6 +566,16 @@ mod base_directory_test_case_tests {
   #[test]
   fn test_index_output_to_string() -> Result<()> {
     run_case(|case, random| case.test_index_output_to_string(random))
+  }
+
+  #[test]
+  fn test_double_close_output() -> Result<()> {
+    run_case(|case, random| case.test_double_close_output(random))
+  }
+
+  #[test]
+  fn test_double_close_input() -> Result<()> {
+    run_case(|case, random| case.test_double_close_input(random))
   }
 
   #[test]
