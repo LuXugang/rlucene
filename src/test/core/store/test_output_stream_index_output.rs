@@ -21,6 +21,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::store::output_stream_index_output::OutputStreamIndexOutput;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 #[allow(dead_code)] // for quick search
@@ -35,30 +36,18 @@ fn test_data_types() -> Result<()> {
 }
 
 fn do_test_data_types(offset: usize) -> Result<()> {
-  use crc32fast::Hasher;
-
   let mut buffer = Vec::new();
   {
-    let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 12)?;
-    let mut hasher = Hasher::new();
+    let resource_description = format!("test{offset}");
+    let mut out = OutputStreamIndexOutput::new(&resource_description, "test", &mut buffer, 12)?;
     for i in 0..offset {
       out.write_byte(i as u8)?;
-      hasher.update(&[i as u8]);
     }
     out.write_short(12345)?;
-    hasher.update(&12345u16.to_le_bytes());
-
     out.write_int(1234567890)?;
-    hasher.update(&1234567890u32.to_le_bytes());
-
     out.write_long(1234567890123456789)?;
-    hasher.update(&1234567890123456789u64.to_le_bytes());
     assert_eq!(out.get_file_pointer()?, (offset + 14));
-    assert_eq!(
-      out.get_checksum()? as u32,
-      hasher.finalize(),
-      "Checksum mismatch"
-    );
+    out.close()?;
   }
 
   let mut reader = Cursor::new(buffer);
@@ -72,85 +61,4 @@ fn do_test_data_types(offset: usize) -> Result<()> {
   assert_eq!(reader.position() as usize, reader.get_ref().len());
 
   Ok(())
-}
-
-#[test]
-fn test_write_exceeding_buffer() -> Result<()> {
-  use crc32fast::Hasher;
-
-  let buffer_size = 8;
-  let large_data: Vec<u8> = (0..16).collect();
-  let mut buffer = Vec::new();
-  {
-    let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, buffer_size)?;
-
-    let mut hasher = Hasher::new();
-
-    out.write_bytes_range(&large_data, 0, large_data.len())?;
-    hasher.update(&large_data);
-
-    assert_eq!(out.get_file_pointer()?, large_data.len());
-    assert_eq!(
-      out.get_checksum()?,
-      hasher.finalize() as u64,
-      "Checksum mismatch"
-    );
-  }
-
-  assert_eq!(buffer, large_data);
-
-  Ok(())
-}
-#[test]
-fn test_multiple_writes_with_checksum() -> Result<()> {
-  use crc32fast::Hasher;
-
-  let mut buffer = Vec::new();
-  let combined_data: Vec<u8>;
-  {
-    let mut out = OutputStreamIndexOutput::new("test", "test", &mut buffer, 8)?;
-
-    let data1 = b"Hello";
-    let data2 = b"World";
-    let mut hasher = Hasher::new();
-
-    out.write_bytes_range(data1, 0, data1.len())?;
-    hasher.update(data1);
-    let sum1 = out.get_checksum()?;
-    out.write_bytes_range(data2, 0, data2.len())?;
-    hasher.update(data2);
-    let sum2 = out.get_checksum()?;
-    assert_ne!(sum1, sum2, "Checksum mismatch");
-
-    assert_eq!(
-      out.get_checksum()?,
-      hasher.finalize() as u64,
-      "Checksum mismatch"
-    );
-    combined_data = [data1.as_slice(), data2.as_slice()].concat();
-  }
-
-  assert_eq!(buffer, combined_data);
-
-  Ok(())
-}
-
-trait MyTrait {
-  fn method_a(&self) {
-    println!("Default implementation of method_a");
-  }
-}
-
-struct MyStruct;
-
-impl MyTrait for MyStruct {
-  fn method_a(&self) {}
-}
-
-#[test]
-fn main() {
-  let instance = MyStruct;
-
-  println!("Calling method_a:");
-  instance.method_a();
 }

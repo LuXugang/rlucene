@@ -56,14 +56,14 @@ fn test_reuse() -> Result<()> {
   let mut random1 = random_from_seed(gen_seed);
   let mut random2 = random_from_seed(gen_seed);
   let add_count = random.random_range(1000..=5000);
-  add_random_data(&mut o, &mut random1, add_count);
+  add_random_data(&mut o, &mut random1, add_count)?;
   let dta = match random.random_bool(0.5) {
     true => o.get_array_copy(),
     false => o.try_get_array_ownership(),
   };
 
   o.reset();
-  add_random_data(&mut o, &mut random2, add_count);
+  add_random_data(&mut o, &mut random2, add_count)?;
   match random.random_bool(0.5) {
     true => {
       assert_eq!(dta, o.get_array_copy());
@@ -89,7 +89,7 @@ fn test_constructor_with_expected_size() -> Result<()> {
   let mb = 1024 * 1024;
   let expected_size: i64 = random.random_range(mb..mb * 1024);
   let mut o = ByteBuffersDataOutput::with_size(expected_size)?;
-  let _ = o.write_byte(0);
+  o.write_byte(0)?;
   let (_length, mut result) = o.to_buffer_list_ref();
   let cap = result.get_mut(0).unwrap().get_ref().len();
   assert!(

@@ -26,6 +26,7 @@ use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::store::{
   BufferedIndexInput, ByteBuffersDirectory, FSDirectory, NativeFSLockFactory,
 };
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 
@@ -365,7 +366,8 @@ fn test_track_empty() -> Result<()> {
 fn test_track_create() -> Result<()> {
   let mut random = random();
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
-  dir.create_output("foo", &new_io_context(&mut random)?)?;
+  let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
+  out.close()?;
   assert_eq!(
     dir.get_created_files().lock().created_filenames,
     HashSet::from(["foo".to_string()])
@@ -377,7 +379,8 @@ fn test_track_create() -> Result<()> {
 fn test_track_delete() -> Result<()> {
   let mut random = random();
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
-  dir.create_output("foo", &new_io_context(&mut random)?)?;
+  let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
+  out.close()?;
   assert_eq!(
     dir.get_created_files().lock().created_filenames,
     HashSet::from(["foo".to_string()])
@@ -394,7 +397,8 @@ fn test_track_delete() -> Result<()> {
 fn test_track_rename() -> Result<()> {
   let mut random = random();
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
-  dir.create_output("foo", &new_io_context(&mut random)?)?;
+  let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
+  out.close()?;
   assert_eq!(
     dir.get_created_files().lock().created_filenames,
     HashSet::from(["foo".to_string()])
@@ -413,7 +417,8 @@ fn test_track_copy_from() -> Result<()> {
   let source = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   let dest = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
 
-  source.create_output("foo", &new_io_context(&mut random)?)?;
+  let mut out = source.create_output("foo", &new_io_context(&mut random)?)?;
+  out.close()?;
   assert_eq!(
     source.get_created_files().lock().created_filenames,
     HashSet::from(["foo".to_string()])

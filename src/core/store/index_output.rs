@@ -270,7 +270,13 @@ pub fn align_offset(offset: usize, alignment_bytes: usize) -> Result<usize> {
       "Alignment must be a power of 2",
     ));
   }
-  Ok((offset + alignment_bytes - 1) & !(alignment_bytes - 1))
+  let alignment_mask = alignment_bytes - 1;
+  Ok(
+    offset
+      .checked_add(alignment_mask)
+      .ok_or_else(|| LuceneError::number_overflow("Offset alignment overflow"))?
+      & !alignment_mask,
+  )
 }
 
 macro_rules! either_index_output {

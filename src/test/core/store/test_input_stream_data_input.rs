@@ -22,6 +22,7 @@ use std::sync::LazyLock;
 use rand::{Rng, RngExt};
 
 use crate::core::store::{DataInput, InputStreamDataInput};
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::util::test_util::TestUtil;
 
@@ -56,7 +57,7 @@ fn test_skip_bytes() -> Result<()> {
     assert_eq!(RANDOM_DATA[skip_to], input.read_byte()?);
     curr = skip_to + 1; // +1 for read byte
   }
-  Ok(())
+  input.close()
 }
 
 #[test]
@@ -71,13 +72,14 @@ fn test_no_read_when_skipping() -> Result<()> {
     input.skip_bytes(step as i64)?;
     curr += step;
   }
-  Ok(())
+  input.close()
 }
 
 #[test]
 fn test_full_skip() -> Result<()> {
   let mut input = before();
-  input.skip_bytes(RANDOM_DATA.len() as i64)
+  input.skip_bytes(RANDOM_DATA.len() as i64)?;
+  input.close()
 }
 
 #[test]
@@ -87,7 +89,7 @@ fn test_skip_off_end() -> Result<()> {
     input.skip_bytes(RANDOM_DATA.len() as i64 + 1),
     Err(LuceneError::Eof(_))
   ));
-  Ok(())
+  input.close()
 }
 
 /// Panics on byte reads to ensure `skip_bytes` does not invoke `read`.

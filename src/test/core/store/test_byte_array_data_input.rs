@@ -32,6 +32,11 @@ fn test_basic() -> Result<()> {
   let mut data_input = ByteArrayDataInput::with_bytes(bytes.as_slice());
   assert_eq!(data_input.read_string()?, "A");
   assert!(data_input.eof());
+
+  let bytes = vec![1, 1, 65];
+  data_input.reset_with_range(bytes.as_slice(), 1, 2);
+  assert_eq!(data_input.read_string()?, "A");
+  assert!(data_input.eof());
   Ok(())
 }
 

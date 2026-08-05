@@ -18,7 +18,10 @@ use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random}
 use rand::RngExt;
 use rand_xoshiro::Xoroshiro128Plus;
 use rand_xoshiro::rand_core::SeedableRng;
+use std::io::Cursor;
+use std::sync::Arc;
 
+use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput};
 use crate::core::util::accountable::Accountable;
@@ -62,10 +65,10 @@ fn test_random_reads() -> Result<()> {
   let seed: u64 = random.random();
   let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
   let max = if is_night_mode() { 1000000 } else { 100000 };
-  let reply = add_random_data(&mut dst, &mut random1, max);
+  let reply = add_random_data(&mut dst, &mut random1, max)?;
   let mut src = dst.get_data_input_ref()?;
   for action in reply {
-    action.verify(&mut src);
+    action.verify(&mut src)?;
   }
   let result = DataInput::read_byte(&mut src);
   assert!(result.is_err());
@@ -76,7 +79,7 @@ fn test_random_reads() -> Result<()> {
 fn test_random_reads_on_slices() -> Result<()> {
   let mut random = random();
   let reps = random.random_range(1..=20);
-  for _i in 0..=reps {
+  for _i in 1..reps {
     let mut dst = ByteBuffersDataOutput::new();
     let prefix = vec![0; random.random_range(0..=1024 * 8)];
     let prefix_len = prefix.len();
@@ -84,7 +87,7 @@ fn test_random_reads_on_slices() -> Result<()> {
     let seed: u64 = random.random();
     let max = 10000;
     let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
-    let reply = add_random_data(&mut dst, &mut random1, max);
+    let reply = add_random_data(&mut dst, &mut random1, max)?;
     let suffix = vec![0; random.random_range(0..=1024 * 8)];
     let suffix_len = suffix.len();
     dst.write_bytes(suffix.as_slice())?;
@@ -95,7 +98,7 @@ fn test_random_reads_on_slices() -> Result<()> {
     assert_eq!(0, src.position()?);
     assert_eq!(size - prefix_len - suffix_len, src.length());
     for action in reply {
-      action.verify(&mut src);
+      action.verify(&mut src)?;
     }
     let result = DataInput::read_byte(&mut src);
     assert!(result.is_err());
@@ -120,8 +123,8 @@ fn test_seek_empty() -> Result<()> {
 #[test]
 fn test_seek_and_skip() -> Result<()> {
   let mut random = random();
-  let reps = random.random_range(1..=20);
-  for _i in 0..reps {
+  let reps = random.random_range(1..=200);
+  for _i in 1..reps {
     let mut dst = ByteBuffersDataOutput::new();
     let prefix;
     let mut prefix_len = 0;
@@ -134,7 +137,7 @@ fn test_seek_and_skip() -> Result<()> {
     let seed: u64 = random.random();
     let max = 1000;
     let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
-    let reply = add_random_data(&mut dst, &mut random1, max);
+    let reply = add_random_data(&mut dst, &mut random1, max)?;
     let size = dst.size();
     let mut array = dst.get_array_copy();
     array = Vec::from(&array[prefix_len..array.len()]);
@@ -143,11 +146,11 @@ fn test_seek_and_skip() -> Result<()> {
       .slice(prefix_len, size - prefix_len)?;
     data_input.seek(0)?;
     for action in &reply {
-      action.verify(&mut data_input);
+      action.verify(&mut data_input)?;
     }
     data_input.seek(0)?;
     for action in &reply {
-      action.verify(&mut data_input);
+      action.verify(&mut data_input)?;
     }
     for _i in 0..1000 {
       let offs = random.random_range(0..=array.len() - 1);
@@ -180,7 +183,8 @@ fn test_slicing_window() -> Result<()> {
   let mut random = random();
   let mut dst = ByteBuffersDataOutput::new();
   assert_eq!(0, dst.get_data_input_ref()?.slice(0, 0)?.length());
-  let random_bytes = vec![0; random.random_range(0..=1024 * 8)];
+  let mut random_bytes = vec![0; 1024 * 8];
+  random.fill(&mut random_bytes[..]);
   dst.write_bytes(random_bytes.as_slice())?;
   let max = dst.size();
   let data_input = dst.get_data_input_ref()?;
@@ -215,20 +219,24 @@ fn test_slicing_large_buffers() -> Result<()> {
   // buffers with the same content.
   let mut random = random();
   let mb = 1024 * 1024;
-  let page_bytes: Vec<u8> = vec![0; 4 * mb];
-  let simulated_length = random.random_range(0..2018) + 4 * i32::MAX as usize;
-  let mut remaining = simulated_length;
-  let mut dst = ByteBuffersDataOutput::new();
+  let mut page_bytes = vec![0; 4 * mb];
+  random.fill(&mut page_bytes[..]);
+  let page_bytes = Arc::new(page_bytes);
+
+  // Add some head shift on the first buffer.
+  let shift = random.random_range(0..=page_bytes.len() / 2);
+
+  let simulated_length = random.random_range(0..=2018) + 4 * i32::MAX as usize;
+  let mut remaining = simulated_length + shift;
+  let mut buffers = Vec::new();
   while remaining > 0 {
-    let mut block = page_bytes.clone();
-    if block.len() > remaining {
-      block.truncate(remaining);
-    }
-    let len = block.len();
-    dst.write_bytes(block.as_slice())?;
+    let len = page_bytes.len().min(remaining);
+    buffers.push(Cursor::new(Arc::clone(&page_bytes)));
     remaining -= len;
   }
-  let data_input = dst.get_data_input_ref()?;
+  buffers[0].set_position(shift as u64);
+
+  let data_input = ByteBuffersDataInput::new(buffers, simulated_length)?;
   assert_eq!(simulated_length, data_input.length());
   let max = data_input.length();
   let mut offset = 0;
@@ -241,8 +249,8 @@ fn test_slicing_large_buffers() -> Result<()> {
     assert_eq!(window, slice.length());
     // Sanity check of the content against original pages.
     for i in 0..window {
-      let index = (offset + i) % page_bytes.len();
-      let expected = page_bytes[index as usize];
+      let index = (shift + offset + i) % page_bytes.len();
+      let expected = page_bytes[index];
       assert_eq!(expected, RandomAccessInput::read_byte(&mut slice, i)?);
     }
     offset += random.random_range(mb..4 * mb);

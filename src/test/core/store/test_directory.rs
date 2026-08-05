@@ -113,6 +113,7 @@ fn test_direct_instantiation() -> Result<()> {
       TestFSDirectory::A(dir) => dir.close()?,
       TestFSDirectory::B(dir) => dir.close()?,
     }
+    assert!(dir.ensure_open().is_err());
   }
 
   Ok(())
@@ -145,5 +146,6 @@ fn test_list_all() -> Result<()> {
   assert_eq!(2, files.len());
   assert!(files.contains(file1.file_name().unwrap().to_str().unwrap()));
   assert!(files.contains(file2.file_name().unwrap().to_str().unwrap()));
+  fs_dir.close()?;
   Ok(())
 }

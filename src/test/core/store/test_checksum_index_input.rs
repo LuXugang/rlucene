@@ -26,6 +26,7 @@ use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -38,13 +39,13 @@ fn test_skip_bytes() -> Result<()> {
   let num_test_bytes = TestUtil::next_usize(&mut random, 100, 1000);
   let test_bytes = vec![0u8; num_test_bytes];
   let dir = new_directory(&mut random)?;
-  let io_context = new_io_context(&mut random)?;
   {
-    let mut os = dir.create_output("foo", &io_context)?;
+    let mut os = dir.create_output("foo", &new_io_context(&mut random)?)?;
     os.write_bytes_with_len(&test_bytes, num_test_bytes)?;
+    os.close()?;
   }
 
-  let is = dir.open_input("foo", &io_context)?;
+  let is = dir.open_input("foo", &new_io_context(&mut random)?)?;
   let mut checksum_index_input = InterceptingChecksumIndexInput::new(is, num_test_bytes);
 
   let mut skipped = 0;
@@ -60,6 +61,8 @@ fn test_skip_bytes() -> Result<()> {
   }
 
   assert_eq!(test_bytes, checksum_index_input.read_bytes);
+  checksum_index_input.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -120,7 +123,11 @@ where
   }
 }
 
-impl<T: IndexInput> crate::core::util::close::CloseableRef for InterceptingChecksumIndexInput<T> {}
+impl<T: IndexInput> CloseableRef for InterceptingChecksumIndexInput<T> {
+  fn close(&self) -> Result<()> {
+    self.base.close()
+  }
+}
 
 impl<T> Display for InterceptingChecksumIndexInput<T>
 where

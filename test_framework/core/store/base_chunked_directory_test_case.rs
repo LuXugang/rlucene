@@ -36,6 +36,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
@@ -57,7 +58,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let temp_dir = create_temp_dir()?;
     let dir =
       self.get_directory_with_max_chunk_size(temp_dir.path().to_path_buf(), max_chunk_size)?;
-    Self::do_test_group_vint(&dir, &dir, random, 10, 1, 31, 1024)
+    let result = Self::do_test_group_vint(&dir, random, 10, 1, 31, 1024);
+    IOUtils::use_or_suppress_result(result, dir.close())
   }
 
   fn test_clone_close<R>(&self, random: &mut R) -> Result<()>
@@ -73,6 +75,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       io.write_vint(5)?;
       let values_len = values.len() as i32;
       write_group_vints_i64(&mut io, &mut values, values_len)?;
+      io.close()?;
     }
 
     let mut one = dir.open_input("bytes", &IOContext::default_io_context()?)?;
@@ -93,6 +96,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     assert_eq!(5, three.read_vint()?);
     CloseableRef::close(&one)?;
     CloseableRef::close(&three)?;
+    dir.close()?;
     Ok(())
   }
 
@@ -110,6 +114,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       io.write_int(2)?;
       let values_len = values.len() as i32;
       write_group_vints_i64(&mut io, &mut values, values_len)?;
+      io.close()?;
     }
 
     let slicer = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -132,6 +137,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     assert_eq!(1, DataInput::read_int(&mut another)?);
     CloseableRef::close(&another)?;
     CloseableRef::close(&two)?;
+    CloseableRef::close(&slicer)?;
+    dir.close()?;
     Ok(())
   }
 
@@ -144,10 +151,12 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let temp_dir = create_temp_dir_with_prefix("testSeekZero")?;
       let dir = self.get_directory_with_max_chunk_size(temp_dir.path().to_path_buf(), 1 << i)?;
       let io_context = new_io_context(random)?;
-      dir.create_output("zeroBytes", &io_context)?;
+      let mut io = dir.create_output("zeroBytes", &io_context)?;
+      io.close()?;
       let mut ii = dir.open_input("zeroBytes", &new_io_context(random)?)?;
       ii.seek(0)?;
       CloseableRef::close(&ii)?;
+      dir.close()?;
     }
     Ok(())
   }
@@ -161,11 +170,14 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let temp_dir = create_temp_dir_with_prefix("testSeekSliceZero")?;
       let dir = self.get_directory_with_max_chunk_size(temp_dir.path().to_path_buf(), 1 << i)?;
       let io_context = new_io_context(random)?;
-      dir.create_output("zeroBytes", &io_context)?;
+      let mut io = dir.create_output("zeroBytes", &io_context)?;
+      io.close()?;
       let slicer = dir.open_input("zeroBytes", &new_io_context(random)?)?;
       let mut ii = slicer.slice("zero-length slice", 0, 0)?;
       ii.seek(0)?;
       CloseableRef::close(&ii)?;
+      CloseableRef::close(&slicer)?;
+      dir.close()?;
     }
     Ok(())
   }
@@ -183,6 +195,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       {
         let mut io = dir.create_output("bytes", &io_context)?;
         io.write_bytes_with_len(&bytes, bytes.len())?;
+        io.close()?;
       }
 
       let mut ii = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -192,6 +205,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       assert_eq!(bytes, actual);
       ii.seek(1 << i)?;
       CloseableRef::close(&ii)?;
+      dir.close()?;
     }
     Ok(())
   }
@@ -209,6 +223,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       {
         let mut io = dir.create_output("bytes", &io_context)?;
         io.write_bytes_with_len(&bytes, bytes.len())?;
+        io.close()?;
       }
 
       let slicer = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -219,6 +234,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       assert_eq!(bytes, actual);
       ii.seek(1 << i)?;
       CloseableRef::close(&ii)?;
+      CloseableRef::close(&slicer)?;
+      dir.close()?;
     }
     Ok(())
   }
@@ -237,6 +254,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       {
         let mut io = dir.create_output("bytes", &io_context)?;
         io.write_bytes_with_len(&bytes, bytes.len())?;
+        io.close()?;
       }
 
       let mut ii = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -253,6 +271,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
         }
       }
       CloseableRef::close(&ii)?;
+      dir.close()?;
     }
     Ok(())
   }
@@ -273,6 +292,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       {
         let mut io = dir.create_output("bytes", &io_context)?;
         io.write_bytes_with_len(&bytes, bytes.len())?;
+        io.close()?;
       }
 
       let mut ii = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -288,6 +308,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
           Self::assert_slice(&bytes, &slicer, 0, slice_start, slice_length, random)?;
         }
       }
+      CloseableRef::close(&slicer)?;
+      dir.close()?;
     }
     Ok(())
   }
@@ -306,6 +328,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       {
         let mut io = dir.create_output("bytes", &io_context)?;
         io.write_bytes_with_len(&bytes, bytes.len())?;
+        io.close()?;
       }
 
       let mut ii = dir.open_input("bytes", &new_io_context(random)?)?;
@@ -332,6 +355,9 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
           )?;
         }
       }
+      CloseableRef::close(&inner_slicer)?;
+      CloseableRef::close(&outer_slicer)?;
+      dir.close()?;
     }
     Ok(())
   }
@@ -413,6 +439,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       assert_eq!(Some(doc_id.to_string()), actual);
     }
     reader.close()?;
+    dir.close()?;
     Ok(())
   }
 
@@ -433,6 +460,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     {
       let mut out = dir.create_output("bytesCrossBoundary", &io_context)?;
       out.write_bytes_with_len(&bytes, bytes.len())?;
+      out.close()?;
     }
 
     let mut input = dir.open_input("bytesCrossBoundary", &new_io_context(random)?)?;
@@ -465,9 +493,11 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let mut whole = padded.random_access_slice(i, padded_len - i)?;
       assert_eq!(padded_len - i, RandomAccessInput::length(&whole)?);
       Self::assert_bytes(&mut whole, &bytes, 0, random)?;
+      CloseableRef::close(&padded)?;
     }
 
     CloseableRef::close(&input)?;
+    dir.close()?;
     Ok(())
   }
 
@@ -483,6 +513,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       out.write_long(3)?;
       out.write_long(i64::MAX)?;
       out.write_long(-3)?;
+      out.close()?;
     }
 
     let mut input = dir.open_input("littleEndianLongs", &new_io_context(random)?)?;
@@ -492,6 +523,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     input.read_longs(&mut l, 1, 3)?;
     assert_eq!(vec![0, 3, i64::MAX, -3], l);
     assert_eq!(25, input.get_file_pointer()?);
+    CloseableRef::close(&input)?;
+    dir.close()?;
     Ok(())
   }
 
@@ -507,6 +540,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       out.write_int(3.0f32.to_bits() as i32)?;
       out.write_int(f32::MAX.to_bits() as i32)?;
       out.write_int((-3.0f32).to_bits() as i32)?;
+      out.close()?;
     }
 
     let mut input = dir.open_input("Floats", &new_io_context(random)?)?;
@@ -516,6 +550,8 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     input.read_floats(&mut ff, 1, 3)?;
     assert_eq!(vec![0.0, 3.0, f32::MAX, -3.0], ff);
     assert_eq!(13, input.get_file_pointer()?);
+    CloseableRef::close(&input)?;
+    dir.close()?;
     Ok(())
   }
 }

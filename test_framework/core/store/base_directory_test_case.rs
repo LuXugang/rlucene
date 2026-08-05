@@ -68,11 +68,15 @@ pub trait BaseDirectoryTestCase {
     let source = self.get_directory(temp_dir.keep(), random)?;
     let dest = new_directory(random)?;
     Self::run_copy_from(&source, &dest, random)?;
+    dest.close()?;
+    source.close()?;
 
     let source = new_directory(random)?;
     temp_dir = Builder::new().prefix("testCopyDestination").tempdir()?;
     let dest = self.get_directory(temp_dir.keep(), random)?;
     Self::run_copy_from(&source, &dest, random)?;
+    dest.close()?;
+    source.close()?;
     Ok(())
   }
 
@@ -87,6 +91,7 @@ pub trait BaseDirectoryTestCase {
       let mut output = source.create_output("foobar", &io_context)?;
 
       output.write_bytes_with_len(&bytes, bytes.len())?;
+      output.close()?;
     }
     dest.copy_from(source, "foobar", "foobaz", &io_context)?;
     assert!(slow_file_exists(dest, "foobaz")?);
@@ -95,6 +100,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut input = dest.open_input("foobaz", &io_context)?;
       DataInput::read_bytes(&mut input, &mut bytes2, 0, bytes2_len)?;
+      CloseableRef::close(&input)?;
     }
 
     assert_eq!(bytes, bytes2);
@@ -114,6 +120,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("foobar", &io_context)?;
       output.write_bytes_with_len(&bytes, bytes.len())?;
+      output.close()?;
     }
 
     dir.rename("foobar", "foobaz")?;
@@ -123,11 +130,12 @@ pub trait BaseDirectoryTestCase {
       let mut input = dir.open_input("foobaz", &io_context)?;
       DataInput::read_bytes(&mut input, &mut bytes2, 0, num_bytes)?;
       assert_eq!(IndexInput::length(&input)?, num_bytes);
+      CloseableRef::close(&input)?;
     }
 
     assert_eq!(bytes, bytes2);
 
-    Ok(())
+    dir.close()
   }
 
   fn test_delete_file<R>(&self, random: &mut R) -> Result<()>
@@ -142,7 +150,8 @@ pub trait BaseDirectoryTestCase {
 
     assert!(!dir.list_all()?.contains(&file.to_string()));
 
-    dir.create_output(file, &io_context)?;
+    let mut output = dir.create_output(file, &io_context)?;
+    output.close()?;
     assert!(dir.list_all()?.contains(&file.to_string()));
 
     dir.delete_file(file)?;
@@ -158,7 +167,7 @@ pub trait BaseDirectoryTestCase {
             ..
         }) if source.kind() == ErrorKind::NotFound && path.contains(file)
     ));
-    Ok(())
+    dir.close()
   }
   fn test_byte<R>(&self, random: &mut R) -> Result<()>
   where
@@ -172,15 +181,17 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("byte", &io_context)?;
       output.write_byte(128)?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("byte", &io_context)?;
       assert_eq!(1, IndexInput::length(&input)?);
       assert_eq!(128u8, DataInput::read_byte(&mut input)?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_short<R>(&self, random: &mut R) -> Result<()>
   where
@@ -193,15 +204,17 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("short", &io_context)?;
       output.write_short(-20)?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("short", &io_context)?;
       assert_eq!(2, IndexInput::length(&input)?);
       assert_eq!(-20i16, DataInput::read_short(&mut input)?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_int<R>(&self, random: &mut R) -> Result<()>
   where
@@ -214,15 +227,17 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("int", &io_context)?;
       output.write_int(-500)?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("int", &io_context)?;
       assert_eq!(4, IndexInput::length(&input)?);
       assert_eq!(-500, DataInput::read_int(&mut input)?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_long<R>(&self, random: &mut R) -> Result<()>
   where
@@ -235,15 +250,17 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("long", &io_context)?;
       output.write_long(-5000)?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("long", &io_context)?;
       assert_eq!(8, IndexInput::length(&input)?);
       assert_eq!(-5000, DataInput::read_long(&mut input)?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_aligned_little_endian_longs<R>(&self, random: &mut R) -> Result<()>
   where
@@ -260,6 +277,7 @@ pub trait BaseDirectoryTestCase {
       out.write_long(3)?;
       out.write_long(i64::MAX)?;
       out.write_long(-3)?;
+      out.close()?;
     }
 
     {
@@ -271,9 +289,10 @@ pub trait BaseDirectoryTestCase {
 
       assert_eq!(vec![0, 3, i64::MAX, -3], l);
       assert_eq!(24, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_unaligned_little_endian_longs<R>(&self, random: &mut R) -> Result<()>
   where
@@ -291,6 +310,7 @@ pub trait BaseDirectoryTestCase {
       out.write_long(3)?;
       out.write_long(i64::MAX)?;
       out.write_long(-3)?;
+      out.close()?;
     }
 
     {
@@ -301,9 +321,10 @@ pub trait BaseDirectoryTestCase {
       input.read_longs(&mut longs, 1, 3)?;
       assert_eq!(vec![0, 3, i64::MAX, -3], longs);
       assert_eq!(25, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_little_endian_longs_underflow<R>(&self, random: &mut R) -> Result<()>
   where
@@ -324,6 +345,7 @@ pub trait BaseDirectoryTestCase {
       let mut bytes = vec![0u8; padding];
       random.fill(&mut bytes[..]);
       out.write_bytes_with_len(&bytes, bytes.len())?;
+      out.close()?;
     }
 
     {
@@ -332,9 +354,10 @@ pub trait BaseDirectoryTestCase {
 
       let result = input.read_longs(&mut vec![0i64; length], 0, length);
       assert!(matches!(result, Err(LuceneError::Eof(_))));
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_aligned_ints<R>(&self, random: &mut R) -> Result<()>
   where
@@ -349,6 +372,7 @@ pub trait BaseDirectoryTestCase {
       out.write_int(3)?;
       out.write_int(i32::MAX)?;
       out.write_int(-3)?;
+      out.close()?;
     }
 
     {
@@ -358,9 +382,10 @@ pub trait BaseDirectoryTestCase {
       input.read_ints(&mut ints, 1, 3)?;
       assert_eq!(vec![0, 3, i32::MAX, -3], ints);
       assert_eq!(12, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_unaligned_ints<R>(&self, random: &mut R) -> Result<()>
   where
@@ -379,6 +404,7 @@ pub trait BaseDirectoryTestCase {
       out.write_int(3)?;
       out.write_int(i32::MAX)?;
       out.write_int(-3)?;
+      out.close()?;
     }
 
     {
@@ -391,9 +417,10 @@ pub trait BaseDirectoryTestCase {
       input.read_ints(&mut ints, 1, 3)?;
       assert_eq!(vec![0, 3, i32::MAX, -3], ints);
       assert_eq!(12 + padding, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_ints_underflow<R>(&self, random: &mut R) -> Result<()>
   where
@@ -415,6 +442,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("Ints", &io_context)?;
       output.write_bytes_with_len(&bytes, bytes.len())?;
+      output.close()?;
     }
 
     let mut input = dir.open_input("Ints", &io_context)?;
@@ -423,8 +451,9 @@ pub trait BaseDirectoryTestCase {
     let mut ints = vec![0; length];
     let result = input.read_ints(&mut ints, 0, length);
     assert!(matches!(result, Err(LuceneError::Eof(_))));
+    CloseableRef::close(&input)?;
 
-    Ok(())
+    dir.close()
   }
 
   fn test_aligned_floats<R>(&self, random: &mut R) -> Result<()>
@@ -439,6 +468,7 @@ pub trait BaseDirectoryTestCase {
       out.write_int(3f32.to_bits() as i32)?;
       out.write_int(f32::MAX.to_bits() as i32)?;
       out.write_int((-3f32).to_bits() as i32)?;
+      out.close()?;
     }
 
     {
@@ -448,9 +478,10 @@ pub trait BaseDirectoryTestCase {
       input.read_floats(&mut floats, 1, 3)?;
       assert_eq!(vec![0.0, 3.0, f32::MAX, -3.0], floats);
       assert_eq!(12, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_unaligned_floats<R>(&self, random: &mut R) -> Result<()>
   where
@@ -470,6 +501,7 @@ pub trait BaseDirectoryTestCase {
       output.write_int(3f32.to_bits() as i32)?;
       output.write_int(f32::MAX.to_bits() as i32)?;
       output.write_int((-3f32).to_bits() as i32)?;
+      output.close()?;
     }
 
     let mut input = dir.open_input("Floats", &io_context)?;
@@ -482,8 +514,9 @@ pub trait BaseDirectoryTestCase {
     input.read_floats(&mut ff, 1, 3)?;
     assert_eq!(ff, vec![0.0, 3.0, f32::MAX, -3.0]);
     assert_eq!(12 + padding, input.get_file_pointer()?);
+    CloseableRef::close(&input)?;
 
-    Ok(())
+    dir.close()
   }
   fn test_floats_underflow<R>(&self, random: &mut R) -> Result<()>
   where
@@ -502,14 +535,16 @@ pub trait BaseDirectoryTestCase {
 
       let mut output = dir.create_output("Floats", &io_context)?;
       output.write_bytes_with_len(&b, b.len())?;
+      output.close()?;
     }
 
     let mut input = dir.open_input("Floats", &io_context)?;
     input.seek(offset)?;
     let result = input.read_floats(&mut vec![0.0; length], 0, length);
     assert!(matches!(result, Err(LuceneError::Eof(_))));
+    CloseableRef::close(&input)?;
 
-    Ok(())
+    dir.close()
   }
   fn test_string<R>(&self, random: &mut R) -> Result<()>
   where
@@ -522,15 +557,17 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("string", &io_context)?;
       output.write_string("hello!")?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("string", &io_context)?;
       assert_eq!("hello!", input.read_string()?);
       assert_eq!(7, IndexInput::length(&input)?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_vint<R>(&self, random: &mut R) -> Result<()>
   where
@@ -543,15 +580,17 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("vint", &io_context)?;
       output.write_vint(500)?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("vint", &io_context)?;
       assert_eq!(2, IndexInput::length(&input)?);
       assert_eq!(500, input.read_vint()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_vlong<R>(&self, random: &mut R) -> Result<()>
   where
@@ -564,15 +603,17 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("vlong", &io_context)?;
       output.write_vlong(i64::MAX)?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("vlong", &io_context)?;
       assert_eq!(9, IndexInput::length(&input)?);
       assert_eq!(i64::MAX, input.read_vlong()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_zint<R>(&self, random: &mut R) -> Result<()>
   where
@@ -609,6 +650,7 @@ pub trait BaseDirectoryTestCase {
       for &i in &ints {
         output.write_zint(i)?;
       }
+      output.close()?;
     }
 
     {
@@ -617,9 +659,10 @@ pub trait BaseDirectoryTestCase {
         assert_eq!(i, input.read_zint()?);
       }
       assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
 
   fn test_zlong<R>(&self, random: &mut R) -> Result<()>
@@ -657,6 +700,7 @@ pub trait BaseDirectoryTestCase {
       for &l in &longs {
         output.write_zlong(l)?;
       }
+      output.close()?;
     }
 
     {
@@ -665,9 +709,10 @@ pub trait BaseDirectoryTestCase {
         assert_eq!(l, input.read_zlong()?);
       }
       assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_set_of_strings<R>(&self, random: &mut R) -> Result<()>
   where
@@ -687,6 +732,7 @@ pub trait BaseDirectoryTestCase {
       )?;
       output.write_set_of_strings(&HashSet::new())?;
       output.write_set_of_strings(&["test3".to_string()].iter().cloned().collect())?;
+      output.close()?;
     }
 
     {
@@ -714,9 +760,10 @@ pub trait BaseDirectoryTestCase {
       );
 
       assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
 
   fn test_map_of_strings<R>(&self, random: &mut R) -> Result<()>
@@ -739,6 +786,7 @@ pub trait BaseDirectoryTestCase {
         .into_iter()
         .collect();
       output.write_map_of_strings(&singleton_map)?;
+      output.close()?;
     }
 
     {
@@ -768,9 +816,10 @@ pub trait BaseDirectoryTestCase {
       map3_clone.insert("bogus1".to_string(), "bogus2".to_string()); // This will not affect the original `map3`
 
       assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_checksum<R>(&self, random: &mut R) -> Result<()>
   where
@@ -793,6 +842,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("checksum", &io_context)?;
       output.write_bytes_range(&bytes, 0, bytes.len())?;
+      output.close()?;
     }
 
     {
@@ -800,9 +850,10 @@ pub trait BaseDirectoryTestCase {
       IndexInput::skip_bytes(&mut input, num_bytes as i64)?;
       let actual_checksum = input.get_checksum();
       assert_eq!(expected_checksum as i64, actual_checksum);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
 
   /// Make sure directory throws `AlreadyClosed` if you try to create an output after closing.
@@ -835,26 +886,31 @@ pub trait BaseDirectoryTestCase {
     let seed: u64 = random.random();
     let writer = thread::spawn(move || -> Result<()> {
       let mut rng = random_from_seed(seed);
-      let file_count = rng.random_range(500..=1000);
-      let io_context = IOContext::default_io_context()?;
-      for i in 0..file_count {
-        let file_name = format!("file-{}", i);
-        let dir = dir_writer.lock();
-        if let Ok(_output) = dir.create_output(&file_name, &io_context) {
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        let file_count = rng.random_range(500..=1000);
+        for i in 0..file_count {
+          let file_name = format!("file-{}", i);
+          let dir = dir_writer.lock();
+          let mut output = dir.create_output(&file_name, &new_io_context(&mut rng)?)?;
           thread::yield_now();
+          output.close()?;
+          assert!(slow_file_exists(&*dir, &file_name)?);
         }
-        assert!(slow_file_exists(&*dir, &file_name)?);
-      }
-
+        Ok(())
+      }));
       stop_writer.store(true, Ordering::SeqCst);
-      Ok(())
+      match result {
+        Ok(result) => result,
+        Err(payload) => std::panic::resume_unwind(payload),
+      }
     });
 
     // Reader thread
     let dir_reader = Arc::clone(&dir);
     let stop_reader = Arc::clone(&stop);
+    let reader_seed: u64 = random.random();
     let reader = thread::spawn(move || -> Result<()> {
-      let mut rng = random_from_seed(seed);
+      let mut rng = random_from_seed(reader_seed);
 
       while !stop_reader.load(Ordering::SeqCst) {
         let files: Vec<String> = {
@@ -873,8 +929,9 @@ pub trait BaseDirectoryTestCase {
               .lock()
               .open_input(file, &new_io_context(&mut rng)?)
             {
-              Ok(_input) => {
+              Ok(input) => {
                 thread::sleep(Duration::from_millis(1));
+                CloseableRef::close(&input)?;
               },
               Err(LuceneError::IoWithPath { source, .. })
                 if source.kind() == ErrorKind::PermissionDenied =>
@@ -923,7 +980,7 @@ pub trait BaseDirectoryTestCase {
       },
     }
 
-    Ok(())
+    dir.lock().close()
   }
 
   fn test_file_exists_in_list_after_created<R>(&self, random: &mut R) -> Result<()>
@@ -939,7 +996,8 @@ pub trait BaseDirectoryTestCase {
     let io_context = new_io_context(random)?;
 
     {
-      let _output = dir.create_output(name, &io_context)?;
+      let mut output = dir.create_output(name, &io_context)?;
+      output.close()?;
     }
 
     assert!(
@@ -955,7 +1013,7 @@ pub trait BaseDirectoryTestCase {
       name
     );
 
-    Ok(())
+    dir.close()
   }
 
   fn test_seek_to_eof_then_back<R>(&self, random: &mut R) -> Result<()>
@@ -973,6 +1031,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("out", &io_context)?;
       output.write_bytes_range(&bytes, 0, total_length)?;
+      output.close()?;
     }
 
     {
@@ -984,9 +1043,10 @@ pub trait BaseDirectoryTestCase {
       let mut read_bytes = vec![0u8; 2 * buffer_length];
       DataInput::read_bytes(&mut input, &mut read_bytes, 0, 2 * buffer_length)?;
       assert_eq!(&read_bytes, &bytes[buffer_length..3 * buffer_length]);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
 
   fn test_illegal_eof<R>(&self, random: &mut R) -> Result<()>
@@ -1001,14 +1061,16 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("out", &io_context)?;
       output.write_bytes_range(&buffer, 0, buffer.len())?;
+      output.close()?;
     }
 
     {
       let mut input = dir.open_input("out", &io_context)?;
       input.seek(1024)?;
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_seek_past_eof<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1023,6 +1085,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("out", &io_context)?;
       output.write_bytes_range(&buffer, 0, len)?;
+      output.close()?;
     }
 
     let mut input = dir.open_input("out", &io_context)?;
@@ -1043,8 +1106,9 @@ pub trait BaseDirectoryTestCase {
       DataInput::read_bytes(&mut input, &mut [0u8; 1], 0, 1),
       Err(LuceneError::Eof(_))
     ));
+    CloseableRef::close(&input)?;
 
-    Ok(())
+    dir.close()
   }
   fn test_slice_out_of_bounds<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1059,6 +1123,7 @@ pub trait BaseDirectoryTestCase {
     {
       let mut output = dir.create_output("out", &io_context)?;
       output.write_bytes_range(&buffer, 0, len)?;
+      output.close()?;
     }
 
     let input = dir.open_input("out", &io_context)?;
@@ -1075,8 +1140,10 @@ pub trait BaseDirectoryTestCase {
       slice.slice("slice3sub", 1, len / 2),
       Err(LuceneError::IllegalArgument(_))
     ));
+    CloseableRef::close(&slice)?;
+    CloseableRef::close(&input)?;
 
-    Ok(())
+    dir.close()
   }
 
   fn test_no_dir<R>(&self, random: &mut R) -> Result<()>
@@ -1087,14 +1154,14 @@ pub trait BaseDirectoryTestCase {
     let path = temp_dir.path().to_path_buf();
     temp_dir.close()?;
     let dir = Arc::new(self.get_directory(path, random)?);
-    match directory_reader::open(dir) {
+    match directory_reader::open(dir.clone()) {
       Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
       Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
       Err(LuceneError::IoWithPath { source, .. }) | Err(LuceneError::Io { source, .. })
         if source.kind() == ErrorKind::NotFound => {},
       Err(err) => return Err(err),
     }
-    Ok(())
+    dir.close()
   }
   fn test_copy_bytes<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1126,6 +1193,7 @@ pub trait BaseDirectoryTestCase {
 
       output.write_bytes_range(&bytes, 0, byte_upto)?;
       assert_eq!(size, output.get_file_pointer()?);
+      output.close()?;
     }
     assert_eq!(size, dir.file_length("test")?);
 
@@ -1148,6 +1216,8 @@ pub trait BaseDirectoryTestCase {
         }
       }
       assert_eq!(size, upto);
+      output.close()?;
+      CloseableRef::close(&input)?;
     }
 
     {
@@ -1170,12 +1240,13 @@ pub trait BaseDirectoryTestCase {
           }
         }
       }
+      CloseableRef::close(&input2)?;
     }
 
     dir.delete_file("test")?;
     dir.delete_file("test2")?;
 
-    Ok(())
+    dir.close()
   }
 
   fn value(idx: usize) -> u8 {
@@ -1225,6 +1296,7 @@ pub trait BaseDirectoryTestCase {
           let src_length = IndexInput::length(&src).expect("source length");
           dst.copy_bytes(&mut src, src_length - header_len)?;
           dst.close()?;
+          CloseableRef::close(&src)?;
           Ok(())
         });
         handles.push(handle);
@@ -1251,10 +1323,11 @@ pub trait BaseDirectoryTestCase {
       )?;
 
       assert_eq!(data_clone, data_copy, "Data mismatch in copy{}", i);
+      CloseableRef::close(&input_copy)?;
     }
     input.close()?;
 
-    Ok(())
+    dir.close()
   }
   fn test_fsync_doesnt_create_new_files<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1268,13 +1341,14 @@ pub trait BaseDirectoryTestCase {
     // Ensure the directory is an FSDirectory implementation.
     if !fsdir.is_fs_directory() {
       // This test only applies to FSDirectory-like implementations
-      return Ok(());
+      return fsdir.close();
     }
     let io_context = new_io_context(random)?;
 
     {
       let mut out = fsdir.create_output("afile", &io_context)?;
       out.write_string("boo")?;
+      out.close()?;
     }
 
     // Delete the file directly via the filesystem
@@ -1294,7 +1368,7 @@ pub trait BaseDirectoryTestCase {
     let file_count_after = fsdir.list_all()?.len();
     assert_eq!(file_count_before, file_count_after);
 
-    Ok(())
+    fsdir.close()
   }
   fn test_random_long<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1312,6 +1386,7 @@ pub trait BaseDirectoryTestCase {
         *value = TestUtil::next_long(random, i64::MIN, i64::MAX);
         output.write_long(*value)?;
       }
+      output.close()?;
     }
 
     // Slice
@@ -1349,6 +1424,7 @@ pub trait BaseDirectoryTestCase {
           input.seek(0)?;
           let length = IndexInput::length(&input)?;
           o.copy_bytes(&mut input, length)?;
+          o.close()?;
         }
 
         let padded = dir.open_input(&name, &io_context)?;
@@ -1358,10 +1434,12 @@ pub trait BaseDirectoryTestCase {
         for (j, &expected) in longs.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_long(&mut whole, j * 8)?);
         }
+        CloseableRef::close(&padded)?;
       }
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_random_int<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1379,6 +1457,7 @@ pub trait BaseDirectoryTestCase {
         *value = random.random_range(i32::MIN..=i32::MAX);
         output.write_int(*value)?;
       }
+      output.close()?;
     }
 
     // Slice
@@ -1413,6 +1492,7 @@ pub trait BaseDirectoryTestCase {
           input.seek(0)?;
           let length = IndexInput::length(&input)?;
           o.copy_bytes(&mut input, length)?;
+          o.close()?;
         }
 
         let padded = dir.open_input(&name, &io_context)?;
@@ -1422,10 +1502,12 @@ pub trait BaseDirectoryTestCase {
         for (j, &expected) in ints.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_int(&mut whole, j * 4)?);
         }
+        CloseableRef::close(&padded)?;
       }
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
 
   fn test_random_short<R>(&self, random: &mut R) -> Result<()>
@@ -1444,6 +1526,7 @@ pub trait BaseDirectoryTestCase {
         *value = random.random_range(i16::MIN..=i16::MAX);
         output.write_short(*value)?;
       }
+      output.close()?;
     }
 
     // Slice
@@ -1481,6 +1564,7 @@ pub trait BaseDirectoryTestCase {
           input.seek(0)?;
           let length = IndexInput::length(&input)?;
           o.copy_bytes(&mut input, length)?;
+          o.close()?;
         }
 
         let padded = dir.open_input(&name, &io_context)?;
@@ -1490,10 +1574,12 @@ pub trait BaseDirectoryTestCase {
         for (j, &expected) in shorts.iter().enumerate() {
           assert_eq!(expected, RandomAccessInput::read_short(&mut whole, j * 2)?);
         }
+        CloseableRef::close(&padded)?;
       }
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_random_byte<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1515,6 +1601,7 @@ pub trait BaseDirectoryTestCase {
       for &byte in &bytes {
         output.write_byte(byte)?;
       }
+      output.close()?;
       output.close()?;
 
       // Slice
@@ -1666,10 +1753,13 @@ pub trait BaseDirectoryTestCase {
         }
 
         assert_eq!(bytes, data);
+        CloseableRef::close(&slice2)?;
       }
+      CloseableRef::close(&slice1)?;
     }
 
-    Ok(())
+    CloseableRef::close(&input)?;
+    dir.close()
   }
   /// This test verifies that writes larger than the size of the buffer output
   /// will correctly increment the file pointer.
@@ -1691,7 +1781,8 @@ pub trait BaseDirectoryTestCase {
     output.write_bytes_with_len(&large_buf, large_buf_len)?;
 
     assert_eq!(current_pos + large_buf.len(), output.get_file_pointer()?);
-    Ok(())
+    output.close()?;
+    dir.close()
   }
   /// This test verifies that the `to_string` implementation of `IndexOutput`
   /// contains the file name.
@@ -1703,14 +1794,15 @@ pub trait BaseDirectoryTestCase {
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = new_io_context(random)?;
 
-    let output = dir.create_output("camelCase.txt", &io_context)?;
+    let mut output = dir.create_output("camelCase.txt", &io_context)?;
     let output_description = output.to_string();
     assert!(
       output_description.contains("camelCase.txt"),
       "Expected `to_string` to contain 'camelCase.txt', but got: {}",
       output_description
     );
-    Ok(())
+    output.close()?;
+    dir.close()
   }
   fn test_double_close_output<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1767,11 +1859,13 @@ pub trait BaseDirectoryTestCase {
       let mut output = dir.create_temp_output("foo", "bar", &io_context)?;
       names.push(output.get_name().to_string());
       output.write_vint(iter)?;
+      output.close()?;
     }
 
     for iter in 0..iters {
       let mut input = dir.open_input(&names[iter as usize], &io_context)?;
       assert_eq!({ iter }, input.read_vint()?);
+      CloseableRef::close(&input)?;
     }
 
     let files: HashSet<String> = dir
@@ -1782,7 +1876,7 @@ pub trait BaseDirectoryTestCase {
 
     assert_eq!(names.into_iter().collect::<HashSet<_>>(), files);
 
-    Ok(())
+    dir.close()
   }
   /// This test ensures that attempting to create an output for an existing
   /// file results in an error, and after deleting the file, it can be
@@ -1797,8 +1891,9 @@ pub trait BaseDirectoryTestCase {
     let name = "file";
 
     {
-      let output = dir.create_output(name, &io_context)?;
+      let mut output = dir.create_output(name, &io_context)?;
       assert_eq!(output.get_name(), name);
+      output.close()?;
     }
 
     {
@@ -1811,9 +1906,10 @@ pub trait BaseDirectoryTestCase {
 
     // Delete the file and attempt to recreate it
     dir.delete_file(name)?;
-    dir.create_output(name, &io_context)?;
+    let mut output = dir.create_output(name, &io_context)?;
+    output.close()?;
 
-    Ok(())
+    dir.close()
   }
 
   fn test_seek_to_end_of_file<R>(&self, random: &mut R) -> Result<()>
@@ -1828,6 +1924,7 @@ pub trait BaseDirectoryTestCase {
       for _ in 0..1024 {
         out.write_byte(0)?;
       }
+      out.close()?;
     }
 
     {
@@ -1837,9 +1934,10 @@ pub trait BaseDirectoryTestCase {
 
       input.seek(1024)?;
       assert_eq!(1024, input.get_file_pointer()?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_seek_beyond_end_of_file<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1854,6 +1952,7 @@ pub trait BaseDirectoryTestCase {
       for _ in 0..1024 {
         out.write_byte(0)?;
       }
+      out.close()?;
     }
 
     // Test seeking within and beyond the file's end
@@ -1865,76 +1964,16 @@ pub trait BaseDirectoryTestCase {
       // Attempting to seek beyond the end of the file should return an
       // EOF error
       assert!(matches!(input.seek(1025), Err(LuceneError::Eof(_))));
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_pending_deletions<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO: does not implement "VirusCheckingFS" yet, so this test is not
-    // applicable let temp_dir =
-    // Builder::new().prefix("virusChecker").tempdir()?;
-    // let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
-    //
-    // // This test applies only to FSDirectory
-    // if !dir.is_fs_directory() {
-    //     return Ok(());
-    // }
-    //
-    // let file_name: String;
-    // loop {
-    //     // create a random filename (segment file name style), so it
-    // cannot hit windows problem with     // special filenames
-    // ("con", "com1",...):     let candidate =
-    // IndexFileNames::segment_file_name(
-    //         &TestUtil::random_simple_string_with_length(random, 1, 6),
-    //         &TestUtil::random_simple_string(random),
-    //         "test",
-    //     );
-    //
-    //     {
-    //         let out = dir.create_output(&candidate, &io_context)?;
-    //         out.get_file_pointer(); // Just to mimic some usage
-    //     }
-    //     dir.delete_file(&candidate)?;
-    //     if !dir.get_pending_deletions()?.is_empty() {
-    //         // If the file couldn't be deleted due to "virus checker"
-    //         file_name = candidate;
-    //         break;
-    //     }
-    // }
-    //
-    // // Ensure `list_all` does not include the file
-    // let files: HashSet<String> = dir.list_all()?.into_iter().collect();
-    // assert!(!files.contains(&file_name));
-    //
-    // // Ensure `file_length` claims it's deleted
-    // assert!(matches!(
-    //     dir.file_length(&file_name),
-    //     Err(LuceneError::IoWithPath { .. })
-    // ));
-    //
-    // // Ensure `rename` fails
-    // assert!(matches!(
-    //     dir.rename(&file_name, "file2"),
-    //     Err(LuceneError::IoWithPath { .. })
-    // ));
-    //
-    // // Ensure `delete_file` fails
-    // assert!(matches!(
-    //     dir.delete_file(&file_name),
-    //     Err(LuceneError::IoWithPath { .. })
-    // ));
-    //
-    // // Ensure we cannot open it for reading
-    // assert!(matches!(
-    //     dir.open_input(&file_name, &io_context),
-    //     Err(LuceneError::IoWithPath { .. })
-    // ));
-
-    Ok(())
+    test_not_required_in_rust_lucene!();
   }
   fn test_list_all_is_sorted<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1957,16 +1996,18 @@ pub trait BaseDirectoryTestCase {
       if random.random_range(0..5) == 1 {
         // Create a temporary output
         {
-          let output = dir.create_temp_output(&name, "foo", &io_context)?;
+          let mut output = dir.create_temp_output(&name, "foo", &io_context)?;
           let output_name = output.get_name().to_string();
           names.insert(output_name);
+          output.close()?;
         }
       } else if !names.contains(name.as_str()) {
         // Create a normal output
         {
-          let output = dir.create_output(&name, &io_context)?;
+          let mut output = dir.create_output(&name, &io_context)?;
           let output_name = output.get_name().to_string();
           names.insert(output_name);
+          output.close()?;
         }
       }
       names_len = names.len();
@@ -1978,7 +2019,7 @@ pub trait BaseDirectoryTestCase {
 
     assert_eq!(expected, actual);
 
-    Ok(())
+    dir.close()
   }
   fn test_data_types<R>(&self, random: &mut R) -> Result<()>
   where
@@ -1996,6 +2037,8 @@ pub trait BaseDirectoryTestCase {
       let values_len = values.len() as i32;
       write_group_vints_i64(&mut out, &mut values, values_len)?;
       out.write_long(1234567890123456789i64)?;
+      out.close()?;
+      out.close()?;
     }
 
     let mut restored = [0i64; 4];
@@ -2008,9 +2051,10 @@ pub trait BaseDirectoryTestCase {
       GroupVIntUtil::read_group_vints_i64(&mut input, &mut restored, restored_len)?;
       assert_eq!(values, restored);
       assert_eq!(1234567890123456789, DataInput::read_long(&mut input)?);
+      CloseableRef::close(&input)?;
     }
 
-    Ok(())
+    dir.close()
   }
   fn test_group_vint_overflow<R>(&self, random: &mut R) -> Result<()>
   where
@@ -2045,38 +2089,36 @@ pub trait BaseDirectoryTestCase {
       for i in 0..limit {
         assert_eq!(values[i], restore[i]);
       }
+      CloseableRef::close(&input)?;
     }
 
     values[0] = (0xFFFFFFFF_u64 + 1) as i64;
     let result = write_group_vints_i64(&mut out, &mut values[..values_len], 4);
     assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
 
-    Ok(())
+    dir.close()
   }
   fn test_group_vint<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let temp_dir1 = Builder::new().prefix("testGroupVInt1").tempdir()?;
-    let temp_dir2 = Builder::new().prefix("testGroupVInt2").tempdir()?;
-    let dir1 = self.get_directory(temp_dir1.path().to_path_buf(), random)?;
-    let dir2 = self.get_directory(temp_dir2.path().to_path_buf(), random)?;
+    let temp_dir = Builder::new().prefix("testGroupVInt").tempdir()?;
+    let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     // Test fallback to default implementation of readGroupVInt
-    Self::do_test_group_vint(&dir1, &dir2, random, 5, 1, 6, 8)?;
+    Self::do_test_group_vint(&dir, random, 5, 1, 6, 8)?;
 
     // Use more iterations to cover all bpv
     let iterations = at_least_usize(random, 100);
-    Self::do_test_group_vint(&dir1, &dir2, random, iterations, 1, 31, 128)?;
+    Self::do_test_group_vint(&dir, random, iterations, 1, 31, 128)?;
 
     // BaseChunkedDirectoryTestCase::test_group_vint_multi_blocks covers multiple
     // blocks This part might be covered in another test or
     // implementation
-    Ok(())
+    dir.close()
   }
   fn do_test_group_vint<R>(
-    dir1: &impl Directory,
-    dir2: &impl Directory,
+    dir: &impl Directory,
     random: &mut R,
     iterations: usize,
     min_bpv: usize,
@@ -2091,8 +2133,8 @@ pub trait BaseDirectoryTestCase {
     let io_context = IOContext::default_io_context()?;
     // Create output files
     {
-      let mut group_vint_out = dir1.create_output("group-varint", &io_context)?;
-      let mut vint_out = dir2.create_output("vint", &io_context)?;
+      let mut group_vint_out = dir.create_output("group-varint", &io_context)?;
+      let mut vint_out = dir.create_output("vint", &io_context)?;
 
       // Encode
       for num_values in num_values_array.iter_mut().take(iterations) {
@@ -2111,12 +2153,14 @@ pub trait BaseDirectoryTestCase {
 
         write_group_vints_i64(&mut group_vint_out, &mut values, *num_values as i32)?;
       }
+      group_vint_out.close()?;
+      vint_out.close()?;
     }
 
     // Decode
     {
-      let mut group_vint_in = dir1.open_input("group-varint", &io_context)?;
-      let mut vint_in = dir2.open_input("vint", &io_context)?;
+      let mut group_vint_in = dir.open_input("group-varint", &io_context)?;
+      let mut vint_in = dir.open_input("vint", &io_context)?;
       for &num_values in num_values_array.iter().take(iterations) {
         // 读取组 VInts
         GroupVIntUtil::read_group_vints_i64(&mut group_vint_in, &mut values, num_values)?;
@@ -2130,9 +2174,11 @@ pub trait BaseDirectoryTestCase {
           );
         }
       }
+      CloseableRef::close(&group_vint_in)?;
+      CloseableRef::close(&vint_in)?;
     }
-    dir1.delete_file("group-varint")?;
-    dir2.delete_file("vint")?;
+    dir.delete_file("group-varint")?;
+    dir.delete_file("vint")?;
 
     Ok(())
   }
@@ -2163,13 +2209,14 @@ pub trait BaseDirectoryTestCase {
     {
       let mut out = dir.create_output("temp.bin", &io_context)?;
       out.write_bytes_with_len(&arr, arr.len())?;
+      out.close()?;
     }
 
-    let orig = dir.open_input("temp.bin", &io_context)?;
+    let mut orig = Some(dir.open_input("temp.bin", &io_context)?);
     let mut input = if random.random_bool(0.5) {
-      orig.try_clone()?
+      orig.as_ref().expect("original input").try_clone()?
     } else {
-      orig
+      orig.take().expect("original input")
     };
     let read_advices: Vec<ReadAdvice> = ReadAdvice::values().collect();
 
@@ -2191,7 +2238,11 @@ pub trait BaseDirectoryTestCase {
         input.update_read_advice(read_advices[random.random_range(0..read_advices.len())])?;
       }
     }
-    Ok(())
+    CloseableRef::close(&input)?;
+    if let Some(orig) = orig {
+      CloseableRef::close(&orig)?;
+    }
+    dir.close()
   }
 
   fn do_test_prefetch<R>(&self, start_offset: usize, random: &mut R) -> Result<()>
@@ -2209,20 +2260,25 @@ pub trait BaseDirectoryTestCase {
     {
       let mut out = dir.create_output("temp.bin", &io_context)?;
       out.write_bytes_with_len(&arr, total_length)?;
+      out.close()?;
     }
 
     let mut temp = vec![0u8; 2048];
 
-    let orig = dir.open_input("temp.bin", &io_context)?;
+    let mut orig = Some(dir.open_input("temp.bin", &io_context)?);
     let mut input = if start_offset == 0 {
-      orig.try_clone()?
+      orig.as_ref().expect("original input").try_clone()?
     } else {
-      orig.slice("slice", start_offset, total_length - start_offset)?
+      orig.as_ref().expect("original input").slice(
+        "slice",
+        start_offset,
+        total_length - start_offset,
+      )?
     };
 
     for _ in 0..10_000 {
       let input_length = IndexInput::length(&input)?;
-      let offset = random.random_range(0..(input_length - 1));
+      let offset = random.random_range(0..input_length);
 
       if random.random_bool(0.5) {
         let prefetch_length = random.random_range(1..=(input_length - offset));
@@ -2232,7 +2288,7 @@ pub trait BaseDirectoryTestCase {
       input.seek(offset)?;
       assert_eq!(offset, input.get_file_pointer()?);
 
-      match random.random_range(3..100) {
+      match random.random_range(0..100) {
         0 => {
           let read_byte = DataInput::read_byte(&mut input)?;
           assert_eq!(arr[start_offset + offset], read_byte);
@@ -2258,7 +2314,11 @@ pub trait BaseDirectoryTestCase {
         },
       }
     }
-    Ok(())
+    CloseableRef::close(&input)?;
+    if let Some(orig) = orig.take() {
+      CloseableRef::close(&orig)?;
+    }
+    dir.close()
   }
 
   fn test_is_loaded<R>(&self, random: &mut R) -> Result<()>

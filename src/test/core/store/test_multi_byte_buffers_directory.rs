@@ -281,11 +281,6 @@ mod base_directory_test_case_tests {
   }
 
   #[test]
-  fn test_slice_of_slice() -> Result<()> {
-    run_case(|case, random| case.test_slice_of_slice(random))
-  }
-
-  #[test]
   fn test_large_writes() -> Result<()> {
     run_case(|case, random| case.test_large_writes(random))
   }

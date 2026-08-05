@@ -20,6 +20,7 @@ use rand::RngExt;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::{IndexOutput, OutputStreamIndexOutput, align_offset};
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 #[allow(dead_code)] // for quick search
@@ -57,6 +58,7 @@ fn test_invalid_alignments() {
   assert_invalid_alignment(0);
   assert_invalid_alignment(6);
   assert_invalid_alignment(43);
+  assert!(align_offset(usize::MAX, 2).is_err());
 }
 
 fn assert_invalid_alignment(size: usize) {
@@ -99,5 +101,6 @@ pub fn run_test_output_alignment(alignment: usize) -> Result<()> {
       new_pos - orig_pos
     );
   }
+  out.close()?;
   Ok(())
 }

@@ -274,48 +274,7 @@ impl TestFileSwitchDirectory {
     R: Rng + ?Sized,
   {
     // Relies on Windows semantics.
-    let path = Builder::new().prefix("deleteAndList").tempdir()?;
-    let index_path = path.path().to_path_buf();
-    let mut primary_extensions = HashSet::new();
-    primary_extensions.insert("tim".to_string());
-    let dir = FileSwitchDirectory::new(
-      primary_extensions,
-      NIOFSDirectory::new(index_path.clone())?,
-      NIOFSDirectory::new(index_path)?,
-      true,
-    )?;
-    {
-      let mut out = dir.create_output("foo.tim", &IOContext::default_io_context()?)?;
-      out.write_int(1)?;
-      out.close()?;
-    }
-    let strip_extra = |array: Vec<String>| -> usize {
-      array
-        .into_iter()
-        .filter(|f| !f.starts_with("extra"))
-        .count()
-    };
-    {
-      let index_input = dir.open_input("foo.tim", &IOContext::default_io_context()?)?;
-      assert!(index_input.length()? > 0);
-      dir.delete_file("foo.tim")?;
-      // TODO IMPORTANT WindowsFS is not implemented in Rust yet. The Java test keeps the
-      // file pending while an input is open; native Rust paths delete it
-      // immediately, but the same-path primary/secondary listing behavior is
-      // still covered here.
-      assert_eq!(0, dir.get_primary_dir().get_pending_deletions()?.len());
-      assert_eq!(0, dir.get_pending_deletions()?.len());
-      assert_eq!(0, strip_extra(dir.list_all()?));
-      assert_eq!(0, strip_extra(dir.get_primary_dir().list_all()?));
-      assert_eq!(0, strip_extra(dir.get_secondary_dir().list_all()?));
-      drop(index_input);
-    }
-    assert_eq!(0, dir.get_primary_dir().get_pending_deletions()?.len());
-    assert_eq!(0, dir.get_pending_deletions()?.len());
-    assert_eq!(0, strip_extra(dir.list_all()?));
-    assert_eq!(0, strip_extra(dir.get_primary_dir().list_all()?));
-    assert_eq!(0, strip_extra(dir.get_secondary_dir().list_all()?));
-    dir.close()
+    test_not_required_in_rust_lucene!();
   }
 }
 

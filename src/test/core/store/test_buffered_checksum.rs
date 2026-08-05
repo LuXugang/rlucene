@@ -19,22 +19,18 @@ use rand::{Rng, RngExt};
 
 use crate::core::store::{BufferedChecksum, Checksum, HasherChecksum};
 use crate::core::util::bit_util::BitUtil;
+use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedChecksum;
 #[test]
 fn test_simple() {
-  let mut crc = Hasher::new();
-  crc.update(&[1]);
-  crc.update(&[2]);
-  crc.update(&[3]);
-
   let mut buffered = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
   buffered.update(1);
   buffered.update(2);
   buffered.update(3);
 
-  assert_eq!(buffered.get_value(), crc.finalize() as i64);
+  assert_eq!(1438416925, buffered.get_value());
 }
 
 #[test]
@@ -42,8 +38,8 @@ fn test_random() {
   let mut raw_crc = Hasher::new();
   let mut buffered = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
 
-  let mut rng = rand::rng();
-  let iterations = 10000;
+  let mut rng = random();
+  let iterations = at_least_usize(&mut rng, 10000);
 
   for _ in 0..iterations {
     match rng.random_range(0..4) {
@@ -75,8 +71,8 @@ fn test_random() {
 
 #[test]
 fn test_different_input_types() {
-  let mut rng = rand::rng();
-  let iterations = 1000;
+  let mut rng = random();
+  let iterations = at_least_usize(&mut rng, 1000);
 
   for _ in 0..iterations {
     let mut input = [0_u8; 4096];
@@ -109,7 +105,7 @@ fn update_by_chunk_of_bytes<R: Rng + ?Sized>(
   checksum.update_bytes(input, 0, input.len());
   check_checksum_value_and_reset(expected, checksum);
 
-  let iterations = 10;
+  let iterations = at_least_usize(rng, 10);
   for _ in 0..iterations {
     let len0 = rng.random_range(0..input.len() / 2);
     checksum.update_bytes(input, 0, len0);
@@ -214,7 +210,7 @@ fn update_by_chunk_of_longs<R: Rng + ?Sized>(
   checksum.update_bytes(input, long_end, remaining);
   check_checksum_value_and_reset(expected, checksum);
 
-  let iterations = 10;
+  let iterations = at_least_usize(rng, 10);
   for _ in 0..iterations {
     let len0 = rng.random_range(0..long_input.len() / 2);
     checksum.update_bytes(input, 0, ix);
