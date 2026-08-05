@@ -261,13 +261,7 @@ where
 
     if need_new_context {
       let max_doc = searcher.get_index_reader().max_doc()?;
-      CoreHelper::check_index(doc as usize, max_doc as usize)?;
-      if doc < 0 || doc >= max_doc {
-        return Err(LuceneError::illegal_argument(format!(
-          "Doc id {} doesn't match the query",
-          doc
-        )));
-      }
+      CoreHelper::check_index(doc, max_doc)?;
 
       let new_context_index = ReaderUtil::sub_index_with_leaves(doc, contexts);
       current_context_idx = Some(new_context_index);

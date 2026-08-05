@@ -23,6 +23,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -129,5 +130,6 @@ fn test() -> Result<()> {
   }
   docs.close();
   r.close()?;
+  dir.close()?;
   Ok(())
 }

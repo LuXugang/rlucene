@@ -64,6 +64,8 @@ use crate::test_framework::core::search::asserting_index_searcher::AssertingInde
 #[cfg(test)]
 use crate::test_framework::core::search::scorer_index_searcher::ScorerIndexSearcherHook;
 #[cfg(test)]
+use crate::test_framework::core::search::shard_searching_test_base::ShardIndexSearcherHook;
+#[cfg(test)]
 use crate::test_framework::core::search::test_boolean_query::CountingIndexSearcher;
 #[cfg(test)]
 use crate::test_framework::core::search::test_boolean_rewrites::NoRewriteIndexSearcher;
@@ -1208,6 +1210,8 @@ pub(crate) enum IndexSearcherHook {
   #[cfg(test)]
   CustomSearcher(CustomSearcher),
   #[cfg(test)]
+  Shard(Box<ShardIndexSearcherHook>),
+  #[cfg(test)]
   Asserting(Box<AssertingIndexSearcher>),
 }
 
@@ -1390,6 +1394,8 @@ where
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.slices(_searcher, leaves),
       #[cfg(test)]
+      Self::Shard(hook) => hook.slices(_searcher, leaves),
+      #[cfg(test)]
       Self::Asserting(hook) => hook.slices(_searcher, leaves),
     }
   }
@@ -1416,6 +1422,8 @@ where
       Self::Scorer(hook) => hook.count(searcher, query),
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.count(searcher, query),
+      #[cfg(test)]
+      Self::Shard(hook) => hook.count(searcher, query),
       #[cfg(test)]
       Self::Asserting(hook) => hook.count(searcher, query),
     }
@@ -1456,6 +1464,8 @@ where
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.search_after_score(searcher, after, query, num_hits),
       #[cfg(test)]
+      Self::Shard(hook) => hook.search_after_score(searcher, after, query, num_hits),
+      #[cfg(test)]
       Self::Asserting(hook) => hook.search_after_score(searcher, after, query, num_hits),
     }
   }
@@ -1487,6 +1497,8 @@ where
       Self::Scorer(hook) => hook.search(searcher, query, n),
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.search(searcher, query, n),
+      #[cfg(test)]
+      Self::Shard(hook) => hook.search(searcher, query, n),
       #[cfg(test)]
       Self::Asserting(hook) => hook.search(searcher, query, n),
     }
@@ -1526,6 +1538,8 @@ where
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.search_with_collector(searcher, query, collector),
       #[cfg(test)]
+      Self::Shard(hook) => hook.search_with_collector(searcher, query, collector),
+      #[cfg(test)]
       Self::Asserting(hook) => hook.search_with_collector(searcher, query, collector),
     }
   }
@@ -1560,6 +1574,8 @@ where
       Self::Scorer(hook) => hook.search_with_sort(searcher, query, n, sort),
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.search_with_sort(searcher, query, n, sort),
+      #[cfg(test)]
+      Self::Shard(hook) => hook.search_with_sort(searcher, query, n, sort),
       #[cfg(test)]
       Self::Asserting(hook) => hook.search_with_sort(searcher, query, n, sort),
     }
@@ -1611,6 +1627,8 @@ where
         hook.search_with_collector_manager(searcher, query, collector_manager)
       },
       #[cfg(test)]
+      Self::Shard(hook) => hook.search_with_collector_manager(searcher, query, collector_manager),
+      #[cfg(test)]
       Self::Asserting(hook) => {
         hook.search_with_collector_manager(searcher, query, collector_manager)
       },
@@ -1654,6 +1672,8 @@ where
       Self::Scorer(hook) => hook.search_partitions(searcher, partitions, weight, collector),
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.search_partitions(searcher, partitions, weight, collector),
+      #[cfg(test)]
+      Self::Shard(hook) => hook.search_partitions(searcher, partitions, weight, collector),
       #[cfg(test)]
       Self::Asserting(hook) => hook.search_partitions(searcher, partitions, weight, collector),
     }
@@ -1709,6 +1729,10 @@ where
         hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
       },
       #[cfg(test)]
+      Self::Shard(hook) => {
+        hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
+      },
+      #[cfg(test)]
       Self::Asserting(hook) => {
         hook.search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
       },
@@ -1734,6 +1758,8 @@ where
       Self::Scorer(hook) => hook.rewrite(searcher, original),
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.rewrite(searcher, original),
+      #[cfg(test)]
+      Self::Shard(hook) => hook.rewrite(searcher, original),
       #[cfg(test)]
       Self::Asserting(hook) => hook.rewrite(searcher, original),
     }
@@ -1774,6 +1800,8 @@ where
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.create_weight(searcher, query, score_mode, boost),
       #[cfg(test)]
+      Self::Shard(hook) => hook.create_weight(searcher, query, score_mode, boost),
+      #[cfg(test)]
       Self::Asserting(hook) => hook.create_weight(searcher, query, score_mode, boost),
     }
   }
@@ -1812,6 +1840,8 @@ where
         hook.term_statistics(_searcher, term, doc_freq, total_term_freq)
       },
       #[cfg(test)]
+      Self::Shard(hook) => hook.term_statistics(_searcher, term, doc_freq, total_term_freq),
+      #[cfg(test)]
       Self::Asserting(hook) => hook.term_statistics(_searcher, term, doc_freq, total_term_freq),
     }
   }
@@ -1839,6 +1869,8 @@ where
       Self::Scorer(hook) => hook.collection_statistics(searcher, field),
       #[cfg(test)]
       Self::CustomSearcher(hook) => hook.collection_statistics(searcher, field),
+      #[cfg(test)]
+      Self::Shard(hook) => hook.collection_statistics(searcher, field),
       #[cfg(test)]
       Self::Asserting(hook) => hook.collection_statistics(searcher, field),
     }

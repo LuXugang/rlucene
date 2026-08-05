@@ -25,6 +25,7 @@ use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_string_field, random,
@@ -100,7 +101,34 @@ fn test_from_non_nrt_reader() -> Result<()> {
 
 #[test]
 fn test_with_no_first_commit() -> Result<()> {
-  Ok(())
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
+  w.add_document(Document::new())?;
+
+  let r = directory_reader::open_from_writer(&w)?;
+  w.rollback()?;
+
+  let commit = r.get_index_commit()?;
+  let result = IndexWriter::with_index_commit(
+    dir.clone(),
+    new_index_writer_config(&mut random)?,
+    IndexCommitWrapper::new(Some(commit), Some(&r))?,
+  );
+  match result {
+    Err(err) => {
+      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(
+        err
+          .to_string()
+          .contains("cannot use IndexCommit when index has no commit")
+      );
+    },
+    Ok(_) => panic!("expected an error when the index has no commit"),
+  }
+
+  r.close()?;
+  dir.close()
 }
 
 #[test]

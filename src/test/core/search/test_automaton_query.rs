@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
@@ -27,7 +28,7 @@ use crate::core::index::term::Term;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
-  ConstantScoreBlendedRewrite, ConstantScoreRewrite, MultiTermQuery,
+  CONSTANT_SCORE_BOOLEAN_REWRITE, ConstantScoreBlendedRewrite, ConstantScoreRewrite, MultiTermQuery,
 };
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::automation::automata::Automata;
@@ -40,8 +41,10 @@ use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
+use rand::prelude::StdRng;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::LazyLock;
 
 use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::regexp_query::RegexpQuery;
@@ -54,6 +57,11 @@ use crate::test_framework::core::util::automaton::automaton_test_util::Automaton
 struct TestAutomatonQuery;
 const FN: &str = "field";
 
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestAutomatonQuery")
+});
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
@@ -61,7 +69,7 @@ where
   let directory = new_directory_shared(random)?;
   let mut field_to_type = HashMap::new();
 
-  let writer = RandomIndexWriter::new(random, directory)?;
+  let writer = RandomIndexWriter::new(random, directory.clone())?;
 
   let mut doc = Document::new();
   let title_field = new_text_field(random, "title", "some title", Store::No, &mut field_to_type)?;
@@ -99,6 +107,14 @@ where
 
   writer.close(random)?;
   Ok(searcher)
+}
+
+fn run_test<F>(test: F) -> Result<()>
+where
+  F: FnOnce(&mut StdRng, &DefaultIndexSearchCR) -> Result<()>,
+{
+  let mut random = random();
+  test(&mut random, &CONTEXT)
 }
 fn new_term(value: &str) -> Term {
   Term::from_text(FN, value)
@@ -168,7 +184,7 @@ where
         new_term("bogus"),
         automaton,
         false,
-        ConstantScoreBlendedRewrite,
+        CONSTANT_SCORE_BOOLEAN_REWRITE,
       )?,
     )?
   );
@@ -177,67 +193,60 @@ where
 }
 #[test]
 fn test_automata() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  run_test(|_random, searcher| {
+    assert_automaton_hits(0, Automata::make_empty()?, searcher)?;
+    assert_automaton_hits(0, Automata::make_empty_string()?, searcher)?;
+    assert_automaton_hits(2, Automata::make_any_char()?, searcher)?;
+    assert_automaton_hits(3, Automata::make_any_string()?, searcher)?;
+    assert_automaton_hits(2, Automata::make_string("doc")?, searcher)?;
+    assert_automaton_hits(1, Automata::make_char('a' as i32)?, searcher)?;
+    assert_automaton_hits(
+      2,
+      Automata::make_char_range('a' as i32, 'b' as i32)?,
+      searcher,
+    )?;
+    assert_automaton_hits(2, Automata::make_decimal_interval(1233, 2346, 0)?, searcher)?;
 
-  assert_automaton_hits(0, Automata::make_empty()?, &searcher)?;
-  assert_automaton_hits(0, Automata::make_empty_string()?, &searcher)?;
-  assert_automaton_hits(2, Automata::make_any_char()?, &searcher)?;
-  assert_automaton_hits(3, Automata::make_any_string()?, &searcher)?;
-  assert_automaton_hits(2, Automata::make_string("doc")?, &searcher)?;
-  assert_automaton_hits(1, Automata::make_char('a' as i32)?, &searcher)?;
-  assert_automaton_hits(
-    2,
-    Automata::make_char_range('a' as i32, 'b' as i32)?,
-    &searcher,
-  )?;
-  assert_automaton_hits(
-    2,
-    Automata::make_decimal_interval(1233, 2346, 0)?,
-    &searcher,
-  )?;
+    assert_automaton_hits(
+      1,
+      Operations::determinize(
+        &Automata::make_decimal_interval(0, 2000, 0)?,
+        Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+      )?
+      .into_owned(),
+      searcher,
+    )?;
 
-  assert_automaton_hits(
-    1,
-    Operations::determinize(
-      &Automata::make_decimal_interval(0, 2000, 0)?,
-      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-    )?
-    .into_owned(),
-    &searcher,
-  )?;
+    assert_automaton_hits(
+      2,
+      Operations::union(
+        &Automata::make_char('a' as i32)?,
+        &Automata::make_char('b' as i32)?,
+      )?,
+      searcher,
+    )?;
 
-  assert_automaton_hits(
-    2,
-    Operations::union(
-      &Automata::make_char('a' as i32)?,
-      &Automata::make_char('b' as i32)?,
-    )?,
-    &searcher,
-  )?;
+    assert_automaton_hits(
+      0,
+      Operations::intersection(
+        &Automata::make_char('a' as i32)?,
+        &Automata::make_char('b' as i32)?,
+      )?
+      .into_owned(),
+      searcher,
+    )?;
 
-  assert_automaton_hits(
-    0,
-    Operations::intersection(
-      &Automata::make_char('a' as i32)?,
-      &Automata::make_char('b' as i32)?,
-    )?
-    .into_owned(),
-    &searcher,
-  )?;
-
-  assert_automaton_hits(
-    1,
-    Operations::minus(
-      &Automata::make_char_range('a' as i32, 'b' as i32)?,
-      &Automata::make_char('a' as i32)?,
-      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-    )?
-    .into_owned(),
-    &searcher,
-  )?;
-
-  Ok(())
+    assert_automaton_hits(
+      1,
+      Operations::minus(
+        &Automata::make_char_range('a' as i32, 'b' as i32)?,
+        &Automata::make_char('a' as i32)?,
+        Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+      )?
+      .into_owned(),
+      searcher,
+    )
+  })
 }
 #[test]
 fn test_equals() -> Result<()> {
@@ -279,52 +288,50 @@ fn test_equals() -> Result<()> {
   assert_ne!(a1, a4);
   assert_ne!(a1, a5);
 
-  Ok(())
+  // Java also checks a1.equals(null), but a Rust Query cannot be null.
+  test_not_required_in_rust_lucene!();
 }
 #[test]
 fn test_rewrite_single_term() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  run_test(|_random, searcher| {
+    let aq = AutomatonQuery::from_automaton(new_term("bogus"), Automata::make_string("piece")?)?;
 
-  let aq = AutomatonQuery::from_automaton(new_term("bogus"), Automata::make_string("piece")?)?;
+    let terms = Rc::new(get_terms(searcher.get_index_reader(), FN)?.unwrap());
 
-  let terms = Rc::new(get_terms(searcher.get_index_reader(), FN)?.unwrap());
+    let te = aq.get_terms_enum(terms)?;
+    assert!(matches!(te, CompiledAutomatonTE::Single(_)));
 
-  let te = aq.get_terms_enum(terms)?;
-  assert!(matches!(te, CompiledAutomatonTE::Single(_)));
-
-  assert_eq!(1, automaton_query_nr_hits(&searcher, aq)?);
-  Ok(())
+    assert_eq!(1, automaton_query_nr_hits(searcher, aq)?);
+    Ok(())
+  })
 }
 /// Test that rewriting to a prefix query works as expected, preserves MultiTermQuery semantics.
 #[test]
 fn test_rewrite_prefix() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  run_test(|_random, searcher| {
+    let pfx = Automata::make_string("do")?;
+    let prefix_automaton = Operations::concatenate(&pfx, &Automata::make_any_string()?)?;
 
-  let pfx = Automata::make_string("do")?;
-  let prefix_automaton = Operations::concatenate(&pfx, &Automata::make_any_string()?)?;
+    let aq = AutomatonQuery::from_automaton(new_term("bogus"), prefix_automaton)?;
+    assert_eq!(3, automaton_query_nr_hits(searcher, aq)?);
 
-  let aq = AutomatonQuery::from_automaton(new_term("bogus"), prefix_automaton)?;
-  assert_eq!(3, automaton_query_nr_hits(&searcher, aq)?);
-
-  Ok(())
+    Ok(())
+  })
 }
 
 /// Test handling of the empty language
 #[test]
 fn test_empty_optimization() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  run_test(|_random, searcher| {
+    let aq = AutomatonQuery::from_automaton(new_term("bogus"), Automata::make_empty()?)?;
 
-  let aq = AutomatonQuery::from_automaton(new_term("bogus"), Automata::make_empty()?)?;
+    let terms = Rc::new(get_terms(searcher.get_index_reader(), FN)?.unwrap());
+    let te = aq.get_terms_enum(terms)?;
+    assert!(matches!(te, CompiledAutomatonTE::Empty(_)));
 
-  let terms = Rc::new(get_terms(searcher.get_index_reader(), FN)?.unwrap());
-  let te = aq.get_terms_enum(terms)?;
-  assert!(matches!(te, CompiledAutomatonTE::Empty(_)));
-
-  assert_eq!(0, automaton_query_nr_hits(&searcher, aq)?);
-  Ok(())
+    assert_eq!(0, automaton_query_nr_hits(searcher, aq)?);
+    Ok(())
+  })
 }
 #[test]
 fn test_hash_code_with_threads() -> Result<()> {

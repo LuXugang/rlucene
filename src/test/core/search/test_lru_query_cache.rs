@@ -468,6 +468,7 @@ fn test_clear_filter() -> Result<()> {
 // This test makes sure that by making the same assumptions as LRUQueryCache, RAMUsageTester
 // computes the same memory usage.
 #[test]
+#[ignore = "Java @AwaitsFix LUCENE-7595"]
 fn test_ram_bytes_used_agrees_with_ram_usage_tester() -> Result<()> {
   // TODO: Restore this Java @AwaitsFix test after a Rust equivalent of RamUsageTester is available.
   Ok(())
@@ -478,6 +479,7 @@ fn test_ram_bytes_used_agrees_with_ram_usage_tester() -> Result<()> {
 // by the cache itself, not cache entries, and we want to make sure that
 // memory usage is not grossly underestimated.
 #[test]
+#[ignore = "Java @AwaitsFix LUCENE-7595"]
 fn test_ram_bytes_used_constant_entry_overhead() -> Result<()> {
   // TODO: Restore this Java @AwaitsFix test after a Rust equivalent of RamUsageTester is available.
   Ok(())
@@ -1096,7 +1098,7 @@ fn test_detect_mutated_queries() -> Result<()> {
   // Do not keep a test-only mutable Query fixture for this scenario: if a future production Query
   // violates the Hash/Eq stability invariant, the defensive eviction check in LRUQueryCache will
   // still fail fast with ConcurrentModification.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]

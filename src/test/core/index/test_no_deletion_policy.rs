@@ -17,9 +17,12 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
+use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
+use crate::core::index::standard_directory_reader::ReaderCommit;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -31,16 +34,20 @@ use std::collections::HashMap;
 struct TestNoDeletionPolicy;
 #[test]
 fn test_no_deletion_policy() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let policy = NoDeletionPolicy;
+  <NoDeletionPolicy as IndexDeletionPolicy<ReaderCommit<DirEnum>>>::on_init(&policy, &[])?;
+  <NoDeletionPolicy as IndexDeletionPolicy<ReaderCommit<DirEnum>>>::on_commit(&policy, &[])
 }
 
 #[test]
 fn test_final_singleton() -> Result<()> {
+  // Java verifies final class/private constructor/singleton fields via reflection.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_methods_overridden() -> Result<()> {
+  // Java uses reflection to compare declared methods with an interface.
   test_not_required_in_rust_lucene!();
 }
 #[test]

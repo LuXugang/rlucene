@@ -16,24 +16,31 @@
  */
 use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::token_stream::TokenStream;
+use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
+use crate::core::index::BytesRef;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test_framework::core::index::test_index_writer::add_doc_with_index;
+use crate::test_framework::core::index::test_index_writer_force_merge::MergePerFieldCodec;
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_mock_directory, random,
@@ -42,7 +49,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Barrier, Mutex};
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterForceMerge;
@@ -299,6 +306,52 @@ fn test_background_force_merge() -> Result<()> {
 }
 #[test]
 fn test_merge_per_field() -> Result<()> {
-  // TODO IMPORTANT Java 的阻塞 per-field codec 和 intra-merge executor 语义尚未迁移。
-  Ok(())
+  let mut random = random();
+  let mut config = IndexWriterConfig::new()?;
+  let merge_scheduler = ConcurrentMergeScheduler::new();
+  merge_scheduler.set_max_merges_and_threads(4, 4)?;
+  config.set_merge_scheduler(merge_scheduler);
+  // Rust does not yet expose Java's intra-merge executor, so a single participant exercises the
+  // blocking merge wrappers without deadlocking the sequential per-field merge path.
+  let barrier = Arc::new(Barrier::new(1));
+  config.set_codec(MergePerFieldCodec::new(barrier));
+
+  let directory = new_directory_shared(&mut random)?;
+  let writer = IndexWriter::new(directory.clone(), config)?;
+  let body_result = (|| -> Result<()> {
+    let num_docs = 50 + random.random_range(0..100);
+    let num_fields = 5 + random.random_range(0..5);
+    for _ in 0..num_docs {
+      let mut doc = Document::new();
+      for f in 0..num_fields * 2 {
+        let field = format!("f{f}");
+        let value = format!("v-{}", random.random_range(0..100));
+        if f % 2 == 0 {
+          doc.add(StringField::from_string(field, value, Store::No)?);
+        } else {
+          doc.add(BinaryDocValuesField::new(
+            field,
+            BytesRef::from_string(&value),
+          ));
+        }
+        doc.add(LongPoint::new(
+          format!("p{f}"),
+          [random.random_range(0..10000)],
+        )?);
+      }
+      writer.add_document(doc)?;
+      if random.random_range(0..100) < 10 {
+        writer.flush()?;
+      }
+    }
+    writer.force_merge(1)?;
+    let reader = directory_reader::open_from_writer(&writer)?;
+    let reader_result = (|| -> Result<()> {
+      assert_eq!(num_docs, reader.num_docs()?);
+      Ok(())
+    })();
+    IOUtils::use_or_suppress_result(reader_result, reader.close())
+  })();
+  let close_result = IOUtils::use_or_suppress_result(body_result, writer.close());
+  IOUtils::use_or_suppress_result(close_result, directory.close())
 }

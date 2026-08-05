@@ -29,6 +29,7 @@ use crate::core::index::term::Term;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
 use crate::core::search::index_searcher::DefaultIndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
@@ -36,19 +37,17 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
-use crate::core::search::top_docs::{self, TopDocs, TopDocsLike};
+use crate::core::search::top_docs::{self, TopDocs};
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
-use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
-use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_searcher_with_reader, new_text_field, random,
+  at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -100,16 +99,6 @@ where
     self.search(weight, &mut collector)?;
     collector.top_docs()
   }
-
-  fn search_top_field_docs<W>(&self, weight: &W, sort: &Sort, top_n: usize) -> Result<TopFieldDocs>
-  where
-    W: Weight<IRC> + ?Sized,
-  {
-    let manager = TopFieldCollectorManager::new(sort.clone(), top_n, i32::MAX as usize)?;
-    let mut collector = manager.new_collector()?;
-    self.search(weight, &mut collector)?;
-    collector.top_docs()
-  }
 }
 
 impl<IRC> fmt::Display for ShardSearcher<'_, IRC>
@@ -119,6 +108,16 @@ where
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
+}
+
+#[test]
+fn test_sort_1() -> Result<()> {
+  test_sort(false)
+}
+
+#[test]
+fn test_sort_2() -> Result<()> {
+  test_sort(true)
 }
 
 #[test]
@@ -196,19 +195,9 @@ fn test_pre_assigned_shard_index() -> Result<()> {
   Ok(())
 }
 
-#[test]
-fn test_sort_1() -> Result<()> {
-  test_sort(false)
-}
-
-#[test]
-fn test_sort_2() -> Result<()> {
-  test_sort(true)
-}
-
 fn test_sort(use_from: bool) -> Result<()> {
   let mut random = random();
-  let num_docs = at_least(&mut random, 100) as usize;
+  let num_docs = at_least(&mut random, if is_night_mode() { 1000 } else { 100 }) as usize;
   let tokens = ["a", "b", "c", "d", "e"];
 
   let dir = new_directory_shared(&mut random)?;
@@ -256,15 +245,19 @@ fn test_sort(use_from: bool) -> Result<()> {
   let reader = w.get_reader(&mut random)?;
   w.close(&mut random)?;
 
+  // NOTE: sometimes reader has just one segment, which is
+  // important to test.
   let searcher = new_searcher_with_reader(reader)?;
   let ctx = searcher.get_top_reader_context();
   let leaves = ctx.leaves()?;
 
   let mut sub_searchers = Vec::with_capacity(leaves.len());
   let mut doc_starts = Vec::with_capacity(leaves.len());
+  let mut doc_base = 0;
   for leaf in leaves {
     sub_searchers.push(ShardSearcher::new(leaf, &searcher));
-    doc_starts.push(leaf.doc_base);
+    doc_starts.push(doc_base);
+    doc_base += leaf.reader().max_doc()? as usize;
   }
 
   let sort_fields = vec![
@@ -282,6 +275,7 @@ fn test_sort(use_from: bool) -> Result<()> {
 
   let num_iters = at_least(&mut random, 300);
   for _iter in 0..num_iters {
+    // TODO: custom FieldComp...
     let query: Query = TermQuery::new(Term::from_text(
       "text",
       tokens[random.random_range(0..tokens.len())],
@@ -289,6 +283,7 @@ fn test_sort(use_from: bool) -> Result<()> {
     .into();
 
     let sort = if random.random_range(0..10) == 4 {
+      // Sort by score.
       None
     } else {
       let mut random_sort_fields =
@@ -300,123 +295,134 @@ fn test_sort(use_from: bool) -> Result<()> {
     };
 
     let num_hits = TestUtil::next_int(&mut random, 1, num_docs as i32 + 5) as usize;
+    // let num_hits = 5;
 
-    let mut from = 0usize;
-    let mut size = num_hits;
+    let mut from = -1;
+    let mut size = -1;
 
-    match sort.clone() {
+    // First search on whole index:
+    let top_hits: TopDocs<TopFieldScoreDoc>;
+    match sort.as_ref() {
       None => {
-        let top_hits = if use_from {
-          from = TestUtil::next_int(&mut random, 0, num_hits as i32 - 1) as usize;
-          size = num_hits - from;
+        if use_from {
+          from = TestUtil::next_int(&mut random, 0, num_hits as i32 - 1);
+          size = num_hits as i32 - from;
           let manager = TopScoreDocCollectorManager::new(num_hits, i32::MAX as usize)?;
           let temp_top_hits = searcher.search_with_collector_manager(query.clone(), &manager)?;
-          slice_top_docs(&temp_top_hits, from, size)
-        } else {
-          searcher.search(query.clone(), num_hits)?
-        };
-
-        let rewritten = searcher.rewrite(query.clone())?;
-        let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
-        let mut shard_hits = Vec::with_capacity(sub_searchers.len());
-        for (shard_idx, sub_searcher) in sub_searchers.iter().enumerate() {
-          let mut sub_hits = sub_searcher.search_top_docs(&weight, num_hits)?;
-          for score_doc in &mut sub_hits.score_docs {
-            score_doc.shard_index = shard_idx as i32;
+          if (from as usize) < temp_top_hits.score_docs.len() {
+            // Can't use TopDocs#topDocs(start, howMany), since it has different behaviour when
+            // start >= hitCount than TopDocs#merge currently has.
+            let end = std::cmp::min(
+              from as usize + size as usize,
+              temp_top_hits.score_docs.len(),
+            );
+            top_hits = TopDocs::new(
+              temp_top_hits.total_hits,
+              temp_top_hits.score_docs[from as usize..end]
+                .iter()
+                .cloned()
+                .map(TopFieldScoreDoc::from)
+                .collect(),
+            );
+          } else {
+            top_hits = TopDocs::new(temp_top_hits.total_hits, vec![]);
           }
-          shard_hits.push(sub_hits);
-        }
-
-        let merged_hits = if use_from {
-          top_docs::merge_top_docs_with_start(from, size, shard_hits)?
         } else {
-          top_docs::merge_top_docs(num_hits, shard_hits)?
-        };
-
-        for score_doc in &merged_hits.score_docs {
-          assert_eq!(
-            ReaderUtil::sub_index(score_doc.doc as usize, &doc_starts),
-            score_doc.shard_index,
-            "doc={} wrong shard",
-            score_doc.doc
+          let hits = searcher.search(query.clone(), num_hits)?;
+          top_hits = TopDocs::new(
+            hits.total_hits,
+            hits
+              .score_docs
+              .into_iter()
+              .map(TopFieldScoreDoc::from)
+              .collect(),
           );
         }
-
-        assert_eq!(top_hits.total_hits, merged_hits.total_hits);
-        CheckHits::check_equal(&query, &top_hits.score_docs, &merged_hits.score_docs)?;
       },
       Some(sort) => {
-        let top_hits = if use_from {
-          from = TestUtil::next_int(&mut random, 0, num_hits as i32 - 1) as usize;
-          size = num_hits - from;
-          let manager = TopFieldCollectorManager::new(sort.clone(), num_hits, i32::MAX as usize)?;
-          let temp_top_hits = searcher.search_with_collector_manager(query.clone(), &manager)?;
-          slice_top_field_docs(&temp_top_hits, from, size)
-        } else {
-          let manager = TopFieldCollectorManager::new(sort.clone(), num_hits, i32::MAX as usize)?;
-          searcher.search_with_collector_manager(query.clone(), &manager)?
-        };
-
-        let rewritten = searcher.rewrite(query.clone())?;
-        let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
-        let mut shard_hits = Vec::with_capacity(sub_searchers.len());
-        for (shard_idx, sub_searcher) in sub_searchers.iter().enumerate() {
-          let mut sub_hits = sub_searcher.search_top_field_docs(&weight, &sort, num_hits)?;
-          for score_doc in sub_hits.score_docs_mut() {
-            score_doc.set_shard_index(shard_idx as i32);
+        let manager = TopFieldCollectorManager::new(sort.clone(), num_hits, i32::MAX as usize)?;
+        let mut top_field_docs = searcher.search_with_collector_manager(query.clone(), &manager)?;
+        if use_from {
+          from = TestUtil::next_int(&mut random, 0, num_hits as i32 - 1);
+          size = num_hits as i32 - from;
+          if (from as usize) < top_field_docs.base.score_docs.len() {
+            // Can't use TopDocs#topDocs(start, howMany), since it has different behaviour when
+            // start >= hitCount than TopDocs#merge currently has.
+            let end = std::cmp::min(
+              from as usize + size as usize,
+              top_field_docs.base.score_docs.len(),
+            );
+            top_field_docs.base.score_docs =
+              top_field_docs.base.score_docs[from as usize..end].to_vec();
+            top_hits = top_field_docs.base;
+          } else {
+            top_hits = TopDocs::new(top_field_docs.base.total_hits, vec![]);
           }
-          shard_hits.push(sub_hits.base.clone());
-        }
-
-        let merged_hits = if use_from {
-          top_docs::merge_top_field_docs_with_start(&sort, from, size, shard_hits)?
         } else {
-          top_docs::merge_top_field_docs(&sort, num_hits, shard_hits)?
-        };
-
-        for score_doc in merged_hits.score_docs() {
-          assert_eq!(
-            ReaderUtil::sub_index(score_doc.doc() as usize, &doc_starts),
-            score_doc.shard_index(),
-            "doc={} wrong shard",
-            score_doc.doc()
-          );
+          top_hits = top_field_docs.base;
         }
-
-        assert_eq!(top_hits.total_hits(), merged_hits.total_hits());
-        CheckHits::check_equal(&query, top_hits.score_docs(), merged_hits.score_docs())?;
       },
     }
+
+    // ... then all shards:
+    let rewritten = searcher.rewrite(query.clone())?;
+    let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
+
+    let mut shard_hits = Vec::with_capacity(sub_searchers.len());
+    for (shard_idx, sub_searcher) in sub_searchers.iter().enumerate() {
+      let mut sub_hits = if let Some(sort) = sort.as_ref() {
+        let manager = TopFieldCollectorManager::new(sort.clone(), num_hits, i32::MAX as usize)?;
+        let mut collector = manager.new_collector()?;
+        sub_searcher.search(&weight, &mut collector)?;
+        collector.top_docs()?.base
+      } else {
+        let sub_hits = sub_searcher.search_top_docs(&weight, num_hits)?;
+        TopDocs::new(
+          sub_hits.total_hits,
+          sub_hits
+            .score_docs
+            .into_iter()
+            .map(TopFieldScoreDoc::from)
+            .collect(),
+        )
+      };
+
+      for score_doc in &mut sub_hits.score_docs {
+        score_doc.set_shard_index(shard_idx as i32);
+      }
+      shard_hits.push(sub_hits);
+    }
+
+    // Merge:
+    let merged_hits = if use_from {
+      if let Some(sort) = sort.as_ref() {
+        top_docs::merge_top_field_docs_with_start(sort, from as usize, size as usize, shard_hits)?
+          .base
+      } else {
+        top_docs::merge_top_docs_with_start(from as usize, size as usize, shard_hits)?
+      }
+    } else if let Some(sort) = sort.as_ref() {
+      top_docs::merge_top_field_docs(sort, num_hits, shard_hits)?.base
+    } else {
+      top_docs::merge_top_docs(num_hits, shard_hits)?
+    };
+
+    // Make sure the returned shards are correct:
+    for score_doc in &merged_hits.score_docs {
+      assert_eq!(
+        ReaderUtil::sub_index(score_doc.doc() as usize, &doc_starts),
+        score_doc.shard_index(),
+        "doc={} wrong shard",
+        score_doc.doc()
+      );
+    }
+
+    TestUtil::assert_consistent(&top_hits, &merged_hits);
   }
 
   searcher.get_index_reader().close()?;
   dir.close()?;
   Ok(())
-}
-
-fn slice_top_docs(top_docs: &TopDocs<ScoreDoc>, from: usize, size: usize) -> TopDocs<ScoreDoc> {
-  if from < top_docs.score_docs.len() {
-    let end = std::cmp::min(from + size, top_docs.score_docs.len());
-    TopDocs::new(
-      top_docs.total_hits.clone(),
-      top_docs.score_docs[from..end].to_vec(),
-    )
-  } else {
-    TopDocs::new(top_docs.total_hits.clone(), vec![])
-  }
-}
-
-fn slice_top_field_docs(top_docs: &TopFieldDocs, from: usize, size: usize) -> TopFieldDocs {
-  if from < top_docs.score_docs().len() {
-    let end = std::cmp::min(from + size, top_docs.score_docs().len());
-    TopFieldDocs::new(
-      top_docs.total_hits().clone(),
-      top_docs.score_docs()[from..end].to_vec(),
-      vec![],
-    )
-  } else {
-    TopFieldDocs::new(top_docs.total_hits().clone(), vec![], vec![])
-  }
 }
 #[test]
 fn test_merge_total_hits_relation() -> Result<()> {

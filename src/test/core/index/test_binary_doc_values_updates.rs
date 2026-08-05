@@ -47,10 +47,12 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::directory::Directory;
+use crate::core::store::nrt_caching_directory::NRTCachingDirectory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
 use crate::test_framework::core::codecs::asserting_doc_values_format::AssertingDocValuesFormat;
@@ -67,6 +69,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
 
@@ -2016,9 +2019,53 @@ fn test_update_two_nonexisting_terms() -> Result<()> {
 
 #[test]
 fn test_io_context() -> Result<()> {
-  // TODO: NRTCachingDirectory is still only an empty shell, so cached-file IOContext behavior
-  // cannot be exercised.
-  Ok(())
+  // LUCENE-5591: make sure we pass an IOContext with an approximate
+  // segmentSize in FlushInfo
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  // we want a single large enough segment so that a doc-values update writes a large file
+  config.set_merge_policy(NoMergePolicy::default());
+  config.set_max_buffered_docs(i32::MAX); // manually flush
+  config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+  let writer = IndexWriter::new(dir.clone(), config)?;
+  for i in 0..100 {
+    writer.add_document(doc(&mut random, i)?)?;
+  }
+  writer.commit()?;
+  writer.close()?;
+
+  let caching_dir = Arc::new(NRTCachingDirectory::new(
+    dir,
+    100.0,
+    1.0 / (1024.0 * 1024.0),
+  ));
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  // we want a single large enough segment so that a doc-values update writes a large file
+  config.set_merge_policy(NoMergePolicy::default());
+  config.set_max_buffered_docs(i32::MAX); // manually flush
+  config.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
+  let writer = IndexWriter::new(caching_dir.clone(), config)?;
+  writer.update_binary_doc_value(
+    Term::from_text("id", "doc-0"),
+    "val",
+    to_bytes(&mut random, 100)?,
+  )?;
+  let reader = directory_reader::open_from_writer(&writer)?; // flush
+  assert!(caching_dir.list_cached_files()?.is_empty());
+
+  let mut close_error = None;
+  for close_result in [reader.close(), writer.close(), caching_dir.close()] {
+    if let Err(error) = close_result {
+      close_error = Some(IOUtils::use_or_suppress(close_error, error));
+    }
+  }
+  match close_error {
+    Some(error) => Err(error),
+    None => Ok(()),
+  }
 }
 
 #[derive(Clone, Debug)]

@@ -684,6 +684,77 @@ pub trait BaseGeoPointTestCase {
     Ok(())
   }
 
+  fn test_random_tiny<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    // Make sure single-leaf-node case is OK:
+    self.do_test_random(random, 10)
+  }
+
+  fn test_random_medium<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    self.do_test_random(random, 1000)
+  }
+
+  fn test_random_big<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    self.do_test_random(random, 200_000)
+  }
+
+  fn do_test_random<R>(&self, random: &mut R, count: i32) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let num_points = at_least(random, count) as usize;
+    let mut lats = vec![0.0; num_points];
+    let mut lons = vec![0.0; num_points];
+    let mut have_real_doc = false;
+
+    for id in 0..num_points {
+      let x = random.random_range(0..20);
+      if x == 17 {
+        // Some docs don't have a point:
+        lats[id] = f64::NAN;
+        continue;
+      }
+
+      if id > 0 && x < 3 && have_real_doc {
+        let old_id = loop {
+          let old_id = random.random_range(0..id);
+          if !lats[old_id].is_nan() {
+            break old_id;
+          }
+        };
+
+        if x == 0 {
+          // Identical lat to old point
+          lats[id] = lats[old_id];
+          lons[id] = self.next_longitude(random);
+        } else if x == 1 {
+          // Identical lon to old point
+          lats[id] = self.next_latitude(random);
+          lons[id] = lons[old_id];
+        } else {
+          debug_assert_eq!(2, x);
+          // Fully identical point:
+          lats[id] = lats[old_id];
+          lons[id] = lons[old_id];
+        }
+      } else {
+        lats[id] = self.next_latitude(random);
+        lons[id] = self.next_longitude(random);
+        have_real_doc = true;
+      }
+    }
+
+    self.verify(random, &mut lats, &mut lons)
+  }
+
   fn rect_contains_point(&self, rect: &Rectangle, lat: f64, lon: f64) -> bool {
     debug_assert!(!lat.is_nan());
 

@@ -43,6 +43,7 @@ pub mod query_utils;
 pub mod random_approximation_query;
 pub mod scorer_index_searcher;
 pub mod search_equivalence_test_base;
+pub(crate) mod shard_searching_test_base;
 pub mod similarity;
 pub(crate) mod test_boolean_query;
 pub(crate) mod test_boolean_rewrites;

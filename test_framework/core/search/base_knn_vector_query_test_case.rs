@@ -33,6 +33,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_reader::{
   CompositeReaderContextKind, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::knn_vector_values::KnnVectorValues;
@@ -400,6 +401,37 @@ pub trait BaseKnnVectorQueryTestCase {
       .unwrap_err();
     assert!(matches!(err, LuceneError::IllegalArgument(_)));
     Ok(())
+  }
+
+  fn test_different_reader<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let index_store = self.get_index_store(
+      random,
+      "field",
+      &[vec![0.0, 1.0], vec![1.0, 2.0], vec![0.0, 0.0]],
+    )?;
+    let directory_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+      let reader = directory_reader::open(index_store.clone().into())?;
+      let searcher = new_searcher_with_reader(reader)?;
+      let reader_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+        let query = self.get_knn_vector_query_no_filter("field", vec![2.0, 3.0], 3)?;
+        let rewritten = searcher.rewrite(query)?;
+        let leaf_reader = searcher.get_leaf_contexts()?[0].reader().clone();
+        let leaf_searcher = new_searcher_with_reader(leaf_reader)?;
+
+        assert!(matches!(
+          leaf_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0),
+          Err(LuceneError::IllegalState(_))
+        ));
+        Ok(())
+      }));
+      let close_result = catch_unwind(AssertUnwindSafe(|| searcher.get_index_reader().close()));
+      IOUtils::use_or_suppress_caught_result(reader_result, close_result)
+    }));
+    let close_result = catch_unwind(AssertUnwindSafe(|| index_store.close()));
+    IOUtils::use_or_suppress_caught_result(directory_result, close_result)
   }
 
   fn test_score_euclidean<R>(&self, random: &mut R) -> Result<()>
@@ -1046,11 +1078,11 @@ pub trait BaseKnnVectorQueryTestCase {
     IOUtils::use_or_suppress_caught_result(directory_result, close_result)
   }
 
-  fn test_bot_set_query<R>(&self, _random: &mut R) -> Result<()>
+  fn test_bit_set_query<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT ThrowingBitSetQuery 未实现
+    // TODO IMPORTANT BitSet filter reuse and ThrowingBitSetQuery are not implemented.
     Ok(())
   }
 

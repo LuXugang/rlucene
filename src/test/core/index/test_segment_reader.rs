@@ -40,7 +40,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::LATEST;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::doc_helper::NameValue::{Str, String};
 use crate::test_framework::core::index::doc_helper::{
   DATA, DocHelper, FIELD_2_TEXT, FIELDS, NAME_VALUES, NO_NORMS_KEY, NO_NORMS_TEXT,
@@ -256,5 +256,30 @@ fn test_term_vectors() -> Result<()> {
 }
 #[test]
 fn test_out_of_bounds_access() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let mut random = random();
+  let (_dir, _doc, reader) = set_up(&mut random)?;
+  let num_docs = reader.max_doc()?;
+
+  let mut stored_fields = reader.stored_fields()?;
+  assert!(matches!(
+    stored_fields.document(-1),
+    Err(LuceneError::ArrayIndexOutOfBounds(_))
+  ));
+
+  let mut term_vectors = reader.term_vectors()?;
+  assert!(matches!(
+    term_vectors.get(-1),
+    Err(LuceneError::ArrayIndexOutOfBounds(_))
+  ));
+
+  assert!(matches!(
+    stored_fields.document(num_docs),
+    Err(LuceneError::ArrayIndexOutOfBounds(_))
+  ));
+
+  assert!(matches!(
+    term_vectors.get(num_docs),
+    Err(LuceneError::ArrayIndexOutOfBounds(_))
+  ));
+  Ok(())
 }

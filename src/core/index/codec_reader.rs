@@ -46,9 +46,9 @@ use crate::core::index::term_vectors::{EmptyTermVectors, RawTermVectors, TermVec
 use crate::core::index::terms::TermsEnum2;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::knn_collector::KnnCollector;
+use crate::core::util::CoreHelper;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{CoreHelper, TryIntoInt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -436,7 +436,7 @@ where
 {
   fn prefetch(&mut self, doc_id: i32) -> Result<()> {
     // Don't trust the codec to do proper checks
-    CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
+    CoreHelper::check_index(doc_id, self.max_doc)?;
     self.reader.prefetch(doc_id)
   }
 
@@ -450,7 +450,7 @@ where
     S: StoredFieldsWriter,
   {
     // Don't trust the codec to do proper checks
-    CoreHelper::check_index(doc_id.try_convert()?, self.max_doc.try_convert()?)?;
+    CoreHelper::check_index(doc_id, self.max_doc)?;
     self.reader.document_with_visitor(doc_id, visitor, writer)
   }
 }

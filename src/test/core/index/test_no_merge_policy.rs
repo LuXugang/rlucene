@@ -117,10 +117,12 @@ fn test_no_merge_policy() -> Result<()> {
 }
 #[test]
 fn test_final_singleton() -> Result<()> {
+  // Java verifies final class/private constructor/singleton fields via reflection.
   test_not_required_in_rust_lucene!();
 }
 #[test]
 fn test_methods_overridden() -> Result<()> {
+  // Java uses reflection to compare declared methods with an abstract class.
   test_not_required_in_rust_lucene!();
 }
 mod base_merge_policy_test_case_tests {

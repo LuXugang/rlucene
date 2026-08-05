@@ -112,6 +112,10 @@ use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer_force_merge::{
+  MergePerFieldCodec, MergePerFieldDocValuesFormat, MergePerFieldPostingsFormat,
+};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -149,6 +153,10 @@ type CrankyLucene101DocValuesFormat = <CrankyLucene101Codec as Codec>::DocValues
 #[cfg(test)]
 type CrankyAssertingDocValuesFormat = <CrankyAssertingCodec as Codec>::DocValuesFormat;
 #[cfg(test)]
+type MergePerFieldCodecPostingsFormat = <MergePerFieldCodec as Codec>::PostingsFormat;
+#[cfg(test)]
+type MergePerFieldCodecDocValuesFormat = <MergePerFieldCodec as Codec>::DocValuesFormat;
+#[cfg(test)]
 type CrankyLucene101StoredFieldsFormat = <CrankyLucene101Codec as Codec>::StoredFieldsFormat;
 #[cfg(test)]
 type CrankyAssertingStoredFieldsFormat = <CrankyAssertingCodec as Codec>::StoredFieldsFormat;
@@ -174,6 +182,8 @@ pub enum CodecPostingsFormat {
   #[cfg(test)]
   Asserting(AssertingPostingsFormat),
   #[cfg(test)]
+  MergePerField(MergePerFieldPostingsFormat),
+  #[cfg(test)]
   CrankyLucene101(CrankyLucene101PostingsFormat),
   #[cfg(test)]
   CrankyAsserting(CrankyAssertingPostingsFormat),
@@ -183,6 +193,8 @@ pub enum CodecDocValuesFormat {
   Lucene101(Lucene101CodecDocValuesFormat),
   #[cfg(test)]
   Asserting(AssertingDocValuesFormat),
+  #[cfg(test)]
+  MergePerField(MergePerFieldDocValuesFormat),
   #[cfg(test)]
   CrankyLucene101(CrankyLucene101DocValuesFormat),
   #[cfg(test)]
@@ -379,13 +391,16 @@ pub type CodecFieldsConsumer<O> =
 #[cfg(test)]
 pub type CodecFieldsConsumer<O> = FieldsConsumerEnum2<
   FieldsConsumerEnum2<
-    <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
-    <AssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+    FieldsConsumerEnum2<
+      <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+      <AssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+    >,
+    FieldsConsumerEnum2<
+      <CrankyLucene101PostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+      <CrankyAssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+    >,
   >,
-  FieldsConsumerEnum2<
-    <CrankyLucene101PostingsFormat as PostingsFormat>::FieldsConsumer<O>,
-    <CrankyAssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
-  >,
+  <MergePerFieldCodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
 >;
 
 #[cfg(not(test))]
@@ -404,6 +419,8 @@ impl HasIdentity for CodecPostingsFormat {
       #[cfg(test)]
       Self::Asserting(format) => format.identity(),
       #[cfg(test)]
+      Self::MergePerField(format) => format.identity(),
+      #[cfg(test)]
       Self::CrankyLucene101(format) => format.identity(),
       #[cfg(test)]
       Self::CrankyAsserting(format) => format.identity(),
@@ -417,6 +434,8 @@ impl PostingsFormat for CodecPostingsFormat {
       Self::Lucene101(format) => format.get_name(),
       #[cfg(test)]
       Self::Asserting(format) => format.get_name(),
+      #[cfg(test)]
+      Self::MergePerField(format) => format.get_name(),
       #[cfg(test)]
       Self::CrankyLucene101(format) => format.get_name(),
       #[cfg(test)]
@@ -443,23 +462,31 @@ impl PostingsFormat for CodecPostingsFormat {
         }
         #[cfg(test)]
         {
-          format
-            .fields_consumer(state, segment_info)
-            .map(|consumer| FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(consumer)))
+          format.fields_consumer(state, segment_info).map(|consumer| {
+            FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(consumer)))
+          })
         }
       },
       #[cfg(test)]
-      Self::Asserting(format) => format
-        .fields_consumer(state, segment_info)
-        .map(|consumer| FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(consumer))),
+      Self::Asserting(format) => format.fields_consumer(state, segment_info).map(|consumer| {
+        FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(consumer)))
+      }),
       #[cfg(test)]
-      Self::CrankyLucene101(format) => format
+      Self::MergePerField(format) => format
         .fields_consumer(state, segment_info)
-        .map(|consumer| FieldsConsumerEnum2::B(FieldsConsumerEnum2::A(consumer))),
+        .map(FieldsConsumerEnum2::B),
       #[cfg(test)]
-      Self::CrankyAsserting(format) => format
-        .fields_consumer(state, segment_info)
-        .map(|consumer| FieldsConsumerEnum2::B(FieldsConsumerEnum2::B(consumer))),
+      Self::CrankyLucene101(format) => {
+        format.fields_consumer(state, segment_info).map(|consumer| {
+          FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(FieldsConsumerEnum2::A(consumer)))
+        })
+      },
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => {
+        format.fields_consumer(state, segment_info).map(|consumer| {
+          FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(FieldsConsumerEnum2::B(consumer)))
+        })
+      },
     }
   }
 
@@ -492,6 +519,10 @@ impl PostingsFormat for CodecPostingsFormat {
         .fields_producer(state, segment_info)
         .map(FieldsProducerEnum2::B),
       #[cfg(test)]
+      Self::MergePerField(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::A),
+      #[cfg(test)]
       Self::CrankyLucene101(format) => format
         .fields_producer(state, segment_info)
         .map(FieldsProducerEnum2::A),
@@ -515,13 +546,16 @@ pub type CodecDocValuesConsumer<O> =
 #[cfg(test)]
 pub type CodecDocValuesConsumer<O> = DocValuesConsumerEnum2<
   DocValuesConsumerEnum2<
-    <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
-    <AssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+    DocValuesConsumerEnum2<
+      <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+      <AssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+    >,
+    DocValuesConsumerEnum2<
+      <CrankyLucene101DocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+      <CrankyAssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
+    >,
   >,
-  DocValuesConsumerEnum2<
-    <CrankyLucene101DocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
-    <CrankyAssertingDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
-  >,
+  <MergePerFieldCodecDocValuesFormat as DocValuesFormat>::DocValuesConsumer<O>,
 >;
 
 #[cfg(not(test))]
@@ -553,6 +587,8 @@ impl Display for CodecDocValuesFormat {
       #[cfg(test)]
       Self::Asserting(format) => Display::fmt(format, f),
       #[cfg(test)]
+      Self::MergePerField(format) => Display::fmt(format, f),
+      #[cfg(test)]
       Self::CrankyLucene101(format) => Display::fmt(format, f),
       #[cfg(test)]
       Self::CrankyAsserting(format) => Display::fmt(format, f),
@@ -567,6 +603,8 @@ impl HasIdentity for CodecDocValuesFormat {
       #[cfg(test)]
       Self::Asserting(format) => format.identity(),
       #[cfg(test)]
+      Self::MergePerField(format) => format.identity(),
+      #[cfg(test)]
       Self::CrankyLucene101(format) => format.identity(),
       #[cfg(test)]
       Self::CrankyAsserting(format) => format.identity(),
@@ -580,6 +618,8 @@ impl DocValuesFormat for CodecDocValuesFormat {
       Self::Lucene101(format) => format.get_name(),
       #[cfg(test)]
       Self::Asserting(format) => format.get_name(),
+      #[cfg(test)]
+      Self::MergePerField(format) => format.get_name(),
       #[cfg(test)]
       Self::CrankyLucene101(format) => format.get_name(),
       #[cfg(test)]
@@ -606,23 +646,39 @@ impl DocValuesFormat for CodecDocValuesFormat {
         }
         #[cfg(test)]
         {
-          format
-            .fields_consumer(state, segment_info)
-            .map(|consumer| DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::A(consumer)))
+          format.fields_consumer(state, segment_info).map(|consumer| {
+            DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::A(
+              consumer,
+            )))
+          })
         }
       },
       #[cfg(test)]
-      Self::Asserting(format) => format
-        .fields_consumer(state, segment_info)
-        .map(|consumer| DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::B(consumer))),
+      Self::Asserting(format) => format.fields_consumer(state, segment_info).map(|consumer| {
+        DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::B(
+          consumer,
+        )))
+      }),
       #[cfg(test)]
-      Self::CrankyLucene101(format) => format
+      Self::MergePerField(format) => format
         .fields_consumer(state, segment_info)
-        .map(|consumer| DocValuesConsumerEnum2::B(DocValuesConsumerEnum2::A(consumer))),
+        .map(DocValuesConsumerEnum2::B),
       #[cfg(test)]
-      Self::CrankyAsserting(format) => format
-        .fields_consumer(state, segment_info)
-        .map(|consumer| DocValuesConsumerEnum2::B(DocValuesConsumerEnum2::B(consumer))),
+      Self::CrankyLucene101(format) => {
+        format.fields_consumer(state, segment_info).map(|consumer| {
+          DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::B(DocValuesConsumerEnum2::A(
+            consumer,
+          )))
+        })
+      },
+      #[cfg(test)]
+      Self::CrankyAsserting(format) => {
+        format.fields_consumer(state, segment_info).map(|consumer| {
+          DocValuesConsumerEnum2::A(DocValuesConsumerEnum2::B(DocValuesConsumerEnum2::B(
+            consumer,
+          )))
+        })
+      },
     }
   }
 
@@ -654,6 +710,10 @@ impl DocValuesFormat for CodecDocValuesFormat {
       Self::Asserting(format) => format
         .fields_producer(state, segment_info)
         .map(DocValuesProducerEnum2::B),
+      #[cfg(test)]
+      Self::MergePerField(format) => format
+        .fields_producer(state, segment_info)
+        .map(DocValuesProducerEnum2::A),
       #[cfg(test)]
       Self::CrankyLucene101(format) => format
         .fields_producer(state, segment_info)

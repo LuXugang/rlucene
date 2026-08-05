@@ -14,20 +14,63 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
+use crate::core::index::index_writer::Inner;
+use crate::core::index::merge_policy::{MergeStat, OneMerge};
+use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
+use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::index::no_merge_scheduler::NoMergeScheduler as NoMergeSchedulerImpl;
+use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::util::lucene_test_case::random;
+
 #[allow(dead_code)] // for quick search
-struct NoMergeScheduler;
+struct TestNoMergeScheduler;
+
+#[derive(Clone)]
+struct UnreachableMergeSource;
+
+impl MergeSource<DummyDirectory> for UnreachableMergeSource {
+  type Reader = DummyCodecReader;
+
+  fn get_next_merge(&self) -> Result<Option<OneMerge<DummyDirectory, Self::Reader>>> {
+    panic!("NoMergeScheduler must not request a merge")
+  }
+
+  fn on_merge_finished(&self, _merge: &MergeStat, _inner: Option<&mut Inner<DummyDirectory>>) {
+    panic!("NoMergeScheduler must not finish a merge")
+  }
+
+  fn has_pending_merges(&self, _inner: Option<&mut Inner<DummyDirectory>>) -> Result<bool> {
+    panic!("NoMergeScheduler must not inspect pending merges")
+  }
+
+  fn merge(&self, _merge: OneMerge<DummyDirectory, Self::Reader>) -> Result<()> {
+    panic!("NoMergeScheduler must not execute a merge")
+  }
+}
+
 #[test]
 fn test_no_merge_scheduler() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let mut random = random();
+  let merge_scheduler = NoMergeSchedulerImpl::new();
+  merge_scheduler.close()?;
+  merge_scheduler.merge::<UnreachableMergeSource, DummyDirectory>(
+    UnreachableMergeSource,
+    MergeTrigger::random_trigger(&mut random),
+  )?;
+  Ok(())
 }
 
 #[test]
 fn test_final_singleton() -> Result<()> {
+  // Java verifies final class/private constructor/singleton fields via reflection.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_methods_overridden() -> Result<()> {
+  // Java uses reflection to compare declared methods with an abstract class.
   test_not_required_in_rust_lucene!();
 }

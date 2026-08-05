@@ -16,12 +16,15 @@
  */
 
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
+  new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use std::collections::HashMap;
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::Arc;
 
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
 use crate::core::search::automaton_query::AutomatonQuery;
@@ -31,26 +34,30 @@ use crate::core::search::multi_term_query::{
   SCORING_BOOLEAN_REWRITE,
 };
 use crate::core::search::top_docs::TopDocsLike;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::reg_exp::RegExp;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use rand::Rng;
+use rand::prelude::StdRng;
 
 pub struct TestAutomatonQueryUnicode;
 const FN: &str = "field";
 
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+fn set_up<R>(random: &mut R) -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)>
 where
   R: Rng + ?Sized,
 {
   let directory = new_directory_shared(random)?;
   let mut field_to_type = HashMap::new();
-  let writer = RandomIndexWriter::new(random, directory)?;
+  let writer = RandomIndexWriter::new(random, directory.clone())?;
 
   let title_field = new_text_field(random, "title", "some title", Store::No, &mut field_to_type)?;
-  let mut field = new_string_field(random, FN, "", Store::No, &mut field_to_type)?;
+  let mut field = new_text_field(random, FN, "", Store::No, &mut field_to_type)?;
   let footer_field = new_text_field(random, "footer", "a footer", Store::No, &mut field_to_type)?;
 
   let values = [
@@ -80,7 +87,21 @@ where
   let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
   writer.close(random)?;
-  Ok(searcher)
+  Ok((searcher, directory))
+}
+
+fn run_test<F>(test: F) -> Result<()>
+where
+  F: FnOnce(&mut StdRng, &DefaultIndexSearchCR) -> Result<()>,
+{
+  let mut random = random();
+  let (searcher, directory) = set_up(&mut random)?;
+  let test_result = catch_unwind(AssertUnwindSafe(|| test(&mut random, &searcher)));
+  let close_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+    searcher.get_index_reader().close()?;
+    directory.close()
+  }));
+  IOUtils::finally_caught_result(test_result, close_result)
 }
 
 fn new_term(value: &str) -> Term {
@@ -161,11 +182,10 @@ where
 /// or a supplementary character.
 #[test]
 fn test_sort_order() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
-
-  // Matches terms that start with either the Arabic Presentation Forms block or
-  // a supplementary character.
-  let automaton = RegExp::from_string("((\u{29B05})|\u{FB94}).*")?.to_automaton()?;
-  assert_automaton_hits(2, automaton, &searcher)
+  run_test(|_random, searcher| {
+    // Matches terms that start with either the Arabic Presentation Forms block or
+    // a supplementary character.
+    let automaton = RegExp::from_string("((\u{29B05})|\u{FB94}).*")?.to_automaton()?;
+    assert_automaton_hits(2, automaton, searcher)
+  })
 }

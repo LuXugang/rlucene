@@ -322,6 +322,7 @@ fn test_boolean_boost_propagation() -> Result<()> {
 }
 
 #[test]
+#[ignore = "SynonymQuery has a known bug"]
 fn test_boolean_or_vs_synonym() -> Result<()> {
   // TODO IMPORTANT SynonymQuery未实现
   // let mut random = random();

@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
-use crate::core::util::{IOUtils, StringHelper, TryIntoInt};
+use crate::core::util::{CoreHelper, IOUtils, StringHelper, TryIntoInt};
 
 pub(crate) struct FieldsIndexReader<I>
 where
@@ -190,7 +190,7 @@ where
   I: IndexInput,
 {
   fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
-    debug_assert!(doc_id >= 0 && doc_id < self.max_doc);
+    CoreHelper::check_index(doc_id, self.max_doc)?;
     let block_index = self
       .docs
       .binary_search(0, self.num_chunks as i64, doc_id as i64)?;

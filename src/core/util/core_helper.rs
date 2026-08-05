@@ -19,6 +19,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use bit_set::BitSet;
+use num_traits::PrimInt;
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
@@ -44,8 +45,11 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
     }
     Ok(from_index)
   }
-  pub fn check_index(index: usize, length: usize) -> Result<usize> {
-    if index >= length {
+  pub fn check_index<I>(index: I, length: I) -> Result<I>
+  where
+    I: PrimInt + std::fmt::Display,
+  {
+    if index < I::zero() || length < I::zero() || index >= length {
       return Err(LuceneError::array_index_out_of_bounds(format!(
         "index out of bounds: index={index} length={length}"
       )));

@@ -14,20 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::util::error::lucene_error::Result;
 
-/// Test tokenstream reuse by DefaultIndexingChain.
 #[allow(dead_code)] // for quick search
-struct TestFieldReuse;
+struct TestFilterWeight;
 
 #[test]
-fn test_string_field() -> Result<()> {
-  // IMPORTANT: Rust Lucene not support field reuse yet
-  test_not_required_in_rust_lucene!();
-}
-
-#[test]
-fn test_index_writer_actually_reuses() -> Result<()> {
-  // IMPORTANT: Rust Lucene not support field reuse yet
+fn test_declared_methods_overridden() -> Result<()> {
+  // Java verifies method overrides with reflection. Rust trait implementations are checked
+  // statically and do not expose the corresponding runtime reflection API.
   test_not_required_in_rust_lucene!();
 }

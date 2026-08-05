@@ -217,7 +217,7 @@ where
   }
 }
 #[test]
-fn test_pad() {
+pub(crate) fn test_pad() {
   let tests = [
     -9_999_999,
     -99_560,

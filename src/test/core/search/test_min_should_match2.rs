@@ -255,59 +255,6 @@ fn assert_advance(
   Ok(())
 }
 
-/// test advance with giant bq of all terms with varying minShouldMatch
-#[test]
-fn test_advance_all_terms() -> Result<()> {
-  let mut random = random();
-  let searcher = &*CONTEXT;
-
-  let mut terms_list = Vec::new();
-  terms_list.extend(COMMON_TERMS.iter().cloned());
-  terms_list.extend(MEDIUM_TERMS.iter().cloned());
-  terms_list.extend(RARE_TERMS.iter().cloned());
-
-  let terms = &terms_list[..];
-
-  for amount in (25..200).step_by(25) {
-    for min_nr_should_match in 1..terms.len() {
-      let mut expected = scorer(
-        &mut random,
-        terms,
-        min_nr_should_match as i32,
-        Mode::DocValues,
-        searcher,
-      )?;
-      let mut actual = scorer(
-        &mut random,
-        terms,
-        min_nr_should_match as i32,
-        Mode::Scorer,
-        searcher,
-      )?;
-
-      assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
-
-      let mut expected = scorer(
-        &mut random,
-        terms,
-        min_nr_should_match as i32,
-        Mode::DocValues,
-        searcher,
-      )?;
-      let mut actual = scorer(
-        &mut random,
-        terms,
-        min_nr_should_match as i32,
-        Mode::BulkScorer,
-        searcher,
-      )?;
-
-      assert_advance(expected.as_mut().unwrap(), actual.as_mut(), amount)?;
-    }
-  }
-
-  Ok(())
-}
 /// simple test for next(): minShouldMatch=2 on 3 terms (one common, one medium, one rare)
 #[test]
 fn test_next_cmr2() -> Result<()> {
@@ -416,7 +363,7 @@ fn test_next_all_terms() -> Result<()> {
 
 /// test advance with giant bq of all terms with varying minShouldMatch
 #[test]
-fn test_advance_all_terms_again() -> Result<()> {
+fn test_advance_all_terms() -> Result<()> {
   let mut random = random();
   let searcher = &*CONTEXT;
 

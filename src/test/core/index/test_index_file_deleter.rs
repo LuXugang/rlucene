@@ -292,7 +292,7 @@ where
 #[test]
 fn test_virus_scanner_doesnt_corrupt_index() -> Result<()> {
   // TODO addVirusChecker is not implemented.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]

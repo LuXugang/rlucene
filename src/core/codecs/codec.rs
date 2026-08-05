@@ -49,6 +49,8 @@ use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec
 use crate::test_framework::core::index::test_add_indexes::UnRegisteredCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
+#[cfg(test)]
+use crate::test_framework::core::index::test_index_writer_force_merge::MergePerFieldCodec;
 #[cfg(not(test))]
 use parking_lot::RwLock;
 #[cfg(test)]
@@ -118,6 +120,8 @@ pub enum Codecs {
   Compressing(CompressingCodec),
   #[cfg(test)]
   UnRegistered(UnRegisteredCodec),
+  #[cfg(test)]
+  MergePerField(MergePerFieldCodec),
   #[cfg(test)]
   CrankyLucene101(CrankyCodec<Lucene101Codec>),
   #[cfg(test)]
@@ -189,6 +193,13 @@ impl From<UnRegisteredCodec> for Codecs {
 }
 
 #[cfg(test)]
+impl From<MergePerFieldCodec> for Codecs {
+  fn from(codec: MergePerFieldCodec) -> Self {
+    Self::MergePerField(codec)
+  }
+}
+
+#[cfg(test)]
 impl From<CrankyCodec<Lucene101Codec>> for Codecs {
   fn from(codec: CrankyCodec<Lucene101Codec>) -> Self {
     Self::CrankyLucene101(codec)
@@ -216,6 +227,8 @@ impl Display for Codecs {
       Self::Compressing(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::UnRegistered(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::MergePerField(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => Display::fmt(codec, f),
       #[cfg(test)]
@@ -262,6 +275,8 @@ impl Codec for Codecs {
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
       #[cfg(test)]
+      Self::MergePerField(codec) => CodecPostingsFormat::MergePerField(codec.postings_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecPostingsFormat::CrankyLucene101(codec.postings_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecPostingsFormat::CrankyAsserting(codec.postings_format()),
@@ -283,6 +298,8 @@ impl Codec for Codecs {
       Self::Compressing(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
+      #[cfg(test)]
+      Self::MergePerField(codec) => CodecDocValuesFormat::MergePerField(codec.doc_values_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecDocValuesFormat::CrankyLucene101(codec.doc_values_format())
@@ -314,6 +331,8 @@ impl Codec for Codecs {
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format()),
       #[cfg(test)]
+      Self::MergePerField(codec) => CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecStoredFieldsFormat::CrankyLucene101(codec.stored_fields_format())
       },
@@ -339,6 +358,8 @@ impl Codec for Codecs {
       Self::Compressing(codec) => CodecTermVectorsFormat::Compressing(codec.term_vectors_format()),
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
+      #[cfg(test)]
+      Self::MergePerField(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecTermVectorsFormat::CrankyLucene101(codec.term_vectors_format())
@@ -375,6 +396,8 @@ impl Codec for Codecs {
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
       #[cfg(test)]
+      Self::MergePerField(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecFieldInfosFormat::Cranky(codec.field_infos_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecFieldInfosFormat::Cranky(codec.field_infos_format()),
@@ -406,6 +429,8 @@ impl Codec for Codecs {
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecSegmentInfoFormat::Lucene101(codec.segment_info_format()),
       #[cfg(test)]
+      Self::MergePerField(codec) => CodecSegmentInfoFormat::Lucene101(codec.segment_info_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecSegmentInfoFormat::Cranky(codec.segment_info_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecSegmentInfoFormat::Cranky(codec.segment_info_format()),
@@ -425,6 +450,8 @@ impl Codec for Codecs {
       Self::Compressing(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
+      #[cfg(test)]
+      Self::MergePerField(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecNormsFormat::CrankyLucene101(codec.norms_format()),
       #[cfg(test)]
@@ -447,6 +474,8 @@ impl Codec for Codecs {
       Self::Compressing(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
+      #[cfg(test)]
+      Self::MergePerField(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => {
         CodecLiveDocsFormat::CrankyLucene101(codec.live_docs_format())
@@ -483,6 +512,8 @@ impl Codec for Codecs {
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
       #[cfg(test)]
+      Self::MergePerField(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecCompoundFormat::Cranky(codec.compound_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecCompoundFormat::Cranky(codec.compound_format()),
@@ -504,6 +535,8 @@ impl Codec for Codecs {
       Self::Compressing(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
       #[cfg(test)]
       Self::UnRegistered(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
+      #[cfg(test)]
+      Self::MergePerField(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => CodecPointsFormat::CrankyLucene101(codec.points_format()),
       #[cfg(test)]
@@ -537,6 +570,10 @@ impl Codec for Codecs {
         .knn_vectors_format()
         .map(CodecKnnVectorsFormat::Lucene101),
       #[cfg(test)]
+      Self::MergePerField(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
+      #[cfg(test)]
       Self::CrankyLucene101(codec) => codec
         .knn_vectors_format()
         .map(CodecKnnVectorsFormat::Lucene101),
@@ -560,6 +597,8 @@ impl Codec for Codecs {
       Self::Compressing(codec) => codec.get_name(),
       #[cfg(test)]
       Self::UnRegistered(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::MergePerField(codec) => codec.get_name(),
       #[cfg(test)]
       Self::CrankyLucene101(codec) => codec.get_name(),
       #[cfg(test)]

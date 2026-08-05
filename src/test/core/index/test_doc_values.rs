@@ -307,5 +307,6 @@ fn test_sorted_numeric_field() -> Result<()> {
 }
 #[test]
 fn test_add_null_numeric_doc_values() -> Result<()> {
+  // Rust's numeric doc-values field requires an i64 and cannot represent Java null.
   test_not_required_in_rust_lucene!();
 }

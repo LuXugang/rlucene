@@ -624,11 +624,13 @@ fn test_illegal_too_many_dimensions() -> Result<()> {
 }
 #[test]
 fn test_different_codecs_1() -> Result<()> {
+  // SimpleTextCodec has not been migrated to Rust Lucene.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_different_codecs_2() -> Result<()> {
+  // SimpleTextCodec has not been migrated to Rust Lucene.
   test_not_required_in_rust_lucene!();
 }
 #[test]

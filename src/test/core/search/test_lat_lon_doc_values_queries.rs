@@ -155,6 +155,23 @@ mod base_geo_point_test_case_tests {
   }
 
   #[test]
+  fn test_random_tiny() -> Result<()> {
+    run_case(|case, random| case.test_random_tiny(random))
+  }
+
+  #[test]
+  fn test_random_medium() -> Result<()> {
+    run_case(|case, random| case.test_random_medium(random))
+  }
+
+  #[cfg(feature = "nightly")]
+  #[test]
+  #[ignore = "nightly"]
+  fn test_random_big() -> Result<()> {
+    run_case(|case, random| case.test_random_big(random))
+  }
+
+  #[test]
   fn test_rect_boundaries_are_inclusive() -> Result<()> {
     run_case(|case, random| case.test_rect_boundaries_are_inclusive(random))
   }

@@ -93,16 +93,19 @@ fn test_defaults() -> Result<()> {
 
 #[test]
 fn test_setters_chaining() -> Result<()> {
+  // Java uses reflection to inspect synthetic and overridden setter return types.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_reuse() -> Result<()> {
+  // Rust transfers ownership of IndexWriterConfig into IndexWriter, so reuse cannot compile.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_override_getters() -> Result<()> {
+  // Java uses reflection to verify getter overrides on a subclass.
   test_not_required_in_rust_lucene!();
 }
 
@@ -120,11 +123,14 @@ fn test_constants() {
 
 #[test]
 fn test_to_string() -> Result<()> {
+  // Java reflects over private fields and checks that their names occur in toString().
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_invalid_values() -> Result<()> {
+  // Java's null object-setter checks are prevented by Rust's types. The remaining numeric setter
+  // validation also cannot be expressed until the Rust live-config setters return Result.
   test_not_required_in_rust_lucene!();
 }
 

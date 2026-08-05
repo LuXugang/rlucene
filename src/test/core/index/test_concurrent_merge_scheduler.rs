@@ -430,6 +430,18 @@ fn test_max_merge_count() -> Result<()> {
 }
 
 #[test]
+fn test_small_merges_don_not_get_threads() -> Result<()> {
+  // Rust Lucene does not implement Java Lucene's intra-merge executor selection API.
+  test_not_required_in_rust_lucene!();
+}
+
+#[test]
+fn test_intra_merge_thread_pool_is_limited_by_max_threads() -> Result<()> {
+  // Rust Lucene does not implement Java Lucene's intra-merge executor or its thread-pool limits.
+  test_not_required_in_rust_lucene!();
+}
+
+#[test]
 fn test_total_bytes_size() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;

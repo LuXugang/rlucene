@@ -48,6 +48,10 @@ use crate::core::index::slow_codec_reader_wrapper::SlowCodecReaderWrapper;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::search::field_value_hit_queue::TopFieldScoreDoc;
+use crate::core::search::score_doc::ScoreDocLike;
+use crate::core::search::top_docs::TopDocs;
+use crate::core::search::total_hits::Relation;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::IOContext;
 use crate::core::store::directory::{Directory, DirectoryEnum};
@@ -343,6 +347,63 @@ impl TestUtil {
       cms.set_max_merges_and_threads(3, 2)?;
     }
     Ok(())
+  }
+
+  /// Assert that the given [`TopDocs`] have the same top docs and consistent hit counts.
+  pub(crate) fn assert_consistent(
+    expected: &TopDocs<TopFieldScoreDoc>,
+    actual: &TopDocs<TopFieldScoreDoc>,
+  ) {
+    assert_eq!(
+      expected.total_hits.value() == 0,
+      actual.total_hits.value() == 0,
+      "wrong total hits"
+    );
+    if expected.total_hits.relation() == Relation::EqualTo {
+      if actual.total_hits.relation() == Relation::EqualTo {
+        assert_eq!(
+          expected.total_hits.value(),
+          actual.total_hits.value(),
+          "wrong total hits"
+        );
+      } else {
+        assert!(
+          expected.total_hits.value() >= actual.total_hits.value(),
+          "wrong total hits"
+        );
+      }
+    } else if actual.total_hits.relation() == Relation::EqualTo {
+      assert!(
+        expected.total_hits.value() <= actual.total_hits.value(),
+        "wrong total hits"
+      );
+    }
+    assert_eq!(
+      expected.score_docs.len(),
+      actual.score_docs.len(),
+      "wrong hit count"
+    );
+    for (expected, actual) in expected.score_docs.iter().zip(&actual.score_docs) {
+      assert_eq!(expected.doc(), actual.doc(), "wrong hit docID");
+      assert!(
+        expected.score() == actual.score() || expected.score().is_nan() && actual.score().is_nan(),
+        "wrong hit score: expected={} actual={}",
+        expected.score(),
+        actual.score()
+      );
+      match expected {
+        TopFieldScoreDoc::Field(expected) => {
+          let TopFieldScoreDoc::Field(actual) = actual else {
+            panic!("actual hit is not a FieldDoc");
+          };
+          assert_eq!(expected.fields, actual.fields, "wrong sort field values");
+        },
+        _ => assert!(
+          !matches!(actual, TopFieldScoreDoc::Field(_)),
+          "actual hit is a FieldDoc"
+        ),
+      }
+    }
   }
 
   /// This runs the CheckIndex tool on the index in. If any issues are hit, a runtime error is

@@ -75,7 +75,7 @@ use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::merged_iterator::MergedIterator;
-use crate::core::util::{CoreHelper, SliceCopyOps};
+use crate::core::util::{CoreHelper, SliceCopyOps, TryIntoInt};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
@@ -491,7 +491,7 @@ where
   SF: StoredFields,
 {
   fn prefetch(&mut self, doc_id: i32) -> Result<()> {
-    CoreHelper::check_index(doc_id as usize, self.max_doc as usize)?;
+    CoreHelper::check_index(doc_id, self.max_doc)?;
     self.reader.prefetch(doc_id)
   }
 
@@ -504,7 +504,7 @@ where
   where
     S: StoredFieldsWriter,
   {
-    CoreHelper::check_index(doc_id as usize, self.max_doc as usize)?;
+    CoreHelper::check_index(doc_id, self.max_doc)?;
     self.reader.document_with_visitor(doc_id, visitor, writer)
   }
 }
@@ -525,7 +525,7 @@ where
 }
 
 fn doc_id_to_reader_id(doc: i32, doc_starts: &[usize]) -> Result<usize> {
-  CoreHelper::check_index(doc as usize, doc_starts[doc_starts.len() - 1])?;
+  CoreHelper::check_index(doc, doc_starts[doc_starts.len() - 1].try_convert()?)?;
   match doc_starts.binary_search(&(doc as usize)) {
     Ok(reader_id) => Ok(reader_id),
     Err(insert_pos) => Ok(insert_pos - 1),

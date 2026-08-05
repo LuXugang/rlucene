@@ -29,7 +29,6 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::store::byte_buffers_directory::ByteBuffersDirectory;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::IOUtils;
-use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::store::serial_io_counting_directory::SerialIOCountingDirectory;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
@@ -37,9 +36,10 @@ use crate::test_framework::core::util::lucene_test_case::{
   at_least, get_only_leaf_reader, new_log_merge_policy_with_cfs, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use parking_lot::Mutex;
 use rand::RngExt;
 use rand::prelude::StdRng;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 type InnerDirectory = ByteBuffersDirectory<SingleInstanceLockFactory>;
 type CountingDirectory = SerialIOCountingDirectory<Arc<InnerDirectory>>;
@@ -49,6 +49,14 @@ struct TestDefaultCodecParallelizesIO {
   dir: Arc<CountingDirectory>,
   reader: TestReader,
 }
+
+static CONTEXT: LazyLock<Mutex<TestDefaultCodecParallelizesIO>> = LazyLock::new(|| {
+  let mut random = random();
+  Mutex::new(
+    TestDefaultCodecParallelizesIO::before_class(&mut random)
+      .expect("failed to initialize TestDefaultCodecParallelizesIO"),
+  )
+});
 
 impl TestDefaultCodecParallelizesIO {
   fn before_class(random: &mut StdRng) -> Result<Self> {
@@ -88,10 +96,6 @@ impl TestDefaultCodecParallelizesIO {
     let dir = Arc::new(SerialIOCountingDirectory::new(bb_dir));
     let reader = directory_reader::open(dir.clone())?;
     Ok(Self { dir, reader })
-  }
-
-  fn after_class(&self) -> Result<()> {
-    IOUtils::use_or_suppress_result(self.reader.close(), self.dir.close())
   }
 
   /// Simulate term lookup in a BooleanQuery.
@@ -149,12 +153,13 @@ impl TestDefaultCodecParallelizesIO {
 }
 
 #[test]
-fn test_default_codec_parallelizes_io() -> Result<()> {
+fn test_terms_seek_exact() -> Result<()> {
+  CONTEXT.lock().test_terms_seek_exact()
+}
+
+#[test]
+fn test_stored_fields() -> Result<()> {
+  let case = CONTEXT.lock();
   let mut random = random();
-  let case = TestDefaultCodecParallelizesIO::before_class(&mut random)?;
-  let result = (|| -> Result<()> {
-    case.test_terms_seek_exact()?;
-    case.test_stored_fields(&mut random)
-  })();
-  IOUtils::use_or_suppress_result(result, case.after_class())
+  case.test_stored_fields(&mut random)
 }

@@ -89,6 +89,15 @@ static RANGE_CONTEXT: LazyLock<RangeContext> = LazyLock::new(|| {
   }
 });
 
+mod test_base_range_filter_tests {
+  use crate::test::core::search::test_base_range_filter;
+
+  #[test]
+  fn test_pad() {
+    test_base_range_filter::test_pad();
+  }
+}
+
 fn constant_score_rewrites() -> [RewriteMethodEnum; 2] {
   [
     ConstantScoreRewrite.into(),

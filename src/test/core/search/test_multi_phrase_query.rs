@@ -22,6 +22,7 @@ use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
@@ -40,6 +41,7 @@ use crate::core::store::ByteBuffersDirectory;
 use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::token;
@@ -235,7 +237,9 @@ fn test_tall() -> Result<()> {
   Ok(())
 }
 
-/// Tests in Java could not pass
+/// LUCENE-3821 fixes sloppy phrase scoring, except for this known problem.
+#[test]
+#[ignore = "LUCENE-3821 known sloppy phrase scoring problem"]
 fn test_multi_sloppy_with_repeats() -> Result<()> {
   let mut random = random();
   let index_store = new_directory_shared(&mut random)?;
@@ -262,6 +266,8 @@ fn test_multi_sloppy_with_repeats() -> Result<()> {
   qb.add_terms(&[Term::from_text("body", "a"), Term::from_text("body", "b")])?
     .add_terms(&[Term::from_text("body", "a")])?;
   assert_eq!(1, searcher.count(qb.build())?); // should match on "a b"
+  searcher.get_index_reader().close()?;
+  index_store.close()?;
   Ok(())
 }
 

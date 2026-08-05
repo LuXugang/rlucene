@@ -61,6 +61,7 @@ pub mod test_flush_by_ram_or_counts_policy;
 pub mod test_index_file_deleter;
 pub mod test_index_sorting;
 pub mod test_index_writer;
+pub(crate) mod test_index_writer_force_merge;
 pub mod test_index_writer_merge_policy;
 pub mod test_index_writer_merging;
 pub mod test_index_writer_reader;

@@ -44,9 +44,9 @@ use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::test_framework::core::index::test_terms_hash_per_field::{
   TermsHashPerFieldMock, new_terms_hash_per_field_mock,
 };
-use rand::RngExt;
 use rand::distr::Alphanumeric;
 use rand::prelude::SliceRandom;
+use rand::{Rng, RngExt};
 
 #[allow(dead_code)] // for quick search
 struct TestTermsHashPerField;
@@ -454,5 +454,57 @@ fn test_add_and_update_random() -> Result<()> {
 }
 #[test]
 fn test_write_bytes() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let mut random = random();
+  for _ in 0..100 {
+    let new_called = AtomicI64::new(0);
+    let add_called = AtomicI64::new(0);
+    let mut hash = create_new_hash(new_called, add_called);
+    let dummy_value = "dummy";
+    let dummy_field = Fields::Stored(StoredField::from_binary(
+      "binary",
+      dummy_value.as_bytes().to_vec(),
+    )?);
+    let mut byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
+    let mut base = hash.base.take().unwrap();
+    base.start(&dummy_field, true, &mut byte_pool)?;
+    let mut int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(Arc::new(
+      AtomicCounter::new(),
+    )));
+    let attribute_source = EmptyAttributeSource;
+    base.add_with_bytes_ref_with_test(
+      &new_bytes_ref_from_string(&mut random, "start")?,
+      0,
+      &mut hash,
+      &attribute_source,
+      &mut int_pool,
+      &mut byte_pool,
+    )?; // tid = 0
+
+    let size = random.random_range(50_000..=100_000);
+    let mut random_data = vec![0_u8; size];
+    random.fill(&mut random_data[..]);
+    let mut offset = 0;
+    while offset < random_data.len() {
+      let write_length = std::cmp::min(random_data.len() - offset, random.random_range(1..=200));
+      base.base.write_bytes(
+        0,
+        &random_data,
+        offset,
+        write_length,
+        &mut int_pool,
+        &mut byte_pool,
+      )?;
+      offset += write_length;
+    }
+
+    let mut reader = ByteSliceReader::new(&byte_pool);
+    // Java uses a separate term-byte pool, so its first postings slice starts at 0. Rust shares
+    // the pool with term bytes; initialize from the recorded stream boundaries instead.
+    base.base.init_reader(&mut reader, 0, 0, &int_pool);
+    for expected in random_data {
+      assert_eq!(expected, reader.read_byte()?);
+    }
+    assert!(reader.eof());
+  }
+  Ok(())
 }

@@ -7786,7 +7786,7 @@ where
   DM: crate::core::index::sorter::DocMap,
 {
   fn get(&self, doc_id: i32) -> Result<i32> {
-    CoreHelper::check_index(doc_id as usize, self.max_doc as usize)?;
+    CoreHelper::check_index(doc_id, self.max_doc)?;
     self.doc_map.old_to_new(self.current_doc_base + doc_id)
   }
 }

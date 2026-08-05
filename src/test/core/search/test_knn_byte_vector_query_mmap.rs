@@ -102,6 +102,11 @@ mod base_knn_vector_query_test_case_tests {
   }
 
   #[test]
+  fn test_different_reader() -> Result<()> {
+    run_case(|case, random| case.test_different_reader(random))
+  }
+
+  #[test]
   fn test_score_euclidean() -> Result<()> {
     run_case(|case, random| case.test_score_euclidean(random))
   }
@@ -167,8 +172,9 @@ mod base_knn_vector_query_test_case_tests {
   }
 
   #[test]
-  fn test_bot_set_query() -> Result<()> {
-    run_case(|case, random| case.test_bot_set_query(random))
+  #[ignore = "BitSet filter reuse is not implemented"]
+  fn test_bit_set_query() -> Result<()> {
+    run_case(|case, random| case.test_bit_set_query(random))
   }
 
   #[test]

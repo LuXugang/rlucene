@@ -634,6 +634,7 @@ fn test_bad_segment() -> Result<()> {
 
 #[test]
 fn test_max_thread_priority() -> Result<()> {
+  // Rust's standard thread API has no Java Thread priority equivalent.
   test_not_required_in_rust_lucene!();
 }
 
@@ -1050,6 +1051,7 @@ fn test_deadlock() -> Result<()> {
 
 #[test]
 fn test_thread_interrupt_deadlock() -> Result<()> {
+  // Rust threads do not expose Java's interrupt flag and InterruptedException semantics.
   test_not_required_in_rust_lucene!();
 }
 
@@ -1294,7 +1296,7 @@ fn test_no_docs_index() -> Result<()> {
 fn test_delete_unused_files() -> Result<()> {
   // TODO: WindowsFS is not implemented, so delete-on-last-close pending-file behavior cannot be
   // exercised.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
@@ -2424,16 +2426,19 @@ fn test_get_commit_data_from_old_snapshot() -> Result<()> {
 
 #[test]
 fn test_null_analyzer() -> Result<()> {
+  // IndexWriterConfig requires a concrete analyzer and cannot represent Java null.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_null_document() -> Result<()> {
+  // IndexWriter::add_document requires a concrete Document and cannot represent Java null.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_null_documents() -> Result<()> {
+  // Rust's document collection cannot contain Java null elements.
   test_not_required_in_rust_lucene!();
 }
 
@@ -3445,14 +3450,14 @@ fn test_pending_deletions_rollback_with_reader() -> Result<()> {
 fn test_with_pending_deletions() -> Result<()> {
   // TODO: WindowsFS is not implemented, so pending deletions held by open file handles cannot be
   // exercised.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
 fn test_pending_deletes_already_written_files() -> Result<()> {
   // TODO: WindowsFS is not implemented, so already-written pending-delete behavior cannot be
   // exercised.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
