@@ -19,6 +19,16 @@ use crate::core::analysis::analyzer::{
 };
 use crate::core::analysis::token_attributes::payload_attribute::PayloadAttribute;
 use crate::core::analysis::token_stream::TokenStream;
+use crate::core::codecs::codec_formats::{
+  BaseCodecFieldsConsumer, BaseCodecFieldsProducer, CodecCompoundFormat, CodecDocValuesFormat,
+  CodecFieldInfosFormat, CodecKnnVectorsFormat, CodecLiveDocsFormat, CodecNormsFormat,
+  CodecPointsFormat, CodecPostingsFormat, CodecSegmentInfoFormat, CodecStoredFieldsFormat,
+  CodecTermVectorsFormat,
+};
+use crate::core::codecs::fields_consumer::FieldsConsumer;
+use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::postings_format::PostingsFormat;
+use crate::core::codecs::{Codec, Codecs};
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field::{Field, Store};
@@ -30,8 +40,8 @@ use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_reader::{Identity, IndexReader};
+use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
@@ -39,6 +49,9 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::postings_enum::{
   ALL, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum, PostingsEnumEnum2,
 };
+use crate::core::index::segment_info::SegmentInfo;
+use crate::core::index::segment_read_state::SegmentReadState;
+use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
@@ -48,10 +61,14 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::directory::Directory;
+use crate::core::store::{Context, IndexInput, IndexOutput};
+use crate::core::util::HasIdentity;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::index::base_index_file_format_test_case::{
@@ -64,15 +81,414 @@ use crate::test_framework::core::index::random_postings_tester::RandomPostingsTe
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
-  new_directory_shared, new_fs_directory, new_index_writer_config, new_log_merge_policy,
-  new_string_field, new_text_field, new_tiered_merge_policy, random_from_seed,
+  new_directory_shared, new_fs_directory, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_string_field, new_text_field,
+  new_tiered_merge_policy, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Display, Formatter};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering};
+use std::thread::ThreadId;
 use strum::IntoEnumIterator;
+
+#[derive(Default)]
+struct TermFreqs {
+  total_term_freq: i64,
+  doc_freq: i32,
+}
+
+struct InvertedWriteState {
+  term_freqs: Mutex<HashMap<String, TermFreqs>>,
+  sum_doc_freq: AtomicI64,
+  sum_total_term_freq: AtomicI64,
+  random: Mutex<StdRng>,
+  main_thread: ThreadId,
+}
+
+impl InvertedWriteState {
+  fn new(random: StdRng) -> Self {
+    Self {
+      term_freqs: Mutex::new(HashMap::new()),
+      sum_doc_freq: AtomicI64::new(0),
+      sum_total_term_freq: AtomicI64::new(0),
+      random: Mutex::new(random),
+      main_thread: std::thread::current().id(),
+    }
+  }
+
+  fn random_bool(&self) -> bool {
+    self.random.lock().random()
+  }
+
+  fn next_int(&self, min: i32, max: i32) -> i32 {
+    TestUtil::next_int(&mut *self.random.lock(), min, max)
+  }
+
+  fn random_realistic_unicode_string(&self) -> String {
+    TestUtil::random_realistic_unicode_string(&mut *self.random.lock())
+  }
+}
+
+/// Rust representation of the anonymous `FilterCodec` in `testInvertedWrite`.
+pub struct InvertedWriteCodec {
+  delegate: Box<Codecs>,
+  state: Arc<InvertedWriteState>,
+  postings_identity: Identity,
+}
+
+impl InvertedWriteCodec {
+  fn new(delegate: Codecs, state: Arc<InvertedWriteState>) -> Result<Self> {
+    if matches!(&delegate, Codecs::InvertedWrite(_)) {
+      return Err(LuceneError::illegal_argument(
+        "InvertedWriteCodec cannot wrap itself",
+      ));
+    }
+    Ok(Self {
+      delegate: Box::new(delegate),
+      state,
+      postings_identity: Identity::new(),
+    })
+  }
+}
+
+impl Clone for InvertedWriteCodec {
+  fn clone(&self) -> Self {
+    Self {
+      delegate: Box::new((*self.delegate).clone()),
+      state: Arc::clone(&self.state),
+      postings_identity: self.postings_identity.clone(),
+    }
+  }
+}
+
+impl Display for InvertedWriteCodec {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    Display::fmt(self.delegate.as_ref(), f)
+  }
+}
+
+impl Codec for InvertedWriteCodec {
+  type PostingsFormat = InvertedWritePostingsFormat;
+  type DocValuesFormat = CodecDocValuesFormat;
+  type StoredFieldsFormat = CodecStoredFieldsFormat;
+  type TermVectorsFormat = CodecTermVectorsFormat;
+  type FieldInfosFormat = CodecFieldInfosFormat;
+  type SegmentInfoFormat = CodecSegmentInfoFormat;
+  type NormsFormat = CodecNormsFormat;
+  type LiveDocsFormat = CodecLiveDocsFormat;
+  type CompoundFormat = CodecCompoundFormat;
+  type PointsFormat = CodecPointsFormat;
+  type KnnVectorsFormat = CodecKnnVectorsFormat;
+
+  fn postings_format(&self) -> Self::PostingsFormat {
+    InvertedWritePostingsFormat::new(
+      self.delegate.postings_format(),
+      Arc::clone(&self.state),
+      self.postings_identity.clone(),
+    )
+  }
+
+  fn doc_values_format(&self) -> Self::DocValuesFormat {
+    self.delegate.doc_values_format()
+  }
+
+  fn stored_fields_format(&self) -> Self::StoredFieldsFormat {
+    self.delegate.stored_fields_format()
+  }
+
+  fn term_vectors_format(&self) -> Self::TermVectorsFormat {
+    self.delegate.term_vectors_format()
+  }
+
+  fn field_infos_format(&self) -> Self::FieldInfosFormat {
+    self.delegate.field_infos_format()
+  }
+
+  fn segment_info_format(&self) -> Self::SegmentInfoFormat {
+    self.delegate.segment_info_format()
+  }
+
+  fn norms_format(&self) -> Self::NormsFormat {
+    self.delegate.norms_format()
+  }
+
+  fn live_docs_format(&self) -> Self::LiveDocsFormat {
+    self.delegate.live_docs_format()
+  }
+
+  fn compound_format(&self) -> Self::CompoundFormat {
+    self.delegate.compound_format()
+  }
+
+  fn points_format(&self) -> Self::PointsFormat {
+    self.delegate.points_format()
+  }
+
+  fn knn_vectors_format(&self) -> Result<Self::KnnVectorsFormat> {
+    self.delegate.knn_vectors_format()
+  }
+
+  fn get_name(&self) -> &str {
+    self.delegate.get_name()
+  }
+}
+
+pub struct InvertedWritePostingsFormat {
+  in_: Box<CodecPostingsFormat>,
+  state: Arc<InvertedWriteState>,
+  identity: Identity,
+}
+
+impl InvertedWritePostingsFormat {
+  fn new(in_: CodecPostingsFormat, state: Arc<InvertedWriteState>, identity: Identity) -> Self {
+    Self {
+      in_: Box::new(in_),
+      state,
+      identity,
+    }
+  }
+}
+
+impl HasIdentity for InvertedWritePostingsFormat {
+  fn identity(&self) -> &Identity {
+    &self.identity
+  }
+}
+
+impl PostingsFormat for InvertedWritePostingsFormat {
+  fn get_name(&self) -> &str {
+    self.in_.get_name()
+  }
+
+  type FieldsConsumer<O: IndexOutput> = InvertedWriteFieldsConsumer<BaseCodecFieldsConsumer<O>>;
+
+  fn fields_consumer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    Ok(InvertedWriteFieldsConsumer::new(
+      self.in_.base_fields_consumer(state, segment_info)?,
+      Arc::clone(&self.state),
+    ))
+  }
+
+  type FieldsProducer<I: IndexInput> = BaseCodecFieldsProducer<I>;
+
+  fn fields_producer<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<Self::FieldsProducer<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    self.in_.base_fields_producer(state, segment_info)
+  }
+
+  fn for_name(name: &str) -> Result<Arc<Self>> {
+    Err(LuceneError::illegal_argument(format!(
+      "Could not load postings format named \"{name}\""
+    )))
+  }
+}
+
+pub struct InvertedWriteFieldsConsumer<FC> {
+  fields_consumer: FC,
+  state: Arc<InvertedWriteState>,
+}
+
+impl<FC> InvertedWriteFieldsConsumer<FC> {
+  fn new(in_: FC, state: Arc<InvertedWriteState>) -> Self {
+    Self {
+      fields_consumer: in_,
+      state,
+    }
+  }
+}
+
+impl<FC> Closeable for InvertedWriteFieldsConsumer<FC>
+where
+  FC: FieldsConsumer,
+{
+  fn close(&mut self) -> Result<()> {
+    self.fields_consumer.close()
+  }
+}
+
+impl<FC> FieldsConsumer for InvertedWriteFieldsConsumer<FC>
+where
+  FC: FieldsConsumer,
+{
+  fn write<D1, D2, F, N>(
+    &mut self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    fields: &mut F,
+    norms: Option<&N>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory,
+    F: Fields,
+    N: NormsProducer,
+  {
+    self
+      .fields_consumer
+      .write(state, segment_info, fields, norms)?;
+
+    let is_merge = matches!(state.context.get_context(), Context::Merge);
+    assert!(
+      is_merge || std::thread::current().id() == self.state.main_thread,
+      "flush must run on the test thread"
+    );
+
+    // We iterate the provided TermsEnum twice, so we exercise the freedom to revisit the inverted
+    // API. If `add_on_second_pass` is true, term statistics are accumulated on the second pass.
+    let add_on_second_pass = self.state.random_bool();
+    let terms = fields
+      .terms("body")?
+      .expect("the indexed body field must have terms");
+    let mut terms_enum = terms.iterator()?;
+    let mut docs = None;
+
+    while let Some(term) = terms_enum.next()? {
+      let term_string = term.utf8_to_string()?;
+      let no_positions = self.state.random_bool();
+      let reuse = if no_positions { docs.take() } else { None };
+      docs = Some(terms_enum.postings_with_flags(
+        reuse,
+        if no_positions {
+          FREQS as i32
+        } else {
+          POSITIONS as i32
+        },
+      )?);
+
+      let postings = docs
+        .as_mut()
+        .expect("TermsEnum.postings must return an iterator");
+      let mut doc_freq = 0;
+      let mut total_term_freq = 0_i64;
+      while postings.next_doc()? != NO_MORE_DOCS {
+        doc_freq += 1;
+        let freq = postings.freq()?;
+        total_term_freq += i64::from(freq);
+        let limit = self.state.next_int(1, freq);
+        if !no_positions {
+          for _ in 0..limit {
+            postings.next_position()?;
+          }
+        }
+      }
+
+      let mut term_freqs = self.state.term_freqs.lock();
+      assert!(
+        !is_merge || term_freqs.contains_key(&term_string),
+        "merge encountered a term that was not seen during flush"
+      );
+      if !is_merge {
+        if !add_on_second_pass {
+          let term_freqs = term_freqs.entry(term_string).or_default();
+          term_freqs.doc_freq += doc_freq;
+          term_freqs.total_term_freq += total_term_freq;
+          self
+            .state
+            .sum_doc_freq
+            .fetch_add(i64::from(doc_freq), Ordering::SeqCst);
+          self
+            .state
+            .sum_total_term_freq
+            .fetch_add(total_term_freq, Ordering::SeqCst);
+        } else {
+          term_freqs.entry(term_string).or_default();
+        }
+      }
+    }
+
+    // Also test seeking the TermsEnum.
+    let terms_to_seek = self
+      .state
+      .term_freqs
+      .lock()
+      .keys()
+      .cloned()
+      .collect::<Vec<_>>();
+    for term in terms_to_seek {
+      if terms_enum.seek_exact(&BytesRef::from_string(&term))? {
+        let no_positions = self.state.random_bool();
+        let reuse = if no_positions { docs.take() } else { None };
+        docs = Some(terms_enum.postings_with_flags(
+          reuse,
+          if no_positions {
+            FREQS as i32
+          } else {
+            POSITIONS as i32
+          },
+        )?);
+
+        let postings = docs
+          .as_mut()
+          .expect("TermsEnum.postings must return an iterator");
+        let mut doc_freq = 0;
+        let mut total_term_freq = 0_i64;
+        while postings.next_doc()? != NO_MORE_DOCS {
+          doc_freq += 1;
+          let freq = postings.freq()?;
+          total_term_freq += i64::from(freq);
+          let limit = self.state.next_int(1, freq);
+          if !no_positions {
+            for _ in 0..limit {
+              postings.next_position()?;
+            }
+          }
+        }
+
+        let mut term_freqs = self.state.term_freqs.lock();
+        if !is_merge && add_on_second_pass {
+          let term_freqs = term_freqs
+            .get_mut(&term)
+            .expect("the first pass must create a term entry");
+          term_freqs.doc_freq += doc_freq;
+          term_freqs.total_term_freq += total_term_freq;
+          self
+            .state
+            .sum_doc_freq
+            .fetch_add(i64::from(doc_freq), Ordering::SeqCst);
+          self
+            .state
+            .sum_total_term_freq
+            .fetch_add(total_term_freq, Ordering::SeqCst);
+        }
+        let term_freqs = term_freqs
+          .get(&term)
+          .expect("the term must have statistics");
+        assert!(doc_freq <= term_freqs.doc_freq);
+        assert!(total_term_freq <= term_freqs.total_term_freq);
+      }
+    }
+
+    // Also test seekCeil.
+    for _ in 0..10 {
+      let term = BytesRef::from_string(&self.state.random_realistic_unicode_string());
+      if terms_enum.seek_ceil(&term)? == SeekStatus::NotFound {
+        assert!(term < terms_enum.term()?.into_owned());
+      }
+    }
+
+    Ok(())
+  }
+}
 
 pub struct BasePostingsFormatTestCaseDefaults;
 
@@ -570,11 +986,99 @@ pub trait BasePostingsFormatTestCase:
     Ok(())
   }
 
-  fn test_inverted_write<R>(&self, _random: &mut R) -> Result<()>
+  // LUCENE-5123: make sure we can visit postings twice during flush/merge.
+  fn test_inverted_write<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO IMPORTANT Java 的自定义 FilterCodec 和 PostingsFormat 包装尚未迁移。
+    let dir = new_directory_shared(random)?;
+    let mut analyzer = MockAnalyzer::new(random);
+    analyzer.set_max_token_length(TestUtil::next_int(random, 1, MAX_TERM_LENGTH));
+    let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+
+    // Must be concurrent because merge threads may iterate this map while the flush thread adds to
+    // it. The random stream used by the consumer is derived from the top-level test random so a
+    // failing seed remains reproducible across those threads.
+    let state = Arc::new(InvertedWriteState::new(random_from_seed(random.random())));
+    iwc.set_codec(InvertedWriteCodec::new(
+      self.get_codec()?,
+      Arc::clone(&state),
+    )?);
+
+    let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
+    let mut docs = LineFileDocs::new(random)?;
+    let bytes_to_index = at_least(random, 100) * 1024;
+    let mut bytes_indexed = 0;
+    while bytes_indexed < bytes_to_index {
+      let doc = docs.next_doc()?;
+      let body = doc
+        .get_field("body")
+        .expect("LineFileDocs must have a body");
+      let body_value = body
+        .string_value()?
+        .expect("the body field must have a string value")
+        .into_owned();
+      let mut just_body_doc = Document::new();
+      just_body_doc.add(TextField::from_string(
+        "body",
+        body_value.clone(),
+        Store::No,
+      )?);
+      writer.add_document(random, just_body_doc)?;
+      // Java uses RamUsageTester only to choose a realistic amount of input. Rust has no JVM
+      // object-layout estimator, so count the retained text bytes that drive postings creation.
+      bytes_indexed += body_value.len().max(1) as i32;
+    }
+
+    let reader = writer.get_reader(random)?;
+    writer.close(random)?;
+
+    let terms = crate::core::index::multi_terms::get_terms(&reader, "body")?
+      .expect("the body field must have terms");
+    assert_eq!(
+      state.sum_doc_freq.load(Ordering::SeqCst),
+      terms.get_sum_doc_freq()?
+    );
+    assert_eq!(
+      state.sum_total_term_freq.load(Ordering::SeqCst),
+      terms.get_sum_total_term_freq()?
+    );
+
+    let mut terms_enum = terms.iterator()?;
+    let mut term_count = 0_i64;
+    let mut supports_ords = true;
+    while let Some(term) = terms_enum.next()? {
+      let term_string = term.utf8_to_string()?;
+      let (expected_doc_freq, expected_total_term_freq) = {
+        let term_freqs = state.term_freqs.lock();
+        let term_freqs = term_freqs
+          .get(&term_string)
+          .expect("every indexed term must have collected statistics");
+        (term_freqs.doc_freq, term_freqs.total_term_freq)
+      };
+      assert_eq!(expected_doc_freq, terms_enum.doc_freq()?);
+      assert_eq!(expected_total_term_freq, terms_enum.total_term_freq()?);
+      if supports_ords {
+        let ord = match terms_enum.ord() {
+          Ok(ord) => ord,
+          Err(LuceneError::UnsupportedOperation(_)) => {
+            supports_ords = false;
+            -1
+          },
+          Err(error) => return Err(error),
+        };
+        if ord != -1 {
+          assert_eq!(term_count, ord);
+        }
+      }
+      term_count += 1;
+    }
+    assert_eq!(state.term_freqs.lock().len() as i64, term_count);
+
+    drop(terms_enum);
+    drop(terms);
+    reader.close()?;
+    dir.close()?;
     Ok(())
   }
 

@@ -2162,7 +2162,6 @@ pub trait BaseDirectoryTestCase {
       let mut group_vint_in = dir.open_input("group-varint", &io_context)?;
       let mut vint_in = dir.open_input("vint", &io_context)?;
       for &num_values in num_values_array.iter().take(iterations) {
-        // 读取组 VInts
         GroupVIntUtil::read_group_vints_i64(&mut group_vint_in, &mut values, num_values)?;
 
         for (j, &expected_value) in values.iter().take(num_values).enumerate() {

@@ -46,6 +46,8 @@ use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 #[cfg(test)]
 use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
 #[cfg(test)]
+use crate::test_framework::core::index::base_postings_format_test_case::InvertedWriteCodec;
+#[cfg(test)]
 use crate::test_framework::core::index::test_add_indexes::UnRegisteredCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
@@ -126,6 +128,8 @@ pub enum Codecs {
   CrankyLucene101(CrankyCodec<Lucene101Codec>),
   #[cfg(test)]
   CrankyAsserting(CrankyCodec<AssertingCodec>),
+  #[cfg(test)]
+  InvertedWrite(InvertedWriteCodec),
 }
 
 impl Default for Codecs {
@@ -213,6 +217,13 @@ impl From<CrankyCodec<AssertingCodec>> for Codecs {
   }
 }
 
+#[cfg(test)]
+impl From<InvertedWriteCodec> for Codecs {
+  fn from(codec: InvertedWriteCodec) -> Self {
+    Self::InvertedWrite(codec)
+  }
+}
+
 impl Display for Codecs {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
@@ -233,6 +244,8 @@ impl Display for Codecs {
       Self::CrankyLucene101(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => Display::fmt(codec, f),
     }
   }
 }
@@ -280,6 +293,8 @@ impl Codec for Codecs {
       Self::CrankyLucene101(codec) => CodecPostingsFormat::CrankyLucene101(codec.postings_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecPostingsFormat::CrankyAsserting(codec.postings_format()),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => CodecPostingsFormat::InvertedWrite(codec.postings_format()),
     }
   }
 
@@ -308,6 +323,8 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => {
         CodecDocValuesFormat::CrankyAsserting(codec.doc_values_format())
       },
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.doc_values_format(),
     }
   }
 
@@ -340,6 +357,8 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => {
         CodecStoredFieldsFormat::CrankyAsserting(codec.stored_fields_format())
       },
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.stored_fields_format(),
     }
   }
 
@@ -368,6 +387,8 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => {
         CodecTermVectorsFormat::CrankyAsserting(codec.term_vectors_format())
       },
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.term_vectors_format(),
     }
   }
 
@@ -401,6 +422,8 @@ impl Codec for Codecs {
       Self::CrankyLucene101(codec) => CodecFieldInfosFormat::Cranky(codec.field_infos_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecFieldInfosFormat::Cranky(codec.field_infos_format()),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.field_infos_format(),
     }
   }
 
@@ -434,6 +457,8 @@ impl Codec for Codecs {
       Self::CrankyLucene101(codec) => CodecSegmentInfoFormat::Cranky(codec.segment_info_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecSegmentInfoFormat::Cranky(codec.segment_info_format()),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.segment_info_format(),
     }
   }
 
@@ -456,6 +481,8 @@ impl Codec for Codecs {
       Self::CrankyLucene101(codec) => CodecNormsFormat::CrankyLucene101(codec.norms_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecNormsFormat::CrankyAsserting(codec.norms_format()),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.norms_format(),
     }
   }
 
@@ -484,6 +511,8 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => {
         CodecLiveDocsFormat::CrankyAsserting(codec.live_docs_format())
       },
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.live_docs_format(),
     }
   }
 
@@ -517,6 +546,8 @@ impl Codec for Codecs {
       Self::CrankyLucene101(codec) => CodecCompoundFormat::Cranky(codec.compound_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecCompoundFormat::Cranky(codec.compound_format()),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.compound_format(),
     }
   }
 
@@ -541,6 +572,8 @@ impl Codec for Codecs {
       Self::CrankyLucene101(codec) => CodecPointsFormat::CrankyLucene101(codec.points_format()),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => CodecPointsFormat::CrankyAsserting(codec.points_format()),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.points_format(),
     }
   }
 
@@ -581,6 +614,8 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => codec
         .knn_vectors_format()
         .map(CodecKnnVectorsFormat::Asserting),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.knn_vectors_format(),
     }
   }
 
@@ -603,6 +638,8 @@ impl Codec for Codecs {
       Self::CrankyLucene101(codec) => codec.get_name(),
       #[cfg(test)]
       Self::CrankyAsserting(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::InvertedWrite(codec) => codec.get_name(),
     }
   }
 }

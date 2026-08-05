@@ -111,6 +111,10 @@ use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 #[cfg(test)]
 use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
 #[cfg(test)]
+use crate::test_framework::core::index::base_postings_format_test_case::{
+  InvertedWriteFieldsConsumer, InvertedWritePostingsFormat,
+};
+#[cfg(test)]
 use crate::test_framework::core::index::test_index_sorting::AssertingNeedsIndexSortCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_writer_force_merge::{
@@ -187,6 +191,8 @@ pub enum CodecPostingsFormat {
   CrankyLucene101(CrankyLucene101PostingsFormat),
   #[cfg(test)]
   CrankyAsserting(CrankyAssertingPostingsFormat),
+  #[cfg(test)]
+  InvertedWrite(InvertedWritePostingsFormat),
 }
 
 pub enum CodecDocValuesFormat {
@@ -389,7 +395,7 @@ impl CompoundFormat for CodecCompoundFormat {
 pub type CodecFieldsConsumer<O> =
   <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>;
 #[cfg(test)]
-pub type CodecFieldsConsumer<O> = FieldsConsumerEnum2<
+pub type BaseCodecFieldsConsumer<O> = FieldsConsumerEnum2<
   FieldsConsumerEnum2<
     FieldsConsumerEnum2<
       <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
@@ -402,15 +408,92 @@ pub type CodecFieldsConsumer<O> = FieldsConsumerEnum2<
   >,
   <MergePerFieldCodecPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
 >;
+#[cfg(test)]
+pub type CodecFieldsConsumer<O> = FieldsConsumerEnum2<
+  BaseCodecFieldsConsumer<O>,
+  InvertedWriteFieldsConsumer<BaseCodecFieldsConsumer<O>>,
+>;
 
 #[cfg(not(test))]
 pub type CodecFieldsProducer<I> =
   <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsProducer<I>;
 #[cfg(test)]
-pub type CodecFieldsProducer<I> = FieldsProducerEnum2<
+pub type BaseCodecFieldsProducer<I> = FieldsProducerEnum2<
   <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsProducer<I>,
   <AssertingPostingsFormat as PostingsFormat>::FieldsProducer<I>,
 >;
+#[cfg(test)]
+pub type CodecFieldsProducer<I> =
+  FieldsProducerEnum2<BaseCodecFieldsProducer<I>, BaseCodecFieldsProducer<I>>;
+
+#[cfg(test)]
+impl CodecPostingsFormat {
+  pub(crate) fn base_fields_consumer<D1, D2>(
+    &self,
+    state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<BaseCodecFieldsConsumer<D1::IndexOutput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => format.fields_consumer(state, segment_info).map(|consumer| {
+        FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(consumer)))
+      }),
+      Self::Asserting(format) => format.fields_consumer(state, segment_info).map(|consumer| {
+        FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(consumer)))
+      }),
+      Self::MergePerField(format) => format
+        .fields_consumer(state, segment_info)
+        .map(FieldsConsumerEnum2::B),
+      Self::CrankyLucene101(format) => {
+        format.fields_consumer(state, segment_info).map(|consumer| {
+          FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(FieldsConsumerEnum2::A(consumer)))
+        })
+      },
+      Self::CrankyAsserting(format) => {
+        format.fields_consumer(state, segment_info).map(|consumer| {
+          FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(FieldsConsumerEnum2::B(consumer)))
+        })
+      },
+      Self::InvertedWrite(_) => Err(LuceneError::illegal_state(
+        "InvertedWritePostingsFormat cannot wrap itself",
+      )),
+    }
+  }
+
+  pub(crate) fn base_fields_producer<D1, D2>(
+    &self,
+    state: &SegmentReadState<D1>,
+    segment_info: &SegmentInfo<D2>,
+  ) -> Result<BaseCodecFieldsProducer<D1::IndexInput>>
+  where
+    D1: Directory,
+    D2: Directory,
+  {
+    match self {
+      Self::Lucene101(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::A),
+      Self::Asserting(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::B),
+      Self::MergePerField(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::A),
+      Self::CrankyLucene101(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::A),
+      Self::CrankyAsserting(format) => format
+        .fields_producer(state, segment_info)
+        .map(FieldsProducerEnum2::B),
+      Self::InvertedWrite(_) => Err(LuceneError::illegal_state(
+        "InvertedWritePostingsFormat cannot wrap itself",
+      )),
+    }
+  }
+}
 
 impl HasIdentity for CodecPostingsFormat {
   fn identity(&self) -> &Identity {
@@ -424,6 +507,8 @@ impl HasIdentity for CodecPostingsFormat {
       Self::CrankyLucene101(format) => format.identity(),
       #[cfg(test)]
       Self::CrankyAsserting(format) => format.identity(),
+      #[cfg(test)]
+      Self::InvertedWrite(format) => format.identity(),
     }
   }
 }
@@ -440,6 +525,8 @@ impl PostingsFormat for CodecPostingsFormat {
       Self::CrankyLucene101(format) => format.get_name(),
       #[cfg(test)]
       Self::CrankyAsserting(format) => format.get_name(),
+      #[cfg(test)]
+      Self::InvertedWrite(format) => format.get_name(),
     }
   }
 
@@ -454,39 +541,22 @@ impl PostingsFormat for CodecPostingsFormat {
     D1: Directory,
     D2: Directory,
   {
-    match self {
-      Self::Lucene101(format) => {
-        #[cfg(not(test))]
-        {
-          format.fields_consumer(state, segment_info)
-        }
-        #[cfg(test)]
-        {
-          format.fields_consumer(state, segment_info).map(|consumer| {
-            FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(consumer)))
-          })
-        }
-      },
-      #[cfg(test)]
-      Self::Asserting(format) => format.fields_consumer(state, segment_info).map(|consumer| {
-        FieldsConsumerEnum2::A(FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(consumer)))
-      }),
-      #[cfg(test)]
-      Self::MergePerField(format) => format
-        .fields_consumer(state, segment_info)
-        .map(FieldsConsumerEnum2::B),
-      #[cfg(test)]
-      Self::CrankyLucene101(format) => {
-        format.fields_consumer(state, segment_info).map(|consumer| {
-          FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(FieldsConsumerEnum2::A(consumer)))
-        })
-      },
-      #[cfg(test)]
-      Self::CrankyAsserting(format) => {
-        format.fields_consumer(state, segment_info).map(|consumer| {
-          FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(FieldsConsumerEnum2::B(consumer)))
-        })
-      },
+    #[cfg(not(test))]
+    {
+      match self {
+        Self::Lucene101(format) => format.fields_consumer(state, segment_info),
+      }
+    }
+    #[cfg(test)]
+    {
+      match self {
+        Self::InvertedWrite(format) => format
+          .fields_consumer(state, segment_info)
+          .map(FieldsConsumerEnum2::B),
+        _ => self
+          .base_fields_consumer(state, segment_info)
+          .map(FieldsConsumerEnum2::A),
+      }
     }
   }
 
@@ -501,35 +571,22 @@ impl PostingsFormat for CodecPostingsFormat {
     D1: Directory,
     D2: Directory,
   {
-    match self {
-      Self::Lucene101(format) => {
-        #[cfg(not(test))]
-        {
-          format.fields_producer(state, segment_info)
-        }
-        #[cfg(test)]
-        {
-          format
-            .fields_producer(state, segment_info)
-            .map(FieldsProducerEnum2::A)
-        }
-      },
-      #[cfg(test)]
-      Self::Asserting(format) => format
-        .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::B),
-      #[cfg(test)]
-      Self::MergePerField(format) => format
-        .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::A),
-      #[cfg(test)]
-      Self::CrankyLucene101(format) => format
-        .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::A),
-      #[cfg(test)]
-      Self::CrankyAsserting(format) => format
-        .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::B),
+    #[cfg(not(test))]
+    {
+      match self {
+        Self::Lucene101(format) => format.fields_producer(state, segment_info),
+      }
+    }
+    #[cfg(test)]
+    {
+      match self {
+        Self::InvertedWrite(format) => format
+          .fields_producer(state, segment_info)
+          .map(FieldsProducerEnum2::B),
+        _ => self
+          .base_fields_producer(state, segment_info)
+          .map(FieldsProducerEnum2::A),
+      }
     }
   }
 
