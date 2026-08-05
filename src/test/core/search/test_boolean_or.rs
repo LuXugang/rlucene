@@ -56,59 +56,50 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::SliceRandom;
 use std::fmt::{Display, Formatter};
-use std::sync::LazyLock;
 
-#[allow(dead_code)]
-struct TestBooleanOr;
+struct TestBooleanOr {
+  t1: TermQuery,
+  t2: TermQuery,
+  c1: TermQuery,
+  c2: TermQuery,
+  searcher: DefaultIndexSearchCR,
+}
 
 const FIELD_T: &str = "T";
 const FIELD_C: &str = "C";
 
-static QUERYS: LazyLock<(TermQuery, TermQuery, TermQuery, TermQuery)> = LazyLock::new(|| {
-  let t1 = TermQuery::new(Term::from_text(FIELD_T, "files"));
-  let t2 = TermQuery::new(Term::from_text(FIELD_T, "deleting"));
-  let c1 = TermQuery::new(Term::from_text(FIELD_C, "production"));
-  let c2 = TermQuery::new(Term::from_text(FIELD_C, "optimize"));
-  (t1, t2, c1, c2)
-});
-
-static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
-  let mut random = random();
-  set_up(&mut random).expect("failed to initialize TestBooleanOr")
-});
-
-fn search<R>(random: &mut R, searcher: &DefaultIndexSearchCR, q: impl Into<Query>) -> Result<usize>
+fn search<R>(random: &mut R, case: &TestBooleanOr, q: impl Into<Query>) -> Result<usize>
 where
   R: Rng + ?Sized,
 {
   let q = q.into();
-  QueryUtils::check_from_searcher(random, q.clone(), searcher)?;
-  let v = searcher.search(q, 1000)?.total_hits.value();
+  QueryUtils::check_from_searcher(random, q.clone(), &case.searcher)?;
+  let v = case.searcher.search(q, 1000)?.total_hits.value();
   Ok(v)
 }
 #[test]
 fn test_elements() -> Result<()> {
   let mut random = random();
-  let searcher = &*CONTEXT;
+  let case = set_up(&mut random)?;
 
-  assert_eq!(1, search(&mut random, searcher, QUERYS.0.clone())?);
-  assert_eq!(1, search(&mut random, searcher, QUERYS.1.clone())?);
-  assert_eq!(1, search(&mut random, searcher, QUERYS.2.clone())?);
-  assert_eq!(1, search(&mut random, searcher, QUERYS.3.clone())?);
+  assert_eq!(1, search(&mut random, &case, case.t1.clone())?);
+  assert_eq!(1, search(&mut random, &case, case.t2.clone())?);
+  assert_eq!(1, search(&mut random, &case, case.c1.clone())?);
+  assert_eq!(1, search(&mut random, &case, case.c2.clone())?);
 
   Ok(())
 }
 #[test]
 fn test_flat() -> Result<()> {
   let mut random = random();
-  let searcher = &*CONTEXT;
+  let case = set_up(&mut random)?;
 
   let mut q = Builder::new();
-  q.add(QUERYS.0.clone(), Occur::Should)?;
-  q.add(QUERYS.1.clone(), Occur::Should)?;
-  q.add(QUERYS.2.clone(), Occur::Should)?;
-  q.add(QUERYS.3.clone(), Occur::Should)?;
-  assert_eq!(1, search(&mut random, searcher, q.build())?);
+  q.add(case.t1.clone(), Occur::Should)?;
+  q.add(case.t2.clone(), Occur::Should)?;
+  q.add(case.c1.clone(), Occur::Should)?;
+  q.add(case.c2.clone(), Occur::Should)?;
+  assert_eq!(1, search(&mut random, &case, q.build())?);
 
   Ok(())
 }
@@ -116,20 +107,20 @@ fn test_flat() -> Result<()> {
 #[test]
 fn test_parenthesis_must() -> Result<()> {
   let mut random = random();
-  let searcher = &*CONTEXT;
+  let case = set_up(&mut random)?;
 
   let mut q3 = Builder::new();
-  q3.add(QUERYS.0.clone(), Occur::Should)?;
-  q3.add(QUERYS.1.clone(), Occur::Should)?;
+  q3.add(case.t1.clone(), Occur::Should)?;
+  q3.add(case.t2.clone(), Occur::Should)?;
 
   let mut q4 = Builder::new();
-  q4.add(QUERYS.2.clone(), Occur::Must)?;
-  q4.add(QUERYS.3.clone(), Occur::Must)?;
+  q4.add(case.c1.clone(), Occur::Must)?;
+  q4.add(case.c2.clone(), Occur::Must)?;
 
   let mut q2 = Builder::new();
   q2.add(q3.build(), Occur::Should)?;
   q2.add(q4.build(), Occur::Should)?;
-  assert_eq!(1, search(&mut random, searcher, q2.build())?);
+  assert_eq!(1, search(&mut random, &case, q2.build())?);
 
   Ok(())
 }
@@ -137,47 +128,51 @@ fn test_parenthesis_must() -> Result<()> {
 #[test]
 fn test_parenthesis_must2() -> Result<()> {
   let mut random = random();
-  let searcher = &*CONTEXT;
+  let case = set_up(&mut random)?;
 
   let mut q3 = Builder::new();
-  q3.add(QUERYS.0.clone(), Occur::Should)?;
-  q3.add(QUERYS.1.clone(), Occur::Should)?;
+  q3.add(case.t1.clone(), Occur::Should)?;
+  q3.add(case.t2.clone(), Occur::Should)?;
 
   let mut q4 = Builder::new();
-  q4.add(QUERYS.2.clone(), Occur::Should)?;
-  q4.add(QUERYS.3.clone(), Occur::Should)?;
+  q4.add(case.c1.clone(), Occur::Should)?;
+  q4.add(case.c2.clone(), Occur::Should)?;
 
   let mut q2 = Builder::new();
   q2.add(q3.build(), Occur::Should)?;
   q2.add(q4.build(), Occur::Must)?;
-  assert_eq!(1, search(&mut random, searcher, q2.build())?);
+  assert_eq!(1, search(&mut random, &case, q2.build())?);
 
   Ok(())
 }
 #[test]
 fn test_parenthesis_should() -> Result<()> {
   let mut random = random();
-  let searcher = &*CONTEXT;
+  let case = set_up(&mut random)?;
 
   let mut q3 = Builder::new();
-  q3.add(QUERYS.0.clone(), Occur::Should)?;
-  q3.add(QUERYS.1.clone(), Occur::Should)?;
+  q3.add(case.t1.clone(), Occur::Should)?;
+  q3.add(case.t2.clone(), Occur::Should)?;
 
   let mut q4 = Builder::new();
-  q4.add(QUERYS.2.clone(), Occur::Should)?;
-  q4.add(QUERYS.3.clone(), Occur::Should)?;
+  q4.add(case.c1.clone(), Occur::Should)?;
+  q4.add(case.c2.clone(), Occur::Should)?;
 
   let mut q2 = Builder::new();
   q2.add(q3.build(), Occur::Should)?;
   q2.add(q4.build(), Occur::Should)?;
-  assert_eq!(1, search(&mut random, searcher, q2.build())?);
+  assert_eq!(1, search(&mut random, &case, q2.build())?);
 
   Ok(())
 }
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+fn set_up<R>(random: &mut R) -> Result<TestBooleanOr>
 where
   R: Rng + ?Sized,
 {
+  let t1 = TermQuery::new(Term::from_text(FIELD_T, "files"));
+  let t2 = TermQuery::new(Term::from_text(FIELD_T, "deleting"));
+  let c1 = TermQuery::new(Term::from_text(FIELD_C, "production"));
+  let c2 = TermQuery::new(Term::from_text(FIELD_C, "optimize"));
   let dir = new_directory_shared(random)?;
   let writer = RandomIndexWriter::new(random, dir.clone())?;
 
@@ -198,11 +193,18 @@ where
   let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
   writer.close(random)?;
-  Ok(searcher)
+  Ok(TestBooleanOr {
+    t1,
+    t2,
+    c1,
+    c2,
+    searcher,
+  })
 }
 #[test]
 fn test_boolean_scorer_max() -> Result<()> {
   let mut random = random();
+  let _searcher = set_up(&mut random)?;
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
@@ -315,6 +317,7 @@ impl SimpleCollector for SimpleCollectorImpl<'_> {}
 #[test]
 fn test_sub_scorer_next_is_not_match() -> Result<()> {
   let mut random = random();
+  let _searcher = set_up(&mut random)?;
   let mut optional_scorers = vec![
     scorer(vec![100000, 1000001, 9_999_999])?,
     scorer(vec![4000, 1000051])?,

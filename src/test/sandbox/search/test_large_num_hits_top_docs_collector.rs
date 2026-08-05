@@ -36,15 +36,10 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestLargeNumHitsTopDocsCollector;
-
-static CONTEXT: LazyLock<(Arc<StandardDirectoryReader<DirEnum>>, Query)> = LazyLock::new(|| {
-  let mut random = random();
-  set_up(&mut random).expect("failed to initialize TestLargeNumHitsTopDocsCollector")
-});
 
 fn set_up<R>(random: &mut R) -> Result<(Arc<StandardDirectoryReader<DirEnum>>, Query)>
 where
@@ -93,8 +88,8 @@ fn test_request_less_hits_than_collected() -> Result<()> {
 
 #[test]
 fn test_illegal_arguments() -> Result<()> {
-  let reader = CONTEXT.0.clone();
-  let test_query = CONTEXT.1.clone();
+  let mut random = random();
+  let (reader, test_query) = set_up(&mut random)?;
   let searcher = new_searcher_with_reader(reader.clone())?;
   let mut large_collector = LargeNumHitsTopDocsCollector::new(15);
   let regular_collector_manager = TopScoreDocCollectorManager::new(15, i32::MAX as usize)?;
@@ -120,8 +115,8 @@ fn test_illegal_arguments() -> Result<()> {
 
 #[test]
 fn test_no_pq_build() -> Result<()> {
-  let reader = CONTEXT.0.clone();
-  let test_query = CONTEXT.1.clone();
+  let mut random = random();
+  let (reader, test_query) = set_up(&mut random)?;
   let searcher = new_searcher_with_reader(reader.clone())?;
   let mut large_collector = LargeNumHitsTopDocsCollector::new(250_000);
   let regular_collector_manager =
@@ -140,8 +135,8 @@ fn test_no_pq_build() -> Result<()> {
 
 #[test]
 fn test_pq_build() -> Result<()> {
-  let reader = CONTEXT.0.clone();
-  let test_query = CONTEXT.1.clone();
+  let mut random = random();
+  let (reader, test_query) = set_up(&mut random)?;
   let searcher = new_searcher_with_reader(reader.clone())?;
   let mut large_collector = LargeNumHitsTopDocsCollector::new(50);
   let regular_collector_manager = TopScoreDocCollectorManager::new(50, i32::MAX as usize)?;
@@ -159,8 +154,8 @@ fn test_pq_build() -> Result<()> {
 
 #[test]
 fn test_no_pq_hits_order() -> Result<()> {
-  let reader = CONTEXT.0.clone();
-  let test_query = CONTEXT.1.clone();
+  let mut random = random();
+  let (reader, test_query) = set_up(&mut random)?;
   let searcher = new_searcher_with_reader(reader.clone())?;
   let mut large_collector = LargeNumHitsTopDocsCollector::new(250_000);
   let regular_collector_manager =
@@ -188,8 +183,8 @@ fn test_no_pq_hits_order() -> Result<()> {
 }
 
 fn run_num_hits(num_hits: usize) -> Result<()> {
-  let reader = CONTEXT.0.clone();
-  let test_query = CONTEXT.1.clone();
+  let mut random = random();
+  let (reader, test_query) = set_up(&mut random)?;
   let searcher = new_searcher_with_reader(reader.clone())?;
   let mut large_collector = LargeNumHitsTopDocsCollector::new(num_hits);
   let regular_collector_manager = TopScoreDocCollectorManager::new(num_hits, i32::MAX as usize)?;

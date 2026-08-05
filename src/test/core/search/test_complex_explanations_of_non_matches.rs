@@ -25,8 +25,10 @@ use crate::test_framework::core::search::base_explanation_test_case::{
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::DefaultIndexSearchCRShared;
 use crate::test_framework::core::util::lucene_test_case::random;
+use parking_lot::Mutex;
 use rand::Rng;
 use rand::prelude::StdRng;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::LazyLock;
 
 /// TestSimpleExplanations that verifies non matches.
@@ -35,11 +37,11 @@ struct TestComplexExplanationsOfNonMatches {
   base: TestComplexExplanations,
 }
 
-static CONTEXT: LazyLock<TestComplexExplanationsOfNonMatches> = LazyLock::new(|| {
+static CONTEXT: LazyLock<Mutex<TestComplexExplanationsOfNonMatches>> = LazyLock::new(|| {
   let mut random = random();
   let base = TestComplexExplanations::new(&mut random)
     .expect("failed to initialize TestComplexExplanationsOfNonMatches");
-  TestComplexExplanationsOfNonMatches { base }
+  Mutex::new(TestComplexExplanationsOfNonMatches { base })
 });
 
 fn run_case<F>(f: F) -> Result<()>
@@ -47,10 +49,27 @@ where
   F: FnOnce(&TestComplexExplanationsOfNonMatches, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  f(&CONTEXT, &mut random)
+  let mut case = CONTEXT.lock();
+  case.initialize()?;
+  let result = catch_unwind(AssertUnwindSafe(|| f(&case, &mut random)));
+  let tear_down_result = case.base.tear_down();
+  match result {
+    Ok(result) => {
+      tear_down_result?;
+      result
+    },
+    Err(payload) => {
+      let _ = tear_down_result;
+      resume_unwind(payload)
+    },
+  }
 }
 
 impl BaseExplanationTestCase for TestComplexExplanationsOfNonMatches {
+  fn initialize(&mut self) -> Result<()> {
+    self.base.initialize()
+  }
+
   fn q_test<R, Q>(
     &self,
     _random: &mut R,

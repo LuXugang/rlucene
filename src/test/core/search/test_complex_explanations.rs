@@ -20,6 +20,7 @@ use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
+use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::query::Query;
@@ -30,8 +31,10 @@ use crate::test_framework::core::search::base_explanation_test_case::{
   BaseExplanationTestCase, BaseExplanationTestContext, FIELD, before_class_test_explanations,
 };
 use crate::test_framework::core::util::lucene_test_case::random;
+use parking_lot::Mutex;
 use rand::Rng;
 use rand::prelude::StdRng;
+use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
@@ -45,9 +48,15 @@ impl TestComplexExplanations {
     R: Rng + ?Sized,
   {
     let context = before_class_test_explanations(random)?;
-    let mut test = Self { context };
-    test.initialize()?;
-    Ok(test)
+    Ok(Self { context })
+  }
+
+  pub(crate) fn tear_down(&mut self) -> Result<()> {
+    self
+      .context
+      .searcher
+      .set_similarity(get_default_similarity()?);
+    Ok(())
   }
 }
 
@@ -67,9 +76,12 @@ impl ComplexExplanations for TestComplexExplanations {
   }
 }
 
-static CONTEXT: LazyLock<TestComplexExplanations> = LazyLock::new(|| {
+static CONTEXT: LazyLock<Mutex<TestComplexExplanations>> = LazyLock::new(|| {
   let mut random = random();
-  TestComplexExplanations::new(&mut random).expect("failed to initialize TestComplexExplanations")
+  Mutex::new(
+    TestComplexExplanations::new(&mut random)
+      .expect("failed to initialize TestComplexExplanations"),
+  )
 });
 
 fn run_case<F>(f: F) -> Result<()>
@@ -77,7 +89,20 @@ where
   F: FnOnce(&TestComplexExplanations, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  f(&CONTEXT, &mut random)
+  let mut case = CONTEXT.lock();
+  case.initialize()?;
+  let result = catch_unwind(AssertUnwindSafe(|| f(&case, &mut random)));
+  let tear_down_result = case.tear_down();
+  match result {
+    Ok(result) => {
+      tear_down_result?;
+      result
+    },
+    Err(payload) => {
+      let _ = tear_down_result;
+      resume_unwind(payload)
+    },
+  }
 }
 
 mod complex_explanations_tests {

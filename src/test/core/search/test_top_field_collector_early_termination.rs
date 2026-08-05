@@ -46,18 +46,10 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestTopFieldCollectorEarlyTermination;
-static SORT: LazyLock<Arc<Sort>> = LazyLock::new(|| {
-  Arc::from(
-    Sort::with_fields(vec![
-      SortField::new(Some("ndv1"), SortFieldType::Long).unwrap(),
-    ])
-    .unwrap(),
-  )
-});
 const FORCE_MERGE_MAX_SEGMENT_COUNT: i32 = 5;
 fn random_document<R>(random: &mut R, terms: &[String]) -> Result<Document>
 where
@@ -82,6 +74,7 @@ where
 fn create_random_index<R>(
   random: &mut R,
   single_sorted_segment: bool,
+  sort: Arc<Sort>,
 ) -> Result<(DefaultCRReader, Vec<String>)>
 where
   R: Rng + ?Sized,
@@ -103,7 +96,7 @@ where
   let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
 
   iwc.set_merge_scheduler(SerialMergeScheduler::new());
-  iwc.set_index_sort(SORT.clone())?;
+  iwc.set_index_sort(sort)?;
 
   let iw = RandomIndexWriter::with_config(random, dir.clone(), iwc);
   iw.set_do_random_force_merge(false);
@@ -155,10 +148,14 @@ fn do_test_early_termination<R>(random: &mut R, paging: bool) -> Result<()>
 where
   R: Rng + ?Sized,
 {
+  let sort = Arc::new(Sort::with_fields(vec![SortField::new(
+    Some("ndv1"),
+    SortFieldType::Long,
+  )?])?);
   let iters = at_least_usize(random, 1);
 
   for _ in 0..iters {
-    let (reader, terms) = create_random_index(random, false)?;
+    let (reader, terms) = create_random_index(random, false, sort.clone())?;
     let reader = Arc::new(reader);
 
     for _ in 0..iters {
@@ -194,7 +191,7 @@ where
 
       let after = if paging {
         debug_assert!(searcher.get_index_reader().num_docs()? > 0);
-        let mut td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, SORT.clone())?;
+        let mut td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort.clone())?;
         let len = td.score_docs().len() - 1;
         let v = std::mem::take(&mut td.base.take_score_docs()[len]);
         v.into_field()
@@ -203,12 +200,12 @@ where
       };
 
       let manager1 = TopFieldCollectorManager::with_after(
-        SORT.clone(),
+        sort.clone(),
         num_hits,
         after.clone(),
         i32::MAX as usize,
       )?;
-      let manager2 = TopFieldCollectorManager::with_after(SORT.clone(), num_hits, after, 1)?;
+      let manager2 = TopFieldCollectorManager::with_after(sort.clone(), num_hits, after, 1)?;
 
       let query: Query = if random.random_bool(0.5) {
         let term = terms.choose(random).unwrap();

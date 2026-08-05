@@ -50,16 +50,13 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use std::hash::{Hash, Hasher};
 use std::mem;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 pub struct TestNeedsScores {
   #[allow(dead_code)]
   dir: Arc<DirEnum>,
   searcher: DefaultIndexSearchCR,
 }
-
-static CONTEXT: LazyLock<TestNeedsScores> =
-  LazyLock::new(|| TestNeedsScores::set_up().expect("failed to initialize TestNeedsScores"));
 
 impl TestNeedsScores {
   fn set_up() -> Result<Self> {
@@ -86,7 +83,7 @@ impl TestNeedsScores {
 
 #[test]
 fn test_prohibited_clause() -> Result<()> {
-  let case = &*CONTEXT;
+  let case = TestNeedsScores::set_up()?;
   let required = TermQuery::new(Term::from_text("field", "this"));
   let prohibited = TermQuery::new(Term::from_text("field", "3"));
   let mut bq = BooleanQueryBuilder::new();
@@ -104,7 +101,7 @@ fn test_prohibited_clause() -> Result<()> {
 
 #[test]
 fn test_constant_score_query() -> Result<()> {
-  let case = &*CONTEXT;
+  let case = TestNeedsScores::set_up()?;
   let term = TermQuery::new(Term::from_text("field", "this"));
 
   let constant_score = ConstantScoreQuery::new(AssertNeedsScores::new(
@@ -158,7 +155,7 @@ fn test_constant_score_query() -> Result<()> {
 
 #[test]
 fn test_sort_by_field() -> Result<()> {
-  let case = &*CONTEXT;
+  let case = TestNeedsScores::set_up()?;
   let query = AssertNeedsScores::new(MatchAllDocsQuery::new(), ScoreMode::TopDocs);
   assert_eq!(
     5,
@@ -174,7 +171,7 @@ fn test_sort_by_field() -> Result<()> {
 
 #[test]
 fn test_sort_by_score() -> Result<()> {
-  let case = &*CONTEXT;
+  let case = TestNeedsScores::set_up()?;
   let query = AssertNeedsScores::new(MatchAllDocsQuery::new(), ScoreMode::TopScores);
   assert_eq!(
     5,

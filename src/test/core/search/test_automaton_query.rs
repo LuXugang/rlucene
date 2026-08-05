@@ -44,7 +44,6 @@ use rand::RngExt;
 use rand::prelude::StdRng;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::LazyLock;
 
 use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::regexp_query::RegexpQuery;
@@ -56,11 +55,6 @@ use crate::test_framework::core::util::automaton::automaton_test_util::Automaton
 #[allow(dead_code)] // for quick search
 struct TestAutomatonQuery;
 const FN: &str = "field";
-
-static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
-  let mut random = random();
-  set_up(&mut random).expect("failed to initialize TestAutomatonQuery")
-});
 
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
@@ -114,7 +108,8 @@ where
   F: FnOnce(&mut StdRng, &DefaultIndexSearchCR) -> Result<()>,
 {
   let mut random = random();
-  test(&mut random, &CONTEXT)
+  let searcher = set_up(&mut random)?;
+  test(&mut random, &searcher)
 }
 fn new_term(value: &str) -> Term {
   Term::from_text(FN, value)
@@ -250,6 +245,9 @@ fn test_automata() -> Result<()> {
 }
 #[test]
 fn test_equals() -> Result<()> {
+  let mut random = random();
+  let _searcher = set_up(&mut random)?;
+
   let a1 = AutomatonQuery::from_automaton(new_term("foobar"), Automata::make_string("foobar")?)?;
   let a2 = a1.clone();
   let a3 = AutomatonQuery::from_automaton(
@@ -336,6 +334,7 @@ fn test_empty_optimization() -> Result<()> {
 #[test]
 fn test_hash_code_with_threads() -> Result<()> {
   let mut random = random();
+  let _searcher = set_up(&mut random)?;
   let mut queries = Vec::new();
   for _ in 0..at_least(&mut random, 100) {
     let automaton = AutomatonTestUtil::random_automaton(&mut random)?;
@@ -371,6 +370,7 @@ fn test_hash_code_with_threads() -> Result<()> {
 #[test]
 fn test_biggish_automaton() -> Result<()> {
   let mut random = random();
+  let _searcher = set_up(&mut random)?;
 
   let num_terms: usize = if is_night_mode() { 3000 } else { 500 };
 
