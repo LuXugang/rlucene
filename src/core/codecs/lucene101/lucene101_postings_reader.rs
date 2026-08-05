@@ -30,6 +30,7 @@ use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::postings_enum::{
   FREQS, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum, feature_requested,
 };
@@ -53,15 +54,15 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VECTOR_UTIL;
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
+use std::fmt::{self, Display, Formatter};
 use std::sync::Arc;
-use std::{fmt, ptr};
 
 pub struct Lucene101PostingsReader<I>
 where
   I: IndexInput,
 {
   doc_in: I,
+  doc_in_identity: Identity,
   pos_in: Option<I>,
   pay_in: Option<I>,
   max_num_impacts_at_level0: i32,
@@ -241,6 +242,7 @@ where
         doc_in: doc_in_opt
           .take()
           .ok_or_else(|| LuceneError::illegal_state("postings docs input is missing"))?,
+        doc_in_identity: Identity::new(),
         pos_in: pos_in_opt.take(),
         pay_in: pay_in_opt.take(),
         max_num_impacts_at_level0,
@@ -383,7 +385,7 @@ where
     flags: i32,
   ) -> Result<Option<Self::PostingsEnum>> {
     if let Some(mut e) = reuse
-      && e.can_reuse(&self.doc_in, field_info, flags, false, self)
+      && e.can_reuse(&self.doc_in_identity, field_info, flags, false)
     {
       e.reset(term_state, flags, self)?;
       return Ok(Some(e));
@@ -440,6 +442,7 @@ pub struct BlockPostingsEnum<I>
 where
   I: IndexInput,
 {
+  doc_in_identity: Identity,
   for_delta_util: Option<ForDeltaUtil>,
   pfor_util: Option<PForUtil>,
 
@@ -631,6 +634,7 @@ where
     };
 
     Ok(BlockPostingsEnum {
+      doc_in_identity: reader.doc_in_identity.clone(),
       for_delta_util: None,
       pfor_util: None,
       doc_buffer: [0; ForUtil::BLOCK_SIZE],
@@ -713,13 +717,12 @@ where
   }
   pub fn can_reuse(
     &self,
-    doc_in: &I,
+    doc_in_identity: &Identity,
     field_info: &FieldInfo,
     flags: i32,
     needs_impacts: bool,
-    reader: &Lucene101PostingsReader<I>,
   ) -> bool {
-    ptr::eq(doc_in, &reader.doc_in)
+    self.doc_in_identity.eq(doc_in_identity)
       && self.options == *field_info.get_index_options()
       && self.index_has_payloads == field_info.has_payloads()
       && self.flags == flags
