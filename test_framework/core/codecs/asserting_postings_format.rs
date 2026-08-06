@@ -128,6 +128,10 @@ where
   fn new(in_: FP) -> Self {
     Self { in_ }
   }
+
+  pub(crate) fn into_inner(self) -> FP {
+    self.in_
+  }
 }
 
 impl<FP> CloseableRef for AssertingFieldsProducer<FP>

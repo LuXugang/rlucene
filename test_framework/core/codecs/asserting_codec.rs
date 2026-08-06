@@ -21,7 +21,7 @@ use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducerEnum2;
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
-use crate::core::codecs::fields_producer::FieldsProducerEnum2;
+use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_formats::KnnVectorsFormats;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum2;
@@ -39,13 +39,16 @@ use crate::core::codecs::perfield::per_field_postings_format::{
   PerFieldPostingsFormat, PerFieldPostingsFormatBase,
 };
 use crate::core::codecs::postings_format::PostingsFormat;
+use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::index::terms::TermsEnum2;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::codecs::asserting_doc_values_format::AssertingDocValuesFormat;
 use crate::test_framework::core::codecs::asserting_knn_vectors_format::AssertingKnnVectorsFormat;
@@ -68,6 +71,7 @@ use crate::test_framework::core::codecs::perfield::test_per_field_postings_forma
   MergeCalledOnTwoFormatsPostingsAssertingCodec, MergeRecordingPostingsFormatWrapper,
   MockAssertingCodec, SameCodecDifferentInstanceAssertingCodec,
 };
+use crate::test_framework::core::index::asserting_leaf_reader::AssertingTerms;
 use crate::test_framework::core::index::test_add_indexes::CustomPerFieldAssertingCodec;
 use crate::test_framework::core::util::test_util::{
   DefaultCodec, DefaultDocValuesFormat, DefaultPostingsFormat, TestUtil,
@@ -144,16 +148,122 @@ pub type AssertingCodecFieldsConsumer<O> = FieldsConsumerEnum2<
   >,
 >;
 
-pub type AssertingCodecFieldsProducer<I> = FieldsProducerEnum2<
-  FieldsProducerEnum2<
-    <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>,
-    <AssertingPostingsFormat as PostingsFormat>::FieldsProducer<I>,
-  >,
-  FieldsProducerEnum2<
-    <DirectPostingsFormat as PostingsFormat>::FieldsProducer<I>,
-    <MergeRecordingPostingsFormatWrapper as PostingsFormat>::FieldsProducer<I>,
-  >,
->;
+type DefaultAssertingCodecFieldsProducer<I> =
+  <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>;
+type AssertingCodecFieldsProducerInner<I> =
+  <DirectPostingsFormat as PostingsFormat>::FieldsProducer<I>;
+
+#[derive(Clone, Copy)]
+enum AssertingCodecFieldsProducerHook {
+  Default,
+  Asserting,
+}
+
+pub struct AssertingCodecFieldsProducer<I>
+where
+  I: IndexInput,
+{
+  in_: AssertingCodecFieldsProducerInner<I>,
+  hook: AssertingCodecFieldsProducerHook,
+}
+
+impl<I> AssertingCodecFieldsProducer<I>
+where
+  I: IndexInput,
+{
+  fn default(in_: DefaultAssertingCodecFieldsProducer<I>) -> Self {
+    Self {
+      in_: FieldsProducerEnum2::A(in_),
+      hook: AssertingCodecFieldsProducerHook::Default,
+    }
+  }
+
+  fn asserting(in_: DefaultAssertingCodecFieldsProducer<I>) -> Self {
+    Self {
+      in_: FieldsProducerEnum2::A(in_),
+      hook: AssertingCodecFieldsProducerHook::Asserting,
+    }
+  }
+
+  fn direct(in_: AssertingCodecFieldsProducerInner<I>) -> Self {
+    Self {
+      in_,
+      hook: AssertingCodecFieldsProducerHook::Default,
+    }
+  }
+}
+
+impl<I> CloseableRef for AssertingCodecFieldsProducer<I>
+where
+  I: IndexInput,
+{
+  fn close(&self) -> Result<()> {
+    self.in_.close()?;
+    match self.hook {
+      AssertingCodecFieldsProducerHook::Default => Ok(()),
+      AssertingCodecFieldsProducerHook::Asserting => self.in_.close(),
+    }
+  }
+}
+
+impl<I> Fields for AssertingCodecFieldsProducer<I>
+where
+  I: IndexInput,
+{
+  type FieldIter<'a>
+    = <AssertingCodecFieldsProducerInner<I> as Fields>::FieldIter<'a>
+  where
+    Self: 'a;
+
+  fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+    self.in_.iterator()
+  }
+
+  type Terms = TermsEnum2<
+    <AssertingCodecFieldsProducerInner<I> as Fields>::Terms,
+    AssertingTerms<<DefaultAssertingCodecFieldsProducer<I> as Fields>::Terms>,
+  >;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    match (&self.hook, &self.in_) {
+      (AssertingCodecFieldsProducerHook::Asserting, FieldsProducerEnum2::A(in_)) => Ok(
+        in_
+          .terms(field)?
+          .map(AssertingTerms::new)
+          .map(TermsEnum2::B),
+      ),
+      (AssertingCodecFieldsProducerHook::Asserting, FieldsProducerEnum2::B(_)) => {
+        unreachable!("asserting hook must wrap the default postings producer")
+      },
+      (AssertingCodecFieldsProducerHook::Default, _) => {
+        Ok(self.in_.terms(field)?.map(TermsEnum2::A))
+      },
+    }
+  }
+
+  fn size(&self) -> Result<i32> {
+    self.in_.size()
+  }
+}
+
+impl<I> FieldsProducer for AssertingCodecFieldsProducer<I>
+where
+  I: IndexInput,
+{
+  fn check_integrity(&self) -> Result<()> {
+    self.in_.check_integrity()
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    Ok(self.in_.get_merge_instance()?.map(|in_| Self {
+      in_,
+      hook: self.hook,
+    }))
+  }
+}
 
 impl PostingsFormat for AssertingCodecPostingsFormat {
   fn get_name(&self) -> &str {
@@ -206,16 +316,16 @@ impl PostingsFormat for AssertingCodecPostingsFormat {
     match self {
       Self::Default(format) => format
         .fields_producer(state, segment_info)
-        .map(|producer| FieldsProducerEnum2::A(FieldsProducerEnum2::A(producer))),
+        .map(AssertingCodecFieldsProducer::default),
       Self::Asserting(format) => format
         .fields_producer(state, segment_info)
-        .map(|producer| FieldsProducerEnum2::A(FieldsProducerEnum2::B(producer))),
+        .map(|producer| AssertingCodecFieldsProducer::asserting(producer.into_inner())),
       Self::Direct(format) => format
         .fields_producer(state, segment_info)
-        .map(|producer| FieldsProducerEnum2::B(FieldsProducerEnum2::A(producer))),
+        .map(AssertingCodecFieldsProducer::direct),
       Self::MergeRecording(format) => format
         .fields_producer(state, segment_info)
-        .map(|producer| FieldsProducerEnum2::B(FieldsProducerEnum2::B(producer))),
+        .map(AssertingCodecFieldsProducer::default),
     }
   }
 
