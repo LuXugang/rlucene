@@ -48,8 +48,9 @@ mod native_fs_lock_factory_tests {
 
   fn release_raw_native_lock(lock: &<RawDirEnum as Directory>::Lock) -> Result<()> {
     match lock {
-      LockEnum2::A(LockEnum3::A(LockEnum::Native(lock)))
-      | LockEnum2::A(LockEnum3::B(LockEnum::Native(lock))) => lock.release_lock_for_test(),
+      LockEnum3::A(LockEnum::Native(lock)) | LockEnum3::B(LockEnum::Native(lock)) => {
+        lock.release_lock_for_test()
+      },
       _ => unreachable!("newFSDirectory must use NativeFSLockFactory"),
     }
   }

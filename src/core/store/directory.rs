@@ -824,7 +824,7 @@ pub(crate) type ByteBuffersDir = ByteBuffersDirectory<SharedLockFactory>;
 #[cfg(test)]
 pub(crate) type CoreDirEnum = DirectoryEnum3<NioDir, MMapDir, ByteBuffersDir>;
 #[cfg(test)]
-pub(crate) type FileSwitchDir = FileSwitchDirectory<CoreDirEnum, CoreDirEnum>;
+pub(crate) type FileSwitchDir = FileSwitchDirectory<CoreDirEnum>;
 #[cfg(test)]
 pub(crate) type MaybeNrtDirEnum = DirectoryEnum2<RawDirEnum, NRTCachingDirectory<RawDirEnum>>;
 #[cfg(test)]
@@ -1584,23 +1584,14 @@ impl Directory for RawDirEnum {
     }
   }
 
-  type IndexOutput = IndexOutputEnum2<
-    <CoreDirEnum as Directory>::IndexOutput,
-    <FileSwitchDir as Directory>::IndexOutput,
-  >;
+  type IndexOutput = <CoreDirEnum as Directory>::IndexOutput;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
     match self {
-      Self::Nio(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::A(
-        inner.create_output(name, context)?,
-      ))),
-      Self::MMap(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::B(
-        inner.create_output(name, context)?,
-      ))),
-      Self::ByteBuffers(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::C(
-        inner.create_output(name, context)?,
-      ))),
-      Self::FileSwitch(inner) => Ok(IndexOutputEnum2::B(inner.create_output(name, context)?)),
+      Self::Nio(inner) => Ok(IndexOutputEnum3::A(inner.create_output(name, context)?)),
+      Self::MMap(inner) => Ok(IndexOutputEnum3::B(inner.create_output(name, context)?)),
+      Self::ByteBuffers(inner) => Ok(IndexOutputEnum3::C(inner.create_output(name, context)?)),
+      Self::FileSwitch(inner) => inner.create_output(name, context),
     }
   }
 
@@ -1611,18 +1602,16 @@ impl Directory for RawDirEnum {
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
     match self {
-      Self::Nio(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::A(
-        inner.create_temp_output(prefix, suffix, context)?,
-      ))),
-      Self::MMap(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::B(
-        inner.create_temp_output(prefix, suffix, context)?,
-      ))),
-      Self::ByteBuffers(inner) => Ok(IndexOutputEnum2::A(IndexOutputEnum3::C(
-        inner.create_temp_output(prefix, suffix, context)?,
-      ))),
-      Self::FileSwitch(inner) => Ok(IndexOutputEnum2::B(
+      Self::Nio(inner) => Ok(IndexOutputEnum3::A(
         inner.create_temp_output(prefix, suffix, context)?,
       )),
+      Self::MMap(inner) => Ok(IndexOutputEnum3::B(
+        inner.create_temp_output(prefix, suffix, context)?,
+      )),
+      Self::ByteBuffers(inner) => Ok(IndexOutputEnum3::C(
+        inner.create_temp_output(prefix, suffix, context)?,
+      )),
+      Self::FileSwitch(inner) => inner.create_temp_output(prefix, suffix, context),
     }
   }
 
@@ -1653,34 +1642,25 @@ impl Directory for RawDirEnum {
     }
   }
 
-  type IndexInput = IndexInputEnum2<
-    <CoreDirEnum as Directory>::IndexInput,
-    <FileSwitchDir as Directory>::IndexInput,
-  >;
+  type IndexInput = <CoreDirEnum as Directory>::IndexInput;
 
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
     match self {
-      Self::Nio(inner) => Ok(IndexInputEnum2::A(IndexInputEnum3::A(
-        inner.open_input(name, context)?,
-      ))),
-      Self::MMap(inner) => Ok(IndexInputEnum2::A(IndexInputEnum3::B(
-        inner.open_input(name, context)?,
-      ))),
-      Self::ByteBuffers(inner) => Ok(IndexInputEnum2::A(IndexInputEnum3::C(
-        inner.open_input(name, context)?,
-      ))),
-      Self::FileSwitch(inner) => Ok(IndexInputEnum2::B(inner.open_input(name, context)?)),
+      Self::Nio(inner) => Ok(IndexInputEnum3::A(inner.open_input(name, context)?)),
+      Self::MMap(inner) => Ok(IndexInputEnum3::B(inner.open_input(name, context)?)),
+      Self::ByteBuffers(inner) => Ok(IndexInputEnum3::C(inner.open_input(name, context)?)),
+      Self::FileSwitch(inner) => inner.open_input(name, context),
     }
   }
 
-  type Lock = LockEnum2<<CoreDirEnum as Directory>::Lock, <FileSwitchDir as Directory>::Lock>;
+  type Lock = <CoreDirEnum as Directory>::Lock;
 
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
     match self {
-      Self::Nio(inner) => Ok(LockEnum2::A(LockEnum3::A(inner.obtain_lock(name)?))),
-      Self::MMap(inner) => Ok(LockEnum2::A(LockEnum3::B(inner.obtain_lock(name)?))),
-      Self::ByteBuffers(inner) => Ok(LockEnum2::A(LockEnum3::C(inner.obtain_lock(name)?))),
-      Self::FileSwitch(inner) => Ok(LockEnum2::B(inner.obtain_lock(name)?)),
+      Self::Nio(inner) => Ok(LockEnum3::A(inner.obtain_lock(name)?)),
+      Self::MMap(inner) => Ok(LockEnum3::B(inner.obtain_lock(name)?)),
+      Self::ByteBuffers(inner) => Ok(LockEnum3::C(inner.obtain_lock(name)?)),
+      Self::FileSwitch(inner) => inner.obtain_lock(name),
     }
   }
 

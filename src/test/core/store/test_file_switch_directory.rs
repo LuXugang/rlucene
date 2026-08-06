@@ -36,7 +36,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::store::file_switch_directory::{FileSwitchDirectory, get_extension};
-use crate::core::store::index_input::{IndexInput, IndexInputEnum2};
+use crate::core::store::index_input::IndexInput;
 use crate::core::store::nio_fs_directory::{NIOFSDirectory, NIOFSIndexInput};
 use crate::core::store::{
   BufferedIndexInput, ByteBuffersDirectory, DataOutput, FSDirectory, IOContext, IndexOutput,
@@ -51,9 +51,8 @@ use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWra
 use crate::test_framework::core::util::test_util::TestUtil;
 
 type NioDirectory = FSDirectory<NativeFSLockFactory, NIOFSDirectory>;
-type SwitchDirectory = FileSwitchDirectory<NioDirectory, NioDirectory>;
-type SwitchIndexInput =
-  IndexInputEnum2<BufferedIndexInput<NIOFSIndexInput>, BufferedIndexInput<NIOFSIndexInput>>;
+type SwitchDirectory = FileSwitchDirectory<NioDirectory>;
+type SwitchIndexInput = BufferedIndexInput<NIOFSIndexInput>;
 
 #[allow(dead_code)] // for quick search
 pub struct TestFileSwitchDirectory;

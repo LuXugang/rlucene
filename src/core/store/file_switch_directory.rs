@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::store::directory::{Directory, DirectoryEnum2, get_temp_file_name};
-use crate::core::store::lock::LockEnum2;
-use crate::core::store::{IOContext, IndexInputEnum2, IndexOutputEnum2};
+use crate::core::store::IOContext;
+use crate::core::store::directory::{Directory, get_temp_file_name};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -61,27 +60,25 @@ pub fn get_extension(name: &str) -> &str {
 /// both `Directory` instances should use the same lock factory.
 ///
 /// @lucene.experimental
-pub struct FileSwitchDirectory<P, S>
+pub struct FileSwitchDirectory<D>
 where
-  P: Directory,
-  S: Directory,
+  D: Directory,
 {
-  secondary_dir: S,
-  primary_dir: P,
+  secondary_dir: D,
+  primary_dir: D,
   primary_extensions: HashSet<String>,
   do_close: Mutex<bool>,
   id: Identity,
 }
 
-impl<P, S> FileSwitchDirectory<P, S>
+impl<D> FileSwitchDirectory<D>
 where
-  P: Directory,
-  S: Directory,
+  D: Directory,
 {
   pub fn new(
     primary_extensions: HashSet<String>,
-    primary_dir: P,
-    secondary_dir: S,
+    primary_dir: D,
+    secondary_dir: D,
     do_close: bool,
   ) -> Result<Self> {
     if primary_extensions.contains("tmp") {
@@ -97,27 +94,30 @@ where
   }
 
   /// Return the primary directory.
-  pub fn get_primary_dir(&self) -> &P {
+  pub fn get_primary_dir(&self) -> &D {
     &self.primary_dir
   }
 
   /// Return the secondary directory.
-  pub fn get_secondary_dir(&self) -> &S {
+  pub fn get_secondary_dir(&self) -> &D {
     &self.secondary_dir
   }
 
   #[cfg(test)]
-  pub(crate) fn get_secondary_dir_mut(&mut self) -> &mut S {
+  pub(crate) fn get_secondary_dir_mut(&mut self) -> &mut D {
     &mut self.secondary_dir
   }
 
-  fn get_directory(&self, name: &str) -> DirectoryEnum2<&P, &S> {
-    let ext = get_extension(name);
-    if self.primary_extensions.contains(ext) {
-      DirectoryEnum2::A(&self.primary_dir)
+  fn get_directory(&self, name: &str) -> &D {
+    if self.is_primary(name) {
+      &self.primary_dir
     } else {
-      DirectoryEnum2::B(&self.secondary_dir)
+      &self.secondary_dir
     }
+  }
+
+  fn is_primary(&self, name: &str) -> bool {
+    self.primary_extensions.contains(get_extension(name))
   }
 
   fn is_no_such_file(error: &LuceneError) -> bool {
@@ -131,10 +131,9 @@ where
   }
 }
 
-impl<P, S> Display for FileSwitchDirectory<P, S>
+impl<D> Display for FileSwitchDirectory<D>
 where
-  P: Directory,
-  S: Directory,
+  D: Directory,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -147,10 +146,9 @@ where
   }
 }
 
-impl<P, S> CloseableRef for FileSwitchDirectory<P, S>
+impl<D> CloseableRef for FileSwitchDirectory<D>
 where
-  P: Directory,
-  S: Directory,
+  D: Directory,
 {
   fn close(&self) -> Result<()> {
     let mut do_close = self.do_close.lock();
@@ -161,30 +159,27 @@ where
     Ok(())
   }
 }
-impl<P, S> Drop for FileSwitchDirectory<P, S>
+impl<D> Drop for FileSwitchDirectory<D>
 where
-  P: Directory,
-  S: Directory,
+  D: Directory,
 {
   fn drop(&mut self) {
     let _ = self.close();
   }
 }
 
-impl<P, S> HasIdentity for FileSwitchDirectory<P, S>
+impl<D> HasIdentity for FileSwitchDirectory<D>
 where
-  P: Directory,
-  S: Directory,
+  D: Directory,
 {
   fn identity(&self) -> &Identity {
     &self.id
   }
 }
 
-impl<P, S> Directory for FileSwitchDirectory<P, S>
+impl<D> Directory for FileSwitchDirectory<D>
 where
-  P: Directory,
-  S: Directory,
+  D: Directory,
 {
   fn list_all(&self) -> Result<Vec<String>> {
     let mut files = Vec::new();
@@ -248,10 +243,7 @@ where
   }
 
   fn delete_file(&self, name: &str) -> Result<()> {
-    match self.get_directory(name) {
-      DirectoryEnum2::A(primary_dir) => primary_dir.delete_file(name),
-      DirectoryEnum2::B(secondary_dir) => secondary_dir.delete_file(name),
-    }
+    self.get_directory(name).delete_file(name)
   }
 
   fn file_length(&self, name: &str) -> Result<usize> {
@@ -262,7 +254,7 @@ where
     self.get_directory(name).create_output(name, context)
   }
 
-  type IndexOutput = IndexOutputEnum2<P::IndexOutput, S::IndexOutput>;
+  type IndexOutput = D::IndexOutput;
 
   fn create_temp_output(
     &self,
@@ -303,25 +295,24 @@ where
   }
 
   fn rename(&self, source: &str, dest: &str) -> Result<()> {
-    let source_dir = self.get_directory(source);
     // won't happen with standard lucene index files since pending and commit
     // will always have the same extension ("")
-    match (&source_dir, self.get_directory(dest)) {
-      (DirectoryEnum2::A(_), DirectoryEnum2::A(_))
-      | (DirectoryEnum2::B(_), DirectoryEnum2::B(_)) => source_dir.rename(source, dest),
-      _ => Err(LuceneError::io(Error::other(format!(
+    if self.is_primary(source) == self.is_primary(dest) {
+      self.get_directory(source).rename(source, dest)
+    } else {
+      Err(LuceneError::io(Error::other(format!(
         "{source} -> {dest}: source and dest are in different directories"
-      )))),
+      ))))
     }
   }
 
-  type IndexInput = IndexInputEnum2<P::IndexInput, S::IndexInput>;
+  type IndexInput = D::IndexInput;
 
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
     self.get_directory(name).open_input(name, context)
   }
 
-  type Lock = LockEnum2<P::Lock, S::Lock>;
+  type Lock = D::Lock;
 
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
     self.get_directory(name).obtain_lock(name)
